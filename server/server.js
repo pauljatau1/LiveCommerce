@@ -12,7 +12,7 @@ connectDB().then(() => {
     logger.info(`Server running on http://localhost:${PORT}`);
   });
 }).catch(err => {
-  logger.error('Failed to connect to the database, server is not starting');
+  logger.error('Failed to connect to the database');
   process.exit(1);
 });
 
