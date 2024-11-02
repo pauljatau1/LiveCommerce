@@ -57,7 +57,7 @@ exports.register = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: email,
-      from: 'joseph@auqli.com',
+      from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Welcome to Auqli!',
       text: `Hi ${name}, welcome to our auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
       html: `<strong>Hi ${name}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,

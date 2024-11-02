@@ -43,16 +43,22 @@ exports.register = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: email,
-      from: 'joseph@auqli.com',
+      from: 'Joseph From Auqli <joseph@auqli.com>', // Ensure this email is verified in SendGrid
       subject: 'Welcome to Auqli!',
       text: `Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
       html: `<strong>Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
     };
 
-    await sgMail.send(msg);
+    try {
+      await sgMail.send(msg);
+    } catch (sendError) {
+      console.error('SendGrid error:', sendError);
+      return res.status(500).json({ message: 'Failed to send verification email', error: sendError.message });
+    }
 
     res.status(201).json({ user: newBuyer, token });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ message: 'Failed to register buyer', error: error.message });
   }
 };
@@ -79,7 +85,6 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Login failed', error: error.message });
   }
 };
-
 
 // Get buyer profile
 exports.getProfile = async (req, res) => {
@@ -132,7 +137,6 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Failed to update profile', error: error.message });
   }
 };
-
 
 exports.verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
