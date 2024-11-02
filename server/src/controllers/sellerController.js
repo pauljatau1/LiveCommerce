@@ -1,11 +1,16 @@
 const Seller = require('../models/Seller');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey('SG.REDACTED');
 
 // Helper function for JWT generation
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
+
+// Helper function to generate OTP
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // Register a new seller
 exports.register = async (req, res) => {
@@ -30,6 +35,7 @@ exports.register = async (req, res) => {
       avatarData = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
     }
 
+    const otp = generateOTP();
     const newSeller = new Seller({
       name,
       email,
@@ -40,12 +46,24 @@ exports.register = async (req, res) => {
       country,
       zipCode,
       type,
+      otp,
     });
 
     await newSeller.save();
 
     // Generate JWT token
     const token = generateToken(newSeller._id);
+
+    // Send email with OTP
+    const msg = {
+      to: email,
+      from: 'joseph@auqli.com',
+      subject: 'Welcome to Auqli!',
+      text: `Hi ${name}, welcome to our auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
+      html: `<strong>Hi ${name}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+    };
+
+    await sgMail.send(msg);
 
     res.status(201).json({ user: newSeller, token });
   } catch (error) {
@@ -124,3 +142,27 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Failed to update profile', error: error.message });
   }
 };
+
+// Verify OTP and update emailVerified status
+exports.verifyOTP = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required.' });
+
+  try {
+    const seller = await Seller.findOne({ email });
+    if (!seller) return res.status(404).json({ message: 'Seller not found.' });
+
+    if (seller.otp === otp) {
+      seller.emailVerified = true;
+      seller.otp = undefined; // Clear the OTP after verification
+      await seller.save();
+      return res.json({ message: 'Email verified successfully.' });
+    } else {
+      return res.status(400).json({ message: 'Invalid OTP.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+  }
+};
+

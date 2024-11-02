@@ -30,7 +30,10 @@ const sellerSchema = new mongoose.Schema({
   aboutShop: { type: String },
   tags: [{ type: String }],
   shippingMethods: [{ type: String }],
+  emailVerified: { type: Boolean, default: false },
+  otp: { type: String },
 });
+
 
 // Hash password before saving
 sellerSchema.pre('save', async function(next) {

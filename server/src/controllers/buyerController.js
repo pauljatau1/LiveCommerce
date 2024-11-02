@@ -1,9 +1,13 @@
 const Buyer = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey('SG.REDACTED');
 
 // Helper function to generate JWT
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // Helper function to upload avatar to Cloudinary
 const uploadAvatar = async (image, folder) => {
@@ -30,10 +34,22 @@ exports.register = async (req, res) => {
     if (existingBuyer) return res.status(409).json({ message: 'Email is already in use.' });
 
     const avatarData = await uploadAvatar(profileImage, 'profileImages');
-    const newBuyer = new Buyer({ firstName, lastName, username, email, country, phoneNumber, password, profileImage: avatarData });
+    const otp = generateOTP();
+    const newBuyer = new Buyer({ firstName, lastName, username, email, country, phoneNumber, password, profileImage: avatarData, otp });
 
     await newBuyer.save();
     const token = generateToken(newBuyer._id);
+
+    // Send email with OTP
+    const msg = {
+      to: email,
+      from: 'joseph@auqli.com',
+      subject: 'Welcome to Auqli!',
+      text: `Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
+      html: `<strong>Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+    };
+
+    await sgMail.send(msg);
 
     res.status(201).json({ user: newBuyer, token });
   } catch (error) {
@@ -53,12 +69,17 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
+    if (!buyer.emailVerified) {
+      return res.status(403).json({ message: 'Email not yet verified.' });
+    }
+
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
   } catch (error) {
     res.status(500).json({ message: 'Login failed', error: error.message });
   }
 };
+
 
 // Get buyer profile
 exports.getProfile = async (req, res) => {
@@ -112,3 +133,25 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+
+exports.verifyOTP = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required.' });
+
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
+
+    if (buyer.otp === otp) {
+      buyer.emailVerified = true;
+      buyer.otp = undefined; // Clear the OTP after verification
+      await buyer.save();
+      return res.json({ message: 'Email verified successfully.' });
+    } else {
+      return res.status(400).json({ message: 'Invalid OTP.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+  }
+};

@@ -18,7 +18,7 @@ const buyerSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   country: { type: String, required: true },
   phoneNumber: { type: String, required: true },
-  password: { type: String, },
+  password: { type: String },
   profileImage: {
     url: { type: String },
     public_id: { type: String },
@@ -26,7 +26,10 @@ const buyerSchema = new mongoose.Schema({
   shippingAddresses: [addressSchema],
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
+  emailVerified: { type: Boolean, default: false },
+  otp: { type: String },
 });
+
 
 
 // Hash password before saving

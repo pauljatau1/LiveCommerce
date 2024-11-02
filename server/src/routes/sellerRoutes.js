@@ -7,5 +7,7 @@ router.post('/register', sellerController.register);
 router.post('/login', sellerController.login);
 router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
 router.put('/profile', authMiddleware.verifyToken, sellerController.updateProfile);
+router.post('/verify-otp', sellerController.verifyOTP);
+
 
 module.exports = router;
