@@ -1,31 +1,43 @@
 const Buyer = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
+const cloudinary = require('cloudinary').v2;
+
+// Helper function to generate JWT
+const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+// Helper function to upload avatar to Cloudinary
+const uploadAvatar = async (image, folder) => {
+  if (!image) {
+    return {
+      url: 'https://res.cloudinary.com/dljgzevaj/image/upload/v1730579531/user-account-management-logo-user-icon-11562867145a56rus2zwu_cgs18m.png',
+      public_id: 'avatars/r918vmwdsmdrdvdgz1na',
+    };
+  }
+  const uploadResult = await cloudinary.uploader.upload(image, { folder });
+  return { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+};
 
 // Register a new buyer
 exports.register = async (req, res) => {
-  const { firstName, lastName, username, email, country, phoneNumber, password, profileImage} = req.body;
+  const { firstName, lastName, username, email, country, phoneNumber, password, profileImage } = req.body;
+
+  if (!firstName || !lastName || !username || !email || !phoneNumber || !password) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
 
   try {
-    const newBuyer = new Buyer({
-      firstName,
-      lastName,
-      username,
-      email,
-      country,
-      phoneNumber,
-      password,
-      profileImage,
-    });
-    
+    const existingBuyer = await Buyer.findOne({ email });
+    if (existingBuyer) return res.status(409).json({ message: 'Email is already in use.' });
+
+    const avatarData = await uploadAvatar(profileImage, 'profileImages');
+    const newBuyer = new Buyer({ firstName, lastName, username, email, country, phoneNumber, password, profileImage: avatarData });
+
     await newBuyer.save();
+    const token = generateToken(newBuyer._id);
 
-    // Generate JWT token
-    const token = jwt.sign({ id: newBuyer._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    // Return user and token
     res.status(201).json({ user: newBuyer, token });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ message: 'Failed to register buyer', error: error.message });
   }
 };
 
@@ -33,29 +45,29 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
+  if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
+
   try {
     const buyer = await Buyer.findOne({ email });
     if (!buyer || !(await buyer.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: buyer._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    // Return user and token
+    const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: 'Login failed', error: error.message });
   }
 };
 
 // Get buyer profile
 exports.getProfile = async (req, res) => {
   try {
-    const buyer = await Buyer.findById(req.user.id).select('-password'); // Exclude password from response
+    const buyer = await Buyer.findById(req.user.id).select('-password');
+    if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
     res.json(buyer);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: 'Failed to retrieve profile', error: error.message });
   }
 };
 
@@ -64,42 +76,39 @@ exports.updateProfile = async (req, res) => {
   const { firstName, lastName, country, phoneNumber, profileImage, shippingAddresses, bio } = req.body;
 
   try {
-    const updatedBuyerData = {
-      firstName,
-      lastName,
-      phoneNumber,
-      profileImage,
-      bio,
-    };
-
-    // Update country only if provided in request body
-    if (country) {
-      updatedBuyerData.country = country;
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found.' });
     }
 
-    const updatedBuyer = await Buyer.findByIdAndUpdate(
-      req.user.id,
-      updatedBuyerData,
-      { new: true } // Return the updated document
-    ).select('-password'); // Exclude password from response
+    // Update fields if provided
+    if (firstName) buyer.firstName = firstName;
+    if (lastName) buyer.lastName = lastName;
+    if (country) buyer.country = country;
+    if (phoneNumber) buyer.phoneNumber = phoneNumber;
+    if (bio) buyer.bio = bio;
 
-    if (!updatedBuyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
+    // Handle profile image update
+    if (profileImage) {
+      if (buyer.profileImage.public_id) {
+        await cloudinary.uploader.destroy(buyer.profileImage.public_id);
+      }
+      const avatarData = await uploadAvatar(profileImage, 'profileImages');
+      buyer.profileImage = avatarData;
     }
 
-    // Update shipping addresses separately if provided
+    // Update shipping addresses if provided
     if (shippingAddresses) {
-      const updatedAddresses = shippingAddresses.map(address => ({
+      buyer.shippingAddresses = shippingAddresses.map(address => ({
         ...address,
-        country: address.country || updatedBuyer.country // Default to current country if not provided
+        country: address.country || buyer.country,
       }));
-
-      updatedBuyer.shippingAddresses = updatedAddresses;
-      await updatedBuyer.save(); // Save the updated addresses
     }
 
-    res.json(updatedBuyer);
+    const updatedBuyer = await buyer.save();
+    res.json({ message: 'Profile updated successfully', buyer: updatedBuyer });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ message: 'Failed to update profile', error: error.message });
   }
 };
+

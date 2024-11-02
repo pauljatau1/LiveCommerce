@@ -16,14 +16,18 @@ const buyerSchema = new mongoose.Schema({
   lastName: { type: String, required: true },
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  country: { type: String, required: true }, 
+  country: { type: String, required: true },
   phoneNumber: { type: String, required: true },
   password: { type: String, required: true },
-  profileImage: { type: String }, 
-  shippingAddresses: [addressSchema], 
+  profileImage: {
+    url: { type: String },
+    public_id: { type: String },
+  },
+  shippingAddresses: [addressSchema],
   bio: { type: String },
-  createdAt: { type: Date, default: Date.now }, 
+  createdAt: { type: Date, default: Date.now },
 });
+
 
 // Hash password before saving
 buyerSchema.pre('save', async function(next) {
