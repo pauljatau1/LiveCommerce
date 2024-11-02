@@ -18,7 +18,7 @@ const buyerSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   country: { type: String, required: true },
   phoneNumber: { type: String, required: true },
-  password: { type: String, required: true },
+  password: { type: String, },
   profileImage: {
     url: { type: String },
     public_id: { type: String },

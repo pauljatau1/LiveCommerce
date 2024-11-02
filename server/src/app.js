@@ -1,11 +1,16 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const passport = require('passport');
+const session = require('express-session');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
 const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
+
+// Import Passport configuration
+require('./config/passport');
 
 const app = express();
 
@@ -13,6 +18,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Configure express-session middleware
+app.use(session({
+  secret: "my secret",
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // Set to true if using HTTPS
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Basic route
 app.get('/', (req, res) => {
@@ -30,4 +46,4 @@ app.use((err, req, res, next) => {
    res.status(500).json({ error: 'Something went wrong!' });
 });
 
-module.exports= app;
+module.exports = app;
