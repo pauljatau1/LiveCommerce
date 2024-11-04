@@ -27,7 +27,7 @@ const sellerSchema = new mongoose.Schema({
   type: { type: String, enum: ['individual', 'business'], required: true },
   withdrawMethod: withdrawMethodSchema,
   createdAt: { type: Date, default: Date.now },
-  aboutShop: { type: String },
+  aboutSeller: { type: String },
   tags: [{ type: String }],
   shippingMethods: [{ type: String }],
   emailVerified: { type: Boolean, default: false },

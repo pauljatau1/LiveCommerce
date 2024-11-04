@@ -29,7 +29,7 @@ exports.register = async (req, res) => {
     }
 
     // Upload avatar if provided
-    let avatarData = { url: 'https://res.cloudinary.com/dljgzevaj/image/upload/v1730579311/shop_d4qhf0.jpg', public_id: 'avatars/r918vmwdsmdrdvdgz1na' };
+    let avatarData = { url: 'https://res.cloudinary.com/dljgzevaj/image/upload/v1730579311/seller_d4qhf0.jpg', public_id: 'avatars/r918vmwdsmdrdvdgz1na' };
     if (avatar) {
       const uploadResult = await cloudinary.uploader.upload(avatar, { folder: 'avatars' });
       avatarData = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
@@ -109,7 +109,7 @@ exports.getProfile = async (req, res) => {
 
 // Update seller profile
 exports.updateProfile = async (req, res) => {
-  const { avatar, addresses, phoneNumber, zipCode, withdrawMethod, aboutShop, tags, shippingMethods } = req.body;
+  const { avatar, addresses, phoneNumber, zipCode, withdrawMethod, aboutSeller, tags, shippingMethods } = req.body;
 
   try {
     const seller = await Seller.findById(req.user.id);
@@ -131,7 +131,7 @@ exports.updateProfile = async (req, res) => {
     if (phoneNumber) seller.phoneNumber = phoneNumber;
     if (zipCode) seller.zipCode = zipCode;
     if (withdrawMethod) seller.withdrawMethod = withdrawMethod;
-    if (aboutShop) seller.aboutShop = aboutShop;
+    if (aboutSeller) seller.aboutSeller = aboutSeller;
     if (tags) seller.tags = tags;
     if (shippingMethods) seller.shippingMethods = shippingMethods;
 

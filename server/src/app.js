@@ -8,6 +8,7 @@ const session = require('express-session');
 const adminRoutes = require('./routes/adminRoutes');
 const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
+const productRoutes = require('./routes/productRoutes');
 
 // Import Passport configuration
 require('./config/passport');
@@ -39,6 +40,7 @@ app.get('/', (req, res) => {
 app.use('/api/admin', adminRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
+app.use('/api/product', productRoutes);
 
 // Basic error handling
 app.use((err, req, res, next) => {

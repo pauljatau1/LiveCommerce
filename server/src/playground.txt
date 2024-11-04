@@ -1,0 +1,19 @@
+recovery - CLPEV4D73TZCQM1AW2PPNBJ3
+
+
+
+{
+  "name": "Nike Air forcee",
+  "description": "This is a sample product description.",
+  "price": 19.99,
+  "category": "Shoes",
+  "brand": "Sample Brand",
+  "stock": 100,
+  "sku": "SP12345",
+  "tags": ["electronics", "gadgets"],
+  "images": [
+    "https://static.nike.com/a/images/t_PDP_936_v1/f_auto,q_auto:eco/f0d61cfb-0d85-4d5c-9088-6bae0b15ed04/W+NIKE+DUNK+HIGH.png",
+    "https://media-photos.depop.com/b1/9471462/1726777693_838539c316554de3849703b3edada697/P0.jpg",
+    "https://cdn.shopify.com/s/files/1/2358/2817/products/dunk-low-green-glow-866561.png?v=1638813882"
+  ]
+}
