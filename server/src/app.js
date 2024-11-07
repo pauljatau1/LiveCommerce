@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const productRoutes = require('./routes/productRoutes');
+const orderRoutes = require('./routes/orderRoutes')
 
 // Import Passport configuration
 require('./config/passport');
@@ -25,7 +26,7 @@ app.use(session({
   secret: "my secret",
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false } // Set to true if using HTTPS
+  cookie: { secure: false }
 }));
 
 app.use(passport.initialize());
@@ -41,6 +42,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/product', productRoutes);
+app.use('/api/order', orderRoutes);
 
 // Basic error handling
 app.use((err, req, res, next) => {

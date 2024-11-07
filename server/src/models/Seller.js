@@ -32,10 +32,13 @@ const sellerSchema = new mongoose.Schema({
   shippingMethods: [{ type: String }],
   emailVerified: { type: Boolean, default: false },
   otp: { type: String },
+  isFeatured: { type: Boolean, default: false },
+  walletBalance: { type: Number, default: 0 }, 
+  withdrawRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Withdrawal' }], 
 });
 
 
-// Hash password before saving
+
 sellerSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
