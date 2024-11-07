@@ -159,3 +159,22 @@ exports.verifyOTP = async (req, res) => {
     res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
   }
 };
+
+// Update selected categories
+exports.updateSelectedCategories = async (req, res) => {
+  const { selectedCategories } = req.body;
+
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found.' });
+    }
+
+    buyer.selectedCategories = selectedCategories;
+    const updatedBuyer = await buyer.save();
+    res.json({ message: 'Selected categories updated successfully', buyer: updatedBuyer });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
+  }
+};
+

@@ -28,6 +28,7 @@ const buyerSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: false },
   otp: { type: String },
+  selectedCategories: [{ type: String }], // Add this line
 });
 
 
