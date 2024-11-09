@@ -33,6 +33,7 @@ const sellerSchema = new mongoose.Schema({
   emailVerified: { type: Boolean, default: false },
   otp: { type: String },
   isFeatured: { type: Boolean, default: false },
+  isDisabled: { type: Boolean, default: false },
   walletBalance: { type: Number, default: 0 }, 
   withdrawRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Withdrawal' }], 
 });

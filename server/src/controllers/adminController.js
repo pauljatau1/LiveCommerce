@@ -8,7 +8,6 @@ const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2; // Import Cloudinary
 const Order = require('../models/Order');
 
-
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -17,16 +16,17 @@ cloudinary.config({
 });
 
 exports.register = async (req, res) => {
-  const { username, password } = req.body;
+  const { username, email, password } = req.body;
 
   try {
-    const newAdmin = new Admin({ username, password });
+    const newAdmin = new Admin({ username, email, password });
     await newAdmin.save();
     res.status(201).json({ message: 'Admin registered successfully!' });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
@@ -44,6 +44,8 @@ exports.login = async (req, res) => {
   }
 };
 
+
+
 exports.getProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.user.id);
@@ -52,6 +54,7 @@ exports.getProfile = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -99,6 +102,35 @@ exports.disableBuyer = async (req, res) => {
   }
 };
 
+exports.enableBuyer = async (req, res) => {
+  const { buyerId } = req.params;
+
+  try {
+    const buyer = await Buyer.findByIdAndUpdate(buyerId, { isDisabled: false }, { new: true });
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+    res.json(buyer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.enableSeller = async (req, res) => {
+  const { sellerId } = req.params;
+
+  try {
+    const seller = await Seller.findByIdAndUpdate(sellerId, { isDisabled: false }, { new: true });
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+    res.json(seller);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 exports.getAllProducts = async (req, res) => {
   try {
     const products = await Product.find().populate('seller');
@@ -109,10 +141,16 @@ exports.getAllProducts = async (req, res) => {
 };
 
 exports.createCategory = async (req, res) => {
-  const { name } = req.body;
+  const { name, image } = req.body;
 
   try {
-    const newCategory = new Category({ name });
+    let imageData = {};
+    if (image) {
+      const uploadResult = await cloudinary.uploader.upload(image, { folder: 'categories' });
+      imageData = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+    }
+
+    const newCategory = new Category({ name, image: imageData });
     await newCategory.save();
     res.status(201).json(newCategory);
   } catch (error) {
@@ -126,6 +164,53 @@ exports.getCategories = async (req, res) => {
     res.json(categories);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateCategory = async (req, res) => {
+  const { name, image } = req.body;
+  const { id } = req.params;
+
+  try {
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    if (name) category.name = name;
+
+    if (image) {
+      if (category.image.public_id) {
+        await cloudinary.uploader.destroy(category.image.public_id);
+      }
+      const uploadResult = await cloudinary.uploader.upload(image, { folder: 'categories' });
+      category.image = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+    }
+
+    const updatedCategory = await category.save();
+    res.json({ message: 'Category updated successfully', category: updatedCategory });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update category', error: error.message });
+  }
+};
+
+exports.deleteCategory = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    if (category.image.public_id) {
+      await cloudinary.uploader.destroy(category.image.public_id);
+    }
+
+    await category.remove();
+    res.json({ message: 'Category deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete category', error: error.message });
   }
 };
 
@@ -147,10 +232,17 @@ exports.markSellerAsFeatured = async (req, res) => {
   }
 };
 
+
 exports.createBanner = async (req, res) => {
   const { title, description, mainImage, category, callToActionLink } = req.body;
 
   try {
+    // Find the category by name (case-insensitive)
+    const categoryDoc = await Category.findOne({ name: { $regex: new RegExp(category, 'i') } });
+    if (!categoryDoc) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
     // Upload mainImage if provided
     let mainImageData = { url: '', public_id: '' };
     if (mainImage) {
@@ -162,11 +254,21 @@ exports.createBanner = async (req, res) => {
       title,
       description,
       mainImage: mainImageData,
-      category,
+      category: categoryDoc._id,
       callToActionLink,
     });
     await newBanner.save();
-    res.status(201).json(newBanner);
+
+    // Populate the category field to get the category name
+    const populatedBanner = await newBanner.populate('category').execPopulate();
+
+    // Transform the response to include the category name
+    const responseBanner = {
+      ...populatedBanner.toObject(),
+      category: populatedBanner.category.name,
+    };
+
+    res.status(201).json(responseBanner);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -182,6 +284,15 @@ exports.updateBanner = async (req, res) => {
       return res.status(404).json({ message: 'Banner not found' });
     }
 
+    // Find the category by name if provided
+    if (category) {
+      const categoryDoc = await Category.findOne({ name: { $regex: new RegExp(category, 'i') } });
+      if (!categoryDoc) {
+        return res.status(404).json({ message: 'Category not found' });
+      }
+      banner.category = categoryDoc._id;
+    }
+
     // Upload mainImage if provided
     if (mainImage) {
       const uploadResult = await cloudinary.uploader.upload(mainImage, { folder: 'banners' });
@@ -190,11 +301,20 @@ exports.updateBanner = async (req, res) => {
 
     banner.title = title || banner.title;
     banner.description = description || banner.description;
-    banner.category = category || banner.category;
     banner.callToActionLink = callToActionLink || banner.callToActionLink;
 
     await banner.save();
-    res.json(banner);
+
+    // Populate the category field to get the category name
+    const populatedBanner = await banner.populate('category').execPopulate();
+
+    // Transform the response to include the category name
+    const responseBanner = {
+      ...populatedBanner.toObject(),
+      category: populatedBanner.category.name,
+    };
+
+    res.json(responseBanner);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -223,7 +343,14 @@ exports.deleteBanner = async (req, res) => {
 exports.getAllBanners = async (req, res) => {
   try {
     const banners = await Banner.find().populate('category');
-    res.json(banners);
+
+    // Transform the response to include the category name
+    const responseBanners = banners.map(banner => ({
+      ...banner.toObject(),
+      category: banner.category.name,
+    }));
+
+    res.json(responseBanners);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -234,11 +361,19 @@ exports.getBannersByCategory = async (req, res) => {
 
   try {
     const banners = await Banner.find({ category: categoryId }).populate('category');
-    res.json(banners);
+
+    // Transform the response to include the category name
+    const responseBanners = banners.map(banner => ({
+      ...banner.toObject(),
+      category: banner.category.name,
+    }));
+
+    res.json(responseBanners);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Get all orders for admin
 exports.getAllOrdersAdmin = async (req, res) => {
