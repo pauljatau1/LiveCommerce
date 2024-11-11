@@ -138,6 +138,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+
 exports.verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
 
@@ -175,6 +176,63 @@ exports.updateSelectedCategories = async (req, res) => {
     res.json({ message: 'Selected categories updated successfully', buyer: updatedBuyer });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
+  }
+};
+
+
+// Follow a seller
+exports.followSeller = async (req, res) => {
+  const { sellerId } = req.body;
+
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    const seller = await Seller.findById(sellerId);
+
+    if (!buyer || !seller) {
+      return res.status(404).json({ message: 'Buyer or Seller not found.' });
+    }
+
+    if (buyer.following.some(follow => follow.sellerId.toString() === sellerId)) {
+      return res.status(400).json({ message: 'Already following this seller.' });
+    }
+
+    buyer.following.push({ sellerId, name: seller.name });
+    seller.followers.push({ buyerId: buyer._id, name: `${buyer.firstName} ${buyer.lastName}` });
+
+    await buyer.save();
+    await seller.save();
+
+    res.json({ message: 'Successfully followed the seller.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to follow seller', error: error.message });
+  }
+};
+
+// Unfollow a seller
+exports.unfollowSeller = async (req, res) => {
+  const { sellerId } = req.body;
+
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    const seller = await Seller.findById(sellerId);
+
+    if (!buyer || !seller) {
+      return res.status(404).json({ message: 'Buyer or Seller not found.' });
+    }
+
+    if (!buyer.following.some(follow => follow.sellerId.toString() === sellerId)) {
+      return res.status(400).json({ message: 'Not following this seller.' });
+    }
+
+    buyer.following.pull({ sellerId });
+    seller.followers.pull({ buyerId: buyer._id });
+
+    await buyer.save();
+    await seller.save();
+
+    res.json({ message: 'Successfully unfollowed the seller.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to unfollow seller', error: error.message });
   }
 };
 

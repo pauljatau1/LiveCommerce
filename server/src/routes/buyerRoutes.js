@@ -10,7 +10,8 @@ router.get('/profile', authMiddleware.verifyToken, buyerController.getProfile);
 router.put('/profile', authMiddleware.verifyToken, buyerController.updateProfile);
 router.post('/verify-otp', buyerController.verifyOTP);
 router.put('/selected-categories', authMiddleware.verifyToken, buyerController.updateSelectedCategories);
-
+router.post('/follow-seller', authMiddleware.verifyToken, buyerController.followSeller);
+router.post('/unfollow-seller', authMiddleware.verifyToken, buyerController.unfollowSeller);
 
 
 // Google OAuth routes

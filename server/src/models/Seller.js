@@ -34,9 +34,18 @@ const sellerSchema = new mongoose.Schema({
   otp: { type: String },
   isFeatured: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },
-  walletBalance: { type: Number, default: 0 }, 
-  withdrawRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Withdrawal' }], 
+  walletBalance: { type: Number, default: 0 },
+  withdrawRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Withdrawal' }],
+  categories: [{
+    name: { type: String },
+    id: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  }],
+  followers: [{
+    buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
+    name: { type: String },
+  }],
 });
+
 
 
 

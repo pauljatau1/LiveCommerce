@@ -2,10 +2,10 @@ const Admin = require('../models/Admin');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
-const Category = require('../models/Category'); // Assuming you have a Category model
-const Banner = require('../models/Banner'); // Import the Banner model
+const Category = require('../models/Category'); 
+const Banner = require('../models/Banner'); 
 const jwt = require('jsonwebtoken');
-const cloudinary = require('cloudinary').v2; // Import Cloudinary
+const cloudinary = require('cloudinary').v2;
 const Order = require('../models/Order');
 
 // Configure Cloudinary

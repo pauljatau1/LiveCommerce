@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey('SG.REDACTED');
+const Category = require('../models/Category');
 
 // Helper function for JWT generation
 const generateToken = (id) => {
@@ -163,6 +164,72 @@ exports.verifyOTP = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+  }
+};
+
+// Select categories for a seller
+exports.selectCategories = async (req, res) => {
+  const { categories } = req.body;
+
+  try {
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Validate and update categories
+    const categoryIds = categories.map(cat => cat.id);
+    const validCategories = await Category.find({ _id: { $in: categoryIds } });
+
+    if (validCategories.length !== categories.length) {
+      return res.status(400).json({ message: 'Invalid category IDs provided' });
+    }
+
+    seller.categories = categories;
+    await seller.save();
+
+    res.json({ message: 'Categories selected successfully', seller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to select categories', error: error.message });
+  }
+};
+
+// Update selected categories for a seller
+exports.updateCategories = async (req, res) => {
+  const { categories } = req.body;
+
+  try {
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Validate and update categories
+    const categoryIds = categories.map(cat => cat.id);
+    const validCategories = await Category.find({ _id: { $in: categoryIds } });
+
+    if (validCategories.length !== categories.length) {
+      return res.status(400).json({ message: 'Invalid category IDs provided' });
+    }
+
+    seller.categories = categories;
+    await seller.save();
+
+    res.json({ message: 'Categories updated successfully', seller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update categories', error: error.message });
+  }
+}
+
+exports.getFollowers = async (req, res) => {
+  try {
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found.' });
+    }
+    res.json(seller.followers);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve followers', error: error.message });
   }
 };
 
