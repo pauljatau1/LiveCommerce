@@ -3,13 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const passport = require('passport');
 const session = require('express-session');
+const { swaggerUi, specs } = require('../swagger');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
 const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const productRoutes = require('./routes/productRoutes');
-const orderRoutes = require('./routes/orderRoutes')
+const orderRoutes = require('./routes/orderRoutes');
 
 // Import Passport configuration
 require('./config/passport');
@@ -43,6 +44,9 @@ app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/product', productRoutes);
 app.use('/api/order', orderRoutes);
+
+// Swagger documentation route
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Basic error handling
 app.use((err, req, res, next) => {

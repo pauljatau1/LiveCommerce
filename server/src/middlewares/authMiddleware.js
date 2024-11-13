@@ -8,10 +8,20 @@ exports.verifyToken = (req, res, next) => {
   try {
     const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decodedUserData;
-    
+
     next();
-    
+
 } catch (err) {
       return res.status(401).send("Invalid Token");
 }
 };
+
+/**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */

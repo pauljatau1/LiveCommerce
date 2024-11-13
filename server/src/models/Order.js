@@ -1,13 +1,18 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
-  cart: {
-    type: Array,
-    required: true,
-  },
+  cart: [{
+    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    quantity: { type: Number, required: true },
+    price: { type: Number, required: true },
+  }],
   shippingAddress: {
-    type: Object,
-    required: true,
+    country: { type: String, required: true },
+    city: { type: String, required: true },
+    address1: { type: String, required: true },
+    address2: { type: String },
+    zipCode: { type: String, required: true },
+    addressType: { type: String, required: true },
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -19,13 +24,17 @@ const orderSchema = new mongoose.Schema({
     ref: 'Seller',
     required: true,
   },
+  parentOrder: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+  },
   totalPrice: {
     type: Number,
     required: true,
   },
   status: {
     type: String,
-    default: 'Processing',
+    default: 'Pending',
   },
   paymentInfo: {
     id: {

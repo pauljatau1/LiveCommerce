@@ -3,6 +3,14 @@ const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey('SG.REDACTED');
+const axios = require('axios');
+const https = require('https');
+const btoa = require('btoa');
+
+const api_key = "1ecd398fe415c563";
+const secret_key = "Y2U3ZDQ5MjY2ZDNiNWJhMDc3NGQxYTVmYzgwNGU0NDk3MzY4MGVjZWZkNDM4NmY2NzdhODJkM2I3NTU3YzMyMw==";
+const content_type = 'application/json';
+const source_addr = '639214080286';
 
 // Helper function to generate JWT
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -233,6 +241,87 @@ exports.unfollowSeller = async (req, res) => {
     res.json({ message: 'Successfully unfollowed the seller.' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to unfollow seller', error: error.message });
+  }
+};
+
+exports.sendPhoneOTP = async (req, res) => {
+  const { phoneNumber } = req.body;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number is required.' });
+  }
+
+  try {
+    const buyer = await Buyer.findOne({ phoneNumber });
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found.' });
+    }
+
+    const otp = generateOTP();
+    buyer.otp = otp;
+    await buyer.save();
+
+    const message = `Your OTP is ${otp}. Please use this OTP to verify your phone number.`;
+
+    const response = await axios.post(
+      'https://apisms.beem.africa/v1/send',
+      {
+        source_addr: source_addr,
+        schedule_time: '',
+        encoding: 0,
+        message: message,
+        recipients: [
+          {
+            recipient_id: 1,
+            dest_addr: phoneNumber,
+          },
+        ],
+      },
+      {
+        headers: {
+          'Content-Type': content_type,
+          Authorization: 'Basic ' + btoa(api_key + ':' + secret_key),
+        },
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false,
+        }),
+      }
+    );
+
+    if (response.data.successful) {
+      res.json({ message: 'OTP sent successfully.' });
+    } else {
+      res.status(500).json({ message: 'Failed to send OTP', error: response.data.message });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to send OTP', error: error.message });
+    console.log(error)
+  }
+};
+
+exports.verifyPhoneOTP = async (req, res) => {
+  const { phoneNumber, otp } = req.body;
+
+  if (!phoneNumber || !otp) {
+    return res.status(400).json({ message: 'Phone number and OTP are required.' });
+  }
+
+  try {
+    const buyer = await Buyer.findOne({ phoneNumber });
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found.' });
+    }
+
+    if (buyer.otp === otp) {
+      buyer.phoneVerified = true;
+      buyer.otp = undefined; // Clear the OTP after verification
+      await buyer.save();
+      return res.json({ message: 'Phone number verified successfully.' });
+    } else {
+      return res.status(400).json({ message: 'Invalid OTP.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
   }
 };
 

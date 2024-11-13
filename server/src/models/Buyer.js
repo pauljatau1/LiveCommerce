@@ -27,14 +27,16 @@ const buyerSchema = new mongoose.Schema({
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: false },
+  phoneVerified: { type: Boolean, default: false }, 
   otp: { type: String },
-  selectedCategories: [{ type: String }], // Add this line
+  selectedCategories: [{ type: String }],
   isDisabled: { type: Boolean, default: false },
   following: [{
     sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },
     name: { type: String },
   }],
 });
+
 
 
 

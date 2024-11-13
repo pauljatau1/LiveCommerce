@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const withdrawMethodSchema = new mongoose.Schema({
-  method: { type: String, required: true }, 
+  method: { type: String, required: true },
   details: { type: String, required: true },
 });
 
@@ -45,9 +45,6 @@ const sellerSchema = new mongoose.Schema({
     name: { type: String },
   }],
 });
-
-
-
 
 sellerSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
