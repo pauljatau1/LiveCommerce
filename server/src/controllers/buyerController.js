@@ -13,7 +13,10 @@ const content_type = 'application/json';
 const source_addr = '639214080286';
 
 // Helper function to generate JWT
-const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+const generateToken = (id) => {
+  return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+};
+
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -99,11 +102,19 @@ exports.getProfile = async (req, res) => {
   try {
     const buyer = await Buyer.findById(req.user.id).select('-password');
     if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
-    res.json(buyer);
+
+    // Add role information
+    const profile = {
+      ...buyer.toObject(),
+      role: 'Buyer'
+    };
+
+    res.json(profile);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve profile', error: error.message });
   }
 };
+
 
 // Update buyer profile
 exports.updateProfile = async (req, res) => {

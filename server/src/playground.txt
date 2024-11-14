@@ -26,3 +26,26 @@ beam  -
 
 api key - 1ecd398fe415c563
 secret key - Y2U3ZDQ5MjY2ZDNiNWJhMDc3NGQxYTVmYzgwNGU0NDk3MzY4MGVjZWZkNDM4NmY2NzdhODJkM2I3NTU3YzMyMw==
+
+
+
+client side sockets implementation  
+
+
+import io from 'socket.io-client';
+
+const socket = io('/');
+
+// Join a room based on the user's ID
+socket.emit('joinRoom', userId);
+
+// Listen for new messages
+socket.on('newMessage', (message) => {
+  // Update the chat interface with the new message
+  console.log('New message:', message);
+});
+
+// Send a new message
+const sendMessage = (message) => {
+  socket.emit('newMessage', message);
+};

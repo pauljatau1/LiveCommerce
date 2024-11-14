@@ -10,7 +10,6 @@ const addressSchema = new mongoose.Schema({
   addressType: { type: String }, // e.g., 'home', 'work', etc.
 });
 
-// Main buyer schema
 const buyerSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
@@ -27,7 +26,7 @@ const buyerSchema = new mongoose.Schema({
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: false },
-  phoneVerified: { type: Boolean, default: false }, 
+  phoneVerified: { type: Boolean, default: false },
   otp: { type: String },
   selectedCategories: [{ type: String }],
   isDisabled: { type: Boolean, default: false },
@@ -35,7 +34,12 @@ const buyerSchema = new mongoose.Schema({
     sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },
     name: { type: String },
   }],
+  messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
+  conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
 });
+
+
+
 
 
 

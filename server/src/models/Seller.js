@@ -44,7 +44,12 @@ const sellerSchema = new mongoose.Schema({
     buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
     name: { type: String },
   }],
+  messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
+  conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
 });
+
+
+
 
 sellerSchema.pre('save', async function(next) {
   if (this.isModified('password')) {

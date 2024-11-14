@@ -7,8 +7,9 @@ const Category = require('../models/Category');
 
 // Helper function for JWT generation
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ id, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
+
 
 // Helper function to generate OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -96,17 +97,25 @@ exports.login = async (req, res) => {
 };
 
 // Get seller profile
+// Get seller profile
 exports.getProfile = async (req, res) => {
   try {
     const seller = await Seller.findById(req.user.id).select('-password');
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
-    res.json(seller);
+
+    const profile = {
+      ...seller.toObject(),
+      role: 'Seller'
+    };
+
+    res.json(profile);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve profile', error: error.message });
   }
 };
+
 
 // Update seller profile
 exports.updateProfile = async (req, res) => {

@@ -4,6 +4,8 @@ const cors = require('cors');
 const passport = require('passport');
 const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
+const http = require('http');
+const socketIO = require('socket.io');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -11,11 +13,21 @@ const buyerRoutes = require('./routes/buyerRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const conversationRoutes = require('./routes/conversationRoutes');
 
 // Import Passport configuration
 require('./config/passport');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
+
+// Middleware to log requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 // Middleware
 app.use(cors());
@@ -44,6 +56,8 @@ app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/product', productRoutes);
 app.use('/api/order', orderRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
@@ -54,4 +68,31 @@ app.use((err, req, res, next) => {
    res.status(500).json({ error: 'Something went wrong!' });
 });
 
-module.exports = app;
+// Set up WebSocket events
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // Join a room based on the user's ID
+  socket.on('joinRoom', (userId) => {
+    socket.join(userId);
+  });
+
+  // Listen for new messages and broadcast them to the respective receiver
+  socket.on('newMessage', async (message) => {
+    try {
+      const newMessage = await Message.create(message);
+      io.to(message.receiver.toString()).emit('newMessage', newMessage);
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
+// Attach io to the app for use in routes
+app.set('io', io);
+
+module.exports = { app, server };
