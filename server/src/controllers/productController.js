@@ -5,7 +5,12 @@ const Seller = require('../models/Seller');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
-  const { name, description, price, category, brand, stock, sku, tags, images } = req.body;
+  const {
+    name, description, price, category, brand, stock, sku, tags, images,
+    color, size, material, weight, dimensions, upc, shippingWeight,
+    shippingDimensions, taxClass, taxRate, featuredProduct, onSale,
+    salePrice, warranty, minimumPurchaseQuantity, vendor, metaDescription, metaKeywords
+  } = req.body;
   const sellerId = req.user.id;
 
   try {
@@ -28,6 +33,24 @@ exports.createProduct = async (req, res) => {
       stock,
       sku,
       tags,
+      color,
+      size,
+      material,
+      weight,
+      dimensions,
+      upc,
+      shippingWeight,
+      shippingDimensions,
+      taxClass,
+      taxRate,
+      featuredProduct,
+      onSale,
+      salePrice,
+      warranty,
+      minimumPurchaseQuantity,
+      vendor,
+      metaDescription,
+      metaKeywords,
     });
 
     await newProduct.save();
@@ -69,7 +92,12 @@ exports.getProduct = async (req, res) => {
 // Update a product
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
-  const { name, description, price, category, brand, stock, sku, tags, images } = req.body;
+  const {
+    name, description, price, category, brand, stock, sku, tags, images,
+    color, size, material, weight, dimensions, upc, shippingWeight,
+    shippingDimensions, taxClass, taxRate, featuredProduct, onSale,
+    salePrice, warranty, minimumPurchaseQuantity, vendor, metaDescription, metaKeywords
+  } = req.body;
 
   try {
     const product = await Product.findById(id);
@@ -92,6 +120,24 @@ exports.updateProduct = async (req, res) => {
     product.stock = stock || product.stock;
     product.sku = sku || product.sku;
     product.tags = tags || product.tags;
+    product.color = color || product.color;
+    product.size = size || product.size;
+    product.material = material || product.material;
+    product.weight = weight || product.weight;
+    product.dimensions = dimensions || product.dimensions;
+    product.upc = upc || product.upc;
+    product.shippingWeight = shippingWeight || product.shippingWeight;
+    product.shippingDimensions = shippingDimensions || product.shippingDimensions;
+    product.taxClass = taxClass || product.taxClass;
+    product.taxRate = taxRate || product.taxRate;
+    product.featuredProduct = featuredProduct || product.featuredProduct;
+    product.onSale = onSale || product.onSale;
+    product.salePrice = salePrice || product.salePrice;
+    product.warranty = warranty || product.warranty;
+    product.minimumPurchaseQuantity = minimumPurchaseQuantity || product.minimumPurchaseQuantity;
+    product.vendor = vendor || product.vendor;
+    product.metaDescription = metaDescription || product.metaDescription;
+    product.metaKeywords = metaKeywords || product.metaKeywords;
     product.updatedAt = Date.now();
 
     const updatedProduct = await product.save();
@@ -252,7 +298,6 @@ exports.getBestSellingProducts = async (req, res) => {
   }
 };
 
-
 // Get products under selected categories
 exports.getProductsBySelectedCategories = async (req, res) => {
   const buyer = await Buyer.findById(req.user.id);
@@ -270,4 +315,3 @@ exports.getProductsBySelectedCategories = async (req, res) => {
     res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
   }
 };
-

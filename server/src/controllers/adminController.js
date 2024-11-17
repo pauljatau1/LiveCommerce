@@ -7,6 +7,7 @@ const Banner = require('../models/Banner');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const Order = require('../models/Order');
+const Announcement = require('../models/Annoucement');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -403,5 +404,74 @@ exports.updateOrderStatusAdmin = async (req, res) => {
     res.json(updatedOrder);
   } catch (error) {
     res.status(500).json({ message: 'Failed to update order', error: error.message });
+  }
+};
+
+// Create a new announcement
+exports.createAnnouncement = async (req, res) => {
+  const { title, description } = req.body;
+
+  try {
+    const newAnnouncement = new Announcement({ title, description });
+    await newAnnouncement.save();
+    res.status(201).json({ message: 'Announcement created successfully!', announcement: newAnnouncement });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Get all announcements
+exports.getAnnouncements = async (req, res) => {
+  try {
+    const announcements = await Announcement.find();
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get a single announcement by ID
+exports.getAnnouncement = async (req, res) => {
+  const { announcementId } = req.params;
+
+  try {
+    const announcement = await Announcement.findById(announcementId);
+    if (!announcement) {
+      return res.status(404).json({ message: 'Announcement not found' });
+    }
+    res.json(announcement);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update an announcement by ID
+exports.updateAnnouncement = async (req, res) => {
+  const { announcementId } = req.params;
+  const { title, description } = req.body;
+
+  try {
+    const announcement = await Announcement.findByIdAndUpdate(announcementId, { title, description }, { new: true });
+    if (!announcement) {
+      return res.status(404).json({ message: 'Announcement not found' });
+    }
+    res.json(announcement);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Delete an announcement by ID
+exports.deleteAnnouncement = async (req, res) => {
+  const { announcementId } = req.params;
+
+  try {
+    const announcement = await Announcement.findByIdAndDelete(announcementId);
+    if (!announcement) {
+      return res.status(404).json({ message: 'Announcement not found' });
+    }
+    res.json({ message: 'Announcement deleted successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

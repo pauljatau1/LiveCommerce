@@ -36,6 +36,7 @@ const buyerSchema = new mongoose.Schema({
   }],
   messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
+  posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
 });
 
 

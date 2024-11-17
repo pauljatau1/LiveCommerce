@@ -49,3 +49,15 @@ socket.on('newMessage', (message) => {
 const sendMessage = (message) => {
   socket.emit('newMessage', message);
 };
+
+
+
+create post
+{
+  "title": "My New Post",
+  "description": "This is a description of my new post.",
+  "media": [
+    "https://thumbs.dreamstime.com/b/bright-pink-eucalyptus-flowers-sunbury-victoria-australia-october-macro-image-european-honey-bee-feeds-blossoms-european-honey-125068282.jpg",
+    "https://thumbs.dreamstime.com/b/photo-d-une-belle-abeille-et-des-fleurs-par-jour-ensoleill%C3%A9-92801024.jpg"
+  ]
+}

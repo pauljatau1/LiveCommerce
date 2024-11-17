@@ -541,4 +541,134 @@ router.get('/orders', authMiddleware.verifyToken, adminController.getAllOrdersAd
  */
 router.put('/orders/:id', authMiddleware.verifyToken, adminController.updateOrderStatusAdmin);
 
+/**
+ * @swagger
+ * /api/admin/announcements:
+ *   post:
+ *     summary: Create a new announcement
+ *     tags: [Announcements]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Announcement created successfully
+ *       400:
+ *         description: Bad request
+ */
+router.post('/announcements', authMiddleware.verifyToken, adminController.createAnnouncement);
+
+/**
+ * @swagger
+ * /api/admin/announcements:
+ *   get:
+ *     summary: Get all announcements
+ *     tags: [Announcements]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of announcements retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/announcements', authMiddleware.verifyToken, adminController.getAnnouncements);
+
+/**
+ * @swagger
+ * /api/admin/announcements/{announcementId}:
+ *   get:
+ *     summary: Get a single announcement by ID
+ *     tags: [Announcements]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: announcementId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Announcement ID
+ *     responses:
+ *       200:
+ *         description: Announcement retrieved successfully
+ *       404:
+ *         description: Announcement not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/announcements/:announcementId', authMiddleware.verifyToken, adminController.getAnnouncement);
+
+/**
+ * @swagger
+ * /api/admin/announcements/{announcementId}:
+ *   put:
+ *     summary: Update an announcement by ID
+ *     tags: [Announcements]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: announcementId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Announcement ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Announcement updated successfully
+ *       404:
+ *         description: Announcement not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/announcements/:announcementId', authMiddleware.verifyToken, adminController.updateAnnouncement);
+
+/**
+ * @swagger
+ * /api/admin/announcements/{announcementId}:
+ *   delete:
+ *     summary: Delete an announcement by ID
+ *     tags: [Announcements]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: announcementId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Announcement ID
+ *     responses:
+ *       200:
+ *         description: Announcement deleted successfully
+ *       404:
+ *         description: Announcement not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/announcements/:announcementId', authMiddleware.verifyToken, adminController.deleteAnnouncement);
+
+
 module.exports = router;

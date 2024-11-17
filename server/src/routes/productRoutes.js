@@ -40,6 +40,42 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: array
  *                 items:
  *                   type: string
+ *               color:
+ *                 type: string
+ *               size:
+ *                 type: string
+ *               material:
+ *                 type: string
+ *               weight:
+ *                 type: number
+ *               dimensions:
+ *                 type: string
+ *               upc:
+ *                 type: string
+ *               shippingWeight:
+ *                 type: number
+ *               shippingDimensions:
+ *                 type: string
+ *               taxClass:
+ *                 type: string
+ *               taxRate:
+ *                 type: number
+ *               featuredProduct:
+ *                 type: boolean
+ *               onSale:
+ *                 type: boolean
+ *               salePrice:
+ *                 type: number
+ *               warranty:
+ *                 type: string
+ *               minimumPurchaseQuantity:
+ *                 type: integer
+ *               vendor:
+ *                 type: string
+ *               metaDescription:
+ *                 type: string
+ *               metaKeywords:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Product created successfully
@@ -129,6 +165,42 @@ router.get('/products/:id', productController.getProduct);
  *                 type: array
  *                 items:
  *                   type: string
+ *               color:
+ *                 type: string
+ *               size:
+ *                 type: string
+ *               material:
+ *                 type: string
+ *               weight:
+ *                 type: number
+ *               dimensions:
+ *                 type: string
+ *               upc:
+ *                 type: string
+ *               shippingWeight:
+ *                 type: number
+ *               shippingDimensions:
+ *                 type: string
+ *               taxClass:
+ *                 type: string
+ *               taxRate:
+ *                 type: number
+ *               featuredProduct:
+ *                 type: boolean
+ *               onSale:
+ *                 type: boolean
+ *               salePrice:
+ *                 type: number
+ *               warranty:
+ *                 type: string
+ *               minimumPurchaseQuantity:
+ *                 type: integer
+ *               vendor:
+ *                 type: string
+ *               metaDescription:
+ *                 type: string
+ *               metaKeywords:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Product updated successfully
