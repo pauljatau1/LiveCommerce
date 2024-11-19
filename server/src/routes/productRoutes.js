@@ -60,8 +60,6 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: string
  *               taxRate:
  *                 type: number
- *               featuredProduct:
- *                 type: boolean
  *               onSale:
  *                 type: boolean
  *               salePrice:
@@ -76,6 +74,87 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: string
  *               metaKeywords:
  *                 type: string
+ *               ramSize:
+ *                 type: string
+ *               storageCapacity:
+ *                 type: string
+ *               screenSize:
+ *                 type: string
+ *               resolution:
+ *                 type: string
+ *               processor:
+ *                 type: string
+ *               operatingSystem:
+ *                 type: string
+ *               batteryLife:
+ *                 type: string
+ *               connectivity:
+ *                 type: string
+ *               ageRange:
+ *                 type: string
+ *               ingredients:
+ *                 type: string
+ *               scent:
+ *                 type: string
+ *               calorieCount:
+ *                 type: number
+ *               compatibleDevices:
+ *                 type: string
+ *               sportsType:
+ *                 type: string
+ *               petType:
+ *                 type: string
+ *               travelType:
+ *                 type: string
+ *               gamingPlatform:
+ *                 type: string
+ *               includedAccessories:
+ *                 type: string
+ *               cleaningInstructions:
+ *                 type: string
+ *               furnitureType:
+ *                 type: string
+ *               durabilityRating:
+ *                 type: string
+ *               energyEfficiency:
+ *                 type: string
+ *               soundQuality:
+ *                 type: string
+ *               waterproof:
+ *                 type: boolean
+ *               smartFeatures:
+ *                 type: string
+ *               maxWeightCapacity:
+ *                 type: number
+ *               toyType:
+ *                 type: string
+ *               musicGenre:
+ *                 type: string
+ *               expirationDate:
+ *                 type: string
+ *                 format: date-time
+ *               certifications:
+ *                 type: string
+ *               ecoFriendly:
+ *                 type: boolean
+ *               originCountry:
+ *                 type: string
+ *               careInstructions:
+ *                 type: string
+ *               logistics:
+ *                 type: object
+ *                 properties:
+ *                   shippingOptions:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   deliveryTime:
+ *                     type: string
+ *               warehouseLocation:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [draft, active]
  *     responses:
  *       201:
  *         description: Product created successfully

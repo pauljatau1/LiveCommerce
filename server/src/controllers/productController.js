@@ -5,13 +5,8 @@ const Seller = require('../models/Seller');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
-  const {
-    name, description, price, category, brand, stock, sku, tags, images,
-    color, size, material, weight, dimensions, upc, shippingWeight,
-    shippingDimensions, taxClass, taxRate, featuredProduct, onSale,
-    salePrice, warranty, minimumPurchaseQuantity, vendor, metaDescription, metaKeywords
-  } = req.body;
   const sellerId = req.user.id;
+  const { images, ...productData } = req.body;
 
   try {
     let imagesLinks = [];
@@ -23,34 +18,9 @@ exports.createProduct = async (req, res) => {
     }
 
     const newProduct = new Product({
-      name,
-      description,
-      price,
-      category,
-      brand,
+      ...productData,
       seller: sellerId,
       images: imagesLinks,
-      stock,
-      sku,
-      tags,
-      color,
-      size,
-      material,
-      weight,
-      dimensions,
-      upc,
-      shippingWeight,
-      shippingDimensions,
-      taxClass,
-      taxRate,
-      featuredProduct,
-      onSale,
-      salePrice,
-      warranty,
-      minimumPurchaseQuantity,
-      vendor,
-      metaDescription,
-      metaKeywords,
     });
 
     await newProduct.save();
@@ -63,6 +33,7 @@ exports.createProduct = async (req, res) => {
     res.status(500).json({ message: 'Failed to create product', error: error.message });
   }
 };
+
 
 // Get all products
 exports.getAllProducts = async (req, res) => {
@@ -89,15 +60,9 @@ exports.getProduct = async (req, res) => {
   }
 };
 
-// Update a product
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
-  const {
-    name, description, price, category, brand, stock, sku, tags, images,
-    color, size, material, weight, dimensions, upc, shippingWeight,
-    shippingDimensions, taxClass, taxRate, featuredProduct, onSale,
-    salePrice, warranty, minimumPurchaseQuantity, vendor, metaDescription, metaKeywords
-  } = req.body;
+  const { images, ...updateData } = req.body;
 
   try {
     const product = await Product.findById(id);
@@ -112,33 +77,8 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
-    product.name = name || product.name;
-    product.description = description || product.description;
-    product.price = price || product.price;
-    product.category = category || product.category;
-    product.brand = brand || product.brand;
-    product.stock = stock || product.stock;
-    product.sku = sku || product.sku;
-    product.tags = tags || product.tags;
-    product.color = color || product.color;
-    product.size = size || product.size;
-    product.material = material || product.material;
-    product.weight = weight || product.weight;
-    product.dimensions = dimensions || product.dimensions;
-    product.upc = upc || product.upc;
-    product.shippingWeight = shippingWeight || product.shippingWeight;
-    product.shippingDimensions = shippingDimensions || product.shippingDimensions;
-    product.taxClass = taxClass || product.taxClass;
-    product.taxRate = taxRate || product.taxRate;
-    product.featuredProduct = featuredProduct || product.featuredProduct;
-    product.onSale = onSale || product.onSale;
-    product.salePrice = salePrice || product.salePrice;
-    product.warranty = warranty || product.warranty;
-    product.minimumPurchaseQuantity = minimumPurchaseQuantity || product.minimumPurchaseQuantity;
-    product.vendor = vendor || product.vendor;
-    product.metaDescription = metaDescription || product.metaDescription;
-    product.metaKeywords = metaKeywords || product.metaKeywords;
-    product.updatedAt = Date.now();
+    // Merge updateData with the existing product data
+    Object.assign(product, updateData, { updatedAt: Date.now() });
 
     const updatedProduct = await product.save();
 
@@ -150,6 +90,7 @@ exports.updateProduct = async (req, res) => {
     res.status(500).json({ message: 'Failed to update product', error: error.message });
   }
 };
+
 
 // Delete a product
 exports.deleteProduct = async (req, res) => {
