@@ -1,11 +1,13 @@
 const Post = require('../models/Post');
 const Buyer = require('../models/Buyer');
+const Seller = require('../models/Seller');
 const cloudinary = require('cloudinary').v2;
 
 // Create a new post
 exports.createPost = async (req, res) => {
   const { title, description, media } = req.body;
-  const buyerId = req.user.id;
+  const creatorId = req.user.id;
+  const creatorType = req.user.type; // Assuming the user object has a type field
 
   if (!title || !description || !media || media.length === 0) {
     return res.status(400).json({ message: 'Title, description, and media are required.' });
@@ -19,56 +21,28 @@ exports.createPost = async (req, res) => {
     }
 
     const newPost = new Post({
-      buyerId,
+      creatorId,
+      creatorType,
       title,
       description,
       media: mediaLinks,
     });
 
     await newPost.save();
-    const buyer = await Buyer.findById(buyerId);
-    buyer.posts.push(newPost._id);
-    await buyer.save();
+
+    if (creatorType === 'Buyer') {
+      const buyer = await Buyer.findById(creatorId);
+      buyer.posts.push(newPost._id);
+      await buyer.save();
+    } else if (creatorType === 'Seller') {
+      const seller = await Seller.findById(creatorId);
+      seller.posts.push(newPost._id);
+      await seller.save();
+    }
 
     res.status(201).json({ post: newPost });
   } catch (error) {
     res.status(500).json({ message: 'Failed to create post', error: error.message });
-  }
-};
-
-// Get all posts
-exports.getAllPosts = async (req, res) => {
-  try {
-    const posts = await Post.find().populate('buyerId', 'username').populate('comments.buyerId', 'username');
-    res.json({ posts });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve posts', error: error.message });
-  }
-};
-
-// Get a single post
-exports.getPost = async (req, res) => {
-  const { postId } = req.params;
-
-  try {
-    const post = await Post.findById(postId).populate('buyerId', 'username').populate('comments.buyerId', 'username');
-    if (!post) return res.status(404).json({ message: 'Post not found.' });
-
-    res.json({ post });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve post', error: error.message });
-  }
-};
-
-// Get a particular user's posts
-exports.getUserPosts = async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const posts = await Post.find({ buyerId: userId }).populate('buyerId', 'username').populate('comments.buyerId', 'username');
-    res.json({ posts });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve user posts', error: error.message });
   }
 };
 
@@ -81,7 +55,7 @@ exports.updatePost = async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: 'Post not found.' });
 
-    if (post.buyerId.toString() !== req.user.id) {
+    if (post.creatorId.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You do not have permission to update this post.' });
     }
 
@@ -117,7 +91,7 @@ exports.deletePost = async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: 'Post not found.' });
 
-    if (post.buyerId.toString() !== req.user.id) {
+    if (post.creatorId.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You do not have permission to delete this post.' });
     }
 
@@ -189,7 +163,8 @@ exports.commentPost = async (req, res) => {
     if (!post) return res.status(404).json({ message: 'Post not found.' });
 
     const newComment = {
-      buyerId: req.user.id,
+      creatorId: req.user.id,
+      creatorType: req.user.type,
       content,
     };
 
@@ -213,7 +188,7 @@ exports.deleteComment = async (req, res) => {
     const comment = post.comments.id(commentId);
     if (!comment) return res.status(404).json({ message: 'Comment not found.' });
 
-    if (comment.buyerId.toString() !== req.user.id) {
+    if (comment.creatorId.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You do not have permission to delete this comment.' });
     }
 

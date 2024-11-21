@@ -42,6 +42,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                   type: string
  *               color:
  *                 type: string
+ *               condition:
+ *                 type: string
  *               size:
  *                 type: string
  *               material:

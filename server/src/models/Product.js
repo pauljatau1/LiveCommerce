@@ -19,6 +19,7 @@ const productSchema = new mongoose.Schema({
   stock: { type: Number, required: true },
   sku: { type: String, required: true },
   upc: { type: String },
+  condition: {type: String},
   tags: [{ type: String }],
   colors: [{ type: String }],
   size: { type: String },

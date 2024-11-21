@@ -2,12 +2,12 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const addressSchema = new mongoose.Schema({
-  country: { type: String }, // Will default to buyer's country if not provided
+  country: { type: String }, 
   city: { type: String },
   address1: { type: String },
   address2: { type: String },
   zipCode: { type: String },
-  addressType: { type: String }, // e.g., 'home', 'work', etc.
+  addressType: { type: String }, 
 });
 
 const buyerSchema = new mongoose.Schema({
@@ -38,12 +38,6 @@ const buyerSchema = new mongoose.Schema({
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
 });
-
-
-
-
-
-
 
 // Hash password before saving
 buyerSchema.pre('save', async function(next) {
