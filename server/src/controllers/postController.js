@@ -46,6 +46,57 @@ exports.createPost = async (req, res) => {
   }
 };
 
+// Get all posts
+exports.getAllPosts = async (req, res) => {
+  try {
+    const posts = await Post.find().populate('buyerId', 'username').populate('comments.buyerId', 'username');
+    res.json({ posts });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve posts', error: error.message });
+  }
+};
+
+// Get a single post
+exports.getPost = async (req, res) => {
+  const { postId } = req.params;
+
+  try {
+    const post = await Post.findById(postId).populate('buyerId', 'username').populate('comments.buyerId', 'username');
+    if (!post) return res.status(404).json({ message: 'Post not found.' });
+
+    res.json({ post });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve post', error: error.message });
+  }
+};
+
+// Get a particular user's posts
+exports.getUserPosts = async (req, res) => {
+  const { userId } = req.params;
+  const { role } = req.user; // Extract role from the decoded token
+
+  try {
+    let posts;
+    if (role === 'Buyer') {
+      posts = await Post.find({ creatorId: userId, creatorType: 'Buyer' })
+        .populate('creatorId', 'username')
+        .populate('comments.creatorId', 'username');
+    } else if (role === 'Seller') {
+      posts = await Post.find({ creatorId: userId, creatorType: 'Seller' })
+        .populate('creatorId', 'name') // Populate with 'name' for sellers
+        .populate('comments.creatorId', 'username');
+    } else {
+      return res.status(400).json({ message: 'Invalid user role. Must be either "Buyer" or "Seller".' });
+    }
+
+    res.json({ posts });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve user posts', error: error.message });
+  }
+};
+
+
+
 // Update a post
 exports.updatePost = async (req, res) => {
   const { postId } = req.params;

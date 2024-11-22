@@ -15,7 +15,7 @@ const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
-const postRoutes = require('./routes/postRoutes')
+const postRoutes = require('./routes/postRoutes');
 
 // Import Passport configuration
 require('./config/passport');
@@ -31,7 +31,7 @@ app.use((req, res, next) => {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: '*' })); // Allow all origins
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
