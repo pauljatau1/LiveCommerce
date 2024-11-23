@@ -248,6 +248,34 @@ router.get('/products', authMiddleware.verifyToken, adminController.getAllProduc
 
 /**
  * @swagger
+ * /api/admin/sellers/{sellerId}/verify:
+ *   put:
+ *     summary: Verify a seller's business account
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     responses:
+ *       200:
+ *         description: Business account verified successfully
+ *       400:
+ *         description: Seller is not a business account
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/sellers/:sellerId/verify', authMiddleware.verifyToken, adminController.verifyBusinessAccount);
+
+
+/**
+ * @swagger
  * /api/admin/categories:
  *   post:
  *     summary: Create a new category

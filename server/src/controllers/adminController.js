@@ -475,3 +475,26 @@ exports.deleteAnnouncement = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Verify a seller's business account
+exports.verifyBusinessAccount = async (req, res) => {
+  const { sellerId } = req.params;
+
+  try {
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    if (seller.accountType !== 'business') {
+      return res.status(400).json({ message: 'Seller is not a business account' });
+    }
+
+    seller.isVerified = true;
+    await seller.save();
+
+    res.json({ message: 'Business account verified successfully', seller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to verify business account', error: error.message });
+  }
+};

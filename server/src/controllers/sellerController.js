@@ -10,17 +10,16 @@ const generateToken = (id) => {
   return jwt.sign({ id, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-
 // Helper function to generate OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // Register a new seller
 exports.register = async (req, res) => {
-  const { name, email, password, avatar, addresses, phoneNumber, country, zipCode, type } = req.body;
+  const { firstName, lastName, email, password, phoneNumber } = req.body;
 
   // Basic input validation
-  if (!name || !email || !password || !phoneNumber) {
-    return res.status(400).json({ message: 'Name, email, password, and phone number are required.' });
+  if (!firstName || !lastName || !email || !password || !phoneNumber) {
+    return res.status(400).json({ message: 'First name, last name, email, password, and phone number are required.' });
   }
 
   try {
@@ -30,24 +29,13 @@ exports.register = async (req, res) => {
       return res.status(409).json({ message: 'Email is already in use.' });
     }
 
-    // Upload avatar if provided
-    let avatarData = { url: 'https://res.cloudinary.com/dljgzevaj/image/upload/v1730579311/seller_d4qhf0.jpg', public_id: 'avatars/r918vmwdsmdrdvdgz1na' };
-    if (avatar) {
-      const uploadResult = await cloudinary.uploader.upload(avatar, { folder: 'avatars' });
-      avatarData = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-    }
-
     const otp = generateOTP();
     const newSeller = new Seller({
-      name,
+      firstName,
+      lastName,
       email,
       password,
-      avatar: avatarData,
-      addresses,
       phoneNumber,
-      country,
-      zipCode,
-      type,
       otp,
     });
 
@@ -61,8 +49,8 @@ exports.register = async (req, res) => {
       to: email,
       from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Welcome to Auqli!',
-      text: `Hi ${name}, welcome to our auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
-      html: `<strong>Hi ${name}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+      text: `Hi ${firstName}, welcome to our auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
+      html: `<strong>Hi ${firstName}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
     };
 
     await sgMail.send(msg);
@@ -97,7 +85,6 @@ exports.login = async (req, res) => {
 };
 
 // Get seller profile
-// Get seller profile
 exports.getProfile = async (req, res) => {
   try {
     const seller = await Seller.findById(req.user.id).select('-password');
@@ -116,10 +103,22 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-
 // Update seller profile
 exports.updateProfile = async (req, res) => {
-  const { avatar, addresses, phoneNumber, zipCode, withdrawMethod, aboutSeller, tags, shippingMethods } = req.body;
+  const {
+    businessName,
+    businessAddress,
+    accountType,
+    verificationDocuments,
+    bankDetails,
+    categories,
+    shippingOptions,
+    warehouseAddress,
+    storeName,
+    aboutStore,
+    storeAvatar,
+    storeBanner
+  } = req.body;
 
   try {
     const seller = await Seller.findById(req.user.id);
@@ -127,23 +126,40 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // Update avatar if provided
-    if (avatar) {
-      if (seller.avatar.public_id) {
-        await cloudinary.uploader.destroy(seller.avatar.public_id);
+    // Update store avatar if provided
+    if (storeAvatar) {
+      if (seller.storeAvatar.public_id) {
+        await cloudinary.uploader.destroy(seller.storeAvatar.public_id);
       }
-      const uploadResult = await cloudinary.uploader.upload(avatar, { folder: 'avatars' });
-      seller.avatar = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+      const uploadResult = await cloudinary.uploader.upload(storeAvatar, { folder: 'avatars' });
+      seller.storeAvatar = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+    }
+
+    // Update store banner if provided
+    if (storeBanner) {
+      if (seller.storeBanner.public_id) {
+        await cloudinary.uploader.destroy(seller.storeBanner.public_id);
+      }
+      const uploadResult = await cloudinary.uploader.upload(storeBanner, { folder: 'banners' });
+      seller.storeBanner = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
     }
 
     // Update other fields if provided
-    if (addresses) seller.addresses = addresses;
-    if (phoneNumber) seller.phoneNumber = phoneNumber;
-    if (zipCode) seller.zipCode = zipCode;
-    if (withdrawMethod) seller.withdrawMethod = withdrawMethod;
-    if (aboutSeller) seller.aboutSeller = aboutSeller;
-    if (tags) seller.tags = tags;
-    if (shippingMethods) seller.shippingMethods = shippingMethods;
+    if (businessName) seller.businessName = businessName;
+    if (businessAddress) seller.businessAddress = businessAddress;
+    if (accountType) seller.accountType = accountType;
+    if (verificationDocuments) seller.verificationDocuments = verificationDocuments;
+    if (bankDetails) seller.bankDetails = bankDetails;
+    if (categories) seller.categories = categories;
+    if (shippingOptions) seller.shippingOptions = shippingOptions;
+    if (warehouseAddress) seller.warehouseAddress = warehouseAddress;
+    if (storeName) seller.storeName = storeName;
+    if (aboutStore) seller.aboutStore = aboutStore;
+
+    // Set isVerified to false if accountType is business
+    if (accountType === 'business') {
+      seller.isVerified = false;
+    }
 
     const updatedSeller = await seller.save();
 
@@ -241,4 +257,3 @@ exports.getFollowers = async (req, res) => {
     res.status(500).json({ message: 'Failed to retrieve followers', error: error.message });
   }
 };
-

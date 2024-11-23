@@ -16,38 +16,15 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               firstName:
+ *                 type: string
+ *               lastName:
  *                 type: string
  *               email:
  *                 type: string
  *               password:
  *                 type: string
- *               avatar:
- *                 type: string
- *               addresses:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     country:
- *                       type: string
- *                     city:
- *                       type: string
- *                     address1:
- *                       type: string
- *                     address2:
- *                       type: string
- *                     zipCode:
- *                       type: string
- *                     addressType:
- *                       type: string
  *               phoneNumber:
- *                 type: string
- *               country:
- *                 type: string
- *               zipCode:
- *                 type: string
- *               type:
  *                 type: string
  *     responses:
  *       201:
@@ -123,46 +100,90 @@ router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
  *           schema:
  *             type: object
  *             properties:
- *               avatar:
+ *               businessName:
  *                 type: string
- *               addresses:
+ *               businessAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   streetAddressLine1:
+ *                     type: string
+ *                   streetAddressLine2:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *               accountType:
+ *                 type: string
+ *               verificationDocuments:
  *                 type: array
  *                 items:
  *                   type: object
  *                   properties:
- *                     country:
+ *                     type:
  *                       type: string
- *                     city:
+ *                     fileUrl:
  *                       type: string
- *                     address1:
- *                       type: string
- *                     address2:
- *                       type: string
- *                     zipCode:
- *                       type: string
- *                     addressType:
- *                       type: string
- *               phoneNumber:
- *                 type: string
- *               zipCode:
- *                 type: string
- *               withdrawMethod:
+ *               bankDetails:
  *                 type: object
  *                 properties:
- *                   method:
+ *                   bankCountry:
  *                     type: string
- *                   details:
+ *                   bankName:
  *                     type: string
- *               aboutSeller:
+ *                   bankAccountType:
+ *                     type: string
+ *                   accountCurrency:
+ *                     type: string
+ *                   accountNumber:
+ *                     type: string
+ *                   accountName:
+ *                     type: string
+ *                   swiftCode:
+ *                     type: string
+ *                   bankIdentifierCode:
+ *                     type: string
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                     id:
+ *                       type: string
+ *               shippingOptions:
+ *                 type: object
+ *                 properties:
+ *                   shippingMethod:
+ *                     type: string
+ *                   returnPolicy:
+ *                     type: string
+ *               warehouseAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   address:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *               storeName:
  *                 type: string
- *               tags:
- *                 type: array
- *                 items:
- *                   type: string
- *               shippingMethods:
- *                 type: array
- *                 items:
- *                   type: string
+ *               aboutStore:
+ *                 type: string
+ *               storeAvatar:
+ *                 type: string
+ *               storeBanner:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Profile updated successfully
