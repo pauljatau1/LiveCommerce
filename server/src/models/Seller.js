@@ -24,7 +24,7 @@ const sellerSchema = new mongoose.Schema({
   accountType: { type: String, enum: ['individual', 'business'] },
   isVerified: { type: Boolean, default: false },
   verificationDocuments: [{
-    type: { type: String, enum: ['CertificateOfIncorporation', 'TaxOrVatId'] },
+    type: { type: String },
     fileUrl: { type: String },
   }],
   bankDetails: {
@@ -76,6 +76,7 @@ const sellerSchema = new mongoose.Schema({
   messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+  isProfileComplete: { type: Boolean, default: false },
 });
 
 sellerSchema.pre('save', async function(next) {

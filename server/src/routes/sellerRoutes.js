@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const sellerController = require('../controllers/sellerController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * @swagger
@@ -87,9 +89,36 @@ router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
 
 /**
  * @swagger
- * /api/seller/profile:
+ * /api/seller/profile/account-type:
  *   put:
- *     summary: Update seller profile
+ *     summary: Select account type
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               accountType:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Account type selected successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/profile/account-type', authMiddleware.verifyToken, sellerController.selectAccountType);
+
+/**
+ * @swagger
+ * /api/seller/profile/business-details:
+ *   put:
+ *     summary: Add business details and information
  *     tags: [Seller]
  *     security:
  *       - bearerAuth: []
@@ -117,17 +146,31 @@ router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
  *                     type: string
  *                   zipCode:
  *                     type: string
- *               accountType:
- *                 type: string
- *               verificationDocuments:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     type:
- *                       type: string
- *                     fileUrl:
- *                       type: string
+ *     responses:
+ *       200:
+ *         description: Business details added successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/profile/business-details', authMiddleware.verifyToken, sellerController.addBusinessDetails);
+
+/**
+ * @swagger
+ * /api/seller/profile/bank-details:
+ *   put:
+ *     summary: Add bank details
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
  *               bankDetails:
  *                 type: object
  *                 properties:
@@ -147,15 +190,65 @@ router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
  *                     type: string
  *                   bankIdentifierCode:
  *                     type: string
- *               categories:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     name:
- *                       type: string
- *                     id:
- *                       type: string
+ *     responses:
+ *       200:
+ *         description: Bank details added successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/profile/bank-details', authMiddleware.verifyToken, sellerController.addBankDetails);
+
+// /**
+//  * @swagger
+//  * /api/seller/profile/categories:
+//  *   put:
+//  *     summary: Add categories
+//  *     tags: [Seller]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             properties:
+//  *               categories:
+//  *                 type: array
+//  *                 items:
+//  *                   type: object
+//  *                   properties:
+//  *                     name:
+//  *                       type: string
+//  *                     id:
+//  *                       type: string
+//  *     responses:
+//  *       200:
+//  *         description: Categories added successfully
+//  *       404:
+//  *         description: Seller not found
+//  *       500:
+//  *         description: Internal server error
+//  */
+// router.put('/profile/categories', authMiddleware.verifyToken, sellerController.addCategories);
+
+/**
+ * @swagger
+ * /api/seller/profile/address-shipping:
+ *   put:
+ *     summary: Add address and shipping information
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
  *               shippingOptions:
  *                 type: object
  *                 properties:
@@ -176,23 +269,123 @@ router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
  *                     type: string
  *                   zipCode:
  *                     type: string
- *               storeName:
- *                 type: string
- *               aboutStore:
- *                 type: string
- *               storeAvatar:
- *                 type: string
- *               storeBanner:
- *                 type: string
  *     responses:
  *       200:
- *         description: Profile updated successfully
+ *         description: Address and shipping information added successfully
  *       404:
  *         description: Seller not found
  *       500:
  *         description: Internal server error
  */
-router.put('/profile', authMiddleware.verifyToken, sellerController.updateProfile);
+router.put('/profile/address-shipping', authMiddleware.verifyToken, sellerController.addAddressShipping);
+
+/**
+ * @swagger
+ * /api/seller/profile/documents:
+ *   post:
+ *     summary: Upload verification documents
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               verificationDocuments:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Verification documents uploaded successfully
+ *       400:
+ *         description: No verification documents uploaded
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/profile/documents',
+  authMiddleware.verifyToken,
+  upload.array('verificationDocuments', 5),
+  sellerController.uploadVerificationDocuments
+);
+
+/**
+ * @swagger
+ * /api/seller/profile/avatar:
+ *   post:
+ *     summary: Upload store avatar
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Store avatar uploaded successfully
+ *       400:
+ *         description: No avatar file uploaded
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/profile/avatar',
+  authMiddleware.verifyToken,
+  upload.single('avatar'),
+  sellerController.uploadStoreAvatar
+);
+
+/**
+ * @swagger
+ * /api/seller/profile/banner:
+ *   post:
+ *     summary: Upload store banner
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Store banner uploaded successfully
+ *       400:
+ *         description: No banner file uploaded
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/profile/banner',
+  authMiddleware.verifyToken,
+  upload.single('banner'),
+  sellerController.uploadStoreBanner
+);
+
 
 /**
  * @swagger

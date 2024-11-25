@@ -4,6 +4,8 @@ const cloudinary = require('cloudinary').v2;
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey('SG.REDACTED');
 const Category = require('../models/Category');
+const s3 = require('../config/awsConfig')
+const { v4: uuidv4 } = require('uuid');
 
 // Helper function for JWT generation
 const generateToken = (id) => {
@@ -49,7 +51,7 @@ exports.register = async (req, res) => {
       to: email,
       from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Welcome to Auqli!',
-      text: `Hi ${firstName}, welcome to our auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
+      text: `Hi ${firstName}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
       html: `<strong>Hi ${firstName}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
     };
 
@@ -103,63 +105,39 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// Update seller profile
-exports.updateProfile = async (req, res) => {
-  const {
-    businessName,
-    businessAddress,
-    accountType,
-    verificationDocuments,
-    bankDetails,
-    categories,
-    shippingOptions,
-    warehouseAddress,
-    storeName,
-    aboutStore,
-    storeAvatar,
-    storeBanner
-  } = req.body;
-
+// Update seller profile information
+exports.updateProfileInfo = async (req, res) => {
   try {
+    const {
+      businessName,
+      businessAddress,
+      accountType,
+      bankDetails,
+      categories,
+      shippingOptions,
+      warehouseAddress,
+      storeName,
+      aboutStore,
+    } = req.body;
+
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // Update store avatar if provided
-    if (storeAvatar) {
-      if (seller.storeAvatar.public_id) {
-        await cloudinary.uploader.destroy(seller.storeAvatar.public_id);
-      }
-      const uploadResult = await cloudinary.uploader.upload(storeAvatar, { folder: 'avatars' });
-      seller.storeAvatar = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-    }
+    Object.assign(seller, {
+      businessName,
+      businessAddress,
+      accountType,
+      bankDetails,
+      categories,
+      shippingOptions,
+      warehouseAddress,
+      storeName,
+      aboutStore,
+    });
 
-    // Update store banner if provided
-    if (storeBanner) {
-      if (seller.storeBanner.public_id) {
-        await cloudinary.uploader.destroy(seller.storeBanner.public_id);
-      }
-      const uploadResult = await cloudinary.uploader.upload(storeBanner, { folder: 'banners' });
-      seller.storeBanner = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-    }
-
-    // Update other fields if provided
-    if (businessName) seller.businessName = businessName;
-    if (businessAddress) seller.businessAddress = businessAddress;
-    if (accountType) seller.accountType = accountType;
-    if (verificationDocuments) seller.verificationDocuments = verificationDocuments;
-    if (bankDetails) seller.bankDetails = bankDetails;
-    if (categories) seller.categories = categories;
-    if (shippingOptions) seller.shippingOptions = shippingOptions;
-    if (warehouseAddress) seller.warehouseAddress = warehouseAddress;
-    if (storeName) seller.storeName = storeName;
-    if (aboutStore) seller.aboutStore = aboutStore;
-
-    // Set isVerified to false if accountType is business
-    if (accountType === 'business') {
-      seller.isVerified = false;
-    }
+    if (accountType === 'business') seller.isVerified = false;
 
     const updatedSeller = await seller.save();
 
@@ -168,6 +146,244 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Failed to update profile', error: error.message });
   }
 };
+
+
+// Upload verification documents
+exports.uploadVerificationDocuments = async (req, res) => {
+  try {
+    const verificationDocuments = req.files;
+
+    if (!verificationDocuments || verificationDocuments.length === 0) {
+      return res.status(400).json({ message: 'No verification documents uploaded' });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const uploadedDocuments = await Promise.all(
+      verificationDocuments.map(async (file) => {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}-${file.originalname}`,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: 'public-read'
+        };
+        const data = await s3.upload(params).promise();
+        return { type: file.fieldname, fileUrl: data.Location };
+      })
+    );
+
+    seller.verificationDocuments = uploadedDocuments;
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Verification documents uploaded successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to upload verification documents', error: error.message });
+  }
+};
+
+
+// Upload store avatar
+exports.uploadStoreAvatar = async (req, res) => {
+  try {
+    const avatarFile = req.file;
+
+    if (!avatarFile) {
+      return res.status(400).json({ message: 'No avatar file uploaded' });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const params = {
+      Bucket: 'auqli-uploads',
+      Key: `${uuidv4()}-${avatarFile.originalname}`,
+      Body: avatarFile.buffer,
+      ContentType: avatarFile.mimetype,
+      ACL: 'public-read'
+    };
+    const data = await s3.upload(params).promise();
+
+    seller.storeAvatar = {
+      url: data.Location,
+      public_id: data.Key,
+    };
+
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Store avatar uploaded successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to upload store avatar', error: error.message });
+  }
+};
+
+// Upload store banner
+exports.uploadStoreBanner = async (req, res) => {
+  try {
+    const bannerFile = req.file;
+
+    if (!bannerFile) {
+      return res.status(400).json({ message: 'No banner file uploaded' });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const params = {
+      Bucket: 'auqli-uploads',
+      Key: `${uuidv4()}-${bannerFile.originalname}`,
+      Body: bannerFile.buffer,
+      ContentType: bannerFile.mimetype,
+      ACL: 'public-read'
+    };
+    const data = await s3.upload(params).promise();
+
+    seller.storeBanner = {
+      url: data.Location,
+      public_id: data.Key,
+    };
+
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Store banner uploaded successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to upload store banner', error: error.message });
+  }
+};
+
+
+// Select account type
+exports.selectAccountType = async (req, res) => {
+  try {
+    const { accountType } = req.body;
+
+    const lowerCaseAccountType = accountType ? accountType.toLowerCase() : null;
+
+    const validAccountTypes = ['individual', 'business'];
+    if (!lowerCaseAccountType || !validAccountTypes.includes(lowerCaseAccountType)) {
+      return res.status(400).json({ message: 'Invalid account type. Must be either "individual" or "business"' });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.accountType = lowerCaseAccountType;
+    seller.isProfileComplete = checkProfileCompletion(seller);
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Account type selected successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to select account type', error: error.message });
+  }
+};
+
+
+// Add business details and information
+exports.addBusinessDetails = async (req, res) => {
+  try {
+    const { businessName, businessAddress } = req.body;
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.businessName = businessName;
+    seller.businessAddress = businessAddress;
+    seller.isProfileComplete = checkProfileCompletion(seller);
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Business details added successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add business details', error: error.message });
+  }
+};
+
+// Add bank details
+exports.addBankDetails = async (req, res) => {
+  try {
+    const { bankDetails } = req.body;
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.bankDetails = bankDetails;
+    seller.isProfileComplete = checkProfileCompletion(seller);
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Bank details added successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add bank details', error: error.message });
+  }
+};
+
+// Add categories
+exports.addCategories = async (req, res) => {
+  try {
+    const { categories } = req.body;
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.categories = categories;
+    seller.isProfileComplete = checkProfileCompletion(seller);
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Categories added successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add categories', error: error.message });
+  }
+};
+
+// Add address and shipping information
+exports.addAddressShipping = async (req, res) => {
+  try {
+    const { shippingOptions, warehouseAddress } = req.body;
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.shippingOptions = shippingOptions;
+    seller.warehouseAddress = warehouseAddress;
+    seller.isProfileComplete = checkProfileCompletion(seller);
+    const updatedSeller = await seller.save();
+
+    res.json({ message: 'Address and shipping information added successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add address and shipping information', error: error.message });
+  }
+};
+
+// Helper function to check if the profile is complete
+const checkProfileCompletion = (seller) => {
+  return (
+    seller.accountType &&
+    seller.businessName &&
+    seller.businessAddress &&
+    seller.bankDetails &&
+    seller.categories.length > 0 &&
+    seller.shippingOptions &&
+    seller.warehouseAddress
+  );
+};
+
+
+
 
 // Verify OTP and update emailVerified status
 exports.verifyOTP = async (req, res) => {

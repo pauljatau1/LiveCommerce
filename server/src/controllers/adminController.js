@@ -486,9 +486,9 @@ exports.verifyBusinessAccount = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    if (seller.accountType !== 'business') {
-      return res.status(400).json({ message: 'Seller is not a business account' });
-    }
+    // if (seller.accountType !== 'business') {
+    //   return res.status(400).json({ message: 'Seller is not a business account' });
+    // }
 
     seller.isVerified = true;
     await seller.save();
