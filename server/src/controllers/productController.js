@@ -2,18 +2,44 @@ const Product = require('../models/Product');
 const cloudinary = require('../config/cloudinary');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
+const s3 = require('../config/awsConfig')
+const { v4: uuidv4 } = require('uuid');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
   const sellerId = req.user.id;
-  const { images, ...productData } = req.body;
+  const { ...productData } = req.body;
+  const images = req.files['images'];
+  const blips = req.files['blips'];
 
   try {
     let imagesLinks = [];
     if (images && images.length > 0) {
       for (let image of images) {
-        const uploadResult = await cloudinary.uploader.upload(image, { folder: 'products' });
-        imagesLinks.push({ url: uploadResult.secure_url, public_id: uploadResult.public_id });
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}-${image.originalname}`,
+          Body: image.buffer,
+          ContentType: image.mimetype,
+          
+        };
+        const data = await s3.upload(params).promise();
+        imagesLinks.push({ url: data.Location });
+      }
+    }
+
+    let blipsLinks = [];
+    if (blips && blips.length > 0) {
+      for (let blip of blips) {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}-${blip.originalname}`,
+          Body: blip.buffer,
+          ContentType: blip.mimetype,
+          
+        };
+        const data = await s3.upload(params).promise();
+        blipsLinks.push({ url: data.Location });
       }
     }
 
@@ -21,6 +47,7 @@ exports.createProduct = async (req, res) => {
       ...productData,
       seller: sellerId,
       images: imagesLinks,
+      blips: blipsLinks,
     });
 
     await newProduct.save();
@@ -33,7 +60,6 @@ exports.createProduct = async (req, res) => {
     res.status(500).json({ message: 'Failed to create product', error: error.message });
   }
 };
-
 
 // Get all products
 exports.getAllProducts = async (req, res) => {
@@ -60,9 +86,12 @@ exports.getProduct = async (req, res) => {
   }
 };
 
+// Update a product
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
-  const { images, ...updateData } = req.body;
+  const { ...updateData } = req.body;
+  const images = req.files['images'];
+  const blips = req.files['blips'];
 
   try {
     const product = await Product.findById(id);
@@ -70,15 +99,42 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    let imagesLinks = [];
     if (images && images.length > 0) {
       for (let image of images) {
-        const uploadResult = await cloudinary.uploader.upload(image, { folder: 'products' });
-        product.images.push({ url: uploadResult.secure_url, public_id: uploadResult.public_id });
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}-${image.originalname}`,
+          Body: image.buffer,
+          ContentType: image.mimetype,
+          
+        };
+        const data = await s3.upload(params).promise();
+        imagesLinks.push({ url: data.Location });
+      }
+    }
+
+    let blipsLinks = [];
+    if (blips && blips.length > 0) {
+      for (let blip of blips) {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}-${blip.originalname}`,
+          Body: blip.buffer,
+          ContentType: blip.mimetype,
+          
+        };
+        const data = await s3.upload(params).promise();
+        blipsLinks.push({ url: data.Location });
       }
     }
 
     // Merge updateData with the existing product data
-    Object.assign(product, updateData, { updatedAt: Date.now() });
+    Object.assign(product, updateData, {
+      images: [...product.images, ...imagesLinks],
+      blips: [...product.blips, ...blipsLinks],
+      updatedAt: Date.now()
+    });
 
     const updatedProduct = await product.save();
 

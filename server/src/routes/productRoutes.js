@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 /**
  * @swagger
@@ -14,7 +17,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -40,107 +43,12 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: array
  *                 items:
  *                   type: string
- *               color:
- *                 type: string
- *               condition:
- *                 type: string
- *               size:
- *                 type: string
- *               material:
- *                 type: string
- *               weight:
- *                 type: number
- *               dimensions:
- *                 type: string
- *               upc:
- *                 type: string
- *               shippingWeight:
- *                 type: number
- *               shippingDimensions:
- *                 type: string
- *               taxClass:
- *                 type: string
- *               taxRate:
- *                 type: number
- *               onSale:
- *                 type: boolean
- *               salePrice:
- *                 type: number
- *               warranty:
- *                 type: string
- *               minimumPurchaseQuantity:
- *                 type: integer
- *               vendor:
- *                 type: string
- *               metaDescription:
- *                 type: string
- *               metaKeywords:
- *                 type: string
- *               ramSize:
- *                 type: string
- *               storageCapacity:
- *                 type: string
- *               screenSize:
- *                 type: string
- *               resolution:
- *                 type: string
- *               processor:
- *                 type: string
- *               operatingSystem:
- *                 type: string
- *               batteryLife:
- *                 type: string
- *               connectivity:
- *                 type: string
- *               ageRange:
- *                 type: string
- *               ingredients:
- *                 type: string
- *               scent:
- *                 type: string
- *               calorieCount:
- *                 type: number
- *               compatibleDevices:
- *                 type: string
- *               sportsType:
- *                 type: string
- *               petType:
- *                 type: string
- *               travelType:
- *                 type: string
- *               gamingPlatform:
- *                 type: string
- *               includedAccessories:
- *                 type: string
- *               cleaningInstructions:
- *                 type: string
- *               furnitureType:
- *                 type: string
- *               durabilityRating:
- *                 type: string
- *               energyEfficiency:
- *                 type: string
- *               soundQuality:
- *                 type: string
- *               waterproof:
- *                 type: boolean
- *               smartFeatures:
- *                 type: string
- *               maxWeightCapacity:
- *                 type: number
- *               toyType:
- *                 type: string
- *               musicGenre:
- *                 type: string
- *               expirationDate:
- *                 type: string
- *                 format: date-time
- *               certifications:
- *                 type: string
- *               ecoFriendly:
- *                 type: boolean
- *               originCountry:
- *                 type: string
+ *                   format: binary
+ *               blips:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *               careInstructions:
  *                 type: string
  *               logistics:
@@ -163,7 +71,9 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *       500:
  *         description: Internal server error
  */
-router.post('/create', authMiddleware.verifyToken, productController.createProduct);
+router.post('/create', authMiddleware.verifyToken, upload.fields([{ name: 'images', maxCount: 10 }, { name: 'blips', maxCount: 10 }]), productController.createProduct);
+
+
 
 /**
  * @swagger
@@ -204,7 +114,7 @@ router.get('/products/:id', productController.getProduct);
 
 /**
  * @swagger
- * /api/product/products/{id}:
+ * /api/product/update/{id}:
  *   put:
  *     summary: Update a product
  *     tags: [Product]
@@ -220,7 +130,7 @@ router.get('/products/:id', productController.getProduct);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -246,42 +156,28 @@ router.get('/products/:id', productController.getProduct);
  *                 type: array
  *                 items:
  *                   type: string
- *               color:
+ *                   format: binary
+ *               blips:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               careInstructions:
  *                 type: string
- *               size:
+ *               logistics:
+ *                 type: object
+ *                 properties:
+ *                   shippingOptions:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   deliveryTime:
+ *                     type: string
+ *               warehouseLocation:
  *                 type: string
- *               material:
+ *               status:
  *                 type: string
- *               weight:
- *                 type: number
- *               dimensions:
- *                 type: string
- *               upc:
- *                 type: string
- *               shippingWeight:
- *                 type: number
- *               shippingDimensions:
- *                 type: string
- *               taxClass:
- *                 type: string
- *               taxRate:
- *                 type: number
- *               featuredProduct:
- *                 type: boolean
- *               onSale:
- *                 type: boolean
- *               salePrice:
- *                 type: number
- *               warranty:
- *                 type: string
- *               minimumPurchaseQuantity:
- *                 type: integer
- *               vendor:
- *                 type: string
- *               metaDescription:
- *                 type: string
- *               metaKeywords:
- *                 type: string
+ *                 enum: [draft, active]
  *     responses:
  *       200:
  *         description: Product updated successfully
@@ -290,8 +186,7 @@ router.get('/products/:id', productController.getProduct);
  *       500:
  *         description: Internal server error
  */
-router.put('/products/:id', authMiddleware.verifyToken, productController.updateProduct);
-
+router.put('/update/:id', authMiddleware.verifyToken, upload.fields([{ name: 'images', maxCount: 10 }, { name: 'blips', maxCount: 10 }]), productController.updateProduct);
 /**
  * @swagger
  * /api/product/products/{id}:

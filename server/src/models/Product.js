@@ -14,7 +14,9 @@ const productSchema = new mongoose.Schema({
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', required: true },
   images: [{
     url: { type: String },
-    public_id: { type: String },
+  }],
+  blips: [{
+    url: { type: String },
   }],
   stock: { type: Number, required: true },
   sku: { type: String, required: true },
@@ -44,7 +46,7 @@ const productSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
   }],
   logistics: {
-    shippingOptions: [{ type: String }], 
+    shippingOptions: [{ type: String }],
     deliveryTime: { type: String },
   },
   warehouseLocation: { type: String },

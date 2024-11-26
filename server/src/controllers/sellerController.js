@@ -169,7 +169,7 @@ exports.uploadVerificationDocuments = async (req, res) => {
           Key: `${uuidv4()}-${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
-          ACL: 'public-read'
+         
         };
         const data = await s3.upload(params).promise();
         return { type: file.fieldname, fileUrl: data.Location };
@@ -205,7 +205,7 @@ exports.uploadStoreAvatar = async (req, res) => {
       Key: `${uuidv4()}-${avatarFile.originalname}`,
       Body: avatarFile.buffer,
       ContentType: avatarFile.mimetype,
-      ACL: 'public-read'
+     
     };
     const data = await s3.upload(params).promise();
 
@@ -241,7 +241,7 @@ exports.uploadStoreBanner = async (req, res) => {
       Key: `${uuidv4()}-${bannerFile.originalname}`,
       Body: bannerFile.buffer,
       ContentType: bannerFile.mimetype,
-      ACL: 'public-read'
+     
     };
     const data = await s3.upload(params).promise();
 
