@@ -36,7 +36,9 @@ exports.createOrder = async (req, res) => {
           return res.status(400).json({ message: `Not enough stock for product ${product.name}` });
         }
 
-        const itemTotal = product.price * item.quantity;
+        // Use sale price if available, otherwise use the regular price
+        const itemPrice = product.salePrice ? product.salePrice : product.price;
+        const itemTotal = itemPrice * item.quantity;
         subTotalPrice += itemTotal;
 
         cartDetails.push({
@@ -121,7 +123,6 @@ exports.getOrder = async (req, res) => {
   }
 };
 
-
 // Update an order
 exports.updateOrder = async (req, res) => {
   const { id } = req.params;
@@ -162,9 +163,6 @@ exports.updateOrder = async (req, res) => {
   }
 };
 
-
-
-
 // Mark order as paid
 exports.markOrderAsPaid = async (req, res) => {
   const { id } = req.params;
@@ -194,7 +192,6 @@ exports.markOrderAsPaid = async (req, res) => {
     res.status(500).json({ message: 'Failed to mark order as paid', error: error.message });
   }
 };
-
 
 // Delete an order
 exports.deleteOrder = async (req, res) => {

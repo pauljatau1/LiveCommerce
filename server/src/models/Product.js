@@ -88,12 +88,5 @@ const productSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-// Pre-save hook to ensure price matches salePrice when onSale is true
-productSchema.pre('save', function (next) {
-  if (this.onSale && this.salePrice) {
-    this.price = this.salePrice;
-  }
-  next();
-});
 
 module.exports = mongoose.model('Product', productSchema);

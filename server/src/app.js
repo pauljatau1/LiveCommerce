@@ -31,7 +31,7 @@ app.use((req, res, next) => {
 });
 
 // Middleware
-app.use(cors({ origin: '*' })); // Allow all origins
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
