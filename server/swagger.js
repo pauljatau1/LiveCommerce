@@ -11,7 +11,10 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:8000',
+        url: 'https://auqliserver-8xr8zvib.b4a.run', 
+      },
+      {
+        url: 'http://localhost:8000', 
       },
     ],
     components: {
