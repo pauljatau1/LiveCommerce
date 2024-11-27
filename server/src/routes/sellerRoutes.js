@@ -440,6 +440,13 @@ router.post('/verify-otp', sellerController.verifyOTP);
  *                       type: string
  *                     id:
  *                       type: string
+ *                     subCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
  *     responses:
  *       200:
  *         description: Categories selected successfully
@@ -451,6 +458,7 @@ router.post('/verify-otp', sellerController.verifyOTP);
  *         description: Internal server error
  */
 router.post('/select-categories', authMiddleware.verifyToken, sellerController.selectCategories);
+
 
 /**
  * @swagger
@@ -476,6 +484,13 @@ router.post('/select-categories', authMiddleware.verifyToken, sellerController.s
  *                       type: string
  *                     id:
  *                       type: string
+ *                     subCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
  *     responses:
  *       200:
  *         description: Categories updated successfully
@@ -487,6 +502,7 @@ router.post('/select-categories', authMiddleware.verifyToken, sellerController.s
  *         description: Internal server error
  */
 router.put('/update-categories', authMiddleware.verifyToken, sellerController.updateCategories);
+
 
 /**
  * @swagger

@@ -1,40 +1,21 @@
 const Buyer = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
-const cloudinary = require('cloudinary').v2;
 const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey('SG.REDACTED');
-const axios = require('axios');
-const https = require('https');
-const btoa = require('btoa');
+const { v4: uuidv4 } = require('uuid');
+const s3 = require('../config/awsConfig');
 
-const api_key = "1ecd398fe415c563";
-const secret_key = "Y2U3ZDQ5MjY2ZDNiNWJhMDc3NGQxYTVmYzgwNGU0NDk3MzY4MGVjZWZkNDM4NmY2NzdhODJkM2I3NTU3YzMyMw==";
-const content_type = 'application/json';
-const source_addr = '639214080286';
+sgMail.setApiKey('SG.REDACTED');
 
 // Helper function to generate JWT
 const generateToken = (id) => {
   return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
-
-// Helper function to upload avatar to Cloudinary
-const uploadAvatar = async (image, folder) => {
-  if (!image) {
-    return {
-      url: 'https://res.cloudinary.com/dljgzevaj/image/upload/v1730579531/user-account-management-logo-user-icon-11562867145a56rus2zwu_cgs18m.png',
-      public_id: 'avatars/r918vmwdsmdrdvdgz1na',
-    };
-  }
-  const uploadResult = await cloudinary.uploader.upload(image, { folder });
-  return { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-};
 
 // Register a new buyer
 exports.register = async (req, res) => {
-  const { firstName, lastName, username, email, country, phoneNumber, password, profileImage } = req.body;
+  const { firstName, lastName, username, email, country, phoneNumber, password } = req.body;
 
   if (!firstName || !lastName || !username || !email || !phoneNumber || !password) {
     return res.status(400).json({ message: 'All fields are required.' });
@@ -44,17 +25,15 @@ exports.register = async (req, res) => {
     const existingBuyer = await Buyer.findOne({ email });
     if (existingBuyer) return res.status(409).json({ message: 'Email is already in use.' });
 
-    const avatarData = await uploadAvatar(profileImage, 'profileImages');
     const otp = generateOTP();
-    const newBuyer = new Buyer({ firstName, lastName, username, email, country, phoneNumber, password, profileImage: avatarData, otp });
+    const newBuyer = new Buyer({ firstName, lastName, username, email, country, phoneNumber, password, otp });
 
     await newBuyer.save();
     const token = generateToken(newBuyer._id);
 
-    // Send email with OTP
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <joseph@auqli.com>', // Ensure this email is verified in SendGrid
+      from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Welcome to Auqli!',
       text: `Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
       html: `<strong>Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
@@ -115,10 +94,9 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-
 // Update buyer profile
 exports.updateProfile = async (req, res) => {
-  const { firstName, lastName, country, phoneNumber, profileImage, shippingAddresses, bio } = req.body;
+  const { firstName, lastName, country, phoneNumber, shippingAddresses, bio } = req.body;
 
   try {
     const buyer = await Buyer.findById(req.user.id);
@@ -132,15 +110,6 @@ exports.updateProfile = async (req, res) => {
     if (country) buyer.country = country;
     if (phoneNumber) buyer.phoneNumber = phoneNumber;
     if (bio) buyer.bio = bio;
-
-    // Handle profile image update
-    if (profileImage) {
-      if (buyer.profileImage.public_id) {
-        await cloudinary.uploader.destroy(buyer.profileImage.public_id);
-      }
-      const avatarData = await uploadAvatar(profileImage, 'profileImages');
-      buyer.profileImage = avatarData;
-    }
 
     // Update shipping addresses if provided
     if (shippingAddresses) {
@@ -156,6 +125,47 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Failed to update profile', error: error.message });
   }
 };
+
+// Upload buyer profile image
+exports.uploadProfileImage = async (req, res) => {
+  try {
+    const avatarFile = req.file;
+    const buyer = await Buyer.findById(req.user.id);
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    let data;
+    if (avatarFile) {
+      const params = {
+        Bucket: 'auqli-uploads',
+        Key: `${uuidv4()}-${avatarFile.originalname}`,
+        Body: avatarFile.buffer,
+        ContentType: avatarFile.mimetype,
+      };
+      data = await s3.upload(params).promise();
+    } else {
+      data = {
+        Location: 'https://res.cloudinary.com/dljgzevaj/image/upload/v1730579531/user-account-management-logo-user-icon-11562867145a56rus2zwu_cgs18m.png',
+        Key: 'default-profile-image',
+      };
+    }
+
+    buyer.profileImage = {
+      url: data.Location,
+      public_id: data.Key,
+    };
+
+    const updatedBuyer = await buyer.save();
+
+    res.json({ message: 'Profile image uploaded successfully', buyer: updatedBuyer });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to upload profile image', error: error.message });
+  }
+};
+
+
 
 
 exports.verifyOTP = async (req, res) => {
@@ -180,7 +190,42 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-// Update selected categories
+exports.resendOTP = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ message: 'Email is required.' });
+
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
+
+    const otp = generateOTP();
+    buyer.otp = otp;
+    await buyer.save();
+
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Your OTP Code',
+      text: `Hi, your OTP is ${otp}. Please use this OTP to verify your email.`,
+      html: `<strong>Hi, your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+    };
+
+    try {
+      await sgMail.send(msg);
+    } catch (sendError) {
+      console.error('SendGrid error:', sendError);
+      return res.status(500).json({ message: 'Failed to send verification email', error: sendError.message });
+    }
+
+    res.json({ message: 'OTP resent successfully.' });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({ message: 'Failed to resend OTP', error: error.message });
+  }
+};
+
+
 exports.updateSelectedCategories = async (req, res) => {
   const { selectedCategories } = req.body;
 
@@ -190,13 +235,20 @@ exports.updateSelectedCategories = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found.' });
     }
 
-    buyer.selectedCategories = selectedCategories;
+    buyer.selectedCategories = selectedCategories.map(category => ({
+      name: category.name,
+      subCategories: category.subCategories.map(subCategory => ({
+        name: subCategory.name,
+      })),
+    }));
+
     const updatedBuyer = await buyer.save();
     res.json({ message: 'Selected categories updated successfully', buyer: updatedBuyer });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
   }
 };
+
 
 
 // Follow a seller

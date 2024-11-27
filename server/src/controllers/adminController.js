@@ -142,7 +142,7 @@ exports.getAllProducts = async (req, res) => {
 };
 
 exports.createCategory = async (req, res) => {
-  const { name, image } = req.body;
+  const { name, image, subCategories } = req.body;
 
   try {
     let imageData = {};
@@ -151,13 +151,15 @@ exports.createCategory = async (req, res) => {
       imageData = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
     }
 
-    const newCategory = new Category({ name, image: imageData });
+    const newCategory = new Category({ name, image: imageData, subCategories });
     await newCategory.save();
     res.status(201).json(newCategory);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
+
 
 exports.getCategories = async (req, res) => {
   try {
@@ -168,8 +170,9 @@ exports.getCategories = async (req, res) => {
   }
 };
 
+
 exports.updateCategory = async (req, res) => {
-  const { name, image } = req.body;
+  const { name, image, subCategories } = req.body;
   const { id } = req.params;
 
   try {
@@ -186,6 +189,10 @@ exports.updateCategory = async (req, res) => {
       }
       const uploadResult = await cloudinary.uploader.upload(image, { folder: 'categories' });
       category.image = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+    }
+
+    if (subCategories) {
+      category.subCategories = subCategories;
     }
 
     const updatedCategory = await category.save();
@@ -214,6 +221,23 @@ exports.deleteCategory = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete category', error: error.message });
   }
 };
+
+exports.getSubCategories = async (req, res) => {
+  const { categoryId } = req.params;
+
+  try {
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    res.json(category.subCategories);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve subcategories', error: error.message });
+  }
+};
+
+
 
 exports.markSellerAsFeatured = async (req, res) => {
   const { sellerId } = req.params;
@@ -498,3 +522,7 @@ exports.verifyBusinessAccount = async (req, res) => {
     res.status(500).json({ message: 'Failed to verify business account', error: error.message });
   }
 };
+
+
+
+

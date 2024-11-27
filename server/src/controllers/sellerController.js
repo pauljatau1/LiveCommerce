@@ -408,7 +408,6 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-// Select categories for a seller
 exports.selectCategories = async (req, res) => {
   const { categories } = req.body;
 
@@ -426,7 +425,13 @@ exports.selectCategories = async (req, res) => {
       return res.status(400).json({ message: 'Invalid category IDs provided' });
     }
 
-    seller.categories = categories;
+    seller.categories = categories.map(category => ({
+      name: category.name,
+      subCategories: category.subCategories.map(subCategory => ({
+        name: subCategory.name,
+      })),
+    }));
+
     await seller.save();
 
     res.json({ message: 'Categories selected successfully', seller });
@@ -435,7 +440,7 @@ exports.selectCategories = async (req, res) => {
   }
 };
 
-// Update selected categories for a seller
+
 exports.updateCategories = async (req, res) => {
   const { categories } = req.body;
 
@@ -453,14 +458,21 @@ exports.updateCategories = async (req, res) => {
       return res.status(400).json({ message: 'Invalid category IDs provided' });
     }
 
-    seller.categories = categories;
+    seller.categories = categories.map(category => ({
+      name: category.name,
+      subCategories: category.subCategories.map(subCategory => ({
+        name: subCategory.name,
+      })),
+    }));
+
     await seller.save();
 
     res.json({ message: 'Categories updated successfully', seller });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update categories', error: error.message });
   }
-}
+};
+
 
 exports.getFollowers = async (req, res) => {
   try {

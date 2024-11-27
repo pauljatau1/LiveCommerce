@@ -2,12 +2,21 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const addressSchema = new mongoose.Schema({
-  country: { type: String }, 
+  country: { type: String },
   city: { type: String },
   address1: { type: String },
   address2: { type: String },
   zipCode: { type: String },
-  addressType: { type: String }, 
+  addressType: { type: String },
+});
+
+const subCategorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+});
+
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  subCategories: [subCategorySchema],
 });
 
 const buyerSchema = new mongoose.Schema({
@@ -28,7 +37,7 @@ const buyerSchema = new mongoose.Schema({
   emailVerified: { type: Boolean, default: false },
   phoneVerified: { type: Boolean, default: false },
   otp: { type: String },
-  selectedCategories: [{ type: String }],
+  selectedCategories: [categorySchema],
   isDisabled: { type: Boolean, default: false },
   following: [{
     sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },

@@ -293,6 +293,13 @@ router.put('/sellers/:sellerId/verify', authMiddleware.verifyToken, adminControl
  *                 type: string
  *               image:
  *                 type: string
+ *               subCategories:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
  *     responses:
  *       201:
  *         description: Category created successfully
@@ -300,6 +307,7 @@ router.put('/sellers/:sellerId/verify', authMiddleware.verifyToken, adminControl
  *         description: Bad request
  */
 router.post('/categories', authMiddleware.verifyToken, adminController.createCategory);
+
 
 /**
  * @swagger
@@ -312,10 +320,36 @@ router.post('/categories', authMiddleware.verifyToken, adminController.createCat
  *     responses:
  *       200:
  *         description: List of categories retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   image:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       public_id:
+ *                         type: string
+ *                   subCategories:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
  *       500:
  *         description: Internal server error
  */
 router.get('/categories', authMiddleware.verifyToken, adminController.getCategories);
+
 
 /**
  * @swagger
@@ -343,6 +377,13 @@ router.get('/categories', authMiddleware.verifyToken, adminController.getCategor
  *                 type: string
  *               image:
  *                 type: string
+ *               subCategories:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
  *     responses:
  *       200:
  *         description: Category updated successfully
@@ -352,6 +393,7 @@ router.get('/categories', authMiddleware.verifyToken, adminController.getCategor
  *         description: Internal server error
  */
 router.put('/categories/:id', authMiddleware.verifyToken, adminController.updateCategory);
+
 
 /**
  * @swagger
@@ -377,6 +419,41 @@ router.put('/categories/:id', authMiddleware.verifyToken, adminController.update
  *         description: Internal server error
  */
 router.delete('/categories/:id', authMiddleware.verifyToken, adminController.deleteCategory);
+
+/**
+ * @swagger
+ * /api/admin/categories/{categoryId}/subcategories:
+ *   get:
+ *     summary: Get all subcategories of a particular category
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Category ID
+ *     responses:
+ *       200:
+ *         description: List of subcategories retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *       404:
+ *         description: Category not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/categories/:categoryId/subcategories', authMiddleware.verifyToken, adminController.getSubCategories);
+
 
 /**
  * @swagger

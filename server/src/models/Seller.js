@@ -6,6 +6,15 @@ const withdrawMethodSchema = new mongoose.Schema({
   details: { type: String, required: true },
 });
 
+const subCategorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+});
+
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  subCategories: [subCategorySchema],
+});
+
 const sellerSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
@@ -37,10 +46,7 @@ const sellerSchema = new mongoose.Schema({
     swiftCode: { type: String },
     bankIdentifierCode: { type: String },
   },
-  categories: [{
-    name: { type: String },
-    id: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
-  }],
+  categories: [categorySchema],
   shippingOptions: {
     shippingMethod: { type: String, enum: ['shippedBySeller', 'storePickup'] },
     returnPolicy: { type: String },

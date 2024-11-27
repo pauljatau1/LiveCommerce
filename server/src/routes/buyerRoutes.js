@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const buyerController = require('../controllers/buyerController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 const passport = require('passport');
 
 /**
@@ -30,8 +32,6 @@ const passport = require('passport');
  *               phoneNumber:
  *                 type: string
  *               password:
- *                 type: string
- *               profileImage:
  *                 type: string
  *     responses:
  *       201:
@@ -105,7 +105,7 @@ router.get('/profile', authMiddleware.verifyToken, buyerController.getProfile);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -116,8 +116,6 @@ router.get('/profile', authMiddleware.verifyToken, buyerController.getProfile);
  *               country:
  *                 type: string
  *               phoneNumber:
- *                 type: string
- *               profileImage:
  *                 type: string
  *               shippingAddresses:
  *                 type: array
@@ -150,6 +148,37 @@ router.put('/profile', authMiddleware.verifyToken, buyerController.updateProfile
 
 /**
  * @swagger
+ * /api/buyer/profile/avatar:
+ *   put:
+ *     summary: Upload or update buyer profile image
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Profile image uploaded successfully
+ *       400:
+ *         description: No avatar file uploaded
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/profile/avatar', authMiddleware.verifyToken, upload.single('avatar'), buyerController.uploadProfileImage);
+
+
+/**
+ * @swagger
  * /api/buyer/verify-otp:
  *   post:
  *     summary: Verify OTP and update emailVerified status
@@ -179,6 +208,34 @@ router.post('/verify-otp', buyerController.verifyOTP);
 
 /**
  * @swagger
+ * /api/buyer/resend-otp:
+ *   post:
+ *     summary: Resend OTP to buyer's email
+ *     tags: [Buyer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/resend-otp', buyerController.resendOTP);
+
+
+/**
+ * @swagger
  * /api/buyer/selected-categories:
  *   put:
  *     summary: Update selected categories for a buyer
@@ -195,7 +252,17 @@ router.post('/verify-otp', buyerController.verifyOTP);
  *               selectedCategories:
  *                 type: array
  *                 items:
- *                   type: string
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                     subCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
  *     responses:
  *       200:
  *         description: Selected categories updated successfully
@@ -205,6 +272,7 @@ router.post('/verify-otp', buyerController.verifyOTP);
  *         description: Internal server error
  */
 router.put('/selected-categories', authMiddleware.verifyToken, buyerController.updateSelectedCategories);
+
 
 /**
  * @swagger
