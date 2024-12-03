@@ -87,6 +87,41 @@ exports.login = async (req, res) => {
   }
 };
 
+// Resend OTP
+exports.resendOTP = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ message: 'Email is required.' });
+
+  try {
+    const seller = await Seller.findOne({ email });
+    if (!seller) return res.status(404).json({ message: 'Seller not found.' });
+
+    if (seller.emailVerified) {
+      return res.status(400).json({ message: 'Email is already verified.' });
+    }
+
+    const otp = generateOTP();
+    seller.otp = otp;
+    await seller.save();
+
+    // Send email with OTP
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Your Auqli OTP',
+      text: `Hi, your OTP is ${otp}. Please use this OTP to verify your email.`,
+      html: `<strong>Hi, your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+    };
+
+    await sgMail.send(msg);
+
+    res.json({ message: 'OTP resent successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to resend OTP', error: error.message });
+  }
+};
+
 
 exports.checkToken = async (req, res) => {
   const token = req.headers['authorization']?.split(' ')[1];

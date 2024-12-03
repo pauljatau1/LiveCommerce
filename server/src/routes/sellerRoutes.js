@@ -87,6 +87,33 @@ router.post('/login', sellerController.login);
  */
 router.get('/check-token', sellerController.checkToken);
 
+/**
+ * @swagger
+ * /api/seller/resend-otp:
+ *   post:
+ *     summary: Resend OTP
+ *     tags: [Seller]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/resend-otp', sellerController.resendOTP);
+
 
 /**
  * @swagger
