@@ -71,6 +71,25 @@ router.post('/login', sellerController.login);
 
 /**
  * @swagger
+ * /api/seller/check-token:
+ *   get:
+ *     summary: Check if the token is still valid
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token is still valid
+ *       401:
+ *         description: Token has expired or is invalid
+ *       403:
+ *         description: Token is required for authentication
+ */
+router.get('/check-token', sellerController.checkToken);
+
+
+/**
+ * @swagger
  * /api/seller/profile:
  *   get:
  *     summary: Get seller profile

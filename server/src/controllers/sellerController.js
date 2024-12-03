@@ -9,8 +9,9 @@ const { v4: uuidv4 } = require('uuid');
 
 // Helper function for JWT generation
 const generateToken = (id) => {
-  return jwt.sign({ id, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ id, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '2w' });
 };
+
 
 // Helper function to generate OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -85,6 +86,25 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Login failed', error: error.message });
   }
 };
+
+
+exports.checkToken = async (req, res) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+
+  if (!token) return res.status(403).json({ message: "A token is required for authentication" });
+
+  try {
+    const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
+    const newToken = generateToken(decodedUserData.id);
+    res.json({ token: newToken });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "Token has expired. Please sign in again." });
+    }
+    return res.status(401).json({ message: "Invalid Token" });
+  }
+};
+
 
 // Get seller profile
 exports.getProfile = async (req, res) => {
