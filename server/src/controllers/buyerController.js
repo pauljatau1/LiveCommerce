@@ -65,9 +65,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    if (!buyer.emailVerified) {
-      return res.status(403).json({ message: 'Email not yet verified.' });
-    }
+    // if (!buyer.emailVerified) {
+    //   return res.status(403).json({ message: 'Email not yet verified.' });
+    // }
 
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
