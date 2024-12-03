@@ -18,20 +18,50 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 
 // Register a new seller
 exports.register = async (req, res) => {
-  const { firstName, lastName, email, password, phoneNumber } = req.body;
-
-  // Basic input validation
-  if (!firstName || !lastName || !email || !password || !phoneNumber) {
-    return res.status(400).json({ message: 'First name, last name, email, password, and phone number are required.' });
-  }
-
   try {
-    // Check for duplicate email
-    const existingSeller = await Seller.findOne({ email });
-    if (existingSeller) {
-      return res.status(409).json({ message: 'Email is already in use.' });
+    const { firstName, lastName, email, password, phoneNumber } = req.body;
+
+    // Basic input validation
+    if (!firstName || !lastName || !email || !password || !phoneNumber) {
+      return res.status(400).json({ 
+        message: 'First name, last name, email, password, and phone number are required.' 
+      });
     }
 
+    // First check if email exists and its verification status
+    const existingSeller = await Seller.findOne({ email });
+
+    if (existingSeller) {
+      // If email exists and is verified, return error
+      if (existingSeller.emailVerified) {
+        return res.status(409).json({ 
+          message: 'Email is already in use.' 
+        });
+      }
+
+      // If email exists but not verified, generate new OTP and update
+      const otp = generateOTP();
+      existingSeller.otp = otp;
+      await existingSeller.save();
+
+      // Send verification email with new OTP
+      const msg = {
+        to: email,
+        from: 'Joseph From Auqli <joseph@auqli.com>',
+        subject: 'Verify Your Email - Auqli',
+        text: `Hi ${existingSeller.firstName}, please verify your email with this OTP: ${otp}`,
+        html: `<strong>Hi ${existingSeller.firstName}, please verify your email with this OTP: ${otp}</strong>`,
+      };
+
+      await sgMail.send(msg);
+
+      return res.status(200).json({
+        message: 'Please verify your email with the OTP sent to your email address',
+        email: existingSeller.email
+      });
+    }
+
+    // If email doesn't exist, proceed with new registration
     const otp = generateOTP();
     const newSeller = new Seller({
       firstName,
@@ -39,28 +69,36 @@ exports.register = async (req, res) => {
       email,
       password,
       phoneNumber,
-      otp,
+      otp
     });
 
     await newSeller.save();
 
-    // Generate JWT token
+    // Generate JWT token for new seller
     const token = generateToken(newSeller._id);
 
-    // Send email with OTP
+    // Send welcome email with OTP
     const msg = {
       to: email,
       from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Welcome to Auqli!',
-      text: `Hi ${firstName}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
-      html: `<strong>Hi ${firstName}, welcome to auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+      text: `Hi ${firstName}, welcome to Auqli! Please verify your email with this OTP: ${otp}`,
+      html: `<strong>Hi ${firstName}, welcome to Auqli! Please verify your email with this OTP: ${otp}</strong>`,
     };
 
     await sgMail.send(msg);
 
-    res.status(201).json({ user: newSeller, token });
+    res.status(201).json({ 
+      message: 'Registration successful. Please verify your email.',
+      user: newSeller, 
+      token 
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to register seller', error: error.message });
+    res.status(500).json({ 
+      message: 'Registration failed', 
+      error: error.message 
+    });
   }
 };
 
