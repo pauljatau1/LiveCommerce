@@ -105,10 +105,17 @@ router.get('/profile', authMiddleware.verifyToken, buyerController.getProfile);
  *     responses:
  *       200:
  *         description: Token is valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
  *       401:
  *         description: Invalid or expired token
- *       500:
- *         description: Internal server error
+ *       403:
+ *         description: Token is required for authentication
  */
 router.get('/check-token', buyerController.checkToken);
 

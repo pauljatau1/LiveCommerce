@@ -77,26 +77,23 @@ exports.login = async (req, res) => {
 };
 
 
-// Function to check token validity
-exports.checkToken = (req, res) => {
-  const token = req.headers['authorization'];
+exports.checkToken = async (req, res) => {
+  const token = req.headers['authorization']?.split(' ')[1];
 
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided.' });
-  }
+  if (!token) return res.status(403).json({ message: "A token is required for authentication" });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({ message: 'Token has expired.' });
-      } else {
-        return res.status(401).json({ message: 'Invalid token.' });
-      }
+  try {
+    const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
+    const newToken = generateToken(decodedUserData.id);
+    res.json({ message: "Token is valid", token: newToken });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "Token has expired. Please sign in again." });
     }
-
-    res.json({ message: 'Token is valid.', token: decoded });
-  });
+    return res.status(401).json({ message: "Invalid Token" });
+  }
 };
+
 
 // Get buyer profile
 exports.getProfile = async (req, res) => {
