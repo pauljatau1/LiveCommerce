@@ -96,6 +96,24 @@ router.get('/profile', authMiddleware.verifyToken, buyerController.getProfile);
 
 /**
  * @swagger
+ * /api/buyer/check-token:
+ *   get:
+ *     summary: Check token validity
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token is valid
+ *       401:
+ *         description: Invalid or expired token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/check-token', buyerController.checkToken);
+
+/**
+ * @swagger
  * /api/buyer/profile:
  *   put:
  *     summary: Update buyer profile

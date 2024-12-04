@@ -76,6 +76,28 @@ exports.login = async (req, res) => {
   }
 };
 
+
+// Function to check token validity
+exports.checkToken = (req, res) => {
+  const token = req.headers['authorization'];
+
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided.' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Token has expired.' });
+      } else {
+        return res.status(401).json({ message: 'Invalid token.' });
+      }
+    }
+
+    res.json({ message: 'Token is valid.', token: decoded });
+  });
+};
+
 // Get buyer profile
 exports.getProfile = async (req, res) => {
   try {
