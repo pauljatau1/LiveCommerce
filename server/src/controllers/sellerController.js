@@ -14,7 +14,7 @@ const generateToken = (id) => {
 
 
 // Helper function to generate OTP
-const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // Register a new seller
 exports.register = async (req, res) => {

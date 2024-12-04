@@ -8,10 +8,11 @@ sgMail.setApiKey('SG.REDACTED');
 
 // Helper function to generate JWT
 const generateToken = (id) => {
-  return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET, { expiresIn: '2w' });
 };
 
-const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+// Helper function to generate OTP (4-digit)
+const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // Register a new buyer
 exports.register = async (req, res) => {
