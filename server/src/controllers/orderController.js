@@ -1,6 +1,9 @@
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller');
+const Notification = require('../models/Notification');
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey('SG.REDACTED');
 
 exports.createOrder = async (req, res) => {
   const { cart, shippingAddress, user, paymentInfo } = req.body;

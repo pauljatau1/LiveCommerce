@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const sgMail = require('@sendgrid/mail');
 const { v4: uuidv4 } = require('uuid');
 const s3 = require('../config/awsConfig');
+const notificationController = require('../controllers/notificationController');
 
 sgMail.setApiKey('SG.REDACTED');
 
@@ -292,6 +293,14 @@ exports.followSeller = async (req, res) => {
 
     await buyer.save();
     await seller.save();
+
+    await notificationController.createNotification(
+      seller,
+      'new_follower',
+      'New Follower',
+      `${buyer.firstName} ${buyer.lastName} started following your store`,
+      { buyerId: buyer._id }
+    );
 
     res.json({ message: 'Successfully followed the seller.' });
   } catch (error) {

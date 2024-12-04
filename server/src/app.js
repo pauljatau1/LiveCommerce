@@ -17,7 +17,8 @@ const messageRoutes = require('./routes/messageRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const postRoutes = require('./routes/postRoutes');
 const publicRoutes = require('./routes/publicRoutes')
-
+const notificationRoutes = require('./routes/notificationRoutes');
+const withdrawalRoutes = require('./routes/withdrawalRoutes');
 // Import Passport configuration
 require('./config/passport');
 
@@ -62,6 +63,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/withdrawals', withdrawalRoutes);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
