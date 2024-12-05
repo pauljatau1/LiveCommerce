@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const BASE_URL = 'https://auqliserver-8xr8zvib.b4a.run';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: BASE_URL,
 });
 

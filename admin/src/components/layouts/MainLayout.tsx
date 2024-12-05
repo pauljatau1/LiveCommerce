@@ -6,9 +6,9 @@ function MainLayout() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="flex">
+      <div className="flex pt-16"> {/* Added pt-16 to account for fixed navbar height */}
         <Sidebar />
-        <main className="flex-1 p-6">
+        <main className="flex-1 ml-64 p-6">
           <Outlet />
         </main>
       </div>
