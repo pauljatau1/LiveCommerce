@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import AddCategoryModal from "@/components/dashboard/add-category-modal"
@@ -23,6 +23,7 @@ export default function CategoriesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | undefined>()
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
+  const [loading, setLoading] = useState(true)
 
   const fetchCategories = async () => {
     try {
@@ -30,6 +31,8 @@ export default function CategoriesPage() {
       setCategories(response.data)
     } catch (error) {
       toast.error("Failed to fetch categories" + error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -63,6 +66,14 @@ export default function CategoriesPage() {
     setSelectedCategory(undefined)
     setModalMode('add')
     setIsModalOpen(true)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (

@@ -8,7 +8,11 @@ import {
   Package,
   Settings,
   Folder,
-  LogOut 
+  LogOut,
+  Megaphone,
+  Image,
+  DollarSign,
+  Video
 } from 'lucide-react';
 
 const mainLinks = [
@@ -18,12 +22,16 @@ const mainLinks = [
   { icon: Users, label: 'Sellers', path: '/dashboard/sellers' },
   { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
   { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
-  
+  { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals' },
+  { icon: Video, label: 'Streams', path: '/dashboard/streams' },
+  { icon: Image, label: 'Banners', path: '/dashboard/banners' },
+  { icon: Megaphone, label: 'Announcements', path: '/dashboard/announcements' },
+ 
 ];
 
 const bottomLinks = [
   { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
-  { icon: LogOut, label: 'Logout', path: '/logout' }, 
+  { icon: LogOut, label: 'Logout', path: '/logout' },
 ];
 
 function Sidebar() {
@@ -31,7 +39,7 @@ function Sidebar() {
 
   return (
     <aside className="fixed w-64 bg-card h-[calc(100vh-4rem)] border-r flex flex-col justify-between">
-      <nav className="p-4  pt-10 space-y-2 flex-grow overflow-y-auto">
+      <nav className="p-4 pt-10 space-y-2 flex-grow overflow-y-auto">
         {mainLinks.map((link) => {
           const Icon = link.icon;
           return (

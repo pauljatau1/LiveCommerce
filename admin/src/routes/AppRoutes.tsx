@@ -6,6 +6,11 @@ import Sellers from '@/pages/sellers';
 import Categories from '@/pages/categories';
 import ProtectedRoute from './ProtectedRoute';
 import MainLayout from '@/components/layouts/MainLayout';
+import Buyers from '@/pages/buyers';
+import Orders from '@/pages/orders';
+import Products from '@/pages/products';
+import Streams from '@/pages/streams';
+import Withdrawals from '@/pages/withdrawals';
 
 function App() {
   return (
@@ -24,12 +29,11 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="/dashboard/sellers" element={<Sellers />} />
             <Route path="/dashboard/categories" element={<Categories />} />
-            {/* Commented out routes for future implementation
-            <Route path="buyers" element={<Buyers />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="products" element={<Products />} />
-            <Route path="settings" element={<Settings />} />
-            */}
+            <Route path="/dashboard/buyers" element={<Buyers />} />
+            <Route path="/dashboard/orders" element={<Orders />} />
+            <Route path="/dashboard/products" element={<Products />} />
+            <Route path="/dashboard/streams" element={<Streams />} />
+            <Route path="/dashboard/withdrawals" element={<Withdrawals />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
