@@ -258,7 +258,7 @@ import { useAuth } from "@/context/authContext";
         <div>
           <h2 className="text-3xl font-bold text-white">Hi {user?.username}</h2>
           <p className="text-muted-foreground">
-            Here's what's happening across your platform today
+            Here's what's happening across Auqli today
           </p>
         </div>
   
