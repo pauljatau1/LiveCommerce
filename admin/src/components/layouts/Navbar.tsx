@@ -8,10 +8,10 @@ function Navbar() {
         <h1 className="text-xl font-bold text-primary">Auqli Admin</h1>
         
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon">
+          <Button size="icon">
             <Bell className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button size="icon">
             <User className="h-5 w-5" />
           </Button>
         </div>

@@ -1,10 +1,26 @@
 import axios from 'axios';
 
-const axiosInstance = axios.create({
-  baseURL: 'https://auqliserver-8xr8zvib.b4a.run',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const BASE_URL = 'https://auqliserver-8xr8zvib.b4a.run';
+
+const api = axios.create({
+  baseURL: BASE_URL,
 });
 
-export default axiosInstance;
+// Add token to requests if it exists
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const loginAdmin = async (credentials: { username: string; password: string }) => {
+  const response = await api.post('/api/admin/login', credentials);
+  return response.data;
+};
+
+export const getProfile = async () => {
+  const response = await api.get('/api/admin/profile');
+  return response.data;
+};
