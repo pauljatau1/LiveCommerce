@@ -4,6 +4,7 @@ const sellerController = require('../controllers/sellerController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
+const storeVisitMiddleware = require('../middlewares/storeVisitMiddleware');
 
 /**
  * @swagger
@@ -567,5 +568,71 @@ router.put('/update-categories', authMiddleware.verifyToken, sellerController.up
  *         description: Internal server error
  */
 router.get('/followers', authMiddleware.verifyToken, sellerController.getFollowers);
+
+/**
+ * @swagger
+ * /api/seller/top-products:
+ *   get:
+ *     summary: Get seller's top 5 selling products
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Top products retrieved successfully
+ */
+router.get('/top-products', authMiddleware.verifyToken, sellerController.getTopProducts);
+
+/**
+ * @swagger
+ * /api/seller/statistics:
+ *   get:
+ *     summary: Get seller's store statistics
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Statistics retrieved successfully
+ */
+router.get('/statistics', authMiddleware.verifyToken, sellerController.getStatistics);
+
+// /**
+//  * @swagger
+//  * /api/seller/profile/{sellerId}:
+//  *   get:
+//  *     summary: Get a seller's public profile
+//  *     tags: [Seller]
+//  *     parameters:
+//  *       - in: path
+//  *         name: sellerId
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: ID of the seller
+//  *     responses:
+//  *       200:
+//  *         description: Seller profile retrieved successfully
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 storeName:
+//  *                   type: string
+//  *                 aboutStore:
+//  *                   type: string
+//  *                 storeAvatar:
+//  *                   type: object
+//  *                 storeBanner:
+//  *                   type: object
+//  *                 categories:
+//  *                   type: array
+//  *       404:
+//  *         description: Seller not found
+//  *       500:
+//  *         description: Internal server error
+//  */
+// router.get('/profile/:sellerId', storeVisitMiddleware.trackStoreVisit, sellerController.getSellerProfile);
 
 module.exports = router;

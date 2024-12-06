@@ -87,7 +87,70 @@ const productSchema = new mongoose.Schema({
   careInstructions: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
+  inventory: {
+    quantity: { type: Number, required: true, default: 0 },
+    lowStockThreshold: { type: Number, default: 5 },
+    sku: { type: String, unique: true },
+    barcode: { type: String },
+  },
+  variants: [{
+    name: { type: String },
+    options: [{
+      value: { type: String },
+      inventory: { type: Number, default: 0 },
+      price: { type: Number },
+      sku: { type: String },
+    }]
+  }],
+  pricing: {
+    compareAtPrice: { type: Number },
+    costPerItem: { type: Number },
+    profit: { type: Number },
+    taxable: { type: Boolean, default: true },
+    taxRate: { type: Number, default: 0 },
+  },
+  shipping: {
+    weight: { type: Number },
+    dimensions: {
+      length: { type: Number },
+      width: { type: Number },
+      height: { type: Number },
+    },
+    shippingClass: { type: String },
+    freeShipping: { type: Boolean, default: false },
+  },
+  seo: {
+    metaTitle: { type: String },
+    metaDescription: { type: String },
+    metaKeywords: [{ type: String }],
+    slug: { type: String, unique: true },
+  },
+  status: { 
+    type: String, 
+    enum: ['draft', 'active', 'archived', 'out_of_stock'],
+    default: 'draft'
+  },
+  visibility: {
+    type: String,
+    enum: ['visible', 'hidden', 'featured'],
+    default: 'visible'
+  },
+  analytics: {
+    views: { type: Number, default: 0 },
+    sales: { type: Number, default: 0 },
+    lastViewed: { type: Date },
+    conversionRate: { type: Number, default: 0 },
+  },
 });
 
+productSchema.pre('save', async function(next) {
+  if (!this.inventory.sku) {
+    this.inventory.sku = await generateSKU(this);
+  }
+  if (!this.seo.slug) {
+    this.seo.slug = await generateSlug(this.name);
+  }
+  next();
+});
 
 module.exports = mongoose.model('Product', productSchema);

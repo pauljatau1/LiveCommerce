@@ -5,6 +5,9 @@ const Seller = require('../models/Seller');
 const s3 = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
 const Category = require('../models/Category');
+const mongoose = require('mongoose');
+const Order = require('../models/Order');
+const NotificationController = require('../controllers/notificationController');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -556,5 +559,737 @@ exports.getWishlist = async (req, res) => {
       message: 'Failed to retrieve wishlist', 
       error: error.message 
     });
+  }
+};
+
+// Get all product blips
+exports.getAllBlips = async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  try {
+    const blips = await Product.aggregate([
+      // Match products that have at least one blip
+      { 
+        $match: { 
+          blips: { $exists: true, $ne: [] },
+          seller: { $exists: true, $ne: null } // Ensure seller exists
+        } 
+      },
+      // Unwind the blips array
+      { $unwind: '$blips' },
+      // Project needed fields including seller ID
+      {
+        $project: {
+          blipUrl: '$blips.url',
+          productId: '$_id',
+          productName: '$name',
+          price: '$price',
+          sellerId: '$seller',
+          images: { $first: '$images.url' },
+          averageRating: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $avg: '$reviews.rating' },
+              else: null
+            }
+          },
+          reviewCount: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $size: '$reviews' },
+              else: 0
+            }
+          }
+        }
+      },
+      // Sort by newest first
+      { $sort: { _id: -1 } },
+      // Skip and limit for pagination
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ]);
+
+    const total = await Product.countDocuments({
+      blips: { $exists: true, $ne: [] }
+    });
+
+    res.json({
+      blips,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalBlips: total
+    });
+  } catch (error) {
+    console.error('Error in getAllBlips:', error);
+    res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
+  }
+};
+
+// Get seller's blips
+exports.getSellerBlips = async (req, res) => {
+  const { sellerId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  try {
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ message: 'Invalid seller ID' });
+    }
+
+    // Get seller info first
+    const seller = await Seller.findById(sellerId, {
+      firstName: 1,
+      lastName: 1,
+      businessName: 1,
+      storeName: 1
+    });
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Check if seller has any blips before aggregation
+    const hasBlips = await Product.exists({
+      seller: new mongoose.Types.ObjectId(sellerId),
+      blips: { $exists: true, $ne: [] }
+    });
+
+    if (!hasBlips) {
+      return res.json({
+        message: 'Seller has no blips',
+        seller,
+        blips: [],
+        currentPage: page,
+        totalPages: 0,
+        totalBlips: 0
+      });
+    }
+
+    const blips = await Product.aggregate([
+      // Match products from this seller that have blips
+      { 
+        $match: { 
+          seller: new mongoose.Types.ObjectId(sellerId),
+          blips: { $exists: true, $ne: [] }
+        } 
+      },
+      // Unwind the blips array
+      { $unwind: '$blips' },
+      // Project needed fields
+      {
+        $project: {
+          blipUrl: '$blips.url',
+          productId: '$_id',
+          productName: '$name',
+          price: '$price',
+          sellerId: '$seller',
+          images: { $first: '$images.url' },
+          averageRating: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $avg: '$reviews.rating' },
+              else: null
+            }
+          },
+          reviewCount: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $size: '$reviews' },
+              else: 0
+            }
+          }
+        }
+      },
+      // Sort by newest first
+      { $sort: { _id: -1 } },
+      // Skip and limit for pagination
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ]);
+
+    const total = await Product.countDocuments({
+      seller: sellerId,
+      blips: { $exists: true, $ne: [] }
+    });
+
+    res.json({
+      blips,
+      seller,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalBlips: total
+    });
+  } catch (error) {
+    console.error('Error in getSellerBlips:', error);
+    res.status(500).json({ message: 'Failed to retrieve seller blips', error: error.message });
+  }
+};
+
+// Get seller's products
+exports.getSellerProducts = async (req, res) => {
+  const { sellerId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  try {
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ message: 'Invalid seller ID' });
+    }
+
+    const products = await Product.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .select('name description price images category brand reviews');
+
+    const total = await Product.countDocuments({ seller: sellerId });
+
+    // Get seller info
+    const seller = await Seller.findById(sellerId, {
+      firstName: 1,
+      lastName: 1,
+      businessName: 1,
+      storeName: 1
+    });
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Check if seller has any products
+    if (products.length === 0) {
+      return res.json({
+        message: 'Seller has no products',
+        seller,
+        products: [],
+        currentPage: page,
+        totalPages: 0,
+        totalProducts: 0
+      });
+    }
+
+    res.json({
+      products,
+      seller,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalProducts: total
+    });
+  } catch (error) {
+    console.error('Error in getSellerProducts:', error);
+    res.status(500).json({ message: 'Failed to retrieve seller products', error: error.message });
+  }
+};
+
+// Get seller's product reviews
+exports.getSellerReviews = async (req, res) => {
+  const { sellerId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  try {
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const reviews = await Product.aggregate([
+      { $match: { seller: mongoose.Types.ObjectId(sellerId) }},
+      { $unwind: '$reviews' },
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'reviews.buyer',
+          foreignField: '_id',
+          as: 'buyerInfo'
+        }
+      },
+      { $unwind: '$buyerInfo' },
+      {
+        $project: {
+          productId: '$_id',
+          productName: '$name',
+          review: '$reviews',
+          'buyerInfo.firstName': 1,
+          'buyerInfo.lastName': 1,
+          'buyerInfo.profileImage': 1
+        }
+      },
+      { $sort: { 'review.createdAt': -1 }},
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ]);
+
+    const total = await Product.aggregate([
+      { $match: { seller: mongoose.Types.ObjectId(sellerId) }},
+      { $unwind: '$reviews' },
+      { $count: 'total' }
+    ]);
+
+    res.json({
+      reviews,
+      sellerInfo: {
+        name: seller.name,
+        businessName: seller.businessName
+      },
+      currentPage: page,
+      totalPages: Math.ceil((total[0]?.total || 0) / limit),
+      totalReviews: total[0]?.total || 0
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve seller reviews', error: error.message });
+  }
+};
+
+// Inventory Management
+exports.updateInventory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity, lowStockThreshold, sku, barcode } = req.body;
+    
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify seller ownership
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
+    // Update inventory fields
+    if (quantity !== undefined) product.inventory.quantity = quantity;
+    if (lowStockThreshold !== undefined) product.inventory.lowStockThreshold = lowStockThreshold;
+    if (sku) product.inventory.sku = sku;
+    if (barcode) product.inventory.barcode = barcode;
+
+    await product.save();
+
+    // Check if stock is low and notify seller
+    if (product.inventory.quantity <= product.inventory.lowStockThreshold) {
+      await NotificationController.createNotification({
+        recipient: req.user.id,
+        type: 'LOW_STOCK',
+        title: 'Low Stock Alert',
+        message: `${product.name} is running low on stock (${product.inventory.quantity} remaining)`,
+        reference: product._id
+      });
+    }
+
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update inventory', error: error.message });
+  }
+};
+
+// Variant Management
+exports.addVariant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, options } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify seller ownership
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
+    // Validate variant data
+    if (!name || !options || !Array.isArray(options) || options.length === 0) {
+      return res.status(400).json({ message: 'Invalid variant data' });
+    }
+
+    // Generate SKUs for variant options
+    const variantOptions = options.map(option => ({
+      ...option,
+      sku: `${product.inventory.sku}-${option.value.toLowerCase().replace(/\s+/g, '-')}`
+    }));
+
+    // Add new variant
+    product.variants.push({
+      name,
+      options: variantOptions
+    });
+
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add variant', error: error.message });
+  }
+};
+
+exports.removeVariant = async (req, res) => {
+  try {
+    const { id, variantId } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify seller ownership
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
+    // Find and remove the variant
+    const variantIndex = product.variants.findIndex(v => v._id.toString() === variantId);
+    if (variantIndex === -1) {
+      return res.status(404).json({ message: 'Variant not found' });
+    }
+
+    product.variants.splice(variantIndex, 1);
+    await product.save();
+
+    res.json({ message: 'Variant removed successfully', product });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to remove variant', error: error.message });
+  }
+};
+
+// Analytics Controllers
+exports.getProductAnalytics = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Get orders containing this product
+    const orders = await Order.find({
+      'cart.product': id,
+      createdAt: {
+        $gte: startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        $lte: endDate ? new Date(endDate) : new Date()
+      }
+    });
+
+    const analytics = {
+      totalViews: product.analytics.views,
+      totalSales: orders.length,
+      revenue: orders.reduce((sum, order) => {
+        const item = order.cart.find(item => item.product.toString() === id);
+        return sum + (item ? item.price * item.quantity : 0);
+      }, 0),
+      conversionRate: (orders.length / product.analytics.views * 100).toFixed(2),
+      averageOrderValue: orders.length ? (revenue / orders.length).toFixed(2) : 0
+    };
+
+    res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get analytics', error: error.message });
+  }
+};
+
+// SEO Controllers
+exports.updateSEO = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { metaTitle, metaDescription, metaKeywords, slug } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify seller ownership
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
+    product.seo = {
+      ...product.seo,
+      metaTitle: metaTitle || product.seo.metaTitle,
+      metaDescription: metaDescription || product.seo.metaDescription,
+      metaKeywords: metaKeywords || product.seo.metaKeywords,
+      slug: slug || product.seo.slug
+    };
+
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update SEO', error: error.message });
+  }
+};
+
+// Bulk Operations Controllers
+exports.bulkUpdate = async (req, res) => {
+  try {
+    const { products } = req.body;
+    const sellerId = req.user.id;
+
+    // Verify ownership of all products
+    const productIds = products.map(p => p.id);
+    const existingProducts = await Product.find({
+      _id: { $in: productIds },
+      seller: sellerId
+    });
+
+    if (existingProducts.length !== productIds.length) {
+      return res.status(403).json({ message: 'Not authorized to update some products' });
+    }
+
+    const bulkOps = products.map(product => ({
+      updateOne: {
+        filter: { _id: product.id },
+        update: { $set: product.updates }
+      }
+    }));
+
+    const result = await Product.bulkWrite(bulkOps);
+    res.json({
+      message: 'Products updated successfully',
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to bulk update products', error: error.message });
+  }
+};
+
+exports.bulkDelete = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    const sellerId = req.user.id;
+
+    // Verify ownership of all products
+    const products = await Product.find({
+      _id: { $in: productIds },
+      seller: sellerId
+    });
+
+    if (products.length !== productIds.length) {
+      return res.status(403).json({ message: 'Not authorized to delete some products' });
+    }
+
+    // Delete images from S3
+    for (const product of products) {
+      for (const image of product.images) {
+        const key = image.url.split('/').pop();
+        await s3.deleteObject({
+          Bucket: 'auqli-uploads',
+          Key: key
+        }).promise();
+      }
+    }
+
+    const result = await Product.deleteMany({ _id: { $in: productIds } });
+    res.json({
+      message: 'Products deleted successfully',
+      deletedCount: result.deletedCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to bulk delete products', error: error.message });
+  }
+};
+
+// Analytics and Reporting Controllers
+exports.getLowStockProducts = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const products = await Product.find({
+      seller: sellerId,
+      $expr: {
+        $lte: ['$inventory.quantity', '$inventory.lowStockThreshold']
+      }
+    }).populate('seller', 'name avatarUrl about');
+
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get low stock products', error: error.message });
+  }
+};
+
+exports.getProductPerformance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { period = '30d' } = req.query;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Calculate date range based on period
+    const endDate = new Date();
+    const startDate = new Date();
+    switch (period) {
+      case '7d':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(startDate.getDate() - 90);
+        break;
+      default:
+        startDate.setDate(startDate.getDate() - 30);
+    }
+
+    const orders = await Order.find({
+      'cart.product': id,
+      createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    const performance = {
+      period,
+      sales: {
+        total: orders.length,
+        revenue: orders.reduce((sum, order) => {
+          const item = order.cart.find(item => item.product.toString() === id);
+          return sum + (item ? item.price * item.quantity : 0);
+        }, 0)
+      },
+      views: product.analytics.views,
+      conversionRate: (orders.length / product.analytics.views * 100).toFixed(2)
+    };
+
+    res.json(performance);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get product performance', error: error.message });
+  }
+};
+
+// Review Management Controllers
+exports.addReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+    const buyerId = req.user.id;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if buyer has purchased the product
+    const order = await Order.findOne({
+      user: buyerId,
+      'cart.product': id,
+      'tracking.status': 'delivered'
+    });
+
+    if (!order) {
+      return res.status(403).json({ message: 'You must purchase and receive the product before reviewing' });
+    }
+
+    // Check if buyer has already reviewed
+    const existingReview = product.reviews.find(review => 
+      review.buyer.toString() === buyerId
+    );
+
+    if (existingReview) {
+      return res.status(400).json({ message: 'You have already reviewed this product' });
+    }
+
+    product.reviews.push({
+      buyer: buyerId,
+      rating,
+      comment,
+      createdAt: Date.now()
+    });
+
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add review', error: error.message });
+  }
+};
+
+exports.getProductReviews = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const product = await Product.findById(id)
+      .populate({
+        path: 'reviews.buyer',
+        select: 'firstName lastName profileImage'
+      })
+      .select('reviews');
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+
+    const reviews = product.reviews
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(startIndex, endIndex);
+
+    res.json({
+      reviews,
+      currentPage: page,
+      totalPages: Math.ceil(product.reviews.length / limit),
+      totalReviews: product.reviews.length
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get product reviews', error: error.message });
+  }
+};
+
+exports.updateReview = async (req, res) => {
+  try {
+    const { id, reviewId } = req.params;
+    const { rating, comment } = req.body;
+    const buyerId = req.user.id;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const review = product.reviews.id(reviewId);
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    if (review.buyer.toString() !== buyerId) {
+      return res.status(403).json({ message: 'Not authorized to update this review' });
+    }
+
+    review.rating = rating || review.rating;
+    review.comment = comment || review.comment;
+    review.updatedAt = Date.now();
+
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update review', error: error.message });
+  }
+};
+
+// Visibility Management
+exports.updateVisibility = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { visibility } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
+    product.visibility = visibility;
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update visibility', error: error.message });
   }
 };

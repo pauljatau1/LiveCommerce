@@ -83,6 +83,15 @@ const sellerSchema = new mongoose.Schema({
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
   isProfileComplete: { type: Boolean, default: false },
+  storeVisits: { type: Number, default: 0 },
+  customers: [{
+    buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
+    firstName: { type: String },
+    lastName: { type: String },
+    firstPurchaseDate: { type: Date },
+    totalOrders: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 }
+  }],
 });
 
 sellerSchema.pre('save', async function(next) {

@@ -53,6 +53,61 @@ const orderSchema = new mongoose.Schema({
   deliveredAt: {
     type: Date,
   },
+  tracking: {
+    status: {
+      type: String,
+      enum: [
+        'pending',
+        'payment_processing',
+        'paid',
+        'preparing',
+        'shipped',
+        'out_for_delivery',
+        'delivered',
+        'cancelled',
+        'refunded'
+      ],
+      default: 'pending'
+    },
+    statusHistory: [{
+      status: { type: String },
+      timestamp: { type: Date, default: Date.now },
+      note: { type: String },
+      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    }],
+    estimatedDelivery: { type: Date },
+    trackingNumber: { type: String },
+    carrier: { type: String },
+  },
+  billing: {
+    subtotal: { type: Number, required: true },
+    shipping: { type: Number, required: true },
+    tax: { type: Number, required: true },
+    discount: { type: Number, default: 0 },
+    total: { type: Number, required: true },
+  },
+  notes: {
+    customerNote: { type: String },
+    privateNote: { type: String },
+    giftNote: { type: String },
+  },
+  refund: {
+    status: { type: String, enum: ['none', 'requested', 'approved', 'processed'] },
+    amount: { type: Number },
+    reason: { type: String },
+    requestDate: { type: Date },
+    processedDate: { type: Date },
+  }
+});
+
+orderSchema.pre('save', function(next) {
+  if (this.isModified('tracking.status')) {
+    this.tracking.statusHistory.push({
+      status: this.tracking.status,
+      timestamp: Date.now(),
+    });
+  }
+  next();
 });
 
 module.exports = mongoose.model('Order', orderSchema);

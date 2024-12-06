@@ -7,6 +7,8 @@ const Category = require('../models/Category');
 const s3 = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
 const Withdrawal = require('../models/Withdrawal');
+const Order = require('../models/Order');
+const mongoose = require('mongoose');
 
 // Helper function for JWT generation
 const generateToken = (id) => {
@@ -718,5 +720,91 @@ exports.updateWithdrawalStatus = async (req, res) => {
       message: 'Failed to update withdrawal status', 
       error: error.message 
     });
+  }
+};
+
+// Get seller's top 5 selling products
+exports.getTopProducts = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+
+    const topProducts = await Order.aggregate([
+      // Match orders for this seller
+      { $match: { seller: mongoose.Types.ObjectId(sellerId) } },
+      // Unwind the items array
+      { $unwind: '$items' },
+      // Group by product and sum quantities
+      { 
+        $group: {
+          _id: '$items.product',
+          totalQuantity: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      // Sort by quantity sold
+      { $sort: { totalQuantity: -1 } },
+      // Limit to top 5
+      { $limit: 5 },
+      // Lookup product details
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'productDetails'
+        }
+      },
+      { $unwind: '$productDetails' }
+    ]);
+
+    res.json(topProducts);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve top products', error: error.message });
+  }
+};
+
+// Get seller's statistics
+exports.getStatistics = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const seller = await Seller.findById(sellerId);
+
+    // Get all orders for this seller
+    const orders = await Order.find({ seller: sellerId });
+
+    // Calculate statistics
+    const totalOrders = orders.length;
+    const totalSales = orders.reduce((sum, order) => sum + order.totalPrice, 0);
+    const uniqueCustomers = seller.customers.length;
+    const storeVisits = seller.storeVisits;
+    
+    // Calculate conversion rate (orders / store visits)
+    const conversionRate = storeVisits ? (totalOrders / storeVisits * 100).toFixed(2) : 0;
+
+    // Get current month's data
+    const currentMonth = new Date().getMonth();
+    const currentMonthOrders = orders.filter(order => 
+      order.createdAt.getMonth() === currentMonth
+    );
+    const currentMonthSales = currentMonthOrders.reduce((sum, order) => 
+      sum + order.totalPrice, 0
+    );
+
+    const statistics = {
+      totalStoreVisits: storeVisits,
+      totalSales,
+      totalOrders,
+      uniqueCustomers,
+      conversionRate: `${conversionRate}%`,
+      walletBalance: seller.walletBalance,
+      currentMonth: {
+        orders: currentMonthOrders.length,
+        sales: currentMonthSales
+      }
+    };
+
+    res.json(statistics);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve statistics', error: error.message });
   }
 };
