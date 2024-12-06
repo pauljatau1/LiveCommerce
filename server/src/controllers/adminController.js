@@ -520,9 +520,9 @@ exports.verifyBusinessAccount = async (req, res) => {
     seller.isVerified = true;
     await seller.save();
 
-    res.json({ message: 'Business account verified successfully', seller });
+    res.json({ message: ' account verified successfully', seller });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to verify business account', error: error.message });
+    res.status(500).json({ message: 'Failed to verify account', error: error.message });
   }
 };
 

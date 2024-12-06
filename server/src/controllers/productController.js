@@ -4,15 +4,31 @@ const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const s3 = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
+const Category = require('../models/Category');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
   const sellerId = req.user.id;
-  const { ...productData } = req.body;
+  const { category, subCategory, ...productData } = req.body;
   const images = req.files['images'];
   const blips = req.files['blips'];
 
   try {
+    // Validate category and subCategory
+    const categoryDoc = await Category.findOne({ name: category });
+    if (!categoryDoc) {
+      return res.status(400).json({ message: 'Invalid category' });
+    }
+
+    if (subCategory) {
+      const validSubCategory = categoryDoc.subCategories.some(sub => 
+        sub.name === subCategory
+      );
+      if (!validSubCategory) {
+        return res.status(400).json({ message: 'Invalid subcategory for the selected category' });
+      }
+    }
+
     let imagesLinks = [];
     if (images && images.length > 0) {
       for (let image of images) {
@@ -45,6 +61,8 @@ exports.createProduct = async (req, res) => {
 
     const newProduct = new Product({
       ...productData,
+      category,
+      subCategory,
       seller: sellerId,
       images: imagesLinks,
       blips: blipsLinks,
@@ -89,7 +107,7 @@ exports.getProduct = async (req, res) => {
 // Update a product
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
-  const { ...updateData } = req.body;
+  const { category, subCategory, ...updateData } = req.body;
   const images = req.files['images'];
   const blips = req.files['blips'];
 
@@ -97,6 +115,23 @@ exports.updateProduct = async (req, res) => {
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Validate category and subCategory if they're being updated
+    if (category) {
+      const categoryDoc = await Category.findOne({ name: category });
+      if (!categoryDoc) {
+        return res.status(400).json({ message: 'Invalid category' });
+      }
+
+      if (subCategory) {
+        const validSubCategory = categoryDoc.subCategories.some(sub => 
+          sub.name === subCategory
+        );
+        if (!validSubCategory) {
+          return res.status(400).json({ message: 'Invalid subcategory for the selected category' });
+        }
+      }
     }
 
     let imagesLinks = [];
@@ -131,6 +166,8 @@ exports.updateProduct = async (req, res) => {
 
     // Merge updateData with the existing product data
     Object.assign(product, updateData, {
+      category: category || product.category,
+      subCategory: subCategory || product.subCategory,
       images: [...product.images, ...imagesLinks],
       blips: [...product.blips, ...blipsLinks],
       updatedAt: Date.now()
@@ -310,5 +347,214 @@ exports.getProductsBySelectedCategories = async (req, res) => {
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
+  }
+};
+
+// Get products for buyer's feed based on selected categories and subcategories
+exports.getBuyerFeedProducts = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Extract all subcategory names from buyer's selected categories
+    const subcategoryNames = buyer.selectedCategories.flatMap(category => 
+      category.subCategories.map(sub => sub.name)
+    );
+
+    const products = await Product.find({
+      $or: [
+        { category: { $in: buyer.selectedCategories.map(cat => cat.name) } },
+        { subCategory: { $in: subcategoryNames } }
+      ]
+    })
+    .sort({ createdAt: -1 })
+    .populate('seller', 'name avatarUrl about')
+    .populate('reviews.buyer', 'firstName lastName');
+
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve feed products', error: error.message });
+  }
+};
+
+// Get trending products based on review count and ratings
+exports.getTrendingProducts = async (req, res) => {
+  try {
+    const products = await Product.aggregate([
+      { 
+        $addFields: {
+          reviewCount: { $size: "$reviews" },
+          averageRating: { $avg: "$reviews.rating" }
+        }
+      },
+      {
+        $sort: {
+          reviewCount: -1,
+          averageRating: -1
+        }
+      },
+      { $limit: 20 }
+    ]);
+
+    await Product.populate(products, {
+      path: 'seller',
+      select: 'name avatarUrl about'
+    });
+
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve trending products', error: error.message });
+  }
+};
+
+// Get trending products by category
+exports.getTrendingProductsByCategory = async (req, res) => {
+  const { category } = req.params;
+
+  try {
+    const products = await Product.aggregate([
+      { $match: { category } },
+      { 
+        $addFields: {
+          reviewCount: { $size: "$reviews" },
+          averageRating: { $avg: "$reviews.rating" }
+        }
+      },
+      {
+        $sort: {
+          reviewCount: -1,
+          averageRating: -1
+        }
+      },
+      { $limit: 10 }
+    ]);
+
+    await Product.populate(products, {
+      path: 'seller',
+      select: 'name avatarUrl about'
+    });
+
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve trending products by category', error: error.message });
+  }
+};
+
+// Get products by main category
+exports.getProductsByCategory = async (req, res) => {
+  const { category } = req.params;
+  const { limit = 20, page = 1 } = req.query;
+
+  try {
+    const products = await Product.find({ category })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate('seller', 'name avatarUrl about')
+      .populate('reviews.buyer', 'firstName lastName');
+
+    const total = await Product.countDocuments({ category });
+
+    res.json({
+      products,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalProducts: total
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve products by category', error: error.message });
+  }
+};
+
+// Add to wishlist
+exports.addToWishlist = async (req, res) => {
+  const buyerId = req.user.id;
+  const { productId } = req.params;
+
+  try {
+    const buyer = await Buyer.findById(buyerId);
+    const product = await Product.findById(productId);
+
+    if (!buyer || !product) {
+      return res.status(404).json({ 
+        message: !buyer ? 'Buyer not found' : 'Product not found' 
+      });
+    }
+
+    // Check if product is already in wishlist
+    const isInWishlist = buyer.wishlist.some(item => 
+      item.product.toString() === productId
+    );
+
+    if (isInWishlist) {
+      return res.status(400).json({ message: 'Product already in wishlist' });
+    }
+
+    // Add to wishlist
+    buyer.wishlist.push({ product: productId });
+    await buyer.save();
+
+    res.json({ message: 'Product added to wishlist successfully' });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to add product to wishlist', 
+      error: error.message 
+    });
+  }
+};
+
+// Remove from wishlist
+exports.removeFromWishlist = async (req, res) => {
+  const buyerId = req.user.id;
+  const { productId } = req.params;
+
+  try {
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Remove from wishlist
+    buyer.wishlist = buyer.wishlist.filter(item => 
+      item.product.toString() !== productId
+    );
+    await buyer.save();
+
+    res.json({ message: 'Product removed from wishlist successfully' });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to remove product from wishlist', 
+      error: error.message 
+    });
+  }
+};
+
+// Get wishlist
+exports.getWishlist = async (req, res) => {
+  const buyerId = req.user.id;
+
+  try {
+    const buyer = await Buyer.findById(buyerId)
+      .populate({
+        path: 'wishlist.product',
+        select: 'name description price images category brand',
+        populate: {
+          path: 'seller',
+          select: 'name avatarUrl about'
+        }
+      });
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.json(buyer.wishlist);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve wishlist', 
+      error: error.message 
+    });
   }
 };

@@ -9,6 +9,7 @@ const productSchema = new mongoose.Schema({
     price: { type: Number },
   }],
   category: { type: String, required: true },
+  subCategory: { type: String },
   brand: { type: String },
   modelNumber: { type: String },
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', required: true },

@@ -446,4 +446,58 @@ router.get('/google-callback', passport.authenticate('google', { failureRedirect
   res.json({ user, token });
 });
 
+/**
+ * @swagger
+ * /api/buyer/forgot-password:
+ *   post:
+ *     summary: Request password reset email
+ *     tags: [Buyer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset email sent
+ *       400:
+ *         description: Email is required
+ *       404:
+ *         description: No account with that email exists
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/forgot-password', buyerController.forgotPassword);
+
+/**
+ * @swagger
+ * /api/buyer/reset-password:
+ *   post:
+ *     summary: Reset password using token
+ *     tags: [Buyer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired reset token
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/reset-password', buyerController.resetPassword);
+
 module.exports = router;

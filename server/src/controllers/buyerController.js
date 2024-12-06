@@ -4,6 +4,7 @@ const sgMail = require('@sendgrid/mail');
 const { v4: uuidv4 } = require('uuid');
 const s3 = require('../config/awsConfig');
 const notificationController = require('../controllers/notificationController');
+const crypto = require('crypto');
 
 sgMail.setApiKey('SG.REDACTED');
 
@@ -15,20 +16,54 @@ const generateToken = (id) => {
 // Helper function to generate OTP (4-digit)
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
+// Helper function to generate reset token
+const generateResetToken = () => {
+  return crypto.randomBytes(32).toString('hex');
+};
+
 // Register a new buyer
 exports.register = async (req, res) => {
   const { firstName, lastName, username, email, country, phoneNumber, password } = req.body;
 
+  // Validate required fields
   if (!firstName || !lastName || !username || !email || !phoneNumber || !password) {
-    return res.status(400).json({ message: 'All fields are required.' });
+    return res.status(400).json({ 
+      message: 'Missing required fields',
+      details: {
+        firstName: !firstName ? 'First name is required' : null,
+        lastName: !lastName ? 'Last name is required' : null,
+        username: !username ? 'Username is required' : null,
+        email: !email ? 'Email is required' : null,
+        phoneNumber: !phoneNumber ? 'Phone number is required' : null,
+        password: !password ? 'Password is required' : null
+      }
+    });
   }
 
   try {
-    const existingBuyer = await Buyer.findOne({ email });
-    if (existingBuyer) return res.status(409).json({ message: 'Email is already in use.' });
+    // Check if email exists
+    const existingEmail = await Buyer.findOne({ email });
+    if (existingEmail) {
+      return res.status(409).json({ message: 'Email is already registered' });
+    }
+
+    // Check if username exists
+    const existingUsername = await Buyer.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: 'Username is already taken' });
+    }
 
     const otp = generateOTP();
-    const newBuyer = new Buyer({ firstName, lastName, username, email, country, phoneNumber, password, otp });
+    const newBuyer = new Buyer({ 
+      firstName, 
+      lastName, 
+      username, 
+      email, 
+      country, 
+      phoneNumber, 
+      password, 
+      otp 
+    });
 
     await newBuyer.save();
     const token = generateToken(newBuyer._id);
@@ -45,13 +80,19 @@ exports.register = async (req, res) => {
       await sgMail.send(msg);
     } catch (sendError) {
       console.error('SendGrid error:', sendError);
-      return res.status(500).json({ message: 'Failed to send verification email', error: sendError.message });
+      return res.status(500).json({ 
+        message: 'Account created but failed to send verification email',
+        error: sendError.message 
+      });
     }
 
     res.status(201).json({ user: newBuyer, token });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Failed to register buyer', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to register buyer', 
+      error: error.message 
+    });
   }
 };
 
@@ -414,6 +455,92 @@ exports.verifyPhoneOTP = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+  }
+};
+
+// Forgot password - send reset email
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
+  }
+
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return res.status(404).json({ message: 'No account with that email exists.' });
+    }
+
+    // Generate reset token and expiry
+    const resetToken = generateResetToken();
+    buyer.resetPasswordToken = resetToken;
+    buyer.resetPasswordExpires = Date.now() + 3600000; // Token expires in 1 hour
+    await buyer.save();
+
+    // Create reset URL
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Password Reset Request',
+      text: `You requested a password reset. Please click on the following link to reset your password: ${resetUrl}. If you didn't request this, please ignore this email.`,
+      html: `
+        <p>You requested a password reset.</p>
+        <p>Please click on the following link to reset your password:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>This link will expire in 1 hour.</p>
+      `,
+    };
+
+    await sgMail.send(msg);
+    res.json({ message: 'Password reset email sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Failed to process password reset', error: error.message });
+  }
+};
+
+// Reset password with token
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: 'Token and new password are required.' });
+  }
+
+  try {
+    const buyer = await Buyer.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!buyer) {
+      return res.status(400).json({ message: 'Invalid or expired reset token.' });
+    }
+
+    // Update password and clear reset token fields
+    buyer.password = newPassword;
+    buyer.resetPasswordToken = undefined;
+    buyer.resetPasswordExpires = undefined;
+    await buyer.save();
+
+    // Send confirmation email
+    const msg = {
+      to: buyer.email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Password Reset Successful',
+      text: 'Your password has been successfully reset.',
+      html: '<strong>Your password has been successfully reset.</strong>',
+    };
+
+    await sgMail.send(msg);
+    res.json({ message: 'Password reset successful.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Failed to reset password', error: error.message });
   }
 };
 

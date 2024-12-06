@@ -65,6 +65,8 @@ const upload = multer({ storage: multer.memoryStorage() });
  *               status:
  *                 type: string
  *                 enum: [draft, active]
+ *               subCategory:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Product created successfully
@@ -178,6 +180,8 @@ router.get('/products/:id', productController.getProduct);
  *               status:
  *                 type: string
  *                 enum: [draft, active]
+ *               subCategory:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Product updated successfully
@@ -367,5 +371,147 @@ router.get('/products/best-selling', productController.getBestSellingProducts);
  *         description: Internal server error
  */
 router.get('/products/selected-categories', authMiddleware.verifyToken, productController.getProductsBySelectedCategories);
+
+/**
+ * @swagger
+ * /api/product/feed:
+ *   get:
+ *     summary: Get products for buyer's feed based on their selected categories
+ *     tags: [Product]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of feed products retrieved successfully
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/feed', authMiddleware.verifyToken, productController.getBuyerFeedProducts);
+
+/**
+ * @swagger
+ * /api/product/trending:
+ *   get:
+ *     summary: Get trending products
+ *     tags: [Product]
+ *     responses:
+ *       200:
+ *         description: List of trending products retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/trending', productController.getTrendingProducts);
+
+/**
+ * @swagger
+ * /api/product/trending/{category}:
+ *   get:
+ *     summary: Get trending products by category
+ *     tags: [Product]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Category name
+ *     responses:
+ *       200:
+ *         description: List of trending products in category retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/trending/:category', productController.getTrendingProductsByCategory);
+
+/**
+ * @swagger
+ * /api/product/category/{category}:
+ *   get:
+ *     summary: Get products by category with pagination
+ *     tags: [Product]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Category name
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of products in category retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/category/:category', productController.getProductsByCategory);
+
+/**
+ * @swagger
+ * /api/product/wishlist/add/{productId}:
+ *   post:
+ *     summary: Add a product to buyer's wishlist
+ *     tags: [Product]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         description: ID of the product to add to wishlist
+ *     responses:
+ *       200:
+ *         description: Product added to wishlist successfully
+ *       404:
+ *         description: Product or buyer not found
+ */
+router.post('/wishlist/add/:productId', authMiddleware.verifyToken, productController.addToWishlist);
+
+/**
+ * @swagger
+ * /api/product/wishlist/remove/{productId}:
+ *   delete:
+ *     summary: Remove a product from buyer's wishlist
+ *     tags: [Product]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         description: ID of the product to remove from wishlist
+ *     responses:
+ *       200:
+ *         description: Product removed from wishlist successfully
+ *       404:
+ *         description: Product or buyer not found
+ */
+router.delete('/wishlist/remove/:productId', authMiddleware.verifyToken, productController.removeFromWishlist);
+
+/**
+ * @swagger
+ * /api/product/wishlist:
+ *   get:
+ *     summary: Get buyer's wishlist
+ *     tags: [Product]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wishlist retrieved successfully
+ *       404:
+ *         description: Buyer not found
+ */
+router.get('/wishlist', authMiddleware.verifyToken, productController.getWishlist);
 
 module.exports = router;
