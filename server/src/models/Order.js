@@ -1,113 +1,151 @@
 const mongoose = require('mongoose');
 
-const orderSchema = new mongoose.Schema({
-  cart: [{
-    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-    quantity: { type: Number, required: true },
-    price: { type: Number, required: true },
-  }],
-  shippingAddress: {
-    country: { type: String, required: true },
-    city: { type: String, required: true },
-    address1: { type: String, required: true },
-    address2: { type: String },
-    zipCode: { type: String, required: true },
-    addressType: { type: String, required: true },
-  },
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Buyer',
-    required: true,
+const orderItemSchema = new mongoose.Schema({
+  product: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Product', 
+    required: true 
   },
   seller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller',
-    required: true,
+    required: true
   },
-  parentOrder: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Order',
+  quantity: { 
+    type: Number, 
+    required: true 
   },
-  totalPrice: {
-    type: Number,
-    required: true,
+  price: { 
+    type: Number, 
+    required: true 
   },
   status: {
     type: String,
-    default: 'Pending',
+    enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'],
+    default: 'pending'
+  },
+  statusHistory: [{
+    status: String,
+    timestamp: { type: Date, default: Date.now },
+    note: String
+  }]
+});
+
+const orderSchema = new mongoose.Schema({
+  buyer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Buyer',
+    required: true
+  },
+  items: [orderItemSchema],
+  totalAmount: {
+    type: Number,
+    required: true
+  },
+  shippingAddress: {
+    country: { type: String, required: true },
+    city: { type: String, required: true },
+    address1: { type: String, required: true },
+    address2: String,
+    zipCode: { type: String, required: true }
   },
   paymentInfo: {
-    id: {
-      type: String,
+    method: { 
+      type: String, 
+      required: true,
+      enum: ['credit_card', 'paypal', 'stripe']
     },
     status: {
       type: String,
-    },
-    type: {
-      type: String,
-    },
-  },
-  paidAt: {
-    type: Date,
-  },
-  deliveredAt: {
-    type: Date,
-  },
-  tracking: {
-    status: {
-      type: String,
-      enum: [
-        'pending',
-        'payment_processing',
-        'paid',
-        'preparing',
-        'shipped',
-        'out_for_delivery',
-        'delivered',
-        'cancelled',
-        'refunded'
-      ],
+      enum: ['pending', 'processing', 'completed', 'failed', 'refunded'],
       default: 'pending'
     },
-    statusHistory: [{
-      status: { type: String },
-      timestamp: { type: Date, default: Date.now },
-      note: { type: String },
-      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-    }],
-    estimatedDelivery: { type: Date },
-    trackingNumber: { type: String },
-    carrier: { type: String },
+    transactionId: String,
+    paidAt: Date
   },
-  billing: {
-    subtotal: { type: Number, required: true },
-    shipping: { type: Number, required: true },
-    tax: { type: Number, required: true },
-    discount: { type: Number, default: 0 },
-    total: { type: Number, required: true },
+  discount: {
+    code: String,
+    amount: Number
   },
-  notes: {
-    customerNote: { type: String },
-    privateNote: { type: String },
-    giftNote: { type: String },
+  shipping: {
+    method: String,
+    cost: Number,
+    trackingNumber: String,
+    carrier: String,
+    estimatedDelivery: Date
+  },
+  dispute: {
+    status: {
+      type: String,
+      enum: ['none', 'opened', 'under_review', 'resolved', 'closed'],
+      default: 'none'
+    },
+    reason: String,
+    description: String,
+    openedAt: Date,
+    resolvedAt: Date,
+    resolution: String
   },
   refund: {
-    status: { type: String, enum: ['none', 'requested', 'approved', 'processed'] },
-    amount: { type: Number },
-    reason: { type: String },
-    requestDate: { type: Date },
-    processedDate: { type: Date },
+    status: {
+      type: String,
+      enum: ['none', 'requested', 'approved', 'processed', 'rejected'],
+      default: 'none'
+    },
+    amount: Number,
+    reason: String,
+    requestedAt: Date,
+    processedAt: Date
+  },
+  notes: [{
+    type: { 
+      type: String, 
+      enum: ['buyer', 'seller', 'admin'] 
+    },
+    content: String,
+    createdAt: { type: Date, default: Date.now }
+  }],
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
   }
 });
 
+// Pre-save middleware to update status history
 orderSchema.pre('save', function(next) {
-  if (this.isModified('tracking.status')) {
-    this.tracking.statusHistory.push({
-      status: this.tracking.status,
-      timestamp: Date.now(),
-    });
-  }
+  const order = this;
+  
+  // Update items status history if changed
+  order.items.forEach(item => {
+    if (item.isModified('status')) {
+      item.statusHistory.push({
+        status: item.status,
+        timestamp: new Date(),
+      });
+    }
+  });
+
   next();
 });
+
+// Method to calculate total amount
+orderSchema.methods.calculateTotal = function() {
+  let total = 0;
+  this.items.forEach(item => {
+    total += item.price * item.quantity;
+  });
+  
+  // Add shipping cost if exists
+  if (this.shipping && this.shipping.cost) {
+    total += this.shipping.cost;
+  }
+  
+  // Subtract discount if exists
+  if (this.discount && this.discount.amount) {
+    total -= this.discount.amount;
+  }
+  
+  return total;
+};
 
 module.exports = mongoose.model('Order', orderSchema);

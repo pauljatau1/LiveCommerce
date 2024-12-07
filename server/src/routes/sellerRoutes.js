@@ -597,6 +597,96 @@ router.get('/top-products', authMiddleware.verifyToken, sellerController.getTopP
  */
 router.get('/statistics', authMiddleware.verifyToken, sellerController.getStatistics);
 
+/**
+ * @swagger
+ * /api/seller/orders:
+ *   get:
+ *     summary: Get seller's orders
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of seller's orders
+ */
+router.get('/orders', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getOrders
+);
+
+/**
+ * @swagger
+ * /api/seller/analytics:
+ *   get:
+ *     summary: Get seller's sales analytics
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Seller's analytics data
+ */
+router.get('/analytics', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getSalesAnalytics
+);
+
+/**
+ * @swagger
+ * /api/seller/orders/{orderId}/shipping-label:
+ *   get:
+ *     summary: Generate shipping label for order
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Shipping label generated successfully
+ */
+router.get('/orders/:orderId/shipping-label', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getShippingLabel
+);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

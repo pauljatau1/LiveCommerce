@@ -846,42 +846,43 @@ exports.getSellerReviews = async (req, res) => {
 
 // Inventory Management
 exports.updateInventory = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const { id } = req.params;
-    const { quantity, lowStockThreshold, sku, barcode } = req.body;
-    
-    const product = await Product.findById(id);
+    const { productId, quantity, operation } = req.body;
+    const product = await Product.findById(productId).session(session);
+
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      throw new Error('Product not found');
     }
 
-    // Verify seller ownership
     if (product.seller.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to update this product' });
+      throw new Error('Not authorized to update this product');
     }
 
-    // Update inventory fields
-    if (quantity !== undefined) product.inventory.quantity = quantity;
-    if (lowStockThreshold !== undefined) product.inventory.lowStockThreshold = lowStockThreshold;
-    if (sku) product.inventory.sku = sku;
-    if (barcode) product.inventory.barcode = barcode;
-
-    await product.save();
-
-    // Check if stock is low and notify seller
-    if (product.inventory.quantity <= product.inventory.lowStockThreshold) {
-      await NotificationController.createNotification({
-        recipient: req.user.id,
-        type: 'LOW_STOCK',
+    await product.updateStock(quantity, operation);
+    
+    // Check if low stock notification needed
+    if (product.isLowStock()) {
+      // Notify seller
+      await notificationController.createNotification({
+        recipient: product.seller,
+        type: 'low_stock',
         title: 'Low Stock Alert',
-        message: `${product.name} is running low on stock (${product.inventory.quantity} remaining)`,
-        reference: product._id
+        message: `${product.name} is running low on stock (${product.stock} remaining)`,
+        data: { productId: product._id }
       });
     }
 
-    res.json(product);
+    await session.commitTransaction();
+    res.json({ message: 'Inventory updated successfully', product });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update inventory', error: error.message });
+    await session.abortTransaction();
+    res.status(400).json({ message: 'Failed to update inventory', error: error.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -957,33 +958,50 @@ exports.removeVariant = async (req, res) => {
 // Analytics Controllers
 exports.getProductAnalytics = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { startDate, endDate } = req.query;
-
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+    const { startDate, endDate, productId } = req.query;
+    const query = { seller: req.user.id };
+    
+    if (productId) {
+      query._id = productId;
     }
 
-    // Get orders containing this product
+    const dateRange = {
+      $gte: startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      $lte: endDate ? new Date(endDate) : new Date()
+    };
+
+    const products = await Product.find(query);
+    const productIds = products.map(p => p._id);
+
     const orders = await Order.find({
-      'cart.product': id,
-      createdAt: {
-        $gte: startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        $lte: endDate ? new Date(endDate) : new Date()
-      }
+      'items.product': { $in: productIds },
+      createdAt: dateRange
     });
 
-    const analytics = {
-      totalViews: product.analytics.views,
-      totalSales: orders.length,
-      revenue: orders.reduce((sum, order) => {
-        const item = order.cart.find(item => item.product.toString() === id);
-        return sum + (item ? item.price * item.quantity : 0);
-      }, 0),
-      conversionRate: (orders.length / product.analytics.views * 100).toFixed(2),
-      averageOrderValue: orders.length ? (revenue / orders.length).toFixed(2) : 0
-    };
+    const analytics = products.map(product => {
+      const productOrders = orders.filter(order => 
+        order.items.some(item => item.product.toString() === product._id.toString())
+      );
+
+      const revenue = productOrders.reduce((sum, order) => {
+        const item = order.items.find(item => 
+          item.product.toString() === product._id.toString()
+        );
+        return sum + (item.price * item.quantity);
+      }, 0);
+
+      return {
+        productId: product._id,
+        name: product.name,
+        totalViews: product.stats.views,
+        totalSales: product.soldCount,
+        revenue,
+        averageRating: product.stats.averageRating,
+        reviewCount: product.stats.reviewCount,
+        conversionRate: product.stats.views ? 
+          ((product.soldCount / product.stats.views) * 100).toFixed(2) : 0
+      };
+    });
 
     res.json(analytics);
   } catch (error) {
@@ -1095,13 +1113,13 @@ exports.bulkDelete = async (req, res) => {
 // Analytics and Reporting Controllers
 exports.getLowStockProducts = async (req, res) => {
   try {
-    const sellerId = req.user.id;
     const products = await Product.find({
-      seller: sellerId,
-      $expr: {
-        $lte: ['$inventory.quantity', '$inventory.lowStockThreshold']
-      }
-    }).populate('seller', 'name avatarUrl about');
+      seller: req.user.id,
+      $or: [
+        { stock: { $lte: '$lowStockAlert' } },
+        { 'variants.options.inventory': { $lte: '$lowStockAlert' } }
+      ]
+    });
 
     res.json(products);
   } catch (error) {
@@ -1291,5 +1309,119 @@ exports.updateVisibility = async (req, res) => {
     res.json(product);
   } catch (error) {
     res.status(500).json({ message: 'Failed to update visibility', error: error.message });
+  }
+};
+
+// Update shipping information
+exports.updateShipping = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shippingMethods, weight, dimensions } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
+    product.shippingInfo = {
+      ...product.shippingInfo,
+      weight: weight || product.shippingInfo.weight,
+      dimensions: dimensions || product.shippingInfo.dimensions,
+      shippingMethods: shippingMethods || product.shippingInfo.shippingMethods
+    };
+
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update shipping info', error: error.message });
+  }
+};
+
+// Update return policy
+exports.updateReturnPolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { allowed, periodInDays, conditions } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
+    product.returnPolicy = {
+      allowed: allowed !== undefined ? allowed : product.returnPolicy.allowed,
+      periodInDays: periodInDays || product.returnPolicy.periodInDays,
+      conditions: conditions || product.returnPolicy.conditions
+    };
+
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update return policy', error: error.message });
+  }
+};
+
+// Bulk update products
+exports.bulkUpdateProducts = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { products } = req.body;
+    const updatedProducts = [];
+
+    for (const { id, updates } of products) {
+      const product = await Product.findById(id).session(session);
+      
+      if (!product || product.seller.toString() !== req.user.id) {
+        continue;
+      }
+
+      Object.assign(product, updates);
+      await product.save({ session });
+      updatedProducts.push(product);
+    }
+
+    await session.commitTransaction();
+    res.json({ message: 'Products updated successfully', products: updatedProducts });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ message: 'Failed to update products', error: error.message });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Get product statistics
+exports.getProductStats = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const stats = {
+      views: product.stats.views,
+      averageRating: product.stats.averageRating,
+      reviewCount: product.stats.reviewCount,
+      soldCount: product.soldCount,
+      lastRestocked: product.stats.lastRestocked,
+      currentStock: product.stock,
+      isLowStock: product.isLowStock()
+    };
+
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get product stats', error: error.message });
   }
 };

@@ -500,4 +500,85 @@ router.post('/forgot-password', buyerController.forgotPassword);
  */
 router.post('/reset-password', buyerController.resetPassword);
 
+/**
+ * @swagger
+ * /api/buyer/orders:
+ *   get:
+ *     summary: Get buyer's orders
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of buyer's orders
+ */
+router.get('/orders', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getOrders
+);
+
+/**
+ * @swagger
+ * /api/buyer/orders/{id}:
+ *   get:
+ *     summary: Get specific order details
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order details
+ *       404:
+ *         description: Order not found
+ */
+router.get('/orders/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getOrderDetails
+);
+
+/**
+ * @swagger
+ * /api/buyer/analytics:
+ *   get:
+ *     summary: Get buyer's purchase analytics
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Buyer's purchase analytics
+ */
+router.get('/analytics', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getPurchaseAnalytics
+);
+
 module.exports = router;

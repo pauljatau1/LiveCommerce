@@ -10,6 +10,16 @@ const Order = require('../models/Order');
 const Announcement = require('../models/Annoucement');
 const Withdrawal = require('../models/Withdrawal');
 const sgMail = require('@sendgrid/mail');
+const mongoose = require('mongoose');
+const axios = require('axios');
+const paystack = axios.create({
+  baseURL: 'https://api.paystack.co',
+  headers: {
+    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+    'Content-Type': 'application/json'
+  }
+});
+
 sgMail.setApiKey('SG.REDACTED');
 
 // Configure Cloudinary
@@ -662,6 +672,353 @@ exports.updateWithdrawalStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to update withdrawal status', 
+      error: error.message 
+    });
+  }
+};
+
+// Get all orders with advanced filtering and search
+exports.getAllOrders = async (req, res) => {
+  try {
+    const {
+      status,
+      startDate,
+      endDate,
+      sellerId,
+      buyerId,
+      minAmount,
+      maxAmount,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const query = {};
+
+    // Apply filters
+    if (status) query['items.status'] = status;
+    if (sellerId) query['items.seller'] = sellerId;
+    if (buyerId) query.buyer = buyerId;
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+    if (minAmount || maxAmount) {
+      query.totalAmount = {};
+      if (minAmount) query.totalAmount.$gte = Number(minAmount);
+      if (maxAmount) query.totalAmount.$lte = Number(maxAmount);
+    }
+
+    const orders = await Order.find(query)
+      .populate('buyer', 'firstName lastName email phoneNumber')
+      .populate('items.seller', 'firstName lastName businessName email')
+      .populate('items.product', 'name price')
+      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Order.countDocuments(query);
+
+    res.json({
+      orders,
+      totalPages: Math.ceil(total / limit),
+      currentPage: Number(page),
+      totalOrders: total
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+  }
+};
+
+// Get platform analytics
+exports.getPlatformAnalytics = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const dateQuery = {};
+    if (startDate || endDate) {
+      dateQuery.createdAt = {};
+      if (startDate) dateQuery.createdAt.$gte = new Date(startDate);
+      if (endDate) dateQuery.createdAt.$lte = new Date(endDate);
+    }
+
+    const analytics = {
+      orders: {
+        total: 0,
+        byStatus: {},
+        byDay: {},
+      },
+      revenue: {
+        total: 0,
+        byDay: {},
+        commission: 0
+      },
+      sellers: {
+        total: await Seller.countDocuments(),
+        active: 0,
+        topPerformers: []
+      },
+      products: {
+        total: await Product.countDocuments(),
+        topSelling: []
+      },
+      disputes: {
+        total: 0,
+        open: 0,
+        resolved: 0
+      }
+    };
+
+    // Aggregate order data
+    const orderStats = await Order.aggregate([
+      { $match: dateQuery },
+      { $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalRevenue: { $sum: '$totalAmount' },
+          avgOrderValue: { $avg: '$totalAmount' }
+        }
+      }
+    ]);
+
+    if (orderStats.length > 0) {
+      analytics.orders.total = orderStats[0].totalOrders;
+      analytics.revenue.total = orderStats[0].totalRevenue;
+      analytics.revenue.commission = orderStats[0].totalRevenue * 0.1; // Assuming 10% commission
+    }
+
+    // Get order status distribution
+    const statusStats = await Order.aggregate([
+      { $match: dateQuery },
+      { $unwind: '$items' },
+      { $group: {
+          _id: '$items.status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    statusStats.forEach(stat => {
+      analytics.orders.byStatus[stat._id] = stat.count;
+    });
+
+    // Get top performing sellers
+    analytics.sellers.topPerformers = await Order.aggregate([
+      { $match: dateQuery },
+      { $unwind: '$items' },
+      { $group: {
+          _id: '$items.seller',
+          totalOrders: { $sum: 1 },
+          totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      { $sort: { totalRevenue: -1 } },
+      { $limit: 10 }
+    ]);
+
+    await Seller.populate(analytics.sellers.topPerformers, {
+      path: '_id',
+      select: 'firstName lastName businessName email'
+    });
+
+    // Get top selling products
+    analytics.products.topSelling = await Order.aggregate([
+      { $match: dateQuery },
+      { $unwind: '$items' },
+      { $group: {
+          _id: '$items.product',
+          totalSold: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: 10 }
+    ]);
+
+    await Product.populate(analytics.products.topSelling, {
+      path: '_id',
+      select: 'name price images'
+    });
+
+    // Get dispute statistics
+    const disputeStats = await Order.aggregate([
+      { $match: { 'dispute.status': { $exists: true } } },
+      { $group: {
+          _id: '$dispute.status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    disputeStats.forEach(stat => {
+      if (stat._id === 'opened') analytics.disputes.open = stat.count;
+      if (stat._id === 'resolved') analytics.disputes.resolved = stat.count;
+      analytics.disputes.total += stat.count;
+    });
+
+    res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching platform analytics', error: error.message });
+  }
+};
+
+// Fraud detection and monitoring
+exports.getFlaggedOrders = async (req, res) => {
+  try {
+    const flaggedOrders = await Order.find({
+      $or: [
+        { 'paymentInfo.status': 'failed' },
+        { 'paymentInfo.gateway_response': { $in: [
+          'fraudulent', 
+          'suspicious',
+          'declined',
+          'timeout'
+        ]}}, // Paystack specific responses
+        { 'dispute.status': 'opened' },
+        { 'refund.status': { $in: ['requested', 'approved'] } },
+        { 'paymentInfo.attempts': { $gt: 3 } } // Multiple payment attempts
+      ]
+    })
+    .populate('buyer', 'firstName lastName email phoneNumber')
+    .populate('items.seller', 'firstName lastName businessName email')
+    .populate('items.product', 'name price')
+    .sort({ createdAt: -1 });
+
+    res.json(flaggedOrders);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching flagged orders', error: error.message });
+  }
+};
+
+// Manual order intervention
+exports.updateOrderManually = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { orderId } = req.params;
+    const { status, note, refundAmount } = req.body;
+
+    const order = await Order.findById(orderId).session(session);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Update order status
+    if (status) {
+      order.items.forEach(item => {
+        item.status = status;
+        item.statusHistory.push({
+          status,
+          timestamp: new Date(),
+          note: `Admin update: ${note || status}`
+        });
+      });
+    }
+
+    // Process refund if specified
+    if (refundAmount) {
+      // Process refund through Paystack
+      const refundResponse = await paystack.post('/refund', {
+        transaction: order.paymentInfo.reference,
+        amount: Math.round(refundAmount * 100) // Amount in kobo
+      });
+
+      if (refundResponse.data.status) {
+        order.refund = {
+          status: 'processed',
+          amount: refundAmount,
+          processedAt: new Date(),
+          processedBy: req.user.id,
+          reference: refundResponse.data.data.reference
+        };
+      } else {
+        throw new Error('Refund failed through Paystack');
+      }
+    }
+
+    // Add admin note
+    order.notes.push({
+      type: 'admin',
+      content: note || `Manual update by admin: ${status}`,
+      createdAt: new Date()
+    });
+
+    await order.save({ session });
+    await session.commitTransaction();
+
+    res.json({ message: 'Order updated successfully', order });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ message: 'Error updating order', error: error.message });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Add method to verify Paystack transactions
+exports.verifyPaystackTransaction = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    
+    const verificationResponse = await paystack.get(`/transaction/verify/${reference}`);
+    
+    if (!verificationResponse.data.status) {
+      return res.status(400).json({ 
+        message: 'Transaction verification failed',
+        data: verificationResponse.data 
+      });
+    }
+
+    const transactionData = verificationResponse.data.data;
+    const order = await Order.findOne({ 'paymentInfo.reference': reference });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Update order payment status based on verification
+    order.paymentInfo.status = transactionData.status === 'success' ? 'completed' : 'failed';
+    order.paymentInfo.gateway_response = transactionData.gateway_response;
+    order.paymentInfo.verifiedAt = new Date();
+
+    await order.save();
+
+    res.json({ 
+      message: 'Transaction verified successfully',
+      order 
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error verifying transaction', 
+      error: error.message 
+    });
+  }
+};
+
+// Add method to get Paystack transaction logs
+exports.getPaystackTransactionLogs = async (req, res) => {
+  try {
+    const { startDate, endDate, status } = req.query;
+    let url = '/transaction';
+    
+    const params = new URLSearchParams();
+    if (startDate) params.append('from', startDate);
+    if (endDate) params.append('to', endDate);
+    if (status) params.append('status', status);
+
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const response = await paystack.get(url);
+    
+    res.json(response.data.data);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error fetching transaction logs', 
       error: error.message 
     });
   }

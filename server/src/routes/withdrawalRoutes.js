@@ -2,14 +2,6 @@ const express = require('express');
 const router = express.Router();
 const withdrawalController = require('../controllers/withdrawalController');
 const authMiddleware = require('../middlewares/authMiddleware');
-const adminMiddleware = require('../middlewares/authMiddleware');
-
-// /**
-//  * @swagger
-//  * tags:
-//  *   name: Withdrawals
-//  *   description: API endpoints for managing withdrawals
-//  */
 
 /**
  * @swagger
@@ -28,109 +20,52 @@ const adminMiddleware = require('../middlewares/authMiddleware');
  *             properties:
  *               amount:
  *                 type: number
- *                 description: Amount to withdraw
- *                 example: 1000
+ *               paymentMethod:
+ *                 type: string
+ *               paymentDetails:
+ *                 type: object
  *     responses:
  *       201:
  *         description: Withdrawal request created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 amount:
- *                   type: number
- *                 status:
- *                   type: string
- *                   example: pending
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Unauthorized
  */
 router.post('/', 
   authMiddleware.verifyToken, 
-  withdrawalController.createWithdrawalRequest
+  authMiddleware.isSeller, 
+  withdrawalController.requestWithdrawal
 );
 
 /**
  * @swagger
- * /api/withdrawals/seller:
+ * /api/withdrawals/history:
  *   get:
- *     summary: Get seller's withdrawal requests
+ *     summary: Get withdrawal history
  *     tags: [Withdrawals]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: List of seller's withdrawals
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                   amount:
- *                     type: number
- *                   status:
- *                     type: string
- *                     example: pending
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Seller not found
+ *         description: Withdrawal history retrieved successfully
  */
-router.get('/seller', 
+router.get('/history', 
   authMiddleware.verifyToken, 
-  withdrawalController.getSellerWithdrawals
+  authMiddleware.isSeller, 
+  withdrawalController.getWithdrawalHistory
 );
 
 /**
  * @swagger
- * /api/withdrawals:
- *   get:
- *     summary: Get all withdrawal requests (Admin only)
- *     tags: [Withdrawals]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of all withdrawals
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                   amount:
- *                     type: number
- *                   status:
- *                     type: string
- *                     example: completed
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (Admin only)
- */
-router.get('/', 
-  authMiddleware.verifyToken, 
-  adminMiddleware.isAdmin, 
-  withdrawalController.getAllWithdrawals
-);
-
-/**
- * @swagger
- * /api/withdrawals/{id}:
+ * /api/withdrawals/{id}/process:
  *   put:
- *     summary: Update withdrawal status (Admin only)
+ *     summary: Process a withdrawal request (Admin only)
  *     tags: [Withdrawals]
  *     security:
  *       - bearerAuth: []
@@ -140,7 +75,6 @@ router.get('/',
  *         required: true
  *         schema:
  *           type: string
- *         description: Withdrawal request ID
  *     requestBody:
  *       required: true
  *       content:
@@ -150,34 +84,18 @@ router.get('/',
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [pending, completed]
- *                 example: completed
+ *               note:
+ *                 type: string
+ *               transactionId:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Withdrawal status updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 status:
- *                   type: string
- *                   example: completed
- *       400:
- *         description: Invalid status value
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (Admin only)
- *       404:
- *         description: Withdrawal request not found
+ *         description: Withdrawal processed successfully
  */
-router.put('/:id', 
+router.put('/:id/process', 
   authMiddleware.verifyToken, 
-  adminMiddleware.isAdmin, 
-  withdrawalController.updateWithdrawalStatus
+  authMiddleware.isAdmin, 
+  withdrawalController.processWithdrawal
 );
 
 module.exports = router;

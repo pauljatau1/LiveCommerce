@@ -1,79 +1,199 @@
-const Product = require('../models/Product');
 const Order = require('../models/Order');
+const Product = require('../models/Product');
+const Discount = require('../models/Discount');
 const Seller = require('../models/Seller');
 const Notification = require('../models/Notification');
+const axios = require('axios'); // For Paystack API calls
 const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey('SG.REDACTED');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Initialize Paystack
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+const paystack = axios.create({
+  baseURL: 'https://api.paystack.co',
+  headers: {
+    Authorization: `Bearer ${paystackSecretKey}`,
+    'Content-Type': 'application/json'
+  }
+});
 
 exports.createOrder = async (req, res) => {
-  const { cart, shippingAddress, user, paymentInfo } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    let totalPrice = 0;
-    const subOrders = [];
+    const { 
+      items, 
+      shippingAddress, 
+      paymentMethod,
+      discountCode,
+      email // Required for Paystack
+    } = req.body;
 
-    // Group products by seller
-    const groupedCart = cart.reduce((acc, item) => {
-      const product = acc.find(group => group.sellerId === item.sellerId);
-      if (product) {
-        product.items.push(item);
-      } else {
-        acc.push({ sellerId: item.sellerId, items: [item] });
+    // 1. Validate and group items by seller
+    const groupedItems = {};
+    let totalAmount = 0;
+    
+    for (const item of items) {
+      const product = await Product.findById(item.productId).session(session);
+      
+      if (!product) {
+        throw new Error(`Product ${item.productId} not found`);
       }
-      return acc;
-    }, []);
+      if (product.stock < item.quantity) {
+        throw new Error(`Insufficient stock for ${product.name}`);
+      }
+      
+      const sellerId = product.seller.toString();
+      if (!groupedItems[sellerId]) {
+        groupedItems[sellerId] = [];
+      }
+      
+      const itemTotal = product.price * item.quantity;
+      totalAmount += itemTotal;
+      
+      groupedItems[sellerId].push({
+        product: product._id,
+        seller: sellerId,
+        quantity: item.quantity,
+        price: product.price
+      });
+      
+      // Update product stock
+      product.stock -= item.quantity;
+      await product.save({ session });
+    }
 
-    // Create sub-orders for each seller
-    for (const group of groupedCart) {
-      const sellerId = group.sellerId;
-      const cartDetails = [];
-      let subTotalPrice = 0;
+    // 2. Apply discount if provided
+    let discountAmount = 0;
+    if (discountCode) {
+      const discount = await Discount.findOne({ code: discountCode.toUpperCase() });
+      if (discount && discount.isValid()) {
+        discountAmount = discount.calculateDiscount(totalAmount);
+        discount.usageCount += 1;
+        await discount.save({ session });
+      }
+    }
 
-      for (const item of group.items) {
-        const product = await Product.findById(item.product);
-        if (!product) {
-          return res.status(404).json({ message: `Product with id ${item.product} not found` });
-        }
+    // 3. Initialize Paystack payment
+    const paystackResponse = await paystack.post('/transaction/initialize', {
+      email: email || req.user.email,
+      amount: Math.round((totalAmount - discountAmount) * 100), // Amount in kobo
+      callback_url: process.env.PAYSTACK_CALLBACK_URL,
+      metadata: {
+        custom_fields: [{
+          display_name: "Order Items",
+          variable_name: "order_items",
+          value: JSON.stringify(items)
+        }]
+      }
+    });
 
-        if (product.stock < item.quantity) {
-          return res.status(400).json({ message: `Not enough stock for product ${product.name}` });
-        }
+    // Create orders with pending status
+    const orders = [];
+    for (const [sellerId, sellerItems] of Object.entries(groupedItems)) {
+      const sellerTotal = sellerItems.reduce((sum, item) => 
+        sum + (item.price * item.quantity), 0
+      );
+      
+      const order = new Order({
+        buyer: req.user.id,
+        items: sellerItems,
+        totalAmount: sellerTotal,
+        shippingAddress,
+        paymentInfo: {
+          method: 'paystack',
+          status: 'pending',
+          reference: paystackResponse.data.data.reference,
+          accessCode: paystackResponse.data.data.access_code
+        },
+        discount: discountCode ? {
+          code: discountCode,
+          amount: (discountAmount * sellerTotal) / totalAmount
+        } : undefined
+      });
 
-        // Use sale price if available, otherwise use the regular price
-        const itemPrice = product.salePrice ? product.salePrice : product.price;
-        const itemTotal = itemPrice * item.quantity;
-        subTotalPrice += itemTotal;
+      await order.save({ session });
+      orders.push(order);
+    }
 
-        cartDetails.push({
-          product: item.product,
-          quantity: item.quantity,
-          price: itemTotal,
+    await session.commitTransaction();
+    res.status(201).json({
+      message: 'Orders initialized successfully',
+      orders: orders,
+      payment: {
+        authorization_url: paystackResponse.data.data.authorization_url,
+        access_code: paystackResponse.data.data.access_code,
+        reference: paystackResponse.data.data.reference
+      }
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({
+      message: 'Failed to create order',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Paystack webhook handler
+exports.paystackWebhook = async (req, res) => {
+  try {
+    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    if (hash !== req.headers['x-paystack-signature']) {
+      return res.status(400).send('Invalid signature');
+    }
+
+    const event = req.body;
+
+    if (event.event === 'charge.success') {
+      const orders = await Order.find({
+        'paymentInfo.reference': event.data.reference
+      });
+
+      for (const order of orders) {
+        order.paymentInfo.status = 'completed';
+        order.paymentInfo.paidAt = new Date();
+        await order.save();
+
+        // Notify seller
+        await notificationController.createNotification({
+          recipient: order.items[0].seller,
+          type: 'new_order',
+          title: 'New Order Received',
+          message: `You have received a new order (#${order._id})`,
+          data: { orderId: order._id }
         });
       }
 
-      const newOrder = new Order({
-        cart: cartDetails,
-        shippingAddress,
-        user,
-        seller: sellerId,
-        totalPrice: subTotalPrice,
-        paymentInfo,
-      });
-
-      await newOrder.save();
-      subOrders.push(newOrder);
-      totalPrice += subTotalPrice;
+      // Send confirmation email to buyer
+      if (orders.length > 0) {
+        await sgMail.send({
+          to: event.data.customer.email,
+          from: 'orders@yourdomain.com',
+          subject: 'Order Confirmation',
+          html: `
+            <h1>Thank you for your order!</h1>
+            <p>Your order(s) have been successfully placed:</p>
+            ${orders.map(order => `
+              <p>Order ID: ${order._id}</p>
+              <p>Total Amount: ₦${order.totalAmount}</p>
+            `).join('<br>')}
+          `
+        });
+      }
     }
 
-    // Include the total amount in the response
-    const response = {
-      subOrders,
-      totalAmount: totalPrice,
-    };
-
-    res.status(201).json(response);
+    res.sendStatus(200);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create order', error: error.message });
+    console.error('Paystack webhook error:', error);
+    res.sendStatus(500);
   }
 };
 
@@ -214,59 +334,64 @@ exports.deleteOrder = async (req, res) => {
 // Order Status Management
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status, note } = req.body;
+    const { orderId, itemId, status, note } = req.body;
+    const order = await Order.findById(orderId);
 
-    const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Verify seller ownership
-    if (order.seller.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to update this order' });
+    // Verify seller owns this order item
+    const orderItem = order.items.id(itemId);
+    if (!orderItem || orderItem.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to update this order' });
     }
 
-    // Update tracking status
-    order.tracking.status = status;
-    if (note) {
-      order.tracking.statusHistory.push({
-        status,
-        note,
-        updatedBy: req.user.id,
-        timestamp: Date.now()
+    // Update status
+    orderItem.status = status;
+    orderItem.statusHistory.push({
+      status,
+      timestamp: new Date(),
+      note: note || `Status updated to ${status}`
+    });
+
+    // If status is shipped, require tracking information
+    if (status === 'shipped' && (!req.body.trackingNumber || !req.body.carrier)) {
+      return res.status(400).json({ 
+        message: 'Tracking number and carrier required for shipped status' 
       });
     }
 
-    // Handle specific status changes
-    switch (status) {
-      case 'shipped':
-        // Send shipping notification to buyer
-        await notificationController.createNotification({
-          recipient: order.user,
-          type: 'ORDER_SHIPPED',
-          title: 'Order Shipped',
-          message: `Your order #${order._id} has been shipped`,
-          reference: order._id
-        });
-        break;
-      case 'delivered':
-        order.deliveredAt = Date.now();
-        break;
-      case 'cancelled':
-        // Restore inventory
-        for (const item of order.cart) {
-          await Product.findByIdAndUpdate(item.product, {
-            $inc: { 'inventory.quantity': item.quantity }
-          });
+    if (status === 'shipped') {
+      order.shipping = {
+        ...order.shipping,
+        trackingNumber: req.body.trackingNumber,
+        carrier: req.body.carrier,
+        estimatedDelivery: req.body.estimatedDelivery
+      };
+
+      // Notify buyer
+      await notificationController.createNotification(
+        order.buyer,
+        'order_shipped',
+        'Order Shipped',
+        `Your order #${order._id} has been shipped`,
+        {
+          orderId: order._id,
+          trackingNumber: req.body.trackingNumber,
+          carrier: req.body.carrier
         }
-        break;
+      );
     }
 
     await order.save();
-    res.json(order);
+    res.json({ message: 'Order status updated successfully', order });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update order status', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to update order status', 
+      error: error.message 
+    });
   }
 };
 
@@ -585,32 +710,50 @@ exports.createDispute = async (req, res) => {
     }
 
     // Check if dispute already exists
-    if (order.dispute) {
+    if (order.dispute.status !== 'none') {
       return res.status(400).json({ message: 'Dispute already exists for this order' });
     }
 
     order.dispute = {
+      status: 'opened',
       reason,
       description,
-      status: 'open',
-      createdAt: Date.now(),
-      createdBy: req.user.id
+      openedAt: new Date()
     };
+
+    // Add note to order
+    order.notes.push({
+      type: 'buyer',
+      content: `Dispute opened: ${reason} - ${description}`
+    });
 
     await order.save();
 
-    // Notify relevant parties
-    await notificationController.createNotification({
-      recipient: order.seller,
-      type: 'DISPUTE_CREATED',
-      title: 'New Dispute Created',
-      message: `A dispute has been created for order #${order._id}`,
-      reference: order._id
-    });
+    // Notify seller and admin
+    await Promise.all([
+      notificationController.createNotification(
+        order.items[0].seller, // Assuming single seller order
+        'dispute_opened',
+        'New Dispute Opened',
+        `A dispute has been opened for order #${order._id}`,
+        { orderId: order._id }
+      ),
+      notificationController.createNotification(
+        'admin', // Special handling in notification controller for admin
+        'dispute_opened',
+        'New Dispute Opened',
+        `A dispute has been opened for order #${order._id}`,
+        { orderId: order._id }
+      )
+    ]);
 
-    res.json(order);
+    res.json({ message: 'Dispute created successfully', order });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create dispute', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to create dispute', 
+      error: error.message 
+    });
   }
 };
 
@@ -654,5 +797,125 @@ exports.updateDispute = async (req, res) => {
     res.json(order);
   } catch (error) {
     res.status(500).json({ message: 'Failed to update dispute', error: error.message });
+  }
+};
+
+// Request refund (for buyers)
+exports.requestRefund = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, amount } = req.body;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Validate refund amount
+    if (amount > order.totalAmount) {
+      return res.status(400).json({ 
+        message: 'Refund amount cannot exceed order total' 
+      });
+    }
+
+    order.refund = {
+      status: 'requested',
+      amount,
+      reason,
+      requestedAt: new Date()
+    };
+
+    // Add note to order
+    order.notes.push({
+      type: 'buyer',
+      content: `Refund requested: ${amount} - ${reason}`
+    });
+
+    await order.save();
+
+    // Notify seller
+    await notificationController.createNotification(
+      order.items[0].seller,
+      'refund_requested',
+      'New Refund Request',
+      `A refund has been requested for order #${order._id}`,
+      { orderId: order._id }
+    );
+
+    res.json({ message: 'Refund requested successfully', order });
+
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to request refund', 
+      error: error.message 
+    });
+  }
+};
+
+// Process refund (for sellers/admin)
+exports.processRefund = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body;
+
+    const order = await Order.findById(id).session(session);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    if (status === 'approved') {
+      // Process refund through Paystack
+      const refundResponse = await paystack.post('/refund', {
+        transaction: order.paymentInfo.reference,
+        amount: Math.round(order.refund.amount * 100) // Amount in kobo
+      });
+
+      if (refundResponse.data.status) {
+        order.refund.status = 'processed';
+        order.refund.processedAt = new Date();
+        order.paymentInfo.status = 'refunded';
+
+        // Update seller's wallet balance
+        const seller = await Seller.findById(order.items[0].seller).session(session);
+        seller.walletBalance -= order.refund.amount;
+        await seller.save({ session });
+      } else {
+        throw new Error('Refund failed through Paystack');
+      }
+    } else if (status === 'rejected') {
+      order.refund.status = 'rejected';
+    }
+
+    // Add note to order
+    order.notes.push({
+      type: req.user.role.toLowerCase(),
+      content: note || `Refund ${status}`
+    });
+
+    await order.save({ session });
+
+    // Notify buyer
+    await notificationController.createNotification(
+      order.buyer,
+      'refund_processed',
+      'Refund Update',
+      `Your refund request for order #${order._id} has been ${status}`,
+      { orderId: order._id }
+    );
+
+    await session.commitTransaction();
+    res.json({ message: 'Refund processed successfully', order });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ 
+      message: 'Failed to process refund', 
+      error: error.message 
+    });
+  } finally {
+    session.endSession();
   }
 };

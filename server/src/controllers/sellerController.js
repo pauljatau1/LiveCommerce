@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const Withdrawal = require('../models/Withdrawal');
 const Order = require('../models/Order');
 const mongoose = require('mongoose');
+const Product = require('../models/Product');
 
 // Helper function for JWT generation
 const generateToken = (id) => {
@@ -806,5 +807,158 @@ exports.getStatistics = async (req, res) => {
     res.json(statistics);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve statistics', error: error.message });
+  }
+};
+
+// Get seller's orders with filtering
+exports.getOrders = async (req, res) => {
+  try {
+    const { 
+      status, 
+      startDate, 
+      endDate, 
+      page = 1, 
+      limit = 10 
+    } = req.query;
+    
+    const query = { 'items.seller': req.user.id };
+    
+    if (status) {
+      query['items.status'] = status;
+    }
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const orders = await Order.find(query)
+      .populate('buyer', 'firstName lastName email')
+      .populate('items.product', 'name images price')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Order.countDocuments(query);
+
+    res.json({
+      orders,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+  }
+};
+
+// Get seller's sales analytics
+exports.getSalesAnalytics = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const query = { 'items.seller': req.user.id };
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const orders = await Order.find(query);
+    
+    const analytics = {
+      totalOrders: orders.length,
+      totalRevenue: 0,
+      ordersByStatus: {
+        pending: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+        returned: 0
+      },
+      revenueByDay: {},
+      topProducts: [],
+      averageOrderValue: 0
+    };
+
+    // Calculate metrics
+    orders.forEach(order => {
+      const sellerItems = order.items.filter(
+        item => item.seller.toString() === req.user.id
+      );
+      
+      const orderRevenue = sellerItems.reduce(
+        (sum, item) => sum + (item.price * item.quantity), 
+        0
+      );
+      
+      analytics.totalRevenue += orderRevenue;
+      
+      // Count by status
+      sellerItems.forEach(item => {
+        analytics.ordersByStatus[item.status]++;
+      });
+
+      // Group by day
+      const day = order.createdAt.toISOString().split('T')[0];
+      analytics.revenueByDay[day] = (analytics.revenueByDay[day] || 0) + orderRevenue;
+    });
+
+    // Calculate average order value
+    analytics.averageOrderValue = analytics.totalRevenue / analytics.totalOrders;
+
+    // Get top products
+    analytics.topProducts = await Order.aggregate([
+      { $match: query },
+      { $unwind: '$items' },
+      { $match: { 'items.seller': mongoose.Types.ObjectId(req.user.id) } },
+      { $group: {
+          _id: '$items.product',
+          totalSold: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      { $sort: { totalRevenue: -1 } },
+      { $limit: 5 }
+    ]);
+
+    // Populate product details
+    await Product.populate(analytics.topProducts, { path: '_id' });
+
+    res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching analytics', error: error.message });
+  }
+};
+
+// Get shipping label
+exports.getShippingLabel = async (req, res) => {
+  try {
+    const { orderId, itemId } = req.params;
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'firstName lastName')
+      .populate('items.product', 'name weight dimensions');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const orderItem = order.items.id(itemId);
+    if (!orderItem || orderItem.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to access this order item' });
+    }
+
+    // Generate shipping label (integrate with shipping provider's API)
+    // This is a placeholder - implement actual shipping label generation
+    const shippingLabel = {
+      orderId,
+      trackingNumber: `TN${Date.now()}`,
+      labelUrl: 'https://shipping-label-url.com',
+      // Add more shipping label details
+    };
+
+    res.json(shippingLabel);
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating shipping label', error: error.message });
   }
 };

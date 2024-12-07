@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const s3 = require('../config/awsConfig');
 const notificationController = require('../controllers/notificationController');
 const crypto = require('crypto');
+const Order = require('../models/Order');
 
 sgMail.setApiKey('SG.REDACTED');
 
@@ -541,6 +542,96 @@ exports.resetPassword = async (req, res) => {
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ message: 'Failed to reset password', error: error.message });
+  }
+};
+
+// Get buyer's orders with filtering
+exports.getOrders = async (req, res) => {
+  try {
+    const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
+    const query = { buyer: req.user.id };
+    
+    // Apply filters
+    if (status) {
+      query['items.status'] = status;
+    }
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const orders = await Order.find(query)
+      .populate('items.product', 'name images price')
+      .populate('items.seller', 'storeName')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Order.countDocuments(query);
+
+    res.json({
+      orders,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+  }
+};
+
+// Get order details
+exports.getOrderDetails = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      buyer: req.user.id
+    })
+    .populate('items.product')
+    .populate('items.seller', 'storeName email phoneNumber');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching order details', error: error.message });
+  }
+};
+
+// Get buyer's purchase analytics
+exports.getPurchaseAnalytics = async (req, res) => {
+  try {
+    const orders = await Order.find({ buyer: req.user.id });
+    
+    const analytics = {
+      totalOrders: orders.length,
+      totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+      ordersByStatus: {
+        pending: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+        returned: 0
+      },
+      recentOrders: await Order.find({ buyer: req.user.id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate('items.product', 'name images price')
+    };
+
+    // Count orders by status
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        analytics.ordersByStatus[item.status]++;
+      });
+    });
+
+    res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching analytics', error: error.message });
   }
 };
 

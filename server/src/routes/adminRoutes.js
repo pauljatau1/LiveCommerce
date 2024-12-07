@@ -775,5 +775,142 @@ router.put('/announcements/:announcementId', authMiddleware.verifyToken, adminCo
  */
 router.delete('/announcements/:announcementId', authMiddleware.verifyToken, adminController.deleteAnnouncement);
 
+/**
+ * @swagger
+ * /api/admin/orders:
+ *   get:
+ *     summary: Get all orders with advanced filtering
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter by order status
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: buyerId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: List of orders
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/orders', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.getAllOrders
+);
+
+/**
+ * @swagger
+ * /api/admin/analytics:
+ *   get:
+ *     summary: Get platform-wide analytics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Platform analytics data
+ */
+router.get('/analytics', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.getPlatformAnalytics
+);
+
+/**
+ * @swagger
+ * /api/admin/orders/flagged:
+ *   get:
+ *     summary: Get flagged orders for review
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of flagged orders
+ */
+router.get('/orders/flagged', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.getFlaggedOrders
+);
+
+/**
+ * @swagger
+ * /api/admin/orders/{orderId}:
+ *   put:
+ *     summary: Manually update order status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *               note:
+ *                 type: string
+ *               refundAmount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Order updated successfully
+ */
+router.put('/orders/:orderId', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.updateOrderManually
+);
 
 module.exports = router;

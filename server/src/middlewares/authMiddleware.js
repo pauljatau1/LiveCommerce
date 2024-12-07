@@ -33,6 +33,27 @@ exports.isAdmin = async (req, res, next) => {
   }
 };
 
+exports.isBuyer = (req, res, next) => {
+  if (req.user.role !== 'Buyer') {
+    return res.status(403).json({ message: 'Access denied. Buyers only.' });
+  }
+  next();
+};
+
+exports.isSeller = (req, res, next) => {
+  if (req.user.role !== 'Seller') {
+    return res.status(403).json({ message: 'Access denied. Sellers only.' });
+  }
+  next();
+};
+
+exports.isSellerOrAdmin = (req, res, next) => {
+  if (req.user.role !== 'Seller' && req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Access denied. Sellers or Admins only.' });
+  }
+  next();
+};
+
 // Combined middleware for admin routes
 exports.adminAuth = [exports.verifyToken, exports.isAdmin];
 
