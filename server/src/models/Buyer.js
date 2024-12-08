@@ -40,8 +40,23 @@ const buyerSchema = new mongoose.Schema({
   selectedCategories: [categorySchema],
   isDisabled: { type: Boolean, default: false },
   following: [{
-    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },
+    userId: { type: mongoose.Schema.Types.ObjectId, refPath: 'following.userType' },
+    userType: { type: String, enum: ['Buyer', 'Seller'] },
     name: { type: String },
+    followedAt: { type: Date, default: Date.now }
+  }],
+  followers: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, refPath: 'followers.userType' },
+    userType: { type: String, enum: ['Buyer', 'Seller'] },
+    name: { type: String },
+    followedAt: { type: Date, default: Date.now }
+  }],
+  activityFeed: [{
+    type: { type: String, enum: ['post', 'product_review', 'product_purchase', 'follow'] },
+    content: { type: String },
+    reference: { type: mongoose.Schema.Types.ObjectId, refPath: 'activityFeed.referenceModel' },
+    referenceModel: { type: String, enum: ['Post', 'Product', 'Buyer', 'Seller'] },
+    createdAt: { type: Date, default: Date.now }
   }],
   messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
