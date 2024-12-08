@@ -85,10 +85,125 @@ exports.createProduct = async (req, res) => {
 // Get all products
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate('seller', 'name avatarUrl about').populate('reviews.buyer', 'firstName lastName');
-    res.json(products);
+    const {
+      page = 1,
+      limit = 10,
+      category = '',
+      minPrice = 0,
+      maxPrice = Number.MAX_SAFE_INTEGER,
+      sortBy = 'newest',
+      status = 'active',
+      visibility = 'visible'
+    } = req.query;
+
+    // Build query - start with an empty object to get all products if no filters
+    let query = {};
+
+    // Only add filters if they're specifically provided in the query
+    if (req.query.status) {
+      query.status = status;
+    }
+
+    if (req.query.visibility) {
+      query.visibility = visibility;
+    }
+
+    if (category) {
+      query.category = category;
+    }
+
+    // Add price range filter
+    if (req.query.minPrice || req.query.maxPrice) {
+      query.price = {
+        $gte: Number(minPrice),
+        $lte: Number(maxPrice)
+      };
+    }
+
+    // Build sort options with a default
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { soldCount: -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: -1 };
+    }
+
+    // Execute query with pagination
+    const products = await Product.find(query)
+      .sort(sortOptions)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('seller', 'businessName storeName')
+      .select(`
+        name 
+        description 
+        price 
+        category 
+        subCategory 
+        images 
+        stock 
+        status 
+        visibility 
+        analytics 
+        soldCount 
+        createdAt 
+        returnPolicy
+        shippingInfo
+      `);
+
+    // Get total count for pagination
+    const totalProducts = await Product.countDocuments(query);
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalProducts / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    res.json({
+      success: true,
+      data: {
+        products,
+        pagination: {
+          currentPage: Number(page),
+          totalPages,
+          totalProducts,
+          hasNextPage,
+          hasPrevPage,
+          limit: Number(limit)
+        },
+        filters: {
+          category,
+          priceRange: {
+            min: minPrice,
+            max: maxPrice !== Number.MAX_SAFE_INTEGER ? maxPrice : 'no limit'
+          },
+          sortBy,
+          status,
+          visibility
+        }
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving products',
+      error: error.message
+    });
   }
 };
 

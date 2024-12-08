@@ -22,20 +22,32 @@ const sellerSchema = new mongoose.Schema({
   password: { type: String, required: true },
   phoneNumber: { type: String, required: true },
   businessName: { type: String },
+  businessType: { type: String },
+  taxInformation: { type: String },
+  businessEmail: { type: String },
+  businessNumber: { type: String },
   businessAddress: {
     country: { type: String },
     state: { type: String },
     city: { type: String },
-    streetAddressLine1: { type: String },
-    streetAddressLine2: { type: String },
+    addressLine1: { type: String },
+    addressLine2: { type: String },
     zipCode: { type: String },
   },
   accountType: { type: String, enum: ['individual', 'business'] },
   isVerified: { type: Boolean, default: false },
-  verificationDocuments: [{
-    type: { type: String },
-    fileUrl: { type: String },
-  }],
+  verificationDocuments: {
+    type: { type: String, enum: ['company', 'individual'] },
+    documents: [{
+      documentType: { 
+        type: String, 
+        enum: ['certificateOfIncorporation', 'businessTaxId', 'individualTaxId', 'governmentId', 'proofOfAddress'] 
+      },
+      fileUrl: { type: String },
+      public_id: { type: String },
+      uploadedAt: { type: Date, default: Date.now }
+    }]
+  },
   bankDetails: {
     bankCountry: { type: String },
     bankName: { type: String },
@@ -48,15 +60,20 @@ const sellerSchema = new mongoose.Schema({
   },
   categories: [categorySchema],
   shippingOptions: {
-    shippingMethod: { type: String, enum: ['shippedBySeller', 'storePickup'] },
-    returnPolicy: { type: String },
+    shippingMethod: { type: String },
+    returnsAndExchangePolicy: { type: String },
   },
-  warehouseAddress: {
-    country: { type: String },
-    state: { type: String },
-    city: { type: String },
-    address: { type: String },
-    zipCode: { type: String },
+  warehouseDetails: {
+    name: { type: String },
+    contactNumber: { type: String },
+    address: {
+      country: { type: String },
+      state: { type: String },
+      city: { type: String },
+      addressLine1: { type: String },
+      addressLine2: { type: String },
+      zipCode: { type: String },
+    }
   },
   storeName: { type: String },
   aboutStore: { type: String },
@@ -107,6 +124,14 @@ const sellerSchema = new mongoose.Schema({
     totalOrders: { type: Number, default: 0 },
     totalSpent: { type: Number, default: 0 }
   }],
+  sellerAddress: {
+    country: { type: String },
+    state: { type: String },
+    city: { type: String },
+    addressLine1: { type: String },
+    addressLine2: { type: String },
+    zipCode: { type: String },
+  },
 });
 
 sellerSchema.pre('save', async function(next) {

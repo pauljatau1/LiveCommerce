@@ -161,47 +161,7 @@ router.get('/profile', authMiddleware.verifyToken, sellerController.getProfile);
  */
 router.put('/profile/account-type', authMiddleware.verifyToken, sellerController.selectAccountType);
 
-/**
- * @swagger
- * /api/seller/profile/business-details:
- *   put:
- *     summary: Add business details and information
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               businessName:
- *                 type: string
- *               businessAddress:
- *                 type: object
- *                 properties:
- *                   country:
- *                     type: string
- *                   state:
- *                     type: string
- *                   city:
- *                     type: string
- *                   streetAddressLine1:
- *                     type: string
- *                   streetAddressLine2:
- *                     type: string
- *                   zipCode:
- *                     type: string
- *     responses:
- *       200:
- *         description: Business details added successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.put('/profile/business-details', authMiddleware.verifyToken, sellerController.addBusinessDetails);
+
 
 /**
  * @swagger
@@ -247,45 +207,148 @@ router.put('/profile/business-details', authMiddleware.verifyToken, sellerContro
  */
 router.put('/profile/bank-details', authMiddleware.verifyToken, sellerController.addBankDetails);
 
-// /**
-//  * @swagger
-//  * /api/seller/profile/categories:
-//  *   put:
-//  *     summary: Add categories
-//  *     tags: [Seller]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     requestBody:
-//  *       required: true
-//  *       content:
-//  *         application/json:
-//  *           schema:
-//  *             type: object
-//  *             properties:
-//  *               categories:
-//  *                 type: array
-//  *                 items:
-//  *                   type: object
-//  *                   properties:
-//  *                     name:
-//  *                       type: string
-//  *                     id:
-//  *                       type: string
-//  *     responses:
-//  *       200:
-//  *         description: Categories added successfully
-//  *       404:
-//  *         description: Seller not found
-//  *       500:
-//  *         description: Internal server error
-//  */
-// router.put('/profile/categories', authMiddleware.verifyToken, sellerController.addCategories);
 
 /**
  * @swagger
- * /api/seller/profile/address-shipping:
+ * /api/seller/verification/company:
+ *   post:
+ *     summary: Upload company verification documents
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               certificateOfIncorporation:
+ *                 type: string
+ *                 format: binary
+ *               businessTaxId:
+ *                 type: string
+ *                 format: binary
+ */
+router.post(
+  '/verification/company',
+  authMiddleware.verifyToken,
+  upload.fields([
+    { name: 'certificateOfIncorporation', maxCount: 1 },
+    { name: 'businessTaxId', maxCount: 1 }
+  ]),
+  sellerController.uploadCompanyVerification
+);
+
+/**
+ * @swagger
+ * /api/seller/verification/individual:
+ *   post:
+ *     summary: Upload individual verification documents
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               individualTaxId:
+ *                 type: string
+ *                 format: binary
+ *               governmentId:
+ *                 type: string
+ *                 format: binary
+ *               proofOfAddress:
+ *                 type: string
+ *                 format: binary
+ */
+router.post(
+  '/verification/individual',
+  authMiddleware.verifyToken,
+  upload.fields([
+    { name: 'individualTaxId', maxCount: 1 },
+    { name: 'governmentId', maxCount: 1 },
+    { name: 'proofOfAddress', maxCount: 1 }
+  ]),
+  sellerController.uploadIndividualVerification
+);
+
+/**
+ * @swagger
+ * /api/seller/business-details:
  *   put:
- *     summary: Add address and shipping information
+ *     summary: Add basic business details
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               businessName:
+ *                 type: string
+ *               businessType:
+ *                 type: string
+ *               taxInformation:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Business details added successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/business-details', authMiddleware.verifyToken, sellerController.addBusinessDetails);
+
+/**
+ * @swagger
+ * /api/seller/business-information:
+ *   put:
+ *     summary: Add business contact and address information
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               businessEmail:
+ *                 type: string
+ *               businessNumber:
+ *                 type: string
+ *               businessAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   addressLine1:
+ *                     type: string
+ *                   addressLine2:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ */
+router.put('/business-information', authMiddleware.verifyToken, sellerController.addBusinessInformation);
+
+/**
+ * @swagger
+ * /api/seller/shipping-warehouse:
+ *   put:
+ *     summary: Add shipping and warehouse information
  *     tags: [Seller]
  *     security:
  *       - bearerAuth: []
@@ -301,67 +364,35 @@ router.put('/profile/bank-details', authMiddleware.verifyToken, sellerController
  *                 properties:
  *                   shippingMethod:
  *                     type: string
- *                   returnPolicy:
+ *                   returnsAndExchangePolicy:
  *                     type: string
- *               warehouseAddress:
+ *               warehouseDetails:
  *                 type: object
  *                 properties:
- *                   country:
+ *                   name:
  *                     type: string
- *                   state:
- *                     type: string
- *                   city:
+ *                   contactNumber:
  *                     type: string
  *                   address:
- *                     type: string
- *                   zipCode:
- *                     type: string
- *     responses:
- *       200:
- *         description: Address and shipping information added successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
+ *                     type: object
+ *                     properties:
+ *                       country:
+ *                         type: string
+ *                       state:
+ *                         type: string
+ *                       city:
+ *                         type: string
+ *                       addressLine1:
+ *                         type: string
+ *                       addressLine2:
+ *                         type: string
+ *                       zipCode:
+ *                         type: string
  */
-router.put('/profile/address-shipping', authMiddleware.verifyToken, sellerController.addAddressShipping);
+router.put('/shipping-warehouse', authMiddleware.verifyToken, sellerController.addShippingWarehouse);
 
-/**
- * @swagger
- * /api/seller/profile/documents:
- *   post:
- *     summary: Upload verification documents
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               verificationDocuments:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *     responses:
- *       200:
- *         description: Verification documents uploaded successfully
- *       400:
- *         description: No verification documents uploaded
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.post(
-  '/profile/documents',
-  authMiddleware.verifyToken,
-  upload.array('verificationDocuments', 5),
-  sellerController.uploadVerificationDocuments
-);
+
+
 
 /**
  * @swagger
@@ -686,6 +717,50 @@ router.get('/orders/:orderId/shipping-label',
   authMiddleware.isSeller, 
   sellerController.getShippingLabel
 );
+
+/**
+ * @swagger
+ * /api/seller/individual-information:
+ *   put:
+ *     summary: Update individual seller information
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               sellerAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   addressLine1:
+ *                     type: string
+ *                   addressLine2:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Individual information updated successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/individual-information', authMiddleware.verifyToken, sellerController.updateIndividualInformation);
 
 // /**
 //  * @swagger

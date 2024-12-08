@@ -246,12 +246,14 @@ exports.updateProfileInfo = async (req, res) => {
 
 
 // Upload verification documents
-exports.uploadVerificationDocuments = async (req, res) => {
+exports.uploadCompanyVerification = async (req, res) => {
   try {
-    const verificationDocuments = req.files;
+    const files = req.files;
 
-    if (!verificationDocuments || verificationDocuments.length === 0) {
-      return res.status(400).json({ message: 'No verification documents uploaded' });
+    if (!files || !files.certificateOfIncorporation || !files.businessTaxId) {
+      return res.status(400).json({ 
+        message: 'Both Certificate of Incorporation and Business Tax ID are required' 
+      });
     }
 
     const seller = await Seller.findById(req.user.id);
@@ -259,26 +261,135 @@ exports.uploadVerificationDocuments = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    const uploadedDocuments = await Promise.all(
-      verificationDocuments.map(async (file) => {
-        const params = {
-          Bucket: 'auqli-uploads',
-          Key: `${uuidv4()}-${file.originalname}`,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-         
-        };
-        const data = await s3.upload(params).promise();
-        return { type: file.fieldname, fileUrl: data.Location };
-      })
-    );
+    const documents = [];
+    
+    // Upload Certificate of Incorporation
+    const certFile = files.certificateOfIncorporation[0];
+    const certParams = {
+      Bucket: 'auqli-uploads',
+      Key: `verification/${req.user.id}/company/${uuidv4()}-${certFile.originalname}`,
+      Body: certFile.buffer,
+      ContentType: certFile.mimetype,
+    };
+    const certUpload = await s3.upload(certParams).promise();
+    documents.push({
+      documentType: 'certificateOfIncorporation',
+      fileUrl: certUpload.Location,
+      public_id: certUpload.Key
+    });
 
-    seller.verificationDocuments = uploadedDocuments;
-    const updatedSeller = await seller.save();
+    // Upload Business Tax ID
+    const taxFile = files.businessTaxId[0];
+    const taxParams = {
+      Bucket: 'auqli-uploads',
+      Key: `verification/${req.user.id}/company/${uuidv4()}-${taxFile.originalname}`,
+      Body: taxFile.buffer,
+      ContentType: taxFile.mimetype,
+    };
+    const taxUpload = await s3.upload(taxParams).promise();
+    documents.push({
+      documentType: 'businessTaxId',
+      fileUrl: taxUpload.Location,
+      public_id: taxUpload.Key
+    });
 
-    res.json({ message: 'Verification documents uploaded successfully', seller: updatedSeller });
+    seller.verificationDocuments = {
+      type: 'company',
+      documents: documents
+    };
+    
+    await seller.save();
+
+    res.json({ 
+      message: 'Company verification documents uploaded successfully', 
+      documents: seller.verificationDocuments 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to upload verification documents', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to upload verification documents', 
+      error: error.message 
+    });
+  }
+};
+
+exports.uploadIndividualVerification = async (req, res) => {
+  try {
+    const files = req.files;
+
+    if (!files || !files.individualTaxId || !files.governmentId || !files.proofOfAddress) {
+      return res.status(400).json({ 
+        message: 'Tax ID, Government ID, and Proof of Address are all required' 
+      });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const documents = [];
+    
+    // Upload Individual Tax ID
+    const taxFile = files.individualTaxId[0];
+    const taxParams = {
+      Bucket: 'auqli-uploads',
+      Key: `verification/${req.user.id}/individual/${uuidv4()}-${taxFile.originalname}`,
+      Body: taxFile.buffer,
+      ContentType: taxFile.mimetype,
+    };
+    const taxUpload = await s3.upload(taxParams).promise();
+    documents.push({
+      documentType: 'individualTaxId',
+      fileUrl: taxUpload.Location,
+      public_id: taxUpload.Key
+    });
+
+    // Upload Government ID
+    const govFile = files.governmentId[0];
+    const govParams = {
+      Bucket: 'auqli-uploads',
+      Key: `verification/${req.user.id}/individual/${uuidv4()}-${govFile.originalname}`,
+      Body: govFile.buffer,
+      ContentType: govFile.mimetype,
+    };
+    const govUpload = await s3.upload(govParams).promise();
+    documents.push({
+      documentType: 'governmentId',
+      fileUrl: govUpload.Location,
+      public_id: govUpload.Key
+    });
+
+    // Upload Proof of Address
+    const addressFile = files.proofOfAddress[0];
+    const addressParams = {
+      Bucket: 'auqli-uploads',
+      Key: `verification/${req.user.id}/individual/${uuidv4()}-${addressFile.originalname}`,
+      Body: addressFile.buffer,
+      ContentType: addressFile.mimetype,
+    };
+    const addressUpload = await s3.upload(addressParams).promise();
+    documents.push({
+      documentType: 'proofOfAddress',
+      fileUrl: addressUpload.Location,
+      public_id: addressUpload.Key
+    });
+
+    seller.verificationDocuments = {
+      type: 'individual',
+      documents: documents
+    };
+    
+    await seller.save();
+
+    res.json({ 
+      message: 'Individual verification documents uploaded successfully', 
+      documents: seller.verificationDocuments 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to upload verification documents', 
+      error: error.message 
+    });
   }
 };
 
@@ -384,10 +495,17 @@ exports.selectAccountType = async (req, res) => {
 };
 
 
-// Add business details and information
+// Add business details
 exports.addBusinessDetails = async (req, res) => {
   try {
-    const { businessName, businessAddress } = req.body;
+    const { businessName, businessType, taxInformation } = req.body;
+
+    // Validate required fields
+    if (!businessName || !businessType || !taxInformation) {
+      return res.status(400).json({ 
+        message: 'Business name, business type, and tax information are all required' 
+      });
+    }
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
@@ -395,13 +513,75 @@ exports.addBusinessDetails = async (req, res) => {
     }
 
     seller.businessName = businessName;
-    seller.businessAddress = businessAddress;
-    seller.isProfileComplete = checkProfileCompletion(seller);
+    seller.businessType = businessType;
+    seller.taxInformation = taxInformation;
+    
     const updatedSeller = await seller.save();
 
-    res.json({ message: 'Business details added successfully', seller: updatedSeller });
+    res.json({ 
+      message: 'Business details added successfully', 
+      seller: updatedSeller 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to add business details', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to add business details', 
+      error: error.message 
+    });
+  }
+};
+
+// Add business information
+exports.addBusinessInformation = async (req, res) => {
+  try {
+    const { businessEmail, businessNumber, businessAddress } = req.body;
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.businessEmail = businessEmail;
+    seller.businessNumber = businessNumber;
+    seller.businessAddress = businessAddress;
+    
+    const updatedSeller = await seller.save();
+
+    res.json({ 
+      message: 'Business information added successfully', 
+      seller: updatedSeller 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to add business information', 
+      error: error.message 
+    });
+  }
+};
+
+// Add shipping and warehouse information
+exports.addShippingWarehouse = async (req, res) => {
+  try {
+    const { shippingOptions, warehouseDetails } = req.body;
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.shippingOptions = shippingOptions;
+    seller.warehouseDetails = warehouseDetails;
+    
+    const updatedSeller = await seller.save();
+
+    res.json({ 
+      message: 'Shipping and warehouse information added successfully', 
+      seller: updatedSeller 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to add shipping and warehouse information', 
+      error: error.message 
+    });
   }
 };
 
@@ -960,5 +1140,39 @@ exports.getShippingLabel = async (req, res) => {
     res.json(shippingLabel);
   } catch (error) {
     res.status(500).json({ message: 'Error generating shipping label', error: error.message });
+  }
+};
+
+exports.updateIndividualInformation = async (req, res) => {
+  try {
+    const { firstName, lastName, sellerAddress } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !sellerAddress) {
+      return res.status(400).json({ 
+        message: 'First name, last name, and address are required' 
+      });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.firstName = firstName;
+    seller.lastName = lastName;
+    seller.sellerAddress = sellerAddress;
+    
+    const updatedSeller = await seller.save();
+
+    res.json({ 
+      message: 'Individual information updated successfully', 
+      seller: updatedSeller 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update individual information', 
+      error: error.message 
+    });
   }
 };
