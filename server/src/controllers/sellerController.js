@@ -28,7 +28,7 @@ exports.register = async (req, res) => {
     // Basic input validation
     if (!firstName || !lastName || !email || !password || !phoneNumber) {
       return res.status(400).json({ 
-        message: 'First name, last name, email, password, and phone number are required.' 
+        message: 'First name, last name, email, password, and phone number are required..' 
       });
     }
 

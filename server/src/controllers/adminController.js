@@ -92,13 +92,77 @@ exports.disableSeller = async (req, res) => {
   const { sellerId } = req.params;
 
   try {
-    const seller = await Seller.findByIdAndUpdate(sellerId, { isDisabled: true }, { new: true });
+    const seller = await Seller.findByIdAndUpdate(
+      sellerId, 
+      { isDisabled: true }, 
+      { new: true }
+    );
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
-    res.json(seller);
+
+    // Send notification emails
+    const emailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: 'Important: Your Auqli Account Has Been Disabled',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Account Status Update</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>Your Auqli seller account has been temporarily disabled. This may be due to:</p>
+          <ul>
+            <li>Violation of our terms of service</li>
+            <li>Suspicious activity detected</li>
+            <li>Multiple customer complaints</li>
+            <li>Non-compliance with seller policies</li>
+          </ul>
+          <p>If you believe this is an error or would like to appeal this decision, please contact our support team at support@auqli.com</p>
+          <p>Best regards,<br>Auqli Trust & Safety Team</p>
+        </div>
+      `
+    };
+
+    // Send to business email if it exists
+    if (seller.businessEmail) {
+      const businessEmailMsg = {
+        to: seller.businessEmail,
+        from: 'Auqli Admin <joseph@auqli.com>',
+        subject: 'Important: Business Account Status Update - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Business Account Disabled</h2>
+            <p>Dear ${seller.businessName || seller.firstName},</p>
+            <p>This is to inform you that your business account on Auqli has been disabled.</p>
+            <p>While your account is disabled:</p>
+            <ul>
+              <li>Your products will not be visible in the marketplace</li>
+              <li>You cannot process new orders</li>
+              <li>Access to seller dashboard is restricted</li>
+            </ul>
+            <p>For immediate assistance or to appeal this decision, please contact our business support team.</p>
+            <p>Best regards,<br>Auqli Business Support Team</p>
+          </div>
+        `
+      };
+      await sgMail.send(businessEmailMsg);
+    }
+
+    await sgMail.send(emailMsg);
+
+    res.json({
+      success: true,
+      message: 'Seller account disabled successfully',
+      seller
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to disable seller account',
+      error: error.message
+    });
   }
 };
 
@@ -134,13 +198,79 @@ exports.enableSeller = async (req, res) => {
   const { sellerId } = req.params;
 
   try {
-    const seller = await Seller.findByIdAndUpdate(sellerId, { isDisabled: false }, { new: true });
+    const seller = await Seller.findByIdAndUpdate(
+      sellerId, 
+      { isDisabled: false }, 
+      { new: true }
+    );
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
-    res.json(seller);
+
+    // Send notification email
+    const emailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: 'Good News! Your Auqli Account Has Been Reactivated 🎉',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Account Reactivated</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>We're pleased to inform you that your Auqli seller account has been reactivated. You now have full access to:</p>
+          <ul>
+            <li>List and manage products</li>
+            <li>Process orders</li>
+            <li>Access your seller dashboard</li>
+            <li>Receive payments</li>
+          </ul>
+          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+          <p>Thank you for your patience during this process.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send to business email if it exists
+    if (seller.businessEmail) {
+      const businessEmailMsg = {
+        to: seller.businessEmail,
+        from: 'Auqli Admin <joseph@auqli.com>',
+        subject: 'Business Account Reactivated - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Business Account Reactivated</h2>
+            <p>Dear ${seller.businessName || seller.firstName},</p>
+            <p>Your business account on Auqli has been reactivated with full functionality restored.</p>
+            <p>You can now:</p>
+            <ul>
+              <li>Access all business features</li>
+              <li>List and manage products</li>
+              <li>Process customer orders</li>
+              <li>Access business analytics</li>
+            </ul>
+            <p>Thank you for your continued partnership with Auqli.</p>
+            <p>Best regards,<br>Auqli Business Team</p>
+          </div>
+        `
+      };
+      await sgMail.send(businessEmailMsg);
+    }
+
+    await sgMail.send(emailMsg);
+
+    res.json({
+      success: true,
+      message: 'Seller account enabled successfully',
+      seller
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to enable seller account',
+      error: error.message
+    });
   }
 };
 
@@ -523,16 +653,76 @@ exports.verifyBusinessAccount = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // if (seller.accountType !== 'business') {
-    //   return res.status(400).json({ message: 'Seller is not a business account' });
-    // }
-
     seller.isVerified = true;
     await seller.save();
 
-    res.json({ message: ' account verified successfully', seller });
+    // Send verification emails
+    const personalEmailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: 'Your Auqli Account Has Been Verified! 🎉',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Congratulations ${seller.firstName}!</h2>
+          <p>Your Auqli seller account has been verified successfully. You can now:</p>
+          <ul>
+            <li>List products on the marketplace</li>
+            <li>Access all seller features</li>
+            <li>Process orders and receive payments</li>
+          </ul>
+          <p>Start selling today by logging into your account!</p>
+          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+          <p>If you have any questions, please don't hesitate to contact our support team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send to business email if it exists
+    if (seller.businessEmail) {
+      const businessEmailMsg = {
+        to: seller.businessEmail,
+        from: 'Auqli Admin <joseph@auqli.com>',
+        subject: 'Business Account Verification Confirmed - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Business Account Verified</h2>
+            <p>Dear ${seller.businessName || seller.firstName},</p>
+            <p>Your business account on Auqli has been verified. Here's what this means for your business:</p>
+            <ul>
+              <li>Full access to seller dashboard</li>
+              <li>Ability to process unlimited orders</li>
+              <li>Access to business analytics</li>
+              <li>Priority customer support</li>
+            </ul>
+            <p>Business Details:</p>
+            <ul>
+              <li>Business Name: ${seller.businessName}</li>
+              <li>Account Type: ${seller.accountType}</li>
+              <li>Verification Status: Verified</li>
+            </ul>
+            <p>You can now start managing your business through our platform.</p>
+            <p>Best regards,<br>Auqli Business Team</p>
+          </div>
+        `
+      };
+      await sgMail.send(businessEmailMsg);
+    }
+
+    await sgMail.send(personalEmailMsg);
+
+    res.json({ 
+      success: true,
+      message: 'Account verified successfully', 
+      seller 
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to verify account', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to verify account', 
+      error: error.message 
+    });
   }
 };
 
@@ -565,7 +755,7 @@ exports.createWithdrawalRequest = async (req, res) => {
     // Send email to admin
     const adminMsg = {
       to: process.env.ADMIN_EMAIL,
-      from: 'Auqli Admin <admin@auqli.com>',
+      from: 'Auqli Admin <joseph@auqli.com>',
       subject: 'New Withdrawal Request',
       html: `
         <h3>New Withdrawal Request</h3>
@@ -651,7 +841,7 @@ exports.updateWithdrawalStatus = async (req, res) => {
       // Send email to seller
       const sellerMsg = {
         to: seller.email,
-        from: 'Auqli Admin <admin@auqli.com>',
+        from: 'Auqli Admin <joseph@auqli.com>',
         subject: 'Withdrawal Request Completed',
         html: `
           <h3>Withdrawal Request Completed</h3>

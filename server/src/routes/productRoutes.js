@@ -420,7 +420,7 @@ router.get('/:id', productController.getProduct);
  * @swagger
  * /api/products/{id}:
  *   put:
- *     summary: Update a product
+ *     summary: Update a single product
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -430,6 +430,7 @@ router.get('/:id', productController.getProduct);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Product ID to update
  *     requestBody:
  *       required: true
  *       content:
@@ -443,12 +444,130 @@ router.get('/:id', productController.getProduct);
  *                 type: string
  *               price:
  *                 type: number
- *               
+ *               priceVariants:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     size:
+ *                       type: string
+ *                     price:
+ *                       type: number
+ *               category:
+ *                 type: string
+ *               subCategory:
+ *                 type: string
+ *               brand:
+ *                 type: string
+ *               modelNumber:
+ *                 type: string
+ *               stock:
+ *                 type: number
+ *               shippingInfo:
+ *                 type: object
+ *                 properties:
+ *                   weight:
+ *                     type: object
+ *                     properties:
+ *                       value:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [kg, g, lb, oz]
+ *                   dimensions:
+ *                     type: object
+ *                     properties:
+ *                       length:
+ *                         type: number
+ *                       width:
+ *                         type: number
+ *                       height:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [cm, in]
+ *               returnPolicy:
+ *                 type: object
+ *                 properties:
+ *                   allowed:
+ *                     type: boolean
+ *                   periodInDays:
+ *                     type: number
+ *                   conditions:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *               status:
+ *                 type: string
+ *                 enum: [draft, active, archived, out_of_stock]
+ *               visibility:
+ *                 type: string
+ *                 enum: [visible, hidden, featured]
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               colors:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               size:
+ *                 type: string
+ *               material:
+ *                 type: string
+ *               weight:
+ *                 type: number
+ *               dimensions:
+ *                 type: string
+ *               taxClass:
+ *                 type: string
+ *               taxRate:
+ *                 type: number
+ *               onSale:
+ *                 type: boolean
+ *               salePrice:
+ *                 type: number
+ *               warranty:
+ *                 type: string
+ *               minimumPurchaseQuantity:
+ *                 type: number
+ *               vendor:
+ *                 type: string
+ *               seo:
+ *                 type: object
+ *                 properties:
+ *                   metaTitle:
+ *                     type: string
+ *                   metaDescription:
+ *                     type: string
+ *                   metaKeywords:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   slug:
+ *                     type: string
  *     responses:
  *       200:
  *         description: Product updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 product:
+ *                   type: object
+ *       403:
+ *         description: Not authorized to update this product
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
  */
-router.put('/:id', 
+router.put('/:id',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
   productController.updateProduct
@@ -750,5 +869,36 @@ router.put('/:id/visibility',
  *         description: Seller not found
  */
 router.get('/seller/:sellerId', productController.getSellerProducts);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   delete:
+ *     summary: Delete a single product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID to delete
+ *     responses:
+ *       200:
+ *         description: Product deleted successfully
+ *       403:
+ *         description: Not authorized to delete this product
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.deleteProduct
+);
 
 module.exports = router;

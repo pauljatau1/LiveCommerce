@@ -222,106 +222,101 @@ exports.getProduct = async (req, res) => {
   }
 };
 
-// Update a product
+// Update a single product
 exports.updateProduct = async (req, res) => {
-  const { id } = req.params;
-  const { category, subCategory, ...updateData } = req.body;
-  const images = req.files['images'];
-  const blips = req.files['blips'];
-
   try {
+    const { id } = req.params;
+    const updates = req.body;
+    const sellerId = req.user.id;
+
+    // Find the product and verify ownership
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Validate category and subCategory if they're being updated
-    if (category) {
-      const categoryDoc = await Category.findOne({ name: category });
-      if (!categoryDoc) {
-        return res.status(400).json({ message: 'Invalid category' });
-      }
-
-      if (subCategory) {
-        const validSubCategory = categoryDoc.subCategories.some(sub => 
-          sub.name === subCategory
-        );
-        if (!validSubCategory) {
-          return res.status(400).json({ message: 'Invalid subcategory for the selected category' });
-        }
-      }
+    if (product.seller.toString() !== sellerId) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
     }
 
-    let imagesLinks = [];
-    if (images && images.length > 0) {
-      for (let image of images) {
-        const params = {
-          Bucket: 'auqli-uploads',
-          Key: `${uuidv4()}-${image.originalname}`,
-          Body: image.buffer,
-          ContentType: image.mimetype,
-          
-        };
-        const data = await s3.upload(params).promise();
-        imagesLinks.push({ url: data.Location });
-      }
-    }
+    // Protected fields that shouldn't be updated directly
+    const protectedFields = ['_id', 'seller', 'createdAt', 'reviews', 'analytics'];
 
-    let blipsLinks = [];
-    if (blips && blips.length > 0) {
-      for (let blip of blips) {
-        const params = {
-          Bucket: 'auqli-uploads',
-          Key: `${uuidv4()}-${blip.originalname}`,
-          Body: blip.buffer,
-          ContentType: blip.mimetype,
-          
-        };
-        const data = await s3.upload(params).promise();
-        blipsLinks.push({ url: data.Location });
-      }
-    }
+    // Remove protected fields from updates
+    protectedFields.forEach(field => {
+      delete updates[field];
+    });
 
-    // Merge updateData with the existing product data
-    Object.assign(product, updateData, {
-      category: category || product.category,
-      subCategory: subCategory || product.subCategory,
-      images: [...product.images, ...imagesLinks],
-      blips: [...product.blips, ...blipsLinks],
+    // Update all fields except protected ones
+    Object.assign(product, {
+      ...updates,
       updatedAt: Date.now()
     });
 
-    const updatedProduct = await product.save();
+    await product.save();
 
-    // Populate the seller field with seller details after updating the product
-    const populatedProduct = await Product.findById(updatedProduct._id).populate('seller', 'name avatarUrl about');
+    // Populate seller information before sending response
+    const updatedProduct = await Product.findById(id)
+      .populate('seller', 'businessName storeName');
 
-    res.json(populatedProduct);
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      product: updatedProduct
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update product', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update product',
+      error: error.message
+    });
   }
 };
 
-
 // Delete a product
 exports.deleteProduct = async (req, res) => {
-  const { id } = req.params;
-
   try {
+    const { id } = req.params;
+    const sellerId = req.user.id;
+
+    // Find the product and verify ownership
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Delete images from Cloudinary
-    for (let image of product.images) {
-      await cloudinary.uploader.destroy(image.public_id);
+    if (product.seller.toString() !== sellerId) {
+      return res.status(403).json({ message: 'Not authorized to delete this product' });
     }
 
-    await product.remove();
-    res.json({ message: 'Product deleted successfully' });
+    // Delete product images from storage
+    if (product.images && product.images.length > 0) {
+      for (const image of product.images) {
+        const key = image.url.split('/').pop();
+        await s3.deleteObject({
+          Bucket: 'auqli-uploads',
+          Key: key
+        }).promise();
+      }
+    }
+
+    // Delete the product
+    await Product.findByIdAndDelete(id);
+
+    res.json({
+      message: 'Product deleted successfully',
+      deletedProduct: {
+        id: product._id,
+        name: product.name
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete product', error: error.message });
+    res.status(500).json({
+      message: 'Failed to delete product',
+      error: error.message
+    });
   }
 };
 
