@@ -11,36 +11,72 @@ const NotificationController = require('../controllers/notificationController');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
-  const sellerId = req.user.id;
-  const { category, subCategory, ...productData } = req.body;
-  const images = req.files['images'];
-  const blips = req.files['blips'];
-
   try {
-    // Validate category and subCategory
-    const categoryDoc = await Category.findOne({ name: category });
+    const sellerId = req.user.id;
+    
+    // Validate required fields
+    const requiredFields = ['name', 'description', 'price', 'category', 'stock', 'sku'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    // Safely parse JSON fields with error handling
+    const parseJsonField = (field, fieldName) => {
+      if (!field) return undefined;
+      try {
+        return typeof field === 'string' ? JSON.parse(field) : field;
+      } catch (error) {
+        throw new Error(`Invalid JSON format for ${fieldName}: ${error.message}`);
+      }
+    };
+
+    // Parse JSON strings for objects with error handling
+    const parsedBody = {
+      ...req.body,
+      returnPolicy: parseJsonField(req.body.returnPolicy, 'returnPolicy'),
+      shippingInfo: parseJsonField(req.body.shippingInfo, 'shippingInfo'),
+      seo: parseJsonField(req.body.seo, 'seo'),
+      priceVariants: parseJsonField(req.body.priceVariants, 'priceVariants'),
+    };
+
+    // Convert comma-separated strings to arrays
+    if (typeof req.body.tags === 'string') {
+      parsedBody.tags = req.body.tags.split(',').map(tag => tag.trim());
+    }
+    if (typeof req.body.colors === 'string') {
+      parsedBody.colors = req.body.colors.split(',').map(color => color.trim());
+    }
+
+    // Validate category and subcategory
+    const categoryDoc = await Category.findOne({ name: parsedBody.category });
     if (!categoryDoc) {
       return res.status(400).json({ message: 'Invalid category' });
     }
 
-    if (subCategory) {
-      const validSubCategory = categoryDoc.subCategories.some(sub => 
-        sub.name === subCategory
+    if (parsedBody.subCategory) {
+      const validSubCategory = categoryDoc.subCategories.some(
+        sub => sub.name === parsedBody.subCategory
       );
       if (!validSubCategory) {
-        return res.status(400).json({ message: 'Invalid subcategory for the selected category' });
+        return res.status(400).json({ 
+          message: 'Invalid subcategory for the selected category' 
+        });
       }
     }
 
+    // Handle file uploads
     let imagesLinks = [];
-    if (images && images.length > 0) {
-      for (let image of images) {
+    if (req.files && req.files['images']) {
+      for (let image of req.files['images']) {
         const params = {
           Bucket: 'auqli-uploads',
           Key: `${uuidv4()}-${image.originalname}`,
           Body: image.buffer,
           ContentType: image.mimetype,
-          
         };
         const data = await s3.upload(params).promise();
         imagesLinks.push({ url: data.Location });
@@ -48,24 +84,53 @@ exports.createProduct = async (req, res) => {
     }
 
     let blipsLinks = [];
-    if (blips && blips.length > 0) {
-      for (let blip of blips) {
+    if (req.files && req.files['blips']) {
+      for (let blip of req.files['blips']) {
         const params = {
           Bucket: 'auqli-uploads',
           Key: `${uuidv4()}-${blip.originalname}`,
           Body: blip.buffer,
           ContentType: blip.mimetype,
-          
         };
         const data = await s3.upload(params).promise();
         blipsLinks.push({ url: data.Location });
       }
     }
 
+    // Handle price variants
+    const priceVariants = [];
+    const variantKeys = Object.keys(req.body)
+      .filter(key => key.startsWith('variants['))
+      .sort(); // Sort to ensure order is maintained
+
+    // Group variant data
+    const variantMap = new Map();
+    variantKeys.forEach(key => {
+      const matches = key.match(/variants\[(\d+)\]\[(\w+)\]/);
+      if (matches) {
+        const [, index, field] = matches;
+        if (!variantMap.has(index)) {
+          variantMap.set(index, {});
+        }
+        variantMap.get(index)[field] = req.body[key];
+      }
+    });
+
+    // Convert map to array and validate
+    variantMap.forEach((variant, index) => {
+      if (!variant.size || !variant.price) {
+        throw new Error(`Incomplete variant data at index ${index}`);
+      }
+      priceVariants.push({
+        size: variant.size,
+        price: Number(variant.price)
+      });
+    });
+
+    // Create new product with parsed variants
     const newProduct = new Product({
-      ...productData,
-      category,
-      subCategory,
+      ...req.body,
+      priceVariants,
       seller: sellerId,
       images: imagesLinks,
       blips: blipsLinks,
@@ -73,12 +138,34 @@ exports.createProduct = async (req, res) => {
 
     await newProduct.save();
 
-    // Populate the seller field with seller details after saving the product
-    const populatedProduct = await Product.findById(newProduct._id).populate('seller', 'name avatarUrl about');
+    // Populate seller details
+    const populatedProduct = await Product.findById(newProduct._id)
+      .populate('seller', 'name avatarUrl about');
 
     res.status(201).json(populatedProduct);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create product', error: error.message });
+    console.error('Product creation error:', error);
+    
+    // Send more specific error messages based on error type
+    if (error.message.includes('Invalid JSON format')) {
+      return res.status(400).json({
+        message: 'Data format error',
+        error: error.message
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Validation error',
+        error: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    res.status(500).json({ 
+      message: 'Failed to create product', 
+      error: error.message,
+      details: error.stack 
+    });
   }
 };
 

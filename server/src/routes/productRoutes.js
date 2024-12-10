@@ -19,41 +19,274 @@ const upload = multer({ storage: multer.memoryStorage() });
  *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - name
+ *               - description
+ *               - price
+ *               - category
+ *               - stock
+ *               - sku
  *             properties:
  *               name:
  *                 type: string
+ *                 description: Product name
  *               description:
  *                 type: string
+ *                 description: Detailed product description
  *               price:
  *                 type: number
- *               stock:
+ *                 description: Base price of the product
+ *               'variants[0][size]':
+ *                 type: string
+ *                 description: Size for first variant
+ *                 example: "10kg"
+ *               'variants[0][price]':
  *                 type: number
+ *                 description: Price for first variant
+ *                 example: 80000
+ *               'variants[1][size]':
+ *                 type: string
+ *                 description: Size for second variant
+ *                 example: "20kg"
+ *               'variants[1][price]':
+ *                 type: number
+ *                 description: Price for second variant
+ *                 example: 90000
+ *               category:
+ *                 type: string
+ *                 description: Main category of the product
+ *               subCategory:
+ *                 type: string
+ *                 description: Sub-category of the product
+ *               brand:
+ *                 type: string
+ *               modelNumber:
+ *                 type: string
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *               category:
- *                 type: string
+ *                 description: Product images (max 8)
+ *               blips:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Product video blips (max 4)
+ *               stock:
+ *                 type: number
+ *                 minimum: 0
  *               shippingInfo:
  *                 type: object
  *                 properties:
  *                   weight:
  *                     type: object
+ *                     properties:
+ *                       value:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [kg, g, lb, oz]
  *                   dimensions:
  *                     type: object
+ *                     properties:
+ *                       length:
+ *                         type: number
+ *                       width:
+ *                         type: number
+ *                       height:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [cm, in]
  *                   shippingMethods:
  *                     type: array
+ *                     items:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         estimatedDays:
+ *                           type: number
+ *                         cost:
+ *                           type: number
  *               returnPolicy:
  *                 type: object
+ *                 properties:
+ *                   allowed:
+ *                     type: boolean
+ *                   periodInDays:
+ *                     type: number
+ *                   conditions:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *               sku:
+ *                 type: string
+ *                 description: Stock keeping unit (unique identifier)
+ *               upc:
+ *                 type: string
+ *                 description: Universal Product Code
+ *               condition:
+ *                 type: string
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               colors:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               size:
+ *                 type: string
+ *               material:
+ *                 type: string
+ *               weight:
+ *                 type: number
+ *               dimensions:
+ *                 type: string
+ *               taxClass:
+ *                 type: string
+ *               taxRate:
+ *                 type: number
+ *               onSale:
+ *                 type: boolean
+ *               salePrice:
+ *                 type: number
+ *               warranty:
+ *                 type: string
+ *               minimumPurchaseQuantity:
+ *                 type: number
+ *               vendor:
+ *                 type: string
+ *               seo:
+ *                 type: object
+ *                 properties:
+ *                   metaTitle:
+ *                     type: string
+ *                   metaDescription:
+ *                     type: string
+ *                   metaKeywords:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   slug:
+ *                     type: string
+ *               status:
+ *                 type: string
+ *                 enum: [draft, active, archived, out_of_stock]
+ *               visibility:
+ *                 type: string
+ *                 enum: [visible, hidden, featured]
  *     responses:
  *       201:
  *         description: Product created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 price:
+ *                   type: number
+ *                 category:
+ *                   type: string
+ *                 subCategory:
+ *                   type: string
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     avatarUrl:
+ *                       type: string
+ *                     about:
+ *                       type: string
+ *                 images:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                 stock:
+ *                   type: number
+ *                 shippingInfo:
+ *                   type: object
+ *                 returnPolicy:
+ *                   type: object
+ *                 stats:
+ *                   type: object
+ *                 status:
+ *                   type: string
+ *                 visibility:
+ *                   type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 priceVariants:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       size:
+ *                         type: string
+ *                         example: "10kg"
+ *                       price:
+ *                         type: number
+ *                         example: 80000
+ *     examples:
+ *       multipartFormData:
+ *         summary: Example Form Data
+ *         value:
+ *           'variants[0][size]': "10kg"
+ *           'variants[0][price]': 80000
+ *           'variants[1][size]': "20kg"
+ *           'variants[1][price]': 90000
+ *       400:
+ *         description: Invalid request data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid priceVariants format. Expected format: [{'size':'10kg','price':80000}]"
+ *                 error:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a seller
+ *       500:
+ *         description: Server error
  */
 router.post('/',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  upload.array('images', 5),
+  upload.fields([
+    { name: 'images', maxCount: 8 },
+    { name: 'blips', maxCount: 4 }
+  ]),
   productController.createProduct
 );
 

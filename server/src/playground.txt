@@ -61,3 +61,189 @@ create post
     "https://thumbs.dreamstime.com/b/photo-d-une-belle-abeille-et-des-fleurs-par-jour-ensoleill%C3%A9-92801024.jpg"
   ]
 }
+
+
+
+
+
+
+
+
+
+{
+  "name": "Premium Basmati Rice",
+  "description": "High-quality basmati rice imported from India. Perfect for all your cooking needs.",
+  "price": 70000,
+  "variants": [
+    {
+      "size": "5kg",
+      "price": 40000
+    },
+    {
+      "size": "10kg",
+      "price": 75000
+    },
+    {
+      "size": "25kg",
+      "price": 180000
+    }
+  ],
+  "category": "Food & Groceries",
+  "subCategory": "Rice & Grains",
+  "brand": "Royal Harvest",
+  "modelNumber": "RH-BSM-001",
+  "seller": "seller_id_here",
+  "images": [
+    {
+      "url": "https://auqli-uploads.s3.amazonaws.com/product-front.jpg",
+      "alt": "Front view of rice package",
+      "isPrimary": true
+    },
+    {
+      "url": "https://auqli-uploads.s3.amazonaws.com/product-back.jpg",
+      "alt": "Back view showing nutritional information"
+    },
+    {
+      "url": "https://auqli-uploads.s3.amazonaws.com/product-side.jpg",
+      "alt": "Side view of package"
+    }
+  ],
+  "blips": [
+    {
+      "url": "https://auqli-uploads.s3.amazonaws.com/product-demo.mp4",
+      "thumbnail": "https://auqli-uploads.s3.amazonaws.com/product-demo-thumb.jpg",
+      "duration": "30"
+    },
+    {
+      "url": "https://auqli-uploads.s3.amazonaws.com/cooking-instructions.mp4",
+      "thumbnail": "https://auqli-uploads.s3.amazonaws.com/cooking-instructions-thumb.jpg",
+      "duration": "45"
+    }
+  ],
+  "stock": 100,
+  "soldCount": 0,
+  "shippingInfo": {
+    "weight": {
+      "value": 25,
+      "unit": "kg"
+    },
+    "dimensions": {
+      "length": 50,
+      "width": 30,
+      "height": 20,
+      "unit": "cm"
+    },
+    "shippingMethods": [
+      {
+        "name": "Standard Delivery",
+        "estimatedDays": 3,
+        "cost": 1500
+      },
+      {
+        "name": "Express Delivery",
+        "estimatedDays": 1,
+        "cost": 3000
+      }
+    ]
+  },
+  "returnPolicy": {
+    "allowed": true,
+    "periodInDays": 7,
+    "conditions": [
+      "Product must be unopened",
+      "Original packaging required",
+      "Return shipping paid by buyer"
+    ]
+  },
+  "stats": {
+    "views": 0,
+    "lastRestocked": "2024-03-20T10:00:00Z",
+    "averageRating": 0,
+    "reviewCount": 0
+  },
+  "lowStockAlert": 20,
+  "sku": "RIC-001",
+  "upc": "890123456789",
+  "condition": "new",
+  "tags": ["rice", "basmati", "premium", "food", "grain"],
+  "colors": ["white", "cream"],
+  "material": "grain",
+  "weight": 25000,
+  "minimumPurchaseQuantity": 1,
+  "vendor": "Royal Harvest Foods Ltd",
+  "certifications": "ISO 22000, HACCP Certified",
+  "ecoFriendly": true,
+  "originCountry": "India",
+  "careInstructions": "Store in a cool, dry place. Keep away from direct sunlight.",
+  "inventory": {
+    "quantity": 100,
+    "lowStockThreshold": 20,
+    "sku": "RIC-001",
+    "barcode": "890123456789"
+  },
+  "variants": [
+    {
+      "name": "Package Size",
+      "options": [
+        {
+          "value": "5kg",
+          "inventory": 30,
+          "price": 40000,
+          "sku": "RIC-001-5KG"
+        },
+        {
+          "value": "10kg",
+          "inventory": 40,
+          "price": 75000,
+          "sku": "RIC-001-10KG"
+        },
+        {
+          "value": "25kg",
+          "inventory": 30,
+          "price": 180000,
+          "sku": "RIC-001-25KG"
+        }
+      ]
+    }
+  ],
+  "pricing": {
+    "compareAtPrice": 85000,
+    "costPerItem": 55000,
+    "profit": 15000,
+    "taxable": true,
+    "taxRate": 5
+  },
+  "shipping": {
+    "weight": 25000,
+    "dimensions": {
+      "length": 50,
+      "width": 30,
+      "height": 20
+    },
+    "shippingClass": "heavy",
+    "freeShipping": false
+  },
+  "seo": {
+    "metaTitle": "Premium Basmati Rice - 25kg Bulk Pack | Royal Harvest",
+    "metaDescription": "Buy premium quality basmati rice in bulk. Perfect for restaurants and large families. Available in various sizes with free shipping options.",
+    "metaKeywords": [
+      "basmati rice",
+      "premium rice",
+      "bulk rice",
+      "indian rice",
+      "royal harvest"
+    ],
+    "slug": "premium-basmati-rice-25kg"
+  },
+  "status": "active",
+  "visibility": "visible",
+  "analytics": {
+    "views": 0,
+    "sales": 0,
+    "lastViewed": null,
+    "conversionRate": 0
+  },
+  "warranty": "30 days manufacturer warranty",
+  "createdAt": "2024-03-20T10:00:00Z",
+  "updatedAt": "2024-03-20T10:00:00Z"
+}

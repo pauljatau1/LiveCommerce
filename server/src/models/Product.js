@@ -1,5 +1,40 @@
 const mongoose = require('mongoose');
 
+// Helper function to generate SKU
+async function generateSKU(product) {
+  const prefix = product.category ? product.category.substring(0, 3).toUpperCase() : 'PRD';
+  const timestamp = Date.now().toString().slice(-4);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  const sku = `${prefix}-${timestamp}-${random}`;
+  
+  // Check if SKU already exists
+  const exists = await mongoose.model('Product').findOne({ 'inventory.sku': sku });
+  if (exists) {
+    return generateSKU(product); // Recursively try again if SKU exists
+  }
+  
+  return sku;
+}
+
+// Helper function to generate slug
+async function generateSlug(name) {
+  const baseSlug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+  
+  let slug = baseSlug;
+  let counter = 1;
+  
+  // Check if slug exists
+  while (await mongoose.model('Product').findOne({ 'seo.slug': slug })) {
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+  
+  return slug;
+}
+
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
@@ -181,13 +216,17 @@ const productSchema = new mongoose.Schema({
 });
 
 productSchema.pre('save', async function(next) {
-  if (!this.inventory.sku) {
-    this.inventory.sku = await generateSKU(this);
+  try {
+    if (!this.inventory.sku) {
+      this.inventory.sku = await generateSKU(this);
+    }
+    if (!this.seo.slug) {
+      this.seo.slug = await generateSlug(this.name);
+    }
+    next();
+  } catch (error) {
+    next(error);
   }
-  if (!this.seo.slug) {
-    this.seo.slug = await generateSlug(this.name);
-  }
-  next();
 });
 
 productSchema.methods.updateStock = async function(quantity, operation = 'decrease') {

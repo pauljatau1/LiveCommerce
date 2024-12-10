@@ -229,6 +229,63 @@ router.put('/profile/bank-details', authMiddleware.verifyToken, sellerController
  *               businessTaxId:
  *                 type: string
  *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Documents uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Company verification documents uploaded successfully
+ *                 documents:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       example: company
+ *                     documents:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           documentType:
+ *                             type: string
+ *                           fileUrl:
+ *                             type: string
+ *                           public_id:
+ *                             type: string
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.post(
   '/verification/company',
@@ -264,6 +321,63 @@ router.post(
  *               proofOfAddress:
  *                 type: string
  *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Documents uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Individual verification documents uploaded successfully
+ *                 documents:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       example: individual
+ *                     documents:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           documentType:
+ *                             type: string
+ *                           fileUrl:
+ *                             type: string
+ *                           public_id:
+ *                             type: string
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.post(
   '/verification/individual',
@@ -341,6 +455,68 @@ router.put('/business-details', authMiddleware.verifyToken, sellerController.add
  *                     type: string
  *                   zipCode:
  *                     type: string
+ *     responses:
+ *       200:
+ *         description: Business information added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Business information added successfully
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     businessEmail:
+ *                       type: string
+ *                     businessNumber:
+ *                       type: string
+ *                     businessAddress:
+ *                       type: object
+ *                       properties:
+ *                         country:
+ *                           type: string
+ *                         state:
+ *                           type: string
+ *                         city:
+ *                           type: string
+ *                         addressLine1:
+ *                           type: string
+ *                         addressLine2:
+ *                           type: string
+ *                         zipCode:
+ *                           type: string
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.put('/business-information', authMiddleware.verifyToken, sellerController.addBusinessInformation);
 
@@ -388,6 +564,78 @@ router.put('/business-information', authMiddleware.verifyToken, sellerController
  *                         type: string
  *                       zipCode:
  *                         type: string
+ *     responses:
+ *       200:
+ *         description: Shipping and warehouse information added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Shipping and warehouse information added successfully
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     shippingOptions:
+ *                       type: object
+ *                       properties:
+ *                         shippingMethod:
+ *                           type: string
+ *                         returnsAndExchangePolicy:
+ *                           type: string
+ *                     warehouseDetails:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         contactNumber:
+ *                           type: string
+ *                         address:
+ *                           type: object
+ *                           properties:
+ *                             country:
+ *                               type: string
+ *                             state:
+ *                               type: string
+ *                             city:
+ *                               type: string
+ *                             addressLine1:
+ *                               type: string
+ *                             addressLine2:
+ *                               type: string
+ *                             zipCode:
+ *                               type: string
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.put('/shipping-warehouse', authMiddleware.verifyToken, sellerController.addShippingWarehouse);
 
@@ -528,12 +776,60 @@ router.post('/verify-otp', sellerController.verifyOTP);
  *     responses:
  *       200:
  *         description: Categories selected successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Categories selected successfully
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     categories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
  *       400:
  *         description: Invalid category IDs provided
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
  *       404:
  *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.post('/select-categories', authMiddleware.verifyToken, sellerController.selectCategories);
 
@@ -611,6 +907,37 @@ router.get('/followers', authMiddleware.verifyToken, sellerController.getFollowe
  *     responses:
  *       200:
  *         description: Top products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                   totalQuantity:
+ *                     type: number
+ *                   totalRevenue:
+ *                     type: number
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.get('/top-products', authMiddleware.verifyToken, sellerController.getTopProducts);
 
@@ -625,6 +952,41 @@ router.get('/top-products', authMiddleware.verifyToken, sellerController.getTopP
  *     responses:
  *       200:
  *         description: Statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalStoreVisits:
+ *                   type: number
+ *                 totalSales:
+ *                   type: number
+ *                 totalOrders:
+ *                   type: number
+ *                 uniqueCustomers:
+ *                   type: number
+ *                 conversionRate:
+ *                   type: string
+ *                 walletBalance:
+ *                   type: number
+ *                 currentMonth:
+ *                   type: object
+ *                   properties:
+ *                     orders:
+ *                       type: number
+ *                     sales:
+ *                       type: number
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.get('/statistics', authMiddleware.verifyToken, sellerController.getStatistics);
 
@@ -641,23 +1003,83 @@ router.get('/statistics', authMiddleware.verifyToken, sellerController.getStatis
  *         name: status
  *         schema:
  *           type: string
+ *         description: Filter orders by status
  *       - in: query
  *         name: startDate
  *         schema:
  *           type: string
  *           format: date
+ *         description: Filter orders from this date
  *       - in: query
  *         name: endDate
  *         schema:
  *           type: string
  *           format: date
+ *         description: Filter orders until this date
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
+ *         description: Page number for pagination
  *     responses:
  *       200:
  *         description: List of seller's orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       buyer:
+ *                         type: object
+ *                         properties:
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                       items:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             product:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                                 images:
+ *                                   type: array
+ *                                   items:
+ *                                     type: string
+ *                                 price:
+ *                                   type: number
+ *                             quantity:
+ *                               type: number
+ *                             status:
+ *                               type: string
+ *                 totalPages:
+ *                   type: number
+ *                 currentPage:
+ *                   type: number
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
  */
 router.get('/orders', 
   authMiddleware.verifyToken, 
