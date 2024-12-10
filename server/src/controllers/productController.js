@@ -296,16 +296,115 @@ exports.getAllProducts = async (req, res) => {
 
 // Get a single product
 exports.getProduct = async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const product = await Product.findById(id).populate('seller', 'name avatarUrl about').populate('reviews.buyer', 'firstName lastName');
-    if (!product) {
+    const product = await Product.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(req.params.id)
+        }
+      },
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'sellerInfo'
+        }
+      },
+      { $unwind: '$sellerInfo' },
+      {
+        $lookup: {
+          from: 'reviews',
+          localField: 'reviews',
+          foreignField: '_id',
+          as: 'reviewDetails'
+        }
+      },
+      {
+        $project: {
+          // Include all base fields
+          name: 1,
+          description: 1,
+          price: 1,
+          priceVariants: 1,
+          category: 1,
+          subCategory: 1,
+          brand: 1,
+          modelNumber: 1,
+          images: 1,
+          blips: 1,
+          stock: 1,
+          status: 1,
+          visibility: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          seo: 1,
+          specifications: 1,
+          features: 1,
+          dimensions: 1,
+          weight: 1,
+          materials: 1,
+          colors: 1,
+          sizes: 1,
+          shippingInfo: 1,
+          returnPolicy: 1,
+          warranty: 1,
+          tags: 1,
+          
+          // Seller information
+          seller: {
+            _id: '$sellerInfo._id',
+            name: '$sellerInfo.name',
+            storeName: '$sellerInfo.storeName',
+            businessName: '$sellerInfo.businessName',
+            avatarUrl: '$sellerInfo.avatarUrl',
+            rating: '$sellerInfo.rating',
+            verified: '$sellerInfo.verified',
+            about: '$sellerInfo.about'
+          },
+          
+          // Reviews and stats
+          reviews: '$reviewDetails',
+          stats: {
+            averageRating: {
+              $cond: {
+                if: { $isArray: '$reviewDetails' },
+                then: { $avg: '$reviewDetails.rating' },
+                else: null
+              }
+            },
+            reviewCount: {
+              $cond: {
+                if: { $isArray: '$reviewDetails' },
+                then: { $size: '$reviewDetails' },
+                else: 0
+              }
+            },
+            viewCount: '$stats.views',
+            soldCount: '$soldCount',
+            lastViewed: '$stats.lastViewed'
+          }
+        }
+      }
+    ]);
+
+    if (!product || product.length === 0) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    res.json(product);
+
+    // Increment view count and update last viewed
+    await Product.findByIdAndUpdate(req.params.id, {
+      $inc: { 'stats.views': 1 },
+      $set: { 'stats.lastViewed': new Date() }
+    });
+
+    res.json(product[0]);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve product', error: error.message });
+    console.error('Error in getProduct:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve product', 
+      error: error.message 
+    });
   }
 };
 

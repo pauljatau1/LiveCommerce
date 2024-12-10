@@ -7,6 +7,375 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * @swagger
+ * /api/products/blips:
+ *   get:
+ *     summary: Get all blips from all products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of blips per page
+ *         default: 10
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                         description: URL of the blip video
+ *                       thumbnail:
+ *                         type: string
+ *                         description: URL of the blip thumbnail
+ *                       productId:
+ *                         type: string
+ *                         description: ID of the associated product
+ *                       sellerId:
+ *                         type: string
+ *                         description: ID of the seller
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalBlips:
+ *                       type: integer
+ *       500:
+ *         description: Server error
+ * 
+ * /api/products/seller/{sellerId}/blips:
+ *   get:
+ *     summary: Get all blips from a specific seller
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of blips per page
+ *         default: 10
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved seller's blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                       productId:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalBlips:
+ *                       type: integer
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+
+// Public routes for blips
+router.get('/blips', productController.getAllBlips);
+router.get('/seller/:sellerId/blips', productController.getSellerBlips);
+
+/**
+ * @swagger
+ * /api/products/all:
+ *   get:
+ *     summary: Get all products with optional filters and pagination
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         default: 10
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         required: false
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         required: false
+ *         default: 0
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         required: false
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling]
+ *         required: false
+ *         default: newest
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, active, archived, out_of_stock]
+ *         required: false
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [visible, hidden, featured]
+ *         required: false
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     products:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                           price:
+ *                             type: number
+ *                           category:
+ *                             type: string
+ *                           subCategory:
+ *                             type: string
+ *                           images:
+ *                             type: array
+ *                           stock:
+ *                             type: number
+ *                           status:
+ *                             type: string
+ *                           visibility:
+ *                             type: string
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *                         totalProducts:
+ *                           type: integer
+ *                         hasNextPage:
+ *                           type: boolean
+ *                         hasPrevPage:
+ *                           type: boolean
+ *                         limit:
+ *                           type: integer
+ *                     filters:
+ *                       type: object
+ *                       properties:
+ *                         category:
+ *                           type: string
+ *                         priceRange:
+ *                           type: object
+ *                         sortBy:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         visibility:
+ *                           type: string
+ *       500:
+ *         description: Server error
+ */
+router.get('/all', productController.getAllProducts);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   get:
+ *     summary: Get a product by ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Product details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 price:
+ *                   type: number
+ *                 priceVariants:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       size:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                 category:
+ *                   type: string
+ *                 subCategory:
+ *                   type: string
+ *                 images:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       public_id:
+ *                         type: string
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     storeName:
+ *                       type: string
+ *                     avatarUrl:
+ *                       type: string
+ *                     rating:
+ *                       type: number
+ *                     verified:
+ *                       type: boolean
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     averageRating:
+ *                       type: number
+ *                     reviewCount:
+ *                       type: integer
+ *                     viewCount:
+ *                       type: integer
+ *                     soldCount:
+ *                       type: integer
+ *                 stock:
+ *                   type: number
+ *                 status:
+ *                   type: string
+ *                   enum: [draft, active, archived, out_of_stock]
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Product not found
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
+ */
+router.get('/:id', productController.getProduct);
+
+/**
+ * @swagger
  * /api/products:
  *   post:
  *     summary: Create a new product
@@ -290,132 +659,6 @@ router.post('/',
   productController.createProduct
 );
 
-
-/**
- * @swagger
- * /api/products/all:
- *   get:
- *     summary: Get all products with optional filters and pagination
- *     tags: [Products]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         required: false
- *         default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         required: false
- *         default: 10
- *       - in: query
- *         name: category
- *         schema:
- *           type: string
- *         required: false
- *       - in: query
- *         name: minPrice
- *         schema:
- *           type: number
- *         required: false
- *         default: 0
- *       - in: query
- *         name: maxPrice
- *         schema:
- *           type: number
- *         required: false
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling]
- *         required: false
- *         default: newest
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [draft, active, archived, out_of_stock]
- *         required: false
- *       - in: query
- *         name: visibility
- *         schema:
- *           type: string
- *           enum: [visible, hidden, featured]
- *         required: false
- *     responses:
- *       200:
- *         description: Products retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     products:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           _id:
- *                             type: string
- *                           name:
- *                             type: string
- *                           description:
- *                             type: string
- *                           price:
- *                             type: number
- *                           category:
- *                             type: string
- *                           subCategory:
- *                             type: string
- *                           images:
- *                             type: array
- *                           stock:
- *                             type: number
- *                           status:
- *                             type: string
- *                           visibility:
- *                             type: string
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         currentPage:
- *                           type: integer
- *                         totalPages:
- *                           type: integer
- *                         totalProducts:
- *                           type: integer
- *                         hasNextPage:
- *                           type: boolean
- *                         hasPrevPage:
- *                           type: boolean
- *                         limit:
- *                           type: integer
- *                     filters:
- *                       type: object
- *                       properties:
- *                         category:
- *                           type: string
- *                         priceRange:
- *                           type: object
- *                         sortBy:
- *                           type: string
- *                         status:
- *                           type: string
- *                         visibility:
- *                           type: string
- *       500:
- *         description: Server error
- */
-router.get('/all', productController.getAllProducts);
-
 /**
  * @swagger
  * /api/products/inventory:
@@ -628,26 +871,6 @@ router.put('/bulk-update',
 router.get('/:id/stats',
   productController.getProductStats
 );
-
-/**
- * @swagger
- * /api/products/{id}:
- *   get:
- *     summary: Get a single product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Product retrieved successfully
- *       404:
- *         description: Product not found
- */
-router.get('/:id', productController.getProduct);
 
 /**
  * @swagger

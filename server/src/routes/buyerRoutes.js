@@ -581,4 +581,208 @@ router.get('/analytics',
   buyerController.getPurchaseAnalytics
 );
 
+/**
+ * @swagger
+ * /api/buyer/addresses:
+ *   get:
+ *     summary: Get all addresses for the buyer
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of addresses retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Address'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ * 
+ *   post:
+ *     summary: Add a new address
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - addressType
+ *               - country
+ *               - city
+ *               - address1
+ *               - zipCode
+ *             properties:
+ *               addressType:
+ *                 type: string
+ *                 enum: [home, work, other]
+ *                 example: "home"
+ *               country:
+ *                 type: string
+ *                 example: "United States"
+ *               city:
+ *                 type: string
+ *                 example: "New York"
+ *               address1:
+ *                 type: string
+ *                 example: "123 Main St"
+ *               address2:
+ *                 type: string
+ *                 example: "Apt 4B"
+ *               zipCode:
+ *                 type: string
+ *                 example: "10001"
+ *     responses:
+ *       201:
+ *         description: Address added successfully
+ * 
+ * /api/buyer/addresses/{addressId}:
+ *   put:
+ *     summary: Update an address
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Address'
+ *     responses:
+ *       200:
+ *         description: Address updated successfully
+ * 
+ *   delete:
+ *     summary: Delete an address
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Address deleted successfully
+ */
+
+// Address routes
+/**
+ * @swagger
+ * /api/buyer/addresses:
+ *   get:
+ *     summary: Get all addresses for the buyer
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of addresses retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Address'
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/addresses', authMiddleware.verifyToken, buyerController.getAddresses);
+
+/**
+ * @swagger
+ * /api/buyer/addresses:
+ *   post:
+ *     summary: Add a new address
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Address'
+ *     responses:
+ *       201:
+ *         description: Address added successfully
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/addresses', authMiddleware.verifyToken, buyerController.addAddress);
+
+/**
+ * @swagger
+ * /api/buyer/addresses/{addressId}:
+ *   put:
+ *     summary: Update an existing address
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Address'
+ *     responses:
+ *       200:
+ *         description: Address updated successfully
+ *       404:
+ *         description: Buyer or address not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/addresses/:addressId', authMiddleware.verifyToken, buyerController.updateAddress);
+
+/**
+ * @swagger
+ * /api/buyer/addresses/{addressId}:
+ *   delete:
+ *     summary: Delete an address
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Address deleted successfully
+ *       404:
+ *         description: Buyer or address not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/addresses/:addressId', authMiddleware.verifyToken, buyerController.deleteAddress);
+
 module.exports = router;

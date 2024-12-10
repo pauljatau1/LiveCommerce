@@ -635,3 +635,128 @@ exports.getPurchaseAnalytics = async (req, res) => {
   }
 };
 
+// Get all addresses
+exports.getAddresses = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+    res.json(buyer.shippingAddresses);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve addresses', 
+      error: error.message 
+    });
+  }
+};
+
+// Add new address
+exports.addAddress = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    const { addressType, country, city, address1, address2, zipCode } = req.body;
+
+    // Validate required fields
+    if (!addressType || !country || !city || !address1 || !zipCode) {
+      return res.status(400).json({ 
+        message: 'Missing required fields',
+        required: ['addressType', 'country', 'city', 'address1', 'zipCode']
+      });
+    }
+
+    const newAddress = {
+      addressType,
+      country,
+      city,
+      address1,
+      address2,
+      zipCode
+    };
+
+    buyer.shippingAddresses.push(newAddress);
+    await buyer.save();
+
+    res.status(201).json({ 
+      message: 'Address added successfully', 
+      address: newAddress 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to add address', 
+      error: error.message 
+    });
+  }
+};
+
+// Update address
+exports.updateAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    const addressIndex = buyer.shippingAddresses.findIndex(
+      addr => addr._id.toString() === addressId
+    );
+
+    if (addressIndex === -1) {
+      return res.status(404).json({ message: 'Address not found' });
+    }
+
+    const updatedAddress = {
+      ...buyer.shippingAddresses[addressIndex].toObject(),
+      ...req.body,
+      _id: addressId
+    };
+
+    buyer.shippingAddresses[addressIndex] = updatedAddress;
+    await buyer.save();
+
+    res.json({ 
+      message: 'Address updated successfully', 
+      address: updatedAddress 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update address', 
+      error: error.message 
+    });
+  }
+};
+
+// Delete address
+exports.deleteAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    const addressIndex = buyer.shippingAddresses.findIndex(
+      addr => addr._id.toString() === addressId
+    );
+
+    if (addressIndex === -1) {
+      return res.status(404).json({ message: 'Address not found' });
+    }
+
+    buyer.shippingAddresses.splice(addressIndex, 1);
+    await buyer.save();
+
+    res.json({ message: 'Address deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to delete address', 
+      error: error.message 
+    });
+  }
+};
+
