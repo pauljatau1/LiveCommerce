@@ -54,7 +54,22 @@ exports.register = async (req, res) => {
         from: 'Joseph From Auqli <joseph@auqli.com>',
         subject: 'Verify Your Email - Auqli',
         text: `Hi ${existingSeller.firstName}, please verify your email with this OTP: ${otp}`,
-        html: `<strong>Hi ${existingSeller.firstName}, please verify your email with this OTP: ${otp}</strong>`,
+        html: `
+          <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+              <h1 style="color: #4CAF50; margin-bottom: 20px;">Email Verification Required</h1>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${existingSeller.firstName},</p>
+              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">Welcome to Auqli! To complete your registration, please verify your email using the OTP below:</p>
+              <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
+                <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
+              </div>
+              <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this verification, please ignore this email.</p>
+              <hr style="border: 1px solid #333333; margin: 30px 0;">
+              <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            </div>
+          </div>
+        `
       };
 
       await sgMail.send(msg);
@@ -87,7 +102,31 @@ exports.register = async (req, res) => {
       from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Welcome to Auqli!',
       text: `Hi ${firstName}, welcome to Auqli! Please verify your email with this OTP: ${otp}`,
-      html: `<strong>Hi ${firstName}, welcome to Auqli! Please verify your email with this OTP: ${otp}</strong>`,
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli!</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${firstName},</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Thank you for joining Auqli! We're excited to have you on board. To get started, please verify your email using the OTP below:</p>
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
+              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
+            </div>
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Next Steps:</h3>
+              <ul style="color: #ffffff; margin-bottom: 0;">
+                <li style="margin-bottom: 10px;">Verify your email using the OTP above</li>
+                <li style="margin-bottom: 10px;">Complete your seller profile</li>
+                <li style="margin-bottom: 10px;">Set up your store</li>
+                <li>Start selling your products</li>
+              </ul>
+            </div>
+            <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't create an account with Auqli, please ignore this email.</p>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
     };
 
     await sgMail.send(msg);
@@ -153,7 +192,22 @@ exports.resendOTP = async (req, res) => {
       from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Your Auqli OTP',
       text: `Hi, your OTP is ${otp}. Please use this OTP to verify your email.`,
-      html: `<strong>Hi, your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Your New OTP</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi there,</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">You requested a new OTP. Please use the code below to verify your email:</p>
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
+              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${otp}</span>
+            </div>
+            <p style="font-size: 14px; color: #999999;">This OTP will expire in 10 minutes. If you didn't request this OTP, please ignore this email.</p>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
     };
 
     await sgMail.send(msg);
