@@ -20,6 +20,7 @@ const publicRoutes = require('./routes/publicRoutes')
 const notificationRoutes = require('./routes/notificationRoutes');
 const withdrawalRoutes = require('./routes/withdrawalRoutes');
 const socialRoutes = require('./routes/socialRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 // Import Passport configuration
 require('./config/passport');
 
@@ -67,6 +68,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/social', socialRoutes);
+app.use('/webhooks', webhookRoutes);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

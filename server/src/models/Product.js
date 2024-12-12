@@ -182,14 +182,20 @@ const productSchema = new mongoose.Schema({
     taxRate: { type: Number, default: 0 },
   },
   shipping: {
-    weight: { type: Number },
+    weight: { type: Number, required: true },
     dimensions: {
-      length: { type: Number },
-      width: { type: Number },
-      height: { type: Number },
+      length: { type: Number, required: true },
+      width: { type: Number, required: true },
+      height: { type: Number, required: true }
     },
-    shippingClass: { type: String },
     freeShipping: { type: Boolean, default: false },
+    shippingClass: { 
+      type: String, 
+      enum: ['standard', 'express', 'economy'],
+      default: 'standard'
+    },
+    customShippingCost: { type: Number },
+    restrictedLocations: [String],
   },
   seo: {
     metaTitle: { type: String },

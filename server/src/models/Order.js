@@ -68,11 +68,31 @@ const orderSchema = new mongoose.Schema({
     amount: Number
   },
   shipping: {
-    method: String,
-    cost: Number,
-    trackingNumber: String,
-    carrier: String,
-    estimatedDelivery: Date
+    method: { 
+      type: String, 
+      enum: ['standard', 'express', 'economy'],
+      required: true 
+    },
+    fee: { 
+      type: Number, 
+      required: true 
+    },
+    estimatedDeliveryDate: Date,
+    tracking: {
+      number: String,
+      carrier: String,
+      status: {
+        type: String,
+        enum: ['pending', 'picked_up', 'in_transit', 'delivered', 'failed'],
+        default: 'pending'
+      },
+      lastUpdate: Date,
+      history: [{
+        status: String,
+        location: String,
+        timestamp: Date
+      }]
+    }
   },
   dispute: {
     status: {

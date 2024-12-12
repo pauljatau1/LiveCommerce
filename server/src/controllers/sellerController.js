@@ -11,7 +11,7 @@ const Order = require('../models/Order');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 
-// Helper function for JWT generation
+
 const generateToken = (id) => {
   return jwt.sign({ id, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '2w' });
 };

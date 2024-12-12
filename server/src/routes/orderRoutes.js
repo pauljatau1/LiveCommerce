@@ -225,4 +225,65 @@ router.put('/:id/refund/process',
   orderController.processRefund
 );
 
+/**
+ * @swagger
+ * /api/order/calculate-shipping:
+ *   post:
+ *     summary: Calculate shipping fees for items
+ *     tags: [Order]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *               shippingAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *               shippingMethod:
+ *                 type: string
+ *                 enum: [standard, express, economy]
+ *     responses:
+ *       200:
+ *         description: Shipping fees calculated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalShippingFee:
+ *                   type: number
+ *                 shippingDetails:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       productId:
+ *                         type: string
+ *                       shippingFee:
+ *                         type: number
+ *                       estimatedDeliveryDate:
+ *                         type: string
+ *                         format: date-time
+ */
+router.post('/calculate-shipping', orderController.calculateShipping);
+
 module.exports = router;

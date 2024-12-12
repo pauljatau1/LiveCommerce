@@ -5,6 +5,8 @@ const Seller = require('../models/Seller');
 const Notification = require('../models/Notification');
 const axios = require('axios'); // For Paystack API calls
 const sgMail = require('@sendgrid/mail');
+const shippingService = require('../services/shippingService');
+const terminalService = require('../services/terminalService');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Initialize Paystack
@@ -917,5 +919,53 @@ exports.processRefund = async (req, res) => {
     });
   } finally {
     session.endSession();
+  }
+};
+
+exports.calculateShipping = async (req, res) => {
+  try {
+    const { items, shippingAddress, pickupAddress } = req.body;
+    
+    // Validate addresses
+    if (!validateAddress(shippingAddress) || !validateAddress(pickupAddress)) {
+      return res.status(400).json({ message: 'Invalid address format' });
+    }
+
+    let totalShippingFee = 0;
+    const shippingDetails = [];
+
+    for (const item of items) {
+      const product = await Product.findById(item.productId)
+        .populate('seller', 'warehouseAddress');
+
+      if (!product) {
+        return res.status(404).json({ message: `Product not found: ${item.productId}` });
+      }
+
+      const rates = await shippingService.calculateShippingFee(
+        product,
+        shippingAddress,
+        pickupAddress || product.seller.warehouseAddress
+      );
+
+      const estimatedDeliveryDate = shippingService.estimateDeliveryDate(rates.method);
+
+      shippingDetails.push({
+        productId: item.productId,
+        availableRates: rates,
+        estimatedDeliveryDate
+      });
+    }
+
+    res.json({
+      shippingDetails,
+      carriers: await terminalService.getCarriers(shippingAddress.country)
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to calculate shipping', 
+      error: error.message 
+    });
   }
 };
