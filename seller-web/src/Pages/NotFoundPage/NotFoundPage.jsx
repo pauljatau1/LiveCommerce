@@ -1,17 +1,23 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../Contexts/AuthContext';
 import Background1 from '../../assets/background-asset1.png';
 import Background2 from '../../assets/background-asset-3.png';
 
 const NotFoundPage = () => {
     const navigate = useNavigate();
-    const { isAuthenticated, user } = useAuthContext();
+    const { isAuthenticated, seller } = useAuthContext();
 
 
     // function to handle go home button by checking if the user is signed in, if so navigate to seller dashboard page else go to login page
     const handleGoHome = () => {
-        if (isAuthenticated && user !== null) {
-            navigate('/dashboard');
+        if (isAuthenticated && seller !== null) {
+          const storedToken = localStorage.getItem('sellerToken');
+          const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, firstTime: null };
+          if (tokenData.data && tokenData.firstTime) {
+            navigate('/dashboard/onboarding');
+          } else {
+            navigate('/dashboard/home');
+          }
         } else {
             navigate('/', { replace: true });
         }
