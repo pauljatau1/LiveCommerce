@@ -14,7 +14,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 const LoginPage = () => {
   const { isAuthenticated, seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login } = useAuthContext();
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(true);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpCount, setOtpCount] = useState(0);
   const [email, setEmail] = useState('');
