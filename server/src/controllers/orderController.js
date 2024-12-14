@@ -33,42 +33,35 @@ exports.createOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { items, shippingAddress, paymentMethod, discountCode } = req.body;
+    const { items, shippingAddress } = req.body;
     const buyer = await Buyer.findById(req.user.id);
-    
-    // 1. Create addresses for shipping
-    // Create "from" address (seller's address)
-    const seller = await Seller.findById(items[0].seller);
-    if (!seller.sellerAddress) {
-      throw new Error('Seller shipping address not configured');
-    }
 
+    // Validate product and create initial order...
+    const product = await Product.findById(items[0].productId)
+      .populate('seller', 'email firstName lastName phoneNumber sellerAddress');
+    
+    // Create addresses for Terminal API
     const fromAddress = {
-      city: seller.sellerAddress.city,
-      country: seller.sellerAddress.country,
-      email: seller.email,
-      first_name: seller.firstName,
-      last_name: seller.lastName,
-      is_residential: false,
-      line1: seller.sellerAddress.addressLine1,
-      line2: seller.sellerAddress.addressLine2 || '',
-      name: `${seller.firstName} ${seller.lastName}`,
-      phone: seller.phoneNumber,
-      state: seller.sellerAddress.state,
-      zip: seller.sellerAddress.zipCode
+      city: product.seller.sellerAddress.city,
+      country: product.seller.sellerAddress.country === 'Nigeria' ? 'NG' : product.seller.sellerAddress.country,
+      email: product.seller.email,
+      first_name: product.seller.firstName,
+      last_name: product.seller.lastName,
+      line1: product.seller.sellerAddress.addressLine1,
+      line2: product.seller.sellerAddress.addressLine2 || '',
+      phone: product.seller.phoneNumber,
+      state: product.seller.sellerAddress.state,
+      zip: product.seller.sellerAddress.zipCode
     };
 
-    // Create "to" address (buyer's address)
     const toAddress = {
       city: shippingAddress.city,
-      country: shippingAddress.country,
+      country: shippingAddress.country === 'Nigeria' ? 'NG' : shippingAddress.country,
       email: buyer.email,
       first_name: buyer.firstName,
       last_name: buyer.lastName,
-      is_residential: true,
-      line1: shippingAddress.address1,
-      line2: shippingAddress.address2 || '',
-      name: `${buyer.firstName} ${buyer.lastName}`,
+      line1: shippingAddress.addressLine1,
+      line2: shippingAddress.addressLine2 || '',
       phone: buyer.phoneNumber,
       state: shippingAddress.state,
       zip: shippingAddress.zipCode
@@ -80,111 +73,180 @@ exports.createOrder = async (req, res) => {
       terminalAPI.post('/addresses', toAddress)
     ]);
 
-    // Create packaging and get products info simultaneously
-    const productsWithPackaging = await Promise.all(
-      items.map(async (item) => {
-        const product = await Product.findById(item.productId)
-          .populate('seller');
-
-        if (!product) {
-          throw new Error(`Product ${item.productId} not found`);
-        }
-
-        // Create packaging
-        const packaging = {
-          height: product.dimensions?.height || 30,
-          length: product.dimensions?.length || 40,
-          width: product.dimensions?.width || 25,
-          weight: product.weight || 5,
-          name: "Standard Box",
-          size_unit: "cm",
-          type: "box",
-          weight_unit: "kg"
-        };
-
-        const packagingRes = await terminalAPI.post('/packaging', packaging);
-
-        return {
-          product,
-          quantity: item.quantity,
-          packagingId: packagingRes.data.data.packaging_id
-        };
-      })
-    );
-
-    // Create parcel with all items
+    // Create parcel
     const parcelData = {
-      description: `Order containing ${items.length} items`,
-      items: productsWithPackaging.map(({ product, quantity }) => ({
-        name: product.name,
-        type: "parcel",
-        currency: "NGN",
-        description: product.description,
-        metadata: {
-          productId: product._id.toString(),
-          seller: product.seller.businessName || `${product.seller.firstName} ${product.seller.lastName}`,
-          category: product.category
-        },
-        weight: product.weight || 1, // Default weight if not specified
-        weight_unit: "kg",
-        value: product.price * quantity,
-        quantity: quantity
-      })),
-      metadata: {
-        orderId: req.body.orderId, // If available
-        buyerId: buyer._id.toString(),
-        orderType: "ecommerce"
-      },
-      packaging: productsWithPackaging[0].packagingId, // Using first packaging ID
-      weight_unit: "kg"
+      weight: product.weight || 1,
+      height: product.dimensions?.height || 10,
+      width: product.dimensions?.width || 10,
+      length: product.dimensions?.length || 10
     };
 
-    // Add proof of payment if available
-    if (req.body.paymentProof) {
-      parcelData.proof_of_payments = [req.body.paymentProof];
-    }
-
-    // Add product images as rec_docs if available
-    const productImages = productsWithPackaging
-      .map(({ product }) => product.images)
-      .flat()
-      .map(image => image.url)
-      .filter(Boolean);
-
-    if (productImages.length > 0) {
-      parcelData.rec_docs = productImages;
-    }
-
-    // Create parcel in Terminal
     const parcelResponse = await terminalAPI.post('/parcels', parcelData);
 
-    // Store shipping info including parcel ID
-    const shippingInfo = {
-      fromAddressId: fromAddressRes.data.data.address_id,
-      toAddressId: toAddressRes.data.data.address_id,
-      packagingIds: productsWithPackaging.map(p => p.packagingId),
-      parcelId: parcelResponse.data.data.parcel_id
-    };
-
-    // After creating addresses and parcel
+    // Get shipping rates
     const shippingRates = await getShippingRatesForOrder(
-      shippingInfo.fromAddressId,
-      shippingInfo.toAddressId,
-      shippingInfo.parcelId
+      fromAddressRes.data.data.address_id,
+      toAddressRes.data.data.address_id,
+      parcelResponse.data.data.parcel_id
     );
 
+    // Calculate initial total (product price * quantity)
+    const subtotal = product.price * items[0].quantity;
+
+    // Create order with initial shipping details
+    const order = new Order({
+      buyer: buyer._id,
+      items: [{
+        product: items[0].productId,
+        quantity: items[0].quantity,
+        seller: product.seller._id,
+        price: product.price
+      }],
+      shippingAddress,
+      subtotal,
+      totalAmount: subtotal, // Will be updated with shipping fee
+      paid: false,
+      shipping: {
+        fromAddressId: fromAddressRes.data.data.address_id,
+        toAddressId: toAddressRes.data.data.address_id,
+        parcelId: parcelResponse.data.data.parcel_id,
+        availableRates: shippingRates,
+        status: 'pending_carrier_selection'
+      }
+    });
+
+    await order.save({ session });
     await session.commitTransaction();
-    res.status(201).json({ 
+
+    res.status(201).json({
       message: 'Order created successfully',
-      shippingInfo,
-      parcelDetails: parcelResponse.data.data,
-      shippingRates // Include available shipping rates
+      order,
+      shippingRates,
+      nextStep: {
+        action: 'select_shipping_carrier',
+        endpoint: `/api/order/${order._id}/select-carrier`
+      }
     });
 
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({
+    res.status(500).json({
       message: 'Failed to create order',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Modified select carrier endpoint
+exports.selectShippingCarrier = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { orderId } = req.params;
+    const { carrierReference, rateId } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Find selected rate from available rates
+    const selectedRate = order.shipping.availableRates.find(
+      rate => rate.rateId === rateId
+    );
+
+    if (!selectedRate) {
+      return res.status(400).json({ message: 'Invalid rate selected' });
+    }
+
+    // Enable carrier
+    await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
+      params: { domestic: true }
+    });
+
+    // Update order with shipping fee and total
+    order.shipping.carrier = carrierReference;
+    order.shipping.rateId = rateId;
+    order.shipping.fee = selectedRate.amount;
+    order.totalAmount = order.subtotal + selectedRate.amount;
+    order.shipping.status = 'carrier_selected';
+
+    await order.save({ session });
+    await session.commitTransaction();
+
+    res.json({
+      message: 'Shipping carrier selected successfully',
+      order,
+      nextStep: {
+        action: 'process_payment',
+        endpoint: `/api/order/${order._id}/process-payment`
+      }
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({
+      message: 'Failed to select shipping carrier',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// New endpoint to handle payment and create shipment
+exports.processPaymentAndCreateShipment = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { orderId } = req.params;
+    const { paymentDetails } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Process payment (implement your payment logic here)
+    // const paymentResult = await processPayment(paymentDetails, order.totalAmount);
+
+    // Create shipment
+    const shipmentData = {
+      address_from: order.shipping.fromAddressId,
+      address_to: order.shipping.toAddressId,
+      parcel: order.shipping.parcelId,
+      carrier_reference: order.shipping.carrier,
+      rate_id: order.shipping.rateId,
+      metadata: {
+        orderId: order._id
+      }
+    };
+
+    const shipmentResponse = await terminalAPI.post('/shipments', shipmentData);
+
+    // Update order
+    order.paid = true;
+    order.shipping.status = 'shipment_created';
+    order.shipping.shipmentId = shipmentResponse.data.data.shipment_id;
+    order.shipping.trackingNumber = shipmentResponse.data.data.tracking_number;
+
+    await order.save({ session });
+    await session.commitTransaction();
+
+    res.json({
+      message: 'Payment processed and shipment created successfully',
+      order,
+      shipment: shipmentResponse.data.data
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({
+      message: 'Failed to process payment and create shipment',
       error: error.message
     });
   } finally {
@@ -341,31 +403,52 @@ exports.updateOrder = async (req, res) => {
 
 // Mark order as paid
 exports.markOrderAsPaid = async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const order = await Order.findById(id).populate('seller');
+    const { orderId } = req.params;
+    const { transactionId, paymentMethod } = req.body;
+
+    const order = await Order.findById(orderId);
+    
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    if (order.status !== 'Pending') {
-      return res.status(400).json({ message: 'Order can only be marked as paid if it is in Pending status' });
+    // Verify that the order belongs to the current user
+    if (order.buyer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized' });
     }
 
-    order.paymentInfo.status = 'Paid';
-    order.paidAt = Date.now();
-    order.status = 'Paid';
+    // Update order payment status
+    order.paid = true;
+    order.paymentInfo = {
+      method: paymentMethod,
+      status: 'completed',
+      transactionId: transactionId,
+      paidAt: new Date()
+    };
 
-    // Update seller's wallet balance
-    const seller = order.seller;
-    seller.walletBalance += order.totalPrice;
-    await seller.save();
+    await order.save();
 
-    const updatedOrder = await order.save();
-    res.json(updatedOrder);
+    // Notify seller about the payment
+    await notificationController.createNotification({
+      recipient: order.items[0].seller,
+      type: 'payment_received',
+      title: 'Payment Received',
+      message: `Payment received for order #${order._id}`,
+      reference: order._id
+    });
+
+    res.json({
+      message: 'Order marked as paid successfully',
+      order
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to mark order as paid', error: error.message });
+    console.error('Error marking order as paid:', error);
+    res.status(500).json({
+      message: 'Failed to mark order as paid',
+      error: error.message
+    });
   }
 };
 
@@ -1127,52 +1210,6 @@ async function getShippingRatesForOrder(pickupAddressId, deliveryAddressId, parc
   }
 }
 
-// Add a new endpoint to select shipping carrier for an order
-exports.selectShippingCarrier = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { carrierReference, rateId } = req.body;
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // Enable the selected carrier
-    await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
-      params: {
-        domestic: true,
-        international: false,
-        regional: false
-      }
-    });
-
-    // Update order with selected shipping details
-    order.shipping = {
-      ...order.shipping,
-      carrierReference,
-      rateId,
-      status: 'carrier_selected'
-    };
-
-    await order.save();
-
-    res.json({
-      status: true,
-      message: 'Shipping carrier selected successfully',
-      order
-    });
-
-  } catch (error) {
-    console.error('Error selecting shipping carrier:', error);
-    res.status(500).json({
-      status: false,
-      message: 'Failed to select shipping carrier',
-      error: error.message
-    });
-  }
-};
-
 // Create shipment
 exports.createShipment = async (req, res) => {
   try {
@@ -1238,4 +1275,247 @@ exports.createShipment = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Get all orders for a specific buyer
+exports.getUserOrders = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verify if the requesting user is the same as userId
+    if (req.user.id !== userId) {
+      return res.status(403).json({
+        message: 'Unauthorized to view these orders'
+      });
+    }
+
+    const orders = await Order.find({ buyer: userId })
+      .populate('items.product')
+      .populate('items.seller', 'firstName lastName businessName')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      message: 'Orders retrieved successfully',
+      count: orders.length,
+      orders
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to retrieve orders',
+      error: error.message
+    });
+  }
+};
+
+// Cancel an order
+exports.cancelOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { orderId } = req.params;
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if user is authorized to cancel the order
+    if (order.buyer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to cancel this order' });
+    }
+
+    // Check if order can be cancelled
+    if (order.shipping.status !== 'pending_carrier_selection' && 
+        order.shipping.status !== 'carrier_selected') {
+      return res.status(400).json({ 
+        message: 'Order cannot be cancelled at this stage',
+        currentStatus: order.shipping.status
+      });
+    }
+
+    // If shipment was created, cancel it with Terminal
+    if (order.shipping.shipmentId) {
+      try {
+        await terminalAPI.post(`/shipments/${order.shipping.shipmentId}/cancel`);
+      } catch (error) {
+        console.error('Failed to cancel shipment:', error);
+        // Continue with order cancellation even if shipment cancellation fails
+      }
+    }
+
+    // Update order status
+    order.status = 'cancelled';
+    order.cancelledAt = new Date();
+    order.cancellationReason = req.body.reason || 'Cancelled by buyer';
+
+    await order.save({ session });
+
+    // Notify seller
+    await notificationController.createNotification({
+      recipient: order.items[0].seller,
+      type: 'order_cancelled',
+      title: 'Order Cancelled',
+      message: `Order #${order._id} has been cancelled by the buyer`,
+      data: { orderId: order._id }
+    });
+
+    await session.commitTransaction();
+
+    res.json({
+      message: 'Order cancelled successfully',
+      order
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({
+      message: 'Failed to cancel order',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Get all orders for a seller
+exports.getSellerOrders = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    // Verify if the requesting user is the seller
+    if (req.user.id !== sellerId) {
+      return res.status(403).json({
+        message: 'Unauthorized to view these orders'
+      });
+    }
+
+    const orders = await Order.find({ 'items.seller': sellerId })
+      .populate('buyer', 'firstName lastName email')
+      .populate('items.product')
+      .sort({ createdAt: -1 });
+
+    // Group orders by status
+    const groupedOrders = {
+      pending: orders.filter(order => order.status === 'pending'),
+      processing: orders.filter(order => order.status === 'processing'),
+      shipped: orders.filter(order => order.status === 'shipped'),
+      delivered: orders.filter(order => order.status === 'delivered'),
+      cancelled: orders.filter(order => order.status === 'cancelled')
+    };
+
+    res.json({
+      message: 'Orders retrieved successfully',
+      totalCount: orders.length,
+      ordersByStatus: groupedOrders,
+      orders
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to retrieve seller orders',
+      error: error.message
+    });
+  }
+};
+
+// Update order status
+exports.updateOrderStatus = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('items.seller');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Verify if the requesting user is the seller of this order
+    const isSeller = order.items.some(item => 
+      item.seller._id.toString() === req.user.id
+    );
+
+    if (!isSeller) {
+      return res.status(403).json({
+        message: 'Unauthorized to update this order'
+      });
+    }
+
+    // Validate status transition
+    const validStatuses = ['processing', 'shipped', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: 'Invalid status',
+        validStatuses
+      });
+    }
+
+    // Update order status
+    order.status = status;
+    order.statusHistory.push({
+      status,
+      updatedBy: req.user.id,
+      updatedAt: new Date()
+    });
+
+    if (status === 'delivered') {
+      order.deliveredAt = new Date();
+    }
+
+    await order.save({ session });
+
+    // Send notification to buyer
+    await notificationController.createNotification({
+      recipient: order.buyer._id,
+      type: 'order_status_update',
+      title: 'Order Status Updated',
+      message: `Your order #${order._id} is now ${status}`,
+      data: { orderId: order._id, status }
+    });
+
+    // Send email notification
+    const emailTemplate = getEmailTemplateForStatus(status, order);
+    await sgMail.send(emailTemplate);
+
+    await session.commitTransaction();
+
+    res.json({
+      message: 'Order status updated successfully',
+      order
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({
+      message: 'Failed to update order status',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Helper function for email templates
+const getEmailTemplateForStatus = (status, order) => {
+  const template = {
+    to: order.buyer.email,
+    from: 'orders@yourdomain.com',
+    subject: `Order Status Update - ${status.toUpperCase()}`,
+    html: `
+      <h1>Order Status Update</h1>
+      <p>Dear ${order.buyer.firstName},</p>
+      <p>Your order #${order._id} has been ${status}.</p>
+      ${status === 'shipped' ? `
+        <p>Tracking Number: ${order.shipping.trackingNumber}</p>
+        <p>Carrier: ${order.shipping.carrier}</p>
+      ` : ''}
+      <p>Thank you for shopping with us!</p>
+    `
+  };
+  return template;
 };

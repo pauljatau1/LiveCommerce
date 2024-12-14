@@ -618,8 +618,10 @@ router.get('/analytics',
  *               - addressType
  *               - country
  *               - city
- *               - address1
+ *               - addressLine1
  *               - zipCode
+ *               - state
+ *               - addressLine2
  *             properties:
  *               addressType:
  *                 type: string
@@ -631,15 +633,19 @@ router.get('/analytics',
  *               city:
  *                 type: string
  *                 example: "New York"
- *               address1:
+ *               addressLine1:
  *                 type: string
  *                 example: "123 Main St"
- *               address2:
+ *               addressLine2:
  *                 type: string
  *                 example: "Apt 4B"
  *               zipCode:
  *                 type: string
  *                 example: "10001"
+ *               state:
+ *                 type: string
+ *                 example: "California"
+ * 
  *     responses:
  *       201:
  *         description: Address added successfully

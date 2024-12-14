@@ -49,11 +49,15 @@ const orderSchema = new mongoose.Schema({
     address2: String,
     zipCode: { type: String, required: true }
   },
+  paid: {
+    type: Boolean,
+    default: false
+  },
   paymentInfo: {
     method: { 
-      type: String, 
-      required: true,
-      enum: ['credit_card', 'paypal', 'stripe']
+      type: String,
+      enum: ['credit_card', 'paypal', 'paystack'],
+      default: 'paystack'
     },
     status: {
       type: String,
@@ -71,16 +75,24 @@ const orderSchema = new mongoose.Schema({
     method: { 
       type: String, 
       enum: ['standard', 'express', 'economy'],
+      default: 'standard',
       required: true 
     },
     fee: { 
-      type: Number, 
+      type: Number,
+      default: 0,
       required: true 
     },
-    estimatedDeliveryDate: Date,
+    estimatedDeliveryDate: {
+      type: Date,
+      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+    },
     tracking: {
       number: String,
-      carrier: String,
+      carrier: {
+        type: String,
+        default: 'pending'
+      },
       status: {
         type: String,
         enum: ['pending', 'picked_up', 'in_transit', 'delivered', 'failed'],
@@ -166,6 +178,17 @@ orderSchema.methods.calculateTotal = function() {
   }
   
   return total;
+};
+
+// Common address structure
+const addressSchema = {
+  country: { type: String, required: true },
+  state: { type: String, required: true },
+  city: { type: String, required: true },
+  addressLine1: { type: String, required: true },
+  addressLine2: { type: String },
+  zipCode: { type: String, required: true },
+  addressType: { type: String, enum: ['home', 'work', 'warehouse', 'other'], required: true }
 };
 
 module.exports = mongoose.model('Order', orderSchema);

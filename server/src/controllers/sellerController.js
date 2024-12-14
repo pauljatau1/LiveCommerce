@@ -617,7 +617,20 @@ exports.addBusinessInformation = async (req, res) => {
 // Add shipping and warehouse information
 exports.addShippingWarehouse = async (req, res) => {
   try {
-    const { shippingOptions, warehouseDetails } = req.body;
+    const { shippingOptions, warehouseAddress } = req.body;
+
+    // Validate warehouse address
+    if (!warehouseAddress || 
+        !warehouseAddress.country || 
+        !warehouseAddress.state || 
+        !warehouseAddress.city || 
+        !warehouseAddress.addressLine1 || 
+        !warehouseAddress.zipCode) {
+      return res.status(400).json({
+        message: 'Invalid warehouse address. All fields are required.',
+        required: ['country', 'state', 'city', 'addressLine1', 'zipCode']
+      });
+    }
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
@@ -625,18 +638,21 @@ exports.addShippingWarehouse = async (req, res) => {
     }
 
     seller.shippingOptions = shippingOptions;
-    seller.warehouseDetails = warehouseDetails;
+    seller.warehouseAddress = {
+      ...warehouseAddress,
+      addressType: 'warehouse'
+    };
     
     const updatedSeller = await seller.save();
 
-    res.json({ 
-      message: 'Shipping and warehouse information added successfully', 
-      seller: updatedSeller 
+    res.json({
+      message: 'Shipping and warehouse information added successfully',
+      seller: updatedSeller
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to add shipping and warehouse information', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add shipping and warehouse information',
+      error: error.message
     });
   }
 };

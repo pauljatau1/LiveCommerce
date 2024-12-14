@@ -659,36 +659,46 @@ exports.addAddress = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    const { addressType, country, city, address1, address2, zipCode } = req.body;
+    const { addressType, country, state, city, addressLine1, addressLine2, zipCode } = req.body;
 
     // Validate required fields
-    if (!addressType || !country || !city || !address1 || !zipCode) {
-      return res.status(400).json({ 
+    if (!addressType || !country || !state || !city || !addressLine1 || !zipCode) {
+      return res.status(400).json({
         message: 'Missing required fields',
-        required: ['addressType', 'country', 'city', 'address1', 'zipCode']
+        required: ['addressType', 'country', 'state', 'city', 'addressLine1', 'zipCode']
+      });
+    }
+
+    // Validate address type
+    const validAddressTypes = ['home', 'work', 'other'];
+    if (!validAddressTypes.includes(addressType)) {
+      return res.status(400).json({
+        message: 'Invalid address type',
+        validTypes: validAddressTypes
       });
     }
 
     const newAddress = {
       addressType,
       country,
+      state,
       city,
-      address1,
-      address2,
+      addressLine1,
+      addressLine2,
       zipCode
     };
 
     buyer.shippingAddresses.push(newAddress);
     await buyer.save();
 
-    res.status(201).json({ 
-      message: 'Address added successfully', 
-      address: newAddress 
+    res.status(201).json({
+      message: 'Address added successfully',
+      address: newAddress
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to add address', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add address',
+      error: error.message
     });
   }
 };
@@ -710,23 +720,42 @@ exports.updateAddress = async (req, res) => {
       return res.status(404).json({ message: 'Address not found' });
     }
 
+    // Validate required fields if they're being updated
+    const updates = req.body;
+    if (updates.addressType && !['home', 'work', 'other'].includes(updates.addressType)) {
+      return res.status(400).json({
+        message: 'Invalid address type',
+        validTypes: ['home', 'work', 'other']
+      });
+    }
+
     const updatedAddress = {
       ...buyer.shippingAddresses[addressIndex].toObject(),
-      ...req.body,
+      ...updates,
       _id: addressId
     };
+
+    // Validate the complete address after updates
+    if (!updatedAddress.country || !updatedAddress.state || 
+        !updatedAddress.city || !updatedAddress.addressLine1 || 
+        !updatedAddress.zipCode || !updatedAddress.addressType) {
+      return res.status(400).json({
+        message: 'Invalid address structure after update',
+        required: ['country', 'state', 'city', 'addressLine1', 'zipCode', 'addressType']
+      });
+    }
 
     buyer.shippingAddresses[addressIndex] = updatedAddress;
     await buyer.save();
 
-    res.json({ 
-      message: 'Address updated successfully', 
-      address: updatedAddress 
+    res.json({
+      message: 'Address updated successfully',
+      address: updatedAddress
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update address', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update address',
+      error: error.message
     });
   }
 };
