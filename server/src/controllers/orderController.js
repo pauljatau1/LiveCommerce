@@ -3,10 +3,18 @@ const Product = require('../models/Product');
 const Discount = require('../models/Discount');
 const Seller = require('../models/Seller');
 const Notification = require('../models/Notification');
+const Buyer = require('../models/Buyer');
 const axios = require('axios'); // For Paystack API calls
 const sgMail = require('@sendgrid/mail');
 const shippingService = require('../services/shippingService');
 const terminalService = require('../services/terminalService');
+const terminalAPI = axios.create({
+  baseURL: 'https://sandbox.terminal.africa/v1',
+  headers: {
+    Authorization: `Bearer ${process.env.TERMINAL_SECRET_KEY}`,
+    'Content-Type': 'application/json'
+  }
+});
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const mongoose = require('mongoose');
 
@@ -25,110 +33,152 @@ exports.createOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { 
-      items, 
-      shippingAddress, 
-      paymentMethod,
-      discountCode,
-      email // Required for Paystack
-    } = req.body;
-
-    // 1. Validate and group items by seller
-    const groupedItems = {};
-    let totalAmount = 0;
+    const { items, shippingAddress, paymentMethod, discountCode } = req.body;
+    const buyer = await Buyer.findById(req.user.id);
     
-    for (const item of items) {
-      const product = await Product.findById(item.productId).session(session);
-      
-      if (!product) {
-        throw new Error(`Product ${item.productId} not found`);
-      }
-      if (product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for ${product.name}`);
-      }
-      
-      const sellerId = product.seller.toString();
-      if (!groupedItems[sellerId]) {
-        groupedItems[sellerId] = [];
-      }
-      
-      const itemTotal = product.price * item.quantity;
-      totalAmount += itemTotal;
-      
-      groupedItems[sellerId].push({
-        product: product._id,
-        seller: sellerId,
-        quantity: item.quantity,
-        price: product.price
-      });
-      
-      // Update product stock
-      product.stock -= item.quantity;
-      await product.save({ session });
+    // 1. Create addresses for shipping
+    // Create "from" address (seller's address)
+    const seller = await Seller.findById(items[0].seller);
+    if (!seller.sellerAddress) {
+      throw new Error('Seller shipping address not configured');
     }
 
-    // 2. Apply discount if provided
-    let discountAmount = 0;
-    if (discountCode) {
-      const discount = await Discount.findOne({ code: discountCode.toUpperCase() });
-      if (discount && discount.isValid()) {
-        discountAmount = discount.calculateDiscount(totalAmount);
-        discount.usageCount += 1;
-        await discount.save({ session });
-      }
-    }
+    const fromAddress = {
+      city: seller.sellerAddress.city,
+      country: seller.sellerAddress.country,
+      email: seller.email,
+      first_name: seller.firstName,
+      last_name: seller.lastName,
+      is_residential: false,
+      line1: seller.sellerAddress.addressLine1,
+      line2: seller.sellerAddress.addressLine2 || '',
+      name: `${seller.firstName} ${seller.lastName}`,
+      phone: seller.phoneNumber,
+      state: seller.sellerAddress.state,
+      zip: seller.sellerAddress.zipCode
+    };
 
-    // 3. Initialize Paystack payment
-    const paystackResponse = await paystack.post('/transaction/initialize', {
-      email: email || req.user.email,
-      amount: Math.round((totalAmount - discountAmount) * 100), // Amount in kobo
-      callback_url: 'https://boluajayi.netlify.app/',
-      metadata: {
-        custom_fields: [{
-          display_name: "Order Items",
-          variable_name: "order_items",
-          value: JSON.stringify(items)
-        }]
-      }
-    });
+    // Create "to" address (buyer's address)
+    const toAddress = {
+      city: shippingAddress.city,
+      country: shippingAddress.country,
+      email: buyer.email,
+      first_name: buyer.firstName,
+      last_name: buyer.lastName,
+      is_residential: true,
+      line1: shippingAddress.address1,
+      line2: shippingAddress.address2 || '',
+      name: `${buyer.firstName} ${buyer.lastName}`,
+      phone: buyer.phoneNumber,
+      state: shippingAddress.state,
+      zip: shippingAddress.zipCode
+    };
 
-    // Create orders with pending status
-    const orders = [];
-    for (const [sellerId, sellerItems] of Object.entries(groupedItems)) {
-      const sellerTotal = sellerItems.reduce((sum, item) => 
-        sum + (item.price * item.quantity), 0
-      );
-      
-      const order = new Order({
-        buyer: req.user.id,
-        items: sellerItems,
-        totalAmount: sellerTotal,
-        shippingAddress,
-        paymentInfo: {
-          method: 'paystack',
-          status: 'pending',
-          reference: paystackResponse.data.data.reference,
-          accessCode: paystackResponse.data.data.access_code
+    // Create addresses in Terminal
+    const [fromAddressRes, toAddressRes] = await Promise.all([
+      terminalAPI.post('/addresses', fromAddress),
+      terminalAPI.post('/addresses', toAddress)
+    ]);
+
+    // Create packaging and get products info simultaneously
+    const productsWithPackaging = await Promise.all(
+      items.map(async (item) => {
+        const product = await Product.findById(item.productId)
+          .populate('seller');
+
+        if (!product) {
+          throw new Error(`Product ${item.productId} not found`);
+        }
+
+        // Create packaging
+        const packaging = {
+          height: product.dimensions?.height || 30,
+          length: product.dimensions?.length || 40,
+          width: product.dimensions?.width || 25,
+          weight: product.weight || 5,
+          name: "Standard Box",
+          size_unit: "cm",
+          type: "box",
+          weight_unit: "kg"
+        };
+
+        const packagingRes = await terminalAPI.post('/packaging', packaging);
+
+        return {
+          product,
+          quantity: item.quantity,
+          packagingId: packagingRes.data.data.packaging_id
+        };
+      })
+    );
+
+    // Create parcel with all items
+    const parcelData = {
+      description: `Order containing ${items.length} items`,
+      items: productsWithPackaging.map(({ product, quantity }) => ({
+        name: product.name,
+        type: "parcel",
+        currency: "NGN",
+        description: product.description,
+        metadata: {
+          productId: product._id.toString(),
+          seller: product.seller.businessName || `${product.seller.firstName} ${product.seller.lastName}`,
+          category: product.category
         },
-        discount: discountCode ? {
-          code: discountCode,
-          amount: (discountAmount * sellerTotal) / totalAmount
-        } : undefined
-      });
+        weight: product.weight || 1, // Default weight if not specified
+        weight_unit: "kg",
+        value: product.price * quantity,
+        quantity: quantity
+      })),
+      metadata: {
+        orderId: req.body.orderId, // If available
+        buyerId: buyer._id.toString(),
+        orderType: "ecommerce"
+      },
+      packaging: productsWithPackaging[0].packagingId, // Using first packaging ID
+      weight_unit: "kg"
+    };
 
-      await order.save({ session });
-      orders.push(order);
+    // Add proof of payment if available
+    if (req.body.paymentProof) {
+      parcelData.proof_of_payments = [req.body.paymentProof];
     }
+
+    // Add product images as rec_docs if available
+    const productImages = productsWithPackaging
+      .map(({ product }) => product.images)
+      .flat()
+      .map(image => image.url)
+      .filter(Boolean);
+
+    if (productImages.length > 0) {
+      parcelData.rec_docs = productImages;
+    }
+
+    // Create parcel in Terminal
+    const parcelResponse = await terminalAPI.post('/parcels', parcelData);
+
+    // Store shipping info including parcel ID
+    const shippingInfo = {
+      fromAddressId: fromAddressRes.data.data.address_id,
+      toAddressId: toAddressRes.data.data.address_id,
+      packagingIds: productsWithPackaging.map(p => p.packagingId),
+      parcelId: parcelResponse.data.data.parcel_id
+    };
+
+    // After creating addresses and parcel
+    const shippingRates = await getShippingRatesForOrder(
+      shippingInfo.fromAddressId,
+      shippingInfo.toAddressId,
+      shippingInfo.parcelId
+    );
 
     await session.commitTransaction();
-    res.status(201).json({
-      message: 'Orders initialized successfully',
-      orders: orders,
-      payment: {
-        authorization_url: paystackResponse.data.data.authorization_url,
-        access_code: paystackResponse.data.data.access_code,
-        reference: paystackResponse.data.data.reference
-      }
+    res.status(201).json({ 
+      message: 'Order created successfully',
+      shippingInfo,
+      parcelDetails: parcelResponse.data.data,
+      shippingRates // Include available shipping rates
     });
 
   } catch (error) {
@@ -967,6 +1017,225 @@ exports.calculateShipping = async (req, res) => {
     res.status(500).json({ 
       message: 'Failed to calculate shipping', 
       error: error.message 
+    });
+  }
+};
+
+// Search shipping rates
+exports.searchShippingRates = async (req, res) => {
+  try {
+    const { pickupAddressId, deliveryAddressId, parcelId } = req.body;
+
+    if (!pickupAddressId || !deliveryAddressId || !parcelId) {
+      return res.status(400).json({
+        message: 'Missing required parameters: pickupAddressId, deliveryAddressId, or parcelId'
+      });
+    }
+
+    const ratesResponse = await terminalAPI.get('/rates/shipment', {
+      params: {
+        currency: 'NGN',
+        pickup_address: pickupAddressId,
+        delivery_address: deliveryAddressId,
+        parcel_id: parcelId,
+        cash_on_delivery: false
+      }
+    });
+
+    if (!ratesResponse.data.status) {
+      throw new Error('Failed to fetch shipping rates');
+    }
+
+    res.json({
+      status: true,
+      message: 'Shipping rates retrieved successfully',
+      data: ratesResponse.data.data
+    });
+
+  } catch (error) {
+    console.error('Error fetching shipping rates:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch shipping rates',
+      error: error.message
+    });
+  }
+};
+
+// Enable carrier
+exports.enableCarrier = async (req, res) => {
+  try {
+    const { carrierReference } = req.params;
+    const { domestic = true, international = false, regional = false } = req.body;
+
+    if (!carrierReference) {
+      return res.status(400).json({
+        message: 'Carrier reference is required'
+      });
+    }
+
+    const enableResponse = await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
+      params: {
+        domestic,
+        international,
+        regional
+      }
+    });
+
+    if (!enableResponse.data.status) {
+      throw new Error('Failed to enable carrier');
+    }
+
+    res.json({
+      status: true,
+      message: 'Carrier enabled successfully',
+      data: enableResponse.data.data
+    });
+
+  } catch (error) {
+    console.error('Error enabling carrier:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to enable carrier',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to get shipping rates for an order
+async function getShippingRatesForOrder(pickupAddressId, deliveryAddressId, parcelId) {
+  try {
+    const ratesResponse = await terminalAPI.get('/rates/shipment', {
+      params: {
+        currency: 'NGN',
+        pickup_address: pickupAddressId,
+        delivery_address: deliveryAddressId,
+        parcel_id: parcelId,
+        cash_on_delivery: false
+      }
+    });
+
+    if (!ratesResponse.data.status) {
+      throw new Error('Failed to fetch shipping rates');
+    }
+
+    return ratesResponse.data.data;
+
+  } catch (error) {
+    console.error('Error fetching shipping rates:', error);
+    throw error;
+  }
+}
+
+// Add a new endpoint to select shipping carrier for an order
+exports.selectShippingCarrier = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { carrierReference, rateId } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Enable the selected carrier
+    await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
+      params: {
+        domestic: true,
+        international: false,
+        regional: false
+      }
+    });
+
+    // Update order with selected shipping details
+    order.shipping = {
+      ...order.shipping,
+      carrierReference,
+      rateId,
+      status: 'carrier_selected'
+    };
+
+    await order.save();
+
+    res.json({
+      status: true,
+      message: 'Shipping carrier selected successfully',
+      order
+    });
+
+  } catch (error) {
+    console.error('Error selecting shipping carrier:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to select shipping carrier',
+      error: error.message
+    });
+  }
+};
+
+// Create shipment
+exports.createShipment = async (req, res) => {
+  try {
+    const { 
+      addressFromId, 
+      addressToId, 
+      parcelId, 
+      addressReturnId, 
+      metadata 
+    } = req.body;
+
+    // Validate required fields
+    if (!addressFromId || !addressToId || !parcelId) {
+      return res.status(400).json({
+        status: false,
+        message: 'Missing required fields: addressFromId, addressToId, or parcelId'
+      });
+    }
+
+    const shipmentData = {
+      address_from: addressFromId,
+      address_to: addressToId,
+      parcel: parcelId,
+      address_return: addressReturnId,
+      shipment_purpose: "commercial",
+      metadata: {
+        ...metadata,
+        orderId: req.body.orderId // If available
+      }
+    };
+
+    const shipmentResponse = await terminalAPI.post('/shipments', shipmentData);
+
+    if (!shipmentResponse.data.status) {
+      throw new Error('Failed to create shipment');
+    }
+
+   
+    if (req.body.orderId) {
+      const order = await Order.findById(req.body.orderId);
+      if (order) {
+        order.shipping = {
+          ...order.shipping,
+          shipmentId: shipmentResponse.data.data.shipment_id,
+          status: 'shipment_created',
+          createdAt: new Date()
+        };
+        await order.save();
+      }
+    }
+
+    res.json({
+      status: true,
+      message: 'Shipment created successfully',
+      data: shipmentResponse.data.data
+    });
+
+  } catch (error) {
+    console.error('Error creating shipment:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to create shipment',
+      error: error.message
     });
   }
 };

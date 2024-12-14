@@ -286,4 +286,232 @@ router.put('/:id/refund/process',
  */
 router.post('/calculate-shipping', orderController.calculateShipping);
 
+/**
+ * @swagger
+ * /api/order/shipping-rates:
+ *   post:
+ *     summary: Search for available shipping rates
+ *     tags: [Order]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - pickupAddressId
+ *               - deliveryAddressId
+ *               - parcelId
+ *             properties:
+ *               pickupAddressId:
+ *                 type: string
+ *                 description: Terminal Africa pickup address ID
+ *               deliveryAddressId:
+ *                 type: string
+ *                 description: Terminal Africa delivery address ID
+ *               parcelId:
+ *                 type: string
+ *                 description: Terminal Africa parcel ID
+ *     responses:
+ *       200:
+ *         description: Shipping rates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       amount:
+ *                         type: number
+ *                       carrier_name:
+ *                         type: string
+ *                       carrier_logo:
+ *                         type: string
+ *                       delivery_eta:
+ *                         type: number
+ *                       delivery_time:
+ *                         type: string
+ *       400:
+ *         description: Missing required parameters
+ *       500:
+ *         description: Server error
+ */
+router.post('/shipping-rates', orderController.searchShippingRates);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/select-carrier:
+ *   post:
+ *     summary: Select a shipping carrier for an order
+ *     tags: [Order]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - carrierReference
+ *               - rateId
+ *             properties:
+ *               carrierReference:
+ *                 type: string
+ *                 description: Terminal Africa carrier reference
+ *               rateId:
+ *                 type: string
+ *                 description: Terminal Africa rate ID
+ *     responses:
+ *       200:
+ *         description: Shipping carrier selected successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 order:
+ *                   type: object
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/select-carrier', orderController.selectShippingCarrier);
+
+/**
+ * @swagger
+ * /api/order/carriers/enable/{carrierReference}:
+ *   post:
+ *     summary: Enable a shipping carrier
+ *     tags: [Order]
+ *     parameters:
+ *       - in: path
+ *         name: carrierReference
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               domestic:
+ *                 type: boolean
+ *                 default: true
+ *               international:
+ *                 type: boolean
+ *                 default: false
+ *               regional:
+ *                 type: boolean
+ *                 default: false
+ *     responses:
+ *       200:
+ *         description: Carrier enabled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     active:
+ *                       type: boolean
+ *                     name:
+ *                       type: string
+ *                     logo:
+ *                       type: string
+ *       400:
+ *         description: Missing carrier reference
+ *       500:
+ *         description: Server error
+ */
+router.post('/carriers/enable/:carrierReference', orderController.enableCarrier);
+
+/**
+ * @swagger
+ * /api/order/shipments:
+ *   post:
+ *     summary: Create a new shipment
+ *     tags: [Order]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - addressFromId
+ *               - addressToId
+ *               - parcelId
+ *             properties:
+ *               addressFromId:
+ *                 type: string
+ *                 description: Terminal Africa pickup address ID
+ *               addressToId:
+ *                 type: string
+ *                 description: Terminal Africa delivery address ID
+ *               parcelId:
+ *                 type: string
+ *                 description: Terminal Africa parcel ID
+ *               addressReturnId:
+ *                 type: string
+ *                 description: Terminal Africa return address ID
+ *               orderId:
+ *                 type: string
+ *                 description: Associated order ID (optional)
+ *               metadata:
+ *                 type: object
+ *                 description: Additional shipment information
+ *     responses:
+ *       200:
+ *         description: Shipment created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     shipment_id:
+ *                       type: string
+ *                     tracking_number:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *       400:
+ *         description: Missing required fields
+ *       500:
+ *         description: Server error
+ */
+router.post('/shipments', orderController.createShipment);
+
 module.exports = router;
