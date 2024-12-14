@@ -10,6 +10,8 @@ const Withdrawal = require('../models/Withdrawal');
 const Order = require('../models/Order');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const crypto = require('crypto');
+const { sendPasswordResetEmail } = require('../utils/emailService');
 
 
 const generateToken = (id) => {
@@ -1228,5 +1230,60 @@ exports.updateIndividualInformation = async (req, res) => {
       message: 'Failed to update individual information', 
       error: error.message 
     });
+  }
+};
+
+// Forgot password
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
+  }
+
+  try {
+    const seller = await Seller.findOne({ email });
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found.' });
+    }
+
+    // Generate a password reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    seller.resetPasswordToken = resetToken;
+    seller.resetPasswordExpires = Date.now() + 3600000; // Token valid for 1 hour
+    await seller.save();
+
+    // Send email with reset token
+    await sendPasswordResetEmail(seller.email, resetToken);
+
+    res.json({ message: 'Password reset email sent successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to send password reset email', error: error.message });
+  }
+};
+
+// Reset password
+exports.resetPassword = async (req, res) => {
+  const { email, token, newPassword } = req.body;
+
+  if (!email || !token || !newPassword) {
+    return res.status(400).json({ message: 'Email, token, and new password are required.' });
+  }
+
+  try {
+    const seller = await Seller.findOne({ email, resetPasswordToken: token, resetPasswordExpires: { $gt: Date.now() } });
+    if (!seller) {
+      return res.status(404).json({ message: 'Invalid or expired token.' });
+    }
+
+    // Update the password
+    seller.password = newPassword; // Ensure to hash the password in the pre-save middleware
+    seller.resetPasswordToken = undefined; // Clear the reset token
+    seller.resetPasswordExpires = undefined; // Clear the expiration
+    await seller.save();
+
+    res.json({ message: 'Password reset successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to reset password', error: error.message });
   }
 };

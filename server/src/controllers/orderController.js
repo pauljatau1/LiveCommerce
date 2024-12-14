@@ -8,9 +8,10 @@ const sgMail = require('@sendgrid/mail');
 const shippingService = require('../services/shippingService');
 const terminalService = require('../services/terminalService');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const mongoose = require('mongoose');
 
 // Initialize Paystack
-const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+const paystackSecretKey = "sk_test_REDACTED";
 const paystack = axios.create({
   baseURL: 'https://api.paystack.co',
   headers: {
@@ -81,7 +82,7 @@ exports.createOrder = async (req, res) => {
     const paystackResponse = await paystack.post('/transaction/initialize', {
       email: email || req.user.email,
       amount: Math.round((totalAmount - discountAmount) * 100), // Amount in kobo
-      callback_url: process.env.PAYSTACK_CALLBACK_URL,
+      callback_url: 'https://boluajayi.netlify.app/',
       metadata: {
         custom_fields: [{
           display_name: "Order Items",

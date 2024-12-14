@@ -1184,6 +1184,64 @@ router.get('/orders/:orderId/shipping-label',
  */
 router.put('/individual-information', authMiddleware.verifyToken, sellerController.updateIndividualInformation);
 
+/**
+ * @swagger
+ * /api/seller/forgot-password:
+ *   post:
+ *     summary: Request a password reset
+ *     tags: [Seller]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset email sent successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/forgot-password', sellerController.forgotPassword);
+
+/**
+ * @swagger
+ * /api/seller/reset-password:
+ *   post:
+ *     summary: Reset the seller's password
+ *     tags: [Seller]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/reset-password', sellerController.resetPassword);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:
