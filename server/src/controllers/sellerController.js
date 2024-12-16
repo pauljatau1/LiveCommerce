@@ -617,18 +617,40 @@ exports.addBusinessInformation = async (req, res) => {
 // Add shipping and warehouse information
 exports.addShippingWarehouse = async (req, res) => {
   try {
-    const { shippingOptions, warehouseAddress } = req.body;
+    const { shippingOptions, warehouseDetails } = req.body;
 
-    // Validate warehouse address
-    if (!warehouseAddress || 
-        !warehouseAddress.country || 
-        !warehouseAddress.state || 
-        !warehouseAddress.city || 
-        !warehouseAddress.addressLine1 || 
-        !warehouseAddress.zipCode) {
+    // Debug log to see what's being received
+    // console.log('Received data:', {
+    //   shippingOptions,
+    //   warehouseDetails
+    // });
+
+    // Validate warehouse address with more detailed logging
+    const address = warehouseDetails?.address;
+    console.log('Address data:', address);
+
+    if (!address || 
+        !address.country || 
+        !address.state || 
+        !address.city || 
+        !address.addressLine1 || 
+        !address.zipCode) {
+      
+      // Log which fields are missing
+      const missingFields = {
+        country: !address?.country,
+        state: !address?.state,
+        city: !address?.city,
+        addressLine1: !address?.addressLine1,
+        zipCode: !address?.zipCode
+      };
+      console.log('Missing fields:', missingFields);
+
       return res.status(400).json({
         message: 'Invalid warehouse address. All fields are required.',
-        required: ['country', 'state', 'city', 'addressLine1', 'zipCode']
+        required: ['country', 'state', 'city', 'addressLine1', 'zipCode'],
+        received: address,
+        missingFields
       });
     }
 
@@ -637,19 +659,33 @@ exports.addShippingWarehouse = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Update seller with warehouse and shipping details
     seller.shippingOptions = shippingOptions;
-    seller.warehouseAddress = {
-      ...warehouseAddress,
-      addressType: 'warehouse'
+    seller.warehouseDetails = {
+      name: warehouseDetails.name,
+      contactNumber: warehouseDetails.contactNumber,
+      address: {
+        country: address.country,
+        state: address.state,
+        city: address.city,
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2 || '',
+        zipCode: address.zipCode
+      }
     };
-    
-    const updatedSeller = await seller.save();
+
+    await seller.save();
 
     res.json({
       message: 'Shipping and warehouse information added successfully',
-      seller: updatedSeller
+      seller: {
+        shippingOptions: seller.shippingOptions,
+        warehouseDetails: seller.warehouseDetails
+      }
     });
+
   } catch (error) {
+    console.error('Error in addShippingWarehouse:', error);
     res.status(500).json({
       message: 'Failed to add shipping and warehouse information',
       error: error.message
