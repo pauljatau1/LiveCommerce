@@ -114,7 +114,6 @@ const sellerSchema = new mongoose.Schema({
   messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
-  isProfileComplete: { type: Boolean, default: false },
   storeVisits: { type: Number, default: 0 },
   customers: [{
     buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
@@ -132,7 +131,13 @@ const sellerSchema = new mongoose.Schema({
     addressLine2: { type: String },
     zipCode: { type: String },
   },
-  isNew: { type: Boolean, default: true } // New property to indicate if the user is new
+  isNew: { type: Boolean, default: true },
+  hasFilledAddress: { type: Boolean, default: false },
+  hasFilledWarehouseAddress: { type: Boolean, default: false },
+  hasFilledBankDetails: { type: Boolean, default: false },
+  hasFilledCategoryDetails: { type: Boolean, default: false },
+  hasFilledVerificationDocuments: { type: Boolean, default: false },
+  hasFilledBusinessAddress: { type: Boolean, default: false },
 });
 
 // Middleware to update isNew property after 3 days
@@ -157,5 +162,18 @@ sellerSchema.pre('save', async function(next) {
 sellerSchema.methods.comparePassword = function(password) {
   return bcrypt.compare(password, this.password);
 };
+
+// Middleware to update completion status
+sellerSchema.pre('save', function(next) {
+  // Update completion status based on filled details
+  this.isProfileComplete = this.hasFilledAddress &&
+                           this.hasFilledWarehouseAddress &&
+                           this.hasFilledBankDetails &&
+                           this.hasFilledCategoryDetails &&
+                           this.hasFilledVerificationDocuments &&
+                           this.hasFilledBusinessAddress;
+
+  next();
+});
 
 module.exports = mongoose.model('Seller', sellerSchema);

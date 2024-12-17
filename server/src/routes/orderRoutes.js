@@ -27,18 +27,53 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: array
  *                 items:
  *                   type: object
+ *                   required:
+ *                     - productId
+ *                     - quantity
  *                   properties:
  *                     productId:
  *                       type: string
+ *                       description: ID of the product to order
  *                     quantity:
  *                       type: number
- *                     seller:
- *                       type: string
+ *                       minimum: 1
+ *                       description: Quantity of the product
  *               shippingAddress:
- *                 $ref: '#/components/schemas/ShippingAddress'
+ *                 type: object
+ *                 required:
+ *                   - addressLine1
+ *                   - city
+ *                   - state
+ *                   - country
+ *                   - zipCode
+ *                 properties:
+ *                   addressLine1:
+ *                     type: string
+ *                     description: Primary address line
+ *                   addressLine2:
+ *                     type: string
+ *                     description: Secondary address line (optional)
+ *                   city:
+ *                     type: string
+ *                     description: City name
+ *                   state:
+ *                     type: string
+ *                     description: State or province
+ *                   country:
+ *                     type: string
+ *                     description: Country name
+ *                   zipCode:
+ *                     type: string
+ *                     description: Postal or ZIP code
  *     responses:
  *       201:
  *         description: Order created successfully with shipping rates
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
 router.post('/', authMiddleware.verifyToken, orderController.createOrder);
 

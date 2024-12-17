@@ -15,3 +15,27 @@
   "paymentMethod": "paystack",
   "discountCode": "00"
 }
+
+
+
+
+{
+  "items": [
+    {
+      "productId": "6758089eb77ef32fa2f98b2a",
+      "quantity": 1
+    }
+  ],
+  "shippingAddress": {
+    "addressLine1": "my address",
+    "addressLine2": "this address",
+    "city": "Ajah",
+    "state": "Lagos",
+    "country": "NG",
+    "zipCode": "102102"
+  }
+}
+
+
+
+JWT_REDACTED

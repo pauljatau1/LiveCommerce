@@ -29,113 +29,85 @@ const paystack = axios.create({
 });
 
 exports.createOrder = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const { items, shippingAddress } = req.body;
-    const buyer = await Buyer.findById(req.user.id);
-
-    // Validate product and create initial order...
-    const product = await Product.findById(items[0].productId)
-      .populate('seller', 'email firstName lastName phoneNumber sellerAddress');
+    const { items, shippingAddress, paymentMethod } = req.body;
     
-    // Create addresses for Terminal API
-    const fromAddress = {
-      city: product.seller.sellerAddress.city,
-      country: product.seller.sellerAddress.country === 'Nigeria' ? 'NG' : product.seller.sellerAddress.country,
-      email: product.seller.email,
-      first_name: product.seller.firstName,
-      last_name: product.seller.lastName,
-      line1: product.seller.sellerAddress.addressLine1,
-      line2: product.seller.sellerAddress.addressLine2 || '',
-      phone: product.seller.phoneNumber,
-      state: product.seller.sellerAddress.state,
-      zip: product.seller.sellerAddress.zipCode
-    };
+    // Validate required shipping address fields
+    if (!shippingAddress || 
+        !shippingAddress.city || 
+        !shippingAddress.state || 
+        !shippingAddress.country) {
+      return res.status(400).json({
+        message: 'Missing required shipping address fields',
+        details: {
+          city: !shippingAddress?.city ? 'City is required' : null,
+          state: !shippingAddress?.state ? 'State is required' : null,
+          country: !shippingAddress?.country ? 'Country is required' : null
+        }
+      });
+    }
 
-    const toAddress = {
-      city: shippingAddress.city,
-      country: shippingAddress.country === 'Nigeria' ? 'NG' : shippingAddress.country,
-      email: buyer.email,
-      first_name: buyer.firstName,
-      last_name: buyer.lastName,
-      line1: shippingAddress.addressLine1,
-      line2: shippingAddress.addressLine2 || '',
-      phone: buyer.phoneNumber,
-      state: shippingAddress.state,
-      zip: shippingAddress.zipCode
-    };
+    // Validate other required fields
+    if (!items || !items.length) {
+      return res.status(400).json({
+        message: 'Order items are required'
+      });
+    }
 
-    // Create addresses in Terminal
-    const [fromAddressRes, toAddressRes] = await Promise.all([
-      terminalAPI.post('/addresses', fromAddress),
-      terminalAPI.post('/addresses', toAddress)
-    ]);
+    if (!paymentMethod) {
+      return res.status(400).json({
+        message: 'Payment method is required'
+      });
+    }
 
-    // Create parcel
-    const parcelData = {
-      weight: product.weight || 1,
-      height: product.dimensions?.height || 10,
-      width: product.dimensions?.width || 10,
-      length: product.dimensions?.length || 10
-    };
-
-    const parcelResponse = await terminalAPI.post('/parcels', parcelData);
-
-    // Get shipping rates
-    const shippingRates = await getShippingRatesForOrder(
-      fromAddressRes.data.data.address_id,
-      toAddressRes.data.data.address_id,
-      parcelResponse.data.data.parcel_id
-    );
-
-    // Calculate initial total (product price * quantity)
-    const subtotal = product.price * items[0].quantity;
-
-    // Create order with initial shipping details
-    const order = new Order({
-      buyer: buyer._id,
-      items: [{
-        product: items[0].productId,
-        quantity: items[0].quantity,
-        seller: product.seller._id,
-        price: product.price
-      }],
-      shippingAddress,
-      subtotal,
-      totalAmount: subtotal, // Will be updated with shipping fee
-      paid: false,
-      shipping: {
-        fromAddressId: fromAddressRes.data.data.address_id,
-        toAddressId: toAddressRes.data.data.address_id,
-        parcelId: parcelResponse.data.data.parcel_id,
-        availableRates: shippingRates,
-        status: 'pending_carrier_selection'
+    // Group items by seller
+    const itemsBySeller = items.reduce((acc, item) => {
+      if (!acc[item.sellerId]) {
+        acc[item.sellerId] = [];
       }
+      acc[item.sellerId].push(item);
+      return acc;
+    }, {});
+
+    // Create orders for each seller
+    const orderPromises = Object.entries(itemsBySeller).map(async ([sellerId, sellerItems]) => {
+      const orderData = {
+        buyer: req.user.id,
+        seller: sellerId,
+        items: sellerItems.map(item => ({
+          product: item.productId,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        shippingAddress: {
+          addressLine1: shippingAddress.addressLine1,
+          addressLine2: shippingAddress.addressLine2 || '',
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          country: shippingAddress.country,
+          zipCode: shippingAddress.zipCode
+        },
+        paymentMethod,
+        status: 'pending'
+      };
+
+      const order = new Order(orderData);
+      return order.save();
     });
 
-    await order.save({ session });
-    await session.commitTransaction();
+    const orders = await Promise.all(orderPromises);
 
     res.status(201).json({
-      message: 'Order created successfully',
-      order,
-      shippingRates,
-      nextStep: {
-        action: 'select_shipping_carrier',
-        endpoint: `/api/order/${order._id}/select-carrier`
-      }
+      message: 'Orders created successfully',
+      orders
     });
 
   } catch (error) {
-    await session.abortTransaction();
+    console.error('Order creation error:', error);
     res.status(500).json({
       message: 'Failed to create order',
       error: error.message
     });
-  } finally {
-    session.endSession();
   }
 };
 

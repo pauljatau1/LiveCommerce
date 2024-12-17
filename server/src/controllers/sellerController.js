@@ -571,7 +571,11 @@ exports.addBusinessDetails = async (req, res) => {
     seller.businessName = businessName;
     seller.businessType = businessType;
     seller.taxInformation = taxInformation;
-    
+
+    // Update completion flags
+    seller.hasFilledBusinessAddress = !!seller.businessAddress;
+    seller.hasFilledVerificationDocuments = !!seller.verificationDocuments.documents.length;
+
     const updatedSeller = await seller.save();
 
     res.json({ 
@@ -599,7 +603,10 @@ exports.addBusinessInformation = async (req, res) => {
     seller.businessEmail = businessEmail;
     seller.businessNumber = businessNumber;
     seller.businessAddress = businessAddress;
-    
+
+    // Update completion flags
+    seller.hasFilledBusinessAddress = !!businessAddress;
+
     const updatedSeller = await seller.save();
 
     res.json({ 
@@ -619,41 +626,6 @@ exports.addShippingWarehouse = async (req, res) => {
   try {
     const { shippingOptions, warehouseDetails } = req.body;
 
-    // Debug log to see what's being received
-    // console.log('Received data:', {
-    //   shippingOptions,
-    //   warehouseDetails
-    // });
-
-    // Validate warehouse address with more detailed logging
-    const address = warehouseDetails?.address;
-    console.log('Address data:', address);
-
-    if (!address || 
-        !address.country || 
-        !address.state || 
-        !address.city || 
-        !address.addressLine1 || 
-        !address.zipCode) {
-      
-      // Log which fields are missing
-      const missingFields = {
-        country: !address?.country,
-        state: !address?.state,
-        city: !address?.city,
-        addressLine1: !address?.addressLine1,
-        zipCode: !address?.zipCode
-      };
-      console.log('Missing fields:', missingFields);
-
-      return res.status(400).json({
-        message: 'Invalid warehouse address. All fields are required.',
-        required: ['country', 'state', 'city', 'addressLine1', 'zipCode'],
-        received: address,
-        missingFields
-      });
-    }
-
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
@@ -661,18 +633,10 @@ exports.addShippingWarehouse = async (req, res) => {
 
     // Update seller with warehouse and shipping details
     seller.shippingOptions = shippingOptions;
-    seller.warehouseDetails = {
-      name: warehouseDetails.name,
-      contactNumber: warehouseDetails.contactNumber,
-      address: {
-        country: address.country,
-        state: address.state,
-        city: address.city,
-        addressLine1: address.addressLine1,
-        addressLine2: address.addressLine2 || '',
-        zipCode: address.zipCode
-      }
-    };
+    seller.warehouseDetails = warehouseDetails;
+
+    // Update completion flags
+    seller.hasFilledWarehouseAddress = !!warehouseDetails;
 
     await seller.save();
 
@@ -685,7 +649,6 @@ exports.addShippingWarehouse = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error in addShippingWarehouse:', error);
     res.status(500).json({
       message: 'Failed to add shipping and warehouse information',
       error: error.message
@@ -704,7 +667,10 @@ exports.addBankDetails = async (req, res) => {
     }
 
     seller.bankDetails = bankDetails;
-    seller.isProfileComplete = checkProfileCompletion(seller);
+
+    // Update completion flags
+    seller.hasFilledBankDetails = !!bankDetails;
+
     const updatedSeller = await seller.save();
 
     res.json({ message: 'Bank details added successfully', seller: updatedSeller });
@@ -724,7 +690,10 @@ exports.addCategories = async (req, res) => {
     }
 
     seller.categories = categories;
-    seller.isProfileComplete = checkProfileCompletion(seller);
+
+    // Update completion flags
+    seller.hasFilledCategoryDetails = categories.length > 0;
+
     const updatedSeller = await seller.save();
 
     res.json({ message: 'Categories added successfully', seller: updatedSeller });
@@ -745,7 +714,10 @@ exports.addAddressShipping = async (req, res) => {
 
     seller.shippingOptions = shippingOptions;
     seller.warehouseAddress = warehouseAddress;
-    seller.isProfileComplete = checkProfileCompletion(seller);
+
+    // Update completion flags
+    seller.hasFilledAddress = !!warehouseAddress;
+
     const updatedSeller = await seller.save();
 
     res.json({ message: 'Address and shipping information added successfully', seller: updatedSeller });
@@ -1270,7 +1242,10 @@ exports.updateIndividualInformation = async (req, res) => {
     seller.firstName = firstName;
     seller.lastName = lastName;
     seller.sellerAddress = sellerAddress;
-    
+
+    // Update completion flags
+    seller.hasFilledAddress = !!sellerAddress;
+
     const updatedSeller = await seller.save();
 
     res.json({ 
