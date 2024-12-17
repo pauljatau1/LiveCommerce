@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuthContext } from '../../Contexts/AuthContext';
+import { useAuthContext } from '../../Hooks/useAuthContext';
 import Background1 from '../../assets/background-asset1.png';
 import Background2 from '../../assets/background-asset-3.png';
 

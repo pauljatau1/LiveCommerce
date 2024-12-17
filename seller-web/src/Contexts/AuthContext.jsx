@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer } from "react";
 import { BASE_URL } from '../Constants/Server';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from "sonner"
 import axios from 'axios';
 import PropTypes from 'prop-types';
 
@@ -88,7 +88,9 @@ const AuthProvider = ({ children }) => {
             case "LOGIN_FAILED":
                 return {
                     ...state,
-                    message: action.payload
+                    message: action.payload,
+                    isAuthenticated: false,
+                    seller: null,
                 }
             case "LOGOUT":
                 return {
@@ -116,16 +118,7 @@ const AuthProvider = ({ children }) => {
             if (response.status === 201) {
                 console.log(`signup: ${response}`);
                 dispatch({type: 'SIGNUP_SUCCESS', payload: response.data.user});
-                toast.success(response.data.message, {
-                    position: "top-center",
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                    progress: undefined,
-                    theme: "dark",
-                });
+                toast.success(response.data.message);
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -149,16 +142,7 @@ const AuthProvider = ({ children }) => {
             if (response.status === 200) {
                 console.log(`otp: ${response}`);
                 dispatch({type: 'VERIFY_OTP_SUCCESS'});
-                toast.success(response.data.message, {
-                    position: "top-center",
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                    progress: undefined,
-                    theme: "dark",
-                });
+                toast.success(response.data.message);
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -205,6 +189,7 @@ const AuthProvider = ({ children }) => {
     //function to login a seller
     const login = async(email, password) => {
         try {
+            dispatch({type: "RESET"})
             dispatch({type: 'SET_LOADING', payload: true});
             const response = await axios.post(`${BASE_URL}/seller/login`, {
                 email,
@@ -218,11 +203,18 @@ const AuthProvider = ({ children }) => {
                     firstTime: true
                 }));
                 dispatch({type: 'LOGIN_SUCCESS', payload: response.data.user});
+                toast.success('Login successful');
             }
-        } catch (AxiosError) {
-            console.log(AxiosError);
-            dispatch({type: 'LOGIN_FAILED', payload: AxiosError.response.data.message});
-            toast.error(AxiosError.response.data.message);
+        } catch (error) {
+            console.log(error);
+            dispatch({type: 'LOGIN_FAILED', payload: error.response?.data?.message || error.message});
+            toast.error('Login failed', {
+                description: error.response?.data?.message || error.message,
+                style: {
+                    background: '#fff',
+                    color: '#05031F',
+                }
+            });
         } finally {
             dispatch({type: 'SET_LOADING', payload: false});
         }
@@ -234,6 +226,39 @@ const AuthProvider = ({ children }) => {
         dispatch({type: 'LOGOUT'});
     };
 
+    //function to reset password
+    const resetPassword = async(email) => {
+        try {
+            dispatch({type: 'SET_LOADING', payload: true});
+            const response = await axios.post(`${BASE_URL}/seller/forgot-password`, {
+                email
+            });
+
+            if (response.status === 200) {
+                console.log(`reset password: ${response}`);
+                toast.success('Password reset request sent',{
+                    description: 'We have sent a password reset link to your email',
+                    style: {
+                        background: '#05031F',
+                        color: '#fff',
+                    }
+                });
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('Error submitting business category', {
+                description: error.response?.data?.message || error.message,
+                style: {
+                    background: '#05031F',
+                    color: '#fff',
+                }
+            });
+
+        } finally {
+            dispatch({type: 'SET_LOADING', payload: false});
+        }
+    }
+
 
     return (
         <AuthContext.Provider value={{
@@ -243,7 +268,8 @@ const AuthProvider = ({ children }) => {
             verifyOtp,
             requestNewOtp,
             login,
-            logout
+            logout,
+            resetPassword
         }}>
             {children}
         </AuthContext.Provider>
@@ -256,14 +282,6 @@ AuthProvider.propTypes = {
 }
 
 
-//custom hook to use the auth context
-const useAuthContext = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuthContext must be used within an AuthProvider');
-    }
 
-    return context;
-}
 
-export { AuthProvider, useAuthContext };
+export { AuthProvider, AuthContext };

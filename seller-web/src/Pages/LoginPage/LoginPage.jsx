@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { useAuthContext } from '../../Contexts/AuthContext';
+import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import Modal from '../../Components/Modal';
@@ -13,12 +13,14 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 
 const LoginPage = () => {
-  const { isAuthenticated, seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login } = useAuthContext();
+  const { isAuthenticated, seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login, resetPassword } = useAuthContext();
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpCount, setOtpCount] = useState(0);
   const [email, setEmail] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [forgotPassword, setForgotPassword] = useState(false);
   const navigate = useNavigate();
 
 
@@ -67,6 +69,16 @@ const LoginPage = () => {
     } else {
       toast.error("You are unauthorized to request for a new OTP");
     }
+  };
+
+  const handleResetPasswordSubmit = async() => {
+    if (resetEmail !== "") {
+      await resetPassword(resetEmail);
+      setForgotPassword(false);
+      setResetEmail('');
+    } else {
+      toast.error("Please fill in all fields");
+    }
   }
 
   return (
@@ -100,7 +112,7 @@ const LoginPage = () => {
                   className="bg-white focus:outline-none w-full h-full text-black text-sm sm:text-base [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:shadow-[0_0_0_30px_white_inset]"
                 />
               </div>
-              <Link className="text-xs sm:text-sm font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] self-end hover:underline">Forgot Password?</Link>
+              <button onClick={() => setForgotPassword(true)} className="text-xs sm:text-sm font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] self-end hover:underline">Forgot Password?</button>
             </div>
             <div className="flex items-center justify-center gap-[18px] mt-4 sm:mt-[23px] mb-6 sm:mb-[42px]">
               <div className="flex-1">
@@ -162,6 +174,32 @@ const LoginPage = () => {
               }
             </button>
             <button onClick={() => setIsOtpModalOpen(false)} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border-[1.4px] border-[#0BB248] rounded-full w-full py-4 sm:py-[22px] mt-5 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">cancel</button>
+          </Modal>
+        )
+      }
+      {
+        forgotPassword && (
+          <Modal onClick={() => setForgotPassword(false)}>
+            <h2 className="text-base sm:text-2xl mb-[15.61px] font-medium text-[#FFFFFF] leading-normal sm:leading-[21.86px] text-center">Forgot Password</h2>
+            <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center">Please input an email address where we can send follow-up instructions for a new password.</p>
+            <div className="flex flex-col items-center justify-center gap-4 w-full sm:gap-[26.69px] mt-6 sm:mt-[39.42px]">
+              <div className="bg-white w-full flex items-center gap-3 sm:gap-[19.65px] p-4 sm:p-5 rounded-full border-4 border-transparent focus-within:border-4 focus-within:border-[#BBC8D4] transition-all duration-300">
+                <Icon icon="hugeicons:mail-01" className="w-6 sm:w-[29.48px] h-6 sm:h-[29.48px]" color='#141B3480' />
+                <input
+                  type="text"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="Email"
+                  className="bg-white focus:outline-none w-full h-full text-black text-sm sm:text-base [&:-webkit-autofill]:bg-white [&:-webkit-autofill]:shadow-[0_0_0_30px_white_inset]"
+                />
+              </div>
+              <button onClick={handleResetPasswordSubmit} className="px-5 mt-5 lg:px-10 py-4 sm:py-[22px] bg-transparent border-2 border-[#0BB248] text-[#FFFFFF] text-base sm:text-lg font-medium leading-normal sm:leading-[41.86px] rounded-full w-full hover:bg-[#FFFFFF] hover:text-[#141B34] transition-all duration-300">
+                {
+                  isLoading ? <CircularProgress color='white' size={20} /> : "Send Request"
+                }
+              </button>
+              <button onClick={() => setForgotPassword(false)} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border-[1.4px] border-[#0BB248] rounded-full w-full py-4 sm:py-[22px] flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">cancel</button>
+            </div>
           </Modal>
         )
       }
