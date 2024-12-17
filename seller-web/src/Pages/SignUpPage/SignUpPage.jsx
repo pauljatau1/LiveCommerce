@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { useAuthContext } from '../../Contexts/AuthContext';
+import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import Modal from '../../Components/Modal';

@@ -8,7 +8,7 @@
     .loader {
       width: 45px;
       aspect-ratio: 0.75;
-      --c: no-repeat linear-gradient(#0BB248 0 0);
+      --c: no-repeat linear-gradient(var(--loader-color) 0 0);
       background: var(--c) 0% 50%, var(--c) 50% 50%, var(--c) 100% 50%;
       background-size: 20% 50%;
       animation: loading 1s infinite linear;
@@ -29,4 +29,42 @@
       }
     }
   }
+
+@layer base {
+  :root {
+        --radius: 0.5rem;
+    }
+}
+
+.react-phone-input-2 .selected-flag {
+    background: transparent !important;
+}
+
+.react-phone-input-2 .flag-dropdown {
+    background: transparent !important;
+    border: none !important;
+}
+
+.react-phone-input-2 .form-control:focus {
+    border-color: #E5E7EB !important;
+    box-shadow: none !important;
+}
+
+/* New styles for the dropdown container */
+.react-phone-input-2 .country-list {
+    width: 100% !important;
+    margin: 0 !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    background-color: white !important;
+}
+
+.react-phone-input-2 .country-list .country:hover {
+    background-color: #F3F4F6 !important;
+}
+
+.react-phone-input-2 .country-list .country.highlight {
+    background-color: #F3F4F6 !important;
+}
   

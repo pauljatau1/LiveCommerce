@@ -1,0 +1,72 @@
+import { useState } from 'react';
+import { toast } from "sonner";
+import { useOnboardingContext } from '../../Hooks/useOnboardingContext';
+import { useNavigate } from 'react-router-dom';
+import Step1 from '../../assets/onboarding-setp1.png';
+import CircularProgress from '@mui/material/CircularProgress';
+
+const BusinessOnboarding = () => {
+    const navigate = useNavigate();
+    const { registerBusinessBasicDetails, isLoading } = useOnboardingContext();
+    const [businessName, setBusinessName] = useState('');
+    const [businessType, setBusinessType] = useState('');
+    const [businessTaxInformation, setBusinessTaxInformation] = useState('');
+
+    //function to handle form submission
+    const handleSubmit = async(e) => {
+        e.preventDefault();
+        if (businessName !== '' && businessType !== '' && businessTaxInformation !== '') {
+            await registerBusinessBasicDetails(businessName, businessType, businessTaxInformation);
+        } else {
+            toast.error('Please fill in all fields', {
+                description: 'All fields are required',
+                style: {
+                    background: '#05031F',
+                    color: '#fff',
+                }
+            });
+        }
+    }
+
+    const handleBack = () => {
+        navigate(-1);
+    }
+
+    return (
+        <div className="py-[47.5px] lg:py-[135px] px-[32px] lg:px-[203.5px] ">
+            <div className="flex flex-col items-center justify-center">
+                <img src={Step1} alt="Step 1" className="w-full lg:w-[1000px]" />
+                <div className="flex flex-col items-center justify-center mt-[64px] lg:mt-[125px] ">
+                    <div className="flex flex-col items-center justify-center">
+                        <h1 className="text-center text-2xl lg:text-3xl font-bold mb-4 lg:mb-7 ">Business Details</h1>
+                        <p className="text-center text-base lg:text-2xl font-light">Let us know details about your business, with just these few questions</p>
+                        <form className="w-full mt-14 lg:mt-28">
+                            <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
+                                <label htmlFor="businessName" className="text-base lg:text-2xl font-light">Business Name</label>
+                                <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} type="text" id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer " />
+                            </div>
+                            <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
+                                <label htmlFor="businessName" className="text-base lg:text-2xl font-light">Business Type</label>
+                                <input value={businessType} onChange={(e) => setBusinessType(e.target.value)} type="text" id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer " />
+                            </div>
+                            <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
+                                <label htmlFor="businessName" className="text-base lg:text-2xl font-light">Business Tax Information</label>
+                                <input value={businessTaxInformation} onChange={(e) => setBusinessTaxInformation(e.target.value)} type="text" id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 cursor-pointer " />
+                            </div>
+                            <div className="flex items-center justify-center gap-10 mt-20 lg:mt-14 ">
+                                <button onClick={handleBack} className="bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">Back</button>
+                                <button onClick={handleSubmit} className="bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">
+                                    {
+                                        isLoading ? <CircularProgress size={20} color='white' /> : 'Next'
+                                    }
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export default BusinessOnboarding;

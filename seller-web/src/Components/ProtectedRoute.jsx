@@ -1,6 +1,7 @@
-import { useAuthContext } from '../Contexts/AuthContext';
+import { useAuthContext } from '../Hooks/useAuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { toast } from 'sonner';
 
 const ProtectedRoute = ({children}) => {
   const { isAuthenticated, seller } = useAuthContext();
@@ -27,7 +28,22 @@ const ProtectedRoute = ({children}) => {
       navigate('/', { replace: true });
     } else if (tokenData.data && tokenData.firstTime) {
       //if the seller is logged in and the first time, redirect to the onboarding page
-      navigate('/dashboard/onboarding', { replace: true });
+      const onboardingStep = JSON.parse(localStorage.getItem('onboardingProcess'));
+      console.log("Onboarding Step:", onboardingStep);
+      if (onboardingStep) {
+        navigate(`/dashboard/${onboardingStep.step}`, { replace: true });
+        setTimeout(() => {
+          toast.success('Continue Onboarding', {
+            description: 'Continue from where you left off',
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+        }, 5000);
+      } else {
+        navigate('/dashboard/onboarding', { replace: true });
+      }
     } else if (tokenData.data) {
       navigate('/dashboard/home', { replace: true });
     }
