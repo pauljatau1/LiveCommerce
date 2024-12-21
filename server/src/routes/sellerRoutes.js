@@ -1242,6 +1242,72 @@ router.post('/forgot-password', sellerController.forgotPassword);
  */
 router.post('/reset-password', sellerController.resetPassword);
 
+/**
+ * @swagger
+ * /api/seller/onboarding-process:
+ *   put:
+ *     summary: Update seller's onboarding process status
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               onboardingProcess:
+ *                 type: string
+ *                 description: Current onboarding process state
+ *                 example: "step1_completed"
+ *     responses:
+ *       200:
+ *         description: Onboarding process updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Onboarding process updated successfully
+ *                 onboardingProcess:
+ *                   type: string
+ *                   example: step1_completed
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/onboarding-process', authMiddleware.verifyToken, sellerController.updateOnboardingProcess);
+
+/**
+ * @swagger
+ * /api/seller/onboarding-process:
+ *   get:
+ *     summary: Get seller's current onboarding process status
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Onboarding process retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 onboardingProcess:
+ *                   type: string
+ *                   example: step1_completed
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/onboarding-process', authMiddleware.verifyToken, sellerController.getOnboardingProcess);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

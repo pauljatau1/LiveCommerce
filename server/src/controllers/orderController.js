@@ -28,147 +28,202 @@ const paystack = axios.create({
   }
 });
 
+// Helper function to validate address format
+const validateAddress = (address) => {
+  const requiredFields = ['first_name', 'last_name', 'email', 'phone', 'line1', 'city', 'state', 'country', 'zip'];
+  const missingFields = requiredFields.filter(field => !address[field]);
+  if (missingFields.length > 0) {
+    throw new Error(`Missing required address fields: ${missingFields.join(', ')}`);
+  }
+  return true;
+};
+
+// Helper function to validate parcel data
+const validateParcel = (parcel) => {
+  const requiredFields = ['weight', 'width', 'height', 'length'];
+  const missingFields = requiredFields.filter(field => !parcel[field]);
+  if (missingFields.length > 0) {
+    throw new Error(`Missing required parcel fields: ${missingFields.join(', ')}`);
+  }
+
+  // Validate weight is a positive number
+  if (parcel.weight <= 0) {
+    throw new Error('Parcel weight must be greater than 0');
+  }
+
+  return true;
+};
+
+// Helper function to validate item data
+const validateItems = (items) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('Items must be a non-empty array');
+  }
+
+  items.forEach((item, index) => {
+    if (!item.weight || item.weight <= 0) {
+      throw new Error(`Invalid weight for item at index ${index}`);
+    }
+  });
+
+  return true;
+};
+
 exports.createOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const { items, shippingAddress, fromAddress, paymentMethod, discountCode } = req.body;
+    const {
+      items,
+      delivery_address,
+      pickup_address,
+      parcel,
+      paymentMethod
+    } = req.body;
 
-    // Validate required shipping address fields
-    if (!shippingAddress ||
-        !shippingAddress.city ||
-        !shippingAddress.state ||
-        !shippingAddress.country ||
-        !shippingAddress.address1 ||
-        !shippingAddress.zipCode) {
-      return res.status(400).json({
-        message: 'Missing required shipping address fields',
-        details: {
-          city: !shippingAddress?.city ? 'City is required' : null,
-          state: !shippingAddress?.state ? 'State is required' : null,
-          country: !shippingAddress?.country ? 'Country is required' : null,
-          address1: !shippingAddress?.address1 ? 'Address Line 1 is required' : null,
-          zipCode: !shippingAddress?.zipCode ? 'Zip Code is required' : null
-        }
-      });
-    }
+    // Validate addresses and parcel before proceeding
+    validateAddress(pickup_address);
+    validateAddress(delivery_address);
+    validateParcel(parcel);
+    validateItems(items);
 
-    // Validate required from address fields
-    if (!fromAddress ||
-        !fromAddress.city ||
-        !fromAddress.state ||
-        !fromAddress.country ||
-        !fromAddress.address1 ||
-        !fromAddress.zipCode) {
-      return res.status(400).json({
-        message: 'Missing required from address fields',
-        details: {
-          city: !fromAddress?.city ? 'City is required' : null,
-          state: !fromAddress?.state ? 'State is required' : null,
-          country: !fromAddress?.country ? 'Country is required' : null,
-          address1: !fromAddress?.address1 ? 'Address Line 1 is required' : null,
-          zipCode: !fromAddress?.zipCode ? 'Zip Code is required' : null
-        }
-      });
-    }
-
-    // Validate other required fields
-    if (!items || !items.length) {
-      return res.status(400).json({
-        message: 'Order items are required'
-      });
-    }
-
-    if (!paymentMethod) {
-      return res.status(400).json({
-        message: 'Payment method is required'
-      });
-    }
-
-    // Calculate shipping fees
-    let totalShippingFee = 0;
-    const shippingDetails = [];
-
-    for (const item of items) {
-      const product = await Product.findById(item.productId)
-        .populate('seller', 'warehouseAddress');
-
-      if (!product) {
-        return res.status(404).json({ message: `Product not found: ${item.productId}` });
-      }
-
-      const rates = await shippingService.calculateShippingFee(
-        product,
-        shippingAddress,
-        fromAddress || product.seller.warehouseAddress
-      );
-
-      const estimatedDeliveryDate = shippingService.estimateDeliveryDate(rates.method);
-
-      shippingDetails.push({
-        productId: item.productId,
-        availableRates: rates,
-        estimatedDeliveryDate
-      });
-    }
-
-    // Group items by seller
-    const itemsBySeller = items.reduce((acc, item) => {
-      if (!acc[item.seller]) {
-        acc[item.seller] = [];
-      }
-      acc[item.seller].push(item);
-      return acc;
-    }, {});
-
-    // Create orders for each seller
-    const orderPromises = Object.entries(itemsBySeller).map(async ([sellerId, sellerItems]) => {
-      const orderData = {
-        buyer: req.user.id,
-        seller: sellerId,
-        items: sellerItems.map(item => ({
-          product: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-          seller: item.seller // Ensure seller is included
-        })),
-        shippingAddress: {
-          address1: shippingAddress.address1,
-          address2: shippingAddress.address2 || '',
-          city: shippingAddress.city,
-          state: shippingAddress.state,
-          country: shippingAddress.country,
-          zipCode: shippingAddress.zipCode
+    try {
+      const shippingData = {
+        pickup_address: {
+          first_name: pickup_address.first_name,
+          last_name: pickup_address.last_name,
+          email: pickup_address.email,
+          phone: pickup_address.phone,
+          line1: pickup_address.line1,
+          line2: pickup_address.line2 || '',
+          city: pickup_address.city,
+          state: pickup_address.state,
+          country: pickup_address.country,
+          zip: pickup_address.zip
         },
-        fromAddress: {
-          address1: fromAddress.address1,
-          address2: fromAddress.address2 || '',
-          city: fromAddress.city,
-          state: fromAddress.state,
-          country: fromAddress.country,
-          zipCode: fromAddress.zipCode
+        delivery_address: {
+          first_name: delivery_address.first_name,
+          last_name: delivery_address.last_name,
+          email: delivery_address.email,
+          phone: delivery_address.phone,
+          line1: delivery_address.line1,
+          line2: delivery_address.line2 || '',
+          city: delivery_address.city,
+          state: delivery_address.state,
+          country: delivery_address.country,
+          zip: delivery_address.zip
         },
-        paymentMethod,
-        status: 'pending',
-        totalAmount: sellerItems.reduce((total, item) => total + item.price * item.quantity, 0)
+        parcel: {
+          weight: parcel.weight,
+          width: parcel.width,
+          height: parcel.height,
+          length: parcel.length,
+          weight_unit: 'kg',
+          description: "Auqli Order Items",
+          items: items.map(item => ({
+            name: item.name,
+            description: item.description,
+            quantity: item.quantity,
+            weight: item.weight,
+            weight_unit: 'kg',
+            value: item.price,
+            currency: 'NGN'
+          }))
+        },
+        shipment_purpose: "commercial",
+        metadata: {
+          order_type: "auqli_order",
+          description: "Auqli Marketplace Order"
+        }
       };
 
-      const order = new Order(orderData);
-      return order.save();
-    });
+      const shipmentResponse = await terminalAPI.post('/shipments/quick', shippingData);
 
-    const orders = await Promise.all(orderPromises);
+      if (!shipmentResponse.data.status) {
+        throw new Error(shipmentResponse.data.message || 'Failed to create shipment');
+      }
 
-    res.status(201).json({
-      message: 'Orders created successfully',
-      orders,
-      shippingDetails
-    });
+      // Group items by seller and create orders
+      const itemsBySeller = {};
+      for (const item of items) {
+        const product = await Product.findById(item.productId)
+          .populate('seller', 'warehouseAddress');
+
+        if (!product) {
+          throw new Error(`Product not found: ${item.productId}`);
+        }
+
+        const sellerId = product.seller._id.toString();
+        if (!itemsBySeller[sellerId]) {
+          itemsBySeller[sellerId] = {
+            items: [],
+            seller: sellerId
+          };
+        }
+        itemsBySeller[sellerId].items.push({
+          product: item.productId,
+          seller: sellerId,
+          quantity: item.quantity,
+          price: product.price
+        });
+      }
+
+      // Create orders for each seller
+      const orderPromises = Object.entries(itemsBySeller).map(([sellerId, sellerData]) => {
+        const orderData = {
+          buyer: req.user.id,
+          seller: sellerId,
+          items: sellerData.items,
+          delivery_address: delivery_address,
+          pickup_address: pickup_address,
+          shipping: {
+            method: shipmentResponse.data.data.carrier?.name || 'standard',
+            fee: shipmentResponse.data.data.amount,
+            estimatedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            tracking: {
+              number: shipmentResponse.data.data.tracking_number,
+              carrier: shipmentResponse.data.data.carrier?.name,
+              status: 'pending'
+            },
+            shipment_id: shipmentResponse.data.data.shipment_id,
+            shipment_purpose: "commercial"
+          },
+          paymentInfo: {
+            method: paymentMethod,
+            status: 'pending'
+          },
+          totalAmount: sellerData.items.reduce((total, item) => total + item.price * item.quantity, 0)
+        };
+
+        const order = new Order(orderData);
+        return order.save({ session });
+      });
+
+      const orders = await Promise.all(orderPromises);
+      await session.commitTransaction();
+
+      res.status(201).json({
+        message: 'Orders created successfully',
+        orders,
+        shipping: shipmentResponse.data.data
+      });
+
+    } catch (error) {
+      console.error('Terminal Africa API Error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Failed to create shipment with Terminal Africa');
+    }
 
   } catch (error) {
-    console.error('Order creation error:', error);
-    res.status(500).json({
+    await session.abortTransaction();
+    console.error('Order Creation Error:', error);
+    res.status(error.response?.status || 500).json({
       message: 'Failed to create order',
-      error: error.message
+      error: error.message,
+      details: error.response?.data
     });
+  } finally {
+    session.endSession();
   }
 };
 

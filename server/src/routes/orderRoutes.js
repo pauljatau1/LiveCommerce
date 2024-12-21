@@ -8,8 +8,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  * @swagger
  * /api/order:
  *   post:
- *     summary: Create a new order with shipping rates
- *     description: Step 1 - Creates an order and returns available shipping rates for carrier selection
+ *     summary: Create a new order with Terminal Africa shipping
+ *     description: Creates an order and shipping information through Terminal Africa
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -22,7 +22,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *             required:
  *               - items
  *               - shippingAddress
- *               - fromAddress
+ *               - pickupAddress
+ *               - parcel
  *               - paymentMethod
  *             properties:
  *               items:
@@ -32,91 +33,154 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                   required:
  *                     - productId
  *                     - quantity
+ *                     - name
+ *                     - description
+ *                     - weight
  *                     - price
- *                     - seller
  *                   properties:
  *                     productId:
  *                       type: string
- *                       description: ID of the product to order
  *                     quantity:
  *                       type: number
- *                       minimum: 1
- *                       description: Quantity of the product
+ *                     name:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     weight:
+ *                       type: number
  *                     price:
  *                       type: number
- *                       description: Price of the product
- *                     seller:
- *                       type: string
- *                       description: ID of the seller
+ *               pickupAddress:
+ *                 type: object
+ *                 required:
+ *                   - first_name
+ *                   - last_name
+ *                   - email
+ *                   - phone
+ *                   - line1
+ *                   - city
+ *                   - state
+ *                   - country
+ *                   - zip
+ *                 properties:
+ *                   first_name:
+ *                     type: string
+ *                   last_name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *                     description: International phone number without + symbol
+ *                   line1:
+ *                     type: string
+ *                     description: Street address
+ *                   line2:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   country:
+ *                     type: string
+ *                     description: ISO 2 country code (e.g., NG)
+ *                   zip:
+ *                     type: string
  *               shippingAddress:
  *                 type: object
  *                 required:
- *                   - address1
+ *                   - first_name
+ *                   - last_name
+ *                   - email
+ *                   - phone
+ *                   - line1
  *                   - city
  *                   - state
  *                   - country
- *                   - zipCode
+ *                   - zip
  *                 properties:
- *                   address1:
+ *                   first_name:
  *                     type: string
- *                     description: Primary address line
- *                   address2:
+ *                   last_name:
  *                     type: string
- *                     description: Secondary address line (optional)
+ *                   email:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *                     description: International phone number without + symbol
+ *                   line1:
+ *                     type: string
+ *                     description: Street address
+ *                   line2:
+ *                     type: string
  *                   city:
  *                     type: string
- *                     description: City name
  *                   state:
  *                     type: string
- *                     description: State or province
  *                   country:
  *                     type: string
- *                     description: Country name
- *                   zipCode:
+ *                     description: ISO 2 country code (e.g., NG)
+ *                   zip:
  *                     type: string
- *                     description: Postal or ZIP code
- *               fromAddress:
+ *               parcel:
  *                 type: object
  *                 required:
- *                   - address1
- *                   - city
- *                   - state
- *                   - country
- *                   - zipCode
+ *                   - weight
+ *                   - width
+ *                   - height
+ *                   - length
  *                 properties:
- *                   address1:
- *                     type: string
- *                     description: Primary address line
- *                   address2:
- *                     type: string
- *                     description: Secondary address line (optional)
- *                   city:
- *                     type: string
- *                     description: City name
- *                   state:
- *                     type: string
- *                     description: State or province
- *                   country:
- *                     type: string
- *                     description: Country name
- *                   zipCode:
- *                     type: string
- *                     description: Postal or ZIP code
+ *                   weight:
+ *                     type: number
+ *                     description: Weight of the parcel in kg
+ *                   width:
+ *                     type: number
+ *                     description: Width of the parcel in cm
+ *                   height:
+ *                     type: number
+ *                     description: Height of the parcel in cm
+ *                   length:
+ *                     type: number
+ *                     description: Length of the parcel in cm
  *               paymentMethod:
  *                 type: string
- *                 description: Payment method (e.g., paystack)
- *               discountCode:
- *                 type: string
- *                 description: Discount code (optional)
+ *                 enum: [paystack, card, bank_transfer]
+ *                 description: Payment method for the order
  *     responses:
  *       201:
- *         description: Order created successfully with shipping rates
+ *         description: Order created successfully with shipping details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Orders created successfully
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *                 shipping:
+ *                   type: object
+ *                   properties:
+ *                     shipment_id:
+ *                       type: string
+ *                     tracking_number:
+ *                       type: string
+ *                     carrier:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                     amount:
+ *                       type: number
  *       400:
- *         description: Invalid request body
+ *         description: Invalid request body or address validation failed
  *       401:
  *         description: Unauthorized
  *       500:
- *         description: Server error
+ *         description: Server error or shipping creation failed
  */
 router.post('/', authMiddleware.verifyToken, orderController.createOrder);
 

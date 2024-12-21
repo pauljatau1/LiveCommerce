@@ -138,6 +138,10 @@ const sellerSchema = new mongoose.Schema({
   hasFilledCategoryDetails: { type: Boolean, default: false },
   hasFilledVerificationDocuments: { type: Boolean, default: false },
   hasFilledBusinessAddress: { type: Boolean, default: false },
+  onboardingProcess: { 
+    type: String,
+    default: ''
+  },
 });
 
 // Middleware to update isNew property after 3 days

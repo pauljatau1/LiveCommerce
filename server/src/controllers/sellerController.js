@@ -1314,3 +1314,50 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Failed to reset password', error: error.message });
   }
 };
+
+// Update seller's onboarding process
+exports.updateOnboardingProcess = async (req, res) => {
+  try {
+    const { onboardingProcess } = req.body;
+
+    // Find and update seller
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Update the onboarding process
+    seller.onboardingProcess = onboardingProcess;
+    await seller.save();
+
+    res.json({ 
+      message: 'Onboarding process updated successfully',
+      onboardingProcess: seller.onboardingProcess 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update onboarding process', 
+      error: error.message 
+    });
+  }
+};
+
+// Get seller's onboarding process
+exports.getOnboardingProcess = async (req, res) => {
+  try {
+    // Find seller
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    res.json({ 
+      onboardingProcess: seller.onboardingProcess 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve onboarding process', 
+      error: error.message 
+    });
+  }
+};

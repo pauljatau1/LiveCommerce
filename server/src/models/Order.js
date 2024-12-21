@@ -1,5 +1,19 @@
 const mongoose = require('mongoose');
 
+// Define the address schema to match Terminal Africa's format
+const addressSchema = new mongoose.Schema({
+  first_name: { type: String, required: true },
+  last_name: { type: String, required: true },
+  email: { type: String, required: true },
+  phone: { type: String, required: true },
+  line1: { type: String, required: true },
+  line2: { type: String },
+  city: { type: String, required: true },
+  state: { type: String, required: true },
+  country: { type: String, required: true }, // ISO 2 country code
+  zip: { type: String, required: true }
+});
+
 const orderItemSchema = new mongoose.Schema({
   product: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -42,19 +56,50 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  shippingAddress: {
-    country: { type: String, required: true },
-    city: { type: String, required: true },
-    address1: { type: String, required: true },
-    address2: String,
-    zipCode: { type: String, required: true }
+  // Update field names to match Terminal Africa's API
+  delivery_address: {
+    type: addressSchema,
   },
-  fromAddress: {
-    country: { type: String, required: true },
-    city: { type: String, required: true },
-    address1: { type: String, required: true },
-    address2: String,
-    zipCode: { type: String, required: true }
+  pickup_address: {
+    type: addressSchema,
+  },
+  shipping: {
+    method: {
+      type: String,
+      enum: ['standard', 'express', 'economy'],
+      default: 'standard',
+      required: true
+    },
+    fee: {
+      type: Number,
+      default: 0,
+      required: true
+    },
+    estimatedDeliveryDate: {
+      type: Date,
+      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    },
+    tracking: {
+      number: String,
+      carrier: String,
+      status: {
+        type: String,
+        enum: ['pending', 'picked_up', 'in_transit', 'delivered', 'failed'],
+        default: 'pending'
+      },
+      lastUpdate: Date,
+      history: [{
+        status: String,
+        location: String,
+        timestamp: Date
+      }]
+    },
+    shipment_id: String,
+    shipment_purpose: {
+      type: String,
+      enum: ['commercial', 'personal', 'sample', 'return-after-repair', 'return-for-repair'],
+      default: 'commercial'
+    }
   },
   paid: {
     type: Boolean,
@@ -77,41 +122,6 @@ const orderSchema = new mongoose.Schema({
   discount: {
     code: String,
     amount: Number
-  },
-  shipping: {
-    method: {
-      type: String,
-      enum: ['standard', 'express', 'economy'],
-      default: 'standard',
-      required: true
-    },
-    fee: {
-      type: Number,
-      default: 0,
-      required: true
-    },
-    estimatedDeliveryDate: {
-      type: Date,
-      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
-    },
-    tracking: {
-      number: String,
-      carrier: {
-        type: String,
-        default: 'pending'
-      },
-      status: {
-        type: String,
-        enum: ['pending', 'picked_up', 'in_transit', 'delivered', 'failed'],
-        default: 'pending'
-      },
-      lastUpdate: Date,
-      history: [{
-        status: String,
-        location: String,
-        timestamp: Date
-      }]
-    }
   },
   dispute: {
     status: {
@@ -147,9 +157,13 @@ const orderSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  seller: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Seller',
+    required: true
   }
 });
-
 
 // Pre-save middleware to update status history
 orderSchema.pre('save', function(next) {
@@ -186,17 +200,6 @@ orderSchema.methods.calculateTotal = function() {
   }
   
   return total;
-};
-
-// Common address structure
-const addressSchema = {
-  country: { type: String, required: true },
-  state: { type: String, required: true },
-  city: { type: String, required: true },
-  addressLine1: { type: String, required: true },
-  addressLine2: { type: String },
-  zipCode: { type: String, required: true },
-  addressType: { type: String, enum: ['home', 'work', 'warehouse', 'other'], required: true }
 };
 
 module.exports = mongoose.model('Order', orderSchema);
