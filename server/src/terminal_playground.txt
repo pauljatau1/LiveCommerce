@@ -590,7 +590,7 @@ https://sandbox.terminal.africa/v1/carriers/enable/CA-TNVVUT1XVB1ULV5Q?domestic=
     ],
     "available_countries_local": [],
     "available_countries_international": [],
-    "id": null
+    "id": nul
   }
 }
 
