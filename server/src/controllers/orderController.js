@@ -227,6 +227,39 @@ exports.createOrder = async (req, res) => {
   }
 };
 
+
+exports.getShippingRates = async (req, res) => {
+  try {
+    const { shipmentId } = req.params;
+
+    const ratesResponse = await terminalAPI.get('/rates/shipment', {
+      params: {
+        currency: 'NGN',
+        shipment_id: shipmentId
+      }
+    });
+
+    if (!ratesResponse.data.status) {
+      throw new Error('Failed to fetch shipping rates');
+    }
+
+    res.json({
+      status: true,
+      message: 'Shipping rates retrieved successfully',
+      data: ratesResponse.data.data
+    });
+
+  } catch (error) {
+    console.error('Error fetching shipping rates:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch shipping rates',
+      error: error.message
+    });
+  }
+};
+
+
 // Modified select carrier endpoint
 exports.selectShippingCarrier = async (req, res) => {
   const session = await mongoose.startSession();
@@ -489,14 +522,14 @@ exports.updateOrder = async (req, res) => {
   }
 };
 
-// Mark order as paid
+// Mark order as paid and enable carrier
 exports.markOrderAsPaid = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { transactionId, paymentMethod } = req.body;
+    const { paymentMethod, carrierReference } = req.body;
 
     const order = await Order.findById(orderId);
-    
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
@@ -511,9 +544,26 @@ exports.markOrderAsPaid = async (req, res) => {
     order.paymentInfo = {
       method: paymentMethod,
       status: 'completed',
-      transactionId: transactionId,
       paidAt: new Date()
     };
+
+    // Enable carrier
+    if (carrierReference) {
+      const enableResponse = await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
+        params: {
+          domestic: true,
+          international: false,
+          regional: false
+        }
+      });
+
+      if (!enableResponse.data.status) {
+        throw new Error('Failed to enable carrier');
+      }
+
+      order.shipping.carrier = carrierReference;
+      order.shipping.status = 'carrier_enabled';
+    }
 
     await order.save();
 
@@ -539,6 +589,7 @@ exports.markOrderAsPaid = async (req, res) => {
     });
   }
 };
+
 
 // Delete an order
 exports.deleteOrder = async (req, res) => {

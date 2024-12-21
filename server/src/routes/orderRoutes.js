@@ -184,6 +184,165 @@ const authMiddleware = require('../middlewares/authMiddleware');
  */
 router.post('/', authMiddleware.verifyToken, orderController.createOrder);
 
+
+/**
+ * @swagger
+ * /api/order/shipping-rates/{shipmentId}:
+ *   get:
+ *     summary: Get shipping rates for a shipment
+ *     description: Retrieves available shipping rates for a shipment based on the shipment ID
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: shipmentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Shipping rates retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: 'Rates retrieved successfully'
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       amount:
+ *                         type: number
+ *                         example: 14000
+ *                       carrier_id:
+ *                         type: string
+ *                         example: 'loYZh5J47D6gJUKOExXeO1RLcMARScLi'
+ *                       carrier_logo:
+ *                         type: string
+ *                         example: 'https://ucarecdn.com/dcdd8109-af8c-4057-8104-192be821dd6e/download4.png'
+ *                       carrier_name:
+ *                         type: string
+ *                         example: 'DHL Express'
+ *                       carrier_rate_description:
+ *                         type: string
+ *                         example: 'EXPRESS 12:00 DOC'
+ *                       currency:
+ *                         type: string
+ *                         example: 'NGN'
+ *                       delivery_time:
+ *                         type: string
+ *                         example: 'Within 5 days.'
+ *                       id:
+ *                         type: string
+ *                         example: 'bQVMwQZndHbIq6PQD5oiaGWxetLCXGkp'
+ *                       includes_insurance:
+ *                         type: boolean
+ *                         example: false
+ *                       insurance_coverage:
+ *                         type: number
+ *                         example: 0
+ *                       insurance_fee:
+ *                         type: number
+ *                         example: 0
+ *                       metadata:
+ *                         type: object
+ *                       pickup_time:
+ *                         type: string
+ *                         example: 'Tue Jul 13 2021 before 17:00 GMT'
+ *                       rate_id:
+ *                         type: string
+ *                         example: 'RT-30798955894'
+ *                       shipment:
+ *                         type: string
+ *                         example: 'RAl6LhWojcnJtlojLcw4XWgSpjBsjF38'
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: '2021-07-13T20:25:53.011Z'
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: '2021-07-13T20:25:53.011Z'
+ *                 pageData:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                       example: 3
+ *                     perPage:
+ *                       type: number
+ *                       example: 100
+ *                     page:
+ *                       type: number
+ *                       example: 1
+ *                     pageCount:
+ *                       type: number
+ *                       example: 1
+ *       400:
+ *         description: Invalid shipment ID
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderController.getShippingRates);
+
+
+/**
+ * @swagger
+ * /api/order/{orderId}/mark-paid:
+ *   post:
+ *     summary: Mark an order as paid and enable carrier
+ *     description: Marks an order as paid and enables the carrier for shipping
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paymentMethod
+ *               - carrierReference
+ *             properties:
+ *               paymentMethod:
+ *                 type: string
+ *               carrierReference:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Order marked as paid successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/mark-paid', authMiddleware.verifyToken, orderController.markOrderAsPaid);
+
+
+
+
+
 /**
  * @swagger
  * /api/order/{orderId}/select-carrier:
