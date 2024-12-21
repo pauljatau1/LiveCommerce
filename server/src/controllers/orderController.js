@@ -30,42 +30,19 @@ const paystack = axios.create({
 
 exports.createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, fromAddress, paymentMethod, discountCode } = req.body;
-
+    const { items, shippingAddress, paymentMethod } = req.body;
+    
     // Validate required shipping address fields
-    if (!shippingAddress ||
-        !shippingAddress.city ||
-        !shippingAddress.state ||
-        !shippingAddress.country ||
-        !shippingAddress.address1 ||
-        !shippingAddress.zipCode) {
+    if (!shippingAddress || 
+        !shippingAddress.city || 
+        !shippingAddress.state || 
+        !shippingAddress.country) {
       return res.status(400).json({
         message: 'Missing required shipping address fields',
         details: {
           city: !shippingAddress?.city ? 'City is required' : null,
           state: !shippingAddress?.state ? 'State is required' : null,
-          country: !shippingAddress?.country ? 'Country is required' : null,
-          address1: !shippingAddress?.address1 ? 'Address Line 1 is required' : null,
-          zipCode: !shippingAddress?.zipCode ? 'Zip Code is required' : null
-        }
-      });
-    }
-
-    // Validate required from address fields
-    if (!fromAddress ||
-        !fromAddress.city ||
-        !fromAddress.state ||
-        !fromAddress.country ||
-        !fromAddress.address1 ||
-        !fromAddress.zipCode) {
-      return res.status(400).json({
-        message: 'Missing required from address fields',
-        details: {
-          city: !fromAddress?.city ? 'City is required' : null,
-          state: !fromAddress?.state ? 'State is required' : null,
-          country: !fromAddress?.country ? 'Country is required' : null,
-          address1: !fromAddress?.address1 ? 'Address Line 1 is required' : null,
-          zipCode: !fromAddress?.zipCode ? 'Zip Code is required' : null
+          country: !shippingAddress?.country ? 'Country is required' : null
         }
       });
     }
@@ -83,39 +60,12 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    // Calculate shipping fees
-    let totalShippingFee = 0;
-    const shippingDetails = [];
-
-    for (const item of items) {
-      const product = await Product.findById(item.productId)
-        .populate('seller', 'warehouseAddress');
-
-      if (!product) {
-        return res.status(404).json({ message: `Product not found: ${item.productId}` });
-      }
-
-      const rates = await shippingService.calculateShippingFee(
-        product,
-        shippingAddress,
-        fromAddress || product.seller.warehouseAddress
-      );
-
-      const estimatedDeliveryDate = shippingService.estimateDeliveryDate(rates.method);
-
-      shippingDetails.push({
-        productId: item.productId,
-        availableRates: rates,
-        estimatedDeliveryDate
-      });
-    }
-
     // Group items by seller
     const itemsBySeller = items.reduce((acc, item) => {
-      if (!acc[item.seller]) {
-        acc[item.seller] = [];
+      if (!acc[item.sellerId]) {
+        acc[item.sellerId] = [];
       }
-      acc[item.seller].push(item);
+      acc[item.sellerId].push(item);
       return acc;
     }, {});
 
@@ -127,28 +77,18 @@ exports.createOrder = async (req, res) => {
         items: sellerItems.map(item => ({
           product: item.productId,
           quantity: item.quantity,
-          price: item.price,
-          seller: item.seller // Ensure seller is included
+          price: item.price
         })),
         shippingAddress: {
-          address1: shippingAddress.address1,
-          address2: shippingAddress.address2 || '',
+          addressLine1: shippingAddress.addressLine1,
+          addressLine2: shippingAddress.addressLine2 || '',
           city: shippingAddress.city,
           state: shippingAddress.state,
           country: shippingAddress.country,
           zipCode: shippingAddress.zipCode
         },
-        fromAddress: {
-          address1: fromAddress.address1,
-          address2: fromAddress.address2 || '',
-          city: fromAddress.city,
-          state: fromAddress.state,
-          country: fromAddress.country,
-          zipCode: fromAddress.zipCode
-        },
         paymentMethod,
-        status: 'pending',
-        totalAmount: sellerItems.reduce((total, item) => total + item.price * item.quantity, 0)
+        status: 'pending'
       };
 
       const order = new Order(orderData);
@@ -159,8 +99,7 @@ exports.createOrder = async (req, res) => {
 
     res.status(201).json({
       message: 'Orders created successfully',
-      orders,
-      shippingDetails
+      orders
     });
 
   } catch (error) {
@@ -171,9 +110,6 @@ exports.createOrder = async (req, res) => {
     });
   }
 };
-
-
-
 
 // Modified select carrier endpoint
 exports.selectShippingCarrier = async (req, res) => {
