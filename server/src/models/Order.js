@@ -49,12 +49,19 @@ const orderSchema = new mongoose.Schema({
     address2: String,
     zipCode: { type: String, required: true }
   },
+  fromAddress: {
+    country: { type: String, required: true },
+    city: { type: String, required: true },
+    address1: { type: String, required: true },
+    address2: String,
+    zipCode: { type: String, required: true }
+  },
   paid: {
     type: Boolean,
     default: false
   },
   paymentInfo: {
-    method: { 
+    method: {
       type: String,
       enum: ['credit_card', 'paypal', 'paystack'],
       default: 'paystack'
@@ -72,16 +79,16 @@ const orderSchema = new mongoose.Schema({
     amount: Number
   },
   shipping: {
-    method: { 
-      type: String, 
+    method: {
+      type: String,
       enum: ['standard', 'express', 'economy'],
       default: 'standard',
-      required: true 
+      required: true
     },
-    fee: { 
+    fee: {
       type: Number,
       default: 0,
-      required: true 
+      required: true
     },
     estimatedDeliveryDate: {
       type: Date,
@@ -130,18 +137,19 @@ const orderSchema = new mongoose.Schema({
     processedAt: Date
   },
   notes: [{
-    type: { 
-      type: String, 
-      enum: ['buyer', 'seller', 'admin'] 
+    type: {
+      type: String,
+      enum: ['buyer', 'seller', 'admin']
     },
     content: String,
     createdAt: { type: Date, default: Date.now }
   }],
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
+
 
 // Pre-save middleware to update status history
 orderSchema.pre('save', function(next) {

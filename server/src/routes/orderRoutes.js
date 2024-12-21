@@ -22,6 +22,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *             required:
  *               - items
  *               - shippingAddress
+ *               - fromAddress
+ *               - paymentMethod
  *             properties:
  *               items:
  *                 type: array
@@ -30,6 +32,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                   required:
  *                     - productId
  *                     - quantity
+ *                     - price
+ *                     - seller
  *                   properties:
  *                     productId:
  *                       type: string
@@ -38,19 +42,25 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                       type: number
  *                       minimum: 1
  *                       description: Quantity of the product
+ *                     price:
+ *                       type: number
+ *                       description: Price of the product
+ *                     seller:
+ *                       type: string
+ *                       description: ID of the seller
  *               shippingAddress:
  *                 type: object
  *                 required:
- *                   - addressLine1
+ *                   - address1
  *                   - city
  *                   - state
  *                   - country
  *                   - zipCode
  *                 properties:
- *                   addressLine1:
+ *                   address1:
  *                     type: string
  *                     description: Primary address line
- *                   addressLine2:
+ *                   address2:
  *                     type: string
  *                     description: Secondary address line (optional)
  *                   city:
@@ -65,6 +75,39 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                   zipCode:
  *                     type: string
  *                     description: Postal or ZIP code
+ *               fromAddress:
+ *                 type: object
+ *                 required:
+ *                   - address1
+ *                   - city
+ *                   - state
+ *                   - country
+ *                   - zipCode
+ *                 properties:
+ *                   address1:
+ *                     type: string
+ *                     description: Primary address line
+ *                   address2:
+ *                     type: string
+ *                     description: Secondary address line (optional)
+ *                   city:
+ *                     type: string
+ *                     description: City name
+ *                   state:
+ *                     type: string
+ *                     description: State or province
+ *                   country:
+ *                     type: string
+ *                     description: Country name
+ *                   zipCode:
+ *                     type: string
+ *                     description: Postal or ZIP code
+ *               paymentMethod:
+ *                 type: string
+ *                 description: Payment method (e.g., paystack)
+ *               discountCode:
+ *                 type: string
+ *                 description: Discount code (optional)
  *     responses:
  *       201:
  *         description: Order created successfully with shipping rates
@@ -106,6 +149,17 @@ router.post('/', authMiddleware.verifyToken, orderController.createOrder);
  *                 type: string
  *               rateId:
  *                 type: string
+ *     responses:
+ *       200:
+ *         description: Shipping carrier selected successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:orderId/select-carrier', authMiddleware.verifyToken, orderController.selectShippingCarrier);
 
@@ -124,11 +178,35 @@ router.post('/:orderId/select-carrier', authMiddleware.verifyToken, orderControl
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paymentDetails
+ *             properties:
+ *               paymentDetails:
+ *                 type: object
+ *                 properties:
+ *                   transactionId:
+ *                     type: string
+ *                   paymentMethod:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Payment processed and shipment created successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
  */
-router.post('/:orderId/process-payment', 
-  authMiddleware.verifyToken, 
-  orderController.processPaymentAndCreateShipment
-);
+router.post('/:orderId/process-payment', authMiddleware.verifyToken, orderController.processPaymentAndCreateShipment);
 
 /**
  * @swagger
@@ -145,24 +223,17 @@ router.post('/:orderId/process-payment',
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Order details retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
  */
 router.get('/:orderId', authMiddleware.verifyToken, orderController.getOrder);
-
-// /**
-//  * @swagger
-//  * /api/order/track/{trackingNumber}:
-//  *   get:
-//  *     summary: Track shipment
-//  *     description: Get tracking information for a shipment
-//  *     tags: [Order]
-//  *     parameters:
-//  *       - in: path
-//  *         name: trackingNumber
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  */
-// router.get('/track/:trackingNumber', orderController.trackShipment);
 
 /**
  * @swagger
@@ -179,6 +250,15 @@ router.get('/:orderId', authMiddleware.verifyToken, orderController.getOrder);
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: User's orders retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
  */
 router.get('/user/:userId', authMiddleware.verifyToken, orderController.getUserOrders);
 
@@ -197,6 +277,29 @@ router.get('/user/:userId', authMiddleware.verifyToken, orderController.getUserO
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Order cancelled successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:orderId/cancel', authMiddleware.verifyToken, orderController.cancelOrder);
 
@@ -215,6 +318,15 @@ router.post('/:orderId/cancel', authMiddleware.verifyToken, orderController.canc
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Seller's orders retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
  */
 router.get('/seller/:sellerId', authMiddleware.verifyToken, orderController.getSellerOrders);
 
@@ -245,7 +357,605 @@ router.get('/seller/:sellerId', authMiddleware.verifyToken, orderController.getS
  *               status:
  *                 type: string
  *                 enum: [pending, processing, shipped, delivered, cancelled]
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
  */
 router.put('/:orderId/status', authMiddleware.verifyToken, orderController.updateOrderStatus);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/dispute:
+ *   post:
+ *     summary: Create a dispute for an order
+ *     description: Creates a dispute for an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *               - description
+ *             properties:
+ *               reason:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Dispute created successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/dispute', authMiddleware.verifyToken, orderController.createDispute);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/dispute/{disputeId}:
+ *   put:
+ *     summary: Update a dispute for an order
+ *     description: Updates a dispute for an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: disputeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *               resolution:
+ *                 type: string
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Dispute updated successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order or dispute not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:orderId/dispute/:disputeId', authMiddleware.verifyToken, orderController.updateDispute);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/refund:
+ *   post:
+ *     summary: Request a refund for an order
+ *     description: Requests a refund for an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *               - amount
+ *             properties:
+ *               reason:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Refund requested successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/refund', authMiddleware.verifyToken, orderController.requestRefund);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/refund/{refundId}:
+ *   put:
+ *     summary: Process a refund for an order
+ *     description: Processes a refund for an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: refundId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [approved, rejected]
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Refund processed successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order or refund not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:orderId/refund/:refundId', authMiddleware.verifyToken, orderController.processRefund);
+
+/**
+ * @swagger
+ * /api/order/calculate-shipping:
+ *   post:
+ *     summary: Calculate shipping fees
+ *     description: Calculates shipping fees for a list of items
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - items
+ *               - shippingAddress
+ *               - pickupAddress
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - productId
+ *                     - quantity
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *               shippingAddress:
+ *                 type: object
+ *                 required:
+ *                   - address1
+ *                   - city
+ *                   - state
+ *                   - country
+ *                   - zipCode
+ *                 properties:
+ *                   address1:
+ *                     type: string
+ *                   address2:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   country:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *               pickupAddress:
+ *                 type: object
+ *                 required:
+ *                   - address1
+ *                   - city
+ *                   - state
+ *                   - country
+ *                   - zipCode
+ *                 properties:
+ *                   address1:
+ *                     type: string
+ *                   address2:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   country:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Shipping fees calculated successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/calculate-shipping', authMiddleware.verifyToken, orderController.calculateShipping);
+
+/**
+ * @swagger
+ * /api/order/search-shipping-rates:
+ *   post:
+ *     summary: Search shipping rates
+ *     description: Searches for shipping rates based on pickup and delivery addresses
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - pickupAddressId
+ *               - deliveryAddressId
+ *               - parcelId
+ *             properties:
+ *               pickupAddressId:
+ *                 type: string
+ *               deliveryAddressId:
+ *                 type: string
+ *               parcelId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Shipping rates retrieved successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/search-shipping-rates', authMiddleware.verifyToken, orderController.searchShippingRates);
+
+/**
+ * @swagger
+ * /api/order/enable-carrier:
+ *   post:
+ *     summary: Enable a carrier
+ *     description: Enables a carrier for shipping
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - carrierReference
+ *             properties:
+ *               carrierReference:
+ *                 type: string
+ *               domestic:
+ *                 type: boolean
+ *               international:
+ *                 type: boolean
+ *               regional:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Carrier enabled successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/enable-carrier', authMiddleware.verifyToken, orderController.enableCarrier);
+
+/**
+ * @swagger
+ * /api/order/create-shipment:
+ *   post:
+ *     summary: Create a shipment
+ *     description: Creates a shipment for an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - addressFromId
+ *               - addressToId
+ *               - parcelId
+ *             properties:
+ *               addressFromId:
+ *                 type: string
+ *               addressToId:
+ *                 type: string
+ *               parcelId:
+ *                 type: string
+ *               addressReturnId:
+ *                 type: string
+ *               metadata:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Shipment created successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/create-shipment', authMiddleware.verifyToken, orderController.createShipment);
+
+/**
+ * @swagger
+ * /api/order/export:
+ *   get:
+ *     summary: Export orders
+ *     description: Exports orders based on filters
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Orders exported successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/export', authMiddleware.verifyToken, orderController.exportOrders);
+
+/**
+ * @swagger
+ * /api/order/revenue-analytics:
+ *   get:
+ *     summary: Get revenue analytics
+ *     description: Retrieves revenue analytics for a seller
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: groupBy
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month]
+ *     responses:
+ *       200:
+ *         description: Revenue analytics retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/revenue-analytics', authMiddleware.verifyToken, orderController.getRevenueAnalytics);
+
+/**
+ * @swagger
+ * /api/order/bulk-update:
+ *   put:
+ *     summary: Bulk update orders
+ *     description: Updates multiple orders in bulk
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderIds
+ *               - update
+ *             properties:
+ *               orderIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               update:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Orders updated successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.put('/bulk-update', authMiddleware.verifyToken, orderController.bulkUpdateOrders);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/tracking:
+ *   put:
+ *     summary: Update tracking information for an order
+ *     description: Updates the tracking information for an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - trackingNumber
+ *               - carrier
+ *             properties:
+ *               trackingNumber:
+ *                 type: string
+ *               carrier:
+ *                 type: string
+ *               estimatedDelivery:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       200:
+ *         description: Tracking information updated successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:orderId/tracking', authMiddleware.verifyToken, orderController.updateTracking);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/note:
+ *   post:
+ *     summary: Add a note to an order
+ *     description: Adds a note to an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - note
+ *             properties:
+ *               note:
+ *                 type: string
+ *               isPrivate:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Note added successfully
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/note', authMiddleware.verifyToken, orderController.addOrderNote);
 
 module.exports = router;
