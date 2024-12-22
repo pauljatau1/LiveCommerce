@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
+} from "../../Components/ui/dialog"
 
 const ShippingOptionsOnboarding = () => {
   const navigate = useNavigate();

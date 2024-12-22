@@ -103,8 +103,10 @@ const ProtectedRoute = ({ children }) => {
       }
     } else if (tokenData?.data && tokenData?.isVerified === true) {
       navigate('/dashboard/home', { replace: true });
-    } 
-  }, [navigate, onboardingStep]);
+    } else {
+      navigate('/', { replace: true });
+    }
+  }, [navigate, onboardingStep, isAuthenticated]);
 
   return children;
 }

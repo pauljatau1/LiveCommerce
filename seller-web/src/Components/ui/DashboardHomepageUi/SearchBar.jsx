@@ -11,7 +11,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "../../ui/popover"
 
 const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
     const [open, setOpen] = React.useState(false)
