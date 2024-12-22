@@ -1361,3 +1361,63 @@ exports.getOnboardingProcess = async (req, res) => {
     });
   }
 };
+
+// Add to sellerController.js - For store verification status changes
+async function sendStoreVerificationEmail(seller, status) {
+  const sellerMsg = {
+    to: seller.email,
+    from: 'Joseph From Auqli <joseph@auqli.com>',
+    subject: `Store Verification Status - ${status}`,
+    html: `
+      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto;">
+          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+          <h1 style="color: #4CAF50; margin-bottom: 20px;">Store Verification Update</h1>
+          <p style="font-size: 16px; line-height: 1.5;">Your store verification status has been updated to: ${status}</p>
+          ${status === 'VERIFIED' ? 
+            '<p style="font-size: 16px; line-height: 1.5;">Congratulations! You can now start selling on Auqli.</p>' : 
+            '<p style="font-size: 16px; line-height: 1.5;">Please check your dashboard for more details.</p>'
+          }
+          <hr style="border: 1px solid #333333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  };
+
+  const adminMsg = {
+    to: 'bolu@auqli.com',
+    from: 'Joseph From Auqli <joseph@auqli.com>',
+    subject: `Store Verification Status Update - ${seller.storeName}`,
+    html: `
+      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto;">
+          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+          <h1 style="color: #4CAF50; margin-bottom: 20px;">Store Verification Status Update</h1>
+          <p style="font-size: 16px; line-height: 1.5;">Store: ${seller.storeName}</p>
+          <p style="font-size: 16px; line-height: 1.5;">New Status: ${status}</p>
+          <p style="font-size: 16px; line-height: 1.5;">Seller: ${seller.firstName} ${seller.lastName}</p>
+          <hr style="border: 1px solid #333333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  };
+
+  await Promise.all([
+    sgMail.send(sellerMsg),
+    sgMail.send(adminMsg)
+  ]);
+}
+
+exports.updateStoreVerification = async (req, res) => {
+  try {
+    // ... existing verification update code ...
+    
+    await sendStoreVerificationEmail(seller, newStatus);
+    
+    res.json({ message: 'Store verification status updated successfully', seller });
+  } catch (error) {
+    // ... error handling ...
+  }
+};

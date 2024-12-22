@@ -51,18 +51,19 @@ const orderSchema = new mongoose.Schema({
     ref: 'Buyer',
     required: true
   },
+  seller: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Seller',
+    required: true
+  },
   items: [orderItemSchema],
   totalAmount: {
     type: Number,
     required: true
   },
   // Update field names to match Terminal Africa's API
-  delivery_address: {
-    type: addressSchema,
-  },
-  pickup_address: {
-    type: addressSchema,
-  },
+  delivery_address: addressSchema,
+  pickup_address: addressSchema,
   shipping: {
     method: {
       type: String,
@@ -157,11 +158,6 @@ const orderSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
-  },
-  seller: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Seller',
-    required: true
   }
 });
 
