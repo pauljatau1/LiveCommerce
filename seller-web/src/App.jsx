@@ -22,6 +22,8 @@ import BusinessCategoryOnboarding, { Loader as categoriesLoader } from './Compon
 import ShippingOptionsOnboarding from './Components/ui/ShippingOptionsOnboarding';
 import AccountApproval from './Components/ui/AccountApproval';
 import IndividualVerificationOnboarding from './Components/ui/IndividualVerificationOnboarding';
+import Customers from './Pages/Customers/Customers';
+import CustomerDetail from './Pages/Customers/CustomerDetail';
 
 
 
@@ -124,7 +126,19 @@ const router = createBrowserRouter([
             element: <AccountApproval />,
             loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
             errorElement: <NotFoundPage />
-          }
+          },
+          {
+            path: 'customers',
+            element: <Customers />,
+            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'customer',
+            element: <CustomerDetail />,
+            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+            errorElement: <NotFoundPage />
+          },
         ]
       }
     ]
