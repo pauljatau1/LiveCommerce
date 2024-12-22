@@ -34,6 +34,7 @@ const HomePage = () => {
     fetchSellerDetails();
   }, []);
 
+
   return (
     <div className="flex h-screen w-dvh ">
       {/* Sidebar */}
