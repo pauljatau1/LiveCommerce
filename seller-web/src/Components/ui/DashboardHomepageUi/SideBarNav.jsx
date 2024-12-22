@@ -9,7 +9,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
 
   return (
     <>
-      <div className="min-h-full w-[257px] bg-[#05031F] z-10 flex-col items-center justify-center pt-11 hidden md:flex">
+      <div className="min-h-full w-[257px] xl:w-[307px] bg-[#05031F] z-10 flex-col items-center justify-center pt-11 hidden md:flex">
         <div className="h-full w-full overflow-y-scroll  [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] py-8">
           <div className="pb-3">
             <img src={Logo} alt="Logo" className="w-[162px] h-[44.03px] mx-auto" />
@@ -32,7 +32,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
               ))}
             </div>
           </div>
-          <div className="mt-auto border-t border-white/10">
+          <div className="mt-auto lg:mt-60 border-t border-white/10 bg-[#05031F]">
             <div className="flex flex-col gap-4 p-4">
               <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                 Auqli University
@@ -98,7 +98,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
               </div>
 
               {/* Bottom Section */}
-              <div className="mt-auto border-t border-white/10">
+              <div className="mt-auto border-t border-white/10 ">
                 <div className="flex flex-col gap-4 p-4">
                   <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                     Auqli University
