@@ -14,6 +14,7 @@ const terminalAPI = axios.create({
 });
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const mongoose = require('mongoose');
+const WebhookService = require('../services/WebhookService');
 
 // Initialize Paystack
 const paystackSecretKey = "sk_test_REDACTED";
@@ -224,6 +225,17 @@ exports.createOrder = async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  // After order is created successfully
+  await WebhookService.sendWebhookEvent('order.created', {
+    orderId: order._id,
+    sellerId: order.seller,
+    status: order.status,
+    createdAt: order.createdAt,
+    // Add other relevant order data
+  }, order.seller);
+
+  res.status(201).json(order);
 };
 
 // get rates from shipments
@@ -446,63 +458,67 @@ exports.deleteOrder = async (req, res) => {
 // Order Status Management
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const { orderId, itemId, status, note } = req.body;
-    const order = await Order.findById(orderId);
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const order = await Order.findById(orderId)
+      .populate('buyer')
+      .populate('seller');
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Verify seller owns this order item
-    const orderItem = order.items.id(itemId);
-    if (!orderItem || orderItem.seller.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized to update this order' });
-    }
+    const oldStatus = order.status;
+    order.status = status;
+    await order.save();
 
-    // Update status
-    orderItem.status = status;
-    orderItem.statusHistory.push({
-      status,
-      timestamp: new Date(),
-      note: note || `Status updated to ${status}`
+    // Prepare webhook data
+    const webhookData = {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      oldStatus,
+      newStatus: status,
+      updatedAt: new Date(),
+      items: order.items.map(item => ({
+        productId: item.product,
+        quantity: item.quantity,
+        status: item.status
+      })),
+      shipping: {
+        trackingNumber: order.shipping.tracking.number,
+        carrier: order.shipping.tracking.carrier,
+        estimatedDelivery: order.shipping.estimatedDeliveryDate
+      }
+    };
+
+    // Send webhooks to both seller and buyer
+    await WebhookService.sendWebhookEvent('order.status_updated', webhookData, {
+      sellerId: order.seller._id,
+      buyerId: order.buyer._id
     });
 
-    // If status is shipped, require tracking information
-    if (status === 'shipped' && (!req.body.trackingNumber || !req.body.carrier)) {
-      return res.status(400).json({ 
-        message: 'Tracking number and carrier required for shipped status' 
+    // Send specific event based on status
+    if (status === 'out_for_delivery') {
+      await WebhookService.sendWebhookEvent('order.out_for_delivery', webhookData, {
+        sellerId: order.seller._id,
+        buyerId: order.buyer._id
+      });
+    } else if (status === 'delivered') {
+      await WebhookService.sendWebhookEvent('order.delivered', webhookData, {
+        sellerId: order.seller._id,
+        buyerId: order.buyer._id
       });
     }
 
-    if (status === 'shipped') {
-      order.shipping = {
-        ...order.shipping,
-        trackingNumber: req.body.trackingNumber,
-        carrier: req.body.carrier,
-        estimatedDelivery: req.body.estimatedDelivery
-      };
-
-      // Notify buyer
-      await notificationController.createNotification(
-        order.buyer,
-        'order_shipped',
-        'Order Shipped',
-        `Your order #${order._id} has been shipped`,
-        {
-          orderId: order._id,
-          trackingNumber: req.body.trackingNumber,
-          carrier: req.body.carrier
-        }
-      );
-    }
-
-    await order.save();
-    res.json({ message: 'Order status updated successfully', order });
-
+    res.json({
+      message: 'Order status updated successfully',
+      order
+    });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update order status', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update order status',
+      error: error.message
     });
   }
 };
