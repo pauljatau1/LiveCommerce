@@ -2,7 +2,7 @@ import AuthProvider from './Contexts/AuthContext';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { Suspense } from 'react';
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
 import LoginPage, { Loader as loginLoader } from './Pages/LoginPage/LoginPage';
 import SignUpPage from './Pages/SignUpPage/SignUpPage';

@@ -4,6 +4,9 @@ import cat3 from '../assets/cat3.png';
 import cat4 from '../assets/cat4.png';
 import check from '../assets/checkmark-circle-02.png';
 import ObjectID from 'bson-objectid';
+import Order1 from '../assets/order-pic1.png'
+import Order2 from '../assets/order-pic2.png'
+import Order3 from '../assets/order-pic3.png'
 
 export const categoriesData = [
     {
@@ -152,4 +155,58 @@ export const homeAnalyticsCardData = [
         color: '#0BB248',
         backgroundColor: '#05031F'
     }
+];
+
+export const orderTempData = [
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        price: 1000000,
+        quantity: 250,
+        percentage: '+47%',
+        image: Order1
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        price: 1000000,
+        quantity: 250,
+        percentage: '+47%',
+        image: Order2
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        price: 1000000,
+        quantity: 250,
+        percentage: '+47%',
+        image: Order3
+    }
+]
+
+export const toDoCardTempData = [
+    {
+        id: ObjectID().toHexString(),
+        title: 'You have 10 orders to ship today!',
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: '10 of your products are disabled!',
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'You have 7 return requests',
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'You have 33 unread messages!',
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: '55 products are sold out',
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: '55 products are sold out',
+    },
 ]

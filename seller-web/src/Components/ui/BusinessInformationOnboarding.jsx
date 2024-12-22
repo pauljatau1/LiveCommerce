@@ -9,7 +9,7 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select";
+} from "../../Components/ui/select";
 import { Country, State, City } from 'country-state-city';
 import Step2 from '../../assets/Step2.png';
 import CircularProgress from '@mui/material/CircularProgress';

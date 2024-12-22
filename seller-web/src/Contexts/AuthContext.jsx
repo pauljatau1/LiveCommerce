@@ -247,6 +247,7 @@ const AuthProvider = ({ children }) => {
         dispatch({ type: 'LOGOUT' });
         Crisp.setTokenId();
         Crisp.session.reset();
+        console.log("logout successful");
     };
 
     //function to reset password
@@ -319,7 +320,8 @@ const AuthProvider = ({ children }) => {
             login,
             logout,
             resetPassword,
-            fetchSellerDetails
+            fetchSellerDetails,
+            dispatch
         }}>
             {children}
         </AuthContext.Provider>
