@@ -1,6 +1,6 @@
 const axios = require('axios');
 const crypto = require('crypto');
-const Webhook = require('../models/Webhook')
+const Webhook = require('../models/WebHook')
 
 class WebhookService {
   static async sendWebhookEvent(event, data, { sellerId, buyerId }) {
