@@ -1,10 +1,10 @@
-import { AuthProvider } from './Contexts/AuthContext';
+import AuthProvider from './Contexts/AuthContext';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { Suspense } from 'react';
 import { Toaster } from "@/components/ui/sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
-import LoginPage from './Pages/LoginPage/LoginPage';
+import LoginPage, { Loader as loginLoader } from './Pages/LoginPage/LoginPage';
 import SignUpPage from './Pages/SignUpPage/SignUpPage';
 import DashboardLayout from './Components/DashboardLayout';
 import AppLayout from './Components/AppLayout';
@@ -38,7 +38,7 @@ const router = createBrowserRouter([
       {
         path: '/',
         element: <LoginPage />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 500)),
+        loader: loginLoader,
         errorElement: <NotFoundPage />
       },
       {
@@ -138,7 +138,6 @@ const App = () => {
           <RouterProvider
             router={router}
             fallbackElement={<Loader />}
-            hydrateFallback={<Loader />}
           />
           <ToastContainer
             position="top-center"

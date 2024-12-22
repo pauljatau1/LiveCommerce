@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import Modal from '../../Components/Modal';
 import Logo from '../../assets/auqli-official-logo.png';
 import Background1 from '../../assets/background-asset1.png';
@@ -10,7 +10,7 @@ import Background2 from '../../assets/background-asset2.png';
 import MailIcon from '../../assets/mail.png';
 import Line1 from '../../assets/line1.png';
 import CircularProgress from '@mui/material/CircularProgress';
-import 'react-toastify/dist/ReactToastify.css';
+
 
 
 const SignUpPage = () => {
@@ -41,29 +41,11 @@ const SignUpPage = () => {
     if (formData.password !== formData.confirmPassword) {
       //if passwords do not match, alert the user
       console.log('Passwords do not match');
-      toast.error('Passwords do not match', {
-        position: "top-center",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-      });
+      toast.error('Passwords do not match');
     } else if (formData.firstName === '' || formData.lastName === '' || formData.email === '' || formData.phoneNumber === '' || formData.password === '' || formData.confirmPassword === '') {
       //if any of the fields are empty, alert the user
       console.log('Please fill in all fields');
-      toast.error('Please fill in all fields', {
-        position: "top-center",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
-      });
+      toast.error('Please fill in all fields');
 
     } else {
       //if the data is valid, create the seller

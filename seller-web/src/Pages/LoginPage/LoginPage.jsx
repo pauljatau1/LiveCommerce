@@ -1,8 +1,10 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLoaderData } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
+import { fetchOnboardingProcess } from '../../Utilities/apiRestaurant';
+import { BASE_URL } from '../../Constants/Server';
 import Modal from '../../Components/Modal';
 import Logo from '../../assets/auqli-official-logo.png';
 import Background1 from '../../assets/background-asset1.png';
@@ -10,10 +12,11 @@ import Background2 from '../../assets/background-asset-3.png';
 import Line1 from '../../assets/line1.png';
 import OtpInput from 'react-otp-input';
 import CircularProgress from '@mui/material/CircularProgress';
+import axios from 'axios';
 
 
 const LoginPage = () => {
-  const { isAuthenticated, seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login, resetPassword } = useAuthContext();
+  const { seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login, resetPassword, token } = useAuthContext();
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpCount, setOtpCount] = useState(0);
@@ -22,6 +25,11 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
   const navigate = useNavigate();
+  const onboardingProcess = useLoaderData();
+
+
+
+  const onboardingStep = onboardingProcess?.onboardingProcess;
 
 
   //use effect to check if the otp status is pending and if the otp count is 0, if so, open the otp modal as a reroute from the login page
@@ -33,19 +41,76 @@ const LoginPage = () => {
   }, [otpStatus, otpCount]);
 
 
-  //use effect to check if the seller is authenticated and if the seller is logged in, if so, redirect to the dashboard if not, redirect to the login page;
-  //if the seller is logged in and the first time, redirect to the onboarding page
-  //if the seller is logged in and not the first time, redirect to the dashboard home page
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
     const storedToken = localStorage.getItem('sellerToken');
-    if (storedToken && isAuthenticated && seller) {
-      const { firstTime } = JSON.parse(storedToken);
-      navigate(firstTime ? '/dashboard/onboarding' : '/dashboard/home', { replace: true });
+    const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+    console.log("Token Data:", tokenData.data);
+    const checkTokenValidity = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+          headers: {
+            Authorization: `Bearer ${tokenData.data}`
+          }
+        }, { signal });
+        if (response.status === 200) {
+          if (tokenData.data && tokenData.isVerified === false && onboardingStep !== "") {
+            //if the seller is logged in and the first time, redirect to the onboarding page
+            if (onboardingStep) {
+              navigate(`/dashboard/${onboardingStep}`, { replace: true });
+              setTimeout(() => {
+                toast.success('Continue Onboarding', {
+                  description: 'Continue from where you left off',
+                  style: {
+                    background: '#05031F',
+                    color: '#fff',
+                  }
+                });
+              }, 2500);
+            } else {
+              navigate('/dashboard/onboarding', { replace: true });
+            }
+          } else if (tokenData.data && tokenData.isVerified === true) {
+            navigate('/dashboard/home', { replace: true });
+          } else {
+            navigate('/dashboard/onboarding', { replace: true });
+          }
+        } else if (response.status === 401) {
+          console.log("Token is invalid");
+          toast.error("Token is invalid", {
+            description: "Please login again",
+            style: {
+              background: '#05031F',
+              color: '#fff',
+            }
+          });
+          navigate('/', { replace: true });
+        }
+      } catch (error) {
+        console.log(error);
+        toast.error('Token Verification Failed', {
+          description: error.response?.data?.message || error.message,
+          style: {
+            background: '#05031F',
+            color: '#fff',
+          }
+        });
+      }
     }
-  }, [isAuthenticated, seller, navigate]);
+
+    if (tokenData.data) {
+      checkTokenValidity();
+    } else if (token) {
+      navigate('/dashboard/onboarding', { replace: true });
+    } else {
+      console.log("No user found");
+    }
+    return () => controller.abort();
+  }, [token, navigate, onboardingStep]);
 
   //function to submit the otp to verify new user
-  const handleOtpSubmit = async() => {
+  const handleOtpSubmit = async () => {
     if (otp.length === 4 && seller !== null) {
       await verifyOtp(seller?.email, otp);
       setIsOtpModalOpen(false);
@@ -55,7 +120,7 @@ const LoginPage = () => {
   }
 
   //function to submit the user data to login
-  const handleLogin = async() => {
+  const handleLogin = async () => {
     if (email !== "" && password !== "") {
       await login(email, password);
     } else {
@@ -63,7 +128,7 @@ const LoginPage = () => {
     }
   }
 
-  const handleNewOtpRequest = async() => {
+  const handleNewOtpRequest = async () => {
     if (seller !== null) {
       await requestNewOtp(seller?.email);
     } else {
@@ -71,7 +136,7 @@ const LoginPage = () => {
     }
   };
 
-  const handleResetPasswordSubmit = async() => {
+  const handleResetPasswordSubmit = async () => {
     if (resetEmail !== "") {
       await resetPassword(resetEmail);
       setForgotPassword(false);
@@ -86,7 +151,7 @@ const LoginPage = () => {
       <img src={Background1} alt="Background" className="fixed inset-0- w-screen h-screen 2xl:h-[150dvh] object-cover object-center" />
       <img src={Background2} alt="Background" className="fixed inset-0 w-screen h-screen 2xl:h-[150dvh] object-none object-center" />
       <div className="px-4 sm:px-[44px] flex lg:flex-row gap-10 flex-col items-center justify-center sm:justify-between relative py-[21px] min-h-dvh">
-        <Link className="flex justify-center lg:justify-start w-1/2 lg:w-1/3 md:mt-14 " to="/"><img src={Logo} alt="Auqli Logo"/></Link>
+        <Link className="flex justify-center lg:justify-start w-1/2 lg:w-1/3 md:mt-14 " to="/"><img src={Logo} alt="Auqli Logo" /></Link>
         <div className="bg-[#E9E9E914] backdrop-blur-[349.6px] rounded-[22px] px-4 sm:px-[50px] py-[40px] sm:py-[84px] w-full max-w-[755px] mx-4">
           <h1 className="text-[#FFFFFF] text-3xl sm:text-[47.64px] font-medium leading-tight sm:leading-[58.07px] mb-8 sm:mb-[96px] capitalize">Hey, Welcome Back</h1>
           <div className="flex flex-col">
@@ -205,6 +270,11 @@ const LoginPage = () => {
       }
     </div>
   )
+};
+
+export async function Loader() {
+  const onboardingProcess = await fetchOnboardingProcess();
+  return onboardingProcess;
 }
 
 export default LoginPage

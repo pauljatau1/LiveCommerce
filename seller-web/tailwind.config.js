@@ -9,8 +9,14 @@ export default {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'Montserrat'
-  			]
+  				'Montserrat',
+  			],
+			lexend: [
+				'Lexend',
+			],
+			cabin: [
+				'Cabin',
+			],
   		},
   		height: {
   			screen: '100dvh'
