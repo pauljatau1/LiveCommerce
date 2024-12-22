@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 import { Icon } from "@iconify/react";
 import { homeAnalyticsCardData, orderTempData, toDoCardTempData } from "../../Utilities/data";
+import { Crisp } from "crisp-sdk-web";
+import { useNavigate } from "react-router-dom";
 import SideBarNav from "../../Components/ui/DashboardHomepageUi/SideBarNav";
 import SearchBar from "../../Components/ui/DashboardHomepageUi/SearchBar";
 import AlertNotification from "../../Components/ui/AlertNotification";
@@ -12,7 +14,8 @@ import QuickOrderCard from "../../Components/QuickOrderCard";
 
 
 const HomePage = () => {
-  const { seller, fetchSellerDetails } = useAuthContext();
+  const { seller, fetchSellerDetails, dispatch } = useAuthContext();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notification, setNotification] = useState(true);
 
@@ -34,11 +37,20 @@ const HomePage = () => {
     fetchSellerDetails();
   }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem('sellerToken');
+    dispatch({ type: 'LOGOUT' });
+    Crisp.setTokenId();
+    Crisp.session.reset();
+    console.log("logout successful");
+    navigate('/', { replace: true });
+  }
+
 
   return (
     <div className="flex h-screen w-dvh ">
       {/* Sidebar */}
-      <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+      <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} handleLogout={handleLogout} />
       {/* Main Content */}
       <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-14 h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         {/* Search Bar */}

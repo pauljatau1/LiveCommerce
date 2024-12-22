@@ -9,7 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "../../Components/ui/dialog"
 
 const BusinessCategoryOnboarding = () => {
   const categories = useLoaderData();

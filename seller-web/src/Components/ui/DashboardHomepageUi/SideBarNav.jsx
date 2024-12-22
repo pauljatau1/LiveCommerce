@@ -5,7 +5,7 @@ import { Icon } from "@iconify/react";
 import Logo from '../../../assets/auqli-official-logo.png'
 
 
-const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
+const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, handleLogout }) => {
 
   return (
     <>
@@ -45,7 +45,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
               </NavLink>
               <button
                 className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md text-left"
-                onClick={() => {/* handle logout */ }}
+                onClick={handleLogout}
               >
                 Log Out
               </button>
@@ -111,7 +111,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                   </NavLink>
                   <button
                     className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md text-left"
-                    onClick={() => {/* handle logout */ }}
+                    onClick={handleLogout}
                   >
                     Log Out
                   </button>
