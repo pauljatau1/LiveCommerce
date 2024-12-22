@@ -8,15 +8,17 @@ const NotFoundPage = () => {
     const { isAuthenticated, seller } = useAuthContext();
 
 
+    const storedToken = localStorage.getItem('sellerToken');
+    const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+    console.log("Token Data:", tokenData);
+    console.log("Is Authenticated:", isAuthenticated, seller);
     // function to handle go home button by checking if the user is signed in, if so navigate to seller dashboard page else go to login page
     const handleGoHome = () => {
-        if (isAuthenticated && seller !== null) {
-          const storedToken = localStorage.getItem('sellerToken');
-          const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, firstTime: null };
-          if (tokenData.data && tokenData.firstTime) {
-            navigate('/dashboard/onboarding');
-          } else {
+        if (tokenData) {
+          if (tokenData.isVerified) {
             navigate('/dashboard/home');
+          } else if (tokenData.isVerified === false) {
+            navigate('/dashboard/onboarding');
           }
         } else {
             navigate('/', { replace: true });

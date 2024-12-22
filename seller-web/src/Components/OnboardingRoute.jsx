@@ -1,6 +1,7 @@
 import { useEffect }from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../Hooks/useAuthContext';
+import { fetchOnboardingProcess } from '../Utilities/apiRestaurant';
 
 const OnboardingRoute = ({children}) => {
     const navigate = useNavigate();
@@ -19,6 +20,11 @@ const OnboardingRoute = ({children}) => {
     }, [seller, navigate])
 
   return children;
+};
+
+export async function Loader() {
+    const onboardingProcess = await fetchOnboardingProcess();
+    return onboardingProcess;
 }
 
 export default OnboardingRoute

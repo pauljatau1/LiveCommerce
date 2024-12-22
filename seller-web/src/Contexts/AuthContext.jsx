@@ -1,7 +1,8 @@
-import { createContext, useContext, useReducer } from "react";
+import { createContext, useReducer } from "react";
 import { BASE_URL } from '../Constants/Server';
 import { useNavigate } from 'react-router-dom';
-import { toast } from "sonner"
+import { toast } from "sonner";
+import { Crisp } from "crisp-sdk-web";
 import axios from 'axios';
 import PropTypes from 'prop-types';
 
@@ -100,13 +101,26 @@ const AuthProvider = ({ children }) => {
                     token: null,
                     message: "Logout successful"
                 }
+            case "SIGNUP_USER_EXISTS":
+                return {
+                    ...state,
+                    message: "User already exists"
+                };
+            case "FETCH_SELLER_DETAILS":
+                return {
+                    ...state,
+                    seller: action.payload
+                };
+
+            default:
+                return state;
         }
     }, initialState);
 
     //function to create a new seller and signup
-    const createSeller = async(firstName, lastName, email, password, phoneNumber) => {
+    const createSeller = async (firstName, lastName, email, password, phoneNumber) => {
         try {
-            dispatch({type: 'SET_LOADING', payload: true});
+            dispatch({ type: 'SET_LOADING', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/register`, {
                 firstName,
                 lastName,
@@ -116,24 +130,25 @@ const AuthProvider = ({ children }) => {
             });
 
             if (response.status === 201) {
-                console.log(`signup: ${response}`);
-                dispatch({type: 'SIGNUP_SUCCESS', payload: response.data.user});
+                console.log(response);
+                dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
                 toast.success(response.data.message);
             }
+
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({type: 'SIGNUP_FAILED', payload: AxiosError.response.data.message});
+            dispatch({ type: 'SIGNUP_FAILED', payload: AxiosError.response.data.message });
             toast.error(AxiosError.response.data.message)
         } finally {
-            dispatch({type: 'SET_LOADING', payload: false});
+            dispatch({ type: 'SET_LOADING', payload: false });
         }
     };
 
     //function to verify otp after sign up
-    const verifyOtp = async(email, otp) => {
+    const verifyOtp = async (email, otp) => {
         try {
-            dispatch({type: 'SET_LOADING', payload: true});
-            dispatch({type: 'RESET'});
+            dispatch({ type: 'SET_LOADING', payload: true });
+            dispatch({ type: 'RESET' });
             const response = await axios.post(`${BASE_URL}/seller/verify-otp`, {
                 email,
                 otp
@@ -141,31 +156,31 @@ const AuthProvider = ({ children }) => {
 
             if (response.status === 200) {
                 console.log(`otp: ${response}`);
-                dispatch({type: 'VERIFY_OTP_SUCCESS'});
+                dispatch({ type: 'VERIFY_OTP_SUCCESS' });
                 toast.success(response.data.message);
             }
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({type: 'VERIFY_OTP_FAILED', payload: AxiosError.response.data.message});
+            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError.response.data.message });
             toast.error(AxiosError.response.data.message);
         } finally {
-            dispatch({type: 'SET_LOADING', payload: false});
+            dispatch({ type: 'SET_LOADING', payload: false });
         }
     };
 
 
     //function to request for new otp
-    const requestNewOtp = async(email) => {
+    const requestNewOtp = async (email) => {
         try {
-            dispatch({type: 'RESET'});
-            dispatch({type: 'SET_LOADING', payload: true});
+            dispatch({ type: 'RESET' });
+            dispatch({ type: 'SET_LOADING', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/resend-otp`, {
                 email
             });
 
             if (response.status === 200) {
                 console.log(`request otp: ${response}`);
-                dispatch({type: 'REQUEST_OTP_SUCCESS', payload: response.data.message});
+                dispatch({ type: 'REQUEST_OTP_SUCCESS', payload: response.data.message });
                 toast.success(response.data.message, {
                     position: "top-center",
                     autoClose: 5000,
@@ -179,35 +194,41 @@ const AuthProvider = ({ children }) => {
             }
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({type: 'REQUEST_OTP_FAILED', payload: AxiosError.response.data.message});
+            dispatch({ type: 'REQUEST_OTP_FAILED', payload: AxiosError.response.data.message });
             toast.error(AxiosError.response.data.message);
         } finally {
-            dispatch({type: 'SET_LOADING', payload: false});
+            dispatch({ type: 'SET_LOADING', payload: false });
         }
     };
 
     //function to login a seller
-    const login = async(email, password) => {
+    const login = async (email, password) => {
         try {
-            dispatch({type: "RESET"})
-            dispatch({type: 'SET_LOADING', payload: true});
+            dispatch({ type: "RESET" })
+            dispatch({ type: 'SET_LOADING', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/login`, {
                 email,
                 password
             });
             if (response.status === 200) {
                 console.log('login response:', response.data);
-                dispatch({type: 'SET_TOKEN', payload: response.data.token});
+                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
                 localStorage.setItem('sellerToken', JSON.stringify({
-                    data: response.data.token, 
-                    firstTime: true
+                    data: response.data.token,
+                    isVerified: response.data.user.isVerified
                 }));
-                dispatch({type: 'LOGIN_SUCCESS', payload: response.data.user});
+                Crisp.setTokenId(response.data.token);
+                Crisp.user.setEmail(response.data.user.email);
+                Crisp.user.setNickname(response.data.user.firstName + " " + response.data.user.lastName);
+                Crisp.session.setData({
+                    user_id: response.data.user._id,
+                    plan: "free"
+                })
                 toast.success('Login successful');
             }
         } catch (error) {
             console.log(error);
-            dispatch({type: 'LOGIN_FAILED', payload: error.response?.data?.message || error.message});
+            dispatch({ type: 'LOGIN_FAILED', payload: error.response?.data?.message || error.message });
             toast.error('Login failed', {
                 description: error.response?.data?.message || error.message,
                 style: {
@@ -216,27 +237,29 @@ const AuthProvider = ({ children }) => {
                 }
             });
         } finally {
-            dispatch({type: 'SET_LOADING', payload: false});
+            dispatch({ type: 'SET_LOADING', payload: false });
         }
     };
 
     //function to log user out
     const logout = () => {
         localStorage.removeItem('sellerToken');
-        dispatch({type: 'LOGOUT'});
+        dispatch({ type: 'LOGOUT' });
+        Crisp.setTokenId();
+        Crisp.session.reset();
     };
 
     //function to reset password
-    const resetPassword = async(email) => {
+    const resetPassword = async (email) => {
         try {
-            dispatch({type: 'SET_LOADING', payload: true});
+            dispatch({ type: 'SET_LOADING', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/forgot-password`, {
                 email
             });
 
             if (response.status === 200) {
                 console.log(`reset password: ${response}`);
-                toast.success('Password reset request sent',{
+                toast.success('Password reset request sent', {
                     description: 'We have sent a password reset link to your email',
                     style: {
                         background: '#05031F',
@@ -255,7 +278,33 @@ const AuthProvider = ({ children }) => {
             });
 
         } finally {
-            dispatch({type: 'SET_LOADING', payload: false});
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+    };
+
+    const fetchSellerDetails = async() => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            console.log(tokenData);
+            const response = await axios.get(`${BASE_URL}/seller/profile`, {
+                headers: {
+                    Authorization: `Bearer ${tokenData.data}`
+                }
+            });
+            if (response.status === 200) {
+                console.log("seller details:", response.data);
+                dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data});
+                localStorage.setItem('sellerToken', JSON.stringify({
+                    ...tokenData,
+                    isVerified: response.data.isVerified
+                }));
+            }
+        } catch (error) {
+            console.log(error);
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
         }
     }
 
@@ -269,7 +318,8 @@ const AuthProvider = ({ children }) => {
             requestNewOtp,
             login,
             logout,
-            resetPassword
+            resetPassword,
+            fetchSellerDetails
         }}>
             {children}
         </AuthContext.Provider>
@@ -284,4 +334,5 @@ AuthProvider.propTypes = {
 
 
 
-export { AuthProvider, AuthContext };
+export { AuthContext };
+export default AuthProvider;
