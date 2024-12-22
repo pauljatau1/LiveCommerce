@@ -1,13 +1,10 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const Discount = require('../models/Discount');
 const Seller = require('../models/Seller');
 const Notification = require('../models/Notification');
 const Buyer = require('../models/Buyer');
 const axios = require('axios'); // For Paystack API calls
 const sgMail = require('@sendgrid/mail');
-const shippingService = require('../services/shippingService');
-const terminalService = require('../services/terminalService');
 const terminalAPI = axios.create({
   baseURL: 'https://sandbox.terminal.africa/v1',
   headers: {
@@ -68,6 +65,8 @@ const validateItems = (items) => {
 
   return true;
 };
+
+// create an order
 
 exports.createOrder = async (req, res) => {
   const session = await mongoose.startSession();
@@ -227,6 +226,7 @@ exports.createOrder = async (req, res) => {
   }
 };
 
+// get rates from shipments
 
 exports.getShippingRates = async (req, res) => {
   try {
@@ -260,267 +260,6 @@ exports.getShippingRates = async (req, res) => {
 };
 
 
-// Modified select carrier endpoint
-exports.selectShippingCarrier = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { orderId } = req.params;
-    const { carrierReference, rateId } = req.body;
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // Find selected rate from available rates
-    const selectedRate = order.shipping.availableRates.find(
-      rate => rate.rateId === rateId
-    );
-
-    if (!selectedRate) {
-      return res.status(400).json({ message: 'Invalid rate selected' });
-    }
-
-    // Enable carrier
-    await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
-      params: { domestic: true }
-    });
-
-    // Update order with shipping fee and total
-    order.shipping.carrier = carrierReference;
-    order.shipping.rateId = rateId;
-    order.shipping.fee = selectedRate.amount;
-    order.totalAmount = order.subtotal + selectedRate.amount;
-    order.shipping.status = 'carrier_selected';
-
-    await order.save({ session });
-    await session.commitTransaction();
-
-    res.json({
-      message: 'Shipping carrier selected successfully',
-      order,
-      nextStep: {
-        action: 'process_payment',
-        endpoint: `/api/order/${order._id}/process-payment`
-      }
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({
-      message: 'Failed to select shipping carrier',
-      error: error.message
-    });
-  } finally {
-    session.endSession();
-  }
-};
-
-// New endpoint to handle payment and create shipment
-exports.processPaymentAndCreateShipment = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { orderId } = req.params;
-    const { paymentDetails } = req.body;
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // Process payment (implement your payment logic here)
-    // const paymentResult = await processPayment(paymentDetails, order.totalAmount);
-
-    // Create shipment
-    const shipmentData = {
-      address_from: order.shipping.fromAddressId,
-      address_to: order.shipping.toAddressId,
-      parcel: order.shipping.parcelId,
-      carrier_reference: order.shipping.carrier,
-      rate_id: order.shipping.rateId,
-      metadata: {
-        orderId: order._id
-      }
-    };
-
-    const shipmentResponse = await terminalAPI.post('/shipments', shipmentData);
-
-    // Update order
-    order.paid = true;
-    order.shipping.status = 'shipment_created';
-    order.shipping.shipmentId = shipmentResponse.data.data.shipment_id;
-    order.shipping.trackingNumber = shipmentResponse.data.data.tracking_number;
-
-    await order.save({ session });
-    await session.commitTransaction();
-
-    res.json({
-      message: 'Payment processed and shipment created successfully',
-      order,
-      shipment: shipmentResponse.data.data
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({
-      message: 'Failed to process payment and create shipment',
-      error: error.message
-    });
-  } finally {
-    session.endSession();
-  }
-};
-
-// Paystack webhook handler
-exports.paystackWebhook = async (req, res) => {
-  try {
-    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
-      .update(JSON.stringify(req.body))
-      .digest('hex');
-
-    if (hash !== req.headers['x-paystack-signature']) {
-      return res.status(400).send('Invalid signature');
-    }
-
-    const event = req.body;
-
-    if (event.event === 'charge.success') {
-      const orders = await Order.find({
-        'paymentInfo.reference': event.data.reference
-      });
-
-      for (const order of orders) {
-        order.paymentInfo.status = 'completed';
-        order.paymentInfo.paidAt = new Date();
-        await order.save();
-
-        // Notify seller
-        await notificationController.createNotification({
-          recipient: order.items[0].seller,
-          type: 'new_order',
-          title: 'New Order Received',
-          message: `You have received a new order (#${order._id})`,
-          data: { orderId: order._id }
-        });
-      }
-
-      // Send confirmation email to buyer
-      if (orders.length > 0) {
-        await sgMail.send({
-          to: event.data.customer.email,
-          from: 'orders@yourdomain.com',
-          subject: 'Order Confirmation',
-          html: `
-            <h1>Thank you for your order!</h1>
-            <p>Your order(s) have been successfully placed:</p>
-            ${orders.map(order => `
-              <p>Order ID: ${order._id}</p>
-              <p>Total Amount: ₦${order.totalAmount}</p>
-            `).join('<br>')}
-          `
-        });
-      }
-    }
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('Paystack webhook error:', error);
-    res.sendStatus(500);
-  }
-};
-
-// Get all orders
-exports.getAllOrders = async (req, res) => {
-  try {
-    const orders = await Order.find().populate('user', 'firstName lastName').populate('seller', 'name');
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve orders', error: error.message });
-  }
-};
-
-// Get all orders for a buyer
-exports.getOrdersForBuyer = async (req, res) => {
-  const { buyerId } = req.params;
-
-  try {
-    const orders = await Order.find({ user: buyerId }).populate('user', 'firstName lastName').populate('seller', 'name');
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve orders for buyer', error: error.message });
-  }
-};
-
-// Get all orders for a seller
-exports.getOrdersForSeller = async (req, res) => {
-  const { sellerId } = req.params;
-
-  try {
-    const orders = await Order.find({ seller: sellerId }).populate('user', 'firstName lastName').populate('seller', 'name');
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve orders for seller', error: error.message });
-  }
-};
-
-// Get a single order
-exports.getOrder = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const order = await Order.findById(id).populate('user', 'firstName lastName').populate('seller', 'name');
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-    res.json(order);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve order', error: error.message });
-  }
-};
-
-// Update an order
-exports.updateOrder = async (req, res) => {
-  const { id } = req.params;
-  const { status, deliveredAt } = req.body;
-
-  try {
-    const order = await Order.findById(id).populate('seller');
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // Validate status transitions
-    const validStatusTransitions = {
-      'Pending': ['Paid'],
-      'Paid': ['Confirmed', 'On its way'],
-      'Confirmed': ['On its way'],
-      'On its way': ['Delivered'],
-    };
-
-    if (!validStatusTransitions[order.status] || !validStatusTransitions[order.status].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status transition' });
-    }
-
-    order.status = status || order.status;
-    order.deliveredAt = deliveredAt || order.deliveredAt;
-
-    // Update seller's wallet balance if the order is marked as paid
-    if (status === 'Paid') {
-      const seller = order.seller;
-      seller.walletBalance += order.totalPrice;
-      await seller.save();
-    }
-
-    const updatedOrder = await order.save();
-    res.json(updatedOrder);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to update order', error: error.message });
-  }
-};
 
 // Mark order as paid and enable carrier
 exports.markOrderAsPaid = async (req, res) => {
@@ -589,6 +328,104 @@ exports.markOrderAsPaid = async (req, res) => {
     });
   }
 };
+
+
+
+
+// Get all orders
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find().populate('user', 'firstName lastName').populate('seller', 'name');
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve orders', error: error.message });
+  }
+};
+
+// Get all orders for a buyer
+exports.getOrdersForBuyer = async (req, res) => {
+  const { buyerId } = req.params;
+
+  try {
+    const orders = await Order.find({ buyer: buyerId })
+      .populate('buyer', 'firstName lastName')
+      .populate('seller', 'name');
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve orders for buyer', error: error.message });
+  }
+};
+
+// Get all orders for a seller
+exports.getOrdersForSeller = async (req, res) => {
+  const { sellerId } = req.params;
+
+  try {
+    const orders = await Order.find({ seller: sellerId })
+      .populate('buyer', 'firstName lastName')
+      .populate('seller', 'name');
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve orders for seller', error: error.message });
+  }
+};
+
+
+// Get a single order
+exports.getOrder = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const order = await Order.findById(id).populate('user', 'firstName lastName').populate('seller', 'name');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve order', error: error.message });
+  }
+};
+
+// Update an order
+exports.updateOrder = async (req, res) => {
+  const { id } = req.params;
+  const { status, deliveredAt } = req.body;
+
+  try {
+    const order = await Order.findById(id).populate('seller');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Validate status transitions
+    const validStatusTransitions = {
+      'Pending': ['Paid'],
+      'Paid': ['Confirmed', 'On its way'],
+      'Confirmed': ['On its way'],
+      'On its way': ['Delivered'],
+    };
+
+    if (!validStatusTransitions[order.status] || !validStatusTransitions[order.status].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status transition' });
+    }
+
+    order.status = status || order.status;
+    order.deliveredAt = deliveredAt || order.deliveredAt;
+
+    // Update seller's wallet balance if the order is marked as paid
+    if (status === 'Paid') {
+      const seller = order.seller;
+      seller.walletBalance += order.totalPrice;
+      await seller.save();
+    }
+
+    const updatedOrder = await order.save();
+    res.json(updatedOrder);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update order', error: error.message });
+  }
+};
+
 
 
 // Delete an order
@@ -1193,468 +1030,4 @@ exports.processRefund = async (req, res) => {
   } finally {
     session.endSession();
   }
-};
-
-exports.calculateShipping = async (req, res) => {
-  try {
-    const { items, shippingAddress, pickupAddress } = req.body;
-    
-    // Validate addresses
-    if (!validateAddress(shippingAddress) || !validateAddress(pickupAddress)) {
-      return res.status(400).json({ message: 'Invalid address format' });
-    }
-
-    let totalShippingFee = 0;
-    const shippingDetails = [];
-
-    for (const item of items) {
-      const product = await Product.findById(item.productId)
-        .populate('seller', 'warehouseAddress');
-
-      if (!product) {
-        return res.status(404).json({ message: `Product not found: ${item.productId}` });
-      }
-
-      const rates = await shippingService.calculateShippingFee(
-        product,
-        shippingAddress,
-        pickupAddress || product.seller.warehouseAddress
-      );
-
-      const estimatedDeliveryDate = shippingService.estimateDeliveryDate(rates.method);
-
-      shippingDetails.push({
-        productId: item.productId,
-        availableRates: rates,
-        estimatedDeliveryDate
-      });
-    }
-
-    res.json({
-      shippingDetails,
-      carriers: await terminalService.getCarriers(shippingAddress.country)
-    });
-
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to calculate shipping', 
-      error: error.message 
-    });
-  }
-};
-
-// Search shipping rates
-exports.searchShippingRates = async (req, res) => {
-  try {
-    const { pickupAddressId, deliveryAddressId, parcelId } = req.body;
-
-    if (!pickupAddressId || !deliveryAddressId || !parcelId) {
-      return res.status(400).json({
-        message: 'Missing required parameters: pickupAddressId, deliveryAddressId, or parcelId'
-      });
-    }
-
-    const ratesResponse = await terminalAPI.get('/rates/shipment', {
-      params: {
-        currency: 'NGN',
-        pickup_address: pickupAddressId,
-        delivery_address: deliveryAddressId,
-        parcel_id: parcelId,
-        cash_on_delivery: false
-      }
-    });
-
-    if (!ratesResponse.data.status) {
-      throw new Error('Failed to fetch shipping rates');
-    }
-
-    res.json({
-      status: true,
-      message: 'Shipping rates retrieved successfully',
-      data: ratesResponse.data.data
-    });
-
-  } catch (error) {
-    console.error('Error fetching shipping rates:', error);
-    res.status(500).json({
-      status: false,
-      message: 'Failed to fetch shipping rates',
-      error: error.message
-    });
-  }
-};
-
-// Enable carrier
-exports.enableCarrier = async (req, res) => {
-  try {
-    const { carrierReference } = req.params;
-    const { domestic = true, international = false, regional = false } = req.body;
-
-    if (!carrierReference) {
-      return res.status(400).json({
-        message: 'Carrier reference is required'
-      });
-    }
-
-    const enableResponse = await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
-      params: {
-        domestic,
-        international,
-        regional
-      }
-    });
-
-    if (!enableResponse.data.status) {
-      throw new Error('Failed to enable carrier');
-    }
-
-    res.json({
-      status: true,
-      message: 'Carrier enabled successfully',
-      data: enableResponse.data.data
-    });
-
-  } catch (error) {
-    console.error('Error enabling carrier:', error);
-    res.status(500).json({
-      status: false,
-      message: 'Failed to enable carrier',
-      error: error.message
-    });
-  }
-};
-
-// Helper function to get shipping rates for an order
-async function getShippingRatesForOrder(pickupAddressId, deliveryAddressId, parcelId) {
-  try {
-    const ratesResponse = await terminalAPI.get('/rates/shipment', {
-      params: {
-        currency: 'NGN',
-        pickup_address: pickupAddressId,
-        delivery_address: deliveryAddressId,
-        parcel_id: parcelId,
-        cash_on_delivery: false
-      }
-    });
-
-    if (!ratesResponse.data.status) {
-      throw new Error('Failed to fetch shipping rates');
-    }
-
-    return ratesResponse.data.data;
-
-  } catch (error) {
-    console.error('Error fetching shipping rates:', error);
-    throw error;
-  }
-}
-
-// Create shipment
-exports.createShipment = async (req, res) => {
-  try {
-    const { 
-      addressFromId, 
-      addressToId, 
-      parcelId, 
-      addressReturnId, 
-      metadata 
-    } = req.body;
-
-    // Validate required fields
-    if (!addressFromId || !addressToId || !parcelId) {
-      return res.status(400).json({
-        status: false,
-        message: 'Missing required fields: addressFromId, addressToId, or parcelId'
-      });
-    }
-
-    const shipmentData = {
-      address_from: addressFromId,
-      address_to: addressToId,
-      parcel: parcelId,
-      address_return: addressReturnId,
-      shipment_purpose: "commercial",
-      metadata: {
-        ...metadata,
-        orderId: req.body.orderId // If available
-      }
-    };
-
-    const shipmentResponse = await terminalAPI.post('/shipments', shipmentData);
-
-    if (!shipmentResponse.data.status) {
-      throw new Error('Failed to create shipment');
-    }
-
-   
-    if (req.body.orderId) {
-      const order = await Order.findById(req.body.orderId);
-      if (order) {
-        order.shipping = {
-          ...order.shipping,
-          shipmentId: shipmentResponse.data.data.shipment_id,
-          status: 'shipment_created',
-          createdAt: new Date()
-        };
-        await order.save();
-      }
-    }
-
-    res.json({
-      status: true,
-      message: 'Shipment created successfully',
-      data: shipmentResponse.data.data
-    });
-
-  } catch (error) {
-    console.error('Error creating shipment:', error);
-    res.status(500).json({
-      status: false,
-      message: 'Failed to create shipment',
-      error: error.message
-    });
-  }
-};
-
-// Get all orders for a specific buyer
-exports.getUserOrders = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    // Verify if the requesting user is the same as userId
-    if (req.user.id !== userId) {
-      return res.status(403).json({
-        message: 'Unauthorized to view these orders'
-      });
-    }
-
-    const orders = await Order.find({ buyer: userId })
-      .populate('items.product')
-      .populate('items.seller', 'firstName lastName businessName')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      message: 'Orders retrieved successfully',
-      count: orders.length,
-      orders
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: 'Failed to retrieve orders',
-      error: error.message
-    });
-  }
-};
-
-// Cancel an order
-exports.cancelOrder = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { orderId } = req.params;
-    const order = await Order.findById(orderId);
-
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // Check if user is authorized to cancel the order
-    if (order.buyer.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized to cancel this order' });
-    }
-
-    // Check if order can be cancelled
-    if (order.shipping.status !== 'pending_carrier_selection' && 
-        order.shipping.status !== 'carrier_selected') {
-      return res.status(400).json({ 
-        message: 'Order cannot be cancelled at this stage',
-        currentStatus: order.shipping.status
-      });
-    }
-
-    // If shipment was created, cancel it with Terminal
-    if (order.shipping.shipmentId) {
-      try {
-        await terminalAPI.post(`/shipments/${order.shipping.shipmentId}/cancel`);
-      } catch (error) {
-        console.error('Failed to cancel shipment:', error);
-        // Continue with order cancellation even if shipment cancellation fails
-      }
-    }
-
-    // Update order status
-    order.status = 'cancelled';
-    order.cancelledAt = new Date();
-    order.cancellationReason = req.body.reason || 'Cancelled by buyer';
-
-    await order.save({ session });
-
-    // Notify seller
-    await notificationController.createNotification({
-      recipient: order.items[0].seller,
-      type: 'order_cancelled',
-      title: 'Order Cancelled',
-      message: `Order #${order._id} has been cancelled by the buyer`,
-      data: { orderId: order._id }
-    });
-
-    await session.commitTransaction();
-
-    res.json({
-      message: 'Order cancelled successfully',
-      order
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({
-      message: 'Failed to cancel order',
-      error: error.message
-    });
-  } finally {
-    session.endSession();
-  }
-};
-
-// Get all orders for a seller
-exports.getSellerOrders = async (req, res) => {
-  try {
-    const { sellerId } = req.params;
-    
-    // Verify if the requesting user is the seller
-    if (req.user.id !== sellerId) {
-      return res.status(403).json({
-        message: 'Unauthorized to view these orders'
-      });
-    }
-
-    const orders = await Order.find({ 'items.seller': sellerId })
-      .populate('buyer', 'firstName lastName email')
-      .populate('items.product')
-      .sort({ createdAt: -1 });
-
-    // Group orders by status
-    const groupedOrders = {
-      pending: orders.filter(order => order.status === 'pending'),
-      processing: orders.filter(order => order.status === 'processing'),
-      shipped: orders.filter(order => order.status === 'shipped'),
-      delivered: orders.filter(order => order.status === 'delivered'),
-      cancelled: orders.filter(order => order.status === 'cancelled')
-    };
-
-    res.json({
-      message: 'Orders retrieved successfully',
-      totalCount: orders.length,
-      ordersByStatus: groupedOrders,
-      orders
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: 'Failed to retrieve seller orders',
-      error: error.message
-    });
-  }
-};
-
-// Update order status
-exports.updateOrderStatus = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { orderId } = req.params;
-    const { status } = req.body;
-
-    const order = await Order.findById(orderId)
-      .populate('buyer', 'email firstName lastName')
-      .populate('items.seller');
-
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // Verify if the requesting user is the seller of this order
-    const isSeller = order.items.some(item => 
-      item.seller._id.toString() === req.user.id
-    );
-
-    if (!isSeller) {
-      return res.status(403).json({
-        message: 'Unauthorized to update this order'
-      });
-    }
-
-    // Validate status transition
-    const validStatuses = ['processing', 'shipped', 'delivered', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        message: 'Invalid status',
-        validStatuses
-      });
-    }
-
-    // Update order status
-    order.status = status;
-    order.statusHistory.push({
-      status,
-      updatedBy: req.user.id,
-      updatedAt: new Date()
-    });
-
-    if (status === 'delivered') {
-      order.deliveredAt = new Date();
-    }
-
-    await order.save({ session });
-
-    // Send notification to buyer
-    await notificationController.createNotification({
-      recipient: order.buyer._id,
-      type: 'order_status_update',
-      title: 'Order Status Updated',
-      message: `Your order #${order._id} is now ${status}`,
-      data: { orderId: order._id, status }
-    });
-
-    // Send email notification
-    const emailTemplate = getEmailTemplateForStatus(status, order);
-    await sgMail.send(emailTemplate);
-
-    await session.commitTransaction();
-
-    res.json({
-      message: 'Order status updated successfully',
-      order
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({
-      message: 'Failed to update order status',
-      error: error.message
-    });
-  } finally {
-    session.endSession();
-  }
-};
-
-// Helper function for email templates
-const getEmailTemplateForStatus = (status, order) => {
-  const template = {
-    to: order.buyer.email,
-    from: 'orders@yourdomain.com',
-    subject: `Order Status Update - ${status.toUpperCase()}`,
-    html: `
-      <h1>Order Status Update</h1>
-      <p>Dear ${order.buyer.firstName},</p>
-      <p>Your order #${order._id} has been ${status}.</p>
-      ${status === 'shipped' ? `
-        <p>Tracking Number: ${order.shipping.trackingNumber}</p>
-        <p>Carrier: ${order.shipping.carrier}</p>
-      ` : ''}
-      <p>Thank you for shopping with us!</p>
-    `
-  };
-  return template;
 };

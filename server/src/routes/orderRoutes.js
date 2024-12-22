@@ -343,93 +343,6 @@ router.post('/:orderId/mark-paid', authMiddleware.verifyToken, orderController.m
 
 
 
-/**
- * @swagger
- * /api/order/{orderId}/select-carrier:
- *   post:
- *     summary: Select shipping carrier and calculate final total
- *     description: Step 2 - Enables carrier, updates order with shipping fee and calculates final total
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: orderId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - carrierReference
- *               - rateId
- *             properties:
- *               carrierReference:
- *                 type: string
- *               rateId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Shipping carrier selected successfully
- *       400:
- *         description: Invalid request body
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Order not found
- *       500:
- *         description: Server error
- */
-router.post('/:orderId/select-carrier', authMiddleware.verifyToken, orderController.selectShippingCarrier);
-
-/**
- * @swagger
- * /api/order/{orderId}/process-payment:
- *   post:
- *     summary: Process payment and create shipment
- *     description: Step 3 - Processes payment, creates shipment, and updates order status
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: orderId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - paymentDetails
- *             properties:
- *               paymentDetails:
- *                 type: object
- *                 properties:
- *                   transactionId:
- *                     type: string
- *                   paymentMethod:
- *                     type: string
- *     responses:
- *       200:
- *         description: Payment processed and shipment created successfully
- *       400:
- *         description: Invalid request body
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Order not found
- *       500:
- *         description: Server error
- */
-router.post('/:orderId/process-payment', authMiddleware.verifyToken, orderController.processPaymentAndCreateShipment);
 
 /**
  * @swagger
@@ -458,80 +371,45 @@ router.post('/:orderId/process-payment', authMiddleware.verifyToken, orderContro
  */
 router.get('/:orderId', authMiddleware.verifyToken, orderController.getOrder);
 
-/**
- * @swagger
- * /api/order/user/{userId}:
- *   get:
- *     summary: Get user's orders
- *     description: Retrieves all orders for a specific user
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User's orders retrieved successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.get('/user/:userId', authMiddleware.verifyToken, orderController.getUserOrders);
+
 
 /**
  * @swagger
- * /api/order/{orderId}/cancel:
- *   post:
- *     summary: Cancel an order
- *     description: Cancels an order if it hasn't been shipped
+ * /api/order/buyer/{buyerId}:
+ *   get:
+ *     summary: Get all orders for a buyer
+ *     description: Retrieves all orders associated with a specific buyer
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: orderId
+ *         name: buyerId
  *         required: true
  *         schema:
  *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               reason:
- *                 type: string
- *                 description: Reason for cancellation
  *     responses:
  *       200:
- *         description: Order cancelled successfully
- *       400:
- *         description: Invalid request body
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Order'
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Order not found
  *       500:
  *         description: Server error
  */
-router.post('/:orderId/cancel', authMiddleware.verifyToken, orderController.cancelOrder);
+router.get('/buyer/:buyerId', authMiddleware.verifyToken, orderController.getOrdersForBuyer);
 
 /**
  * @swagger
  * /api/order/seller/{sellerId}:
  *   get:
- *     summary: Get seller's orders
- *     description: Retrieves all orders for a specific seller
+ *     summary: Get all orders for a seller
+ *     description: Retrieves all orders associated with a specific seller
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -543,15 +421,24 @@ router.post('/:orderId/cancel', authMiddleware.verifyToken, orderController.canc
  *           type: string
  *     responses:
  *       200:
- *         description: Seller's orders retrieved successfully
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Order'
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden
  *       500:
  *         description: Server error
  */
-router.get('/seller/:sellerId', authMiddleware.verifyToken, orderController.getSellerOrders);
+router.get('/seller/:sellerId', authMiddleware.verifyToken, orderController.getOrdersForSeller);
+
+
+
+
+
 
 /**
  * @swagger
@@ -777,209 +664,7 @@ router.post('/:orderId/refund', authMiddleware.verifyToken, orderController.requ
  */
 router.put('/:orderId/refund/:refundId', authMiddleware.verifyToken, orderController.processRefund);
 
-/**
- * @swagger
- * /api/order/calculate-shipping:
- *   post:
- *     summary: Calculate shipping fees
- *     description: Calculates shipping fees for a list of items
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - items
- *               - shippingAddress
- *               - pickupAddress
- *             properties:
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *                   required:
- *                     - productId
- *                     - quantity
- *                   properties:
- *                     productId:
- *                       type: string
- *                     quantity:
- *                       type: number
- *               shippingAddress:
- *                 type: object
- *                 required:
- *                   - address1
- *                   - city
- *                   - state
- *                   - country
- *                   - zipCode
- *                 properties:
- *                   address1:
- *                     type: string
- *                   address2:
- *                     type: string
- *                   city:
- *                     type: string
- *                   state:
- *                     type: string
- *                   country:
- *                     type: string
- *                   zipCode:
- *                     type: string
- *               pickupAddress:
- *                 type: object
- *                 required:
- *                   - address1
- *                   - city
- *                   - state
- *                   - country
- *                   - zipCode
- *                 properties:
- *                   address1:
- *                     type: string
- *                   address2:
- *                     type: string
- *                   city:
- *                     type: string
- *                   state:
- *                     type: string
- *                   country:
- *                     type: string
- *                   zipCode:
- *                     type: string
- *     responses:
- *       200:
- *         description: Shipping fees calculated successfully
- *       400:
- *         description: Invalid request body
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post('/calculate-shipping', authMiddleware.verifyToken, orderController.calculateShipping);
 
-/**
- * @swagger
- * /api/order/search-shipping-rates:
- *   post:
- *     summary: Search shipping rates
- *     description: Searches for shipping rates based on pickup and delivery addresses
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - pickupAddressId
- *               - deliveryAddressId
- *               - parcelId
- *             properties:
- *               pickupAddressId:
- *                 type: string
- *               deliveryAddressId:
- *                 type: string
- *               parcelId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Shipping rates retrieved successfully
- *       400:
- *         description: Invalid request body
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post('/search-shipping-rates', authMiddleware.verifyToken, orderController.searchShippingRates);
-
-/**
- * @swagger
- * /api/order/enable-carrier:
- *   post:
- *     summary: Enable a carrier
- *     description: Enables a carrier for shipping
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - carrierReference
- *             properties:
- *               carrierReference:
- *                 type: string
- *               domestic:
- *                 type: boolean
- *               international:
- *                 type: boolean
- *               regional:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: Carrier enabled successfully
- *       400:
- *         description: Invalid request body
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post('/enable-carrier', authMiddleware.verifyToken, orderController.enableCarrier);
-
-/**
- * @swagger
- * /api/order/create-shipment:
- *   post:
- *     summary: Create a shipment
- *     description: Creates a shipment for an order
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - addressFromId
- *               - addressToId
- *               - parcelId
- *             properties:
- *               addressFromId:
- *                 type: string
- *               addressToId:
- *                 type: string
- *               parcelId:
- *                 type: string
- *               addressReturnId:
- *                 type: string
- *               metadata:
- *                 type: object
- *     responses:
- *       200:
- *         description: Shipment created successfully
- *       400:
- *         description: Invalid request body
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post('/create-shipment', authMiddleware.verifyToken, orderController.createShipment);
 
 /**
  * @swagger
