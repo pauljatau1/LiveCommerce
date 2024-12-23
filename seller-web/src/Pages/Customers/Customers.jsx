@@ -8,9 +8,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+} from "@/Components/ui/table"
+import { Button } from "@/Components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 
 // Sample customer data
 const customers = [

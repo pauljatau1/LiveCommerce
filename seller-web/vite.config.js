@@ -6,16 +6,25 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: [
-      {
-        find: '@',
-        replacement: path.resolve(__dirname, './src')
-      }
-    ]
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
   },
   build: {
-    commonjsOptions: {
-      transformMixedEsModules: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'shadcn-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-select',
+            '@radix-ui/react-avatar',
+            '@radix-ui/react-slot',
+            'class-variance-authority',
+            'clsx',
+            'tailwind-merge'
+          ]
+        }
+      }
     }
   }
 })
