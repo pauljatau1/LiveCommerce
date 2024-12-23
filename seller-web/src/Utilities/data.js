@@ -7,6 +7,10 @@ import ObjectID from 'bson-objectid';
 import Order1 from '../assets/order-pic1.png'
 import Order2 from '../assets/order-pic2.png'
 import Order3 from '../assets/order-pic3.png'
+import thumbnail1 from '../assets/sg-v1.png'
+import thumbnail2 from '../assets/sg-v2.png'
+import thumbnail3 from '../assets/sg-v3.png'
+
 
 export const categoriesData = [
     {
@@ -209,4 +213,74 @@ export const toDoCardTempData = [
         id: ObjectID().toHexString(),
         title: '55 products are sold out',
     },
-]
+];
+
+export const suggestVideosData = [
+    {
+        id: ObjectID().toHexString(),
+        title: 'Lesson 1: Getting Started',
+        thumbnail: thumbnail1,
+        link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Lesson 2: Creating Your First Product',
+        thumbnail: thumbnail2,
+        link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Lesson 3: Shipping Your Products',
+        thumbnail: thumbnail3,
+        link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Lesson 4: All about payouts',
+        thumbnail: thumbnail3,
+        link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Lesson 5: All about payouts',
+        thumbnail: thumbnail3,
+        link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Lesson 6: All about payouts',
+        thumbnail: thumbnail3,
+        link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Lesson 7: All about payouts',
+        thumbnail: thumbnail3,
+        link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    },
+];
+
+export const platformAnnouncementData = [
+    {
+        id: ObjectID().toHexString(),
+        date: 'Jan 2, 2025',
+        title: 'Updates on Shipping to lagos and other states across nigeria'
+    },
+    {
+        id: ObjectID().toHexString(),
+        date: 'March 1, 2025',
+        title: 'Join Auqli promotions and increase boost on your listings'
+    },
+    {
+        id: ObjectID().toHexString(),
+        date: 'Feb 20, 2025',
+        title: 'The latest updates you missed last week on Auqli'
+    },
+    {
+        id: ObjectID().toHexString(),
+        date: 'May 1, 2025',
+        title: 'Auqli launches in Ghana'
+    }
+];
+
+

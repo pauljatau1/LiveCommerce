@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useAuthContext } from "../../../Hooks/useAuthContext";
 import Logo from '../../../assets/auqli-official-logo.png'
 import { useNavigate } from "react-router-dom";
+import PropTypes from 'prop-types';
 
 
 const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
@@ -134,6 +135,11 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
 
     </>
   )
-}
+};
+
+SideBarNav.propTypes = {
+  isSidebarOpen: PropTypes.bool.isRequired,
+  setIsSidebarOpen: PropTypes.func.isRequired,
+};
 
 export default SideBarNav
