@@ -1,20 +1,54 @@
-import { Icon } from '@iconify/react'
+import { Icon } from '@iconify/react';
+import { useEffect, useState } from 'react';
 import * as React from "react"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandItem,
+    CommandList,
 } from "../../ui/command"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../../ui/popover"
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "../../ui/popover";
+import { Crisp } from "crisp-sdk-web";
+import PropTypes from 'prop-types';
 
 const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
-    const [open, setOpen] = React.useState(false)
+    const [open, setOpen] = React.useState(false);
+    const [isChatVisible, setIsChatVisible] = useState(true);
+    const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1";
+
+    useEffect(() => {
+        // Configure Crisp
+        Crisp.configure(WEBSITE_ID, {
+            autoLoad: false,
+        });
+
+        // Hide the default Crisp button initially
+        window.$crisp.push(["do", "chat:hide"]);
+
+        // Add event listener for chat close
+        window.$crisp.push(["on", "chat:closed", () => {
+            setIsChatVisible(false);
+            // Hide the default Crisp button when chat is closed
+            window.$crisp.push(["do", "chat:hide"]);
+        }]);
+
+        // Optional: Reset visibility when component unmounts
+        return () => {
+            window.$crisp.push(["off", "chat:closed"]);
+        };
+    }, []);
+
+    const handleChatOpen = () => {
+        setIsChatVisible(true);
+        // Show the Crisp widget when opening chat
+        window.$crisp.push(["do", "chat:show"]);
+        Crisp.chat.open();
+    };
 
     return (
         <div className='py-10 flex justify-between items-center'>
@@ -45,8 +79,8 @@ const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
                                     <span className="ml-2 text-[#05031F]">Go Live</span>
                                 </CommandItem>
                                 <CommandItem onSelect={() => {
-                                    // Handle Live Chat action
-                                    setOpen(false)
+                                    handleChatOpen();
+                                    setOpen(false);
                                 }}>
                                     <Icon icon="solar:chat-line-bold" width="24" height="24" color='#05031F' />
                                     <span className="ml-2 text-[#05031F]">Live Chat</span>
@@ -71,11 +105,13 @@ const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
                 </PopoverContent>
             </Popover>
             <div className='items-center gap-7 hidden lg:flex'>
-                <button className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                    <span className="relative z-10">
-                        <Icon icon="solar:chat-line-bold" width="24" height="24" color='#FFFFFF' />
-                    </span>
-                </button>
+                {isChatVisible && (
+                    <button onClick={handleChatOpen} className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
+                        <span className="relative z-10">
+                            <Icon icon="solar:chat-line-bold" width="24" height="24" color='#FFFFFF' />
+                        </span>
+                    </button>
+                )}
                 <button className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
                     <span className="relative z-10">
                         <Icon icon="si:notifications-thick-duotone" width="24" height="24" color='#FFFFFF' />
@@ -89,6 +125,11 @@ const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
             </div>
         </div>
     )
-}
+};
+
+SearchBar.propTypes = {
+    isSidebarOpen: PropTypes.bool.isRequired,
+    setIsSidebarOpen: PropTypes.func.isRequired,
+};
 
 export default SearchBar

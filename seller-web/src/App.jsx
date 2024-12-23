@@ -24,6 +24,7 @@ import AccountApproval from './Components/ui/AccountApproval';
 import IndividualVerificationOnboarding from './Components/ui/IndividualVerificationOnboarding';
 import Customers from './Pages/Customers/Customers';
 import CustomerDetail from './Pages/Customers/CustomerDetail';
+import ProductsPage from './Pages/ProductsPage/ProductsPage';
 
 
 
@@ -139,6 +140,12 @@ const router = createBrowserRouter([
             loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
             errorElement: <NotFoundPage />
           },
+          {
+            path: 'products',
+            element: <ProductsPage />,
+            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+            errorElement: <NotFoundPage />
+          }
         ]
       }
     ]
