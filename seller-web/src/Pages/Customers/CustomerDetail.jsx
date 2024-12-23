@@ -1,10 +1,10 @@
 import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
 import SideBarNav from "@/Components/ui/DashboardHomepageUi/SideBarNav"
 import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@/Components/ui/badge"
+import { Card } from "@/Components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
+import { Button } from "@/Components/ui/button"
 import { CheckCircle2, Star } from 'lucide-react'
 
 const customerData = {
