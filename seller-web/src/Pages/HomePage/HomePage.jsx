@@ -14,7 +14,7 @@ import QuickOrderCard from "../../Components/QuickOrderCard";
 
 
 const HomePage = () => {
-  const { seller, fetchSellerDetails, dispatch } = useAuthContext();
+  const { seller, fetchSellerDetails } = useAuthContext();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notification, setNotification] = useState(true);
@@ -37,20 +37,13 @@ const HomePage = () => {
     fetchSellerDetails();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('sellerToken');
-    dispatch({ type: 'LOGOUT' });
-    Crisp.setTokenId();
-    Crisp.session.reset();
-    console.log("logout successful");
-    navigate('/', { replace: true });
-  }
+
 
 
   return (
     <div className="flex h-screen w-dvh ">
       {/* Sidebar */}
-      <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} handleLogout={handleLogout} />
+      <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
       {/* Main Content */}
       <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-14 h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         {/* Search Bar */}
@@ -94,18 +87,16 @@ const HomePage = () => {
             {/* Stuff to do 2 */}
             <div className="w-full">
               {/* Top 3 selling products */}
-              <div>
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-cabin font-bold text-black">Your top 3 selling products</h3>
-                  <button className="text-sm font-cabin font-normal  rounded-[7.8px] px-4 py-2 bg-[#05031F] text-white ">View all</button>
-                </div>
-                <div className="flex flex-col gap-4 border border-[#00000026] bg-[#F7F7F7] px-4 py-3 lg:px-8 lg:py-7 rounded-[10px] mt-5">
-                  {
-                    orderTempData.map((order) => (
-                      <QuickOrderCard key={order.id} order={order} />
-                    ))
-                  }
-                </div>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-cabin font-bold text-black">Your top 3 selling products</h3>
+                <button className="text-sm font-cabin font-normal  rounded-[7.8px] px-4 py-2 bg-[#05031F] text-white ">View all</button>
+              </div>
+              <div className="flex flex-col gap-4 border border-[#00000026] bg-[#F7F7F7] px-4 py-3 lg:px-8 lg:py-7 rounded-[10px] mt-5">
+                {
+                  orderTempData.map((order) => (
+                    <QuickOrderCard key={order.id} order={order} />
+                  ))
+                }
               </div>
             </div>
           </div>
