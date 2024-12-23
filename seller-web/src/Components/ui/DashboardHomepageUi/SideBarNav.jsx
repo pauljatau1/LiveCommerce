@@ -2,10 +2,20 @@ import { sideBarNavData } from "../../../Utilities/data";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { useAuthContext } from "../../../Hooks/useAuthContext";
 import Logo from '../../../assets/auqli-official-logo.png'
+import { useNavigate } from "react-router-dom";
 
 
-const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, handleLogout }) => {
+const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
+  const { logout } = useAuthContext();
+  const navigate = useNavigate();
+
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/', { replace: true });
+  };
 
   return (
     <>

@@ -9,27 +9,23 @@ import axios from 'axios';
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, seller } = useAuthContext();
   const navigate = useNavigate();
-  const [tokenData, setTokenData] = useState({ data: null, isVerified: null });
   const [onboardingStep, setOnboardingStep] = useState("");
+
 
 
   //use effect to check if the user is authenticated and if the seller is logged in, if so, redirect to the dashboard if not, redirect to the login page;
   //if the seller is logged in and the first time, redirect to the onboarding page
   //if the seller is logged in and not the first time, redirect to the dashboard home page
   //fetch the token from the local storage
-  useEffect(() => {
-    const storedToken = localStorage.getItem('sellerToken');
-    setTokenData(storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null });
-  }, []);
 
   //check if token is valid
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
+    const storedToken = localStorage.getItem('sellerToken');
+    const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+    console.log("Token Data:", tokenData.data);
     const checkTokenValidity = async () => {
-      const storedToken = localStorage.getItem('sellerToken');
-      const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-      console.log("Token Data:", tokenData.data);
       try {
         const response = await axios.get(`${BASE_URL}/seller/check-token`, {
           headers: {
@@ -63,6 +59,16 @@ const ProtectedRoute = ({ children }) => {
 
     if (tokenData.data) {
       checkTokenValidity();
+    } else {
+      console.log("Token is invalid");
+      toast.error("Token is invalid", {
+        description: "Please login again",
+        style: {
+          background: '#05031F',
+          color: '#fff',
+        }
+      });
+      navigate('/', { replace: true });
     }
     return () => controller.abort();
   }, []);
@@ -101,10 +107,6 @@ const ProtectedRoute = ({ children }) => {
       } else {
         navigate('/dashboard/onboarding', { replace: true });
       }
-    } else if (tokenData?.data && tokenData?.isVerified === true) {
-      navigate('/dashboard/home', { replace: true });
-    } else {
-      navigate('/', { replace: true });
     }
   }, [navigate, onboardingStep, isAuthenticated]);
 

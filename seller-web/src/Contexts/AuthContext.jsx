@@ -247,7 +247,9 @@ const AuthProvider = ({ children }) => {
         dispatch({ type: 'LOGOUT' });
         Crisp.setTokenId();
         Crisp.session.reset();
-        console.log("logout successful");
+        console.log('logout successful')
+        // Return a promise to ensure navigation happens after state updates
+        return Promise.resolve();
     };
 
     //function to reset password

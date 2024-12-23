@@ -7,7 +7,7 @@ const QuickOrderCard = ({ order }) => {
     return (
         <div className="w-full flex justify-between gap-4 items-center">
             <div className="flex items-center gap-2">
-                <img src={order.image} alt="order-image" className="w-[70px] md:w-[100px] h-[70px] md:h-[100px] " />
+                <img src={order.image} alt="order-image" className="w-[70px] md:w-[90px] h-[70px] md:h-[90px] " />
                 <div>
                     <p className="text-sm font-cabin font-normal text-[#05031F]">{order.name}</p>
                     <p className="text-sm font-cabin font-normal text-[#05031F]">{order.quantity} {orderQuantityDisplay}</p>
