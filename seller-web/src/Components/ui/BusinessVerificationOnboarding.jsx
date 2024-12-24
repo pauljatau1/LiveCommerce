@@ -106,7 +106,7 @@ const BusinessVerificationOnboarding = () => {
                                     <input
                                         type="file"
                                         onChange={handleCertificateUpload}
-                                        className="hidden"
+                                        className="hidden max-w-[100px]"
                                         id="certificateUpload"
                                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                     />
@@ -114,7 +114,7 @@ const BusinessVerificationOnboarding = () => {
                                         htmlFor="certificateUpload"
                                         className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
                                     >
-                                        <span className="text-gray-500">
+                                        <span className="text-gray-500 truncate block w-[200px] overflow-hidden whitespace-nowrap">
                                             {documents.certificate.file ? documents.certificate.file.name : 'Upload From Device'}
                                         </span>
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -138,7 +138,7 @@ const BusinessVerificationOnboarding = () => {
                                         htmlFor="taxIdUpload"
                                         className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
                                     >
-                                        <span className="text-gray-500">
+                                        <span className="text-gray-500 truncate block w-[200px] overflow-hidden whitespace-nowrap">
                                             {documents.taxId.file ? documents.taxId.file.name : 'Upload From Device'}
                                         </span>
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
