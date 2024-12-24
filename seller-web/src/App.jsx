@@ -25,6 +25,7 @@ import IndividualVerificationOnboarding from './Components/ui/IndividualVerifica
 import Customers from './Pages/Customers/Customers';
 import CustomerDetail from './Pages/Customers/CustomerDetail';
 import ProductsPage from './Pages/ProductsPage/ProductsPage';
+import AddProduct from './Pages/ProductsPage/AddProduct';
 
 
 
@@ -34,9 +35,7 @@ const router = createBrowserRouter([
   {
     element: <AppLayout />,
     errorElement: <NotFoundPage />,
-    loader: () => {
-      return new Promise(resolve => setTimeout(resolve, 1000))
-    },
+    
     children: [
       {
         path: '/',
@@ -131,20 +130,24 @@ const router = createBrowserRouter([
           {
             path: 'customers',
             element: <Customers />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
             errorElement: <NotFoundPage />
           },
           {
             path: 'customer',
             element: <CustomerDetail />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
             errorElement: <NotFoundPage />
           },
           {
             path: 'products',
             element: <ProductsPage />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
+            errorElement: <NotFoundPage />,
+            children: [
+              {
+                path: 'add-product',
+                element: <AddProduct />,
+                errorElement: <NotFoundPage />
+              }
+            ]  
           }
         ]
       }

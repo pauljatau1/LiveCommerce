@@ -26,7 +26,7 @@ const customers = [
     id: 2,
     name: "Denilson Igwe",
     avatar: "/placeholder.svg?height=40&width=40",
-    location: "Abuja, Nigeria", 
+    location: "Abuja, Nigeria",
     orders: 7,
     amount: "₦12,000"
   },
@@ -92,53 +92,48 @@ function Customers() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen w-dvh">
-      {/* Sidebar */}
-      <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-      {/* Main Content */}
-      <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-14 h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-        {/* Search Bar */}
-        <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-        
-        <div className="pl-[2px] xl:pl-[42px] pr-[18px] xl:pr-[28px]">
-          {/* Content area */}
-          <div className="w-full rounded-xl">
-            <Table className="rounded-xl">
-              <TableHeader className="rounded-t-xl">
-                <TableRow className="bg-green-700 hover:bg-green-500/90">
-                  <TableHead className="text-white">Customer Name</TableHead>
-                  <TableHead className="text-white">Location</TableHead>
-                  <TableHead className="text-white">Orders</TableHead>
-                  <TableHead className="text-white">Amount spent</TableHead>
-                  <TableHead className="text-white">Actions</TableHead>
+    <>
+      {/* Search Bar */}
+      <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+
+      <div className="pl-[2px] xl:pl-[42px] pr-[18px] xl:pr-[28px]">
+        {/* Content area */}
+        <div className="w-full rounded-xl">
+          <Table className="rounded-xl">
+            <TableHeader className="rounded-t-xl">
+              <TableRow className="bg-green-700 hover:bg-green-500/90">
+                <TableHead className="text-white">Customer Name</TableHead>
+                <TableHead className="text-white">Location</TableHead>
+                <TableHead className="text-white">Orders</TableHead>
+                <TableHead className="text-white">Amount spent</TableHead>
+                <TableHead className="text-white">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customers.map((customer) => (
+                <TableRow key={customer.id} className="bg-[#F0F5F2] hover:bg-green-200">
+                  <TableCell className="flex items-center gap-2">
+                    <Avatar className="bg-white">
+                      <AvatarImage src={customer.avatar} alt={customer.name} />
+                      <AvatarFallback>{customer.name[0]}</AvatarFallback>
+                    </Avatar>
+                    {customer.name}
+                  </TableCell>
+                  <TableCell>{customer.location}</TableCell>
+                  <TableCell>{customer.orders} Orders</TableCell>
+                  <TableCell>{customer.amount}</TableCell>
+                  <TableCell>
+                    <Button variant="outline" size="sm">
+                      View
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {customers.map((customer) => (
-                  <TableRow key={customer.id} className="bg-[#F0F5F2] hover:bg-green-200">
-                    <TableCell className="flex items-center gap-2">
-                      <Avatar className="bg-white">
-                        <AvatarImage src={customer.avatar} alt={customer.name} />
-                        <AvatarFallback>{customer.name[0]}</AvatarFallback>
-                      </Avatar>
-                      {customer.name}
-                    </TableCell>
-                    <TableCell>{customer.location}</TableCell>
-                    <TableCell>{customer.orders} Orders</TableCell>
-                    <TableCell>{customer.amount}</TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

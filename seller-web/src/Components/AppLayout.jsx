@@ -9,7 +9,6 @@ const AppLayout = () => {
 
     return (
         <>
-            {isLoading && <Loader />}
             <ScrollToTop />
             <main>
                 <Outlet />

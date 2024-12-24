@@ -13,6 +13,7 @@ import QuickOrderCard from "../../Components/QuickOrderCard";
 import OrdersTable from "../../Components/OrdersTable";
 import SuggestedVideoCard from "../../Components/SuggestedVideoCard";
 import AnnouncementCard from "../../Components/AnnouncementCard";
+import { useSidebar } from '../../Hooks/useSideBar';
 
 
 
@@ -20,8 +21,8 @@ import AnnouncementCard from "../../Components/AnnouncementCard";
 const HomePage = () => {
   const { seller, fetchSellerDetails } = useAuthContext();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notification, setNotification] = useState(true);
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
 
   const getGreeting = () => {
     const nigerianTime = new Date().toLocaleString('en-US', {
@@ -45,13 +46,12 @@ const HomePage = () => {
 
 
   return (
-    <div className="flex h-screen w-dvh ">
-      {/* Sidebar */}
-      <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-      {/* Main Content */}
-      <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-14 h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <>
         {/* Search Bar */}
-        <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+        <SearchBar 
+          isSidebarOpen={isSidebarOpen} 
+          setIsSidebarOpen={setIsSidebarOpen} 
+        />
         {/* Notification */}
         {
           notification && (
@@ -139,8 +139,7 @@ const HomePage = () => {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </>
   )
 }
 

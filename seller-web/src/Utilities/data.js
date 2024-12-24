@@ -9,7 +9,8 @@ import Order2 from '../assets/order-pic2.png'
 import Order3 from '../assets/order-pic3.png'
 import thumbnail1 from '../assets/sg-v1.png'
 import thumbnail2 from '../assets/sg-v2.png'
-import thumbnail3 from '../assets/sg-v3.png'
+import thumbnail3 from '../assets/sg-v3.png';
+import ProductImage from '../assets/p-card.png';
 
 
 export const categoriesData = [
@@ -44,7 +45,7 @@ export const sideBarNavData = [
         id: ObjectID().toHexString(),
         name: 'Dashboard',
         icon: 'fluent:data-pie-16-regular',
-        path: '/dashboard/home'
+        path: '/dashboard/home',
     },
     {
         id: ObjectID().toHexString(),
@@ -62,7 +63,23 @@ export const sideBarNavData = [
         id: ObjectID().toHexString(),
         name: 'Products',
         icon: 'iconoir:box-iso',
-        path: '/dashboard/products'
+        path: '/dashboard/products',
+        subNav: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Add Products',
+                path: ''
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Drafts',
+                path: ''
+            }, {
+                id: ObjectID().toHexString(),
+                name: 'Inactive',
+                path: ''
+            }
+        ]
     },
     {
         id: ObjectID().toHexString(),
@@ -282,5 +299,72 @@ export const platformAnnouncementData = [
         title: 'Auqli launches in Ghana'
     }
 ];
+
+export const productPageCardData = [
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 10,
+        price: 1000000,
+        image: ProductImage
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 20,
+        price: 1000000,
+        image: ProductImage
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 25,
+        price: 1000000,
+        image: ProductImage
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 20,
+        price: 1000000,
+        image: ProductImage
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 20,
+        price: 1000000,
+        image: ProductImage
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 2,
+        price: 1000000,
+        image: ProductImage
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 20,
+        price: 1000000,
+        image: ProductImage
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Rolex Choreographs Day Date Watch',
+        skuTag: 'KL65KG',
+        stock: 40,
+        price: 1000000,
+        image: ProductImage
+    },
+]
 
 
