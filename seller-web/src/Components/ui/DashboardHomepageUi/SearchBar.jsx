@@ -1,6 +1,5 @@
 import { Icon } from '@iconify/react';
 import { useEffect, useState } from 'react';
-import * as React from "react"
 import {
     Command,
     CommandEmpty,
@@ -17,7 +16,7 @@ import { Crisp } from "crisp-sdk-web";
 import PropTypes from 'prop-types';
 
 const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
     const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1";
 
