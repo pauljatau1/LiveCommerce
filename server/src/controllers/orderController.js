@@ -68,7 +68,6 @@ const validateItems = (items) => {
 };
 
 // create an order
-
 exports.createOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -239,7 +238,6 @@ exports.createOrder = async (req, res) => {
 };
 
 // get rates from shipments
-
 exports.getShippingRates = async (req, res) => {
   try {
     const { shipmentId } = req.params;
@@ -270,8 +268,6 @@ exports.getShippingRates = async (req, res) => {
     });
   }
 };
-
-
 
 // Mark order as paid and enable carrier
 exports.markOrderAsPaid = async (req, res) => {
@@ -341,13 +337,10 @@ exports.markOrderAsPaid = async (req, res) => {
   }
 };
 
-
-
-
 // Get all orders
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find().populate('user', 'firstName lastName').populate('seller', 'name');
+    const orders = await Order.find().populate('buyer', 'firstName lastName').populate('seller', 'name');
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve orders', error: error.message });
@@ -382,13 +375,12 @@ exports.getOrdersForSeller = async (req, res) => {
   }
 };
 
-
 // Get a single order
 exports.getOrder = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const order = await Order.findById(id).populate('user', 'firstName lastName').populate('seller', 'name');
+    const order = await Order.findById(id).populate('buyer', 'firstName lastName').populate('seller', 'name');
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
@@ -437,8 +429,6 @@ exports.updateOrder = async (req, res) => {
     res.status(500).json({ message: 'Failed to update order', error: error.message });
   }
 };
-
-
 
 // Delete an order
 exports.deleteOrder = async (req, res) => {
@@ -540,7 +530,7 @@ exports.initiateRefund = async (req, res) => {
     }
 
     // Validate refund amount
-    if (amount > order.billing.total) {
+    if (amount > order.totalAmount) {
       return res.status(400).json({ message: 'Refund amount cannot exceed order total' });
     }
 
@@ -561,7 +551,7 @@ exports.initiateRefund = async (req, res) => {
 
     // Notify buyer
     await notificationController.createNotification({
-      recipient: order.user,
+      recipient: order.buyer,
       type: 'REFUND_INITIATED',
       title: 'Refund Initiated',
       message: `A refund of ${amount} has been initiated for order #${order._id}`,
@@ -597,10 +587,10 @@ exports.getOrderAnalytics = async (req, res) => {
           $group: {
             _id: null,
             totalOrders: { $sum: 1 },
-            totalRevenue: { $sum: '$billing.total' },
-            averageOrderValue: { $avg: '$billing.total' },
-            totalShipping: { $sum: '$billing.shipping' },
-            totalTax: { $sum: '$billing.tax' }
+            totalRevenue: { $sum: '$totalAmount' },
+            averageOrderValue: { $avg: '$totalAmount' },
+            totalShipping: { $sum: '$shipping.fee' },
+            totalTax: { $sum: '$tax' }
           }
         }
       ])
@@ -691,7 +681,7 @@ exports.updateTracking = async (req, res) => {
 
     // Notify buyer
     await notificationController.createNotification({
-      recipient: order.user,
+      recipient: order.buyer,
       type: 'TRACKING_UPDATED',
       title: 'Order Tracking Updated',
       message: `Tracking information updated for order #${order._id}`,
@@ -726,7 +716,7 @@ exports.addOrderNote = async (req, res) => {
       order.notes.customerNote = note;
       // Notify buyer of new note
       await notificationController.createNotification({
-        recipient: order.user,
+        recipient: order.buyer,
         type: 'ORDER_NOTE',
         title: 'New Order Note',
         message: `New note added to order #${order._id}`,
@@ -760,16 +750,16 @@ exports.exportOrders = async (req, res) => {
     }
 
     const orders = await Order.find(query)
-      .populate('user', 'firstName lastName email')
+      .populate('buyer', 'firstName lastName email')
       .populate('cart.product', 'name sku');
 
     // Format orders for export
     const exportData = orders.map(order => ({
       orderId: order._id,
-      customerName: `${order.user.firstName} ${order.user.lastName}`,
-      customerEmail: order.user.email,
+      customerName: `${order.buyer.firstName} ${order.buyer.lastName}`,
+      customerEmail: order.buyer.email,
       status: order.tracking.status,
-      total: order.billing.total,
+      total: order.totalAmount,
       items: order.cart.map(item => `${item.product.name} (${item.quantity})`).join(', '),
       createdAt: order.createdAt
     }));
@@ -812,9 +802,9 @@ exports.getRevenueAnalytics = async (req, res) => {
       {
         $group: {
           _id: groupStages[groupBy],
-          revenue: { $sum: '$billing.total' },
+          revenue: { $sum: '$totalAmount' },
           orders: { $sum: 1 },
-          averageOrderValue: { $avg: '$billing.total' }
+          averageOrderValue: { $avg: '$totalAmount' }
         }
       },
       { $sort: { _id: 1 } }
@@ -878,9 +868,9 @@ exports.createDispute = async (req, res) => {
     res.json({ message: 'Dispute created successfully', order });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to create dispute', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to create dispute',
+      error: error.message
     });
   }
 };
@@ -915,7 +905,7 @@ exports.updateDispute = async (req, res) => {
 
     // Notify parties of update
     await notificationController.createNotification({
-      recipient: order.user,
+      recipient: order.buyer,
       type: 'DISPUTE_UPDATED',
       title: 'Dispute Updated',
       message: `The dispute for order #${order._id} has been updated`,
@@ -941,8 +931,8 @@ exports.requestRefund = async (req, res) => {
 
     // Validate refund amount
     if (amount > order.totalAmount) {
-      return res.status(400).json({ 
-        message: 'Refund amount cannot exceed order total' 
+      return res.status(400).json({
+        message: 'Refund amount cannot exceed order total'
       });
     }
 
@@ -973,9 +963,9 @@ exports.requestRefund = async (req, res) => {
     res.json({ message: 'Refund requested successfully', order });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to request refund', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to request refund',
+      error: error.message
     });
   }
 };
@@ -1039,9 +1029,9 @@ exports.processRefund = async (req, res) => {
 
   } catch (error) {
     await session.abortTransaction();
-    res.status(500).json({ 
-      message: 'Failed to process refund', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to process refund',
+      error: error.message
     });
   } finally {
     session.endSession();

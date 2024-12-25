@@ -39,9 +39,9 @@ const sellerSchema = new mongoose.Schema({
   verificationDocuments: {
     type: { type: String, enum: ['company', 'individual'] },
     documents: [{
-      documentType: { 
-        type: String, 
-        enum: ['certificateOfIncorporation', 'businessTaxId', 'individualTaxId', 'governmentId', 'proofOfAddress'] 
+      documentType: {
+        type: String,
+        enum: ['certificateOfIncorporation', 'businessTaxId', 'individualTaxId', 'governmentId', 'proofOfAddress']
       },
       fileUrl: { type: String },
       public_id: { type: String },
@@ -102,6 +102,15 @@ const sellerSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, refPath: 'followers.userType' },
     userType: { type: String, enum: ['Buyer', 'Seller'] },
     name: { type: String },
+    location: {
+      country: { type: String },
+      city: { type: String },
+      address1: { type: String },
+      address2: { type: String },
+      zipCode: { type: String },
+    },
+    totalOrders: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 },
     followedAt: { type: Date, default: Date.now }
   }],
   activityFeed: [{
@@ -138,7 +147,7 @@ const sellerSchema = new mongoose.Schema({
   hasFilledCategoryDetails: { type: Boolean, default: false },
   hasFilledVerificationDocuments: { type: Boolean, default: false },
   hasFilledBusinessAddress: { type: Boolean, default: false },
-  onboardingProcess: { 
+  onboardingProcess: {
     type: String,
     default: ''
   },
@@ -150,12 +159,12 @@ sellerSchema.pre('save', async function(next) {
     const createdAt = new Date(this.createdAt);
     const now = new Date();
     const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDifference >= 3) {
       this.isNew = false; // Set isNew to false after 3 days
     }
   }
-  
+
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
   }

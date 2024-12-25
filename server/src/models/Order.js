@@ -15,23 +15,23 @@ const addressSchema = new mongoose.Schema({
 });
 
 const orderItemSchema = new mongoose.Schema({
-  product: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Product', 
-    required: true 
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true
   },
   seller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller',
     required: true
   },
-  quantity: { 
-    type: Number, 
-    required: true 
+  quantity: {
+    type: Number,
+    required: true
   },
-  price: { 
-    type: Number, 
-    required: true 
+  price: {
+    type: Number,
+    required: true
   },
   status: {
     type: String,
@@ -164,7 +164,7 @@ const orderSchema = new mongoose.Schema({
 // Pre-save middleware to update status history
 orderSchema.pre('save', function(next) {
   const order = this;
-  
+
   // Update items status history if changed
   order.items.forEach(item => {
     if (item.isModified('status')) {
@@ -184,17 +184,17 @@ orderSchema.methods.calculateTotal = function() {
   this.items.forEach(item => {
     total += item.price * item.quantity;
   });
-  
+
   // Add shipping cost if exists
-  if (this.shipping && this.shipping.cost) {
-    total += this.shipping.cost;
+  if (this.shipping && this.shipping.fee) {
+    total += this.shipping.fee;
   }
-  
+
   // Subtract discount if exists
   if (this.discount && this.discount.amount) {
     total -= this.discount.amount;
   }
-  
+
   return total;
 };
 

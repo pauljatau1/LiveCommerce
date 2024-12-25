@@ -76,12 +76,12 @@ buyerSchema.pre('save', async function(next) {
     const createdAt = new Date(this.createdAt);
     const now = new Date();
     const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDifference >= 3) {
       this.isNew = false; // Set isNew to false after 3 days
     }
   }
-  
+
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
   }

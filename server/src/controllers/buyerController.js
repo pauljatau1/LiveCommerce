@@ -6,6 +6,7 @@ const s3 = require('../config/awsConfig');
 const notificationController = require('../controllers/notificationController');
 const crypto = require('crypto');
 const Order = require('../models/Order');
+const Seller = require('../models/Seller')
 
 sgMail.setApiKey('SG.REDACTED');
 

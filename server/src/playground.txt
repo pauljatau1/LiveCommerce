@@ -47,11 +47,11 @@
       "price": 70000
     }
   ],
-  "pickup_address": {           // Changed from pickupAddress
+  "pickup_address": {           
     "first_name": "bolu",
     "last_name": "Ajayi",
     "email": "bolu@falconaero.org",
-    "phone": "2349124634152",
+    "phone": "+2349124634152",
     "line1": "123 Pickup Street",
     "line2": "Floor 2",
     "city": "Ajah",
@@ -59,11 +59,11 @@
     "country": "NG",
     "zip": "100001"
   },
-  "delivery_address": {         // Changed from shippingAddress
+  "delivery_address": {         
     "first_name": "daniel",
     "last_name": "fasiku",
     "email": "bolu4good@gmail.com",
-    "phone": "2349124634152",
+    "phone": "+2349124634152",
     "line1": "456 Delivery Street",
     "line2": "Apartment 3",
     "city": "Ikeja",
