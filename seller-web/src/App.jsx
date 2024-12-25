@@ -26,6 +26,8 @@ import Customers from './Pages/Customers/Customers';
 import CustomerDetail from './Pages/Customers/CustomerDetail';
 import ProductsPage from './Pages/ProductsPage/ProductsPage';
 import AddProduct from './Pages/ProductsPage/AddProduct';
+import OrderDetails from './Pages/Orders/OrderDetails';
+import OrdersDashboard from './Pages/Orders/Orders';
 
 
 
@@ -135,6 +137,16 @@ const router = createBrowserRouter([
           {
             path: 'customer',
             element: <CustomerDetail />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'orders',
+            element: <OrdersDashboard />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'order',
+            element: <OrderDetails />,
             errorElement: <NotFoundPage />
           },
           {

@@ -9,14 +9,14 @@ export default {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'Montserrat',
+  				'Montserrat'
   			],
-			lexend: [
-				'Lexend',
-			],
-			cabin: [
-				'Cabin',
-			],
+  			lexend: [
+  				'Lexend'
+  			],
+  			cabin: [
+  				'Cabin'
+  			]
   		},
   		height: {
   			screen: '100dvh'
@@ -32,16 +32,24 @@ export default {
   		colors: {},
   		keyframes: {
   			loading: {
-  				'20%': { backgroundPosition: '0% 0%, 50% 50%, 100% 50%' },
-  				'40%': { backgroundPosition: '0% 100%, 50% 0%, 100% 50%' },
-  				'60%': { backgroundPosition: '0% 50%, 50% 100%, 100% 0%' },
-  				'80%': { backgroundPosition: '0% 50%, 50% 50%, 100% 100%' }
+  				'20%': {
+  					backgroundPosition: '0% 0%, 50% 50%, 100% 50%'
+  				},
+  				'40%': {
+  					backgroundPosition: '0% 100%, 50% 0%, 100% 50%'
+  				},
+  				'60%': {
+  					backgroundPosition: '0% 50%, 50% 100%, 100% 0%'
+  				},
+  				'80%': {
+  					backgroundPosition: '0% 50%, 50% 50%, 100% 100%'
+  				}
   			}
   		},
   		animation: {
   			loading: 'loading 1s infinite linear'
   		}
-  	},
+  	}
   },
   plugins: [require("tailwindcss-animate")],
 }
