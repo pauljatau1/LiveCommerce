@@ -1,5 +1,4 @@
 import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
-import SideBarNav from "@/Components/ui/DashboardHomepageUi/SideBarNav"
 import { useState } from "react"
 import {
   Table,
@@ -11,6 +10,7 @@ import {
 } from "@/Components/ui/table"
 import { Button } from "@/Components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
+import { Link } from "react-router-dom" // Import Link from react-router-dom
 
 // Sample customer data
 const customers = [
@@ -96,17 +96,17 @@ function Customers() {
       {/* Search Bar */}
       <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
 
-      <div className="pl-[2px] xl:pl-[42px] pr-[18px] xl:pr-[28px]">
+      <div className="">
         {/* Content area */}
-        <div className="w-full rounded-xl">
+        <div className="w-full rounded-xl overflow-hidden">
           <Table className="rounded-xl">
             <TableHeader className="rounded-t-xl">
-              <TableRow className="bg-green-700 hover:bg-green-500/90">
-                <TableHead className="text-white">Customer Name</TableHead>
+              <TableRow className="bg-green-700 hover:bg-green-500/90 rounded-t-xl">
+                <TableHead className="text-white rounded-tl-xl">Customer Name</TableHead>
                 <TableHead className="text-white">Location</TableHead>
                 <TableHead className="text-white">Orders</TableHead>
                 <TableHead className="text-white">Amount spent</TableHead>
-                <TableHead className="text-white">Actions</TableHead>
+                <TableHead className="text-white rounded-tr-xl">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,9 +123,11 @@ function Customers() {
                   <TableCell>{customer.orders} Orders</TableCell>
                   <TableCell>{customer.amount}</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm">
-                      View
-                    </Button>
+                    <Link to="/dashboard/customer">
+                      <Button variant="outline" size="sm">
+                        View
+                      </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

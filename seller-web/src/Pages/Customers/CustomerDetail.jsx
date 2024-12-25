@@ -1,5 +1,5 @@
 import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
-import SideBarNav from "@/Components/ui/DashboardHomepageUi/SideBarNav"
+
 import { useState } from "react"
 import { Badge } from "@/Components/ui/badge"
 import { Card } from "@/Components/ui/card"
@@ -66,11 +66,10 @@ function CustomerDetail() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen w-dvh">
+    <div className="">
       {/* Sidebar */}
-      <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
       {/* Main Content */}
-      <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-14 h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <div className="">
         {/* Search Bar */}
         <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
         
