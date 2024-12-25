@@ -7,9 +7,10 @@ import { fetchOnboardingProcess } from '../Utilities/apiRestaurant';
 import axios from 'axios';
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, seller } = useAuthContext();
+  const { isAuthenticated, checkTokenValidity } = useAuthContext();
   const navigate = useNavigate();
   const [onboardingStep, setOnboardingStep] = useState("");
+  const [isTokenValid, setIsTokenValid] = useState(false);
 
 
 
@@ -20,42 +21,9 @@ const ProtectedRoute = ({ children }) => {
 
   //check if token is valid
   useEffect(() => {
-    const controller = new AbortController();
-    const signal = controller.signal;
     const storedToken = localStorage.getItem('sellerToken');
     const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
     console.log("Token Data:", tokenData.data);
-    const checkTokenValidity = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL}/seller/check-token`, {
-          headers: {
-            Authorization: `Bearer ${tokenData.data}`
-          }
-        }, { signal });
-        if (response.status === 200) {
-          console.log("Token is valid");
-        } else if (response.status === 401) {
-          console.log("Token is invalid");
-          toast.error("Token is invalid", {
-            description: "Please login again",
-            style: {
-              background: '#05031F',
-              color: '#fff',
-            }
-          });
-          navigate('/', { replace: true });
-        }
-      } catch (error) {
-        console.log(error);
-        toast.error('Token Verification Failed', {
-          description: error.response?.data?.message || error.message,
-          style: {
-            background: '#05031F',
-            color: '#fff',
-          }
-        });
-      }
-    }
 
     if (tokenData.data) {
       checkTokenValidity();
@@ -70,7 +38,6 @@ const ProtectedRoute = ({ children }) => {
       });
       navigate('/', { replace: true });
     }
-    return () => controller.abort();
   }, []);
 
 
@@ -91,7 +58,7 @@ const ProtectedRoute = ({ children }) => {
   useEffect(() => {
     const storedToken = localStorage.getItem('sellerToken');
     const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-    if (tokenData?.data && tokenData?.isVerified === false && onboardingStep !== "") {
+    if (tokenData?.data && tokenData?.isVerified === false && onboardingStep !== "" && isTokenValid) {
       //if the seller is logged in and the first time, redirect to the onboarding page
       if (onboardingStep !== "" || onboardingStep !== null || onboardingStep !== undefined) {
         navigate(`/dashboard/${onboardingStep}`, { replace: true });
@@ -108,7 +75,7 @@ const ProtectedRoute = ({ children }) => {
         navigate('/dashboard/onboarding', { replace: true });
       }
     }
-  }, [navigate, onboardingStep, isAuthenticated]);
+  }, [navigate, onboardingStep, isAuthenticated, isTokenValid]);
 
   return children;
 }

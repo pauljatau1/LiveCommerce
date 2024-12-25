@@ -16,6 +16,7 @@ import {
 } from "../../Components/ui/popover";
 import { Crisp } from "crisp-sdk-web";
 import { productPageCardData } from "../../Utilities/data";
+import { NavLink } from 'react-router-dom'
 import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
 
 
@@ -61,7 +62,7 @@ const ProductsPage = () => {
 
     return (
         <>
-            {isLoading && <Loader />}
+            {/*isLoading && <Loader />*/}
             <div className="flex flex-col justify-between gap-4 py-6">
                 <div className="flex justify-between items-center w-full ">
                     {
@@ -158,10 +159,10 @@ const ProductsPage = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#05031F] rounded-[7.8px] py-3 px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                    <NavLink to="/dashboard/add-products" className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#05031F] rounded-[7.8px] py-3 px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
                         <Icon icon="tabler:plus" width="20" height="20" color="#FFFFFF" />
                         <p className="text-sm font-cabin font-normal text-[#FFFFFF]">Add Product</p>
-                    </div>
+                    </NavLink>
                 </div>
             </div>
             <div className="flex flex-wrap justify-evenly bg-[#F7F7F7] py-8 mb-10 gap-x-2 gap-y-8 w-full">
@@ -171,11 +172,7 @@ const ProductsPage = () => {
                     ))
                 }
             </div>
-            <div className="flex items-center justify-center gap-4 mt-4  lg:mt-8 w-full">
-                <button className="text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-2 rounded-full py-3 px-4  whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
-                    <p className="text-sm font-cabin font-normal text-[#FFFFFF]">20 per page</p>
-                    <Icon icon="simple-line-icons:arrow-down" width="10" height="10" color="#FFFFFF" />
-                </button>
+            <div className="flex items-center justify-center flex-wrap gap-4 mt-4  lg:mt-8 w-full">
                 <button className="text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-2 rounded-full py-3 px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
                     <Icon icon="gg:arrow-long-left" width="20" height="20" color="#FFFFFF" />
                     <p className="text-sm font-cabin font-normal text-[#FFFFFF]">Previous</p>
@@ -183,6 +180,10 @@ const ProductsPage = () => {
                 <button className="text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-2 rounded-full py-3 px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
                     <p className="text-sm font-cabin font-normal text-[#FFFFFF]">Next</p>
                     <Icon icon="gg:arrow-long-right" width="20" height="20" color="#FFFFFF" />
+                </button>
+                <button className="text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-2 rounded-full py-3 px-4  whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                    <p className="text-sm font-cabin font-normal text-[#FFFFFF]">20 per page</p>
+                    <Icon icon="simple-line-icons:arrow-down" width="10" height="10" color="#FFFFFF" />
                 </button>
             </div>
         </>

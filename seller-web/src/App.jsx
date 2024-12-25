@@ -26,6 +26,8 @@ import Customers from './Pages/Customers/Customers';
 import CustomerDetail from './Pages/Customers/CustomerDetail';
 import ProductsPage from './Pages/ProductsPage/ProductsPage';
 import AddProduct from './Pages/ProductsPage/AddProduct';
+import Drafts from './Pages/ProductsPage/Drafts';
+import Inactive from './Pages/ProductsPage/Inactive';
 import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 
@@ -35,7 +37,7 @@ import OrdersDashboard from './Pages/Orders/Orders';
 
 const router = createBrowserRouter([
   {
-    element: <AppLayout />,
+    element: <AuthProvider><AppLayout /></AuthProvider>,
     errorElement: <NotFoundPage />,
     
     children: [
@@ -153,13 +155,22 @@ const router = createBrowserRouter([
             path: 'products',
             element: <ProductsPage />,
             errorElement: <NotFoundPage />,
-            children: [
-              {
-                path: 'add-product',
-                element: <AddProduct />,
-                errorElement: <NotFoundPage />
-              }
-            ]  
+            
+          },
+          {
+            path: 'add-products',
+            element: <AddProduct />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'drafts',
+            element: <Drafts />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'inactive',
+            element: <Inactive />,
+            errorElement: <NotFoundPage />
           }
         ]
       }
@@ -170,7 +181,7 @@ const router = createBrowserRouter([
 const App = () => {
   return (
     <Suspense fallback={<Loader />}>
-      <AuthProvider>
+
           <RouterProvider
             router={router}
             fallbackElement={<Loader />}
@@ -188,7 +199,6 @@ const App = () => {
             theme="dark"
           />
           <Toaster />
-      </AuthProvider>
     </Suspense>
   )
 }

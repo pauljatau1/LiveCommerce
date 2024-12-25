@@ -69,7 +69,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                             <NavLink
                               to={subNavItem.path}
                               key={subNavItem.id}
-                              className="flex items-center gap-2 p-2 px-9 py-2 text-white text-sm hover:bg-white/10 rounded-md"
+                              className="flex items-center gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
                             >
                               {subNavItem.name}
                             </NavLink>
@@ -157,7 +157,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                                 <NavLink
                                   to={subNavItem.path}
                                   key={subNavItem.id}
-                                  className="flex items-center gap-2 p-2 px-9 py-2 text-white text-sm hover:bg-white/10 rounded-md"
+                                  className="flex items-center gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
                                 >
                                   {subNavItem.name}
                                 </NavLink>

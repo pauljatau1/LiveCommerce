@@ -9,6 +9,7 @@ import PropTypes from 'prop-types';
 const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
+    const navigate = useNavigate();
     const initialState = {
         seller: null,
         isAuthenticated: false,
@@ -16,7 +17,8 @@ const AuthProvider = ({ children }) => {
         error: null,
         token: null,
         message: "",
-        otpStatus: ""
+        otpStatus: "",
+        isTokenValid: false
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -111,11 +113,22 @@ const AuthProvider = ({ children }) => {
                     ...state,
                     seller: action.payload
                 };
-
+            case "CHECK_TOKEN_SUCCESS":
+                return {
+                    ...state,
+                    isTokenValid: true
+                };
+            case "CHECK_TOKEN_FAILED":
+                return {
+                    ...state,
+                    isTokenValid: false
+                };
             default:
                 return state;
         }
     }, initialState);
+
+
 
     //function to create a new seller and signup
     const createSeller = async (firstName, lastName, email, password, phoneNumber) => {
@@ -241,16 +254,6 @@ const AuthProvider = ({ children }) => {
         }
     };
 
-    //function to log user out
-    const logout = () => {
-        localStorage.removeItem('sellerToken');
-        dispatch({ type: 'LOGOUT' });
-        Crisp.setTokenId();
-        Crisp.session.reset();
-        console.log('logout successful')
-        // Return a promise to ensure navigation happens after state updates
-        return Promise.resolve();
-    };
 
     //function to reset password
     const resetPassword = async (email) => {
@@ -285,7 +288,7 @@ const AuthProvider = ({ children }) => {
         }
     };
 
-    const fetchSellerDetails = async() => {
+    const fetchSellerDetails = async () => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
             const sellerToken = localStorage.getItem('sellerToken');
@@ -298,7 +301,7 @@ const AuthProvider = ({ children }) => {
             });
             if (response.status === 200) {
                 console.log("seller details:", response.data);
-                dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data});
+                dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data });
                 localStorage.setItem('sellerToken', JSON.stringify({
                     ...tokenData,
                     isVerified: response.data.isVerified
@@ -309,7 +312,57 @@ const AuthProvider = ({ children }) => {
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
-    }
+    };
+
+     //function to log user out
+     const logout = () => {
+        localStorage.removeItem('sellerToken');
+        dispatch({ type: 'LOGOUT' });
+        Crisp.setTokenId();
+        Crisp.session.reset();
+        console.log('logout successful')
+        // Return a promise to ensure navigation happens after state updates
+        return Promise.resolve();
+    };
+
+    const checkTokenValidity = async () => {
+        try {
+            const storedToken = localStorage.getItem('sellerToken');
+            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+            console.log("Token Data:", tokenData.data);
+            const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+                headers: {
+                    Authorization: `Bearer ${tokenData.data}`
+                }
+            });
+
+            if (response.status === 200) {
+                console.log("Token is valid");
+                dispatch({ type: 'CHECK_TOKEN_SUCCESS' });
+            } else {
+                dispatch({ type: 'CHECK_TOKEN_FAILED' });
+                console.log("User is invalid");
+                toast.error("User is invalid", {
+                    description: "Please login again",
+                    style: {
+                        background: '#05031F',
+                        color: '#fff',
+                    }
+                });
+                logout()
+                navigate('/', { replace: true });
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('User Verification Failed', {
+                description: error.response?.data?.message || error.message,
+                style: {
+                    background: '#05031F',
+                    color: '#fff',
+                }
+            });
+        }
+    };
 
 
     return (
@@ -323,7 +376,7 @@ const AuthProvider = ({ children }) => {
             logout,
             resetPassword,
             fetchSellerDetails,
-            dispatch
+            checkTokenValidity
         }}>
             {children}
         </AuthContext.Provider>

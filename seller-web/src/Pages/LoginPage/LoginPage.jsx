@@ -16,7 +16,7 @@ import axios from 'axios';
 
 
 const LoginPage = () => {
-  const { seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login, resetPassword, token } = useAuthContext();
+  const { seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login, resetPassword, token, isTokenValid } = useAuthContext();
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpCount, setOtpCount] = useState(0);

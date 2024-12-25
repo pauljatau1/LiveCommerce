@@ -68,16 +68,16 @@ export const sideBarNavData = [
             {
                 id: ObjectID().toHexString(),
                 name: 'Add Products',
-                path: ''
+                path: 'add-products'
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Drafts',
-                path: ''
+                path: 'drafts'
             }, {
                 id: ObjectID().toHexString(),
                 name: 'Inactive',
-                path: ''
+                path: 'inactive'
             }
         ]
     },
