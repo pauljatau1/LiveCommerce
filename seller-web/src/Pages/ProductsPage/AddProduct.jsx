@@ -23,7 +23,7 @@ import {
 import { Button } from "../../Components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../Components/ui/card";
 import { Label } from "../../Components/ui/label";
-import { Input } from "../../Components/ui/input";
+import { Input } from "../../Components/ui/input2";
 import { Textarea } from "../../Components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
 import UploadImage from '../../assets/upload-image.png';
