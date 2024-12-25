@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 
 const ProductCard = ({ item }) => {
     return (
-        <div className='w-[176px] lg:w-fit border border-[#00000029] rounded-lg overflow-hidden'>
+        <div className='w-[156px] sm:w-[176px] lg:w-fit border border-[#00000029] rounded-lg overflow-hidden'>
             <img src={item.image} alt="product" className='w-full lg:w-[272px]  object-cover' />
             <div className="py-2 lg:py-3 px-2 lg:px-4">
                 <p className='text-sm lg:text-base font-lexend font-bold text-[#05031F] max-w-[156px] mb-2 lg:mb-0 lg:max-w-[232px]'>{item.name}</p>
