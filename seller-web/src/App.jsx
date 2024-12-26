@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
 import LoginPage, { Loader as loginLoader } from './Pages/LoginPage/LoginPage';
+import { ProductProvider } from './Contexts/ProductContext';
 import SignUpPage from './Pages/SignUpPage/SignUpPage';
 import DashboardLayout from './Components/DashboardLayout';
 import AppLayout from './Components/AppLayout';
@@ -35,6 +36,7 @@ import OrdersDashboard from './Pages/Orders/Orders';
 
 
 
+
 const router = createBrowserRouter([
   {
     element: <AuthProvider><AppLayout /></AuthProvider>,
@@ -58,7 +60,9 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <OnboardingProvider>
-              <DashboardLayout />
+              <ProductProvider>
+                <DashboardLayout />
+              </ProductProvider>
             </OnboardingProvider>
           </ProtectedRoute>
         ),
