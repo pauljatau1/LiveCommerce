@@ -306,6 +306,8 @@ const AuthProvider = ({ children }) => {
                     ...tokenData,
                     isVerified: response.data.isVerified
                 }));
+                localStorage.setItem('seller', JSON.stringify(response.data));
+                console.log(response.data);
             }
         } catch (error) {
             console.log(error);
