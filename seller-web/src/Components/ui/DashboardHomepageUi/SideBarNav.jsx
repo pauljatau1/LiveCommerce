@@ -63,13 +63,13 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                   </NavLink>
                   {
                     item?.subNav?.length > 0 && (
-                      <div className={`flex flex-col gap-2 px-4 py-2 bg-[#5B5B5B] rounded-md mx-auto ${activeSideBarRef.current === item.id ? 'block' : 'hidden'}`}>
+                      <div className={`flex flex-col gap-2 xl:px-4 py-2 bg-[#5B5B5B] rounded-md mx-auto ${activeSideBarRef.current === item.id ? 'block' : 'hidden'}`}>
                         {
                           item?.subNav?.map((subNavItem) => (
                             <NavLink
                               to={subNavItem.path}
                               key={subNavItem.id}
-                              className="flex items-center gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
+                              className="flex items-center whitespace-nowrap gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
                             >
                               {subNavItem.name}
                             </NavLink>
@@ -157,7 +157,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                                 <NavLink
                                   to={subNavItem.path}
                                   key={subNavItem.id}
-                                  className="flex items-center gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
+                                  className="flex items-center whitespace-nowrap gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
                                 >
                                   {subNavItem.name}
                                 </NavLink>
