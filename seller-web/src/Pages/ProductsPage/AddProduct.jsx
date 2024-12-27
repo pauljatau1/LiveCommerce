@@ -30,15 +30,18 @@ import { BASE_URL } from '../../Constants/Server';
 import { toast } from 'sonner';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useProductContext } from '../../Hooks/useProductContext';
+import { useSelector, useDispatch } from 'react-redux';
 import UploadImage from '../../assets/upload-image.png';
 import Loader from '@/Components/Loader';
 import axios from 'axios';
 import CircularProgress from '@mui/material/CircularProgress';
+import { createProduct } from '../../Redux/Slices/ProductSlice';
 
 const AddProduct = () => {
     const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
     const { seller } = useAuthContext();
-    const { createProduct, isLoading } = useProductContext();
+    const dispatch = useDispatch();
+    const { message, error, isLoading } = useSelector(state => state.product)
     const [notification, setNotification] = useState(true);
     const [open, setOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
@@ -68,7 +71,6 @@ const AddProduct = () => {
     });
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [sizeOptions, setSizeOptions] = useState([]);
     const [showSizeForm, setShowSizeForm] = useState(false);
     const [selectedSize, setSelectedSize] = useState('');
     const [showColorForm, setShowColorForm] = useState(false);
@@ -86,6 +88,17 @@ const AddProduct = () => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
+
+
+
+    useEffect(() => {
+        if (message) {
+            toast.success(message);
+        }
+        if (error) {
+            toast.error(error);
+        }
+    }, [message, error]);
 
     useEffect(() => {
         const fetchCategories = async () => {
@@ -353,7 +366,7 @@ const AddProduct = () => {
         if (title && description && images.length > 0 && shippingDetails.pricing && 
             shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition && 
             selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
-            await createProduct(formData);
+            await dispatch(createProduct(formData));
             // Reset all fields after successful submission
             setTitle('');
             setDescription('');
