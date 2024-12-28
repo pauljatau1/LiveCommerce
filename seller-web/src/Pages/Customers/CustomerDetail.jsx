@@ -1,69 +1,73 @@
 import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Badge } from "@/Components/ui/badge"
 import { Card } from "@/Components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 import { Button } from "@/Components/ui/button"
 import { CheckCircle2, Star } from 'lucide-react'
-
-const customerData = {
-  name: "Obinna Eze",
-  avatar: "/placeholder.svg?height=48&width=48",
-  verified: true,
-  customerSince: "May 2025",
-  joinedDate: "2025",
-  rating: 4.5,
-  amountSpent: "₦5,024,774",
-  totalOrders: 105,
-  shippingAddress: "Block 6 Lot 8 Pearl Street Richgage Homes, Villa Cecilia Lagos State, 29837, Nigeria",
-  orders: [
-    {
-      id: "874847",
-      image: "/placeholder.svg?height=80&width=80",
-      name: "Turtleneck Polo Long Sleeve",
-      color: "Orange Stripe",
-      price: "₦10,401",
-      quantity: 2,
-      total: "₦92,000",
-      status: { paid: true, delivered: true }
-    },
-    // More orders with the same structure...
-  ],
-  activities: [
-    {
-      date: "Oct 22",
-      time: "11:42",
-      title: "This Customer Started a Conversation With You",
-      description: "The order has prepared your order and is sending to dispatch company order and is sending to dispatch company"
-    },
-    {
-      date: "Oct 22",
-      time: "11:42",
-      title: "Tracking More Sent a Shipping Update Email For Oder #874847 To This Client",
-      description: "The order has prepared your order and is sending to dispatch company order and is sending to dispatch company"
-    },
-    {
-      date: "Oct 22",
-      time: "11:42",
-      title: "Shipped",
-      description: "The order has prepared your order and is sending to dispatch company order and is sending to dispatch company"
-    }
-  ],
-  notes: [
-    {
-      text: "Hey man, Please inform me when ever the package gets to your destination.",
-      timestamp: "10/10/2024"
-    },
-    {
-      text: "Hey Mr. Obinna, Note that no good already bought can be returned.",
-      timestamp: "10/10/2024"
-    }
-  ]
-}
+import { useParams } from "react-router-dom"
+import { BASE_URL } from "@/Constants/Server"
+import Loader from "@/Components/Loader"
 
 function CustomerDetail() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [customerData, setCustomerData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const { id } = useParams()
+
+  useEffect(() => {
+    const fetchCustomerData = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken')
+        if (!sellerToken) {
+          console.error('Seller token not found')
+          return
+        }
+        const tokenData = JSON.parse(sellerToken)
+        const response = await fetch(`${BASE_URL}/seller/buyer/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${tokenData.data}`
+          }
+        })
+        const data = await response.json()
+        setCustomerData({
+          name: `${data.buyerInfo.firstName} ${data.buyerInfo.lastName}`,
+          avatar: "/placeholder.svg?height=48&width=48",
+          verified: false,
+          customerSince: new Date(data.buyerInfo.joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          joinedDate: new Date(data.buyerInfo.joinDate).getFullYear(),
+          rating: 0,
+          amountSpent: `₦${data.orderStats.withSeller.totalSpent.toLocaleString()}`,
+          totalOrders: data.orderStats.withSeller.totalOrders,
+          shippingAddress: data.shippingAddresses[0] ? 
+            `${data.shippingAddresses[0].city}, ${data.shippingAddresses[0].country}, ${data.shippingAddresses[0].zipCode}` : 
+            'No address provided',
+          orders: [], // You'll need to add an endpoint for orders or modify the existing response
+          activities: data.activityFeed.map(activity => ({
+            date: new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            time: new Date(activity.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            title: activity.content,
+            description: ''
+          })),
+          notes: [] // You'll need to add an endpoint for notes or modify the existing response
+        })
+      } catch (error) {
+        console.error('Error fetching customer data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCustomerData()
+  }, [id])
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen"><Loader /></div>
+  }
+
+  if (!customerData) {
+    return <div className="flex justify-center items-center h-screen">Customer not found</div>
+  }
 
   return (
     <div className="">

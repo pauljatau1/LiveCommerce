@@ -141,7 +141,7 @@ const router = createBrowserRouter([
             errorElement: <NotFoundPage />
           },
           {
-            path: 'customer',
+            path: 'customer/:id',
             element: <CustomerDetail />,
             errorElement: <NotFoundPage />
           },
