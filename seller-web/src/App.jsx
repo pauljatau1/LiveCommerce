@@ -31,6 +31,7 @@ import Drafts from './Pages/ProductsPage/Drafts';
 import Inactive from './Pages/ProductsPage/Inactive';
 import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
+import CookieConsent from './components/CookieConsent';
 
 
 
@@ -183,28 +184,21 @@ const router = createBrowserRouter([
 ]);
 
 const App = () => {
+  const handleConsentAccept = () => {
+    // Initialize Clarity when user accepts
+    window.initClarity?.();
+  };
+
   return (
     <Suspense fallback={<Loader />}>
-
-          <RouterProvider
-            router={router}
-            fallbackElement={<Loader />}
-          />
-          <ToastContainer
-            position="top-center"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="dark"
-          />
-          <Toaster />
+      <RouterProvider router={router} fallbackElement={<Loader />} />
+      <ToastContainer />
+      <CookieConsent 
+        onAccept={handleConsentAccept}
+        onDecline={() => console.log('Analytics declined')}
+      />
     </Suspense>
-  )
-}
+  );
+};
 
 export default App
