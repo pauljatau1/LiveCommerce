@@ -4,9 +4,8 @@ import { ToastContainer } from 'react-toastify';
 import { Suspense } from 'react';
 import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
-import { ProductProvider } from './Contexts/ProductContext';
 import LoginPage, { Loader as loginLoader } from './Pages/LoginPage/LoginPage';
-import BusinessCategoryOnboarding, { Loader as categoriesLoader } from './Components/ui/BusinessCategoryOnboarding';
+import { ProductProvider } from './Contexts/ProductContext';
 import SignUpPage from './Pages/SignUpPage/SignUpPage';
 import DashboardLayout from './Components/DashboardLayout';
 import AppLayout from './Components/AppLayout';
@@ -20,6 +19,7 @@ import IndividualOnboarding from './Pages/IndividualOnboarding/IndividualOnboard
 import BusinessInformationOnboarding from './Components/ui/BusinessInformationOnboarding';
 import BusinessVerificationOnboarding from './Components/ui/BusinessVerificationOnboarding';
 import BusinessBankOnboarding from './Components/ui/BusinessBankOnboarding';
+import BusinessCategoryOnboarding, { Loader as categoriesLoader } from './Components/ui/BusinessCategoryOnboarding';
 import ShippingOptionsOnboarding from './Components/ui/ShippingOptionsOnboarding';
 import AccountApproval from './Components/ui/AccountApproval';
 import IndividualVerificationOnboarding from './Components/ui/IndividualVerificationOnboarding';
@@ -31,13 +31,9 @@ import Drafts from './Pages/ProductsPage/Drafts';
 import Inactive from './Pages/ProductsPage/Inactive';
 import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
-import Clarity from '@microsoft/clarity';
 
 
 
-
-const projectId = 'pe23vgdq2k';
-Clarity.init(projectId);
 
 
 
