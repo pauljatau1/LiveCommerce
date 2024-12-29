@@ -286,7 +286,7 @@ exports.markOrderAsPaid = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
-    // Update order payment status
+    
     order.paid = true;
     order.paymentInfo = {
       method: paymentMethod,
