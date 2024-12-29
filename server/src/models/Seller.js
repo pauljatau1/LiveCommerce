@@ -145,7 +145,9 @@ const sellerSchema = new mongoose.Schema({
       address2: String,
       zipCode: String
     }
-  }]
+  }],
+  passwordResetToken: String,
+  passwordResetExpires: Date,
 });
 
 // Middleware to update isNew property after 3 days
@@ -156,7 +158,7 @@ sellerSchema.pre('save', async function(next) {
     const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
 
     if (daysDifference >= 3) {
-      this.isNew = false; // Set isNew to false after 3 days
+      this.isNew = false; 
     }
   }
 

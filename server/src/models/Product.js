@@ -59,10 +59,7 @@ const productSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  soldCount: {
-    type: Number,
-    default: 0
-  },
+ 
   shippingInfo: {
     weight: {
       value: Number,
@@ -89,7 +86,8 @@ const productSchema = new mongoose.Schema({
     views: { type: Number, default: 0 },
     lastRestocked: Date,
     averageRating: { type: Number, default: 0 },
-    reviewCount: { type: Number, default: 0 }
+    reviewCount: { type: Number, default: 0 },
+    soldCount: { type: Number, default: 0 }
   },
   lowStockAlert: { type: Number, default: 5 },
   sku: { type: String, required: true },
@@ -182,11 +180,11 @@ const productSchema = new mongoose.Schema({
     taxRate: { type: Number, default: 0 },
   },
   shipping: {
-    weight: { type: Number, required: true },
+    weight: { type: Number, required: false },
     dimensions: {
-      length: { type: Number, required: true },
-      width: { type: Number, required: true },
-      height: { type: Number, required: true }
+      length: { type: Number, required: false },
+      width: { type: Number, required: false },
+      height: { type: Number, required: false }
     },
     freeShipping: { type: Boolean, default: false },
     shippingClass: { 
@@ -235,22 +233,6 @@ productSchema.pre('save', async function(next) {
   }
 });
 
-productSchema.methods.updateStock = async function(quantity, operation = 'decrease') {
-  if (operation === 'decrease') {
-    if (this.stock < quantity) {
-      throw new Error('Insufficient stock');
-    }
-    this.stock -= quantity;
-    this.soldCount += quantity;
-  } else {
-    this.stock += quantity;
-    this.stats.lastRestocked = new Date();
-  }
-  return this.save();
-};
 
-productSchema.methods.isLowStock = function() {
-  return this.stock <= this.lowStockAlert;
-};
 
 module.exports = mongoose.model('Product', productSchema);

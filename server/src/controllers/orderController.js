@@ -40,6 +40,7 @@ const validateAddress = (address) => {
 const validateParcel = (parcel) => {
   const requiredFields = ['weight', 'width', 'height', 'length'];
   const missingFields = requiredFields.filter(field => !parcel[field]);
+  
   if (missingFields.length > 0) {
     throw new Error(`Missing required parcel fields: ${missingFields.join(', ')}`);
   }
@@ -47,6 +48,11 @@ const validateParcel = (parcel) => {
   // Validate weight is a positive number
   if (parcel.weight <= 0) {
     throw new Error('Parcel weight must be greater than 0');
+  }
+
+  // Validate dimensions are positive numbers
+  if (parcel.width <= 0 || parcel.height <= 0 || parcel.length <= 0) {
+    throw new Error('Parcel dimensions must be greater than 0');
   }
 
   return true;
@@ -59,8 +65,19 @@ const validateItems = (items) => {
   }
 
   items.forEach((item, index) => {
-    if (!item.weight || item.weight <= 0) {
+    const requiredFields = ['name', 'description', 'quantity', 'weight', 'price'];
+    const missingFields = requiredFields.filter(field => !item[field]);
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields for item at index ${index}: ${missingFields.join(', ')}`);
+    }
+
+    if (item.weight <= 0) {
       throw new Error(`Invalid weight for item at index ${index}`);
+    }
+    
+    if (item.quantity <= 0) {
+      throw new Error(`Invalid quantity for item at index ${index}`);
     }
   });
 
@@ -78,7 +95,8 @@ exports.createOrder = async (req, res) => {
       delivery_address,
       pickup_address,
       parcel,
-      paymentMethod
+      paymentMethod,
+      channel = 'marketplace'
     } = req.body;
 
     // Validate addresses and parcel before proceeding
@@ -127,7 +145,8 @@ exports.createOrder = async (req, res) => {
             weight: item.weight,
             weight_unit: 'kg',
             value: item.price,
-            currency: 'NGN'
+            currency: 'NGN',
+            type: 'parcel'
           }))
         },
         shipment_purpose: "commercial",
@@ -176,6 +195,7 @@ exports.createOrder = async (req, res) => {
           items: sellerData.items,
           delivery_address: delivery_address,
           pickup_address: pickup_address,
+          channel: channel,
           shipping: {
             method: shipmentResponse.data.data.carrier?.name || 'standard',
             fee: shipmentResponse.data.data.amount,
@@ -200,7 +220,109 @@ exports.createOrder = async (req, res) => {
       });
 
       const orders = await Promise.all(orderPromises);
+
+      // Update product stock for each order
+      for (const order of orders) {
+        for (const item of order.items) {
+          const product = await Product.findById(item.product);
+          if (!product) {
+            throw new Error(`Product ${item.product} not found`);
+          }
+          
+          // Check if enough stock is available
+          if (product.stock < item.quantity) {
+            throw new Error(`Insufficient stock for product ${product.name}`);
+          }
+          
+          // Decrease the stock
+          product.stock -= item.quantity;
+          await product.save();
+        }
+      }
+
+      // Update sold count for each product in the order
+      for (const item of items) {
+        await Product.findByIdAndUpdate(
+          item.product,
+          {
+            $inc: { 'stats.soldCount': item.quantity }
+          },
+          { session }
+        );
+      }
+
+      // After creating orders but before committing transaction
+      for (const order of orders) {
+        const buyer = await Buyer.findById(req.user.id);
+        const seller = await Seller.findById(order.seller);
+
+        if (!seller.followers) {
+          seller.followers = [];
+        }
+
+        // Check if buyer is already following this seller
+        const isAlreadyFollowing = seller.followers.some(
+          follower => follower.buyerId && follower.buyerId.toString() === buyer._id.toString()
+        );
+
+        // If not already following, add as follower
+        if (!isAlreadyFollowing) {
+          // Get buyer's main address
+          const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
+            ? buyer.shippingAddresses[0] 
+            : null;
+
+          // Add to seller's followers list
+          seller.followers.push({
+            buyerId: buyer._id,
+            firstName: buyer.firstName,
+            lastName: buyer.lastName,
+            email: buyer.email,
+            followDate: new Date(),
+            totalOrders: 1,
+            mainAddress: mainAddress
+          });
+
+          // Add to buyer's activity feed
+          if (!buyer.activityFeed) {
+            buyer.activityFeed = [];
+          }
+
+          buyer.activityFeed.push({
+            type: 'follow',
+            content: `Started following ${seller.storeName || seller.businessName} after placing an order`,
+            reference: seller._id,
+            referenceModel: 'Seller',
+            createdAt: new Date()
+          });
+
+          await Promise.all([
+            seller.save({ session }),
+            buyer.save({ session })
+          ]);
+        } else {
+          // If already following, increment totalOrders
+          const followerIndex = seller.followers.findIndex(
+            follower => follower.buyerId && follower.buyerId.toString() === buyer._id.toString()
+          );
+          if (followerIndex !== -1) {
+            seller.followers[followerIndex].totalOrders += 1;
+            await seller.save({ session });
+          }
+        }
+      }
+
       await session.commitTransaction();
+
+      // Send webhook events and respond
+      for (const order of orders) {
+        await WebhookService.sendWebhookEvent('order.created', {
+          orderId: order._id,
+          sellerId: order.seller,
+          status: order.status,
+          createdAt: order.createdAt,
+        }, order.seller);
+      }
 
       res.status(201).json({
         message: 'Orders created successfully',
@@ -224,17 +346,6 @@ exports.createOrder = async (req, res) => {
   } finally {
     session.endSession();
   }
-
-  // After order is created successfully
-  await WebhookService.sendWebhookEvent('order.created', {
-    orderId: order._id,
-    sellerId: order.seller,
-    status: order.status,
-    createdAt: order.createdAt,
-    // Add other relevant order data
-  }, order.seller);
-
-  res.status(201).json(order);
 };
 
 // get rates from shipments

@@ -1584,3 +1584,212 @@ exports.getBuyerDetails = async (req, res) => {
     });
   }
 };
+
+// Request password reset
+exports.requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const seller = await Seller.findOne({ email });
+    if (!seller) {
+      return res.status(404).json({ message: 'No account found with this email' });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Update only the password reset fields
+    const updateResult = await Seller.updateOne(
+      { _id: seller._id },
+      {
+        $set: {
+          passwordResetToken: hashedToken,
+          passwordResetExpires: Date.now() + 3600000 // 1 hour
+        }
+      }
+    );
+
+    if (!updateResult.modifiedCount) {
+      throw new Error('Failed to update seller with reset token');
+    }
+
+    // Send email with reset link
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Reset Your Auqli Password',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Reset Your Password</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi there,</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">We received a request to reset your password. Click the button below to create a new password:</p>
+            <div style="text-align: center; margin-bottom: 30px;">
+              <a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}" 
+                 style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Reset Password
+              </a>
+            </div>
+            <p style="font-size: 14px; color: #999999;">This link will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.json({
+      message: 'Password reset link sent successfully',
+      valid: true
+    });
+
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({
+      message: 'Failed to process password reset request',
+      error: error.message
+    });
+  }
+};
+
+// Verify reset token
+exports.verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const seller = await Seller.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!seller) {
+      return res.status(400).json({
+        message: 'Invalid or expired reset token',
+        valid: false
+      });
+    }
+
+    res.json({
+      message: 'Token is valid',
+      valid: true
+    });
+
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(500).json({
+      message: 'Failed to verify reset token',
+      error: error.message
+    });
+  }
+};
+
+// Reset password with token
+exports.resetPasswordWithToken = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        message: 'Token and new password are required'
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const seller = await Seller.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!seller) {
+      return res.status(404).json({
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    // Update only password and reset token fields
+    const updateResult = await Seller.updateOne(
+      { _id: seller._id },
+      {
+        $set: {
+          password: await bcrypt.hash(newPassword, 10)
+        },
+        $unset: {
+          passwordResetToken: 1,
+          passwordResetExpires: 1
+        }
+      }
+    );
+
+    if (!updateResult.modifiedCount) {
+      throw new Error('Failed to update password');
+    }
+
+    // Send confirmation email
+    const msg = {
+      to: seller.email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Your Auqli Password Has Been Reset',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Successful</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your password has been successfully reset. You can now log in with your new password.</p>
+            <p style="font-size: 14px; color: #999999;">If you didn't make this change, please contact our support team immediately.</p>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.json({
+      message: 'Password reset successful'
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      message: 'Failed to reset password',
+      error: error.message
+    });
+  }
+};
+
+// Get seller's top 3 most sold products
+exports.getTopSoldProducts = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+
+    const topProducts = await Product.find({ seller: sellerId })
+      .sort({ 'stats.soldCount': -1 })
+      .limit(3)
+      .select('name description price images stats.soldCount category brand');
+
+    res.json(topProducts);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve top sold products', 
+      error: error.message 
+    });
+  }
+};
