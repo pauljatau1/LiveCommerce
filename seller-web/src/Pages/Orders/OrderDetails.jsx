@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Check, ChevronDown, Send } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+
 import { Separator } from "@/components/ui/separator"
 import SearchBar from '@/Components/ui/DashboardHomepageUi/SearchBar'
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, } from "@/components/ui/avatar"
 import Loader from '@/Components/Loader'
 import { BASE_URL } from '@/Constants/Server'
 

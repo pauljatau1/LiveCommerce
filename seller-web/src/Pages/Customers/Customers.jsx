@@ -34,8 +34,8 @@ function Customers() {
           })
           const data = await response.json()
           console.log('Data:', data)
-          if (data && Array.isArray(data)) {
-            setFollowers(data)
+          if (data && Array.isArray(data.followers)) {
+            setFollowers(data.followers)
           } else {
             console.error('Followers data is missing or invalid')
           }
@@ -82,33 +82,33 @@ function Customers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {followers?.map((follower) => {
-                      // Check if the follower object has the required properties
-                      if (follower.firstName && follower.lastName && follower.mainAddress) {
-                        return (
-                          <TableRow key={follower._id} className="bg-[#F0F5F2] hover:bg-green-200">
-                            <TableCell className="flex items-center gap-2">
-                              <Avatar className="bg-white">
-                                <AvatarFallback>{follower.firstName[0]}</AvatarFallback>
-                              </Avatar>
-                              {`${follower.firstName} ${follower.lastName}`}
-                            </TableCell>
-                            <TableCell>{`${follower.mainAddress.city}, ${follower.mainAddress.country}`}</TableCell>
-                            <TableCell>{follower.totalOrders} Orders</TableCell>
-                            <TableCell>₦0</TableCell>
-                            <TableCell>
-                              <Link to={`/dashboard/customer/${follower.buyerId}`}>
-                                <Button variant="outline" size="sm">
-                                  View
-                                </Button>
-                              </Link>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      } else {
-                        return null; // Skip rendering for invalid follower objects
-                      }
-                    })}
+                    {followers.map((follower) => (
+                      <TableRow key={follower._id} className="bg-[#F0F5F2] hover:bg-green-200">
+                        <TableCell className="flex items-center gap-2">
+                          <Avatar className="bg-white">
+                            <AvatarFallback>
+                              {follower.firstName ? follower.firstName[0] : follower.name[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          {follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}
+                        </TableCell>
+                        <TableCell>
+                          {follower.mainAddress ? 
+                            `${follower.mainAddress.city}, ${follower.mainAddress.country}` : 
+                            'N/A'
+                          }
+                        </TableCell>
+                        <TableCell>{follower.totalOrders || 0} Orders</TableCell>
+                        <TableCell>₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}</TableCell>
+                        <TableCell>
+                          <Link to={`/dashboard/customer/${follower.buyerId || follower._id}`}>
+                            <Button variant="outline" size="sm">
+                              View
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
