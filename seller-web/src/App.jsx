@@ -31,7 +31,7 @@ import Drafts from './Pages/ProductsPage/Drafts';
 import Inactive from './Pages/ProductsPage/Inactive';
 import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
-import CookieConsent from './components/CookieConsent';
+import CookieConsent from './Components/CookieConsent';
 
 
 
