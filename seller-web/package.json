@@ -15,6 +15,7 @@
     "@iconify-icons/bi": "^1.2.19",
     "@iconify-icons/solar": "^1.2.3",
     "@iconify/react": "^5.1.0",
+    "@microsoft/clarity": "^1.0.0",
     "@mui/icons-material": "^6.2.0",
     "@mui/material": "^6.2.0",
     "@radix-ui/react-accordion": "^1.2.2",
