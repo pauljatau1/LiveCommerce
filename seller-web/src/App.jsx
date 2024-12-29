@@ -151,7 +151,7 @@ const router = createBrowserRouter([
             errorElement: <NotFoundPage />
           },
           {
-            path: 'order',
+            path: 'order/:id',
             element: <OrderDetails />,
             errorElement: <NotFoundPage />
           },
