@@ -7,7 +7,7 @@ const cloudinary = require('cloudinary').v2;
 exports.createPost = async (req, res) => {
   const { title, description, media } = req.body;
   const creatorId = req.user.id;
-  const creatorType = req.user.type; // Assuming the user object has a type field
+  const creatorType = req.user.type;
 
   if (!title || !description || !media || media.length === 0) {
     return res.status(400).json({ message: 'Title, description, and media are required.' });

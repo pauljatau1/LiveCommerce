@@ -346,35 +346,6 @@ router.post('/:orderId/mark-paid', authMiddleware.verifyToken, orderController.m
 
 /**
  * @swagger
- * /api/order/{orderId}:
- *   get:
- *     summary: Get order details
- *     description: Retrieves detailed information about an order including shipping status
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: orderId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Order details retrieved successfully
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Order not found
- *       500:
- *         description: Server error
- */
-router.get('/:orderId', authMiddleware.verifyToken, orderController.getOrder);
-
-
-
-/**
- * @swagger
  * /api/order/buyer/{buyerId}:
  *   get:
  *     summary: Get all orders for a buyer
@@ -865,5 +836,76 @@ router.put('/:orderId/tracking', authMiddleware.verifyToken, orderController.upd
  *         description: Server error
  */
 router.post('/:orderId/note', authMiddleware.verifyToken, orderController.addOrderNote);
+
+/**
+ * @swagger
+ * /api/order/{orderId}:
+ *   get:
+ *     summary: Get detailed information about a specific order
+ *     description: Retrieves comprehensive information about an order including items, shipping, payment, and tracking details
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the order to retrieve
+ *     responses:
+ *       200:
+ *         description: Order details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 order:
+ *                   $ref: '#/components/schemas/Order'
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       product:
+ *                         $ref: '#/components/schemas/Product'
+ *                       seller:
+ *                         $ref: '#/components/schemas/Seller'
+ *                       quantity:
+ *                         type: number
+ *                       price:
+ *                         type: number
+ *                       status:
+ *                         type: string
+ *                 shipping:
+ *                   type: object
+ *                   properties:
+ *                     tracking:
+ *                       type: object
+ *                     carrier:
+ *                       type: object
+ *                     status:
+ *                       type: string
+ *                 timeline:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       status:
+ *                         type: string
+ *                       timestamp:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User doesn't have access to this order
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:orderId', authMiddleware.verifyToken, orderController.getOrderDetails);
 
 module.exports = router;

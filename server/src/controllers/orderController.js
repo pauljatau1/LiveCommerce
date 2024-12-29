@@ -296,13 +296,13 @@ exports.markOrderAsPaid = async (req, res) => {
 
     // Enable carrier
     if (carrierReference) {
-      const enableResponse = await terminalAPI.get(`/carriers/enable/${carrierReference}`, {
-        params: {
-          domestic: true,
-          international: false,
-          regional: false
-        }
+      const params = new URLSearchParams({
+        domestic: true,
+        international: false,
+        regional: false
       });
+
+      const enableResponse = await terminalAPI.post(`/carriers/enable/${carrierReference}?${params.toString()}`);
 
       if (!enableResponse.data.status) {
         throw new Error('Failed to enable carrier');
@@ -314,14 +314,7 @@ exports.markOrderAsPaid = async (req, res) => {
 
     await order.save();
 
-    // Notify seller about the payment
-    await notificationController.createNotification({
-      recipient: order.items[0].seller,
-      type: 'payment_received',
-      title: 'Payment Received',
-      message: `Payment received for order #${order._id}`,
-      reference: order._id
-    });
+    
 
     res.json({
       message: 'Order marked as paid successfully',
@@ -336,6 +329,7 @@ exports.markOrderAsPaid = async (req, res) => {
     });
   }
 };
+
 
 // Get all orders
 exports.getAllOrders = async (req, res) => {
@@ -375,20 +369,7 @@ exports.getOrdersForSeller = async (req, res) => {
   }
 };
 
-// Get a single order
-exports.getOrder = async (req, res) => {
-  const { id } = req.params;
 
-  try {
-    const order = await Order.findById(id).populate('buyer', 'firstName lastName').populate('seller', 'name');
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-    res.json(order);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve order', error: error.message });
-  }
-};
 
 // Update an order
 exports.updateOrder = async (req, res) => {
@@ -1035,5 +1016,102 @@ exports.processRefund = async (req, res) => {
     });
   } finally {
     session.endSession();
+  }
+};
+
+// Get detailed information about a specific order
+exports.getOrderDetails = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.id;
+
+    // Find order and populate all relevant fields
+    const order = await Order.findById(orderId)
+      .populate({
+        path: 'items.product',
+        select: 'name description images price specifications categories'
+      })
+      .populate({
+        path: 'items.seller',
+        select: 'businessName email phoneNumber storeName'
+      })
+      .populate({
+        path: 'buyer',
+        select: 'firstName lastName email phoneNumber'
+      });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if user has permission to view this order
+    const isBuyer = order.buyer._id.toString() === userId;
+    const isSeller = order.items.some(item => item.seller._id.toString() === userId);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isBuyer && !isSeller && !isAdmin) {
+      return res.status(403).json({ message: 'You do not have permission to view this order' });
+    }
+
+    // Create a timeline of order events
+    const timeline = [
+      { status: 'created', timestamp: order.createdAt }
+    ];
+
+    if (order.paymentInfo.paidAt) {
+      timeline.push({ status: 'paid', timestamp: order.paymentInfo.paidAt });
+    }
+
+    if (order.shipping.tracking.statusHistory) {
+      timeline.push(...order.shipping.tracking.statusHistory.map(status => ({
+        status: status.status,
+        timestamp: status.timestamp,
+        note: status.note
+      })));
+    }
+
+    // Format response
+    const response = {
+      order: {
+        _id: order._id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        createdAt: order.createdAt,
+        totalAmount: order.totalAmount,
+        paymentInfo: {
+          method: order.paymentInfo.method,
+          status: order.paymentInfo.status,
+          paidAt: order.paymentInfo.paidAt
+        }
+      },
+      buyer: order.buyer,
+      items: order.items.map(item => ({
+        product: item.product,
+        seller: item.seller,
+        quantity: item.quantity,
+        price: item.price,
+        status: item.status
+      })),
+      shipping: {
+        address: order.delivery_address,
+        method: order.shipping.method,
+        fee: order.shipping.fee,
+        tracking: order.shipping.tracking,
+        estimatedDeliveryDate: order.shipping.estimatedDeliveryDate
+      },
+      timeline: timeline.sort((a, b) => b.timestamp - a.timestamp),
+      dispute: order.dispute,
+      refund: order.refund,
+      notes: order.notes
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve order details',
+      error: error.message
+    });
   }
 };

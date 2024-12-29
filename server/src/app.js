@@ -19,7 +19,7 @@ const postRoutes = require('./routes/postRoutes');
 const publicRoutes = require('./routes/publicRoutes')
 const notificationRoutes = require('./routes/notificationRoutes');
 const withdrawalRoutes =  require('./routes/withdrawalRoutes')
-const socialRoutes = require('./routes/socialRoutes');
+
 const webhookRoutes = require('./routes/webhookRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 // Import Passport configuration
@@ -68,7 +68,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
-app.use('/api/social', socialRoutes);
+
 app.use('/webhooks', webhookRoutes);
 app.use('/api/locations', locationRoutes);
 

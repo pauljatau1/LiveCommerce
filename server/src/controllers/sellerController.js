@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailService');
+const Buyer = require('../models/Buyer');
 
 
 const generateToken = (id) => {
@@ -831,17 +832,8 @@ exports.updateCategories = async (req, res) => {
 };
 
 
-exports.getFollowers = async (req, res) => {
-  try {
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found.' });
-    }
-    res.json(seller.followers);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve followers', error: error.message });
-  }
-};
+
+
 
 // Create withdrawal request
 exports.createWithdrawalRequest = async (req, res) => {
@@ -1419,5 +1411,176 @@ exports.updateStoreVerification = async (req, res) => {
     res.json({ message: 'Store verification status updated successfully', seller });
   } catch (error) {
     // ... error handling ...
+  }
+};
+
+// Get seller's followers
+exports.getFollowers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const seller = await Seller.findById(req.user.id);
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Calculate pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const total = seller.followers.length;
+
+    // Get paginated followers
+    const followers = seller.followers.slice(startIndex, endIndex);
+
+    // Get additional order information for each follower
+    const followersWithDetails = await Promise.all(
+      followers.map(async (follower) => {
+        const orderCount = await Order.countDocuments({
+          buyer: follower.buyerId,
+          'items.seller': seller._id
+        });
+
+        return {
+          ...follower.toObject(),
+          totalOrders: orderCount
+        };
+      })
+    );
+
+    res.json({
+      followers: followersWithDetails,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        current: page,
+        hasMore: endIndex < total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve followers', 
+      error: error.message 
+    });
+  }
+};
+
+// Get detailed buyer information
+exports.getBuyerDetails = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { buyerId } = req.params;
+
+    // Check if buyer exists
+    const buyer = await Buyer.findById(buyerId)
+      .select('firstName lastName email createdAt shippingAddresses activityFeed');
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Get all orders from this buyer (general)
+    const allOrders = await Order.find({
+      buyer: buyerId
+    }).populate('items.product', 'name price images')
+      .populate('items.seller', 'storeName businessName');
+
+    // Get orders specific to this seller
+    const sellerOrders = allOrders.filter(order => 
+      order.items.some(item => item.seller._id.toString() === sellerId)
+    );
+
+    // Calculate general order statistics
+    const generalStats = allOrders.reduce((stats, order) => {
+      const orderTotal = order.items.reduce((sum, item) => 
+        sum + (item.price * item.quantity), 0
+      );
+
+      return {
+        totalOrders: stats.totalOrders + 1,
+        totalSpent: stats.totalSpent + orderTotal,
+      };
+    }, { totalOrders: 0, totalSpent: 0 });
+
+    // Calculate seller-specific order statistics
+    const sellerStats = sellerOrders.reduce((stats, order) => {
+      const sellerItems = order.items.filter(item => 
+        item.seller._id.toString() === sellerId
+      );
+      
+      const orderTotal = sellerItems.reduce((sum, item) => 
+        sum + (item.price * item.quantity), 0
+      );
+
+      return {
+        totalOrders: stats.totalOrders + 1,
+        totalSpent: stats.totalSpent + orderTotal,
+      };
+    }, { totalOrders: 0, totalSpent: 0 });
+
+    // Calculate average order values
+    generalStats.averageOrderValue = 
+      generalStats.totalOrders > 0 
+        ? generalStats.totalSpent / generalStats.totalOrders 
+        : 0;
+
+    sellerStats.averageOrderValue = 
+      sellerStats.totalOrders > 0 
+        ? sellerStats.totalSpent / sellerStats.totalOrders 
+        : 0;
+
+    // Get top purchased products (across all sellers)
+    const productPurchases = {};
+    allOrders.forEach(order => {
+      order.items.forEach(item => {
+        const productKey = `${item.product._id}-${item.seller._id}`;
+        if (!productPurchases[productKey]) {
+          productPurchases[productKey] = {
+            productId: item.product._id,
+            name: item.product.name,
+            quantity: 0,
+            totalSpent: 0,
+            seller: {
+              id: item.seller._id,
+              name: item.seller.storeName || item.seller.businessName
+            }
+          };
+        }
+        productPurchases[productKey].quantity += item.quantity;
+        productPurchases[productKey].totalSpent += item.price * item.quantity;
+      });
+    });
+
+    const topPurchases = Object.values(productPurchases)
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 5);
+
+    // Get recent activity feed
+    const recentActivities = buyer.activityFeed
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 10);
+
+    res.json({
+      buyerInfo: {
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        joinDate: buyer.createdAt
+      },
+      orderStats: {
+        general: generalStats,
+        withSeller: sellerStats
+      },
+      shippingAddresses: buyer.shippingAddresses,
+      activityFeed: recentActivities,
+      topPurchases,
+      hasOrderedFromSeller: sellerOrders.length > 0
+    });
+
+  } catch (error) {
+    console.error('Get buyer details error:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve buyer details', 
+      error: error.message 
+    });
   }
 };

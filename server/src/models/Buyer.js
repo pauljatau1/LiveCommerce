@@ -32,6 +32,7 @@ const buyerSchema = new mongoose.Schema({
     public_id: { type: String },
   },
   shippingAddresses: [addressSchema],
+  
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: false },
@@ -39,18 +40,7 @@ const buyerSchema = new mongoose.Schema({
   otp: { type: String },
   selectedCategories: [categorySchema],
   isDisabled: { type: Boolean, default: false },
-  following: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, refPath: 'following.userType' },
-    userType: { type: String, enum: ['Buyer', 'Seller'] },
-    name: { type: String },
-    followedAt: { type: Date, default: Date.now }
-  }],
-  followers: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, refPath: 'followers.userType' },
-    userType: { type: String, enum: ['Buyer', 'Seller'] },
-    name: { type: String },
-    followedAt: { type: Date, default: Date.now }
-  }],
+ 
   activityFeed: [{
     type: { type: String, enum: ['post', 'product_review', 'product_purchase', 'follow'] },
     content: { type: String },

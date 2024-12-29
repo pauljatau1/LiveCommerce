@@ -92,27 +92,6 @@ const sellerSchema = new mongoose.Schema({
   isDisabled: { type: Boolean, default: false },
   walletBalance: { type: Number, default: 0 },
   withdrawRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Withdrawal' }],
-  following: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, refPath: 'following.userType' },
-    userType: { type: String, enum: ['Buyer', 'Seller'] },
-    name: { type: String },
-    followedAt: { type: Date, default: Date.now }
-  }],
-  followers: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, refPath: 'followers.userType' },
-    userType: { type: String, enum: ['Buyer', 'Seller'] },
-    name: { type: String },
-    location: {
-      country: { type: String },
-      city: { type: String },
-      address1: { type: String },
-      address2: { type: String },
-      zipCode: { type: String },
-    },
-    totalOrders: { type: Number, default: 0 },
-    totalSpent: { type: Number, default: 0 },
-    followedAt: { type: Date, default: Date.now }
-  }],
   activityFeed: [{
     type: { type: String, enum: ['post', 'product_added', 'product_updated', 'follow', 'promotion'] },
     content: { type: String },
@@ -120,6 +99,7 @@ const sellerSchema = new mongoose.Schema({
     referenceModel: { type: String, enum: ['Post', 'Product', 'Buyer', 'Seller', 'Promotion'] },
     createdAt: { type: Date, default: Date.now }
   }],
+  
   messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
@@ -151,6 +131,21 @@ const sellerSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  followers: [{
+    buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
+    firstName: { type: String },
+    lastName: { type: String },
+    email: { type: String },
+    followDate: { type: Date, default: Date.now },
+    totalOrders: { type: Number, default: 0 },
+    mainAddress: {
+      country: String,
+      city: String,
+      address1: String,
+      address2: String,
+      zipCode: String
+    }
+  }]
 });
 
 // Middleware to update isNew property after 3 days

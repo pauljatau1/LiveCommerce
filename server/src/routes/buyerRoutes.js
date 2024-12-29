@@ -301,64 +301,6 @@ router.put('/selected-categories', authMiddleware.verifyToken, buyerController.u
 
 /**
  * @swagger
- * /api/buyer/follow-seller:
- *   post:
- *     summary: Follow a seller
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               sellerId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Successfully followed the seller
- *       400:
- *         description: Already following this seller
- *       404:
- *         description: Buyer or Seller not found
- *       500:
- *         description: Internal server error
- */
-router.post('/follow-seller', authMiddleware.verifyToken, buyerController.followSeller);
-
-/**
- * @swagger
- * /api/buyer/unfollow-seller:
- *   post:
- *     summary: Unfollow a seller
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               sellerId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Successfully unfollowed the seller
- *       400:
- *         description: Not following this seller
- *       404:
- *         description: Buyer or Seller not found
- *       500:
- *         description: Internal server error
- */
-router.post('/unfollow-seller', authMiddleware.verifyToken, buyerController.unfollowSeller);
-
-/**
- * @swagger
  * /api/buyer/send-phone-otp:
  *   post:
  *     summary: Send OTP to buyer's phone number
@@ -790,5 +732,108 @@ router.put('/addresses/:addressId', authMiddleware.verifyToken, buyerController.
  *         description: Server error
  */
 router.delete('/addresses/:addressId', authMiddleware.verifyToken, buyerController.deleteAddress);
+
+// Follow a seller
+/**
+ * @swagger
+ * /api/buyer/follow/{sellerId}:
+ *   post:
+ *     summary: Follow a seller
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to follow
+ *     responses:
+ *       200:
+ *         description: Successfully followed seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Successfully followed seller
+ *       400:
+ *         description: Already following this seller
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/follow/:sellerId', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.followSeller);
+
+/**
+ * @swagger
+ * /api/buyer/follow/{sellerId}:
+ *   delete:
+ *     summary: Unfollow a seller
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to unfollow
+ *     responses:
+ *       200:
+ *         description: Successfully unfollowed seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Successfully unfollowed seller
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/follow/:sellerId', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.unfollowSeller);
+
+/**
+ * @swagger
+ * /api/buyer/following:
+ *   get:
+ *     summary: Get list of sellers that the buyer follows
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of followed sellers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   sellerId:
+ *                     type: string
+ *                   storeName:
+ *                     type: string
+ *                   businessName:
+ *                     type: string
+ *                   aboutStore:
+ *                     type: string
+ *                   followDate:
+ *                     type: string
+ *                     format: date-time
+ *       500:
+ *         description: Server error
+ */
+router.get('/following', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.getFollowedSellers);
 
 module.exports = router;

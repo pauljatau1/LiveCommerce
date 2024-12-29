@@ -880,24 +880,6 @@ router.put('/update-categories', authMiddleware.verifyToken, sellerController.up
 
 /**
  * @swagger
- * /api/seller/followers:
- *   get:
- *     summary: Get followers of a seller
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of followers retrieved successfully
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.get('/followers', authMiddleware.verifyToken, sellerController.getFollowers);
-
-/**
- * @swagger
  * /api/seller/top-products:
  *   get:
  *     summary: Get seller's top 5 selling products
@@ -1307,6 +1289,173 @@ router.put('/onboarding-process', authMiddleware.verifyToken, sellerController.u
  *         description: Internal server error
  */
 router.get('/onboarding-process', authMiddleware.verifyToken, sellerController.getOnboardingProcess);
+
+/**
+ * @swagger
+ * /api/seller/followers:
+ *   get:
+ *     summary: Get seller's followers list
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of followers per page
+ *     responses:
+ *       200:
+ *         description: List of followers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 followers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       buyerId:
+ *                         type: string
+ *                       firstName:
+ *                         type: string
+ *                       lastName:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       followDate:
+ *                         type: string
+ *                         format: date-time
+ *                       totalOrders:
+ *                         type: number
+ *                       mainAddress:
+ *                         type: object
+ *                         properties:
+ *                           country:
+ *                             type: string
+ *                           city:
+ *                             type: string
+ *                           address1:
+ *                             type: string
+ *                           address2:
+ *                             type: string
+ *                           zipCode:
+ *                             type: string
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                     pages:
+ *                       type: number
+ *                     current:
+ *                       type: number
+ *                     hasMore:
+ *                       type: boolean
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/followers', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.getFollowers);
+
+/**
+ * @swagger
+ * /api/seller/buyer/{buyerId}:
+ *   get:
+ *     summary: Get detailed buyer information
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer
+ *     responses:
+ *       200:
+ *         description: Buyer details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 buyerInfo:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     joinDate:
+ *                       type: string
+ *                       format: date-time
+ *                 orderStats:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: number
+ *                     totalSpent:
+ *                       type: number
+ *                     averageOrderValue:
+ *                       type: number
+ *                 shippingAddresses:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Address'
+ *                 activityFeed:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       type:
+ *                         type: string
+ *                       content:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 topPurchases:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       productId:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       quantity:
+ *                         type: number
+ *                       totalSpent:
+ *                         type: number
+ *       403:
+ *         description: Unauthorized - Buyer has not ordered from this seller
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyer/:buyerId', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getBuyerDetails
+);
 
 // /**
 //  * @swagger

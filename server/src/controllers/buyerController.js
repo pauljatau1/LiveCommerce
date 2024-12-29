@@ -314,71 +314,6 @@ exports.updateSelectedCategories = async (req, res) => {
 };
 
 
-
-// Follow a seller
-exports.followSeller = async (req, res) => {
-  const { sellerId } = req.body;
-
-  try {
-    const buyer = await Buyer.findById(req.user.id);
-    const seller = await Seller.findById(sellerId);
-
-    if (!buyer || !seller) {
-      return res.status(404).json({ message: 'Buyer or Seller not found.' });
-    }
-
-    if (buyer.following.some(follow => follow.sellerId.toString() === sellerId)) {
-      return res.status(400).json({ message: 'Already following this seller.' });
-    }
-
-    buyer.following.push({ sellerId, name: seller.name });
-    seller.followers.push({ buyerId: buyer._id, name: `${buyer.firstName} ${buyer.lastName}` });
-
-    await buyer.save();
-    await seller.save();
-
-    await notificationController.createNotification(
-      seller,
-      'new_follower',
-      'New Follower',
-      `${buyer.firstName} ${buyer.lastName} started following your store`,
-      { buyerId: buyer._id }
-    );
-
-    res.json({ message: 'Successfully followed the seller.' });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to follow seller', error: error.message });
-  }
-};
-
-// Unfollow a seller
-exports.unfollowSeller = async (req, res) => {
-  const { sellerId } = req.body;
-
-  try {
-    const buyer = await Buyer.findById(req.user.id);
-    const seller = await Seller.findById(sellerId);
-
-    if (!buyer || !seller) {
-      return res.status(404).json({ message: 'Buyer or Seller not found.' });
-    }
-
-    if (!buyer.following.some(follow => follow.sellerId.toString() === sellerId)) {
-      return res.status(400).json({ message: 'Not following this seller.' });
-    }
-
-    buyer.following.pull({ sellerId });
-    seller.followers.pull({ buyerId: buyer._id });
-
-    await buyer.save();
-    await seller.save();
-
-    res.json({ message: 'Successfully unfollowed the seller.' });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to unfollow seller', error: error.message });
-  }
-};
-
 exports.sendPhoneOTP = async (req, res) => {
   const { phoneNumber } = req.body;
 
@@ -459,6 +394,10 @@ exports.verifyPhoneOTP = async (req, res) => {
     res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
   }
 };
+
+
+
+
 
 // Forgot password - send reset email
 exports.forgotPassword = async (req, res) => {
@@ -785,6 +724,138 @@ exports.deleteAddress = async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to delete address', 
+      error: error.message 
+    });
+  }
+};
+
+// Follow a seller
+exports.followSeller = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    const { sellerId } = req.params;
+
+    const [buyer, seller] = await Promise.all([
+      Buyer.findById(buyerId),
+      Seller.findById(sellerId)
+    ]);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Initialize followers array if it doesn't exist
+    if (!seller.followers) {
+      seller.followers = [];
+    }
+
+    // Check if already following
+    const isAlreadyFollowing = seller.followers.some(
+      follower => follower.buyerId && follower.buyerId.toString() === buyerId
+    );
+
+    if (isAlreadyFollowing) {
+      return res.status(400).json({ message: 'Already following this seller' });
+    }
+
+    // Get buyer's main address
+    const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
+      ? buyer.shippingAddresses[0] 
+      : null;
+
+    // Add to seller's followers list
+    seller.followers.push({
+      buyerId: buyer._id,
+      firstName: buyer.firstName,
+      lastName: buyer.lastName,
+      email: buyer.email,
+      followDate: new Date(),
+      totalOrders: 0,
+      mainAddress: mainAddress
+    });
+
+    await seller.save();
+
+    // Add to buyer's activity feed
+    if (!buyer.activityFeed) {
+      buyer.activityFeed = [];
+    }
+
+    buyer.activityFeed.push({
+      type: 'follow',
+      content: `Started following ${seller.storeName || seller.businessName}`,
+      reference: seller._id,
+      referenceModel: 'Seller',
+      createdAt: new Date()
+    });
+
+    await buyer.save();
+
+    res.json({ 
+      message: 'Successfully followed seller',
+      followData: seller.followers[seller.followers.length - 1]
+    });
+  } catch (error) {
+    console.error('Follow seller error:', error); 
+    res.status(500).json({ 
+      message: 'Failed to follow seller', 
+      error: error.message 
+    });
+  }
+};
+
+// Unfollow a seller
+exports.unfollowSeller = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    const { sellerId } = req.params;
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Remove from followers list
+    seller.followers = seller.followers.filter(
+      follower => follower.buyerId.toString() !== buyerId
+    );
+
+    await seller.save();
+
+    res.json({ message: 'Successfully unfollowed seller' });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to unfollow seller', 
+      error: error.message 
+    });
+  }
+};
+
+// Get list of sellers that the buyer follows
+exports.getFollowedSellers = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    
+    const sellers = await Seller.find({
+      'followers.buyerId': buyerId
+    }).select('storeName businessName aboutStore followers');
+
+    const followedSellers = sellers.map(seller => ({
+      sellerId: seller._id,
+      storeName: seller.storeName,
+      businessName: seller.businessName,
+      aboutStore: seller.aboutStore,
+      followDate: seller.followers.find(f => f.buyerId.toString() === buyerId).followDate
+    }));
+
+    res.json(followedSellers);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to get followed sellers', 
       error: error.message 
     });
   }

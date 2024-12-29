@@ -6,7 +6,7 @@ const sendPasswordResetEmail = async (email, token) => {
     to: email,
     from: 'Joseph From Auqli <joseph@auqli.com>',
     subject: 'Password Reset Request',
-    text: `You requested a password reset. Please use the following token to reset your password: ${token}`,
+    text: `You requested a password reset. Please use the   I sssssing token to reset your password: ${token}`,
     html: `<p>You requested a password reset. Please use the following token to reset your password:</p><p><strong>${token}</strong></p>`,
   };
 
