@@ -3,7 +3,7 @@ const { app, server } = require('./src/app');
 const logger = require('./src/utils/logger');
 const connectDB = require('./src/config/database');
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8080;
 
 // Connect to MongoDB
 connectDB().then(() => {
