@@ -108,4 +108,8 @@ io.on('connection', (socket) => {
 // Attach io to the app for use in routes
 app.set('io', io);
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 module.exports = { app, server };
