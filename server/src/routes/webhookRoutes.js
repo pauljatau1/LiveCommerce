@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const webhookController = require('../controllers/webhookController');
+const webhookController = require('../controllers/WebhookController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 /**
