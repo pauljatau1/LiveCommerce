@@ -56,6 +56,11 @@ const orderSchema = new mongoose.Schema({
     ref: 'Seller',
     required: true
   },
+  channel: {
+    type: String,
+    enum: ['marketplace', 'liveshow', 'other'],
+    default: 'marketplace'
+  },
   items: [orderItemSchema],
   totalAmount: {
     type: Number,

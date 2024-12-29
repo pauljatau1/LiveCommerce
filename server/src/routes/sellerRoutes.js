@@ -1457,6 +1457,103 @@ router.get('/buyer/:buyerId',
   sellerController.getBuyerDetails
 );
 
+/**
+ * @swagger
+ * /api/seller/request-password-reset:
+ *   post:
+ *     summary: Request a password reset link
+ *     tags: [Seller]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Reset link sent successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/request-password-reset', sellerController.requestPasswordReset);
+
+/**
+ * @swagger
+ * /api/seller/verify-reset-token:
+ *   post:
+ *     summary: Verify password reset token
+ *     tags: [Seller]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token is valid
+ *       400:
+ *         description: Invalid or expired token
+ */
+router.post('/verify-reset-token', sellerController.verifyResetToken);
+
+/**
+ * @swagger
+ * /api/seller/reset-password-with-token:
+ *   post:
+ *     summary: Reset password using token
+ *     tags: [Seller]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Invalid or expired token
+ */
+router.post('/reset-password-with-token', sellerController.resetPasswordWithToken);
+
+/**
+ * @swagger
+ * /api/seller/top-sold-products:
+ *   get:
+ *     summary: Get seller's top 3 most sold products
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Top sold products retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/top-sold-products', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getTopSoldProducts
+);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

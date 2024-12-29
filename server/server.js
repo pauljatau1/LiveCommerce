@@ -3,7 +3,7 @@ const { app, server } = require('./src/app');
 const connectDB = require('./src/config/database');
 const logger = require('./src/utils/logger');
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8000;
 
 // Add error handlers for uncaught exceptions
 process.on('uncaughtException', (error) => {

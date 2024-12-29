@@ -1721,3 +1721,22 @@ exports.getProductStats = async (req, res) => {
     res.status(500).json({ message: 'Failed to get product stats', error: error.message });
   }
 };
+
+// Get product's sold count
+exports.getProductSoldCount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id).select('stats.soldCount');
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    res.json({ soldCount: product.stats.soldCount });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to get product sold count', 
+      error: error.message 
+    });
+  }
+};

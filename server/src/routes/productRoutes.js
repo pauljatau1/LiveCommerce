@@ -1357,4 +1357,26 @@ router.delete('/:id',
   productController.deleteProduct
 );
 
+/**
+ * @swagger
+ * /api/products/{id}/sold-count:
+ *   get:
+ *     summary: Get product's sold count
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product sold count retrieved successfully
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:id/sold-count', productController.getProductSoldCount);
+
 module.exports = router;
