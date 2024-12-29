@@ -53,7 +53,12 @@ const webhookSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  deleteLater: {
+    type: Boolean,
+    default: false
   }
 });
+
 
 module.exports = mongoose.model('Webhook', webhookSchema);
