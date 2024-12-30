@@ -314,19 +314,25 @@ exports.createOrder = async (req, res) => {
 
       // Send emails to seller and buyer
       for (const order of orders) {
-        // Get seller and buyer details
-        const seller = await Seller.findById(order.seller);
-        const buyer = await Buyer.findById(order.buyer);
+        // Populate product details for the items
+        await Order.populate(order, {
+          path: 'items.product',
+          select: 'name price'
+        });
 
         // Format items list for email
         const itemsList = order.items.map(item => `
           <tr style="border-bottom: 1px solid #333333;">
-            <td style="padding: 10px 0;">${item.name}</td>
+            <td style="padding: 10px 0;">${item.product?.name || 'Product'}</td>
             <td style="padding: 10px 0;">${item.quantity}</td>
             <td style="padding: 10px 0;">NGN ${item.price}</td>
             <td style="padding: 10px 0;">NGN ${item.price * item.quantity}</td>
           </tr>
         `).join('');
+
+        // Get seller and buyer details
+        const seller = await Seller.findById(order.seller);
+        const buyer = await Buyer.findById(order.buyer);
 
         const sellerEmail = {
           to: order.pickup_address.email,
