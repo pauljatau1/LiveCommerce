@@ -4,7 +4,7 @@ import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthContext } from "../../../Hooks/useAuthContext";
 import Logo from '../../../assets/auqli-official-logo.png'
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import PropTypes from 'prop-types';
 
 
@@ -12,6 +12,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
   const { logout } = useAuthContext();
   const navigate = useNavigate();
   const activeSideBarRef = useRef(null);
+  const location = useLocation();
 
 
 
@@ -26,7 +27,8 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
     } else {
       activeSideBarRef.current = id;
     }
-  }
+  };
+
 
   console.log(activeSideBarRef.current);
   console.log(sideBarNavData);

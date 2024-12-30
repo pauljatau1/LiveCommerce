@@ -2,27 +2,99 @@ import { Icon } from '@iconify/react';
 import PropTypes from 'prop-types';
 
 const ProductCard = ({ item }) => {
-    return (
-        <div className='w-[156px] sm:w-[176px] lg:w-fit border border-[#00000029] rounded-lg overflow-hidden'>
-            <img src={item?.images[0]?.url} alt="product" className='w-full lg:w-[272px]  object-cover' />
-            <div className="py-2 lg:py-3 px-2 lg:px-4">
-                <p className='text-sm lg:text-base font-lexend font-bold text-[#05031F] max-w-[156px] mb-2 lg:mb-0 lg:max-w-[232px]'>{item?.name}</p>
-                <div className='flex flex-col lg:flex-row lg:items-center lg:gap-6'>
-                    <p className='text-sm font-cabin font-normal text-[#05031F]'>SKU: {item?.skuTag}</p>
-                    <div className='flex items-center gap-1 mt-1 lg:mt-0'>
-                        <Icon icon="fluent:box-checkmark-20-filled" width="18" height="18" color={item.stock > 5 ? "#0BB248" : "#FF0000"} />
-                        <p className={`text-sm font-cabin font-normal ${item?.stock > 5 ? "text-[#0BB248]" : "text-[#FF0000]"}`}>{item?.stock} in stock</p>
-                    </div>
+    const getStockStatus = (stock) => {
+        if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (stock > 0) return { text: 'Low Stock', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+        return { text: 'Out of Stock', class: 'bg-[#DF0707]/10 text-[#DF0707]' };
+    };
+
+    const status = getStockStatus(item?.stock);
+    console.log(item.stock)
+
+    // Mobile Card Layout
+    const MobileCard = () => (
+        <div className="flex flex-col gap-4 p-4">
+            <div className="flex items-start gap-4">
+                <img 
+                    src={item?.images[0]?.url} 
+                    alt={item?.name} 
+                    className="w-[60px] h-[60px] rounded-lg object-cover flex-shrink-0"
+                />
+                <div className="flex flex-col flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-[#05031F] truncate">
+                        {item?.name}
+                    </h3>
+                    <p className="text-xs text-[#05031F]/60">
+                        {item?.category}
+                    </p>
                 </div>
-                <p className='text-base lg:text-lg font-cabin font-bold text-[#05031F] mt-1 lg:mt-3 '>${item?.price?.toLocaleString()}</p>
-                <button className='w-full border border-[#05031F] bg-transparent rounded-full text-[#05031F] text-sm font-cabin font-bold py-2 mt-2 lg:mt-3 hover:bg-[#05031F] hover:text-white transition-all duration-500 ease-in-out'>View Product</button>
+                <span className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${status.class}`}>
+                    {status.text}
+                </span>
+            </div>
+            <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-[#05031F]">
+                    ₦ {item?.price?.toLocaleString()}
+                </p>
+                <div className="flex items-center gap-2">
+                    <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                        <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
+                    </button>
+                    <button className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
+                        <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                    </button>
+                </div>
             </div>
         </div>
-    )
+    );
+
+    // Desktop Card Layout
+    const DesktopCard = () => (
+        <div className="hidden lg:grid grid-cols-[80px_2fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 items-center hover:bg-[#F7F7F7] transition-all duration-200">
+            <div className="w-12 h-12">
+                <img 
+                    src={item?.images[0]?.url} 
+                    alt={item?.name} 
+                    className="w-full h-full rounded-lg object-cover"
+                />
+            </div>
+            <div className="truncate pr-4">
+                <p className="text-sm font-medium text-[#05031F] truncate">{item?.name}</p>
+            </div>
+            <div className="truncate">
+                <p className="text-sm text-[#05031F] truncate">{item?.category}</p>
+            </div>
+            <div>
+                <p className="text-sm text-[#05031F]">₦ {item?.price?.toLocaleString()}</p>
+            </div>
+            <div className="flex justify-center">
+                <span className={`px-3 py-1 rounded-full text-xs ${status.class}`}>
+                    {status.text}
+                </span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+                <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                    <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
+                </button>
+                <button className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
+                    <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                </button>
+            </div>
+        </div>
+    );
+
+    return (
+        <>
+            <div className="lg:hidden border-b border-[#E5E7EB] bg-white">
+                <MobileCard />
+            </div>
+            <DesktopCard />
+        </>
+    );
 };
 
 ProductCard.propTypes = {
     item: PropTypes.object.isRequired,
 };
 
-export default ProductCard
+export default ProductCard;

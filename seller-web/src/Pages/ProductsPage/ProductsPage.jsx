@@ -183,20 +183,30 @@ const ProductsPage = () => {
                     </NavLink>
                 </div>
             </div>
-            <div className="flex flex-wrap w-full bg-[#F7F7F7] py-8 mb-10 justify-evenly lg:justify-start lg:pl-3 xl:justify-evenly gap-x-2 gap-y-4">
-                {
-                    products.length > 0 ? (
+            <div className="flex flex-col w-full bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+                {/* Table Headers - Desktop */}
+                <div className="hidden lg:grid grid-cols-[80px_2fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white">
+                    <div className="text-sm font-medium text-[#05031F]">Image</div>
+                    <div className="text-sm font-medium text-[#05031F]">Product Name</div>
+                    <div className="text-sm font-medium text-[#05031F]">Category</div>
+                    <div className="text-sm font-medium text-[#05031F]">Price</div>
+                    <div className="text-sm font-medium text-[#05031F] text-center">Status</div>
+                    <div className="text-sm font-medium text-[#05031F] text-center">Actions</div>
+                </div>
+
+                {/* Products List */}
+                <div className="divide-y divide-[#E5E7EB]">
+                    {products.length > 0 ? (
                         products.map((item) => (
                             <ProductCard key={item.id} item={item} />
                         ))
-
                     ) : (
-                        <div className="flex flex-col h-[50dvh] items-center justify-center flex-wrap gap-4 mt-4 lg:mt-8 w-full">
-                            <img src={NotFound} alt="not-found" className="w-[220px] md:w-[250px] h-[220px] md:h-[250px]" />
-                            <p className="text-base lg:text-lg font-cabin font-normal text-[#05031F]">No products found</p>
+                        <div className="flex flex-col h-[50dvh] items-center justify-center gap-4">
+                            <img src={NotFound} alt="not-found" className="w-[180px] md:w-[220px] h-[180px] md:h-[220px]" />
+                            <p className="text-base font-cabin font-normal text-[#05031F]">No products found</p>
                         </div>
-                    )
-                }
+                    )}
+                </div>
             </div>
             {
                 products.length > 20 && (

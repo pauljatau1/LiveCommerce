@@ -85,7 +85,29 @@ export const sideBarNavData = [
         id: ObjectID().toHexString(),
         name: 'Marketing',
         icon: 'mage:megaphone-a',
-        path: '/dashboard/marketing'
+        path: '/dashboard/marketing',
+        subNav: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Coupons',
+                path: 'coupons'
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Flash Sales',
+                path: 'flash-sales'
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Inbox Campaigns',
+                path: 'inbox-campaigns'
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Referrals',
+                path: 'referrals'
+            }
+        ]
     },
     {
         id: ObjectID().toHexString(),
@@ -364,6 +386,86 @@ export const productPageCardData = [
         stock: 40,
         price: 1000000,
         image: ProductImage
+    },
+];
+
+export const marketingAdsData = [
+    {
+        id: ObjectID().toHexString(),
+        title: 'Auqli Ads',
+        description: 'Increase sales & exposure with Auqli In-app Platform Ads',
+        link: '/dashboard/auqli-ads',
+        tags: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Paid'
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Free'
+            }
+        ],
+        available: false
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Coupons',
+        description: 'Create coupons and distribute. Drive up sales and increase the average order value for your store!',
+        link: '/dashboard/coupons',
+        tags: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Free'
+            }
+        ],
+        available: true
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Flash Sales',
+        description: 'Create urgency, FOMO and limited sales for your buyers. Helps increase visibility and get in front of buyers',
+        link: '/dashboard/flash-sales',
+        tags: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Free'
+            }
+        ],
+        available: true
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Inbox Campaigns',
+        description: 'Directly send messages to your followers using our in-built direct marketing feature for your business!',
+        link: '/dashboard/inbox-campaigns',
+        tags: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Free'
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Paid'
+            }
+        ],
+        available: true
+    },
+    {
+        id: ObjectID().toHexString(),
+        title: 'Referral',
+        description: 'Refer people and earn when they join Auqli and makes a purchase. Increase followers and get passive income',
+        link: '/dashboard/referrals',
+        tags: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Free'
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Paid'
+            }
+        ],
+        available: true
     },
 ]
 

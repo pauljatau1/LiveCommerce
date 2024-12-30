@@ -32,6 +32,8 @@ import Inactive from './Pages/ProductsPage/Inactive';
 import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
+import MarketingPage from './Pages/MarketingPage/MarketingPage';
+
 
 
 
@@ -40,9 +42,15 @@ import CookieConsent from './Components/CookieConsent';
 
 const router = createBrowserRouter([
   {
-    element: <AuthProvider><AppLayout /></AuthProvider>,
+    element: (
+      <AuthProvider>
+        <OnboardingProvider>
+          <AppLayout />
+        </OnboardingProvider>
+      </AuthProvider>
+    ),
     errorElement: <NotFoundPage />,
-    
+
     children: [
       {
         path: '/',
@@ -57,82 +65,81 @@ const router = createBrowserRouter([
         errorElement: <NotFoundPage />
       },
       {
+        path: '/onboarding',
+        element: <OnBoardingPage />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/business-onboarding',
+        element: <BusinessOnboarding />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/individual-onboarding',
+        element: <IndividualOnboarding />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/business-information-onboarding',
+        element: <BusinessInformationOnboarding />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/business-verification-onboarding',
+        element: <BusinessVerificationOnboarding />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/business-bank-onboarding',
+        element: <BusinessBankOnboarding />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/business-category-onboarding',
+        element: <BusinessCategoryOnboarding />,
+        loader: categoriesLoader,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/shipping-options-onboarding',
+        element: <ShippingOptionsOnboarding />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/individual-verification-onboarding',
+        element: <IndividualVerificationOnboarding />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/account-approval',
+        element: <AccountApproval />,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+        errorElement: <NotFoundPage />
+      },
+      {
         path: '/dashboard',
         element: (
           <ProtectedRoute>
-            <OnboardingProvider>
               <ProductProvider>
                 <DashboardLayout />
               </ProductProvider>
-            </OnboardingProvider>
           </ProtectedRoute>
         ),
         loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
         errorElement: <NotFoundPage />,
         children: [
-          {
-            path: 'onboarding',
-            element: <OnBoardingPage />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
+
           {
             path: 'home',
             element: <HomePage />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'business-onboarding',
-            element: <BusinessOnboarding />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'individual-onboarding',
-            element: <IndividualOnboarding />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'business-information-onboarding',
-            element: <BusinessInformationOnboarding />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'business-verification-onboarding',
-            element: <BusinessVerificationOnboarding />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'business-bank-onboarding',
-            element: <BusinessBankOnboarding />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'business-category-onboarding',
-            element: <BusinessCategoryOnboarding />,
-            loader: categoriesLoader,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'shipping-options-onboarding',
-            element: <ShippingOptionsOnboarding />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'individual-verification-onboarding',
-            element: <IndividualVerificationOnboarding />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'account-approval',
-            element: <AccountApproval />,
             loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
             errorElement: <NotFoundPage />
           },
@@ -160,7 +167,7 @@ const router = createBrowserRouter([
             path: 'products',
             element: <ProductsPage />,
             errorElement: <NotFoundPage />,
-            
+
           },
           {
             path: 'add-products',
@@ -175,6 +182,11 @@ const router = createBrowserRouter([
           {
             path: 'inactive',
             element: <Inactive />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'marketing',
+            element: <MarketingPage />,
             errorElement: <NotFoundPage />
           }
         ]
@@ -193,7 +205,7 @@ const App = () => {
     <Suspense fallback={<Loader />}>
       <RouterProvider router={router} fallbackElement={<Loader />} />
       <ToastContainer />
-      <CookieConsent 
+      <CookieConsent
         onAccept={handleConsentAccept}
         onDecline={() => console.log('Analytics declined')}
       />

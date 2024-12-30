@@ -18,7 +18,7 @@ const NotFoundPage = () => {
           if (tokenData.isVerified) {
             navigate('/dashboard/home');
           } else if (tokenData.isVerified === false) {
-            navigate('/dashboard/onboarding');
+            navigate('/onboarding');
           }
         } else {
             navigate('/', { replace: true });

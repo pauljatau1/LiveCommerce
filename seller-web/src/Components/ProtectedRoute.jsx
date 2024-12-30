@@ -61,7 +61,7 @@ const ProtectedRoute = ({ children }) => {
     if (tokenData?.data && tokenData?.isVerified === false && onboardingStep !== "" && isTokenValid) {
       //if the seller is logged in and the first time, redirect to the onboarding page
       if (onboardingStep !== "" || onboardingStep !== null || onboardingStep !== undefined) {
-        navigate(`/dashboard/${onboardingStep}`, { replace: true });
+        navigate(`/${onboardingStep}`, { replace: true });
         setTimeout(() => {
           toast.success('Continue Onboarding', {
             description: 'Continue from where you left off',
@@ -72,7 +72,7 @@ const ProtectedRoute = ({ children }) => {
           });
         }, 2500);
       } else {
-        navigate('/dashboard/onboarding', { replace: true });
+        navigate('/onboarding', { replace: true });
       }
     }
   }, [navigate, onboardingStep, isAuthenticated, isTokenValid]);

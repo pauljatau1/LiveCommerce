@@ -58,7 +58,7 @@ const LoginPage = () => {
           if (tokenData.data && tokenData.isVerified === false && onboardingStep !== "") {
             //if the seller is logged in and the first time, redirect to the onboarding page
             if (onboardingStep) {
-              navigate(`/dashboard/${onboardingStep}`, { replace: true });
+              navigate(`/${onboardingStep}`, { replace: true });
               setTimeout(() => {
                 toast.success('Continue Onboarding', {
                   description: 'Continue from where you left off',
@@ -69,12 +69,12 @@ const LoginPage = () => {
                 });
               }, 2500);
             } else {
-              navigate('/dashboard/onboarding', { replace: true });
+              navigate('/onboarding', { replace: true });
             }
           } else if (tokenData.data && tokenData.isVerified === true) {
             navigate('/dashboard/home', { replace: true });
           } else {
-            navigate('/dashboard/onboarding', { replace: true });
+            navigate('/onboarding', { replace: true });
           }
         } else if (response.status === 401) {
           console.log("Token is invalid");
@@ -102,7 +102,7 @@ const LoginPage = () => {
     if (tokenData.data) {
       checkTokenValidity();
     } else if (token) {
-      navigate('/dashboard/onboarding', { replace: true });
+      navigate('/onboarding', { replace: true });
     } else {
       console.log("No user found");
     }
