@@ -251,7 +251,7 @@ exports.createOrder = async (req, res) => {
         );
       }
 
-      // After creating orders but before committing transaction
+      // After creating orders but before webhook events
       for (const order of orders) {
         const buyer = await Buyer.findById(req.user.id);
         const seller = await Seller.findById(order.seller);
@@ -309,6 +309,134 @@ exports.createOrder = async (req, res) => {
             seller.followers[followerIndex].totalOrders += 1;
             await seller.save({ session });
           }
+        }
+      }
+
+      // Send emails to seller and buyer
+      for (const order of orders) {
+        // Get seller and buyer details
+        const seller = await Seller.findById(order.seller);
+        const buyer = await Buyer.findById(order.buyer);
+
+        // Format items list for email
+        const itemsList = order.items.map(item => `
+          <tr style="border-bottom: 1px solid #333333;">
+            <td style="padding: 10px 0;">${item.name}</td>
+            <td style="padding: 10px 0;">${item.quantity}</td>
+            <td style="padding: 10px 0;">NGN ${item.price}</td>
+            <td style="padding: 10px 0;">NGN ${item.price * item.quantity}</td>
+          </tr>
+        `).join('');
+
+        const sellerEmail = {
+          to: order.pickup_address.email,
+          from: 'Joseph From Auqli <joseph@auqli.com>',
+          subject: 'New Order Received - Auqli',
+          html: `
+            <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+              <div style="max-width: 600px; margin: 0 auto;">
+                <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+                <h1 style="color: #4CAF50; margin-bottom: 20px;">New Order Received!</h1>
+                <p style="font-size: 16px; line-height: 1.5;">Hello ${seller?.businessName || 'Seller'},</p>
+                <p style="font-size: 16px; line-height: 1.5;">You have received a new order (#${order._id}) from ${buyer?.firstName} ${buyer?.lastName}.</p>
+                
+                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Order Details:</h3>
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                      <tr style="border-bottom: 2px solid #4CAF50;">
+                        <th style="text-align: left; padding: 10px 0;">Item</th>
+                        <th style="text-align: left; padding: 10px 0;">Qty</th>
+                        <th style="text-align: left; padding: 10px 0;">Price</th>
+                        <th style="text-align: left; padding: 10px 0;">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${itemsList}
+                    </tbody>
+                  </table>
+                  <div style="margin-top: 20px; border-top: 1px solid #4CAF50; padding-top: 15px;">
+                    <p style="margin: 5px 0;">Subtotal: NGN ${order.totalAmount}</p>
+                    <p style="margin: 5px 0;">Shipping Fee: NGN ${order.shipping.fee}</p>
+                    <p style="margin: 5px 0; font-weight: bold; color: #4CAF50;">Total Amount: NGN ${order.totalAmount + order.shipping.fee}</p>
+                  </div>
+                </div>
+
+                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Delivery Information:</h3>
+                  <p style="margin: 5px 0;">Name: ${order.delivery_address.first_name} ${order.delivery_address.last_name}</p>
+                  <p style="margin: 5px 0;">Address: ${order.delivery_address.line1}</p>
+                  <p style="margin: 5px 0;">City: ${order.delivery_address.city}</p>
+                  <p style="margin: 5px 0;">State: ${order.delivery_address.state}</p>
+                  <p style="margin: 5px 0;">Phone: ${order.delivery_address.phone}</p>
+                </div>
+
+                <p style="font-size: 16px;">Please log in to your dashboard to process this order.</p>
+                <hr style="border: 1px solid #333333; margin: 30px 0;">
+                <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+              </div>
+            </div>
+          `
+        };
+
+        const buyerEmail = {
+          to: order.delivery_address.email,
+          from: 'Joseph From Auqli <joseph@auqli.com>',
+          subject: 'Order Confirmation - Auqli',
+          html: `
+            <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+              <div style="max-width: 600px; margin: 0 auto;">
+                <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+                <h1 style="color: #4CAF50; margin-bottom: 20px;">Thank You for Your Order!</h1>
+                <p style="font-size: 16px; line-height: 1.5;">Hello ${buyer?.firstName} ${buyer?.lastName},</p>
+                <p style="font-size: 16px; line-height: 1.5;">Your order (#${order._id}) has been received and is being processed by ${seller?.businessName}.</p>
+
+                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Order Summary:</h3>
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                      <tr style="border-bottom: 2px solid #4CAF50;">
+                        <th style="text-align: left; padding: 10px 0;">Item</th>
+                        <th style="text-align: left; padding: 10px 0;">Qty</th>
+                        <th style="text-align: left; padding: 10px 0;">Price</th>
+                        <th style="text-align: left; padding: 10px 0;">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${itemsList}
+                    </tbody>
+                  </table>
+                  <div style="margin-top: 20px; border-top: 1px solid #4CAF50; padding-top: 15px;">
+                    <p style="margin: 5px 0;">Subtotal: NGN ${order.totalAmount}</p>
+                    <p style="margin: 5px 0;">Shipping Fee: NGN ${order.shipping.fee}</p>
+                    <p style="margin: 5px 0; font-weight: bold; color: #4CAF50;">Total Amount: NGN ${order.totalAmount + order.shipping.fee}</p>
+                  </div>
+                </div>
+
+                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Shipping Information:</h3>
+                  <p style="margin: 5px 0;">Delivery Address: ${order.delivery_address.line1}</p>
+                  <p style="margin: 5px 0;">City: ${order.delivery_address.city}</p>
+                  <p style="margin: 5px 0;">State: ${order.delivery_address.state}</p>
+                  <p style="margin: 5px 0;">Shipping Method: ${order.shipping.method}</p>
+                  <p style="margin: 5px 0;">Tracking Number: ${order.shipping.tracking.number}</p>
+                </div>
+
+                <p style="font-size: 14px; color: #999999;">We'll notify you when your order ships.</p>
+                <hr style="border: 1px solid #333333; margin: 30px 0;">
+                <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+              </div>
+            </div>
+          `
+        };
+
+        try {
+          await Promise.all([
+            sgMail.send(sellerEmail),
+            sgMail.send(buyerEmail)
+          ]);
+        } catch (emailError) {
+          console.error('Error sending order notification emails:', emailError);
         }
       }
 
@@ -392,7 +520,7 @@ exports.markAsPaid = async (req, res) => {
     }
 
     // Validate carrier reference against stored shipping rates
-    const availableRates = req.session.availableShippingRates || [];
+    // const availableRates = req.session.availableShippingRates || [];
     // const selectedRate = availableRates.find(rate => 
     //   rate.carrier_reference === carrier_reference
     // );
@@ -427,6 +555,16 @@ exports.markAsPaid = async (req, res) => {
       currency: 'NGN'
     };
 
+    // Update sellers' wallet balances
+    for (const item of order.items) {
+      const seller = await Seller.findById(item.seller);
+      if (seller) {
+        // Add the item's price to seller's wallet (excluding shipping fee)
+        seller.walletBalance += item.price * item.quantity;
+        await seller.save();
+      }
+    }
+
     await order.save();
 
     // Create notification for seller
@@ -437,6 +575,81 @@ exports.markAsPaid = async (req, res) => {
     //   message: `Order #${order._id} has been paid`,
     //   reference: order._id
     // });
+
+    const seller = await Seller.findById(order.seller);
+    const buyer = await Buyer.findById(order.buyer);
+
+    const sellerPaidEmail = {
+      to: order.pickup_address.email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Payment Received for Order - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Payment Received!</h1>
+            <p style="font-size: 16px; line-height: 1.5;">Hello ${seller?.businessName || 'Seller'},</p>
+            <p style="font-size: 16px; line-height: 1.5;">Payment has been received for order #${order._id}.</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Payment Details:</h3>
+              <p style="margin: 5px 0;">Order Amount: NGN ${order.totalAmount}</p>
+              <p style="margin: 5px 0;">Shipping Fee: NGN ${order.shipping.fee.amount}</p>
+              <p style="margin: 5px 0;">Payment Method: ${order.paymentInfo.method}</p>
+              <p style="margin: 5px 0;">Payment Date: ${new Date().toLocaleDateString()}</p>
+            </div>
+
+            <p style="font-size: 16px;">Please proceed with processing this order.</p>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    const buyerPaidEmail = {
+      to: order.delivery_address.email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Payment Confirmed - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Payment Confirmed!</h1>
+            <p style="font-size: 16px; line-height: 1.5;">Hello ${buyer?.firstName} ${buyer?.lastName},</p>
+            <p style="font-size: 16px; line-height: 1.5;">Your payment for order #${order._id} has been confirmed.</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Payment Details:</h3>
+              <p style="margin: 5px 0;">Order Amount: NGN ${order.totalAmount}</p>
+              <p style="margin: 5px 0;">Shipping Fee: NGN ${order.shipping.fee.amount}</p>
+              <p style="margin: 5px 0;">Total Paid: NGN ${order.totalAmount + order.shipping.fee.amount}</p>
+              <p style="margin: 5px 0;">Payment Method: ${order.paymentInfo.method}</p>
+            </div>
+
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Next Steps:</h3>
+              <p style="margin: 5px 0;">1. ${seller?.businessName} will process your order</p>
+              <p style="margin: 5px 0;">2. You'll receive a notification when your order ships</p>
+              <p style="margin: 5px 0;">3. Track your order using the tracking number provided</p>
+            </div>
+
+            <p style="font-size: 14px; color: #999999;">Thank you for shopping with us!</p>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    try {
+      await Promise.all([
+        sgMail.send(sellerPaidEmail),
+        sgMail.send(buyerPaidEmail)
+      ]);
+    } catch (emailError) {
+      console.error('Error sending payment confirmation emails:', emailError);
+    }
 
     res.json({
       message: 'Order marked as paid successfully',
