@@ -348,7 +348,7 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// get rates from shipments
+// Get shipping rates for an order
 exports.getShippingRates = async (req, res) => {
   try {
     const { shipmentId } = req.params;
@@ -360,72 +360,83 @@ exports.getShippingRates = async (req, res) => {
       }
     });
 
-    if (!ratesResponse.data.status) {
-      throw new Error('Failed to fetch shipping rates');
-    }
+    // Store shipping rates in cache or session for validation during payment
+    // You might want to use Redis or another caching solution here
+    req.session.availableShippingRates = ratesResponse.data.data.map(rate => ({
+      carrier_reference: rate.carrier_reference,
+      amount: rate.amount,
+      carrier_name: rate.carrier_name,
+      carrier_logo: rate.carrier_logo
+    }));
 
-    res.json({
-      status: true,
-      message: 'Shipping rates retrieved successfully',
-      data: ratesResponse.data.data
-    });
+    res.json(ratesResponse.data);
 
   } catch (error) {
     console.error('Error fetching shipping rates:', error);
     res.status(500).json({
-      status: false,
       message: 'Failed to fetch shipping rates',
-      error: error.message
+      error: error.response?.data || error.message
     });
   }
 };
 
-// Mark order as paid and enable carrier
-exports.markOrderAsPaid = async (req, res) => {
+// Mark order as paid
+exports.markAsPaid = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { paymentMethod, carrierReference } = req.body;
+    const { amount, carrier_reference, shipping_fee, carrier_name } = req.body;
 
     const order = await Order.findById(orderId);
-
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Verify that the order belongs to the current user
-    if (order.buyer.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
+    // Validate carrier reference against stored shipping rates
+    const availableRates = req.session.availableShippingRates || [];
+    // const selectedRate = availableRates.find(rate => 
+    //   rate.carrier_reference === carrier_reference
+    // );
 
-    
+    // if (!selectedRate) {
+    //   return res.status(400).json({ 
+    //     message: 'Invalid carrier reference or shipping rate expired' 
+    //   });
+    // }
+
+    // // Validate shipping fee matches the rate
+    // if (selectedRate.amount !== shipping_fee) {
+    //   return res.status(400).json({ 
+    //     message: 'Shipping fee does not match the selected rate' 
+    //   });
+    // }
+
+    // Update order with payment and shipping information
+    order.paymentInfo.status = 'paid';
     order.paid = true;
-    order.paymentInfo = {
-      method: paymentMethod,
-      status: 'completed',
-      paidAt: new Date()
+    order.paymentInfo.amount = amount;
+    order.paymentInfo.paidAt = new Date();
+
+    // Update shipping information
+    order.shipping.carrier = {
+      name: carrier_name,
+      reference: carrier_reference,
+      // logo: selectedRate.carrier_logo
     };
-
-    // Enable carrier
-    if (carrierReference) {
-      const params = new URLSearchParams({
-        domestic: true,
-        international: false,
-        regional: false
-      });
-
-      const enableResponse = await terminalAPI.post(`/carriers/enable/${carrierReference}?${params.toString()}`);
-
-      if (!enableResponse.data.status) {
-        throw new Error('Failed to enable carrier');
-      }
-
-      order.shipping.carrier = carrierReference;
-      order.shipping.status = 'carrier_enabled';
-    }
+    order.shipping.fee = {
+      amount: shipping_fee,
+      currency: 'NGN'
+    };
 
     await order.save();
 
-    
+    // Create notification for seller
+    // await notificationController.createNotification({
+    //   recipient: order.seller,
+    //   type: 'ORDER_PAID',
+    //   title: 'New Order Payment',
+    //   message: `Order #${order._id} has been paid`,
+    //   reference: order._id
+    // });
 
     res.json({
       message: 'Order marked as paid successfully',

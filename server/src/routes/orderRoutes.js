@@ -318,12 +318,18 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *           schema:
  *             type: object
  *             required:
- *               - paymentMethod
- *               - carrierReference
+ *               - amount
+ *               - carrier_reference
+ *               - shipping_fee
+ *               - carrier_name
  *             properties:
- *               paymentMethod:
+ *               amount:
+ *                 type: number
+ *               carrier_reference:
  *                 type: string
- *               carrierReference:
+ *               shipping_fee:
+ *                 type: number
+ *               carrier_name:
  *                 type: string
  *     responses:
  *       200:
@@ -337,7 +343,7 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *       500:
  *         description: Server error
  */
-router.post('/:orderId/mark-paid', authMiddleware.verifyToken, orderController.markOrderAsPaid);
+router.post('/:orderId/mark-paid', authMiddleware.verifyToken, orderController.markAsPaid);
 
 
 

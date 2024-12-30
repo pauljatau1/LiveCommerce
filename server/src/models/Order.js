@@ -73,13 +73,19 @@ const orderSchema = new mongoose.Schema({
     method: {
       type: String,
       enum: ['standard', 'express', 'economy'],
-      default: 'standard',
-      required: true
+      default: 'standard'
+    },
+    carrier: {
+      name: String,
+      reference: String,
+      logo: String
     },
     fee: {
-      type: Number,
-      default: 0,
-      required: true
+      amount: Number,
+      currency: {
+        type: String,
+        default: 'NGN'
+      }
     },
     estimatedDeliveryDate: {
       type: Date,
@@ -114,12 +120,12 @@ const orderSchema = new mongoose.Schema({
   paymentInfo: {
     method: {
       type: String,
-      enum: ['credit_card', 'paypal', 'paystack'],
+   
       default: 'paystack'
     },
     status: {
       type: String,
-      enum: ['pending', 'processing', 'completed', 'failed', 'refunded'],
+      enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'paid'],
       default: 'pending'
     },
     transactionId: String,
@@ -183,24 +189,6 @@ orderSchema.pre('save', function(next) {
   next();
 });
 
-// Method to calculate total amount
-orderSchema.methods.calculateTotal = function() {
-  let total = 0;
-  this.items.forEach(item => {
-    total += item.price * item.quantity;
-  });
 
-  // Add shipping cost if exists
-  if (this.shipping && this.shipping.fee) {
-    total += this.shipping.fee;
-  }
-
-  // Subtract discount if exists
-  if (this.discount && this.discount.amount) {
-    total -= this.discount.amount;
-  }
-
-  return total;
-};
 
 module.exports = mongoose.model('Order', orderSchema);

@@ -81,5 +81,11 @@
 }
 
 
+mark as paid 
 
-JWT_REDACTED
+{
+  "amount": 10000,
+  "carrier_reference": "1234567890",
+  "shipping_fee": 1000,
+  "carrier_name": "DHL"
+}
