@@ -79,9 +79,9 @@ const OnboardingProvider = ({ children }) => {
                     onboardingProcess: accountType === 'business' ? 'business-onboarding' : 'individual-onboarding'
                 });
                 if (accountType === 'business') {
-                    navigate("/dashboard/business-onboarding")
+                    navigate("/business-onboarding")
                 } else {
-                    navigate("/dashboard/individual-onboarding")
+                    navigate("/individual-onboarding")
 
                 }
             }
@@ -129,7 +129,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-information-onboarding'
                 });
-                navigate('/dashboard/business-information-onboarding')
+                navigate('/business-information-onboarding')
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -218,7 +218,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-verification-onboarding'
                 });
-                navigate('/dashboard/business-verification-onboarding');
+                navigate('/business-verification-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -263,7 +263,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-bank-onboarding'
                 });
-                navigate('/dashboard/business-bank-onboarding');
+                navigate('/business-bank-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -301,7 +301,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-category-onboarding'
                 });
-                navigate('/dashboard/business-category-onboarding');
+                navigate('/business-category-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -342,7 +342,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'account-approval'
                 });
-                navigate('/dashboard/account-approval');
+                navigate('/account-approval');
             }
         } catch (error) {
             console.log(error);
@@ -415,7 +415,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'individual-verification-onboarding'
                 });
-                navigate('/dashboard/individual-verification-onboarding');
+                navigate('/individual-verification-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -460,7 +460,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'account-approval'
                 })
-                navigate('/dashboard/account-approval');
+                navigate('/account-approval');
             }
         } catch (error) {
             console.log(error);

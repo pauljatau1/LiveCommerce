@@ -13,9 +13,9 @@ const OnboardingRoute = ({children}) => {
         console.log(onboardingStep);
 
         if (onboardingStep === "" || onboardingStep === null || onboardingStep === undefined) {
-            navigate('/dashboard/onboarding', {replace: true})
+            navigate('/onboarding', {replace: true})
         } else if (onboardingStep === "business details") {
-            navigate('/dashboard/business-information-onboarding', {replace: true})
+            navigate('/business-information-onboarding', {replace: true})
         }
     }, [seller, navigate])
 
