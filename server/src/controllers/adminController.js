@@ -9,6 +9,7 @@ const cloudinary = require('cloudinary').v2;
 const Order = require('../models/Order');
 const Announcement = require('../models/Annoucement');
 const Withdrawal = require('../models/Withdrawal');
+
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
 const axios = require('axios');
@@ -726,146 +727,7 @@ exports.verifyBusinessAccount = async (req, res) => {
   }
 };
 
-// Create withdrawal request
-exports.createWithdrawalRequest = async (req, res) => {
-  try {
-    const { amount } = req.body;
-    const seller = await Seller.findById(req.user.id);
 
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    if (amount > seller.walletBalance) {
-      return res.status(400).json({ message: 'Insufficient wallet balance' });
-    }
-
-    const withdrawal = new Withdrawal({
-      seller: seller._id,
-      amount,
-      status: 'pending'
-    });
-
-    await withdrawal.save();
-
-    // Add to seller's withdrawRequests
-    seller.withdrawRequests.push(withdrawal._id);
-    await seller.save();
-
-    // Send email to admin
-    const adminMsg = {
-      to: process.env.ADMIN_EMAIL,
-      from: 'Auqli Admin <joseph@auqli.com>',
-      subject: 'New Withdrawal Request',
-      html: `
-        <h3>New Withdrawal Request</h3>
-        <p>Seller: ${seller.firstName} ${seller.lastName}</p>
-        <p>Business Name: ${seller.businessName}</p>
-        <p>Amount: $${amount}</p>
-        <p>Bank Details:</p>
-        <ul>
-          <li>Bank Name: ${seller.bankDetails.bankName}</li>
-          <li>Account Number: ${seller.bankDetails.accountNumber}</li>
-          <li>Account Name: ${seller.bankDetails.accountName}</li>
-        </ul>
-      `
-    };
-
-    await sgMail.send(adminMsg);
-
-    res.status(201).json({ 
-      message: 'Withdrawal request created successfully', 
-      withdrawal 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to create withdrawal request', 
-      error: error.message 
-    });
-  }
-};
-
-// Get seller's withdrawal requests
-exports.getSellerWithdrawals = async (req, res) => {
-  try {
-    const withdrawals = await Withdrawal.find({ seller: req.user.id })
-      .sort({ createdAt: -1 });
-
-    res.json(withdrawals);
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to fetch withdrawal requests', 
-      error: error.message 
-    });
-  }
-};
-
-// Admin: Get all withdrawal requests
-exports.getAllWithdrawals = async (req, res) => {
-  try {
-    const withdrawals = await Withdrawal.find()
-      .populate('seller', 'firstName lastName businessName email bankDetails')
-      .sort({ createdAt: -1 });
-
-    res.json(withdrawals);
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to fetch withdrawal requests', 
-      error: error.message 
-    });
-  }
-};
-
-// Admin: Update withdrawal status
-exports.updateWithdrawalStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const withdrawal = await Withdrawal.findById(id)
-      .populate('seller', 'firstName lastName email walletBalance');
-
-    if (!withdrawal) {
-      return res.status(404).json({ message: 'Withdrawal request not found' });
-    }
-
-    withdrawal.status = status;
-    if (status === 'completed') {
-      withdrawal.completedAt = Date.now();
-      
-      // Deduct amount from seller's wallet
-      const seller = withdrawal.seller;
-      seller.walletBalance -= withdrawal.amount;
-      await seller.save();
-
-      // Send email to seller
-      const sellerMsg = {
-        to: seller.email,
-        from: 'Auqli Admin <joseph@auqli.com>',
-        subject: 'Withdrawal Request Completed',
-        html: `
-          <h3>Withdrawal Request Completed</h3>
-          <p>Your withdrawal request for $${withdrawal.amount} has been processed and sent to your bank account.</p>
-          <p>New wallet balance: $${seller.walletBalance}</p>
-        `
-      };
-
-      await sgMail.send(sellerMsg);
-    }
-
-    await withdrawal.save();
-
-    res.json({ 
-      message: 'Withdrawal status updated successfully', 
-      withdrawal 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update withdrawal status', 
-      error: error.message 
-    });
-  }
-};
 
 // Get all orders with advanced filtering and search
 exports.getAllOrders = async (req, res) => {
@@ -1211,6 +1073,91 @@ exports.getPaystackTransactionLogs = async (req, res) => {
       message: 'Error fetching transaction logs', 
       error: error.message 
     });
+  }
+};
+
+// Get all withdrawals
+exports.getAllWithdrawals = async (req, res) => {
+  try {
+    const withdrawals = await Withdrawal.find()
+      .populate('seller', 'firstName lastName email storeName')
+      .sort({ requestDate: -1 });
+
+    res.json(withdrawals);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to fetch withdrawals', 
+      error: error.message 
+    });
+  }
+};
+
+// Update withdrawal status
+exports.updateWithdrawalStatus = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { withdrawalId } = req.params;
+    const { status, note } = req.body;
+
+    const withdrawal = await Withdrawal.findById(withdrawalId)
+      .populate('seller')
+      .session(session);
+
+    if (!withdrawal) {
+      return res.status(404).json({ message: 'Withdrawal request not found' });
+    }
+
+    withdrawal.status = status;
+    withdrawal.notes.push({
+      content: note || `Status updated to ${status}`,
+      addedBy: 'admin'
+    });
+
+    if (status === 'completed') {
+      withdrawal.processedDate = new Date();
+      
+      // Update seller's wallet balance
+      const seller = withdrawal.seller;
+      seller.walletBalance -= withdrawal.amount;
+      await seller.save({ session });
+    }
+
+    await withdrawal.save({ session });
+    await session.commitTransaction();
+
+    // Send email notification
+    const emailMsg = {
+      to: withdrawal.seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: 'Withdrawal Request Update',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Withdrawal Request Update</h2>
+          <p>Dear ${withdrawal.seller.firstName},</p>
+          <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been ${status}.</p>
+          <p>Amount: ${withdrawal.amount}</p>
+          ${note ? `<p>Note: ${note}</p>` : ''}
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    await sgMail.send(emailMsg);
+
+    res.json({ 
+      message: 'Withdrawal status updated successfully', 
+      withdrawal 
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ 
+      message: 'Failed to update withdrawal status', 
+      error: error.message 
+    });
+  } finally {
+    session.endSession();
   }
 };
 

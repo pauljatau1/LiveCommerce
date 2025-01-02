@@ -1554,6 +1554,67 @@ router.get('/top-sold-products',
   sellerController.getTopSoldProducts
 );
 
+/**
+ * @swagger
+ * /api/seller/withdrawals:
+ *   post:
+ *     summary: Create a withdrawal request
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *               bankDetails:
+ *                 type: object
+ *                 required: true
+ *                 properties:
+ *                   bankName:
+ *                     type: string
+ *                   accountNumber:
+ *                     type: string
+ *                   accountName:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Withdrawal request created successfully
+ *       400:
+ *         description: Invalid bank details or insufficient balance
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Server error while processing request
+ */
+router.post('/withdrawals', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.createWithdrawalRequest
+);
+
+/**
+ * @swagger
+ * /api/seller/withdrawals:
+ *   get:
+ *     summary: Get seller's withdrawal requests
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of withdrawal requests
+ */
+router.get('/withdrawals', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getWithdrawalRequests
+);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

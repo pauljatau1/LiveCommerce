@@ -913,4 +913,57 @@ router.put('/orders/:orderId',
   adminController.updateOrderManually
 );
 
+/**
+ * @swagger
+ * /api/admin/withdrawals:
+ *   get:
+ *     summary: Get all withdrawal requests
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all withdrawal requests
+ */
+router.get('/withdrawals', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  adminController.getAllWithdrawals
+);
+
+/**
+ * @swagger
+ * /api/admin/withdrawals/{withdrawalId}/status:
+ *   put:
+ *     summary: Update withdrawal status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: withdrawalId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Withdrawal status updated successfully
+ */
+router.put('/withdrawals/:withdrawalId/status',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.updateWithdrawalStatus
+);
+
 module.exports = router;

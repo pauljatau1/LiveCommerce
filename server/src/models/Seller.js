@@ -1,10 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-const withdrawMethodSchema = new mongoose.Schema({
-  method: { type: String, required: true },
-  details: { type: String, required: true },
-});
 
 const subCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -91,7 +87,7 @@ const sellerSchema = new mongoose.Schema({
   isFeatured: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },
   walletBalance: { type: Number, default: 0 },
-  withdrawRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Withdrawal' }],
+
   activityFeed: [{
     type: { type: String, enum: ['post', 'product_added', 'product_updated', 'follow', 'promotion'] },
     content: { type: String },

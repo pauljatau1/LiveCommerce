@@ -18,7 +18,8 @@ const conversationRoutes = require('./routes/conversationRoutes');
 const postRoutes = require('./routes/postRoutes');
 const publicRoutes = require('./routes/publicRoutes')
 const notificationRoutes = require('./routes/notificationRoutes');
-const withdrawalRoutes =  require('./routes/withdrawalRoutes')
+
+
 
 const webhookRoutes = require('./routes/webhookRoutes');
 const locationRoutes = require('./routes/locationRoutes');
@@ -67,7 +68,7 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/withdrawals', withdrawalRoutes);
+
 
 app.use('/webhooks', webhookRoutes);
 app.use('/api/locations', locationRoutes);
