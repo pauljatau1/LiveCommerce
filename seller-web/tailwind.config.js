@@ -16,7 +16,10 @@ export default {
   			],
   			cabin: [
   				'Cabin'
-  			]
+  			],
+			inter: [
+				'Inter'
+			]
   		},
   		height: {
   			screen: '100dvh'

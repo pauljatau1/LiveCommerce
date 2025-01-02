@@ -140,7 +140,6 @@ const router = createBrowserRouter([
           {
             path: 'home',
             element: <HomePage />,
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
             errorElement: <NotFoundPage />
           },
           {
@@ -205,6 +204,7 @@ const App = () => {
     <Suspense fallback={<Loader />}>
       <RouterProvider router={router} fallbackElement={<Loader />} />
       <ToastContainer />
+      <Toaster />
       <CookieConsent
         onAccept={handleConsentAccept}
         onDecline={() => console.log('Analytics declined')}
