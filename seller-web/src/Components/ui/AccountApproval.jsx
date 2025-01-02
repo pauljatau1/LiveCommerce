@@ -6,7 +6,7 @@ import { Crisp } from "crisp-sdk-web";
 import Icon from '../../assets/account-approval.png'
 
 const AccountApproval = () => {
-    const { seller, fetchSellerDetails } = useAuthContext();
+    const { seller, fetchSellerDetails, logout } = useAuthContext();
     const [isAccountApproved, setIsAccountApproved] = useState(false);
     const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1"
 
@@ -45,7 +45,10 @@ const AccountApproval = () => {
                     <img src={Icon} alt="Account Approved" className=' h-1/2' />
                     <h1 className='text-2xl lg:text-3xl text-center text-[#05031F] font-normal mt-4 mb-2 lg:mt-6 lg:mb-4'>Application In Review</h1>
                     <p className='text-base lg:text-2xl text-center text-[#05031F] font-normal mt-2 mb-4'>We have received your application, it would be reviewed by our support team and approved shortly.</p>
-                    <button onMouseOver={() => Crisp.message.show("text", "Can I help?!")} onClick={() => Crisp.chat.open()} className='bg-[#05031F] text-white text-sm lg:text-base px-8 lg:px-10 py-4 rounded-md mt-4 mb-2 lg:mt-6 lg:mb-4 hover:transform hover:scale-95 transition-all duration-300'>Contact Support</button>
+                    <div className='flex items-center justify-center gap-10 mt-20 lg:mt-14 '>
+                        <button onClick={logout} className='bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer '>Logout</button>
+                        <button onClick={() => Crisp.chat.open()} className='bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer '>Contact Support</button>
+                    </div>
                 </div>
             )}
         </div>

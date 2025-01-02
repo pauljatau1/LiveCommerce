@@ -145,13 +145,29 @@ const AuthProvider = ({ children }) => {
             if (response.status === 201) {
                 console.log(response);
                 dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
-                toast.success(response.data.message);
+                toast.success(response.data.message, {
+                    style: {
+                        backgroundColor: '#425466',
+                        color: '#F7FAFC',
+                        fontFamily: 'Inter',
+                        fontSize: '14px',
+                        fontWeight: '400',
+                    }
+                });
             }
 
         } catch (AxiosError) {
             console.log(AxiosError);
             dispatch({ type: 'SIGNUP_FAILED', payload: AxiosError.response.data.message });
-            toast.error(AxiosError.response.data.message)
+            toast.error(AxiosError.response.data.message, {
+                style: {
+                    backgroundColor: '#425466',
+                    color: '#F7FAFC',
+                    fontFamily: 'Inter',
+                    fontSize: '14px',
+                    fontWeight: '400',
+                }
+            })
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -171,6 +187,7 @@ const AuthProvider = ({ children }) => {
                 console.log(`otp: ${response}`);
                 dispatch({ type: 'VERIFY_OTP_SUCCESS' });
                 toast.success(response.data.message);
+                navigate('/', { replace: true });
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -324,6 +341,7 @@ const AuthProvider = ({ children }) => {
         Crisp.session.reset();
         console.log('logout successful')
         // Return a promise to ensure navigation happens after state updates
+        navigate('/', { replace: true });
         return Promise.resolve();
     };
 
