@@ -236,22 +236,7 @@ exports.getAllProducts = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit)
       .populate('seller', 'businessName storeName')
-      .select(`
-        name 
-        description 
-        price 
-        category 
-        subCategory 
-        images 
-        stock 
-        status 
-        visibility 
-        analytics 
-        soldCount 
-        createdAt 
-        returnPolicy
-        shippingInfo
-      `);
+      .select('-__v'); // Exclude version key if needed
 
     // Get total count for pagination
     const totalProducts = await Product.countDocuments(query);
@@ -323,33 +308,7 @@ exports.getProduct = async (req, res) => {
       {
         $project: {
           // Include all base fields
-          name: 1,
-          description: 1,
-          price: 1,
-          priceVariants: 1,
-          category: 1,
-          subCategory: 1,
-          brand: 1,
-          modelNumber: 1,
-          images: 1,
-          blips: 1,
-          stock: 1,
-          status: 1,
-          visibility: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          seo: 1,
-          specifications: 1,
-          features: 1,
-          dimensions: 1,
-          weight: 1,
-          materials: 1,
-          colors: 1,
-          sizes: 1,
-          shippingInfo: 1,
-          returnPolicy: 1,
-          warranty: 1,
-          tags: 1,
+          ...productSchema.obj, // Spread operator to include all fields from the schema
           
           // Seller information
           seller: {
@@ -516,6 +475,8 @@ exports.searchProducts = async (req, res) => {
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
         { category: { $regex: query, $options: 'i' } },
+        { subCategory: { $regex: query, $options: 'i' } },
+        { subSubCategory: { $regex: query, $options: 'i' } },
         { brand: { $regex: query, $options: 'i' } },
         { tags: { $regex: query, $options: 'i' } },
       ],
