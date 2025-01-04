@@ -102,7 +102,7 @@ function Customers() {
                         <TableCell>₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}</TableCell>
                         <TableCell>
                           <Link to={`/dashboard/customer/${follower.buyerId || follower._id}`}>
-                            <Button variant="outline" size="sm">
+                            <Button className="bg-transparent border border-[#05031F] text-[#05031F] px-4 xl:px-6 hover:bg-[#05031F] hover:text-white transition-all duration-300 ease-in-out" variant="outline" size="sm">
                               View
                             </Button>
                           </Link>

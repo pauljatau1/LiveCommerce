@@ -19,7 +19,10 @@ export default {
   			],
 			inter: [
 				'Inter'
-			]
+			],
+			lexendDeca: [
+				'Lexend Deca'
+			],
   		},
   		height: {
   			screen: '100dvh'
