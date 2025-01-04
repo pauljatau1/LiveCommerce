@@ -47,9 +47,9 @@ const OrdersTable = ({ orders }) => {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-[#F0F5F2] hover:bg-[#F0F5F2]">
-                            <TableHead className="text-sm lg:text-base font-cabin font-normal text-[#000000]">Order ID</TableHead>
+                            <TableHead className=" hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Order ID</TableHead>
                             <TableHead className="table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Quantity</TableHead>
-                            <TableHead className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Order Date</TableHead>
+                            <TableHead className=" text-sm lg:text-base font-cabin font-normal text-[#000000]">Order Date</TableHead>
                             <TableHead className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Price</TableHead>
                             <TableHead className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Payment</TableHead>
                             <TableHead className="text-sm lg:text-base font-cabin font-normal text-[#000000]">Status</TableHead>
@@ -61,12 +61,12 @@ const OrdersTable = ({ orders }) => {
                             orders.length > 0 ? (
                                 orders?.slice(0, 10).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((order) => (
                                     <TableRow key={order?._id}>
-                                        <TableCell className="text-sm lg:text-base font-cabin font-normal text-[#00000090]">
+                                        <TableCell className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#00000090]">
                                             <span className="block break-all max-w-[80px] md:max-w-[150px]" title={order?._id}>
                                                 {order?._id}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#00000090]">{getTotalProductQuantityOrdered(order)?.totalQuantity}</TableCell>
+                                        <TableCell className=" text-sm lg:text-base font-cabin font-normal text-[#00000090]">{getTotalProductQuantityOrdered(order)?.totalQuantity}</TableCell>
                                         <TableCell className="text-sm lg:text-base font-cabin font-normal text-[#00000090]">{order?.createdAt.split('T')[0]}</TableCell>
                                         <TableCell className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#00000090]">{order?.totalAmount.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}</TableCell>
                                         <TableCell className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#00000090]">{order?.paymentInfo?.status}</TableCell>
