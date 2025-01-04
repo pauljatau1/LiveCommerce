@@ -53,6 +53,7 @@
     "redux": "^5.0.1",
     "redux-thunk": "^3.1.0",
     "sonner": "^1.7.1",
+    "star-product-rating": "^1.0.12",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7"
   },

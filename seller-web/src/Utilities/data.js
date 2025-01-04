@@ -4,11 +4,13 @@ import cat3 from '../assets/cat3.png';
 import cat4 from '../assets/cat4.png';
 import check from '../assets/checkmark-circle-02.png';
 import ObjectID from 'bson-objectid';
-import Order1 from '../assets/order-pic1.png'
-import Order2 from '../assets/order-pic2.png'
-import Order3 from '../assets/order-pic3.png'
-import thumbnail1 from '../assets/sg-v1.png'
-import thumbnail2 from '../assets/sg-v2.png'
+import Order1 from '../assets/order-pic1.png';
+import Order2 from '../assets/order-pic2.png';
+import Order3 from '../assets/order-pic3.png';
+import Order4 from '../assets/order-pic-4.png';
+import Order5 from '../assets/order-pic-5.png';
+import thumbnail1 from '../assets/sg-v1.png';
+import thumbnail2 from '../assets/sg-v2.png';
 import thumbnail3 from '../assets/sg-v3.png';
 import ProductImage from '../assets/p-card.png';
 
@@ -466,6 +468,64 @@ export const marketingAdsData = [
             }
         ],
         available: true
+    },
+];
+
+export const customerLatestOrdersTempData = [
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        color: 'Orange Stripe',
+        isPaid: true,
+        isDelivered: true,
+        image: Order1,
+        price: 1000000,
+        quantity: 2,
+        total: 2000000
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        color: 'Orange Stripe',
+        isPaid: true,
+        isDelivered: true,
+        image: Order2,
+        price: 1000000,
+        quantity: 2,
+        total: 2000000
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        color: 'Orange Stripe',
+        isPaid: true,
+        isDelivered: true,
+        image: Order3,
+        price: 1000000,
+        quantity: 2,
+        total: 2000000
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        color: 'Orange Stripe',
+        isPaid: true,
+        isDelivered: true,
+        image: Order4,
+        price: 1000000,
+        quantity: 2,
+        total: 2000000
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Turtleneck Polo Long Sleeve',
+        color: 'Orange Stripe',
+        isPaid: true,
+        isDelivered: true,
+        image: Order5,
+        price: 1000000,
+        quantity: 2,
+        total: 2000000
     },
 ]
 
