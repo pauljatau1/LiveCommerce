@@ -608,7 +608,7 @@ router.get('/banners/category/:categoryId', authMiddleware.verifyToken, adminCon
  *       500:
  *         description: Internal server error
  */
-router.get('/orders', authMiddleware.verifyToken, adminController.getAllOrdersAdmin);
+router.get('/orders', authMiddleware.verifyToken, adminController.getAllOrders);
 
 /**
  * @swagger

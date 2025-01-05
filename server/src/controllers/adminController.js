@@ -732,55 +732,35 @@ exports.verifyBusinessAccount = async (req, res) => {
 // Get all orders with advanced filtering and search
 exports.getAllOrders = async (req, res) => {
   try {
-    const {
-      status,
-      startDate,
-      endDate,
-      sellerId,
-      buyerId,
-      minAmount,
-      maxAmount,
-      page = 1,
-      limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
+    const skip = (page - 1) * limit;
 
-    const query = {};
-
-    // Apply filters
-    if (status) query['items.status'] = status;
-    if (sellerId) query['items.seller'] = sellerId;
-    if (buyerId) query.buyer = buyerId;
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-    if (minAmount || maxAmount) {
-      query.totalAmount = {};
-      if (minAmount) query.totalAmount.$gte = Number(minAmount);
-      if (maxAmount) query.totalAmount.$lte = Number(maxAmount);
-    }
+    // Build query based on status filter
+    const query = status ? { 'items.status': status } : {};
 
     const orders = await Order.find(query)
       .populate('buyer', 'firstName lastName email phoneNumber')
-      .populate('items.seller', 'firstName lastName businessName email')
-      .populate('items.product', 'name price')
-      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+      .populate('seller', 'firstName lastName storeName email')
+      .populate('items.product', 'name price images')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
 
     const total = await Order.countDocuments(query);
 
     res.json({
       orders,
+      currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
-      currentPage: Number(page),
       totalOrders: total
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+    console.error('Error retrieving orders:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve orders',
+      error: error.message
+    });
   }
 };
 
