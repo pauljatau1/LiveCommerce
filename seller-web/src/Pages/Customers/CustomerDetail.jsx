@@ -14,7 +14,8 @@ import { customerLatestOrdersTempData } from "@/Utilities/data";
 import Loader from "@/Components/Loader";
 import AlertNotification from "@/Components/ui/AlertNotification";
 import CustomerOrdersCard from "@/Components/CustomerOrdersCard";
-import NotFoundIcon from '@/assets/not-found-icon.png'
+import NotFoundIcon from '@/assets/not-found-icon.png';
+import LinearProgress from '@mui/material/LinearProgress';
 
 function CustomerDetail() {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
@@ -72,7 +73,11 @@ function CustomerDetail() {
   console.log('customerData', customerData)
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen"><Loader /></div>
+    return <div className="flex flex-col justify-center items-center h-[80dvh]">
+      <div className="w-1/4">
+        <LinearProgress color="success" />
+      </div>
+    </div>
   }
 
   if (!customerData) {
@@ -238,7 +243,7 @@ function CustomerDetail() {
             <Card className="bg-[#F7F7F7] border border-[#00000042] rounded-lg">
               <div className="p-6 divide-y divide-[#00000042]">
                 <div className="flex items-center gap-2 mb-5 ">
-                  <Icon icon="solar:cup-outline" width="512" height="512"  className="w-4 h-4 xl:w-6 xl:h-6" />
+                  <Icon icon="solar:cup-outline" width="512" height="512" className="w-4 h-4 xl:w-6 xl:h-6" />
                   <h2 className="text-lg xl:text-xl font-lexend font-bold">Top Products Purchased</h2>
                 </div>
                 <div className="space-y-4">

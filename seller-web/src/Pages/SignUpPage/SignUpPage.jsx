@@ -17,7 +17,7 @@ import 'react-phone-input-2/lib/style.css';
 const SignUpPage = () => {
   const navigate = useNavigate();
   const { createSeller, isLoading, seller, otpStatus, verifyOtp, requestNewOtp } = useAuthContext();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(true);
   const [otpCount, setOtpCount] = useState(0);
   const [otp, setOtp] = useState('');
   const [activateOtp, setActivateOtp] = useState(false);
@@ -104,176 +104,215 @@ const SignUpPage = () => {
   };
 
   return (
-    <div className='relative xl:flex' >
-      <img src={SignupImage} alt="signup2" className='xl:hidden fixed inset-0 w-full h-screen object-cover object-center' />
-      <img src={SignupImage} alt="SignUp" className='w-[414.614px] xl:w-1/2  min-h-screen object-cover object-center hidden xl:block  ' />
-      <div className="hidden xl:fixed inset-x-0 xl:inset-auto xl:px-6 xl:flex flex-col z-10 justify-center items-center xl:items-start xl:justify-start xl:space-y-[300px] pt-5" >
-        <img src={Logo} alt="Logo" className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px] ' />
-        <h1 className=' hidden xl:block text-2xl 2xl:text-4xl font-bold text-center text-[#FFFFFF] xl:text-left xl:max-w-[500px] ' >I see you’re a first timer here.</h1>
-      </div>
-      <div className=" xl:static absolute inset-x-0 top-5 xl:inset-auto xl:flex flex-col z-10 items-center py-5 px-5 md:px-10 xl:w-1/2 " >
-        <div className="mb-5 xl:hidden flex justify-center items-center" >
-          <img src={Logo} alt="Logo" className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px] ' />
-        </div>
-        <div className=" bg-[#F7FAFC] p-5 md:p-10 rounded-lg w-full " >
-          <h1 className='text-xl md:text-3xl font-semibold font-inter text-center' >Create your account</h1>
-          <p className='text-sm md:text-base font-inter text-center' >It's free and easy</p>
-          <form action="" className="w-full h-full mt-8" >
-            <div className="flex flex-col md:flex-row gap-4 w-full mb-4 " >
-              <div className="flex flex-col gap-2 w-full " >
-                <label htmlFor="firstName" className='text-sm md:text-base font-inter text-[#425466] ' >First Name</label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
-                  placeholder='Enter your first name'
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className='w-full h-12 rounded-md border border-gray-300 p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm' />
-              </div>
-              <div className="flex flex-col gap-2 w-full" >
-                <label htmlFor="lastName" className='text-sm md:text-base font-inter text-[#425466] ' >Last Name</label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
-                  placeholder='Enter your last name'
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className='w-full h-12 rounded-md border border-gray-300 p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm' />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 w-full mb-4" >
-              <label htmlFor="email" className='text-sm md:text-base font-inter text-[#425466] ' >Email</label>
-              <input
-                type="text"
-                id="email"
-                name="email"
-                value={formData.email}
-                placeholder='Enter your email'
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className='w-full h-12 rounded-md border border-gray-300 p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm' />
-            </div>
-            <div className="flex flex-col gap-2 w-full mb-4" >
-              <label htmlFor="phoneNumber" className='text-sm md:text-base font-inter text-[#425466]'>Phone Number</label>
-              <PhoneInput
-                country={'ng'}
-                value={formData.phoneNumber}
-                onChange={(phone) => setFormData({ ...formData, phoneNumber: phone })}
-                inputStyle={{
-                  width: '100%',
-                  height: '48px',
-                  fontSize: '14px',
-                  borderRadius: '6px',
-                  border: '1px solid #E2E8F0',
-                  backgroundColor: 'white'
-                }}
-                containerStyle={{
-                  width: '100%'
-                }}
-                inputClass="focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
-              />
-            </div>
-            <div className="flex flex-col gap-2 w-full mb-4" >
-              <label htmlFor="password" className='text-sm md:text-base font-inter text-[#425466]'>Password</label>
-              <div className="relative">
-                <input
-                  type={formData.showPassword ? "text" : "password"}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  placeholder='Enter your password'
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className='w-full h-12 rounded-md border border-gray-300 p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm'
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, showPassword: !formData.showPassword })}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  <Icon icon={formData.showPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 w-full mb-4" >
-              <label htmlFor="confirmPassword" className='text-sm md:text-base font-inter text-[#425466]'>Confirm Password</label>
-              <div className="relative">
-                <input
-                  type={formData.showConfirmPassword ? "text" : "password"}
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  placeholder='Enter your password'
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className='w-full h-12 rounded-md border border-gray-300 p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm'
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, showConfirmPassword: !formData.showConfirmPassword })}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  <Icon icon={formData.showConfirmPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
-                </button>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 mb-6">
-              <input
-                type="checkbox"
-                id="terms"
-                className="mt-1"
-              />
-              <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
-                By creating an account means you agree to the{' '}
-                <Link className="text-[#425466] font-bold hover:underline">
-                  Terms and Conditions
-                </Link>
-                , and our{' '}
-                <Link className="text-[#425466] font-bold hover:underline">
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
+    <div className="relative h-screen xl:flex">
+      {/* Mobile/Tablet Background Image */}
+      <img
+        src={SignupImage}
+        alt="signup2"
+        className='xl:hidden fixed inset-0 w-full h-screen object-cover object-center'
+      />
 
-            <button
-              type="submit"
-              onClick={submitUserData}
-              className="w-full bg-[#0BB248] text-white font-semibold text-sm md:text-base font-inter py-3 rounded-md hover:bg-green-600 transition-colors mb-4"
-            >
-              {
-                isLoading ? <CircularProgress color="#FFFFFF" size={20} /> : "Register"
-              }
-            </button>
-
-            <div className="text-center mb-4">
-              <span className="text-sm text-gray-500">or</span>{' '}
-              <Link to="/" className="text-[#0BB248] font-inter text-sm md:text-base font-bold hover:underline">
-                Sign In
-              </Link>
+      {/* Desktop Left Section with Container */}
+      <div className="hidden xl:block xl:w-1/2 min-h-screen relative  overflow-hidden">
+        <img
+          src={SignupImage}
+          alt="SignUp"
+          className='absolute inset-0 w-full h-full object-cover object-center'
+        />
+        <div className="container mx-auto relative h-full px-12">
+          <div className="flex flex-col h-full gap-32 py-8">
+            <img
+              src={Logo}
+              alt="Logo"
+              className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px]'
+            />
+            <div>
+              <h1 className='text-4xl font-bold text-white max-w-[500px] mb-20'>
+                I see you're a first timer here.
+              </h1>
+              <p className='text-white max-w-[450px] text-lg'>
+                Maybe some text here will help me see it better. Oh God. Oke, let&apos;s do it then.
+              </p>
             </div>
-            <div className="flex justify-center gap-4">
-              <button
-                type="button"
-                className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
-              >
-                <img src="https://cdn.cdnlogo.com/logos/g/35/google-icon.svg" alt="Google" className="w-6 h-6" />
-              </button>
-              <button
-                type="button"
-                className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
-              >
-                <img src="https://cdn.cdnlogo.com/logos/a/12/apple.svg" alt="Apple" className="w-6 h-6" />
-              </button>
-              <button
-                type="button"
-                className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
-              >
-                <img src="https://cdn.cdnlogo.com/logos/f/91/facebook-icon.svg" alt="Facebook" className="w-6 h-6" />
-              </button>
-            </div>
-          </form>
-
+          </div>
         </div>
       </div>
+
+      {/* Right Section */}
+      <div className="xl:static absolute inset-x-0 min-h-screen xl:w-1/2 flex flex-col z-10 overflow-y-auto">
+        {/* Mobile Logo */}
+        <div className="mb-5 xl:hidden flex justify-center items-center pt-5">
+          <img
+            src={Logo}
+            alt="Logo"
+            className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px]'
+          />
+        </div>
+
+        {/* Form Section */}
+        <div className="flex-1 flex items-center justify-center px-5 md:px-10 py-8">
+          <div className="bg-[#F7FAFC] p-5 md:py-12 md:px-16 xl:py-10 xl:px-24 rounded-lg w-full xl:container xl:max-w-[680px]">
+            <div className="text-center mb-8">
+              <h2 className="text-xl md:text-3xl font-semibold font-inter">Create your account</h2>
+              <p className="text-sm md:text-base font-inter">It's free and easy</p>
+            </div>
+
+            <form onSubmit={submitUserData} className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-4 w-full mb-4 " >
+                <div className="flex flex-col gap-2 w-full " >
+                  <label htmlFor="firstName" className='text-sm md:text-base font-inter text-[#425466] ' >First Name</label>
+                  <input
+                    type="text"
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
+                    placeholder='Enter your first name'
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+                </div>
+                <div className="flex flex-col gap-2 w-full" >
+                  <label htmlFor="lastName" className='text-sm md:text-base font-inter text-[#425466] ' >Last Name</label>
+                  <input
+                    type="text"
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    placeholder='Enter your last name'
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 w-full mb-4" >
+                <label htmlFor="email" className='text-sm md:text-base font-inter text-[#425466] ' >Email</label>
+                <input
+                  type="text"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  placeholder='Enter your email'
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+              </div>
+              <div className="flex flex-col gap-2 w-full mb-4" >
+                <label htmlFor="phoneNumber" className='text-sm md:text-base font-inter text-[#425466]'>Phone Number</label>
+                <PhoneInput
+                  country={'ng'}
+                  value={formData.phoneNumber}
+                  onChange={(phone) => setFormData({ ...formData, phoneNumber: phone })}
+                  inputStyle={{
+                    width: '100%',
+                    height: '48px',
+                    fontSize: '14px',
+                    borderRadius: '6px',
+                    border: 'transparent',
+                    backgroundColor: 'white'
+                  }}
+                  containerStyle={{
+                    width: '100%'
+                  }}
+                  inputClass="focus:outline-none bg-[#FFFFFF] shadow-md shadow-[#32324714] focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-2 w-full mb-4" >
+                <label htmlFor="password" className='text-sm md:text-base font-inter text-[#425466]'>Password</label>
+                <div className="relative">
+                  <input
+                    type={formData.showPassword ? "text" : "password"}
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    placeholder='Enter your password'
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, showPassword: !formData.showPassword })}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    <Icon icon={formData.showPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 w-full mb-4" >
+                <label htmlFor="confirmPassword" className='text-sm md:text-base font-inter text-[#425466]'>Confirm Password</label>
+                <div className="relative">
+                  <input
+                    type={formData.showConfirmPassword ? "text" : "password"}
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    placeholder='Enter your password'
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, showConfirmPassword: !formData.showConfirmPassword })}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    <Icon icon={formData.showConfirmPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 mb-6">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  className="mt-1"
+                />
+                <label htmlFor="terms" className="text-sm text-[#425466] font-inter">
+                  By creating an account means you agree to the{' '}
+                  <Link className="text-[#425466] font-bold hover:underline">
+                    Terms and Conditions
+                  </Link>
+                  , and our{' '}
+                  <Link className="text-[#425466] font-bold hover:underline">
+                    Privacy Policy
+                  </Link>
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-[#0BB248] text-white font-semibold text-sm md:text-base font-inter py-3 rounded-md hover:bg-green-600 transition-colors mb-4"
+              >
+                {
+                  isLoading ? <CircularProgress color="#FFFFFF" size={20} /> : "Register"
+                }
+              </button>
+
+              <div className="text-center mb-4">
+                <span className="text-sm text-gray-500">or</span>{' '}
+                <Link to="/" className="text-[#0BB248] font-inter text-sm md:text-base font-bold hover:underline">
+                  Sign In
+                </Link>
+              </div>
+              <div className="flex justify-center gap-4">
+                <button
+                  type="button"
+                  className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
+                >
+                  <img src="https://cdn.cdnlogo.com/logos/g/35/google-icon.svg" alt="Google" className="w-6 h-6" />
+                </button>
+                <button
+                  type="button"
+                  className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
+                >
+                  <img src="https://cdn.cdnlogo.com/logos/a/12/apple.svg" alt="Apple" className="w-6 h-6" />
+                </button>
+                <button
+                  type="button"
+                  className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
+                >
+                  <img src="https://cdn.cdnlogo.com/logos/f/91/facebook-icon.svg" alt="Facebook" className="w-6 h-6" />
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       {
         isModalOpen && (
           <Modal>
@@ -328,7 +367,6 @@ const SignUpPage = () => {
           </Modal>
         )
       }
-
     </div>
   )
 }
