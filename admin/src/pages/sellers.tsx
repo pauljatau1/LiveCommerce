@@ -205,121 +205,127 @@ function Sellers() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <div>
         <h2 className="text-3xl font-bold text-white">Sellers</h2>
         <p className="text-muted-foreground">Manage your platform sellers</p>
       </div>
 
-      <Card className="p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Seller</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Verification</TableHead>
-              <TableHead>Featured</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Join Date</TableHead>
-              <TableHead>Documents</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sellers.map((seller) => (
-              <TableRow key={seller._id}>
-                <TableCell className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={seller.storeAvatar?.url} />
-                    <AvatarFallback>{getDisplayName(seller).charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">{getDisplayName(seller)}</div>
-                    <div className="text-sm text-muted-foreground">{seller.email}</div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {seller.accountType || "N/A"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant={seller.isVerified ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleVerification(seller._id)}
-                    disabled={updatingId === seller._id}
-                  >
-                    {updatingId === seller._id ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : null}
-                    {seller.isVerified ? "Verified" : "Verify"}
-                  </Button>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant={seller.isFeatured ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleFeature(seller._id)}
-                    disabled={updatingId === seller._id}
-                  >
-                    {updatingId === seller._id ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : null}
-                    {seller.isFeatured ? "Featured" : "Feature"}
-                  </Button>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant={seller.isDisabled ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={() => toggleDisabled(seller._id, !!seller.isDisabled)}
-                    disabled={updatingId === seller._id}
-                  >
-                    {updatingId === seller._id ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : null}
-                    {seller.isDisabled ? "Disabled" : "Active"}
-                  </Button>
-                </TableCell>
-                <TableCell>{formatDate(seller.createdAt)}</TableCell>
-                <TableCell>
-                  {seller.verificationDocuments?.documents?.length ? (
-                    <div className="flex gap-2">
-                      {seller.verificationDocuments.documents.map((doc) => (
-                        <Button
-                          key={doc._id}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(doc.fileUrl, "_blank")}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          {doc.documentType}
-                        </Button>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">
-                      No documents
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowModal(true);
-                    }}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </TableCell>
+      <Card className="p-4 overflow-auto">
+        <div className="min-w-[1000px]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[250px]">Seller</TableHead>
+                <TableHead className="w-[100px]">Type</TableHead>
+                <TableHead className="w-[120px]">Verification</TableHead>
+                <TableHead className="w-[120px]">Featured</TableHead>
+                <TableHead className="w-[120px]">Status</TableHead>
+                <TableHead className="w-[120px]">Join Date</TableHead>
+                <TableHead className="w-[200px]">Documents</TableHead>
+                <TableHead className="w-[80px]">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sellers.map((seller) => (
+                <TableRow key={seller._id}>
+                  <TableCell className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarImage src={seller.storeAvatar?.url} />
+                      <AvatarFallback>{getDisplayName(seller).charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{getDisplayName(seller)}</div>
+                      <div className="text-sm text-muted-foreground truncate">{seller.email}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="whitespace-nowrap">
+                      {seller.accountType || "N/A"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant={seller.isVerified ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleVerification(seller._id)}
+                      disabled={updatingId === seller._id}
+                      className="w-full"
+                    >
+                      {updatingId === seller._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : null}
+                      {seller.isVerified ? "Verified" : "Verify"}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant={seller.isFeatured ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleFeature(seller._id)}
+                      disabled={updatingId === seller._id}
+                      className="w-full"
+                    >
+                      {updatingId === seller._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : null}
+                      {seller.isFeatured ? "Featured" : "Feature"}
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant={seller.isDisabled ? "destructive" : "outline"}
+                      size="sm"
+                      onClick={() => toggleDisabled(seller._id, !!seller.isDisabled)}
+                      disabled={updatingId === seller._id}
+                      className="w-full"
+                    >
+                      {updatingId === seller._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : null}
+                      {seller.isDisabled ? "Disabled" : "Active"}
+                    </Button>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDate(seller.createdAt)}</TableCell>
+                  <TableCell>
+                    {seller.verificationDocuments?.documents?.length ? (
+                      <div className="flex gap-2 flex-wrap">
+                        {seller.verificationDocuments.documents.map((doc) => (
+                          <Button
+                            key={doc._id}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(doc.fileUrl, "_blank")}
+                            className="whitespace-nowrap"
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            {doc.documentType}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">
+                        No documents
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedSeller(seller);
+                        setShowModal(true);
+                      }}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
@@ -333,7 +339,7 @@ function Sellers() {
           
           {selectedSeller && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-zinc-900 p-4 rounded-lg">
                   <h3 className="font-semibold mb-4 flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
@@ -341,20 +347,24 @@ function Sellers() {
                   </h3>
                   <div className="space-y-2">
                     <p className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-zinc-400" />
-                      <span className="text-zinc-400">Business Name:</span> {selectedSeller.businessName}
+                      <Building2 className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                      <span className="text-zinc-400">Business Name:</span> 
+                      <span className="truncate">{selectedSeller.businessName}</span>
                     </p>
                     <p className="flex items-center gap-2">
-                      <Tags className="h-4 w-4 text-zinc-400" />
-                      <span className="text-zinc-400">Business Type:</span> {selectedSeller.businessType}
+                      <Tags className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                      <span className="text-zinc-400">Business Type:</span> 
+                      <span className="truncate">{selectedSeller.businessType}</span>
                     </p>
                     <p className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-zinc-400" />
-                      <span className="text-zinc-400">Business Email:</span> {selectedSeller.businessEmail}
+                      <Mail className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                      <span className="text-zinc-400">Business Email:</span> 
+                      <span className="truncate">{selectedSeller.businessEmail}</span>
                     </p>
                     <p className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-zinc-400" />
-                      <span className="text-zinc-400">Business Phone:</span> {selectedSeller.businessNumber}
+                      <Phone className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                      <span className="text-zinc-400">Business Phone:</span> 
+                      <span className="truncate">{selectedSeller.businessNumber}</span>
                     </p>
                   </div>
                 </div>
@@ -384,9 +394,9 @@ function Sellers() {
                     Business Address
                   </h3>
                   <div className="space-y-2 text-zinc-300">
-                    <p>{selectedSeller.businessAddress.addressLine1}</p>
+                    <p className="break-words">{selectedSeller.businessAddress.addressLine1}</p>
                     {selectedSeller.businessAddress.addressLine2 && (
-                      <p>{selectedSeller.businessAddress.addressLine2}</p>
+                      <p className="break-words">{selectedSeller.businessAddress.addressLine2}</p>
                     )}
                     <p>
                       {selectedSeller.businessAddress.city}, {selectedSeller.businessAddress.state}

@@ -15,52 +15,76 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useEffect, useState, useMemo } from "react"
+import { api } from "@/api/axios"
 
-// Sample orders data
-const orders = [
-  {
-    id: "ORD001",
-    customer: "John Doe",
-    product: "Gaming Laptop",
-    amount: "$1,299.99",
-    status: "Completed",
-    date: "2024-03-15",
-    items: 1,
-    shipping: "Express"
-  },
-  {
-    id: "ORD002", 
-    customer: "Jane Smith",
-    product: "Smartphone",
-    amount: "$899.99", 
-    status: "Processing",
-    date: "2024-03-14",
-    items: 2,
-    shipping: "Standard"
-  },
-  {
-    id: "ORD003",
-    customer: "Bob Johnson",
-    product: "Headphones",
-    amount: "$199.99",
-    status: "Pending",
-    date: "2024-03-14", 
-    items: 1,
-    shipping: "Standard"
-  },
-  {
-    id: "ORD004",
-    customer: "Alice Brown", 
-    product: "Smart Watch",
-    amount: "$299.99",
-    status: "Completed",
-    date: "2024-03-13",
-    items: 3,
-    shipping: "Express"
-  },
-]
+// Define TypeScript interfaces
+interface Order {
+  _id: string
+  buyer: {
+    firstName: string
+    lastName: string
+  }
+  items: {
+    product: {
+      name: string
+    }
+    quantity: number
+    price: number
+  }[]
+  totalAmount: number
+  shipping: {
+    method: string
+    tracking: {
+      status: string
+    }
+  }
+  createdAt: string
+  paymentInfo: {
+    status: string
+  }
+}
+
+interface OrdersResponse {
+  orders: Order[]
+  currentPage: number
+  totalPages: number
+  totalOrders: number
+}
 
 function Orders() {
+  const [ordersData, setOrdersData] = useState<OrdersResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Calculate total revenue from paid orders using useMemo
+  const totalRevenue = useMemo(() => {
+    return ordersData?.orders
+      ?.filter(order => order.paymentInfo?.status === 'paid')
+      ?.reduce((sum, order) => sum + (order.totalAmount || 0), 0) || 0
+  }, [ordersData?.orders])
+
+  // Calculate pending orders count using useMemo
+  const pendingOrders = useMemo(() => {
+    return ordersData?.orders
+      ?.filter(order => order.paymentInfo?.status === 'pending')
+      ?.length || 0
+  }, [ordersData?.orders])
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const response = await api.get('/api/admin/orders?page=1&limit=100')
+        setOrdersData(response.data)
+      } catch (error) {
+        console.error('Error fetching orders:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrders()
+  }, [])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -89,7 +113,7 @@ function Orders() {
             </div>
             <div>
               <p className="text-muted-foreground text-sm">Total Orders</p>
-              <h3 className="text-2xl font-bold">1,789</h3>
+              <h3 className="text-2xl font-bold">{ordersData?.totalOrders || 0}</h3>
             </div>
           </div>
         </Card>
@@ -101,7 +125,7 @@ function Orders() {
             </div>
             <div>
               <p className="text-muted-foreground text-sm">Pending Orders</p>
-              <h3 className="text-2xl font-bold">23</h3>
+              <h3 className="text-2xl font-bold">{pendingOrders}</h3>
             </div>
           </div>
         </Card>
@@ -113,7 +137,7 @@ function Orders() {
             </div>
             <div>
               <p className="text-muted-foreground text-sm">Total Revenue</p>
-              <h3 className="text-2xl font-bold">$45,231.89</h3>
+              <h3 className="text-2xl font-bold">₦{totalRevenue.toLocaleString()}</h3>
             </div>
           </div>
         </Card>
@@ -135,32 +159,48 @@ function Orders() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell>{order.id}</TableCell>
-                <TableCell>{order.customer}</TableCell>
-                <TableCell>{order.items}</TableCell>
-                <TableCell>{order.amount}</TableCell>
-                <TableCell>{order.shipping}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    order.status === 'Completed' 
-                      ? 'bg-green-100 text-green-800' 
-                      : order.status === 'Processing'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {order.status}
-                  </span>
-                </TableCell>
-                <TableCell>{order.date}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </TableCell>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
               </TableRow>
-            ))}
+            ) : ordersData?.orders && ordersData.orders.length > 0 ? (
+              ordersData.orders.map((order) => (
+                <TableRow key={order._id}>
+                  <TableCell>{order._id}</TableCell>
+                  <TableCell>
+                    {order.buyer ? `${order?.buyer?.firstName} ${order?.buyer?.lastName}` : 'N/A'}
+                  </TableCell>
+                  <TableCell>
+                    {order.items ? order.items.reduce((acc, item) => acc + item.quantity, 0) : 0}
+                  </TableCell>
+                  <TableCell>₦{order.totalAmount?.toLocaleString() || '0'}</TableCell>
+                  <TableCell>{order.shipping?.method || 'N/A'}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      order.paymentInfo?.status === 'paid' 
+                        ? 'bg-green-100 text-green-800' 
+                        : order.paymentInfo?.status === 'processing'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {order.paymentInfo?.status || 'pending'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center">No orders found</TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>

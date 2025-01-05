@@ -18,207 +18,51 @@ import {
     TableRow,
   } from "@/components/ui/table";
 import { useAuth } from "@/context/authContext";
-  
-  // Static data for recent orders
-  const recentOrders = [
-    {
-      id: "ORD001",
-      customer: "John Doe",
-      seller: "TechStore",
-      product: "Gaming Laptop",
-      amount: "₦599,999",
-      status: "Completed",
-      date: "2024-03-15",
-    },
-    {
-      id: "ORD002", 
-      customer: "Jane Smith",
-      seller: "MobileWorld",
-      product: "iPhone 15",
-      amount: "₦899,999",
-      status: "Processing",
-      date: "2024-03-14",
-    },
-    {
-      id: "ORD003",
-      customer: "Bob Johnson",
-      seller: "AudioHub",
-      product: "Sony WH-1000XM4",
-      amount: "₦199,999",
-      status: "Pending",
-      date: "2024-03-14",
-    },
-    {
-      id: "ORD004",
-      customer: "Alice Brown",
-      seller: "WearableTech",
-      product: "Apple Watch",
-      amount: "₦299,999",
-      status: "Completed",
-      date: "2024-03-13",
-    },
-  ];
+import { useEffect, useState } from "react";
+import { api } from "@/api/axios";
 
-  // Static data for top sellers
-  const topSellers = [
-    {
-      name: "TechStore",
-      orders: 245,
-      revenue: "₦12,500,000",
-      products: 89,
-      rating: 4.8
-    },
-    {
-      name: "MobileWorld",
-      orders: 198,
-      revenue: "₦9,800,000",
-      products: 45,
-      rating: 4.6
-    },
-    {
-      name: "FashionHub",
-      orders: 156,
-      revenue: "₦5,400,000",
-      products: 234,
-      rating: 4.7
-    }
-  ];
+// Add interfaces for the API data
+interface DashboardSeller {
+  _id: string;
+  businessName?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  isVerified: boolean;
+  isFeatured: boolean;
+  walletBalance: number;
+  storeVisits: number;
+}
 
-  // Static data for withdrawal requests
-  const withdrawalRequests = [
-    {
-      seller: "TechStore",
-      amount: "₦5,500,000",
-      requestDate: "2024-03-15",
-      status: "Pending",
-      accountDetails: "GTBank ****4589"
-    },
-    {
-      seller: "MobileWorld", 
-      amount: "₦3,200,000",
-      requestDate: "2024-03-15",
-      status: "Processing",
-      accountDetails: "FirstBank ****7823"
-    },
-    {
-      seller: "FashionHub",
-      amount: "₦2,800,000", 
-      requestDate: "2024-03-14",
-      status: "Pending",
-      accountDetails: "UBA ****1234"
-    }
-  ];
+interface DashboardBuyer {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  isIdentityVerified: boolean;
+}
 
-  // Static data for top streaming sellers
-  const topStreamingSellers = [
-    {
-      name: "TechStore Live",
-      totalStreams: 156,
-      totalViewers: 25600,
-      interactions: 45800,
-      avgStreamDuration: "2.5 hrs",
-      lastStream: "2024-03-15",
-      revenue: "₦8,500,000"
-    },
-    {
-      name: "FashionHub Stream",
-      totalStreams: 142,
-      totalViewers: 18900,
-      interactions: 32400,
-      avgStreamDuration: "1.8 hrs", 
-      lastStream: "2024-03-15",
-      revenue: "₦6,200,000"
-    },
-    {
-      name: "BeautyStream",
-      totalStreams: 128,
-      totalViewers: 15600,
-      interactions: 28900,
-      avgStreamDuration: "2.1 hrs",
-      lastStream: "2024-03-14", 
-      revenue: "₦4,800,000"
-    }
-  ];
-  
-  // Static data for top products
-  const topProducts = [
-    {
-      name: "iPhone 15",
-      category: "Electronics",
-      sales: 145,
-      revenue: "₦13,050,000",
-      growth: 23.5,
-      seller: "MobileWorld"
-    },
-    {
-      name: "Nike Air Max",
-      category: "Fashion",
-      sales: 132,
-      revenue: "₦6,600,000",
-      growth: 18.2,
-      seller: "FashionHub"
-    },
-    {
-      name: "PS5",
-      category: "Gaming",
-      sales: 97,
-      revenue: "₦48,500,000",
-      growth: -5.8,
-      seller: "TechStore"
-    }
-  ];
+interface DashboardOrder {
+  _id: string;
+  buyer: {
+    firstName: string;
+    lastName: string;
+  };
+  items: {
+    product: {
+      name: string;
+    };
+    quantity: number;
+    price: number;
+  }[];
+  totalAmount: number;
+  paymentInfo: {
+    status: string;
+  };
+  createdAt: string;
+}
 
-  // Static data for top categories
-  const topCategories = [
-    {
-      name: "Electronics",
-      orders: 856,
-      revenue: "₦45,500,000",
-      sellers: 25,
-      growth: 15.4
-    },
-    {
-      name: "Fashion",
-      orders: 654,
-      revenue: "₦12,800,000", 
-      sellers: 48,
-      growth: 22.1
-    },
-    {
-      name: "Home & Living",
-      orders: 432,
-      revenue: "₦8,900,000",
-      sellers: 18,
-      growth: 9.8
-    }
-  ];
-
-  // Static data for top buyers
-  const topBuyers = [
-    {
-      name: "John Doe",
-      orders: 45,
-      spent: "₦2,850,000",
-      lastPurchase: "2024-03-15",
-      status: "VIP"
-    },
-    {
-      name: "Sarah Wilson",
-      orders: 38,
-      spent: "₦1,950,000",
-      lastPurchase: "2024-03-14",
-      status: "Regular"
-    },
-    {
-      name: "Mike Chang",
-      orders: 32,
-      spent: "₦1,680,000",
-      lastPurchase: "2024-03-13",
-      status: "VIP"
-    }
-  ];
-  
-  function StatCard({ 
+function StatCard({ 
     title, 
     value, 
     change, 
@@ -252,6 +96,199 @@ import { useAuth } from "@/context/authContext";
   
   function Dashboard() {
     const { user } = useAuth();
+    const [sellers, setSellers] = useState<DashboardSeller[]>([]);
+    const [buyers, setBuyers] = useState<DashboardBuyer[]>([]);
+    const [orders, setOrders] = useState<DashboardOrder[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Sample data for categories
+    const topCategories = [
+      {
+        name: "Electronics",
+        orders: 2345,
+        revenue: "₦1,234,567",
+        growth: 25.8
+      },
+      {
+        name: "Fashion",
+        orders: 1456,
+        revenue: "₦987,654",
+        growth: -12.4
+      },
+      {
+        name: "Home & Garden",
+        orders: 1123,
+        revenue: "₦654,321",
+        growth: 15.3
+      },
+      {
+        name: "Beauty",
+        orders: 987,
+        revenue: "₦456,789",
+        growth: 8.7
+      }
+    ];
+
+    // Sample data for products
+    const topProducts = [
+      {
+        name: "Wireless Earbuds",
+        category: "Electronics",
+        revenue: "₦456,789",
+        growth: 12.5
+      },
+      {
+        name: "Designer Watch",
+        category: "Fashion",
+        revenue: "₦345,678",
+        growth: -5.8
+      },
+      {
+        name: "Smart Speaker",
+        category: "Electronics",
+        revenue: "₦234,567",
+        growth: 8.3
+      },
+      {
+        name: "Running Shoes",
+        category: "Fashion",
+        revenue: "₦123,456",
+        growth: 15.7
+      }
+    ];
+
+    // Sample data for streaming sellers
+    const topStreamingSellers = [
+      {
+        name: "TechHub Store",
+        totalStreams: 156,
+        totalViewers: 23456,
+        revenue: "₦567,890"
+      },
+      {
+        name: "Fashion Forward",
+        totalStreams: 123,
+        totalViewers: 18234,
+        revenue: "₦456,789"
+      },
+      {
+        name: "Beauty Box",
+        totalStreams: 98,
+        totalViewers: 15678,
+        revenue: "₦345,678"
+      },
+      {
+        name: "Home Essentials",
+        totalStreams: 87,
+        totalViewers: 12345,
+        revenue: "₦234,567"
+      }
+    ];
+
+    // Sample data for top buyers
+    const topBuyers = [
+      {
+        name: "John Smith",
+        orders: 45,
+        spent: "₦789,123",
+        status: "VIP"
+      },
+      {
+        name: "Sarah Johnson",
+        orders: 38,
+        spent: "₦567,890",
+        status: "Regular"
+      },
+      {
+        name: "Michael Brown",
+        orders: 32,
+        spent: "₦456,789",
+        status: "VIP"
+      },
+      {
+        name: "Emma Wilson",
+        orders: 28,
+        spent: "₦345,678",
+        status: "Regular"
+      }
+    ];
+
+    // Sample data for withdrawal requests
+    const withdrawalRequests = [
+      {
+        seller: "TechHub Store",
+        amount: "₦234,567",
+        requestDate: "2024-03-15",
+        status: "Processing"
+      },
+      {
+        seller: "Fashion Forward",
+        amount: "₦123,456",
+        requestDate: "2024-03-14",
+        status: "Pending"
+      },
+      {
+        seller: "Beauty Box",
+        amount: "₦98,765",
+        requestDate: "2024-03-13",
+        status: "Processing"
+      },
+      {
+        seller: "Home Essentials",
+        amount: "₦87,654",
+        requestDate: "2024-03-12",
+        status: "Pending"
+      }
+    ];
+
+    useEffect(() => {
+      const fetchDashboardData = async () => {
+        try {
+          const [sellersRes, buyersRes, ordersRes] = await Promise.all([
+            api.get("/api/admin/sellers"),
+            api.get("/api/admin/users"),
+            api.get("/api/admin/orders?page=1&limit=5")
+          ]);
+
+          setSellers(sellersRes.data);
+          setBuyers(buyersRes.data);
+          setOrders(ordersRes.data.orders);
+        } catch (error) {
+          console.error("Error fetching dashboard data:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchDashboardData();
+    }, []);
+
+    // Calculate total revenue from orders
+    const totalRevenue = orders
+      .filter(order => order.paymentInfo?.status === 'paid')
+      .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+    // Get recent orders from the API data
+    const recentOrdersFromAPI = orders.map(order => ({
+      id: order._id,
+      customer: `${order.buyer.firstName} ${order.buyer.lastName}`,
+      seller: order.items[0]?.product?.name || "N/A",
+      product: order.items[0]?.product?.name || "N/A",
+      amount: `₦${order.totalAmount.toLocaleString()}`,
+      status: order.paymentInfo.status,
+      date: new Date(order.createdAt).toISOString().split('T')[0]
+    }));
+
+    // Get top sellers from the API data
+    const topSellersFromAPI = sellers
+      .slice(0, 3)
+      .map(seller => ({
+        name: seller.businessName || `${seller.firstName} ${seller.lastName}`,
+        orders: 0, // This data isn't available from the API
+        revenue: `₦${seller.walletBalance.toLocaleString()}`,
+        products: 0, // This data isn't available from the API
+        rating: 0 // This data isn't available from the API
+      }));
 
     return (
       <div className="space-y-6">
@@ -266,25 +303,25 @@ import { useAuth } from "@/context/authContext";
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Revenue"
-            value="₦45,231,890"
+            value={`₦${totalRevenue.toLocaleString()}`}
             change={20.1}
             icon={DollarSign}
           />
           <StatCard
             title="Active Sellers"
-            value="156"
+            value={sellers.length.toString()}
             change={5.8}
             icon={Store}
           />
           <StatCard
             title="Total Orders"
-            value="1,789"
+            value={orders.length.toString()}
             change={-5.2}
             icon={ShoppingCart}
           />
           <StatCard
             title="Active Buyers"
-            value="12,456"
+            value={buyers.length.toString()}
             change={15.3}
             icon={Users}
           />
@@ -309,7 +346,7 @@ import { useAuth } from "@/context/authContext";
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentOrders.map((order) => (
+              {recentOrdersFromAPI.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-mono text-sm">{order.id}</TableCell>
                   <TableCell>{order.customer}</TableCell>
@@ -351,7 +388,7 @@ import { useAuth } from "@/context/authContext";
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {topSellers.map((seller) => (
+                {topSellersFromAPI.map((seller) => (
                   <TableRow key={seller.name}>
                     <TableCell className="font-medium">{seller.name}</TableCell>
                     <TableCell>{seller.orders}</TableCell>
