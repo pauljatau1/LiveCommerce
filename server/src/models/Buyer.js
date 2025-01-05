@@ -2,13 +2,18 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const addressSchema = new mongoose.Schema({
-  country: { type: String },
-  city: { type: String },
-  address1: { type: String },
-  address2: { type: String },
-  zipCode: { type: String },
-  addressType: { type: String },
-});
+  addressType: { 
+    type: String, 
+    required: true,
+    enum: ['home', 'work', 'other']
+  },
+  country: { type: String, required: true },
+  state: { type: String, required: true },
+  city: { type: String, required: true },
+  addressLine1: { type: String, required: true },
+  addressLine2: { type: String },
+  zipCode: { type: String, required: true }
+}, { _id: true });
 
 const subCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -31,7 +36,10 @@ const buyerSchema = new mongoose.Schema({
     url: { type: String },
     public_id: { type: String },
   },
-  shippingAddresses: [addressSchema],
+  shippingAddresses: {
+    type: [addressSchema],
+    default: []
+  },
   
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
@@ -57,7 +65,19 @@ const buyerSchema = new mongoose.Schema({
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
     addedAt: { type: Date, default: Date.now }
   }],
-  isNew: { type: Boolean, default: true } // New property to indicate if the user is new
+  isNew: { type: Boolean, default: true },
+  identityDocument: {
+    url: { type: String },
+    public_id: { type: String },
+    uploadedAt: { type: Date },
+    status: { 
+      type: String, 
+      enum: ['pending', 'verified', 'rejected'],
+      default: 'pending'
+    }
+  },
+  isIdentityVerified: { type: Boolean, default: false },
+  identityVerificationNote: { type: String },
 });
 
 // Middleware to update isNew property after 3 days
@@ -74,6 +94,19 @@ buyerSchema.pre('save', async function(next) {
 
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
+  }
+  next();
+});
+
+// Add a pre-save middleware to check for duplicate address types
+buyerSchema.pre('save', function(next) {
+  if (this.isModified('shippingAddresses')) {
+    const addressTypes = this.shippingAddresses.map(addr => addr.addressType);
+    const uniqueTypes = new Set(addressTypes);
+    
+    if (addressTypes.length !== uniqueTypes.size) {
+      return next(new Error('Multiple addresses of the same type are not allowed'));
+    }
   }
   next();
 });

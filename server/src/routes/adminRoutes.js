@@ -966,4 +966,44 @@ router.put('/withdrawals/:withdrawalId/status',
   adminController.updateWithdrawalStatus
 );
 
+/**
+ * @swagger
+ * /api/admin/buyers/{buyerId}/verify-identity:
+ *   put:
+ *     summary: Verify buyer's identity document
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [verified, rejected]
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Identity verification status updated successfully
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/buyers/:buyerId/verify-identity',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.verifyBuyerIdentity
+);
+
 module.exports = router;

@@ -579,10 +579,14 @@ exports.getPurchaseAnalytics = async (req, res) => {
 // Get all addresses
 exports.getAddresses = async (req, res) => {
   try {
-    const buyer = await Buyer.findById(req.user.id);
+    const buyer = await Buyer.findById(req.user.id)
+      .select('shippingAddresses');
+      
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
+
+    // Return complete address objects
     res.json(buyer.shippingAddresses);
   } catch (error) {
     res.status(500).json({ 
@@ -595,12 +599,15 @@ exports.getAddresses = async (req, res) => {
 // Add new address
 exports.addAddress = async (req, res) => {
   try {
-    const buyer = await Buyer.findById(req.user.id);
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
-    }
-
-    const { addressType, country, state, city, addressLine1, addressLine2, zipCode } = req.body;
+    const { 
+      addressType, 
+      country, 
+      state, 
+      city, 
+      addressLine1, 
+      addressLine2, 
+      zipCode 
+    } = req.body;
 
     // Validate required fields
     if (!addressType || !country || !state || !city || !addressLine1 || !zipCode) {
@@ -619,6 +626,22 @@ exports.addAddress = async (req, res) => {
       });
     }
 
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if address type already exists
+    const existingAddressType = buyer.shippingAddresses.find(
+      addr => addr.addressType === addressType
+    );
+
+    if (existingAddressType) {
+      return res.status(400).json({
+        message: `Address type '${addressType}' already exists. Please use a different type or update the existing address.`
+      });
+    }
+
     const newAddress = {
       addressType,
       country,
@@ -629,14 +652,21 @@ exports.addAddress = async (req, res) => {
       zipCode
     };
 
-    buyer.shippingAddresses.push(newAddress);
-    await buyer.save();
+    // Add new address to the array
+    buyer.shippingAddresses = [...buyer.shippingAddresses, newAddress];
+
+    // Save the updated buyer document
+    const updatedBuyer = await buyer.save();
+
+    // Return the newly added address
+    const addedAddress = updatedBuyer.shippingAddresses[updatedBuyer.shippingAddresses.length - 1];
 
     res.status(201).json({
       message: 'Address added successfully',
-      address: newAddress
+      address: addedAddress
     });
   } catch (error) {
+    console.error('Add address error:', error); // Add this for debugging
     res.status(500).json({
       message: 'Failed to add address',
       error: error.message
@@ -661,8 +691,23 @@ exports.updateAddress = async (req, res) => {
       return res.status(404).json({ message: 'Address not found' });
     }
 
-    // Validate required fields if they're being updated
     const updates = req.body;
+
+    // If address type is being changed, check for duplicates
+    if (updates.addressType && 
+        updates.addressType !== buyer.shippingAddresses[addressIndex].addressType) {
+      const existingAddressType = buyer.shippingAddresses.find(
+        addr => addr.addressType === updates.addressType
+      );
+
+      if (existingAddressType) {
+        return res.status(400).json({
+          message: `Address type '${updates.addressType}' already exists`
+        });
+      }
+    }
+
+    // Validate address type if it's being updated
     if (updates.addressType && !['home', 'work', 'other'].includes(updates.addressType)) {
       return res.status(400).json({
         message: 'Invalid address type',
@@ -672,19 +717,8 @@ exports.updateAddress = async (req, res) => {
 
     const updatedAddress = {
       ...buyer.shippingAddresses[addressIndex].toObject(),
-      ...updates,
-      _id: addressId
+      ...updates
     };
-
-    // Validate the complete address after updates
-    if (!updatedAddress.country || !updatedAddress.state || 
-        !updatedAddress.city || !updatedAddress.addressLine1 || 
-        !updatedAddress.zipCode || !updatedAddress.addressType) {
-      return res.status(400).json({
-        message: 'Invalid address structure after update',
-        required: ['country', 'state', 'city', 'addressLine1', 'zipCode', 'addressType']
-      });
-    }
 
     buyer.shippingAddresses[addressIndex] = updatedAddress;
     await buyer.save();
@@ -961,6 +995,57 @@ exports.removeFromWishlist = async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to remove product from wishlist', 
+      error: error.message 
+    });
+  }
+};
+
+exports.uploadIdentityDocument = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No identity document uploaded' });
+    }
+
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Delete old document from S3 if it exists
+    if (buyer.identityDocument && buyer.identityDocument.public_id) {
+      await s3.deleteObject({
+        Bucket: 'auqli-uploads',
+        Key: buyer.identityDocument.public_id
+      }).promise();
+    }
+
+    // Upload new document to S3
+    const key = `verification/buyers/${req.user.id}/identity-${Date.now()}-${req.file.originalname}`;
+    const uploadResult = await s3.upload({
+      Bucket: 'auqli-uploads',
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype
+    }).promise();
+
+    // Update buyer document
+    buyer.identityDocument = {
+      url: uploadResult.Location,
+      public_id: key,
+      uploadedAt: new Date(),
+      status: 'pending'
+    };
+    buyer.isIdentityVerified = false; // Reset verification status
+    await buyer.save();
+
+    res.json({ 
+      message: 'Identity document uploaded successfully',
+      document: buyer.identityDocument
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to upload identity document', 
       error: error.message 
     });
   }

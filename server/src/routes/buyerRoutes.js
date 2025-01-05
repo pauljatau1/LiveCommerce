@@ -1001,4 +1001,36 @@ router.delete('/wishlist/:productId',
   buyerController.removeFromWishlist
 );
 
+/**
+ * @swagger
+ * /api/buyer/identity-verification:
+ *   post:
+ *     summary: Upload identity verification document
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               identityDocument:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Identity document uploaded successfully
+ *       400:
+ *         description: No document uploaded
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/identity-verification', 
+  authMiddleware.verifyToken,
+  upload.single('identityDocument'),
+  buyerController.uploadIdentityDocument
+);
+
 module.exports = router;

@@ -1161,6 +1161,109 @@ exports.updateWithdrawalStatus = async (req, res) => {
   }
 };
 
+exports.verifyBuyerIdentity = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    const { status, note } = req.body;
+
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    if (!buyer.identityDocument) {
+      return res.status(400).json({ message: 'No identity document found for this buyer' });
+    }
+
+    // Update verification status
+    buyer.identityDocument.status = status;
+    buyer.isIdentityVerified = status === 'verified';
+    buyer.identityVerificationNote = note;
+    await buyer.save();
+
+    // Send detailed email notification to buyer
+    const emailMsg = {
+      to: buyer.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: `Identity Verification ${status === 'verified' ? 'Approved' : 'Rejected'}`,
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            
+            <h1 style="color: ${status === 'verified' ? '#4CAF50' : '#ff4444'}; margin-bottom: 20px;">
+              Identity Verification ${status === 'verified' ? 'Approved' : 'Rejected'}
+            </h1>
+            
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+              Dear ${buyer.firstName},
+            </p>
+            
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+              Your identity verification has been ${status}. 
+              ${status === 'verified' 
+                ? 'You now have full access to all buyer features on Auqli.' 
+                : 'Please review the feedback below and submit a new verification if needed.'}
+            </p>
+
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Verification Details:</h3>
+              <ul style="color: #ffffff; margin-bottom: 0;">
+                <li style="margin-bottom: 10px;">Status: ${status}</li>
+                <li style="margin-bottom: 10px;">Document ID: ${buyer.identityDocument.public_id}</li>
+                <li style="margin-bottom: 10px;">Verification Date: ${new Date().toLocaleDateString()}</li>
+                ${note ? `<li style="margin-bottom: 10px;">Admin Note: ${note}</li>` : ''}
+              </ul>
+            </div>
+
+            ${status === 'rejected' ? `
+              <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+                <h3 style="color: #ff4444; margin-bottom: 15px;">Next Steps:</h3>
+                <ul style="color: #ffffff; margin-bottom: 0;">
+                  <li style="margin-bottom: 10px;">Review the feedback provided above</li>
+                  <li style="margin-bottom: 10px;">Ensure your document meets our requirements</li>
+                  <li>Submit a new verification request when ready</li>
+                </ul>
+              </div>
+            ` : ''}
+
+            <p style="font-size: 14px; color: #999999;">
+              If you have any questions, please contact our support team.
+            </p>
+            
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">
+              © ${new Date().getFullYear()} Auqli. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(emailMsg);
+    
+
+    res.json({ 
+      message: 'Identity verification status updated successfully',
+      buyer: {
+        id: buyer._id,
+        status: buyer.identityDocument.status,
+        isVerified: buyer.isIdentityVerified
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update identity verification status', 
+      error: error.message 
+    });
+  }
+};
+
 
 
 
