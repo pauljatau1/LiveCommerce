@@ -461,7 +461,7 @@ const productSchema = new mongoose.Schema({
   computing_brand: { type: String },
   computing_vramsize: { type: String },
 
-  // Phones & Tablets fields
+  // Phones fields
   phones_operatingsystem: { type: String },
   phones_screensize: { type: String },
   phones_storagecapacity: { type: String },
@@ -471,18 +471,26 @@ const productSchema = new mongoose.Schema({
   phones_simtype: { type: String },
   phones_condition: { type: String },
   phones_warranty: { type: String },
-  phones_models: [{ type: String }],
-  phones_durability: { type: String },
-  phones_parentalcontrols: { type: Boolean },
-  phones_preinstalledapps: [{ type: String }],
-  phones_type: { type: String },
-  phones_output: { type: String },
-  phones_connector: { type: String },
-  phones_features: [{ type: String }],
-  phones_capacity: { type: String },
-  phones_input: { type: String },
-  phones_material: { type: String },
-  phones_adjustable: { type: Boolean },
+
+  // Tablets fields
+  tablets_models: {type: String},
+  tablets_storageCapacity: {type: String},
+  tablets_Connectivity: {type: String},
+  tablets_batteryLife: {type: String},
+  tablets_Durability: {type: String},
+  tablets_ParentalControls: {type: Boolean},
+  tablets_PreinstalledApps: {type: Boolean},
+
+  // Mobile Accessories fields
+  mobileAccessories_Type: {type: String},
+  mobileAccessories_Output: {type: String},
+  mobileAccessories_Connector: {type: String},
+  mobileAccessories_Features: {type: String},
+  mobileAccessories_Capacity: {type: String},
+  mobileAccessories_Input: {type: String},
+  mobileAccessories_Material: {type: String},
+  mobileAccessories_Adjustable: {type: Boolean},
+
 });
 
 productSchema.pre('save', async function(next) {
