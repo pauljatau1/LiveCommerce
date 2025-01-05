@@ -8,7 +8,7 @@ import PropTypes from 'prop-types';
 
 const AuthContext = createContext();
 
-const AuthProvider = ({ children }) => {
+function AuthProvider({ children }) {
     const navigate = useNavigate();
     const initialState = {
         seller: null,
@@ -254,7 +254,11 @@ const AuthProvider = ({ children }) => {
                     user_id: response.data.user._id,
                     plan: "free"
                 })
-                toast.success('Login successful');
+                toast.success('Login successful', {
+                    style: {
+                        border: '1px solid #05031F',
+                    }
+                });
             }
         } catch (error) {
             console.log(error);

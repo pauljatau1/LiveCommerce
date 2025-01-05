@@ -12,7 +12,8 @@ import { Button } from "@/Components/ui/button"
 import { Avatar, AvatarFallback } from "@/Components/ui/avatar"
 import { Link } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server"
-import Loader from "@/Components/Loader"
+import Loader from "@/Components/Loader";
+import Header from "@/Components/ui/Header/Header";
 
 function Customers() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -60,8 +61,8 @@ function Customers() {
         </div>
       ) : (
         <>
-          {/* Search Bar */}
-          <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+          {/* Header */}
+          <Header showSearch={true} headerTitle="Customers" searchPlaceholder="Search customers..." />
 
           {followers?.length === 0 ? (
             <div className="flex justify-center items-center h-[calc(100vh-100px)]">
@@ -74,35 +75,35 @@ function Customers() {
                 <Table className="rounded-xl">
                   <TableHeader className="rounded-t-xl">
                     <TableRow className="bg-green-700 hover:bg-green-500/90 rounded-t-xl">
-                      <TableHead className="text-white rounded-tl-xl">Customer Name</TableHead>
-                      <TableHead className="text-white">Location</TableHead>
-                      <TableHead className="text-white">Orders</TableHead>
-                      <TableHead className="text-white">Amount spent</TableHead>
-                      <TableHead className="text-white rounded-tr-xl">Actions</TableHead>
+                      <TableHead className="text-white text-xs xl:text-base rounded-tl-xl">Customer Name</TableHead>
+                      <TableHead className="text-white text-xs xl:text-base">Location</TableHead>
+                      <TableHead className="text-white text-xs xl:text-base">Orders</TableHead>
+                      <TableHead className="text-white text-xs xl:text-base">Amount spent</TableHead>
+                      <TableHead className="text-white text-xs xl:text-base rounded-tr-xl">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {followers.map((follower) => (
                       <TableRow key={follower._id} className="bg-[#F0F5F2] hover:bg-green-200">
                         <TableCell className="flex items-center gap-2">
-                          <Avatar className="bg-white">
+                          <Avatar className="bg-white border border-[#05031F]/50 text-xs xl:text-base">
                             <AvatarFallback>
                               {follower.firstName ? follower.firstName[0] : follower.name[0]}
                             </AvatarFallback>
                           </Avatar>
-                          {follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}
+                          <p className="text-xs xl:text-base">{follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}</p>
                         </TableCell>
                         <TableCell>
-                          {follower.mainAddress ? 
+                          <p className="text-xs xl:text-base">{follower.mainAddress ? 
                             `${follower.mainAddress.city}, ${follower.mainAddress.country}` : 
                             'N/A'
-                          }
+                          }</p>
                         </TableCell>
-                        <TableCell>{follower.totalOrders || 0} Orders</TableCell>
+                        <TableCell><p></p> </TableCell>
                         <TableCell>₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}</TableCell>
                         <TableCell>
                           <Link to={`/dashboard/customer/${follower.buyerId || follower._id}`}>
-                            <Button className="bg-transparent border border-[#05031F] text-[#05031F] px-4 xl:px-6 hover:bg-[#05031F] hover:text-white transition-all duration-300 ease-in-out" variant="outline" size="sm">
+                            <Button className="bg-transparent border border-[#05031F] text-[#05031F] px-2 xl:px-6 hover:bg-[#05031F] hover:text-white transition-all duration-300 ease-in-out" variant="outline" size="sm">
                               View
                             </Button>
                           </Link>

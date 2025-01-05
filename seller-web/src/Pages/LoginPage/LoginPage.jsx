@@ -122,22 +122,22 @@ const LoginPage = () => {
 
   return (
     <div className="relative xl:flex ">
-      <img src={LoginImage} alt="signup2" className='xl:hidden fixed inset-0 w-full h-screen object-cover object-center' />
-      <img src={LoginImage} alt="SignUp" className='w-[414.614px] xl:w-1/2 h-screen object-cover object-center hidden xl:block  ' />
+      <img src={LoginImage} alt="login2" className='xl:hidden fixed inset-0 w-full h-screen object-cover object-center' />
+      <img src={LoginImage} alt="login" className='w-[414.614px] xl:w-1/2 h-screen object-cover object-center hidden xl:block  ' />
       <div className="hidden xl:block z-40 absolute top-1/2 left-20 -translate-y-1/2" >
         <img src={Logo} alt="Logo" className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px] ' />
       </div>
-      <div className=" xl:static fixed inset-0 m-auto h-screen xl:inset-auto flex flex-col justify-center items-center z-10 py-5 px-5 md:px-10 xl:w-1/2 overflow-y-auto " >
-        <div className="mb-5 pt-28 xl:hidden flex justify-center items-center" >
+      <div className=" xl:static fixed inset-0 m-auto h-full xl:inset-auto flex flex-col justify-center items-center z-10 py-5 px-5 md:px-10 xl:w-1/2 overflow-y-auto " >
+        <div className="mb-5  xl:hidden flex justify-center items-center" >
           <img src={Logo} alt="Logo" className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px] ' />
         </div>
-        <div className="p-5 md:p-10 rounded-lg w-full flex flex-col justify-center bg-[#F7FAFC] xl:bg-transparent " >
+        <div className="py-5 px-10 md:py-20 md:px-28 xl:py-10 xl:px-24 rounded-lg w-full flex flex-col justify-center bg-[#F7FAFC] xl:bg-transparent " >
           <div className='flex flex-col' >
             <img src={Emoji} alt="Emoji" className='w-10 h-10 mb-4 xl:mb-8' />
             <h1 className='text-xl md:text-3xl font-semibold font-inter' >Welcome Back!</h1>
             <p className='text-sm md:text-base font-inter' >Let's build something great</p>
           </div>
-          <form className="w-ful mt-8" >
+          <form className="w-full mt-8" >
             <div className="flex flex-col gap-2 w-full mb-4" >
               <label htmlFor="email" className='text-sm md:text-base font-inter text-[#425466] ' >Email</label>
               <input
@@ -147,7 +147,7 @@ const LoginPage = () => {
                 value={email}
                 placeholder='Enter your email'
                 onChange={(e) => setEmail(e.target.value)}
-                className='w-full h-12 rounded-md border border-gray-300 p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm' />
+                className='w-full h-12 rounded-md bg-[#EDF2F7]  p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm' />
             </div>
             <div className="flex flex-col gap-2 w-full mb-4" >
               <label htmlFor="password" className='text-sm md:text-base font-inter text-[#425466]'>Password</label>
@@ -159,7 +159,7 @@ const LoginPage = () => {
                   value={password}
                   placeholder='Enter your password'
                   onChange={(e) => setPassword(e.target.value)}
-                  className='w-full h-12 rounded-md border border-gray-300 p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm'
+                  className='w-full h-12 rounded-md bg-[#EDF2F7] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm'
                 />
                 <button
                   type="button"
@@ -180,7 +180,7 @@ const LoginPage = () => {
               }
             </button>
 
-            <div className="text-right mb-4">
+            <div className="text-center xl:text-right mb-4">
               <span className="text-sm text-gray-500">Forgot Password? </span>{' '}
               <button onClick={(event) => {
                 event.preventDefault();
