@@ -17,7 +17,7 @@ import 'react-phone-input-2/lib/style.css';
 const SignUpPage = () => {
   const navigate = useNavigate();
   const { createSeller, isLoading, seller, otpStatus, verifyOtp, requestNewOtp } = useAuthContext();
-  const [isModalOpen, setIsModalOpen] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [otpCount, setOtpCount] = useState(0);
   const [otp, setOtp] = useState('');
   const [activateOtp, setActivateOtp] = useState(false);
@@ -168,7 +168,7 @@ const SignUpPage = () => {
                     value={formData.firstName}
                     placeholder='Enter your first name'
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
                 </div>
                 <div className="flex flex-col gap-2 w-full" >
                   <label htmlFor="lastName" className='text-sm md:text-base font-inter text-[#425466] ' >Last Name</label>
@@ -179,7 +179,7 @@ const SignUpPage = () => {
                     value={formData.lastName}
                     placeholder='Enter your last name'
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
                 </div>
               </div>
               <div className="flex flex-col gap-2 w-full mb-4" >
@@ -191,7 +191,7 @@ const SignUpPage = () => {
                   value={formData.email}
                   placeholder='Enter your email'
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+                  className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
               </div>
               <div className="flex flex-col gap-2 w-full mb-4" >
                 <label htmlFor="phoneNumber" className='text-sm md:text-base font-inter text-[#425466]'>Phone Number</label>
@@ -210,7 +210,7 @@ const SignUpPage = () => {
                   containerStyle={{
                     width: '100%'
                   }}
-                  inputClass="focus:outline-none bg-[#FFFFFF] shadow-md shadow-[#32324714] focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
+                  inputClass="focus:outline-none bg-[#FFFFFF] shadow-sm shadow-[#32324714] focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
                 />
               </div>
               <div className="flex flex-col gap-2 w-full mb-4" >
@@ -223,7 +223,7 @@ const SignUpPage = () => {
                     value={formData.password}
                     placeholder='Enter your password'
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
                   />
                   <button
                     type="button"
@@ -244,7 +244,7 @@ const SignUpPage = () => {
                     value={formData.confirmPassword}
                     placeholder='Enter your password'
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-md shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
                   />
                   <button
                     type="button"
