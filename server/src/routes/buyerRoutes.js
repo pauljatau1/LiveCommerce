@@ -836,4 +836,169 @@ router.delete('/follow/:sellerId', authMiddleware.verifyToken, authMiddleware.is
  */
 router.get('/following', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.getFollowedSellers);
 
+// Wishlist routes
+/**
+ * @swagger
+ * /api/buyer/wishlist:
+ *   post:
+ *     summary: Add a product to wishlist
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to add to wishlist
+ *     responses:
+ *       200:
+ *         description: Product added to wishlist successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 wishlist:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       product:
+ *                         type: string
+ *                       addedAt:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: Product already in wishlist
+ *       404:
+ *         description: Buyer or product not found
+ *       500:
+ *         description: Server error
+ * 
+ *   get:
+ *     summary: Get buyer's wishlist
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of products in wishlist
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   product:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       images:
+ *                         type: array
+ *                       category:
+ *                         type: string
+ *                       brand:
+ *                         type: string
+ *                       stock:
+ *                         type: number
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           storeName:
+ *                             type: string
+ *                           businessName:
+ *                             type: string
+ *                   addedAt:
+ *                     type: string
+ *                     format: date-time
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/wishlist', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.addToWishlist
+);
+
+/**
+ * @swagger
+ * /api/buyer/wishlist:
+ *   get:
+ *     summary: Get buyer's wishlist
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of products in wishlist
+ */
+router.get('/wishlist', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getWishlist
+);
+
+/**
+ * @swagger
+ * /api/buyer/wishlist/{productId}:
+ *   delete:
+ *     summary: Remove a product from wishlist
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to remove from wishlist
+ *     responses:
+ *       200:
+ *         description: Product removed from wishlist successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 wishlist:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       product:
+ *                         type: string
+ *                       addedAt:
+ *                         type: string
+ *                         format: date-time
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/wishlist/:productId', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.removeFromWishlist
+);
+
 module.exports = router;

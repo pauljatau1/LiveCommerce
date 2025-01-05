@@ -7,6 +7,7 @@ const notificationController = require('../controllers/notificationController');
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller')
+const Product = require('../models/Product');
 
 sgMail.setApiKey('SG.REDACTED');
 
@@ -856,6 +857,110 @@ exports.getFollowedSellers = async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to get followed sellers', 
+      error: error.message 
+    });
+  }
+};
+
+// Add product to wishlist
+exports.addToWishlist = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    const { productId } = req.body;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if product exists
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if product is already in wishlist
+    const isProductInWishlist = buyer.wishlist.some(
+      item => item.product.toString() === productId
+    );
+
+    if (isProductInWishlist) {
+      return res.status(400).json({ message: 'Product already in wishlist' });
+    }
+
+    // Add to wishlist
+    buyer.wishlist.push({
+      product: productId,
+      addedAt: new Date()
+    });
+
+    await buyer.save();
+
+    res.json({ 
+      message: 'Product added to wishlist successfully',
+      wishlist: buyer.wishlist 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to add product to wishlist', 
+      error: error.message 
+    });
+  }
+};
+
+// Get wishlist
+exports.getWishlist = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+
+    const buyer = await Buyer.findById(buyerId)
+      .populate({
+        path: 'wishlist.product',
+        select: 'name description price images category brand stock',
+        populate: {
+          path: 'seller',
+          select: 'storeName businessName'
+        }
+      });
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.json(buyer.wishlist);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to get wishlist', 
+      error: error.message 
+    });
+  }
+};
+
+// Remove from wishlist
+exports.removeFromWishlist = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    const { productId } = req.params;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Remove product from wishlist
+    buyer.wishlist = buyer.wishlist.filter(
+      item => item.product.toString() !== productId
+    );
+
+    await buyer.save();
+
+    res.json({ 
+      message: 'Product removed from wishlist successfully',
+      wishlist: buyer.wishlist 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to remove product from wishlist', 
       error: error.message 
     });
   }

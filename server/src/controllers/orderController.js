@@ -1456,3 +1456,47 @@ exports.getOrderDetails = async (req, res) => {
     });
   }
 };
+
+exports.addNote = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { note, isPrivate } = req.body;
+
+    // Validate orderId format
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: 'Invalid order ID format' });
+    }
+
+    // Find the order and populate necessary fields
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'firstName lastName')
+      .populate('items.seller', 'storeName businessName');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Add the note to the order
+    order.notes = order.notes || []; // Initialize notes array if it doesn't exist
+    order.notes.push({
+      content: note,
+      isPrivate: isPrivate || false,
+      createdBy: req.user.id,
+      createdAt: new Date()
+    });
+
+    await order.save();
+
+    res.status(200).json({
+      message: 'Note added successfully',
+      note: order.notes[order.notes.length - 1]
+    });
+
+  } catch (error) {
+    console.error('Add note error:', error);
+    res.status(500).json({ 
+      message: 'Failed to add note', 
+      error: error.message 
+    });
+  }
+};

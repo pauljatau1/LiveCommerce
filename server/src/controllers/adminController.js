@@ -513,10 +513,10 @@ exports.getAllBanners = async (req, res) => {
   try {
     const banners = await Banner.find().populate('category');
 
-    // Transform the response to include the category name
+    // Transform the response to include the category name, handling null categories
     const responseBanners = banners.map(banner => ({
       ...banner.toObject(),
-      category: banner.category.name,
+      category: banner.category ? banner.category.name : 'Unknown Category', // Handle null category
     }));
 
     res.json(responseBanners);

@@ -255,6 +255,53 @@ router.get('/all', productController.getAllProducts);
 
 /**
  * @swagger
+ * /api/products/personalized:
+ *   get:
+ *     summary: Get personalized products based on buyer's selected categories
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, price, stats.averageRating]
+ *           default: createdAt
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *     responses:
+ *       200:
+ *         description: List of personalized products
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/personalized',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.getPersonalizedProducts
+);
+
+/**
+ * @swagger
  * /api/products/{id}:
  *   get:
  *     summary: Get a product by ID

@@ -1701,3 +1701,93 @@ exports.getProductSoldCount = async (req, res) => {
     });
   }
 };
+
+exports.getPersonalizedProducts = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc' } = req.query;
+    const buyerId = req.user.id;
+
+    console.log('Buyer ID:', buyerId);
+
+    if (!mongoose.Types.ObjectId.isValid(buyerId)) {
+      return res.status(400).json({ message: 'Invalid buyer ID format' });
+    }
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Extract categories and subcategories from buyer's preferences
+    const categoryNames = buyer.selectedCategories.map(cat => cat.name);
+    const subcategoryNames = buyer.selectedCategories.flatMap(category =>
+      category.subCategories.map(sub => sub.name)
+    );
+
+    console.log('Category Names:', categoryNames);
+    console.log('Subcategory Names:', subcategoryNames);
+
+    // Build base query for active and visible products
+    const baseQuery = {
+      status: 'active',
+      visibility: 'visible',
+      stock: { $gt: 0 }
+    };
+
+    // Build category-specific query
+    const categoryQuery = categoryNames.length || subcategoryNames.length ? {
+      ...baseQuery,
+      $or: [
+        { category: { $in: categoryNames } },
+        { subCategory: { $in: subcategoryNames } }
+      ]
+    } : baseQuery;
+
+    // Build sort object
+    const sortOptions = {
+      createdAt: order === 'desc' ? -1 : 1,
+      price: order === 'desc' ? -1 : 1,
+      'stats.averageRating': order === 'desc' ? -1 : 1
+    };
+
+    // Try to get category-specific products first
+    let products = await Product.find(categoryQuery)
+      .sort({ [sortBy]: sortOptions[sortBy] })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate('seller', 'name avatarUrl about storeName')
+      .populate('reviews.buyer', 'firstName lastName');
+
+    // If no products found in preferred categories, get regular products
+    if (products.length === 0) {
+      console.log('No products found in preferred categories, fetching regular products');
+      products = await Product.find(baseQuery)
+        .sort({ [sortBy]: sortOptions[sortBy] })
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit))
+        .populate('seller', 'name avatarUrl about storeName')
+        .populate('reviews.buyer', 'firstName lastName');
+    }
+
+    // Get total count based on which query was successful
+    const total = products.length > 0 
+      ? await Product.countDocuments(categoryQuery)
+      : await Product.countDocuments(baseQuery);
+
+    res.json({
+      products,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalProducts: total,
+      hasMore: page * limit < total,
+      isPersonalized: products.length > 0 && (categoryNames.length > 0 || subcategoryNames.length > 0)
+    });
+
+  } catch (error) {
+    console.error('Error retrieving personalized products:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve personalized products',
+      error: error.message
+    });
+  }
+};

@@ -841,7 +841,7 @@ router.put('/:orderId/tracking', authMiddleware.verifyToken, orderController.upd
  *       500:
  *         description: Server error
  */
-router.post('/:orderId/note', authMiddleware.verifyToken, orderController.addOrderNote);
+router.post('/:orderId/note', authMiddleware.verifyToken, orderController.addNote);
 
 /**
  * @swagger
