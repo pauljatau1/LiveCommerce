@@ -491,6 +491,11 @@ const productSchema = new mongoose.Schema({
   mobileAccessories_Material: {type: String},
   mobileAccessories_Adjustable: {type: Boolean},
 
+  //wearable fields
+  wearable_Type: {type: String},
+  wearable_Connectivity: {type: String},
+  wearable_Features: {type: String},
+  wearable_Material: {type: String},
 });
 
 productSchema.pre('save', async function(next) {
