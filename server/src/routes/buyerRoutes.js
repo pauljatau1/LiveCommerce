@@ -301,66 +301,6 @@ router.put('/selected-categories', authMiddleware.verifyToken, buyerController.u
 
 /**
  * @swagger
- * /api/buyer/send-phone-otp:
- *   post:
- *     summary: Send OTP to buyer's phone number
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               phoneNumber:
- *                 type: string
- *     responses:
- *       200:
- *         description: OTP sent successfully
- *       400:
- *         description: Bad request
- *       404:
- *         description: Buyer not found
- *       500:
- *         description: Internal server error
- */
-router.post('/send-phone-otp', authMiddleware.verifyToken, buyerController.sendPhoneOTP);
-
-/**
- * @swagger
- * /api/buyer/verify-phone-otp:
- *   post:
- *     summary: Verify phone OTP
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               phoneNumber:
- *                 type: string
- *               otp:
- *                 type: string
- *     responses:
- *       200:
- *         description: Phone number verified successfully
- *       400:
- *         description: Bad request
- *       404:
- *         description: Buyer not found
- *       500:
- *         description: Internal server error
- */
-router.post('/verify-phone-otp', authMiddleware.verifyToken, buyerController.verifyPhoneOTP);
-
-/**
- * @swagger
  * /api/buyer/google:
  *   get:
  *     summary: Redirect to Google OAuth
@@ -1032,5 +972,61 @@ router.post('/identity-verification',
   upload.single('identityDocument'),
   buyerController.uploadIdentityDocument
 );
+
+/**
+ * @swagger
+ * /api/buyer/send-phone-otp:
+ *   post:
+ *     summary: Send OTP to buyer's phone number
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Phone number with country code (e.g., +1234567890)
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *       400:
+ *         description: Invalid phone number format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/send-phone-otp', authMiddleware.verifyToken, buyerController.sendPhoneOTP);
+
+/**
+ * @swagger
+ * /api/buyer/verify-phone:
+ *   post:
+ *     summary: Verify phone number with OTP
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               otp:
+ *                 type: string
+ *                 description: OTP received on phone
+ *     responses:
+ *       200:
+ *         description: Phone number verified successfully
+ *       400:
+ *         description: Invalid or expired OTP
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyPhoneOTP);
 
 module.exports = router;

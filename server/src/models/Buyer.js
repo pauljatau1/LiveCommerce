@@ -45,6 +45,11 @@ const buyerSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: false },
   phoneVerified: { type: Boolean, default: false },
+  phoneVerification: {
+    otp: String,
+    expiresAt: Date,
+    attempts: { type: Number, default: 0 }
+  },
   otp: { type: String },
   selectedCategories: [categorySchema],
   isDisabled: { type: Boolean, default: false },

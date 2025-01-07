@@ -15,6 +15,34 @@ exports.createStream = async (req, res) => {
     } = req.body;
     const coverImage = req.file;
 
+    // Debug logging
+    console.log('Received products:', products);
+    console.log('Type of products:', typeof products);
+
+    // More robust parsing logic
+    let productsArray;
+    try {
+      if (typeof products === 'string') {
+        productsArray = JSON.parse(products);
+      } else if (Array.isArray(products)) {
+        productsArray = products;
+      } else {
+        throw new Error('Products must be an array or JSON string of arrays');
+      }
+
+      // Verify it's an array after parsing
+      if (!Array.isArray(productsArray)) {
+        throw new Error('Products must be an array');
+      }
+
+      console.log('Parsed productsArray:', productsArray);
+    } catch (parseError) {
+      return res.status(400).json({
+        message: 'Invalid products format',
+        error: parseError.message
+      });
+    }
+
     // Upload cover image if provided
     let imageData = {};
     if (coverImage) {
@@ -38,7 +66,7 @@ exports.createStream = async (req, res) => {
       coverImage: imageData,
       category,
       tags,
-      products: products.map(p => ({
+      products: productsArray.map(p => ({
         product: p.productId,
         minBid: p.minBid,
         maxBid: p.maxBid
@@ -55,6 +83,7 @@ exports.createStream = async (req, res) => {
       stream: await stream.populate('products.product')
     });
   } catch (error) {
+    console.error('Full error:', error);
     res.status(500).json({
       message: 'Failed to create stream',
       error: error.message

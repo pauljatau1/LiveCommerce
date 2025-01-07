@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller')
 const Product = require('../models/Product');
+const { sns } = require('../config/awsConfig');
 
 sgMail.setApiKey('SG.REDACTED');
 
@@ -23,6 +24,9 @@ const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 const generateResetToken = () => {
   return crypto.randomBytes(32).toString('hex');
 };
+
+// Helper function to generate OTP
+const generatePhoneOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // Register a new buyer
 exports.register = async (req, res) => {
@@ -311,88 +315,6 @@ exports.updateSelectedCategories = async (req, res) => {
     res.json({ message: 'Selected categories updated successfully', buyer: updatedBuyer });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
-  }
-};
-
-
-exports.sendPhoneOTP = async (req, res) => {
-  const { phoneNumber } = req.body;
-
-  if (!phoneNumber) {
-    return res.status(400).json({ message: 'Phone number is required.' });
-  }
-
-  try {
-    const buyer = await Buyer.findOne({ phoneNumber });
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found.' });
-    }
-
-    const otp = generateOTP();
-    buyer.otp = otp;
-    await buyer.save();
-
-    const message = `Your OTP is ${otp}. Please use this OTP to verify your phone number.`;
-
-    const response = await axios.post(
-      'https://apisms.beem.africa/v1/send',
-      {
-        source_addr: source_addr,
-        schedule_time: '',
-        encoding: 0,
-        message: message,
-        recipients: [
-          {
-            recipient_id: 1,
-            dest_addr: phoneNumber,
-          },
-        ],
-      },
-      {
-        headers: {
-          'Content-Type': content_type,
-          Authorization: 'Basic ' + btoa(api_key + ':' + secret_key),
-        },
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: false,
-        }),
-      }
-    );
-
-    if (response.data.successful) {
-      res.json({ message: 'OTP sent successfully.' });
-    } else {
-      res.status(500).json({ message: 'Failed to send OTP', error: response.data.message });
-    }
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to send OTP', error: error.message });
-    console.log(error)
-  }
-};
-
-exports.verifyPhoneOTP = async (req, res) => {
-  const { phoneNumber, otp } = req.body;
-
-  if (!phoneNumber || !otp) {
-    return res.status(400).json({ message: 'Phone number and OTP are required.' });
-  }
-
-  try {
-    const buyer = await Buyer.findOne({ phoneNumber });
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found.' });
-    }
-
-    if (buyer.otp === otp) {
-      buyer.phoneVerified = true;
-      buyer.otp = undefined; // Clear the OTP after verification
-      await buyer.save();
-      return res.json({ message: 'Phone number verified successfully.' });
-    } else {
-      return res.status(400).json({ message: 'Invalid OTP.' });
-    }
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
   }
 };
 
@@ -1046,6 +968,131 @@ exports.uploadIdentityDocument = async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to upload identity document', 
+      error: error.message 
+    });
+  }
+};
+
+// Send OTP to phone number
+exports.sendPhoneOTP = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    const { phoneNumber } = req.body;
+
+    // Validate phone number format (basic validation)
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      return res.status(400).json({ 
+        message: 'Invalid phone number format. Please include country code (e.g., +1234567890)' 
+      });
+    }
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Generate OTP
+    const phoneOTP = generatePhoneOTP();
+    
+    // Store OTP and its expiry in buyer document
+    buyer.phoneVerification = {
+      otp: phoneOTP,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // OTP valid for 10 minutes
+      attempts: 0
+    };
+    await buyer.save();
+
+    // Send SMS via AWS SNS
+    const params = {
+      Message: `Your Auqli verification code is: ${phoneOTP}. Valid for 10 minutes.`,
+      PhoneNumber: phoneNumber,
+      MessageAttributes: {
+        'AWS.SNS.SMS.SenderID': {
+          DataType: 'String',
+          StringValue: 'AUQLI'
+        },
+        'AWS.SNS.SMS.SMSType': {
+          DataType: 'String',
+          StringValue: 'Transactional'
+        }
+      }
+    };
+
+    await sns.publish(params).promise();
+
+    res.json({ 
+      message: 'OTP sent successfully',
+      validFor: '10 minutes'
+    });
+
+  } catch (error) {
+    console.error('Send phone OTP error:', error);
+    res.status(500).json({ 
+      message: 'Failed to send OTP', 
+      error: error.message 
+    });
+  }
+};
+
+// Verify phone OTP
+exports.verifyPhoneOTP = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    const { otp } = req.body;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if there's an ongoing verification
+    if (!buyer.phoneVerification || !buyer.phoneVerification.otp) {
+      return res.status(400).json({ 
+        message: 'No verification in progress. Please request a new OTP.' 
+      });
+    }
+
+    // Check if OTP has expired
+    if (new Date() > new Date(buyer.phoneVerification.expiresAt)) {
+      buyer.phoneVerification = undefined;
+      await buyer.save();
+      return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
+    }
+
+    // Check attempts
+    if (buyer.phoneVerification.attempts >= 3) {
+      buyer.phoneVerification = undefined;
+      await buyer.save();
+      return res.status(400).json({ 
+        message: 'Too many failed attempts. Please request a new OTP.' 
+      });
+    }
+
+    // Verify OTP
+    if (buyer.phoneVerification.otp !== otp) {
+      buyer.phoneVerification.attempts += 1;
+      await buyer.save();
+      return res.status(400).json({ 
+        message: 'Invalid OTP',
+        remainingAttempts: 3 - buyer.phoneVerification.attempts
+      });
+    }
+
+    // OTP is valid - update verification status
+    buyer.phoneVerified = true;
+    buyer.phoneVerification = undefined; // Clear verification data
+    await buyer.save();
+
+    res.json({ 
+      message: 'Phone number verified successfully',
+      phoneVerified: true
+    });
+
+  } catch (error) {
+    console.error('Verify phone OTP error:', error);
+    res.status(500).json({ 
+      message: 'Failed to verify OTP', 
       error: error.message 
     });
   }
