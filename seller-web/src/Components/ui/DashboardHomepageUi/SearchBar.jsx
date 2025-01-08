@@ -15,6 +15,7 @@ import {
 import { Crisp } from "crisp-sdk-web";
 import PropTypes from 'prop-types';
 
+
 const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
     const [open, setOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
@@ -56,10 +57,8 @@ const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
                     <Icon icon="pepicons-pencil:menu" width="34" height="34" color="#05031F" className='md:hidden' onClick={() => setIsSidebarOpen(!isSidebarOpen)} />
                 )
             }
-            <input type="text" placeholder='Search...' className=' w-[160px] md:w-[405px] xl:w-[805px] h-[40px] bg-[#05031F] text-[#FFFFFF] rounded-full py-6 pl-6 md:pl-[74px] pr-6 ' />
-            <button className='bg-[#DF0707] hidden lg:flex items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
-                <span className=' whitespace-nowrap'>Go Live</span>
-            </button>
+            <input type="text" placeholder='Search...' className=' w-[160px] md:w-[405px] lg:w-[305px] xl:w-full h-[40px] bg-[#05031F] text-[#FFFFFF] rounded-full py-6 pl-6 md:pl-[44px] xl:pl-[74px] pr-6 ' />
+
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
                     <button className='bg-[#DF0707] lg:hidden items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
@@ -104,6 +103,9 @@ const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
                 </PopoverContent>
             </Popover>
             <div className='items-center gap-7 hidden lg:flex'>
+                <button className='bg-[#DF0707] hidden lg:flex items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
+                    <span className=' whitespace-nowrap'>Go Live</span>
+                </button>
                 {isChatVisible && (
                     <button onClick={handleChatOpen} className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
                         <span className="relative z-10">

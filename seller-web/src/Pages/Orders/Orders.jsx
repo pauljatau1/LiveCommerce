@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import LinearProgress from "@mui/material/LinearProgress";
-import { BASE_URL } from "@/Constants/Server"
+import { BASE_URL } from "@/Constants/Server";
+import Header from "@/Components/ui/Header/Header";
 
 export default function OrdersDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -84,7 +85,7 @@ export default function OrdersDashboard() {
 
   return (
     <>
-      <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+      <Header headerTitle="ORDERS" showHeader={true} showSearch />
 
       <div className="p-6">
 

@@ -64,7 +64,7 @@ function Customers() {
       ) : (
         <>
           {/* Header */}
-          <Header showSearch={true} headerTitle="Customers" searchPlaceholder="Search customers..." />
+          <Header showSearch={true} headerTitle="Customers" showHeader={true} searchPlaceholder="Search customers..." />
 
           {followers?.length === 0 ? (
             <div className="flex justify-center items-center h-[calc(100vh-100px)]">

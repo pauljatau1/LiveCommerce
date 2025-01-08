@@ -40,7 +40,7 @@ const ProductsPage = () => {
     return (
         <>
             {/*isLoading && <Loader />*/}
-            <Header headerTitle="Products" showSearch />
+            <Header headerTitle="Products" showHeader={true} showSearch />
             {
                 isLoading ? (
                     <div className="flex flex-col justify-center items-center h-[80dvh]">

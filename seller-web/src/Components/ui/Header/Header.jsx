@@ -8,7 +8,7 @@ import AlertNotification from '../AlertNotification';
 import PropTypes from 'prop-types';
 
 
-const Header = ({ notificationData, showNotification = false, notificationColor, notificationBackgroundColor, search = '', setSearch = () => { }, showSearch = false, headerTitle = 'Products', searchPlaceholder = 'Search', notificationIcon = 'formkit:warning' }) => {
+const Header = ({ notificationData, showNotification = false, notificationColor, notificationBackgroundColor, search = '', setSearch = () => { }, showSearch = false, headerTitle = 'Products', searchPlaceholder = 'Search', notificationIcon = 'formkit:warning', showLive = false, showHeader = false }) => {
     const navigation = useNavigation();
     const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
     const [isChatVisible, setIsChatVisible] = useState(true);
@@ -51,14 +51,18 @@ const Header = ({ notificationData, showNotification = false, notificationColor,
             <div className="flex justify-between items-center w-full ">
                 {
                     !isSidebarOpen && (
-                        <Icon icon="pepicons-pencil:menu" width="34" height="34" color="#05031F" className='md:hidden' onClick={() => setIsSidebarOpen(!isSidebarOpen)} />
+                        <Icon icon="pepicons-pencil:menu" color="#05031F" width="34" height="34" className='md:hidden' onClick={() => setIsSidebarOpen(!isSidebarOpen)} />
                     )
                 }
-                <h1 className="text-2xl font-bold font-lexend">{headerTitle}</h1>
+                {
+                    showHeader && (
+                        <h1 className="text-xl md:text-2xl uppercase font-bold font-lexend">{headerTitle}</h1>
+                    )
+                }
                 <Popover open={open} onOpenChange={setOpen}>
                     <PopoverTrigger asChild>
                         <button className='bg-[#DF0707] lg:hidden items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
-                            <Icon icon="ri:live-fill" width="24" height="24" color="#FFFFFF" className="lg:hidden" />
+                            <Icon icon="ri:live-fill"  color="#FFFFFF" className="lg:hidden w-5 h-5 md:w-6 md:h-6" />
                         </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[200px] p-0">
@@ -99,6 +103,9 @@ const Header = ({ notificationData, showNotification = false, notificationColor,
                     </PopoverContent>
                 </Popover>
                 <div className='items-center gap-7 hidden lg:flex'>
+                    <button className='bg-[#DF0707] hidden lg:flex items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
+                        <span className=' whitespace-nowrap'>Go Live</span>
+                    </button>
                     <button onClick={handleChatOpen} className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
                         <span className="relative z-10">
                             <Icon icon="solar:chat-line-bold" width="24" height="24" color='#FFFFFF' />
@@ -120,8 +127,8 @@ const Header = ({ notificationData, showNotification = false, notificationColor,
             {
                 showSearch && (
                     <div className="flex items-center gap-2 w-full h-[40px] bg-[#05031F] rounded-full py-6 pl-6 pr-6 mt-4 lg:mt-6 focus-within:outline focus-within:outline-white">
-                        <Icon icon="iconamoon:search-thin" width="24" height="24" color="#FFFFFF" />
-                        <input type="text" placeholder={`${searchPlaceholder}...`} value={search} onChange={(e) => setSearch(e.target.value)} className='w-full h-full px-1 bg-[#05031F] text-[#FFFFFF] rounded-full py-6 outline-none' />
+                        <Icon icon="iconamoon:search-thin" className='w-5 h-5 md:w-6 md:h-6' color="#FFFFFF" />
+                        <input type="text" placeholder={`${searchPlaceholder}...`} value={search} onChange={(e) => setSearch(e.target.value)} className='w-full h-full px-1 bg-[#05031F] text-[#FFFFFF] rounded-full py-6 placeholder:text-sm outline-none' />
                     </div>
                 )
             }
@@ -138,7 +145,9 @@ Header.propTypes = {
     setSearch: PropTypes.func,
     showSearch: PropTypes.bool.isRequired,
     headerTitle: PropTypes.string.isRequired,
-    searchPlaceholder: PropTypes.string
+    searchPlaceholder: PropTypes.string,
+    showLive: PropTypes.bool,
+    showHeader: PropTypes.bool.isRequired,
 }
 
 export default Header
