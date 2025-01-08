@@ -13,21 +13,24 @@ const initialState = {
 };
 
 
-export const createProduct = createAsyncThunk('product/createProduct', async (product) => {
+export const createProduct = createAsyncThunk('product/createProduct', async (formData) => {
     try {
         const storedToken = localStorage.getItem('sellerToken');
         const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-        console.log("Token Data:", tokenData.data);
-        const response = await axios.post(`${BASE_URL}/products`, product, {
+        
+        const response = await axios.post(`${BASE_URL}/products`, formData, {
             headers: {
-                Authorization: `Bearer ${tokenData.data}`
+                Authorization: `Bearer ${tokenData.data}`,
+                'Content-Type': 'multipart/form-data'
             },
         });
+
         if (response.status === 201) {
             return response.data;
         }
     } catch (error) {
         console.log(error);
+        throw error;
     }
 });
 

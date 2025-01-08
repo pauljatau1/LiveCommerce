@@ -8,7 +8,7 @@ import AlertNotification from '../AlertNotification';
 import PropTypes from 'prop-types';
 
 
-const Header = ({ notificationData, showNotification = false, notificationColor, notificationBackgroundColor = '#05031F', search = '', setSearch = () => {}, showSearch = false, headerTitle = 'Products', searchPlaceholder = 'Search' }) => {
+const Header = ({ notificationData, showNotification = false, notificationColor, notificationBackgroundColor, search = '', setSearch = () => { }, showSearch = false, headerTitle = 'Products', searchPlaceholder = 'Search', notificationIcon = 'formkit:warning' }) => {
     const navigation = useNavigation();
     const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
     const [isChatVisible, setIsChatVisible] = useState(true);
@@ -99,13 +99,11 @@ const Header = ({ notificationData, showNotification = false, notificationColor,
                     </PopoverContent>
                 </Popover>
                 <div className='items-center gap-7 hidden lg:flex'>
-                    {isChatVisible && (
-                        <button onClick={handleChatOpen} className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                            <span className="relative z-10">
-                                <Icon icon="solar:chat-line-bold" width="24" height="24" color='#FFFFFF' />
-                            </span>
-                        </button>
-                    )}
+                    <button onClick={handleChatOpen} className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
+                        <span className="relative z-10">
+                            <Icon icon="solar:chat-line-bold" width="24" height="24" color='#FFFFFF' />
+                        </span>
+                    </button>
                     <button className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
                         <span className="relative z-10">
                             <Icon icon="si:notifications-thick-duotone" width="24" height="24" color='#FFFFFF' />
@@ -118,7 +116,7 @@ const Header = ({ notificationData, showNotification = false, notificationColor,
                     </button>
                 </div>
             </div>
-            {showNotification && <AlertNotification message={notificationData} color={notificationColor} background={notificationBackgroundColor} />}
+            {showNotification && <AlertNotification message={notificationData} color={notificationColor} background={notificationBackgroundColor} notificationIcon={notificationIcon} />}
             {
                 showSearch && (
                     <div className="flex items-center gap-2 w-full h-[40px] bg-[#05031F] rounded-full py-6 pl-6 pr-6 mt-4 lg:mt-6 focus-within:outline focus-within:outline-white">

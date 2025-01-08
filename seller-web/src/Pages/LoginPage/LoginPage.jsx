@@ -131,7 +131,7 @@ const LoginPage = () => {
         <div className="mb-5  xl:hidden flex justify-center items-center" >
           <img src={Logo} alt="Logo" className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px] ' />
         </div>
-        <div className="py-5 px-10 md:py-20 md:px-28 xl:py-10 xl:px-24 rounded-lg w-full flex flex-col justify-center bg-[#F7FAFC] xl:bg-transparent " >
+        <div className="xl:container xl:max-w-[680px] 2xl:max-w-[800px] py-5 px-10 md:py-20 md:px-28 xl:py-10 xl:px-24 rounded-lg w-full flex flex-col justify-center bg-[#F7FAFC] xl:bg-transparent " >
           <div className='flex flex-col' >
             <img src={Emoji} alt="Emoji" className='w-10 h-10 mb-4 xl:mb-8' />
             <h1 className='text-xl md:text-3xl font-semibold font-inter' >Welcome Back!</h1>

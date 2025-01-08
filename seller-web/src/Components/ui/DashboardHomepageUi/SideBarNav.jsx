@@ -71,6 +71,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                             <NavLink
                               to={subNavItem.path}
                               key={subNavItem.id}
+                              id={subNavItem.id}
                               className="flex items-center whitespace-nowrap gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
                             >
                               {subNavItem.name}

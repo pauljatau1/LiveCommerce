@@ -70,7 +70,7 @@ export const sideBarNavData = [
             {
                 id: ObjectID().toHexString(),
                 name: 'Add Products',
-                path: 'add-products'
+                path: 'add-products',
             },
             {
                 id: ObjectID().toHexString(),

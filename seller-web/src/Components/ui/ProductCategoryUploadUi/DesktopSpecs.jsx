@@ -1,0 +1,244 @@
+import { Autocomplete, TextField } from '@mui/material';
+import { Label } from "../label";
+import { Input } from "../input2";
+import PropTypes from 'prop-types';
+
+const DesktopSpecs = ({ specs, onChange }) => {
+  const processorOptions = [
+    { label: "Intel Core i3", value: "Intel Core i3" },
+    { label: "Intel Core i5", value: "Intel Core i5" },
+    { label: "Intel Core i7", value: "Intel Core i7" },
+    { label: "Intel Core i9", value: "Intel Core i9" },
+    { label: "AMD Ryzen 3", value: "AMD Ryzen 3" },
+    { label: "AMD Ryzen 5", value: "AMD Ryzen 5" },
+    { label: "AMD Ryzen 7", value: "AMD Ryzen 7" },
+    { label: "AMD Ryzen 9", value: "AMD Ryzen 9" }
+  ];
+
+  const ramOptions = [
+    { label: "8GB", value: "8GB" },
+    { label: "16GB", value: "16GB" },
+    { label: "32GB", value: "32GB" },
+    { label: "64GB", value: "64GB" }
+  ];
+
+  const storageOptions = [
+    { label: "256GB SSD", value: "256GB SSD" },
+    { label: "512GB SSD", value: "512GB SSD" },
+    { label: "1TB SSD", value: "1TB SSD" },
+    { label: "1TB HDD", value: "1TB HDD" },
+    { label: "2TB HDD", value: "2TB HDD" }
+  ];
+
+  const osOptions = [
+    { label: "Windows", value: "Windows" },
+    { label: "Linux", value: "Linux" }
+  ];
+
+  const graphicsOptions = [
+    { label: "NVIDIA GeForce RTX 3060", value: "NVIDIA GeForce RTX 3060" },
+    { label: "NVIDIA GeForce RTX 3070", value: "NVIDIA GeForce RTX 3070" },
+    { label: "NVIDIA GeForce RTX 3080", value: "NVIDIA GeForce RTX 3080" },
+    { label: "AMD Radeon RX 6600", value: "AMD Radeon RX 6600" },
+    { label: "AMD Radeon RX 6700", value: "AMD Radeon RX 6700" },
+    { label: "AMD Radeon RX 6800", value: "AMD Radeon RX 6800" },
+    { label: "Integrated Graphics", value: "Integrated Graphics" }
+  ];
+
+  const inputStyles = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: '0.5rem',
+      height: '48px',
+      '& fieldset': { borderColor: '#e2e8f0' },
+      '&:hover fieldset': { borderColor: '#e2e8f0' },
+      '&.Mui-focused fieldset': { borderColor: '#05031F' }
+    },
+    '& .MuiInputBase-input': {
+      padding: '0.75rem',
+      fontSize: '0.875rem',
+      color: '#64748b'
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Processor */}
+      <div className="space-y-2">
+        <Label>Processor</Label>
+        <Autocomplete
+          freeSolo
+          options={processorOptions}
+          getOptionLabel={(option) => {
+            if (typeof option === 'string') {
+              return option;
+            }
+            return option.label;
+          }}
+          value={processorOptions.find(proc => proc.value === specs.computing_processor) || specs.computing_processor || null}
+          onChange={(_, newValue) => {
+            const value = typeof newValue === 'string' ? newValue : newValue?.value || '';
+            onChange('computing_processor', value);
+          }}
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              placeholder="Select or type processor..."
+              sx={inputStyles}
+            />
+          )}
+        />
+      </div>
+
+      {/* Processor Cores */}
+      <div className="space-y-2">
+        <Label>Processor Cores</Label>
+        <Input
+          type="number"
+          placeholder="Enter number of cores..."
+          value={specs.computing_cores || ''}
+          onChange={(e) => onChange('computing_cores', e.target.value)}
+          className="rounded-lg"
+        />
+      </div>
+
+      {/* Clock Speed */}
+      <div className="space-y-2">
+        <Label>Clock Speed (GHz)</Label>
+        <Input
+          type="text"
+          placeholder="Enter clock speed..."
+          value={specs.computing_clockspeed || ''}
+          onChange={(e) => onChange('computing_clockspeed', e.target.value)}
+          className="rounded-lg"
+        />
+      </div>
+
+      {/* RAM */}
+      <div className="space-y-2">
+        <Label>RAM</Label>
+        <Autocomplete
+          freeSolo
+          options={ramOptions}
+          getOptionLabel={(option) => {
+            if (typeof option === 'string') {
+              return option;
+            }
+            return option.label;
+          }}
+          value={ramOptions.find(ram => ram.value === specs.computing_ram) || specs.computing_ram || null}
+          onChange={(_, newValue) => {
+            const value = typeof newValue === 'string' ? newValue : newValue?.value || '';
+            onChange('computing_ram', value);
+          }}
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              placeholder="Select or type RAM..."
+              sx={inputStyles}
+            />
+          )}
+        />
+      </div>
+
+      {/* Storage */}
+      <div className="space-y-2">
+        <Label>Storage</Label>
+        <Autocomplete
+          freeSolo
+          options={storageOptions}
+          getOptionLabel={(option) => {
+            if (typeof option === 'string') {
+              return option;
+            }
+            return option.label;
+          }}
+          value={storageOptions.find(storage => storage.value === specs.computing_storage) || specs.computing_storage || null}
+          onChange={(_, newValue) => {
+            const value = typeof newValue === 'string' ? newValue : newValue?.value || '';
+            onChange('computing_storage', value);
+          }}
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              placeholder="Select or type storage..."
+              sx={inputStyles}
+            />
+          )}
+        />
+      </div>
+
+      {/* Graphics Card */}
+      <div className="space-y-2">
+        <Label>Graphics Card</Label>
+        <Autocomplete
+          freeSolo
+          options={graphicsOptions}
+          getOptionLabel={(option) => {
+            if (typeof option === 'string') {
+              return option;
+            }
+            return option.label;
+          }}
+          value={graphicsOptions.find(gpu => gpu.value === specs.computing_graphics) || specs.computing_graphics || null}
+          onChange={(_, newValue) => {
+            const value = typeof newValue === 'string' ? newValue : newValue?.value || '';
+            onChange('computing_graphics', value);
+          }}
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              placeholder="Select or type graphics card..."
+              sx={inputStyles}
+            />
+          )}
+        />
+      </div>
+
+      {/* VRAM Size */}
+      <div className="space-y-2">
+        <Label>VRAM Size</Label>
+        <Input
+          type="text"
+          placeholder="Enter VRAM size (e.g., 8GB)..."
+          value={specs.computing_vramsize || ''}
+          onChange={(e) => onChange('computing_vramsize', e.target.value)}
+          className="rounded-lg"
+        />
+      </div>
+
+      {/* Operating System */}
+      <div className="space-y-2">
+        <Label>Operating System</Label>
+        <Autocomplete
+          freeSolo
+          options={osOptions}
+          getOptionLabel={(option) => {
+            if (typeof option === 'string') {
+              return option;
+            }
+            return option.label;
+          }}
+          value={osOptions.find(os => os.value === specs.computing_operatingsystem) || specs.computing_operatingsystem || null}
+          onChange={(_, newValue) => {
+            const value = typeof newValue === 'string' ? newValue : newValue?.value || '';
+            onChange('computing_operatingsystem', value);
+          }}
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              placeholder="Select or type operating system..."
+              sx={inputStyles}
+            />
+          )}
+        />
+      </div>
+    </div>
+  );
+};
+
+DesktopSpecs.propTypes = {
+  specs: PropTypes.object.isRequired,
+  onChange: PropTypes.func.isRequired
+};
+
+export default DesktopSpecs;

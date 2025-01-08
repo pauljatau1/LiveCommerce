@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import Loader from "@/Components/Loader"
+import LinearProgress from "@mui/material/LinearProgress";
 import { BASE_URL } from "@/Constants/Server"
 
 export default function OrdersDashboard() {
@@ -74,8 +74,10 @@ export default function OrdersDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader />
+      <div className="flex flex-col justify-center items-center h-[80dvh]">
+        <div className="w-1/4">
+          <LinearProgress color="success" />
+        </div>
       </div>
     )
   }
@@ -83,9 +85,9 @@ export default function OrdersDashboard() {
   return (
     <>
       <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-   
+
       <div className="p-6">
-       
+
 
         <Tabs defaultValue="all" className="mb-8">
           <TabsList className="border-b h-auto p-0 bg-transparent">
@@ -179,8 +181,8 @@ export default function OrdersDashboard() {
                           order.paymentInfo.status === "completed"
                             ? "bg-green-100 text-green-500"
                             : order.paymentInfo.status === "pending"
-                            ? "bg-yellow-100 text-yellow-500"
-                            : "bg-red-100 text-red-500"
+                              ? "bg-yellow-100 text-yellow-500"
+                              : "bg-red-100 text-red-500"
                         }
                       >
                         {order.paymentInfo.status}
