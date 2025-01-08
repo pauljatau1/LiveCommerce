@@ -1,28 +1,39 @@
 const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
-  sender: { type: mongoose.Schema.Types.ObjectId, refPath: 'senderModel' },
-  recipient: { type: mongoose.Schema.Types.ObjectId, refPath: 'recipientModel' },
-  senderModel: { type: String, required: true, enum: ['Buyer', 'Seller'] },
-  recipientModel: { type: String, required: true, enum: ['Buyer', 'Seller'] },
-  content: { type: String },
-  messageType: { type: String, required: true, enum: ['text', 'image', 'video', 'file'], default: 'text' },
-  media: [{
-    url: { type: String },
-    public_id: { type: String },
-    fileType: { type: String },
-    fileName: { type: String },
-    fileSize: { type: Number }
-  }],
-  conversationId: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  conversation: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Conversation',
-    required: true 
+    required: true
   },
-  timestamp: { type: Date, default: Date.now },
-  read: { type: Boolean, default: false },
-  deliveredAt: { type: Date },
-  readAt: { type: Date }
+  sender: {
+    id: { type: mongoose.Schema.Types.ObjectId, required: true },
+    model: { type: String, enum: ['Buyer', 'Seller'], required: true }
+  },
+  recipient: {
+    id: { type: mongoose.Schema.Types.ObjectId, required: true },
+    model: { type: String, enum: ['Buyer', 'Seller'], required: true }
+  },
+  content: { type: String },
+  messageType: {
+    type: String,
+    enum: ['text', 'image', 'video', 'file', 'product'],
+    default: 'text'
+  },
+  media: [{
+    url: String,
+    public_id: String,
+    fileType: String,
+    fileName: String,
+    fileSize: Number
+  }],
+  attachedProduct: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  },
+  isRead: { type: Boolean, default: false },
+  isDelivered: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Message', messageSchema);
+module.exports = mongoose.model('Message', messageSchema); 
