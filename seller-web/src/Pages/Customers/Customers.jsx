@@ -12,7 +12,7 @@ import { Button } from "@/Components/ui/button"
 import { Avatar, AvatarFallback } from "@/Components/ui/avatar"
 import { Link } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server"
-import Loader from "@/Components/Loader";
+import LinearProgress from "@mui/material/LinearProgress";
 import Header from "@/Components/ui/Header/Header";
 
 function Customers() {
@@ -56,8 +56,10 @@ function Customers() {
   return (
     <>
       {loading ? (
-        <div className="flex justify-center items-center h-screen">
-          <Loader />
+        <div className="flex flex-col justify-center items-center h-[80dvh]">
+          <div className="w-1/4">
+            <LinearProgress color="success" />
+          </div>
         </div>
       ) : (
         <>
@@ -94,12 +96,12 @@ function Customers() {
                           <p className="text-xs xl:text-base">{follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}</p>
                         </TableCell>
                         <TableCell>
-                          <p className="text-xs xl:text-base">{follower.mainAddress ? 
-                            `${follower.mainAddress.city}, ${follower.mainAddress.country}` : 
+                          <p className="text-xs xl:text-base">{follower.mainAddress ?
+                            `${follower.mainAddress.city}, ${follower.mainAddress.country}` :
                             'N/A'
                           }</p>
                         </TableCell>
-                        <TableCell><p></p> </TableCell>
+                        <TableCell><p>{follower?.totalOrders || 0}</p></TableCell>
                         <TableCell>₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}</TableCell>
                         <TableCell>
                           <Link to={`/dashboard/customer/${follower.buyerId || follower._id}`}>

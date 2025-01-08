@@ -18,7 +18,6 @@ const DashboardLayout = () => {
 
       {/* Main Content */}
       <>
-        {isLoading && <Loader />}
         <div className="pl-[20px] relative pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14  h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
           <Outlet context={{ isSidebarOpen, setIsSidebarOpen }} />
         </div>
