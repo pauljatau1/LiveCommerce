@@ -69,6 +69,24 @@ router.post('/', authMiddleware.verifyToken, messageController.sendTextMessage);
  *                 items:
  *                   type: string
  *                   format: binary
+ *     responses:
+ *       201:
+ *         description: Media message sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 mediaUrls:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         description: Invalid request or file upload error
+ *       500:
+ *         description: Server error
  */
 router.post('/media', 
   authMiddleware.verifyToken,
@@ -97,5 +115,50 @@ router.post('/media',
  *         description: Server error
  */
 router.get('/:conversationId', authMiddleware.verifyToken, messageController.getMessages);
+
+/**
+ * @swagger
+ * /api/messages/product:
+ *   post:
+ *     summary: Send a product message
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipientId
+ *               - recipientModel
+ *               - productId
+ *             properties:
+ *               recipientId:
+ *                 type: string
+ *                 description: ID of the message recipient
+ *               recipientModel:
+ *                 type: string
+ *                 enum: [Buyer, Seller]
+ *                 description: Type of recipient (Buyer or Seller)
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to share
+ *               content:
+ *                 type: string
+ *                 description: Optional message text to accompany the product
+ *     responses:
+ *       201:
+ *         description: Product message sent successfully
+ *       404:
+ *         description: Product or recipient not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/product',
+  authMiddleware.verifyToken,
+  messageController.sendProductMessage
+);
 
 module.exports = router;

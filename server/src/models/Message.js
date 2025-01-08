@@ -7,18 +7,34 @@ const messageSchema = new mongoose.Schema({
     required: true
   },
   sender: {
-    id: { type: mongoose.Schema.Types.ObjectId, required: true },
-    model: { type: String, enum: ['Buyer', 'Seller'], required: true }
+    id: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      refPath: 'sender.model',
+      required: true 
+    },
+    model: { 
+      type: String, 
+      required: true,
+      enum: ['Buyer', 'Seller']
+    }
   },
   recipient: {
-    id: { type: mongoose.Schema.Types.ObjectId, required: true },
-    model: { type: String, enum: ['Buyer', 'Seller'], required: true }
+    id: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      refPath: 'recipient.model',
+      required: true 
+    },
+    model: { 
+      type: String, 
+      required: true,
+      enum: ['Buyer', 'Seller']
+    }
   },
-  content: { type: String },
+  content: String,
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'file', 'product'],
-    default: 'text'
+    enum: ['text', 'image', 'video', 'audio', 'product'],
+    required: true
   },
   media: [{
     url: String,
@@ -27,13 +43,21 @@ const messageSchema = new mongoose.Schema({
     fileName: String,
     fileSize: Number
   }],
-  attachedProduct: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product'
+  product: {
+    id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    name: String,
+    price: Number,
+    image: String,
+    description: String
   },
-  isRead: { type: Boolean, default: false },
-  isDelivered: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
+  isRead: {
+    type: Boolean,
+    default: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 module.exports = mongoose.model('Message', messageSchema); 
