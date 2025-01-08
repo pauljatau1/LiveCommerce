@@ -33,9 +33,9 @@ const MarketingPage = () => {
 
     return (
         <div className="flex flex-col justify-between gap-4 py-6">
-            <Header headerTitle="MARKETING"  />
+            <Header headerTitle="MARKETING" showHeader={true} />
            
-            <div className="flex flex-wrap mt-5 gap-4">
+            <div className="flex flex-wrap mt-5   gap-4">
                 {
                     marketingAdsData.map((item) => (
                         <MarketingAdsCard item={item} key={item.id} />
