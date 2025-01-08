@@ -11,6 +11,7 @@ import Orders from '@/pages/orders';
 import Products from '@/pages/products';
 import Streams from '@/pages/streams';
 import Withdrawals from '@/pages/withdrawals';
+import Announcements from '@/pages/announcements';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
             <Route path="/dashboard/products" element={<Products />} />
             <Route path="/dashboard/streams" element={<Streams />} />
             <Route path="/dashboard/withdrawals" element={<Withdrawals />} />
+            <Route path="/dashboard/announcements" element={<Announcements />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
