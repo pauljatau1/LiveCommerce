@@ -33,6 +33,8 @@ import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
 import MarketingPage from './Pages/MarketingPage/MarketingPage';
+import Payout from './Pages/payout/payout';
+import Messages from './Pages/messages/messages';
 
 
 
@@ -186,6 +188,16 @@ const router = createBrowserRouter([
           {
             path: 'marketing',
             element: <MarketingPage />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'earnings-payouts',
+            element: <Payout />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'messages',
+            element: <Messages />,
             errorElement: <NotFoundPage />
           }
         ]
