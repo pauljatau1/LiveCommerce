@@ -5,7 +5,7 @@ const passport = require('passport');
 const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
 const http = require('http');
-const socketIO = require('socket.io');
+const initializeSocket = require('./socket/socketManager');
 
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -29,7 +29,7 @@ require('./config/passport');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server);
+const io = initializeSocket(server);
 
 // Middleware to log requests
 app.use((req, res, next) => {
@@ -84,35 +84,11 @@ app.use((err, req, res, next) => {
    res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Set up WebSocket events
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-
-  // Join a room based on the user's ID
-  socket.on('joinRoom', (userId) => {
-    socket.join(userId);
-  });
-
-  // Listen for new messages and broadcast them to the respective receiver
-  socket.on('newMessage', async (message) => {
-    try {
-      const newMessage = await Message.create(message);
-      io.to(message.receiver.toString()).emit('newMessage', newMessage);
-    } catch (error) {
-      console.error('Error saving message:', error);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
-});
-
-// Attach io to the app for use in routes
-app.set('io', io);
-
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// Store io instance for use in other parts of the application
+app.set('io', io);
 
 module.exports = { app, server };
