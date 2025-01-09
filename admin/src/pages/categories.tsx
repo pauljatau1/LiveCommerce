@@ -1,10 +1,21 @@
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import AddCategoryModal from "@/components/dashboard/add-category-modal"
 import { toast } from "sonner"
 import { api } from "@/api/axios"
+
+interface SubSubCategory {
+  name: string
+  _id: string
+}
+
+interface SubCategory {
+  name: string
+  _id: string
+  subSubCategories: SubSubCategory[]
+}
 
 interface Category {
   _id: string
@@ -12,10 +23,7 @@ interface Category {
   image: {
     url: string
   }
-  subCategories: {
-    name: string
-    _id: string
-  }[]
+  subCategories: SubCategory[]
 }
 
 export default function CategoriesPage() {
@@ -24,6 +32,7 @@ export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | undefined>()
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [loading, setLoading] = useState(true)
+  const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, boolean>>({})
 
   const fetchCategories = async () => {
     try {
@@ -68,6 +77,13 @@ export default function CategoriesPage() {
     setIsModalOpen(true)
   }
 
+  const toggleSubCategory = (categoryId: string) => {
+    setExpandedSubCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }))
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -89,7 +105,7 @@ export default function CategoriesPage() {
       <div className="space-y-4">
         {categories.map((category) => (
           <Card key={category._id} className="p-4">
-            <div className="flex items-center gap-6">
+            <div className="flex items-start gap-6">
               <div className="w-32 h-32 flex-shrink-0">
                 <img
                   src={category.image.url}
@@ -101,15 +117,42 @@ export default function CategoriesPage() {
               <div className="flex-grow">
                 <h2 className="text-xl font-semibold mb-2">{category.name}</h2>
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground mb-1">Sub Categories:</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <h3 className="font-medium text-sm text-muted-foreground mb-1">Categories Hierarchy:</h3>
+                  <div className="space-y-2">
                     {category.subCategories.map((sub) => (
-                      <span
-                        key={sub._id}
-                        className="bg-secondary px-2 py-1 rounded-md text-sm"
-                      >
-                        {sub.name}
-                      </span>
+                      <div key={sub._id} className="space-y-1">
+                        <div 
+                          className="flex items-center gap-1 cursor-pointer"
+                          onClick={() => toggleSubCategory(sub._id)}
+                        >
+                          {sub.subSubCategories?.length > 0 ? (
+                            expandedSubCategories[sub._id] ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )
+                          ) : (
+                            <div className="w-4" /> // Spacer for alignment
+                          )}
+                          <span className="bg-secondary px-2 py-1 rounded-md text-sm">
+                            {sub.name}
+                          </span>
+                        </div>
+                        
+                        {/* Sub-subcategories */}
+                        {expandedSubCategories[sub._id] && sub.subSubCategories?.length > 0 && (
+                          <div className="ml-6 flex flex-wrap gap-2">
+                            {sub.subSubCategories.map((subSub) => (
+                              <span
+                                key={subSub._id}
+                                className="bg-secondary/50 px-2 py-1 rounded-md text-xs"
+                              >
+                                {subSub.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

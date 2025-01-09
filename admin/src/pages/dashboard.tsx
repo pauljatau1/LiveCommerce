@@ -101,6 +101,8 @@ function StatCard({
     const [orders, setOrders] = useState<DashboardOrder[]>([]);
     const [loading, setLoading] = useState(true);
 
+    console.log(loading)
+
     // Sample data for categories
     const topCategories = [
       {
