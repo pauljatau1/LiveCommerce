@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
 
+// Create schema for sub-subcategories
+const subSubCategorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+});
+
+// Modify subCategory schema to include sub-subcategories
 const subCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
+  subSubCategories: [subSubCategorySchema],
 });
 
 const categorySchema = new mongoose.Schema({

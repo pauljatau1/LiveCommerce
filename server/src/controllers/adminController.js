@@ -30,6 +30,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const { s3 } = require('../config/awsConfig');
+const { v4: uuidv4 } = require('uuid');
+
 exports.register = async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -286,20 +289,45 @@ exports.getAllProducts = async (req, res) => {
 };
 
 exports.createCategory = async (req, res) => {
-  const { name, image, subCategories } = req.body;
-
   try {
-    let imageData = {};
-    if (image) {
-      const uploadResult = await cloudinary.uploader.upload(image, { folder: 'categories' });
-      imageData = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+    const { name } = req.body;
+    const imageFile = req.file;
+    let subCategories = [];
+    
+    try {
+      subCategories = JSON.parse(req.body.subCategories);
+    } catch (error) {
+      return res.status(400).json({ message: 'Invalid subCategories format' });
     }
 
-    const newCategory = new Category({ name, image: imageData, subCategories });
+    if (!imageFile) {
+      return res.status(400).json({ message: 'Category image is required' });
+    }
+
+    // Upload image to S3
+    const imageKey = `categories/${uuidv4()}-${imageFile.originalname}`;
+    const uploadParams = {
+      Bucket: 'auqli-uploads',
+      Key: imageKey,
+      Body: imageFile.buffer,
+      ContentType: imageFile.mimetype,
+    };
+
+    const uploadResult = await s3.upload(uploadParams).promise();
+
+    const newCategory = new Category({
+      name,
+      image: {
+        url: uploadResult.Location,
+        public_id: uploadResult.Key,
+      },
+      subCategories,
+    });
+
     await newCategory.save();
     res.status(201).json(newCategory);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ message: 'Failed to create category', error: error.message });
   }
 };
 
@@ -316,50 +344,81 @@ exports.getCategories = async (req, res) => {
 
 
 exports.updateCategory = async (req, res) => {
-  const { name, image, subCategories } = req.body;
-  const { id } = req.params;
-
   try {
+    const { id } = req.params;
+    const { name } = req.body;
+    const imageFile = req.file;
+    let subCategories = [];
+    
+    try {
+      subCategories = JSON.parse(req.body.subCategories);
+    } catch (error) {
+      return res.status(400).json({ message: 'Invalid subCategories format' });
+    }
+
     const category = await Category.findById(id);
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    if (name) category.name = name;
-
-    if (image) {
-      if (category.image.public_id) {
-        await cloudinary.uploader.destroy(category.image.public_id);
+    // If new image is uploaded, delete old image and upload new one
+    if (imageFile) {
+      // Delete old image from S3 if exists
+      if (category.image?.public_id) {
+        const deleteParams = {
+          Bucket: 'auqli-uploads',
+          Key: category.image.public_id,
+        };
+        await s3.deleteObject(deleteParams).promise();
       }
-      const uploadResult = await cloudinary.uploader.upload(image, { folder: 'categories' });
-      category.image = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+
+      // Upload new image
+      const imageKey = `categories/${uuidv4()}-${imageFile.originalname}`;
+      const uploadParams = {
+        Bucket: 'auqli-uploads',
+        Key: imageKey,
+        Body: imageFile.buffer,
+        ContentType: imageFile.mimetype,
+      };
+
+      const uploadResult = await s3.upload(uploadParams).promise();
+      category.image = {
+        url: uploadResult.Location,
+        public_id: uploadResult.Key,
+      };
     }
 
-    if (subCategories) {
-      category.subCategories = subCategories;
-    }
+    category.name = name;
+    category.subCategories = subCategories;
+    await category.save();
 
-    const updatedCategory = await category.save();
-    res.json({ message: 'Category updated successfully', category: updatedCategory });
+    res.json(category);
   } catch (error) {
     res.status(500).json({ message: 'Failed to update category', error: error.message });
   }
 };
 
 exports.deleteCategory = async (req, res) => {
-  const { id } = req.params;
-
   try {
+    const { id } = req.params;
     const category = await Category.findById(id);
+
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    if (category.image.public_id) {
-      await cloudinary.uploader.destroy(category.image.public_id);
+    // Delete image from S3 if exists
+    if (category.image?.public_id) {
+      const deleteParams = {
+        Bucket: 'auqli-uploads',
+        Key: category.image.public_id,
+      };
+      await s3.deleteObject(deleteParams).promise();
     }
 
-    await category.remove();
+    // Use deleteOne() instead of remove()
+    await Category.deleteOne({ _id: id });
+    
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete category', error: error.message });
@@ -1241,6 +1300,27 @@ exports.verifyBuyerIdentity = async (req, res) => {
       message: 'Failed to update identity verification status', 
       error: error.message 
     });
+  }
+};
+
+// Add a new method to get sub-subcategories
+exports.getSubSubCategories = async (req, res) => {
+  const { categoryId, subCategoryId } = req.params;
+
+  try {
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    const subCategory = category.subCategories.id(subCategoryId);
+    if (!subCategory) {
+      return res.status(404).json({ message: 'Subcategory not found' });
+    }
+
+    res.json(subCategory.subSubCategories);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve sub-subcategories', error: error.message });
   }
 };
 

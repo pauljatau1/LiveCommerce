@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * @swagger
@@ -306,7 +308,11 @@ router.put('/sellers/:sellerId/verify', authMiddleware.verifyToken, adminControl
  *       400:
  *         description: Bad request
  */
-router.post('/categories', authMiddleware.verifyToken, adminController.createCategory);
+router.post('/categories', 
+  authMiddleware.verifyToken, 
+  upload.single('image'), 
+  adminController.createCategory
+);
 
 
 /**
@@ -392,7 +398,11 @@ router.get('/categories', authMiddleware.verifyToken, adminController.getCategor
  *       500:
  *         description: Internal server error
  */
-router.put('/categories/:id', authMiddleware.verifyToken, adminController.updateCategory);
+router.put('/categories/:id', 
+  authMiddleware.verifyToken, 
+  upload.single('image'), 
+  adminController.updateCategory
+);
 
 
 /**
@@ -1004,6 +1014,41 @@ router.put('/buyers/:buyerId/verify-identity',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.verifyBuyerIdentity
+);
+
+/**
+ * @swagger
+ * /api/admin/categories/{categoryId}/subcategories/{subCategoryId}/subsubcategories:
+ *   get:
+ *     summary: Get all sub-subcategories of a particular subcategory
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Category ID
+ *       - in: path
+ *         name: subCategoryId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Subcategory ID
+ *     responses:
+ *       200:
+ *         description: List of sub-subcategories retrieved successfully
+ *       404:
+ *         description: Category or subcategory not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get(
+  '/categories/:categoryId/subcategories/:subCategoryId/subsubcategories',
+  authMiddleware.verifyToken,
+  adminController.getSubSubCategories
 );
 
 module.exports = router;
