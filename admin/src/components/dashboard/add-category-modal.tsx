@@ -59,9 +59,9 @@ export default function AddCategoryModal({
   initialData,
   mode = 'add' 
 }: AddCategoryModalProps) {
-  const [subCategory, setSubCategory] = useState("")
+  const [subCategory, setSubCategory] = useState<any>("")
   const [selectedSubCategoryIndex, setSelectedSubCategoryIndex] = useState<number | null>(null)
-  const [subSubCategory, setSubSubCategory] = useState("")
+  const [subSubCategory, setSubSubCategory] = useState<any>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,63 +9,91 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Check, X, Eye, Loader2 } from "lucide-react";
+import { Check, X, Eye, Loader2, PlayCircle } from "lucide-react";
+import { api } from "@/api/axios";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
-interface Withdrawal {
-  id: string;
-  seller: string;
-  amount: number;
-  status: 'pending' | 'approved' | 'rejected';
-  requestDate: string;
-  processedDate?: string;
-  paymentMethod: string;
-  accountDetails: string;
+interface WithdrawalNote {
+  content: string;
+  addedBy: string;
+  _id: string;
+  createdAt: string;
 }
 
-const sampleWithdrawals: Withdrawal[] = [
-  {
-    id: "WTH001",
-    seller: "TechStore",
-    amount: 1500.00,
-    status: 'pending',
-    requestDate: "2024-03-20T10:30:00",
-    paymentMethod: "Bank Transfer",
-    accountDetails: "****4589"
-  },
-  {
-    id: "WTH002",
-    seller: "FashionHub",
-    amount: 2750.50,
-    status: 'approved',
-    requestDate: "2024-03-19T15:45:00",
-    processedDate: "2024-03-20T09:15:00",
-    paymentMethod: "PayPal",
-    accountDetails: "fashion@email.com"
-  },
-  {
-    id: "WTH003",
-    seller: "HomeGoods",
-    amount: 950.25,
-    status: 'rejected',
-    requestDate: "2024-03-18T12:20:00",
-    processedDate: "2024-03-19T14:30:00",
-    paymentMethod: "Bank Transfer",
-    accountDetails: "****7823"
-  },
-  {
-    id: "WTH004",
-    seller: "ElectroMart",
-    amount: 3200.75,
-    status: 'pending',
-    requestDate: "2024-03-20T08:45:00",
-    paymentMethod: "Bank Transfer",
-    accountDetails: "****1234"
-  }
-];
+interface Withdrawal {
+  _id: string;
+  seller: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  bankDetails: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  };
+  amount: number;
+  status: 'pending' | 'processing' | 'completed' | 'rejected';
+  notes: WithdrawalNote[];
+  requestDate: string;
+  processedDate?: string;
+  reference: string;
+}
 
 function Withdrawals() {
-  const [withdrawals] = useState<Withdrawal[]>(sampleWithdrawals);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [statusNote, setStatusNote] = useState("");
+  const [pendingAction, setPendingAction] = useState<'processing' | 'completed' | 'rejected' | null>(null);
+
+  const fetchWithdrawals = async () => {
+    try {
+      const response = await api.get("/api/admin/withdrawals");
+      setWithdrawals(response.data);
+    } catch (error) {
+      toast.error("Failed to fetch withdrawals");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWithdrawals();
+  }, []);
+
+  const handleStatusUpdate = async () => {
+    if (!selectedWithdrawal || !pendingAction) return;
+
+    setProcessingId(selectedWithdrawal._id);
+    try {
+      await api.put(`/api/admin/withdrawals/${selectedWithdrawal._id}/status`, {
+        status: pendingAction,
+        note: statusNote.trim() || undefined
+      });
+      toast.success(`Withdrawal ${pendingAction}`);
+      fetchWithdrawals();
+      setIsStatusModalOpen(false);
+      setStatusNote("");
+      setPendingAction(null);
+    } catch (error) {
+      toast.error("Failed to update withdrawal status");
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -78,24 +106,26 @@ function Withdrawals() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'NGN'
     }).format(amount);
   };
 
-  const handleProcess = async (id: string, status: 'approve' | 'reject') => {
-    setProcessingId(id);
-    console.log(status)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setProcessingId(null);
-  };
-
-  const getTotalAmount = (status: 'pending' | 'approved' | 'rejected') => {
+  const getTotalAmount = (status: Withdrawal['status']) => {
     return withdrawals
       .filter(w => w.status === status)
       .reduce((acc, curr) => acc + curr.amount, 0);
+  };
+
+  const getStatusColor = (status: Withdrawal['status']) => {
+    const colors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      completed: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800'
+    };
+    return colors[status];
   };
 
   return (
@@ -116,9 +146,17 @@ function Withdrawals() {
         </Card>
         <Card className="p-6">
           <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Approved Today</span>
+            <span className="text-muted-foreground text-sm">Processing Amount</span>
             <span className="text-2xl font-bold mt-2">
-              {formatCurrency(getTotalAmount('approved'))}
+              {formatCurrency(getTotalAmount('processing'))}
+            </span>
+          </div>
+        </Card>
+        <Card className="p-6">
+          <div className="flex flex-col">
+            <span className="text-muted-foreground text-sm">Completed Amount</span>
+            <span className="text-2xl font-bold mt-2">
+              {formatCurrency(getTotalAmount('completed'))}
             </span>
           </div>
         </Card>
@@ -128,25 +166,16 @@ function Withdrawals() {
             <span className="text-2xl font-bold mt-2">{withdrawals.length}</span>
           </div>
         </Card>
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Pending Requests</span>
-            <span className="text-2xl font-bold mt-2">
-              {withdrawals.filter(w => w.status === 'pending').length}
-            </span>
-          </div>
-        </Card>
       </div>
 
       <Card className="p-6">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              <TableHead>Reference</TableHead>
               <TableHead>Seller</TableHead>
               <TableHead>Amount</TableHead>
-              <TableHead>Payment Method</TableHead>
-              <TableHead>Account</TableHead>
+              <TableHead>Bank Details</TableHead>
               <TableHead>Request Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -154,29 +183,36 @@ function Withdrawals() {
           </TableHeader>
           <TableBody>
             {withdrawals.map((withdrawal) => (
-              <TableRow key={withdrawal.id}>
+              <TableRow key={withdrawal._id}>
                 <TableCell className="font-mono text-xs">
-                  {withdrawal.id}
+                  {withdrawal.reference}
                 </TableCell>
-                <TableCell className="font-medium">{withdrawal.seller}</TableCell>
+                <TableCell>
+                  {withdrawal.seller.firstName} {withdrawal.seller.lastName}
+                </TableCell>
                 <TableCell>{formatCurrency(withdrawal.amount)}</TableCell>
-                <TableCell>{withdrawal.paymentMethod}</TableCell>
-                <TableCell>{withdrawal.accountDetails}</TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    <div>{withdrawal.bankDetails.bankName}</div>
+                    <div className="text-muted-foreground">{withdrawal.bankDetails.accountNumber}</div>
+                  </div>
+                </TableCell>
                 <TableCell>{formatDate(withdrawal.requestDate)}</TableCell>
                 <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    withdrawal.status === 'approved' 
-                      ? 'bg-green-100 text-green-800'
-                      : withdrawal.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
+                  <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(withdrawal.status)}`}>
                     {withdrawal.status.charAt(0).toUpperCase() + withdrawal.status.slice(1)}
                   </span>
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedWithdrawal(withdrawal);
+                        setIsDetailsModalOpen(true);
+                      }}
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                     {withdrawal.status === 'pending' && (
@@ -184,26 +220,45 @@ function Withdrawals() {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="text-green-500"
-                          onClick={() => handleProcess(withdrawal.id, 'approve')}
-                          disabled={processingId === withdrawal.id}
+                          className="text-blue-500"
+                          onClick={() => {
+                            setSelectedWithdrawal(withdrawal);
+                            setPendingAction('processing');
+                            setIsStatusModalOpen(true);
+                          }}
+                          disabled={processingId === withdrawal._id}
                         >
-                          {processingId === withdrawal.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Check className="h-4 w-4" />
-                          )}
+                          <PlayCircle className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           className="text-red-500"
-                          onClick={() => handleProcess(withdrawal.id, 'reject')}
-                          disabled={processingId === withdrawal.id}
+                          onClick={() => {
+                            setSelectedWithdrawal(withdrawal);
+                            setPendingAction('rejected');
+                            setIsStatusModalOpen(true);
+                          }}
+                          disabled={processingId === withdrawal._id}
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </>
+                    )}
+                    {withdrawal.status === 'processing' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-green-500"
+                        onClick={() => {
+                          setSelectedWithdrawal(withdrawal);
+                          setPendingAction('completed');
+                          setIsStatusModalOpen(true);
+                        }}
+                        disabled={processingId === withdrawal._id}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                 </TableCell>
@@ -212,6 +267,79 @@ function Withdrawals() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Details Modal */}
+      <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Withdrawal Details</DialogTitle>
+          </DialogHeader>
+          {selectedWithdrawal && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold">Seller Information</h4>
+                  <p>{selectedWithdrawal.seller.firstName} {selectedWithdrawal.seller.lastName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedWithdrawal.seller.email}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold">Bank Details</h4>
+                  <p>{selectedWithdrawal.bankDetails.bankName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedWithdrawal.bankDetails.accountNumber} ({selectedWithdrawal.bankDetails.accountName})
+                  </p>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">Notes History</h4>
+                <div className="space-y-2">
+                  {selectedWithdrawal.notes.map((note) => (
+                    <div key={note._id} className="bg-muted p-3 rounded-md">
+                      <p className="text-sm">{note.content}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        By {note.addedBy} on {formatDate(note.createdAt)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Update Modal */}
+      <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Withdrawal Status</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="note">Add a note (optional)</label>
+              <Textarea
+                id="note"
+                value={statusNote}
+                onChange={(e) => setStatusNote(e.target.value)}
+                placeholder="Enter a note about this status change..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleStatusUpdate}
+              disabled={processingId === selectedWithdrawal?._id}
+            >
+              {processingId === selectedWithdrawal?._id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Confirm'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
