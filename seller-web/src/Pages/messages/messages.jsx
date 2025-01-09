@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import { toast } from "sonner"
 import { BASE_URL } from "@/Constants/Server"
+import { io } from "socket.io-client";
+import { useSocket } from "@/contexts/SocketContext";
 
 // Helper function to format message timestamps
 const formatMessageTime = (timestamp) => {
@@ -69,6 +71,7 @@ export default function ChatInterface() {
   const [sellerId, setSellerId] = useState(null)
   const [isSending, setIsSending] = useState(false)
   const messagesEndRef = useRef(null)
+  const socket = useSocket();
 
   // Fetch conversations
   useEffect(() => {
@@ -120,6 +123,38 @@ export default function ChatInterface() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Add this effect to handle incoming messages
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('receive_message', (newMessage) => {
+      // Update messages if the message belongs to current conversation
+      if (newMessage.conversation === currentConversation?._id) {
+        setMessages(prev => [...prev, newMessage]);
+      }
+      
+      // Update conversations list with new last message
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === newMessage.conversation
+            ? {
+                ...conv,
+                lastMessage: {
+                  content: newMessage.content,
+                  createdAt: newMessage.createdAt
+                },
+                unreadCount: conv.unreadCount + 1
+              }
+            : conv
+        )
+      );
+    });
+
+    return () => {
+      socket.off('receive_message');
+    };
+  }, [socket, currentConversation]);
 
   // Enhanced handleSendMessage with immediate UI update
   const handleSendMessage = async () => {
@@ -179,6 +214,12 @@ export default function ChatInterface() {
 
       const serverMessage = await response.json();
       
+      // Emit socket event for real-time delivery
+      socket.emit('new_message', {
+        conversationId: currentConversation._id,
+        message: serverMessage
+      });
+
       // Replace temporary message with server response
       setMessages(prev => 
         prev.map(msg => 
