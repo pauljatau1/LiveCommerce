@@ -33,7 +33,7 @@ import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
 import MarketingPage from './Pages/MarketingPage/MarketingPage';
-import Payout from './Pages/payout/payout';
+import Payout from './Pages/payout/Payout';
 import Messages from './Pages/messages/messages';
 import { SocketProvider } from './Contexts/SocketContext';
 

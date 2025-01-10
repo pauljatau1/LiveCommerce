@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, CreditCard, Info, ArrowRight, ArrowLeft, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText } from 'lucide-react'
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Card } from "@/Components/ui/card"
+import { Button } from "@/Components/ui/button"
 import Header from '@/Components/ui/Header/Header';
 import {
   Table,
@@ -10,16 +10,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/Components/ui/table"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Toaster } from "@/components/ui/sonner";
+} from "@/Components/ui/select"
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
+import { Toaster } from "@/Components/ui/sonner";
 import { BASE_URL } from "@/Constants/Server";
 
 function formatCurrency(amount) {
