@@ -12,6 +12,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "@aws-sdk/client-sns": "^3.723.0",
         "@sendgrid/mail": "^8.1.4",
         "agora-access-token": "^2.0.4",
         "aws-sdk": "^2.1692.0",

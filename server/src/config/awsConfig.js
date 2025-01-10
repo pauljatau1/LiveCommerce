@@ -7,6 +7,5 @@ AWS.config.update({
 });
 
 const s3 = new AWS.S3();
-const sns = new AWS.SNS();
 
-module.exports = { s3, sns };
+module.exports = { s3 };

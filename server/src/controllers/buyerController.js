@@ -2,15 +2,17 @@ const Buyer = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
 const sgMail = require('@sendgrid/mail');
 const { v4: uuidv4 } = require('uuid');
-const { s3 }= require('../config/awsConfig');
+const { s3 } = require('../config/awsConfig');
 const notificationController = require('../controllers/notificationController');
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller')
 const Product = require('../models/Product');
-const { sns } = require('../config/awsConfig');
-
+// Import required AWS SDK modules for SNS (Simple Notification Service)
+const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 sgMail.setApiKey('SG.REDACTED');
+// Load environment variables from a .env file
+require('dotenv').config();
 
 // Helper function to generate JWT
 const generateToken = (id) => {
@@ -34,7 +36,7 @@ exports.register = async (req, res) => {
 
   // Validate required fields
   if (!firstName || !lastName || !username || !email || !phoneNumber || !password) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Missing required fields',
       details: {
         firstName: !firstName ? 'First name is required' : null,
@@ -61,15 +63,15 @@ exports.register = async (req, res) => {
     }
 
     const otp = generateOTP();
-    const newBuyer = new Buyer({ 
-      firstName, 
-      lastName, 
-      username, 
-      email, 
-      country, 
-      phoneNumber, 
-      password, 
-      otp 
+    const newBuyer = new Buyer({
+      firstName,
+      lastName,
+      username,
+      email,
+      country,
+      phoneNumber,
+      password,
+      otp
     });
 
     await newBuyer.save();
@@ -87,18 +89,18 @@ exports.register = async (req, res) => {
       await sgMail.send(msg);
     } catch (sendError) {
       console.error('SendGrid error:', sendError);
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: 'Account created but failed to send verification email',
-        error: sendError.message 
+        error: sendError.message
       });
     }
 
     res.status(201).json({ user: newBuyer, token });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ 
-      message: 'Failed to register buyer', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to register buyer',
+      error: error.message
     });
   }
 };
@@ -413,7 +415,7 @@ exports.getOrders = async (req, res) => {
   try {
     const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
     const query = { buyer: req.user.id };
-    
+
     // Apply filters
     if (status) {
       query['items.status'] = status;
@@ -450,8 +452,8 @@ exports.getOrderDetails = async (req, res) => {
       _id: req.params.id,
       buyer: req.user.id
     })
-    .populate('items.product')
-    .populate('items.seller', 'storeName email phoneNumber');
+      .populate('items.product')
+      .populate('items.seller', 'storeName email phoneNumber');
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
@@ -467,7 +469,7 @@ exports.getOrderDetails = async (req, res) => {
 exports.getPurchaseAnalytics = async (req, res) => {
   try {
     const orders = await Order.find({ buyer: req.user.id });
-    
+
     const analytics = {
       totalOrders: orders.length,
       totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
@@ -503,7 +505,7 @@ exports.getAddresses = async (req, res) => {
   try {
     const buyer = await Buyer.findById(req.user.id)
       .select('shippingAddresses');
-      
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
@@ -511,9 +513,9 @@ exports.getAddresses = async (req, res) => {
     // Return complete address objects
     res.json(buyer.shippingAddresses);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve addresses', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve addresses',
+      error: error.message
     });
   }
 };
@@ -521,14 +523,14 @@ exports.getAddresses = async (req, res) => {
 // Add new address
 exports.addAddress = async (req, res) => {
   try {
-    const { 
-      addressType, 
-      country, 
-      state, 
-      city, 
-      addressLine1, 
-      addressLine2, 
-      zipCode 
+    const {
+      addressType,
+      country,
+      state,
+      city,
+      addressLine1,
+      addressLine2,
+      zipCode
     } = req.body;
 
     // Validate required fields
@@ -616,8 +618,8 @@ exports.updateAddress = async (req, res) => {
     const updates = req.body;
 
     // If address type is being changed, check for duplicates
-    if (updates.addressType && 
-        updates.addressType !== buyer.shippingAddresses[addressIndex].addressType) {
+    if (updates.addressType &&
+      updates.addressType !== buyer.shippingAddresses[addressIndex].addressType) {
       const existingAddressType = buyer.shippingAddresses.find(
         addr => addr.addressType === updates.addressType
       );
@@ -679,9 +681,9 @@ exports.deleteAddress = async (req, res) => {
 
     res.json({ message: 'Address deleted successfully' });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to delete address', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to delete address',
+      error: error.message
     });
   }
 };
@@ -720,8 +722,8 @@ exports.followSeller = async (req, res) => {
     }
 
     // Get buyer's main address
-    const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
-      ? buyer.shippingAddresses[0] 
+    const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
+      ? buyer.shippingAddresses[0]
       : null;
 
     // Add to seller's followers list
@@ -752,15 +754,15 @@ exports.followSeller = async (req, res) => {
 
     await buyer.save();
 
-    res.json({ 
+    res.json({
       message: 'Successfully followed seller',
       followData: seller.followers[seller.followers.length - 1]
     });
   } catch (error) {
-    console.error('Follow seller error:', error); 
-    res.status(500).json({ 
-      message: 'Failed to follow seller', 
-      error: error.message 
+    console.error('Follow seller error:', error);
+    res.status(500).json({
+      message: 'Failed to follow seller',
+      error: error.message
     });
   }
 };
@@ -785,9 +787,9 @@ exports.unfollowSeller = async (req, res) => {
 
     res.json({ message: 'Successfully unfollowed seller' });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to unfollow seller', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to unfollow seller',
+      error: error.message
     });
   }
 };
@@ -796,7 +798,7 @@ exports.unfollowSeller = async (req, res) => {
 exports.getFollowedSellers = async (req, res) => {
   try {
     const buyerId = req.user.id;
-    
+
     const sellers = await Seller.find({
       'followers.buyerId': buyerId
     }).select('storeName businessName aboutStore followers');
@@ -811,9 +813,9 @@ exports.getFollowedSellers = async (req, res) => {
 
     res.json(followedSellers);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to get followed sellers', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get followed sellers',
+      error: error.message
     });
   }
 };
@@ -852,14 +854,14 @@ exports.addToWishlist = async (req, res) => {
 
     await buyer.save();
 
-    res.json({ 
+    res.json({
       message: 'Product added to wishlist successfully',
-      wishlist: buyer.wishlist 
+      wishlist: buyer.wishlist
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to add product to wishlist', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add product to wishlist',
+      error: error.message
     });
   }
 };
@@ -885,9 +887,9 @@ exports.getWishlist = async (req, res) => {
 
     res.json(buyer.wishlist);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to get wishlist', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get wishlist',
+      error: error.message
     });
   }
 };
@@ -910,14 +912,14 @@ exports.removeFromWishlist = async (req, res) => {
 
     await buyer.save();
 
-    res.json({ 
+    res.json({
       message: 'Product removed from wishlist successfully',
-      wishlist: buyer.wishlist 
+      wishlist: buyer.wishlist
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to remove product from wishlist', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to remove product from wishlist',
+      error: error.message
     });
   }
 };
@@ -960,15 +962,15 @@ exports.uploadIdentityDocument = async (req, res) => {
     buyer.isIdentityVerified = false; // Reset verification status
     await buyer.save();
 
-    res.json({ 
+    res.json({
       message: 'Identity document uploaded successfully',
       document: buyer.identityDocument
     });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to upload identity document', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to upload identity document',
+      error: error.message
     });
   }
 };
@@ -982,8 +984,8 @@ exports.sendPhoneOTP = async (req, res) => {
     // Validate phone number format (basic validation)
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     if (!phoneRegex.test(phoneNumber)) {
-      return res.status(400).json({ 
-        message: 'Invalid phone number format. Please include country code (e.g., +1234567890)' 
+      return res.status(400).json({
+        message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
       });
     }
 
@@ -994,7 +996,7 @@ exports.sendPhoneOTP = async (req, res) => {
 
     // Generate OTP
     const phoneOTP = generatePhoneOTP();
-    
+
     // Store OTP and its expiry in buyer document
     buyer.phoneVerification = {
       otp: phoneOTP,
@@ -1004,33 +1006,58 @@ exports.sendPhoneOTP = async (req, res) => {
     await buyer.save();
 
     // Send SMS via AWS SNS
-    const params = {
-      Message: `Your Auqli verification code is: ${phoneOTP}. Valid for 10 minutes.`,
-      PhoneNumber: phoneNumber,
-      MessageAttributes: {
-        'AWS.SNS.SMS.SenderID': {
-          DataType: 'String',
-          StringValue: 'AUQLI'
-        },
-        'AWS.SNS.SMS.SMSType': {
-          DataType: 'String',
-          StringValue: 'Transactional'
-        }
-      }
-    };
+    // Asynchronous function to send an SMS message using AWS SNS
+    async function sendSMSMessage(sns, params) {
+      // Create a new PublishCommand with the specified parameters
+      const command = new PublishCommand(params);
 
-    await sns.publish(params).promise();
+      // Send the SMS message using the SNS client and the created command
+      const message = await sns.send(command);
+
+      // Return the result of the message sending operation
+      return message;
+    }
+
+
+    // Main asynchronous function (IIFE) to send an SMS message
+    (async () => {
+      // Define parameters for the SMS message
+      const params = {
+        Message: `Your Auqli verification code is: ${phoneOTP}. Valid for 10 minutes.`, // Generate a 6-digit OTP code
+        PhoneNumber: phoneNumber, // Recipient's phone number from environment variables
+        MessageAttributes: {
+          'AWS.SNS.SMS.SenderID': {
+            'DataType': 'String',
+            'StringValue': 'AUQLI'
+          }
+        }
+      };
+
+      // Create an SNS client with the specified configuration
+      const sns = new SNSClient({
+        region: process.env.AWS_REGION, // AWS region from environment variables
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID, // AWS access key from environment variables
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY // AWS secret key from environment variables
+        }
+      });
+
+      // Send the SMS message using the defined SNS client and parameters
+      const response = await sendSMSMessage(sns, params);
+      console.log('sms response', response);
+    })();
 
     res.json({ 
       message: 'OTP sent successfully',
       validFor: '10 minutes'
     });
 
+
   } catch (error) {
     console.error('Send phone OTP error:', error);
-    res.status(500).json({ 
-      message: 'Failed to send OTP', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to send OTP',
+      error: error.message
     });
   }
 };
@@ -1048,8 +1075,8 @@ exports.verifyPhoneOTP = async (req, res) => {
 
     // Check if there's an ongoing verification
     if (!buyer.phoneVerification || !buyer.phoneVerification.otp) {
-      return res.status(400).json({ 
-        message: 'No verification in progress. Please request a new OTP.' 
+      return res.status(400).json({
+        message: 'No verification in progress. Please request a new OTP.'
       });
     }
 
@@ -1064,8 +1091,8 @@ exports.verifyPhoneOTP = async (req, res) => {
     if (buyer.phoneVerification.attempts >= 3) {
       buyer.phoneVerification = undefined;
       await buyer.save();
-      return res.status(400).json({ 
-        message: 'Too many failed attempts. Please request a new OTP.' 
+      return res.status(400).json({
+        message: 'Too many failed attempts. Please request a new OTP.'
       });
     }
 
@@ -1073,7 +1100,7 @@ exports.verifyPhoneOTP = async (req, res) => {
     if (buyer.phoneVerification.otp !== otp) {
       buyer.phoneVerification.attempts += 1;
       await buyer.save();
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Invalid OTP',
         remainingAttempts: 3 - buyer.phoneVerification.attempts
       });
@@ -1084,16 +1111,16 @@ exports.verifyPhoneOTP = async (req, res) => {
     buyer.phoneVerification = undefined; // Clear verification data
     await buyer.save();
 
-    res.json({ 
+    res.json({
       message: 'Phone number verified successfully',
       phoneVerified: true
     });
 
   } catch (error) {
     console.error('Verify phone OTP error:', error);
-    res.status(500).json({ 
-      message: 'Failed to verify OTP', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to verify OTP',
+      error: error.message
     });
   }
 };

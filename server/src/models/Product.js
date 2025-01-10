@@ -132,12 +132,18 @@ const productSchema = new mongoose.Schema({
     barcode: { type: String },
   },
   variants: [{
-    name: { type: String },
+    name: { type: String, required: true },
+    price: { type: Number, required: true },
+    inventory: { type: Number, default: 0 },
     options: [{
-      value: { type: String },
+      value: { type: String, required: true },
       inventory: { type: Number, default: 0 },
-      price: { type: Number },
-      sku: { type: String },
+      price: { type: Number, required: true },
+      options: [{
+        value: { type: String, required: true },
+        inventory: { type: Number, default: 0 },
+        price: { type: Number, required: true }
+      }]
     }]
   }],
   pricing: {
