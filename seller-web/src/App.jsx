@@ -35,7 +35,7 @@ import CookieConsent from './Components/CookieConsent';
 import MarketingPage from './Pages/MarketingPage/MarketingPage';
 import Payout from './Pages/payout/payout';
 import Messages from './Pages/messages/messages';
-import { SocketProvider } from '@/Contexts/SocketContext';
+import { SocketProvider } from './Contexts/SocketContext';
 
 // fixed
 
