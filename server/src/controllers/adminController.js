@@ -9,6 +9,7 @@ const cloudinary = require('cloudinary').v2;
 const Order = require('../models/Order');
 const Announcement = require('../models/Annoucement');
 const Withdrawal = require('../models/Withdrawal');
+const Resource = require('../models/Resource');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
@@ -1321,6 +1322,194 @@ exports.getSubSubCategories = async (req, res) => {
     res.json(subCategory.subSubCategories);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve sub-subcategories', error: error.message });
+  }
+};
+
+// Create a resource
+exports.createResource = async (req, res) => {
+  try {
+    const { title, description, link } = req.body;
+    const mediaFile = req.files?.['media']?.[0];
+    const bannerFile = req.files?.['banner']?.[0];
+
+    if (!bannerFile) {
+      return res.status(400).json({ message: 'Banner image is required' });
+    }
+
+    if (!mediaFile && !link) {
+      return res.status(400).json({ message: 'Either media file or link must be provided' });
+    }
+
+    // Upload banner image
+    const bannerKey = `resources/banners/${uuidv4()}-${bannerFile.originalname}`;
+    const bannerParams = {
+      Bucket: 'auqli-uploads',
+      Key: bannerKey,
+      Body: bannerFile.buffer,
+      ContentType: bannerFile.mimetype,
+    };
+    const bannerUpload = await s3.upload(bannerParams).promise();
+
+    // Initialize resource data
+    const resourceData = {
+      title,
+      description,
+      banner: {
+        url: bannerUpload.Location,
+        public_id: bannerUpload.Key
+      },
+      link
+    };
+
+    // Handle media file if provided
+    if (mediaFile) {
+      const mediaKey = `resources/${uuidv4()}-${mediaFile.originalname}`;
+      const mediaParams = {
+        Bucket: 'auqli-uploads',
+        Key: mediaKey,
+        Body: mediaFile.buffer,
+        ContentType: mediaFile.mimetype,
+      };
+      const mediaUpload = await s3.upload(mediaParams).promise();
+
+      // Determine media type
+      const mediaType = mediaFile.mimetype.startsWith('image/') ? 'image' :
+                       mediaFile.mimetype.startsWith('video/') ? 'video' : 'file';
+
+      resourceData.media = {
+        type: mediaType,
+        url: mediaUpload.Location,
+        public_id: mediaUpload.Key
+      };
+    }
+
+    const resource = new Resource(resourceData);
+    await resource.save();
+    res.status(201).json(resource);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to create resource', error: error.message });
+  }
+};
+
+// Get all resources (admin)
+exports.getAllResources = async (req, res) => {
+  try {
+    const resources = await Resource.find().sort({ createdAt: -1 });
+    res.json(resources);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update resource
+exports.updateResource = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, link } = req.body;
+    const mediaFile = req.files['media']?.[0];
+    const bannerFile = req.files['banner']?.[0];
+
+    const resource = await Resource.findById(id);
+    if (!resource) {
+      return res.status(404).json({ message: 'Resource not found' });
+    }
+
+    // Handle media file update
+    if (mediaFile) {
+      // Delete old media from S3
+      if (resource.media.public_id) {
+        await s3.deleteObject({
+          Bucket: 'auqli-uploads',
+          Key: resource.media.public_id
+        }).promise();
+      }
+
+      // Upload new media
+      const mediaKey = `resources/${uuidv4()}-${mediaFile.originalname}`;
+      const mediaUpload = await s3.upload({
+        Bucket: 'auqli-uploads',
+        Key: mediaKey,
+        Body: mediaFile.buffer,
+        ContentType: mediaFile.mimetype,
+      }).promise();
+
+      const mediaType = mediaFile.mimetype.startsWith('image/') ? 'image' :
+                       mediaFile.mimetype.startsWith('video/') ? 'video' : 'file';
+
+      resource.media = {
+        type: mediaType,
+        url: mediaUpload.Location,
+        public_id: mediaUpload.Key
+      };
+    }
+
+    // Handle banner update
+    if (bannerFile) {
+      // Delete old banner from S3
+      if (resource.banner.public_id) {
+        await s3.deleteObject({
+          Bucket: 'auqli-uploads',
+          Key: resource.banner.public_id
+        }).promise();
+      }
+
+      // Upload new banner
+      const bannerKey = `resources/banners/${uuidv4()}-${bannerFile.originalname}`;
+      const bannerUpload = await s3.upload({
+        Bucket: 'auqli-uploads',
+        Key: bannerKey,
+        Body: bannerFile.buffer,
+        ContentType: bannerFile.mimetype,
+      }).promise();
+
+      resource.banner = {
+        url: bannerUpload.Location,
+        public_id: bannerUpload.Key
+      };
+    }
+
+    resource.title = title || resource.title;
+    resource.description = description || resource.description;
+    resource.link = link || resource.link;
+    resource.updatedAt = Date.now();
+
+    await resource.save();
+    res.json(resource);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update resource', error: error.message });
+  }
+};
+
+// Delete resource
+exports.deleteResource = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const resource = await Resource.findById(id);
+
+    if (!resource) {
+      return res.status(404).json({ message: 'Resource not found' });
+    }
+
+    // Delete media from S3
+    if (resource.media.public_id) {
+      await s3.deleteObject({
+        Bucket: 'auqli-uploads',
+        Key: resource.media.public_id
+      }).promise();
+    }
+
+    // Delete banner from S3
+    if (resource.banner.public_id) {
+      await s3.deleteObject({
+        Bucket: 'auqli-uploads',
+        Key: resource.banner.public_id
+      }).promise();
+    }
+
+    await Resource.deleteOne({ _id: id });
+    res.json({ message: 'Resource deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete resource', error: error.message });
   }
 };
 

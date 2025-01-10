@@ -5,32 +5,32 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * @swagger
- * /api/admin/register:
- *   post:
- *     summary: Register a new admin
- *     tags: [Admin]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               username:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       201:
- *         description: Admin registered successfully
- *       400:
- *         description: Bad request
- */
-router.post('/register', adminController.register);
+// /**
+//  * @swagger
+//  * /api/admin/register:
+//  *   post:
+//  *     summary: Register a new admin
+//  *     tags: [Admin]
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             properties:
+//  *               username:
+//  *                 type: string
+//  *               email:
+//  *                 type: string
+//  *               password:
+//  *                 type: string
+//  *     responses:
+//  *       201:
+//  *         description: Admin registered successfully
+//  *       400:
+//  *         description: Bad request
+//  */
+// router.post('/register', adminController.register);
 
 /**
  * @swagger
@@ -1049,6 +1049,131 @@ router.get(
   '/categories/:categoryId/subcategories/:subCategoryId/subsubcategories',
   authMiddleware.verifyToken,
   adminController.getSubSubCategories
+);
+
+/**
+ * @swagger
+ * /api/admin/resources:
+ *   post:
+ *     summary: Create a new resource
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               link:
+ *                 type: string
+ *               media:
+ *                 type: string
+ *                 format: binary
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Resource created successfully
+ */
+router.post('/resources',
+  authMiddleware.verifyToken,
+  upload.fields([
+    { name: 'media', maxCount: 1 },
+    { name: 'banner', maxCount: 1 }
+  ]),
+  adminController.createResource
+);
+
+/**
+ * @swagger
+ * /api/admin/resources:
+ *   get:
+ *     summary: Get all resources
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of resources retrieved successfully
+ */
+router.get('/resources',
+  authMiddleware.verifyToken,
+  adminController.getAllResources
+);
+
+/**
+ * @swagger
+ * /api/admin/resources/{id}:
+ *   put:
+ *     summary: Update a resource
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               link:
+ *                 type: string
+ *               media:
+ *                 type: string
+ *                 format: binary
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Resource updated successfully
+ */
+router.put('/resources/:id',
+  authMiddleware.verifyToken,
+  upload.fields([
+    { name: 'media', maxCount: 1 },
+    { name: 'banner', maxCount: 1 }
+  ]),
+  adminController.updateResource
+);
+
+/**
+ * @swagger
+ * /api/admin/resources/{id}:
+ *   delete:
+ *     summary: Delete a resource
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Resource deleted successfully
+ */
+router.delete('/resources/:id',
+  authMiddleware.verifyToken,
+  adminController.deleteResource
 );
 
 module.exports = router;
