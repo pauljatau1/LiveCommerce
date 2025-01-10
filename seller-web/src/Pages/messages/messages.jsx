@@ -6,18 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 import { 
-  MapPin, 
-  Star, 
-  Package, 
-  CircleDollarSign, 
   PaperclipIcon, 
   SmileIcon, 
   SendHorizontal, 
   MessageSquare, 
-  Clock, 
   Check, 
   CheckCheck,
-  Loader2,
   Eye 
 } from 'lucide-react'
 import { toast } from "sonner"
@@ -620,7 +614,7 @@ export default function ChatInterface() {
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="px-8 py-6 bg-white shadow-sm z-10">
+      <div className=" py-6 bg-white shadow-sm z-10">
         <h1 className='text-2xl font-bold text-gray-900'>Messages</h1>
       </div>
 
@@ -629,7 +623,7 @@ export default function ChatInterface() {
         {/* Chat List */}
         <div className="w-[320px] border-r bg-white flex flex-col">
           <div className="p-4 border-b">
-            <Input 
+            <Input å
               placeholder="Search messages..."
               className="bg-gray-50"
               prefix={<MessageSquare className="h-4 w-4 text-gray-400" />}

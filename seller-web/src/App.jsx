@@ -36,8 +36,9 @@ import MarketingPage from './Pages/MarketingPage/MarketingPage';
 import Payout from './Pages/payout/Payout';
 import Messages from './Pages/messages/messages';
 import { SocketProvider } from './Contexts/SocketContext';
+import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
 
-// fixed
+
 
 
 
@@ -201,6 +202,11 @@ const router = createBrowserRouter([
           {
             path: 'messages',
             element: <Messages />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'auqli-connect',
+            element: <AuqliConnect />,
             errorElement: <NotFoundPage />
           }
         ]
