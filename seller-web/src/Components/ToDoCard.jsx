@@ -5,7 +5,7 @@ const ToDoCard = ({ card }) => {
     return (
         <div className="flex justify-between items-center">
             <p className="text-sm font-cabin font-normal text-[#05031F] max-w-[200px]">{card.title}</p>
-            <button className="text-sm font-cabin font-normal text-[#05031F] border border-[#05031F] rounded-[7.8px] px-4 py-2 hover:bg-[#05031F] hover:text-white transition-all duration-300 ease-in-out">Check it</button>
+            <button className="text-sm font-cabin font-normal text-[#05031F] border border-[#05031F] rounded-[7.8px] px-4 py-2 hover:bg-[#05031F] hover:text-white transition-all duration-300 ease-in-out">Check it.</button>
         </div>
     )
 };
