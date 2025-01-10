@@ -1,84 +1,152 @@
 const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 
 exports.getConversations = async (req, res) => {
-  const userId = req.user.id;
-  const userModel = req.user.model;
-
   try {
+    const userId = req.user.id;
+    const userModel = req.user.role;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+
     const conversations = await Conversation.find({
       'participants': {
-        $elemMatch: { userId, userModel }
+        $elemMatch: { id: userId, model: userModel }
       }
     })
-    .populate('lastMessage')
-    .sort({ updatedAt: -1 });
+    .populate({
+      path: 'participants.id',
+      refPath: 'participants.model',
+      select: 'firstName lastName profileImage storeName storeAvatar businessName country city emailVerified isVerified'
+    })
+    .sort({ 'lastMessage.createdAt': -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
 
-    const populatedConversations = await Promise.all(conversations.map(async (conversation) => {
+    // Transform conversations to include formatted participant info
+    const formattedConversations = conversations.map(conversation => {
       const otherParticipant = conversation.participants.find(
-        p => p.userId.toString() !== userId.toString()
+        p => p.id._id.toString() !== userId
       );
 
-      const user = otherParticipant.userModel === 'Buyer'
-        ? await Buyer.findById(otherParticipant.userId).select('firstName lastName profileImage')
-        : await Seller.findById(otherParticipant.userId).select('name avatar');
-
-      const unreadCount = conversation.unreadCounts.find(
-        uc => uc.userId.toString() === userId.toString()
-      )?.count || 0;
+      const participantInfo = otherParticipant.id ? {
+        id: otherParticipant.id._id,
+        model: otherParticipant.model,
+        name: otherParticipant.model === 'Buyer' 
+          ? `${otherParticipant.id.firstName} ${otherParticipant.id.lastName}`
+          : otherParticipant.id.storeName || otherParticipant.id.businessName,
+        avatar: otherParticipant.model === 'Buyer' 
+          ? otherParticipant.id.profileImage?.url
+          : otherParticipant.id.storeAvatar?.url,
+        location: {
+          country: otherParticipant.id.country,
+          city: otherParticipant.id.city
+        },
+        verified: otherParticipant.model === 'Buyer' 
+          ? otherParticipant.id.emailVerified
+          : otherParticipant.id.isVerified
+      } : otherParticipant;
 
       return {
         _id: conversation._id,
-        participant: {
-          ...otherParticipant.toObject(),
-          user: {
-            ...user.toObject(),
-            model: otherParticipant.userModel,
-          },
-        },
+        participant: participantInfo,
         lastMessage: conversation.lastMessage,
-        unreadCount,
+        unreadCount: conversation.unreadCount.get(userId.toString()) || 0,
+        createdAt: conversation.createdAt,
         updatedAt: conversation.updatedAt
       };
-    }));
+    });
 
-    res.json({ conversations: populatedConversations });
+    const total = await Conversation.countDocuments({
+      'participants': {
+        $elemMatch: { id: userId, model: userModel }
+      }
+    });
+
+    res.json({
+      conversations: formattedConversations,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalConversations: total,
+        hasMore: page * limit < total
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch conversations', error: error.message });
+    console.error('Get conversations error:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve conversations', 
+      error: error.message 
+    });
   }
 };
-  
 
 exports.getConversation = async (req, res) => {
+  try {
     const { conversationId } = req.params;
-  
-    try {
-      const conversation = await Conversation.findById(conversationId).populate('lastMessage');
-      if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
-  
-      const populatedParticipants = await Promise.all(conversation.participants.map(async (participant) => {
-        const user = participant.userModel === 'Buyer'
-          ? await Buyer.findById(participant.userId).select('firstName lastName profileImage')
-          : await Seller.findById(participant.userId).select('name avatar');
-  
-        return {
-          ...participant.toObject(),
-          user: {
-            ...user.toObject(),
-            model: participant.userModel,
-          },
-        };
-      }));
-  
-      const populatedConversation = {
-        ...conversation.toObject(),
-        participants: populatedParticipants,
-      };
-  
-      res.json({ conversation: populatedConversation });
-    } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch conversation', error: error.message });
+    const userId = req.user.id;
+
+    // Get conversation with populated participants
+    const conversation = await Conversation.findById(conversationId)
+      .populate('participants.id', 'firstName lastName storeName avatarUrl');
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
     }
-  };
-  
+
+    // Get all messages for this conversation
+    const messages = await Message.find({ conversation: conversationId })
+      .sort({ createdAt: 1 }); // Sort by oldest first
+
+    // Reset unread count for this user
+    conversation.unreadCount.set(userId.toString(), 0);
+    await conversation.save();
+
+    // Mark messages as read
+    await Message.updateMany(
+      {
+        conversation: conversationId,
+        'recipient.id': userId,
+        isRead: false
+      },
+      { isRead: true }
+    );
+
+    // Return both conversation details and messages
+    res.json({
+      conversation: conversation.toObject(),
+      messages
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get conversation', error: error.message });
+  }
+};
+
+exports.markConversationAsRead = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    conversation.unreadCount.set(userId.toString(), 0);
+    await conversation.save();
+
+    await Message.updateMany(
+      {
+        conversation: conversationId,
+        'recipient.id': userId,
+        isRead: false
+      },
+      { isRead: true }
+    );
+
+    res.json({ message: 'Conversation marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to mark conversation as read', error: error.message });
+  }
+}; 

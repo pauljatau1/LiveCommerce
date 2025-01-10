@@ -1,71 +1,110 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
-const { S3 } = require('aws-sdk');
-const { v4: uuidv4 } = require('uuid');
+const { s3 } = require('../config/awsConfig');
 const mongoose = require('mongoose');
+const Product = require('../models/Product');
 
-const s3 = new S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION
-});
-
+// Send text message
 exports.sendTextMessage = async (req, res) => {
   try {
     const { recipientId, recipientModel, content } = req.body;
     const senderId = req.user.id;
-    const senderModel = req.user.model;
+    const senderModel = req.user.role;
 
     // Find or create conversation
-    let conversation = await findOrCreateConversation(senderId, senderModel, recipientId, recipientModel);
+    let conversation = await Conversation.findOne({
+      'participants': {
+        $all: [
+          { $elemMatch: { id: senderId, model: senderModel } },
+          { $elemMatch: { id: recipientId, model: recipientModel } }
+        ]
+      }
+    });
+
+    if (!conversation) {
+      conversation = new Conversation({
+        participants: [
+          { id: senderId, model: senderModel },
+          { id: recipientId, model: recipientModel }
+        ]
+      });
+    }
 
     // Create message
-    const message = await Message.create({
-      sender: senderId,
-      recipient: recipientId,
-      senderModel,
-      recipientModel,
+    const message = new Message({
+      conversation: conversation._id,
+      sender: { id: senderId, model: senderModel },
+      recipient: { id: recipientId, model: recipientModel },
       content,
       messageType: 'text'
     });
 
+    await message.save();
+
     // Update conversation
-    await updateConversation(conversation._id, message._id, recipientId);
+    conversation.lastMessage = {
+      content,
+      sender: { id: senderId, model: senderModel },
+      messageType: 'text',
+      createdAt: message.createdAt
+    };
+    
+    // Increment unread count for recipient
+    const recipientKey = `${recipientId.toString()}`;
+    const currentCount = conversation.unreadCount.get(recipientKey) || 0;
+    conversation.unreadCount.set(recipientKey, currentCount + 1);
 
-    // Populate and return message
-    const populatedMessage = await Message.findById(message._id)
-      .populate('sender', 'firstName lastName name profileImage avatar')
-      .populate('recipient', 'firstName lastName name profileImage avatar');
+    await conversation.save();
 
-    res.status(201).json({ message: populatedMessage });
+    res.status(201).json({ message });
   } catch (error) {
     res.status(500).json({ message: 'Failed to send message', error: error.message });
   }
 };
 
+// Send media message
 exports.sendMediaMessage = async (req, res) => {
   try {
-    const { recipientId, recipientModel, content, messageType } = req.body;
-    const mediaFiles = req.files;
-    const senderId = req.user.id;
-    const senderModel = req.user.model;
+    console.log('Request body:', req.body);
+    console.log('Files received:', req.files);
 
-    if (!mediaFiles || mediaFiles.length === 0) {
-      return res.status(400).json({ message: 'No media files provided' });
+    const { recipientId, recipientModel, messageType, content } = req.body;
+    const senderId = req.user.id;
+    const senderModel = req.user.role;
+    const files = req.files;
+
+    // Validate required fields
+    if (!recipientId || !recipientModel || !messageType) {
+      return res.status(400).json({ 
+        message: 'Missing required fields', 
+        received: { recipientId, recipientModel, messageType } 
+      });
     }
 
-    // Upload media files to S3
-    const uploadedMedia = await Promise.all(mediaFiles.map(async (file) => {
-      const params = {
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ 
+        message: 'No media files provided',
+        filesReceived: files 
+      });
+    }
+
+    // Upload files to S3
+    const mediaFiles = await Promise.all(files.map(async (file) => {
+      console.log('Processing file:', file.originalname);
+      const key = `messages/${Date.now()}-${file.originalname}`;
+      
+      const uploadResult = await s3.upload({
         Bucket: 'auqli-uploads',
-        Key: `messages/${uuidv4()}-${file.originalname}`,
+        Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
-      };
-      const data = await s3.upload(params).promise();
+        ContentType: file.mimetype
+      }).promise();
+
+      console.log('S3 upload result:', uploadResult);
+
       return {
-        url: data.Location,
-        public_id: data.Key,
+        url: `https://auqli-uploads.s3.amazonaws.com/${key}`,
+        public_id: key,
         fileType: file.mimetype,
         fileName: file.originalname,
         fileSize: file.size
@@ -73,301 +112,218 @@ exports.sendMediaMessage = async (req, res) => {
     }));
 
     // Find or create conversation
-    let conversation = await findOrCreateConversation(senderId, senderModel, recipientId, recipientModel);
-
-    // Create message with media
-    const message = await Message.create({
-      sender: senderId,
-      recipient: recipientId,
-      senderModel,
-      recipientModel,
-      content,
-      messageType,
-      media: uploadedMedia
+    let conversation = await Conversation.findOne({
+      'participants': {
+        $all: [
+          { $elemMatch: { id: senderId, model: senderModel } },
+          { $elemMatch: { id: recipientId, model: recipientModel } }
+        ]
+      }
     });
+
+    if (!conversation) {
+      conversation = new Conversation({
+        participants: [
+          { id: senderId, model: senderModel },
+          { id: recipientId, model: recipientModel }
+        ]
+      });
+      await conversation.save();
+    }
+
+    // Create and save the message
+    const newMessage = new Message({
+      conversation: conversation._id,
+      sender: { id: senderId, model: senderModel },
+      recipient: { id: recipientId, model: recipientModel },
+      content: content || '',
+      messageType,
+      media: mediaFiles
+    });
+
+    const savedMessage = await newMessage.save();
+    console.log('Saved message:', savedMessage);
 
     // Update conversation
-    await updateConversation(conversation._id, message._id, recipientId);
+    conversation.lastMessage = {
+      content: content || `Sent ${messageType}`,
+      sender: { id: senderId, model: senderModel },
+      messageType,
+      createdAt: savedMessage.createdAt
+    };
 
-    // Populate and return message
-    const populatedMessage = await Message.findById(message._id)
-      .populate('sender', 'firstName lastName name profileImage avatar')
-      .populate('recipient', 'firstName lastName name profileImage avatar');
+    // Increment unread count for recipient
+    const recipientKey = recipientId.toString();
+    const currentCount = conversation.unreadCount.get(recipientKey) || 0;
+    conversation.unreadCount.set(recipientKey, currentCount + 1);
 
-    res.status(201).json({ message: populatedMessage });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to send media message', error: error.message });
-  }
-};
+    await conversation.save();
 
-exports.markMessagesAsRead = async (req, res) => {
-  try {
-    const { messageIds } = req.body;
-    const userId = req.user.id;
-
-    if (!messageIds || !Array.isArray(messageIds)) {
-      return res.status(400).json({ message: 'Invalid message IDs provided' });
-    }
-
-    // Mark messages as read
-    const messages = await Message.find({
-      _id: { $in: messageIds },
-      recipient: userId,
-      read: false
+    res.status(201).json({ 
+      message: savedMessage, 
+      mediaUrls: mediaFiles.map(file => file.url) 
     });
-
-    if (!messages.length) {
-      return res.status(200).json({ message: 'No unread messages found' });
-    }
-
-    // Update messages
-    const updateResult = await Message.updateMany(
-      {
-        _id: { $in: messageIds },
-        recipient: userId,
-        read: false
-      },
-      {
-        $set: {
-          read: true,
-          readAt: new Date()
-        }
-      }
-    );
-
-    // Get unique conversation IDs from the messages
-    const conversationIds = [...new Set(messages.map(msg => msg.conversationId))];
-
-    // Reset unread counts for these conversations
-    await Promise.all(conversationIds.map(async (conversationId) => {
-      await Conversation.updateOne(
-        { 
-          _id: conversationId,
-          'unreadCounts.userId': userId 
-        },
-        { 
-          $set: { 'unreadCounts.$.count': 0 }
-        }
-      );
-    }));
-
-    res.json({ 
-      message: 'Messages marked as read',
-      updatedCount: updateResult.modifiedCount
-    });
-
   } catch (error) {
+    console.error('Media message error:', error);
     res.status(500).json({ 
-      message: 'Failed to mark messages as read', 
-      error: error.message 
+      message: 'Failed to send media message', 
+      error: error.message,
+      stack: error.stack 
     });
   }
 };
 
-// Add utility functions for message status management
-exports.markMessageDelivered = async (req, res) => {
-  try {
-    const { messageId } = req.params;
-    const userId = req.user.id;
-
-    const message = await Message.findOne({
-      _id: messageId,
-      recipient: userId,
-      deliveredAt: null
-    });
-
-    if (!message) {
-      return res.status(404).json({ message: 'Message not found or already delivered' });
-    }
-
-    message.deliveredAt = new Date();
-    await message.save();
-
-    res.json({ message: 'Message marked as delivered' });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to mark message as delivered', 
-      error: error.message 
-    });
-  }
-};
-
-exports.getUnreadCount = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const unreadCount = await Message.countDocuments({
-      recipient: userId,
-      read: false
-    });
-
-    res.json({ unreadCount });
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to get unread count', 
-      error: error.message 
-    });
-  }
-};
-
+// Get messages in a conversation
 exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
-    const {
-      page = 1,
-      limit = 50,
-      before = Date.now(),
-      messageType
-    } = req.query;
 
-    // Verify conversation access
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      'participants.userId': userId
-    });
+    const messages = await Message.find({ conversation: conversationId })
+      .populate({
+        path: 'sender.id',
+        refPath: 'sender.model',
+        select: 'firstName lastName profileImage storeName storeAvatar businessName country city emailVerified isVerified'
+      })
+      .populate({
+        path: 'recipient.id',
+        refPath: 'recipient.model',
+        select: 'firstName lastName profileImage storeName storeAvatar businessName country city emailVerified isVerified'
+      })
+      .populate({
+        path: 'product.id',
+        model: 'Product',
+        select: 'name price images description inventory.sku category'
+      })
+      .sort({ createdAt: 1 });
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
-
-    // Build query
-    const query = {
-      conversationId,
-      timestamp: { $lt: new Date(before) }
-    };
-
-    if (messageType) {
-      query.messageType = messageType;
-    }
-
-    // Get messages with pagination
-    const messages = await Message.find(query)
-      .sort({ timestamp: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate('sender', 'firstName lastName name profileImage avatar storeName')
-      .populate('recipient', 'firstName lastName name profileImage avatar storeName');
-
-    // Get total count for pagination
-    const totalMessages = await Message.countDocuments(query);
-
-    // Mark messages as delivered if recipient is requesting
-    const undeliveredMessages = messages.filter(
-      msg => 
-        msg.recipient._id.toString() === userId && 
-        !msg.deliveredAt
-    );
-
-    if (undeliveredMessages.length > 0) {
-      await Message.updateMany(
-        {
-          _id: { $in: undeliveredMessages.map(msg => msg._id) }
+    // Transform messages to include formatted participant info
+    const formattedMessages = messages.map(message => {
+      const senderInfo = message.sender.id ? {
+        id: message.sender.id._id,
+        model: message.sender.model,
+        name: message.sender.model === 'Buyer' 
+          ? `${message.sender.id.firstName} ${message.sender.id.lastName}`
+          : message.sender.id.storeName || message.sender.id.businessName,
+        avatar: message.sender.model === 'Buyer' 
+          ? message.sender.id.profileImage?.url
+          : message.sender.id.storeAvatar?.url,
+        location: {
+          country: message.sender.id.country,
+          city: message.sender.id.city
         },
-        {
-          $set: { deliveredAt: new Date() }
-        }
-      );
-    }
+        verified: message.sender.model === 'Buyer' 
+          ? message.sender.id.emailVerified
+          : message.sender.id.isVerified
+      } : message.sender;
 
-    // Format messages for response
-    const formattedMessages = messages.map(message => ({
-      _id: message._id,
-      content: message.content,
-      messageType: message.messageType,
-      media: message.media,
-      timestamp: message.timestamp,
-      read: message.read,
-      readAt: message.readAt,
-      deliveredAt: message.deliveredAt,
-      sender: formatUser(message.sender, message.senderModel),
-      recipient: formatUser(message.recipient, message.recipientModel)
-    }));
+      const recipientInfo = message.recipient.id ? {
+        id: message.recipient.id._id,
+        model: message.recipient.model,
+        name: message.recipient.model === 'Buyer' 
+          ? `${message.recipient.id.firstName} ${message.recipient.id.lastName}`
+          : message.recipient.id.storeName || message.recipient.id.businessName,
+        avatar: message.recipient.model === 'Buyer' 
+          ? message.recipient.id.profileImage?.url
+          : message.recipient.id.storeAvatar?.url,
+        location: {
+          country: message.recipient.id.country,
+          city: message.recipient.id.city
+        },
+        verified: message.recipient.model === 'Buyer' 
+          ? message.recipient.id.emailVerified
+          : message.recipient.id.isVerified
+      } : message.recipient;
 
-    res.json({
-      messages: formattedMessages,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalMessages / limit),
-        totalMessages,
-        hasMore: totalMessages > page * limit
-      }
+      return {
+        ...message.toObject(),
+        sender: senderInfo,
+        recipient: recipientInfo
+      };
     });
 
+    res.json(formattedMessages);
   } catch (error) {
+    console.error('Get messages error:', error);
     res.status(500).json({ 
-      message: 'Failed to fetch messages', 
+      message: 'Failed to retrieve messages', 
       error: error.message 
     });
   }
 };
 
-// Helper function to format user data based on model type
-function formatUser(user, modelType) {
-  if (modelType === 'Buyer') {
-    return {
-      _id: user._id,
-      type: 'Buyer',
-      name: `${user.firstName} ${user.lastName}`,
-      image: user.profileImage
-    };
-  } else {
-    return {
-      _id: user._id,
-      type: 'Seller',
-      name: user.storeName || user.name,
-      image: user.avatar
-    };
-  }
-}
+// Send product message
+exports.sendProductMessage = async (req, res) => {
+  try {
+    const { recipientId, recipientModel, content, productId } = req.body;
+    const senderId = req.user.id;
+    const senderModel = req.user.role;
 
-// // Add to Message model to track conversation
-// const messageSchema = new mongoose.Schema({
-//   // ... existing fields ...
-  
-// });
-
-// Helper functions
-async function findOrCreateConversation(senderId, senderModel, recipientId, recipientModel) {
-  let conversation = await Conversation.findOne({
-    'participants': {
-      $all: [
-        { $elemMatch: { userId: senderId, userModel: senderModel } },
-        { $elemMatch: { userId: recipientId, userModel: recipientModel } }
-      ]
+    // Validate product exists
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
     }
-  });
 
-  if (!conversation) {
-    conversation = await Conversation.create({
-      participants: [
-        { userId: senderId, userModel: senderModel },
-        { userId: recipientId, userModel: recipientModel }
-      ],
-      unreadCounts: [
-        { userId: recipientId, count: 1 },
-        { userId: senderId, count: 0 }
-      ]
-    });
-  } else {
-    // Update unread count for recipient
-    await Conversation.updateOne(
-      { _id: conversation._id, 'unreadCounts.userId': recipientId },
-      { $inc: { 'unreadCounts.$.count': 1 } }
-    );
-  }
-
-  return conversation;
-}
-
-async function updateConversation(conversationId, messageId, recipientId) {
-  await Conversation.updateOne(
-    { _id: conversationId },
-    { 
-      $set: { 
-        lastMessage: messageId,
-        updatedAt: new Date()
+    // Find or create conversation
+    let conversation = await Conversation.findOne({
+      'participants': {
+        $all: [
+          { $elemMatch: { id: senderId, model: senderModel } },
+          { $elemMatch: { id: recipientId, model: recipientModel } }
+        ]
       }
+    });
+
+    if (!conversation) {
+      conversation = new Conversation({
+        participants: [
+          { id: senderId, model: senderModel },
+          { id: recipientId, model: recipientModel }
+        ]
+      });
+      await conversation.save();
     }
-  );
-}
+
+    // Create message with product info
+    const message = new Message({
+      conversation: conversation._id,
+      sender: { id: senderId, model: senderModel },
+      recipient: { id: recipientId, model: recipientModel },
+      content: content || '',
+      messageType: 'product',
+      product: {
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.images[0]?.url || '',
+        description: product.description
+      }
+    });
+
+    await message.save();
+
+    // Update conversation
+    conversation.lastMessage = {
+      content: content || `Shared product: ${product.name}`,
+      sender: { id: senderId, model: senderModel },
+      messageType: 'product',
+      createdAt: message.createdAt
+    };
+
+    // Increment unread count for recipient
+    const recipientKey = recipientId.toString();
+    const currentCount = conversation.unreadCount.get(recipientKey) || 0;
+    conversation.unreadCount.set(recipientKey, currentCount + 1);
+
+    await conversation.save();
+
+    res.status(201).json({ message });
+  } catch (error) {
+    console.error('Product message error:', error);
+    res.status(500).json({ 
+      message: 'Failed to send product message', 
+      error: error.message 
+    });
+  }
+}; 

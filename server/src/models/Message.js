@@ -1,28 +1,63 @@
 const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
-  sender: { type: mongoose.Schema.Types.ObjectId, refPath: 'senderModel' },
-  recipient: { type: mongoose.Schema.Types.ObjectId, refPath: 'recipientModel' },
-  senderModel: { type: String, required: true, enum: ['Buyer', 'Seller'] },
-  recipientModel: { type: String, required: true, enum: ['Buyer', 'Seller'] },
-  content: { type: String },
-  messageType: { type: String, required: true, enum: ['text', 'image', 'video', 'file'], default: 'text' },
-  media: [{
-    url: { type: String },
-    public_id: { type: String },
-    fileType: { type: String },
-    fileName: { type: String },
-    fileSize: { type: Number }
-  }],
-  conversationId: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  conversation: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Conversation',
-    required: true 
+    required: true
   },
-  timestamp: { type: Date, default: Date.now },
-  read: { type: Boolean, default: false },
-  deliveredAt: { type: Date },
-  readAt: { type: Date }
+  sender: {
+    id: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      refPath: 'sender.model',
+      required: true 
+    },
+    model: { 
+      type: String, 
+      required: true,
+      enum: ['Buyer', 'Seller']
+    }
+  },
+  recipient: {
+    id: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      refPath: 'recipient.model',
+      required: true 
+    },
+    model: { 
+      type: String, 
+      required: true,
+      enum: ['Buyer', 'Seller']
+    }
+  },
+  content: String,
+  messageType: {
+    type: String,
+    enum: ['text', 'image', 'video', 'audio', 'product'],
+    required: true
+  },
+  media: [{
+    url: String,
+    public_id: String,
+    fileType: String,
+    fileName: String,
+    fileSize: Number
+  }],
+  product: {
+    id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    name: String,
+    price: Number,
+    image: String,
+    description: String
+  },
+  isRead: {
+    type: Boolean,
+    default: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-module.exports = mongoose.model('Message', messageSchema);
+module.exports = mongoose.model('Message', messageSchema); 

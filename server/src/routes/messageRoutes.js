@@ -19,6 +19,10 @@ const upload = multer({ storage: multer.memoryStorage() });
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - recipientId
+ *               - recipientModel
+ *               - content
  *             properties:
  *               recipientId:
  *                 type: string
@@ -27,6 +31,11 @@ const upload = multer({ storage: multer.memoryStorage() });
  *                 enum: [Buyer, Seller]
  *               content:
  *                 type: string
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ *       500:
+ *         description: Server error
  */
 router.post('/', authMiddleware.verifyToken, messageController.sendTextMessage);
 
@@ -34,7 +43,7 @@ router.post('/', authMiddleware.verifyToken, messageController.sendTextMessage);
  * @swagger
  * /api/messages/media:
  *   post:
- *     summary: Send a media message (image/video/file)
+ *     summary: Send a media message
  *     tags: [Messages]
  *     security:
  *       - bearerAuth: []
@@ -60,34 +69,30 @@ router.post('/', authMiddleware.verifyToken, messageController.sendTextMessage);
  *                 items:
  *                   type: string
  *                   format: binary
+ *     responses:
+ *       201:
+ *         description: Media message sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 mediaUrls:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         description: Invalid request or file upload error
+ *       500:
+ *         description: Server error
  */
 router.post('/media', 
-  authMiddleware.verifyToken, 
+  authMiddleware.verifyToken,
   upload.array('media', 5),
   messageController.sendMediaMessage
 );
-
-/**
- * @swagger
- * /api/messages/mark-read:
- *   put:
- *     summary: Mark messages as read
- *     tags: [Messages]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               messageIds:
- *                 type: array
- *                 items:
- *                   type: string
- */
-router.put('/mark-read', authMiddleware.verifyToken, messageController.markMessagesAsRead);
 
 /**
  * @swagger
@@ -100,67 +105,60 @@ router.put('/mark-read', authMiddleware.verifyToken, messageController.markMessa
  *     parameters:
  *       - in: path
  *         name: conversationId
+ *         required: true
  *         schema:
  *           type: string
- *         required: true
- *         description: ID of the conversation
  *     responses:
  *       200:
- *         description: Messages fetched successfully
- *       404:
- *         description: Conversation not found
+ *         description: List of messages
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
 router.get('/:conversationId', authMiddleware.verifyToken, messageController.getMessages);
 
 /**
  * @swagger
- * /api/messages/{messageId}/deliver:
- *   put:
- *     summary: Mark a message as delivered
+ * /api/messages/product:
+ *   post:
+ *     summary: Send a product message
  *     tags: [Messages]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: messageId
- *         required: true
- *         schema:
- *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipientId
+ *               - recipientModel
+ *               - productId
+ *             properties:
+ *               recipientId:
+ *                 type: string
+ *                 description: ID of the message recipient
+ *               recipientModel:
+ *                 type: string
+ *                 enum: [Buyer, Seller]
+ *                 description: Type of recipient (Buyer or Seller)
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to share
+ *               content:
+ *                 type: string
+ *                 description: Optional message text to accompany the product
  *     responses:
- *       200:
- *         description: Message marked as delivered
+ *       201:
+ *         description: Product message sent successfully
  *       404:
- *         description: Message not found or already delivered
+ *         description: Product or recipient not found
+ *       500:
+ *         description: Server error
  */
-router.put('/:messageId/deliver', 
-  authMiddleware.verifyToken, 
-  messageController.markMessageDelivered
-);
-
-/**
- * @swagger
- * /api/messages/unread/count:
- *   get:
- *     summary: Get total unread messages count
- *     tags: [Messages]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Unread messages count retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 unreadCount:
- *                   type: number
- */
-router.get('/unread/count', 
-  authMiddleware.verifyToken, 
-  messageController.getUnreadCount
+router.post('/product',
+  authMiddleware.verifyToken,
+  messageController.sendProductMessage
 );
 
 module.exports = router;
