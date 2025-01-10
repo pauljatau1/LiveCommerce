@@ -89,3 +89,156 @@ mark as paid
   "shipping_fee": 1000,
   "carrier_name": "DHL"
 }
+
+
+
+
+product 
+
+{
+  "name": "Premium Cotton T-Shirt",
+  "description": "Ultra-soft premium cotton t-shirt with a comfortable fit and stylish design",
+  "price": 29.99,
+  "category": "Fashion",
+  "subCategory": "T-Shirts",
+  "brand": "FashionBrand",
+  "modelNumber": "TS-2024-001",
+  "stock": 500,
+  "variants": [
+    {
+      "type": "color",
+      "name": "Color",
+      "options": [
+        {
+          "name": "Navy Blue",
+          "value": "navy-blue",
+          "price": 29.99,
+          "stock": 100,
+          "images": [
+            {
+              "data": "base64_encoded_image_data_1",
+              "contentType": "image/jpeg",
+              "isDefault": true
+            },
+            {
+              "data": "base64_encoded_image_data_2",
+              "contentType": "image/jpeg",
+              "isDefault": false
+            }
+          ]
+        },
+        {
+          "name": "Charcoal Grey",
+          "value": "charcoal-grey",
+          "price": 29.99,
+          "stock": 100,
+          "images": [
+            {
+              "data": "base64_encoded_image_data_3",
+              "contentType": "image/jpeg",
+              "isDefault": true
+            },
+            {
+              "data": "base64_encoded_image_data_4",
+              "contentType": "image/jpeg",
+              "isDefault": false
+            }
+          ]
+        },
+        {
+          "name": "Burgundy Red",
+          "value": "burgundy-red",
+          "price": 32.99,
+          "stock": 75,
+          "images": [
+            {
+              "data": "base64_encoded_image_data_5",
+              "contentType": "image/jpeg",
+              "isDefault": true
+            },
+            {
+              "data": "base64_encoded_image_data_6",
+              "contentType": "image/jpeg",
+              "isDefault": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "size",
+      "name": "Size",
+      "options": [
+        {
+          "name": "Small",
+          "value": "S",
+          "price": 29.99,
+          "stock": 50
+        },
+        {
+          "name": "Medium",
+          "value": "M",
+          "price": 29.99,
+          "stock": 50
+        },
+        {
+          "name": "Large",
+          "value": "L",
+          "price": 29.99,
+          "stock": 50
+        },
+        {
+          "name": "Extra Large",
+          "value": "XL",
+          "price": 32.99,
+          "stock": 50
+        }
+      ]
+    }
+  ],
+  "shippingInfo": {
+    "weight": {
+      "value": 0.2,
+      "unit": "kg"
+    },
+    "dimensions": {
+      "length": 30,
+      "width": 20,
+      "height": 2,
+      "unit": "cm"
+    }
+  },
+  "returnPolicy": {
+    "allowed": true,
+    "periodInDays": 30,
+    "conditions": [
+      "Item must be unworn",
+      "Original tags must be attached",
+      "Must be in original packaging"
+    ]
+  },
+  "tags": [
+    "t-shirt",
+    "cotton",
+    "premium",
+    "casual wear"
+  ],
+  "seo": {
+    "metaTitle": "Premium Cotton T-Shirt | Multiple Colors",
+    "metaDescription": "Ultra-soft premium cotton t-shirt available in Navy Blue, Charcoal Grey, and Burgundy Red. Perfect for casual wear.",
+    "metaKeywords": [
+      "t-shirt",
+      "premium cotton",
+      "casual wear",
+      "navy blue t-shirt",
+      "charcoal grey t-shirt",
+      "burgundy red t-shirt"
+    ]
+  },
+  "fashion_material": "100% Cotton",
+  "fashion_style": "Casual",
+  "fashion_fit": "Regular",
+  "fashion_occasion": "Casual Wear",
+  "fashion_sleevetype": "Short Sleeve",
+  "fashion_pattern": "Solid"
+}

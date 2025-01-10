@@ -35,6 +35,27 @@ async function generateSlug(name) {
   return slug;
 }
 
+const variantOptionSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  value: { type: String, },
+  price: { type: Number },
+  stock: { type: Number, default: 0 },
+  sku: { type: String },
+  images: [{
+    url: { type: String },
+    isDefault: { type: Boolean, default: false }
+  }]
+});
+
+const variantSchema = new mongoose.Schema({
+  type: { 
+    type: String, 
+    required: true,
+  },
+  name: { type: String, required: true },
+  options: [variantOptionSchema]
+});
+
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
@@ -95,8 +116,8 @@ const productSchema = new mongoose.Schema({
   upc: { type: String },
   condition: {type: String},
   tags: [{ type: String }],
-  colors: [{ type: String }],
-  size: { type: String },
+  colors: { type: [String], required: false },
+  size: { type: String, required: false },
   material: { type: String },
   weight: { type: Number },
   dimensions: { type: String },
@@ -131,21 +152,7 @@ const productSchema = new mongoose.Schema({
     sku: { type: String, unique: true },
     barcode: { type: String },
   },
-  variants: [{
-    name: { type: String, required: true },
-    price: { type: Number, required: true },
-    inventory: { type: Number, default: 0 },
-    options: [{
-      value: { type: String, required: true },
-      inventory: { type: Number, default: 0 },
-      price: { type: Number, required: true },
-      options: [{
-        value: { type: String, required: true },
-        inventory: { type: Number, default: 0 },
-        price: { type: Number, required: true }
-      }]
-    }]
-  }],
+  variants: [variantSchema],
   pricing: {
     compareAtPrice: { type: Number },
     costPerItem: { type: Number },

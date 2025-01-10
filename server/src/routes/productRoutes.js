@@ -452,25 +452,51 @@ router.get('/:id', productController.getProduct);
  *               price:
  *                 type: number
  *                 description: Base price of the product
- *               'variants[0][size]':
- *                 type: string
- *                 description: Size for first variant
- *                 example: "10kg"
- *               'variants[0][price]':
- *                 type: number
- *                 description: Price for first variant
- *                 example: 80000
- *               'variants[1][size]':
- *                 type: string
- *                 description: Size for second variant
- *                 example: "20kg"
- *               'variants[1][price]':
- *                 type: number
- *                 description: Price for second variant
- *                 example: 90000
  *               category:
  *                 type: string
  *                 description: Main category of the product
+ *               variants:
+ *                 type: array
+ *                 description: Product variants (color, size, etc.)
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       enum: [color, size, material, style, other]
+ *                       description: Type of variant
+ *                     name:
+ *                       type: string
+ *                       description: Display name for the variant type
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             description: Display name for the option
+ *                           value:
+ *                             type: string
+ *                             description: Value identifier for the option
+ *                           price:
+ *                             type: number
+ *                             description: Price for this specific variant
+ *                           stock:
+ *                             type: number
+ *                             description: Stock quantity for this variant
+ *                           images:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 data:
+ *                                   type: string
+ *                                   format: binary
+ *                                   description: Image file for the variant
+ *                                 isDefault:
+ *                                   type: boolean
+ *                                   description: Whether this is the default image
  *               subCategory:
  *                 type: string
  *                 description: Sub-category of the product
@@ -483,7 +509,7 @@ router.get('/:id', productController.getProduct);
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: Product images (max 8)
+ *                 description: Default product images (max 8)
  *               blips:
  *                 type: array
  *                 items:
@@ -516,85 +542,6 @@ router.get('/:id', productController.getProduct);
  *                       unit:
  *                         type: string
  *                         enum: [cm, in]
- *                   shippingMethods:
- *                     type: array
- *                     items:
- *                       type: object
- *                       properties:
- *                         name:
- *                           type: string
- *                         estimatedDays:
- *                           type: number
- *                         cost:
- *                           type: number
- *               returnPolicy:
- *                 type: object
- *                 properties:
- *                   allowed:
- *                     type: boolean
- *                   periodInDays:
- *                     type: number
- *                   conditions:
- *                     type: array
- *                     items:
- *                       type: string
- *               sku:
- *                 type: string
- *                 description: Stock keeping unit (unique identifier)
- *               upc:
- *                 type: string
- *                 description: Universal Product Code
- *               condition:
- *                 type: string
- *               tags:
- *                 type: array
- *                 items:
- *                   type: string
- *               colors:
- *                 type: array
- *                 items:
- *                   type: string
- *               size:
- *                 type: string
- *               material:
- *                 type: string
- *               weight:
- *                 type: number
- *               dimensions:
- *                 type: string
- *               taxClass:
- *                 type: string
- *               taxRate:
- *                 type: number
- *               onSale:
- *                 type: boolean
- *               salePrice:
- *                 type: number
- *               warranty:
- *                 type: string
- *               minimumPurchaseQuantity:
- *                 type: number
- *               vendor:
- *                 type: string
- *               seo:
- *                 type: object
- *                 properties:
- *                   metaTitle:
- *                     type: string
- *                   metaDescription:
- *                     type: string
- *                   metaKeywords:
- *                     type: array
- *                     items:
- *                       type: string
- *                   slug:
- *                     type: string
- *               status:
- *                 type: string
- *                 enum: [draft, active, archived, out_of_stock]
- *               visibility:
- *                 type: string
- *                 enum: [visible, hidden, featured]
  *     responses:
  *       201:
  *         description: Product created successfully
@@ -613,8 +560,39 @@ router.get('/:id', productController.getProduct);
  *                   type: number
  *                 category:
  *                   type: string
- *                 subCategory:
- *                   type: string
+ *                 variants:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       type:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       options:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                             value:
+ *                               type: string
+ *                             price:
+ *                               type: number
+ *                             stock:
+ *                               type: number
+ *                             sku:
+ *                               type: string
+ *                             images:
+ *                               type: array
+ *                               items:
+ *                                 type: object
+ *                                 properties:
+ *                                   url:
+ *                                     type: string
+ *                                   isDefault:
+ *                                     type: boolean
  *                 seller:
  *                   type: object
  *                   properties:
@@ -626,69 +604,8 @@ router.get('/:id', productController.getProduct);
  *                       type: string
  *                     about:
  *                       type: string
- *                 images:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       url:
- *                         type: string
- *                 blips:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       url:
- *                         type: string
- *                 stock:
- *                   type: number
- *                 shippingInfo:
- *                   type: object
- *                 returnPolicy:
- *                   type: object
- *                 stats:
- *                   type: object
- *                 status:
- *                   type: string
- *                 visibility:
- *                   type: string
- *                 createdAt:
- *                   type: string
- *                   format: date-time
- *                 updatedAt:
- *                   type: string
- *                   format: date-time
- *                 priceVariants:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       size:
- *                         type: string
- *                         example: "10kg"
- *                       price:
- *                         type: number
- *                         example: 80000
- *     examples:
- *       multipartFormData:
- *         summary: Example Form Data
- *         value:
- *           'variants[0][size]': "10kg"
- *           'variants[0][price]': 80000
- *           'variants[1][size]': "20kg"
- *           'variants[1][price]': 90000
  *       400:
  *         description: Invalid request data
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Invalid priceVariants format. Expected format: [{'size':'10kg','price':80000}]"
- *                 error:
- *                   type: string
  *       401:
  *         description: Unauthorized - Invalid or missing token
  *       403:
@@ -701,7 +618,8 @@ router.post('/',
   authMiddleware.isSeller,
   upload.fields([
     { name: 'images', maxCount: 8 },
-    { name: 'blips', maxCount: 4 }
+    { name: 'blips', maxCount: 4 },
+    { name: 'variants.*.options.*.images', maxCount: 8 }
   ]),
   productController.createProduct
 );
