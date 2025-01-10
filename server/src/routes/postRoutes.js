@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const postController = require('../controllers/postController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * @swagger
@@ -14,90 +16,36 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
  *               title:
  *                 type: string
- *               description:
+ *               body:
  *                 type: string
- *               media:
+ *               images:
  *                 type: array
  *                 items:
  *                   type: string
- *                   format: base64
+ *                   format: binary
  *     responses:
  *       201:
  *         description: Post created successfully
- *       400:
- *         description: Bad request
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
-router.post('/', authMiddleware.verifyToken, postController.createPost);
+router.post('/', 
+  authMiddleware.verifyToken,
+  upload.array('images', 5),
+  postController.createPost
+);
 
 /**
  * @swagger
- * /api/posts:
- *   get:
- *     summary: Get all posts
- *     tags: [Posts]
- *     responses:
- *       200:
- *         description: Posts retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/', postController.getAllPosts);
-
-/**
- * @swagger
- * /api/posts/{postId}:
- *   get:
- *     summary: Get a single post
- *     tags: [Posts]
- *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Post retrieved successfully
- *       404:
- *         description: Post not found
- *       500:
- *         description: Internal server error
- */
-router.get('/:postId', postController.getPost);
-
-/**
- * @swagger
- * /api/posts/user/{userId}:
- *   get:
- *     summary: Get a particular user's posts
- *     tags: [Posts]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User's posts retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/user/:userId', postController.getUserPosts);
-
-/**
- * @swagger
- * /api/posts/{postId}:
- *   put:
- *     summary: Update a post
+ * /api/posts/{postId}/reactions:
+ *   post:
+ *     summary: Add a reaction to a post
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -114,110 +62,25 @@ router.get('/user/:userId', postController.getUserPosts);
  *           schema:
  *             type: object
  *             properties:
- *               title:
+ *               type:
  *                 type: string
- *               description:
- *                 type: string
- *               media:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: base64
+ *                 enum: [like, dislike, love, laugh, sad, angry]
  *     responses:
  *       200:
- *         description: Post updated successfully
- *       403:
- *         description: Forbidden
+ *         description: Reaction added successfully
  *       404:
  *         description: Post not found
- *       500:
- *         description: Internal server error
  */
-router.put('/:postId', authMiddleware.verifyToken, postController.updatePost);
+router.post('/:postId/reactions',
+  authMiddleware.verifyToken,
+  postController.addReaction
+);
 
 /**
  * @swagger
- * /api/posts/{postId}:
- *   delete:
- *     summary: Delete a post
- *     tags: [Posts]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Post deleted successfully
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Post not found
- *       500:
- *         description: Internal server error
- */
-router.delete('/:postId', authMiddleware.verifyToken, postController.deletePost);
-
-/**
- * @swagger
- * /api/posts/{postId}/like:
+ * /api/posts/{postId}/comments:
  *   post:
- *     summary: Like a post
- *     tags: [Posts]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Post liked successfully
- *       400:
- *         description: Bad request
- *       404:
- *         description: Post not found
- *       500:
- *         description: Internal server error
- */
-router.post('/:postId/like', authMiddleware.verifyToken, postController.likePost);
-
-/**
- * @swagger
- * /api/posts/{postId}/unlike:
- *   post:
- *     summary: Unlike a post
- *     tags: [Posts]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Post unliked successfully
- *       400:
- *         description: Bad request
- *       404:
- *         description: Post not found
- *       500:
- *         description: Internal server error
- */
-router.post('/:postId/unlike', authMiddleware.verifyToken, postController.unlikePost);
-
-/**
- * @swagger
- * /api/posts/{postId}/comment:
- *   post:
- *     summary: Comment on a post
+ *     summary: Add a comment to a post
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -239,44 +102,156 @@ router.post('/:postId/unlike', authMiddleware.verifyToken, postController.unlike
  *     responses:
  *       200:
  *         description: Comment added successfully
- *       400:
- *         description: Bad request
  *       404:
  *         description: Post not found
- *       500:
- *         description: Internal server error
  */
-router.post('/:postId/comment', authMiddleware.verifyToken, postController.commentPost);
+router.post('/:postId/comments',
+  authMiddleware.verifyToken,
+  postController.addComment
+);
+
+/**
+ * @swagger
+ * /api/posts:
+ *   get:
+ *     summary: Get all posts with pagination
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of posts per page
+ *     responses:
+ *       200:
+ *         description: List of posts retrieved successfully
+ */
+router.get('/',
+  postController.getPosts
+);
+
+/**
+ * @swagger
+ * /api/posts/seller-feed:
+ *   get:
+ *     summary: Get posts from followers and followed sellers
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of posts per page
+ *     responses:
+ *       200:
+ *         description: Feed retrieved successfully
+ *       401:
+ *         description: Unauthorized - Only sellers can access this endpoint
+ */
+router.get('/seller-feed',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  postController.getSellerFeed
+);
+
+/**
+ * @swagger
+ * /api/posts/buyer-feed:
+ *   get:
+ *     summary: Get posts from followed sellers and public buyer posts
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ */
+router.get('/buyer-feed',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  postController.getBuyerFeed
+);
+
+/**
+ * @swagger
+ * /api/posts/user/{userType}/{userId}:
+ *   get:
+ *     summary: Get all posts from a specific user
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: userType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [Buyer, Seller]
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+router.get('/user/:userType/:userId', postController.getUserPosts);
+
+/**
+ * @swagger
+ * /api/posts/{postId}:
+ *   put:
+ *     summary: Update a post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:postId',
+  authMiddleware.verifyToken,
+  upload.array('images', 5),
+  postController.updatePost
+);
+
+/**
+ * @swagger
+ * /api/posts/{postId}:
+ *   delete:
+ *     summary: Delete a post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete('/:postId',
+  authMiddleware.verifyToken,
+  postController.deletePost
+);
 
 /**
  * @swagger
  * /api/posts/{postId}/comments/{commentId}:
  *   delete:
- *     summary: Delete a comment from a post
+ *     summary: Delete a comment
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: commentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Comment deleted successfully
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Comment not found
- *       500:
- *         description: Internal server error
  */
-router.delete('/:postId/comments/:commentId', authMiddleware.verifyToken, postController.deleteComment);
+router.delete('/:postId/comments/:commentId',
+  authMiddleware.verifyToken,
+  postController.deleteComment
+);
 
-module.exports = router;
+module.exports = router; 
