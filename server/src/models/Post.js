@@ -103,9 +103,7 @@ const postSchema = new mongoose.Schema({
   }],
   videos: [{
     url: { type: String },
-    public_id: { type: String },
-    thumbnail: { type: String },
-    duration: { type: Number }
+    public_id: { type: String }
   }],
   products: [{
     productId: { 

@@ -5,6 +5,63 @@ const mongoose = require('mongoose');
 const Seller = require('../models/Seller');
 const Buyer = require('../models/Buyer');
 const Product = require('../models/Product');
+const ffmpeg = require('fluent-ffmpeg');
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
+
+// Helper function to generate video thumbnail
+const generateVideoThumbnail = async (videoBuffer) => {
+  try {
+    // Create temporary files for video and thumbnail
+    const tempVideoPath = path.join(os.tmpdir(), `${uuidv4()}.mp4`);
+    const tempThumbnailPath = path.join(os.tmpdir(), `${uuidv4()}.jpg`);
+
+    // Write video buffer to temporary file
+    await fs.writeFile(tempVideoPath, videoBuffer);
+
+    // Generate thumbnail
+    return new Promise((resolve, reject) => {
+      ffmpeg(tempVideoPath)
+        .screenshots({
+          timestamps: ['00:00:01'],
+          filename: path.basename(tempThumbnailPath),
+          folder: path.dirname(tempThumbnailPath),
+          size: '320x240'
+        })
+        .on('end', async () => {
+          try {
+            // Read the thumbnail file
+            const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
+
+            // Upload thumbnail to S3
+            const thumbnailParams = {
+              Bucket: 'auqli-uploads',
+              Key: `posts/thumbnails/${uuidv4()}.jpg`,
+              Body: thumbnailBuffer,
+              ContentType: 'image/jpeg',
+            };
+            const thumbnailUpload = await s3.upload(thumbnailParams).promise();
+
+            // Clean up temporary files
+            await Promise.all([
+              fs.unlink(tempVideoPath),
+              fs.unlink(tempThumbnailPath)
+            ]);
+
+            resolve(thumbnailUpload.Location);
+          } catch (error) {
+            reject(error);
+          }
+        })
+        .on('error', (error) => {
+          reject(error);
+        });
+    });
+  } catch (error) {
+    throw error;
+  }
+};
 
 // Create a new post
 exports.createPost = async (req, res) => {
@@ -30,49 +87,42 @@ exports.createPost = async (req, res) => {
       for (let file of imageFiles) {
         const params = {
           Bucket: 'auqli-uploads',
-          Key: `posts/images/${uuidv4()}-${file.originalname}`,
+          Key: `posts/${uuidv4()}-${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
         };
-        const data = await s3.upload(params).promise();
+        const uploadResult = await s3.upload(params).promise();
         imagesData.push({
-          url: data.Location,
-          public_id: data.Key
+          url: uploadResult.Location,
+          public_id: uploadResult.Key
         });
       }
 
       // Handle videos
       const videoFiles = req.files.filter(file => file.mimetype.startsWith('video/'));
       for (let file of videoFiles) {
-        const params = {
+        const videoParams = {
           Bucket: 'auqli-uploads',
           Key: `posts/videos/${uuidv4()}-${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
         };
-        const data = await s3.upload(params).promise();
-        
-        // Generate thumbnail using ffmpeg (you'll need to implement this)
-        const thumbnail = await generateVideoThumbnail(data.Location);
-        
+        const videoUpload = await s3.upload(videoParams).promise();
+
         videosData.push({
-          url: data.Location,
-          public_id: data.Key,
-          thumbnail,
-          duration: 0 // You'll need to implement duration extraction
+          url: videoUpload.Location,
+          public_id: videoUpload.Key
         });
       }
     }
 
-    // Validate product references
+    // Handle product references
     let products = [];
     if (productIds && productIds.length > 0) {
-      const validProducts = await Product.find({
-        _id: { $in: productIds },
-        'author.userId': userId
-      });
-      products = validProducts.map(product => ({
-        productId: product._id
+      const productIdsArray = Array.isArray(productIds) ? productIds : [productIds];
+      products = productIdsArray.map(productId => ({
+        productId,
+        addedAt: new Date()
       }));
     }
 
@@ -105,6 +155,7 @@ exports.createPost = async (req, res) => {
       post
     });
   } catch (error) {
+    console.error('Create post error:', error);
     res.status(500).json({
       message: 'Failed to create post',
       error: error.message
