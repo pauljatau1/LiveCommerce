@@ -12,7 +12,8 @@ import {
   Megaphone,
   Image,
   DollarSign,
-  Video
+  Video,
+  FileText
 } from 'lucide-react';
 
 const mainLinks = [
@@ -26,7 +27,7 @@ const mainLinks = [
   { icon: Video, label: 'Streams', path: '/dashboard/streams' },
   { icon: Image, label: 'Banners', path: '/dashboard/banners' },
   { icon: Megaphone, label: 'Announcements', path: '/dashboard/announcements' },
- 
+  { icon: FileText, label: 'Resources', path: '/dashboard/resources' },
 ];
 
 const bottomLinks = [

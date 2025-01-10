@@ -12,6 +12,8 @@ import Products from '@/pages/products';
 import Streams from '@/pages/streams';
 import Withdrawals from '@/pages/withdrawals';
 import Announcements from '@/pages/announcements';
+import Resources from '@/pages/resources';
+import Banners from '@/pages/banners';
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
             <Route path="/dashboard/streams" element={<Streams />} />
             <Route path="/dashboard/withdrawals" element={<Withdrawals />} />
             <Route path="/dashboard/announcements" element={<Announcements />} />
+            <Route path="/dashboard/resources" element={<Resources />} />
+            <Route path="/dashboard/banners" element={<Banners />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Megaphone, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -40,13 +40,15 @@ function Announcements() {
     description: ''
   });
 
+  console.log(isLoading)
+
   // Fetch announcements
   const fetchAnnouncements = async () => {
     try {
       const response = await api.get("/api/admin/announcements");
       setAnnouncements(response.data);
     } catch (error) {
-      toast.error("Failed to fetch announcements");
+      toast.error("Failed to fetch announcements ", error);
     } finally {
       setIsLoading(false);
     }
