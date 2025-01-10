@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card } from "@/Components/ui/card"
+import { Button } from "@/Components/ui/button"
+import { Input } from "@/Components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 import { 
   MapPin, 
   Star, 
@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner"
 import { BASE_URL } from "@/Constants/Server"
 import { io } from "socket.io-client";
-import { useSocket } from "@/contexts/SocketContext";
+import { useSocket } from "@/Contexts/SocketContext";
 
 // Helper function to format message timestamps
 const formatMessageTime = (timestamp) => {
