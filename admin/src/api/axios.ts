@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8000';
+// const BASE_URL = 'http://localhost:8000';
+
+const BASE_URL = 'https://auqliserver-8xr8zvib.b4a.run';
 
 export const api = axios.create({
   baseURL: BASE_URL,
