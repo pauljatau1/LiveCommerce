@@ -463,106 +463,138 @@ exports.markSellerAsFeatured = async (req, res) => {
 
 
 exports.createBanner = async (req, res) => {
-  const { title, description, mainImage, category, callToActionLink } = req.body;
-
   try {
-    // Find the category by name (case-insensitive)
-    const categoryDoc = await Category.findOne({ name: { $regex: new RegExp(category, 'i') } });
+    const { title, description, category, callToActionLink } = req.body;
+    const imageFile = req.file;
+
+    if (!imageFile) {
+      return res.status(400).json({ message: 'Banner image is required' });
+    }
+
+    // Find the category
+    const categoryDoc = await Category.findOne({ 
+      name: { $regex: new RegExp(category, 'i') } 
+    });
     if (!categoryDoc) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    // Upload mainImage if provided
-    let mainImageData = { url: '', public_id: '' };
-    if (mainImage) {
-      const uploadResult = await cloudinary.uploader.upload(mainImage, { folder: 'banners' });
-      mainImageData = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-    }
+    // Upload image to S3
+    const imageKey = `banners/${uuidv4()}-${imageFile.originalname}`;
+    const uploadParams = {
+      Bucket: 'auqli-uploads',
+      Key: imageKey,
+      Body: imageFile.buffer,
+      ContentType: imageFile.mimetype,
+    };
+
+    const uploadResult = await s3.upload(uploadParams).promise();
 
     const newBanner = new Banner({
       title,
       description,
-      mainImage: mainImageData,
+      mainImage: {
+        url: uploadResult.Location,
+        public_id: uploadResult.Key
+      },
       category: categoryDoc._id,
       callToActionLink,
     });
+
     await newBanner.save();
+    const populatedBanner = await newBanner.populate('category');
 
-    // Populate the category field to get the category name
-    const populatedBanner = await newBanner.populate('category').execPopulate();
-
-    // Transform the response to include the category name
-    const responseBanner = {
+    res.status(201).json({
       ...populatedBanner.toObject(),
       category: populatedBanner.category.name,
-    };
-
-    res.status(201).json(responseBanner);
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
 exports.updateBanner = async (req, res) => {
-  const { bannerId } = req.params;
-  const { title, description, mainImage, category, callToActionLink } = req.body;
-
   try {
+    const { bannerId } = req.params;
+    const { title, description, category, callToActionLink } = req.body;
+    const imageFile = req.file;
+
     const banner = await Banner.findById(bannerId);
     if (!banner) {
       return res.status(404).json({ message: 'Banner not found' });
     }
 
-    // Find the category by name if provided
+    // Update category if provided
     if (category) {
-      const categoryDoc = await Category.findOne({ name: { $regex: new RegExp(category, 'i') } });
+      const categoryDoc = await Category.findOne({ 
+        name: { $regex: new RegExp(category, 'i') } 
+      });
       if (!categoryDoc) {
         return res.status(404).json({ message: 'Category not found' });
       }
       banner.category = categoryDoc._id;
     }
 
-    // Upload mainImage if provided
-    if (mainImage) {
-      const uploadResult = await cloudinary.uploader.upload(mainImage, { folder: 'banners' });
-      banner.mainImage = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+    // Handle image update if provided
+    if (imageFile) {
+      // Delete old image from S3
+      if (banner.mainImage?.public_id) {
+        await s3.deleteObject({
+          Bucket: 'auqli-uploads',
+          Key: banner.mainImage.public_id
+        }).promise();
+      }
+
+      // Upload new image
+      const imageKey = `banners/${uuidv4()}-${imageFile.originalname}`;
+      const uploadResult = await s3.upload({
+        Bucket: 'auqli-uploads',
+        Key: imageKey,
+        Body: imageFile.buffer,
+        ContentType: imageFile.mimetype,
+      }).promise();
+
+      banner.mainImage = {
+        url: uploadResult.Location,
+        public_id: uploadResult.Key
+      };
     }
 
+    // Update other fields
     banner.title = title || banner.title;
     banner.description = description || banner.description;
     banner.callToActionLink = callToActionLink || banner.callToActionLink;
 
     await banner.save();
+    const populatedBanner = await banner.populate('category');
 
-    // Populate the category field to get the category name
-    const populatedBanner = await banner.populate('category').execPopulate();
-
-    // Transform the response to include the category name
-    const responseBanner = {
+    res.json({
       ...populatedBanner.toObject(),
       category: populatedBanner.category.name,
-    };
-
-    res.json(responseBanner);
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
 exports.deleteBanner = async (req, res) => {
-  const { bannerId } = req.params;
-
   try {
-    const banner = await Banner.findByIdAndDelete(bannerId);
+    const { bannerId } = req.params;
+    const banner = await Banner.findById(bannerId);
+
     if (!banner) {
       return res.status(404).json({ message: 'Banner not found' });
     }
 
-    // Delete the image from Cloudinary
-    if (banner.mainImage.public_id) {
-      await cloudinary.uploader.destroy(banner.mainImage.public_id);
+    // Delete image from S3
+    if (banner.mainImage?.public_id) {
+      await s3.deleteObject({
+        Bucket: 'auqli-uploads',
+        Key: banner.mainImage.public_id
+      }).promise();
     }
 
+    await Banner.deleteOne({ _id: bannerId });
     res.json({ message: 'Banner deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

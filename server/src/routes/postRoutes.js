@@ -19,25 +19,44 @@ const upload = multer({ storage: multer.memoryStorage() });
  *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - title
+ *               - body
  *             properties:
  *               title:
  *                 type: string
  *               body:
  *                 type: string
- *               images:
+ *               media:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
+ *                 description: Can include both images and videos (max 10 files)
+ *               productIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of product IDs to reference
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               visibility:
+ *                 type: string
+ *                 enum: [public, private, draft]
+ *                 default: public
  *     responses:
  *       201:
  *         description: Post created successfully
+ *       400:
+ *         description: Invalid request data
  *       500:
  *         description: Server error
  */
 router.post('/', 
   authMiddleware.verifyToken,
-  upload.array('images', 5),
+  upload.array('media', 10),
   postController.createPost
 );
 
@@ -252,6 +271,217 @@ router.delete('/:postId',
 router.delete('/:postId/comments/:commentId',
   authMiddleware.verifyToken,
   postController.deleteComment
+);
+
+/**
+ * @swagger
+ * /api/posts/{postId}/like:
+ *   post:
+ *     summary: Like or unlike a post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Post liked/unliked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 likes:
+ *                   type: number
+ *                 dislikes:
+ *                   type: number
+ *       404:
+ *         description: Post not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:postId/like',
+  authMiddleware.verifyToken,
+  postController.likePost
+);
+
+/**
+ * @swagger
+ * /api/posts/{postId}/dislike:
+ *   post:
+ *     summary: Dislike or undislike a post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Post disliked/undisliked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 likes:
+ *                   type: number
+ *                 dislikes:
+ *                   type: number
+ *       404:
+ *         description: Post not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:postId/dislike',
+  authMiddleware.verifyToken,
+  postController.dislikePost
+);
+
+/**
+ * @swagger
+ * /api/posts/trending:
+ *   get:
+ *     summary: Get trending posts
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of posts per page
+ *     responses:
+ *       200:
+ *         description: List of trending posts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 posts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       title:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           likeCount:
+ *                             type: number
+ *                           dislikeCount:
+ *                             type: number
+ *                           viewCount:
+ *                             type: number
+ *                           shareCount:
+ *                             type: number
+ *                 totalPages:
+ *                   type: number
+ *                 currentPage:
+ *                   type: number
+ *                 totalPosts:
+ *                   type: number
+ *       500:
+ *         description: Server error
+ */
+router.get('/trending',
+  postController.getTrendingPosts
+);
+
+/**
+ * @swagger
+ * /api/posts/new:
+ *   get:
+ *     summary: Get new posts
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of posts per page
+ *     responses:
+ *       200:
+ *         description: List of new posts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 posts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       title:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       author:
+ *                         type: object
+ *                         properties:
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                           businessName:
+ *                             type: string
+ *                           profileImage:
+ *                             type: string
+ *                       products:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                             price:
+ *                               type: number
+ *                             images:
+ *                               type: array
+ *                               items:
+ *                                 type: string
+ *                 totalPages:
+ *                   type: number
+ *                 currentPage:
+ *                   type: number
+ *                 totalPosts:
+ *                   type: number
+ *       500:
+ *         description: Server error
+ */
+router.get('/new',
+  postController.getNewPosts
 );
 
 module.exports = router; 

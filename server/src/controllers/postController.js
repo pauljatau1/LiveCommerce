@@ -4,40 +4,98 @@ const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
 const Seller = require('../models/Seller');
 const Buyer = require('../models/Buyer');
+const Product = require('../models/Product');
 
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { title, body } = req.body;
+    const { title, body, tags, visibility, productIds } = req.body;
     const userId = req.user.id;
     const userModel = req.user.role;
 
-    // Handle image uploads
+    // Get user information
+    const UserModel = mongoose.model(userModel);
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Handle media uploads
     let imagesData = [];
-    if (req.files && req.files.length > 0) {
-      for (let file of req.files) {
+    let videosData = [];
+
+    if (req.files) {
+      // Handle images
+      const imageFiles = req.files.filter(file => file.mimetype.startsWith('image/'));
+      for (let file of imageFiles) {
         const params = {
           Bucket: 'auqli-uploads',
-          Key: `posts/${uuidv4()}-${file.originalname}`,
+          Key: `posts/images/${uuidv4()}-${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
         };
-        const uploadResult = await s3.upload(params).promise();
+        const data = await s3.upload(params).promise();
         imagesData.push({
-          url: uploadResult.Location,
-          public_id: uploadResult.Key
+          url: data.Location,
+          public_id: data.Key
         });
       }
+
+      // Handle videos
+      const videoFiles = req.files.filter(file => file.mimetype.startsWith('video/'));
+      for (let file of videoFiles) {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `posts/videos/${uuidv4()}-${file.originalname}`,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        };
+        const data = await s3.upload(params).promise();
+        
+        // Generate thumbnail using ffmpeg (you'll need to implement this)
+        const thumbnail = await generateVideoThumbnail(data.Location);
+        
+        videosData.push({
+          url: data.Location,
+          public_id: data.Key,
+          thumbnail,
+          duration: 0 // You'll need to implement duration extraction
+        });
+      }
+    }
+
+    // Validate product references
+    let products = [];
+    if (productIds && productIds.length > 0) {
+      const validProducts = await Product.find({
+        _id: { $in: productIds },
+        'author.userId': userId
+      });
+      products = validProducts.map(product => ({
+        productId: product._id
+      }));
     }
 
     const post = new Post({
       title,
       body,
-      images: imagesData,
       author: {
         userId,
-        userModel
-      }
+        userModel,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImage: user.profileImage,
+        country: user.country,
+        bio: user.bio,
+        storeName: userModel === 'Seller' ? user.storeName : undefined,
+        businessName: userModel === 'Seller' ? user.businessName : undefined,
+        username: userModel === 'Buyer' ? user.username : undefined
+      },
+      images: imagesData,
+      videos: videosData,
+      products,
+      tags: tags || [],
+      visibility: visibility || 'public'
     });
 
     await post.save();
@@ -67,18 +125,30 @@ exports.addReaction = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
+    // Get user information
+    const UserModel = mongoose.model(userModel);
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     // Remove existing reaction from same user if exists
     post.reactions = post.reactions.filter(
       reaction => !(reaction.user.userId.equals(userId) && 
                    reaction.user.userModel === userModel)
     );
 
-    // Add new reaction
+    // Add new reaction with user details
     post.reactions.push({
       type,
       user: {
         userId,
-        userModel
+        userModel,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImage: user.profileImage,
+        storeName: userModel === 'Seller' ? user.storeName : undefined,
+        username: userModel === 'Buyer' ? user.username : undefined
       }
     });
 
@@ -109,19 +179,34 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    post.comments.push({
+    // Get user information
+    const UserModel = mongoose.model(userModel);
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Add comment with user details
+    const newComment = {
       content,
       author: {
         userId,
-        userModel
-      }
-    });
+        userModel,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImage: user.profileImage,
+        storeName: userModel === 'Seller' ? user.storeName : undefined,
+        username: userModel === 'Buyer' ? user.username : undefined
+      },
+      createdAt: new Date()
+    };
 
+    post.comments.push(newComment);
     await post.save();
 
     res.json({
       message: 'Comment added successfully',
-      comment: post.comments[post.comments.length - 1]
+      comment: newComment
     });
   } catch (error) {
     res.status(500).json({
@@ -131,25 +216,142 @@ exports.addComment = async (req, res) => {
   }
 };
 
-// Get all posts with pagination
-exports.getPosts = async (req, res) => {
+// Get comments for a post
+exports.getComments = async (req, res) => {
   try {
+    const { postId } = req.params;
     const { page = 1, limit = 10 } = req.query;
-    
-    const posts = await Post.find()
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .exec();
 
-    const count = await Post.countDocuments();
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const comments = post.comments.slice(startIndex, endIndex);
+
+    const enhancedComments = comments.map(comment => ({
+      id: comment._id,
+      content: comment.content,
+      createdAt: comment.createdAt,
+      author: {
+        id: comment.author.userId,
+        name: comment.author.storeName || 
+              comment.author.username || 
+              `${comment.author.firstName} ${comment.author.lastName}`,
+        image: comment.author.profileImage?.url || null,
+        type: comment.author.userModel
+      },
+      likes: comment.likes?.length || 0
+    }));
 
     res.json({
-      posts,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page
+      comments: enhancedComments,
+      totalComments: post.comments.length,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(post.comments.length / limit)
     });
   } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch comments',
+      error: error.message
+    });
+  }
+};
+
+// Get reactions for a post
+exports.getReactions = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { page = 1, limit = 10, type } = req.query;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    let reactions = post.reactions;
+    if (type) {
+      reactions = reactions.filter(reaction => reaction.type === type);
+    }
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedReactions = reactions.slice(startIndex, endIndex);
+
+    const enhancedReactions = paginatedReactions.map(reaction => ({
+      id: reaction._id,
+      type: reaction.type,
+      createdAt: reaction.createdAt,
+      user: {
+        id: reaction.user.userId,
+        name: reaction.user.storeName || 
+              reaction.user.username || 
+              `${reaction.user.firstName} ${reaction.user.lastName}`,
+        image: reaction.user.profileImage?.url || null,
+        type: reaction.user.userModel
+      }
+    }));
+
+    res.json({
+      reactions: enhancedReactions,
+      totalReactions: reactions.length,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(reactions.length / limit),
+      reactionCounts: {
+        like: reactions.filter(r => r.type === 'like').length,
+        love: reactions.filter(r => r.type === 'love').length,
+        laugh: reactions.filter(r => r.type === 'laugh').length,
+        sad: reactions.filter(r => r.type === 'sad').length,
+        angry: reactions.filter(r => r.type === 'angry').length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch reactions',
+      error: error.message
+    });
+  }
+};
+
+// Get all posts with enhanced author info
+exports.getPosts = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, visibility = 'public' } = req.query;
+    
+    const posts = await Post.find({ visibility })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate('products.productId', 'name price images category brand');
+
+    const enhancedPosts = posts.map(post => ({
+      ...post.toObject(),
+      author: {
+        id: post.author.userId,
+        name: post.author.storeName || 
+              post.author.username || 
+              `${post.author.firstName} ${post.author.lastName}`,
+        image: post.author.profileImage?.url || null,
+        bio: post.author.bio || null,
+        country: post.author.country,
+        type: post.author.userModel,
+        businessName: post.author.businessName || null,
+        username: post.author.username || null
+      }
+    }));
+
+    const count = await Post.countDocuments({ visibility });
+
+    res.json({
+      posts: enhancedPosts,
+      totalPages: Math.ceil(count / limit),
+      currentPage: parseInt(page),
+      totalPosts: count
+    });
+  } catch (error) {
+    console.error('Error in getPosts:', error);
     res.status(500).json({
       message: 'Failed to fetch posts',
       error: error.message
@@ -157,75 +359,62 @@ exports.getPosts = async (req, res) => {
   }
 };
 
-// Get posts from followers and followed sellers
+// Get seller feed
 exports.getSellerFeed = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const sellerId = req.user.id;
 
-    // Get the seller's followers and followed sellers
-    const seller = await Seller.findById(sellerId);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
+    // Get seller's categories and interests
+    const seller = await Seller.findById(sellerId).select('categories');
+    const sellerCategories = seller.categories.map(cat => cat.name);
 
-    // Get IDs of followers (buyers)
-    const followerIds = seller.followers.map(follower => follower.buyerId);
-
-    // Find posts from followers and the seller's own posts
+    // Find posts that match seller's interests
     const posts = await Post.find({
+      visibility: 'public',
       $or: [
-        // Posts from followers (buyers)
-        {
-          'author.userId': { $in: followerIds },
-          'author.userModel': 'Buyer'
-        },
-        // Posts from the seller themselves
-        {
-          'author.userId': sellerId,
-          'author.userModel': 'Seller'
-        }
+        { 'products.productId': { $in: await Product.find({ category: { $in: sellerCategories } }).select('_id') } },
+        { tags: { $in: sellerCategories } }
       ]
     })
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .populate({
-      path: 'author.userId',
-      select: 'firstName lastName storeName businessName profileImage storeAvatar',
-      model: function(doc) {
-        return mongoose.model(doc.author.userModel);
-      }
-    })
-    .populate({
-      path: 'comments.author.userId',
-      select: 'firstName lastName storeName businessName profileImage storeAvatar',
-      model: function(doc) {
-        return mongoose.model(doc.comments.author.userModel);
-      }
-    });
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate({
+        path: 'author.userId',
+        select: 'firstName lastName storeName businessName profileImage bio country',
+        model: (doc) => doc.author.userModel
+      })
+      .populate('products.productId', 'name price images category brand');
 
-    // Get total count for pagination
+    const enhancedPosts = posts.map(post => ({
+      ...post.toObject(),
+      author: {
+        id: post.author.userId._id,
+        name: post.author.userId.storeName || 
+              `${post.author.userId.firstName} ${post.author.userId.lastName}`,
+        image: post.author.userId.profileImage?.url || null,
+        bio: post.author.userId.bio || null,
+        country: post.author.userId.country,
+        type: post.author.userModel
+      }
+    }));
+
     const count = await Post.countDocuments({
+      visibility: 'public',
       $or: [
-        {
-          'author.userId': { $in: followerIds },
-          'author.userModel': 'Buyer'
-        },
-        {
-          'author.userId': sellerId,
-          'author.userModel': 'Seller'
-        }
+        { 'products.productId': { $in: await Product.find({ category: { $in: sellerCategories } }).select('_id') } },
+        { tags: { $in: sellerCategories } }
       ]
     });
 
     res.json({
-      posts,
+      posts: enhancedPosts,
       totalPages: Math.ceil(count / limit),
       currentPage: parseInt(page),
-      totalPosts: count
+      totalPosts: count,
+      isPersonalized: true
     });
-
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch seller feed',
@@ -234,69 +423,62 @@ exports.getSellerFeed = async (req, res) => {
   }
 };
 
-// Get buyer's feed
+// Get buyer feed
 exports.getBuyerFeed = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const buyerId = req.user.id;
 
-    const buyer = await Buyer.findById(buyerId);
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
-    }
+    // Get buyer's selected categories and interests
+    const buyer = await Buyer.findById(buyerId).select('selectedCategories');
+    const buyerCategories = buyer.selectedCategories.map(cat => cat.name);
 
-    // Get followed sellers' IDs from buyer's activity
-    const followedSellers = await Seller.find({
-      'followers.buyerId': buyerId
-    }).select('_id');
-    const sellerIds = followedSellers.map(seller => seller._id);
-
-    // Find posts from followed sellers and public posts from other buyers
+    // Find posts that match buyer's interests
     const posts = await Post.find({
+      visibility: 'public',
       $or: [
-        // Posts from followed sellers
-        {
-          'author.userId': { $in: sellerIds },
-          'author.userModel': 'Seller'
-        },
-        // Public posts from buyers
-        {
-          'author.userModel': 'Buyer',
-          visibility: 'public'
-        }
+        { 'products.productId': { $in: await Product.find({ category: { $in: buyerCategories } }).select('_id') } },
+        { tags: { $in: buyerCategories } }
       ]
     })
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .populate({
-      path: 'author.userId',
-      select: 'firstName lastName storeName businessName profileImage storeAvatar',
-      model: function(doc) {
-        return mongoose.model(doc.author.userModel);
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate({
+        path: 'author.userId',
+        select: 'firstName lastName storeName businessName profileImage bio country',
+        model: (doc) => doc.author.userModel
+      })
+      .populate('products.productId', 'name price images category brand');
+
+    const enhancedPosts = posts.map(post => ({
+      ...post.toObject(),
+      author: {
+        id: post.author.userId._id,
+        name: post.author.userId.storeName || 
+              `${post.author.userId.firstName} ${post.author.userId.lastName}`,
+        image: post.author.userId.profileImage?.url || null,
+        bio: post.author.userId.bio || null,
+        country: post.author.userId.country,
+        type: post.author.userModel
       }
-    });
+    }));
 
     const count = await Post.countDocuments({
+      visibility: 'public',
       $or: [
-        {
-          'author.userId': { $in: sellerIds },
-          'author.userModel': 'Seller'
-        },
-        {
-          'author.userModel': 'Buyer',
-          visibility: 'public'
-        }
+        { 'products.productId': { $in: await Product.find({ category: { $in: buyerCategories } }).select('_id') } },
+        { tags: { $in: buyerCategories } }
       ]
     });
 
     res.json({
-      posts,
+      posts: enhancedPosts,
       totalPages: Math.ceil(count / limit),
       currentPage: parseInt(page),
-      totalPosts: count
+      totalPosts: count,
+      isPersonalized: true
     });
-
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch buyer feed',
@@ -305,38 +487,72 @@ exports.getBuyerFeed = async (req, res) => {
   }
 };
 
-// Get user's posts
+// Get user's posts (can be either seller or buyer)
 exports.getUserPosts = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
-    const userId = req.params.userId;
-    const userModel = req.params.userType;
+    const { userId } = req.params;
+    const { page = 1, limit = 10, visibility = 'public' } = req.query;
+
+    // First determine if the user is a seller or buyer
+    let userModel = 'Seller';
+    let user = await Seller.findById(userId);
+    if (!user) {
+      user = await Buyer.findById(userId);
+      if (user) {
+        userModel = 'Buyer';
+      } else {
+        return res.status(404).json({ message: 'User not found' });
+      }
+    }
 
     const posts = await Post.find({
       'author.userId': userId,
-      'author.userModel': userModel
+      'author.userModel': userModel,
+      visibility
     })
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .populate({
-      path: 'author.userId',
-      select: 'firstName lastName storeName businessName profileImage storeAvatar',
-      model: userModel
-    });
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate({
+        path: 'author.userId',
+        select: 'firstName lastName storeName businessName profileImage bio country',
+        model: userModel
+      })
+      .populate('products.productId', 'name price images category brand');
+
+    const enhancedPosts = posts.map(post => ({
+      ...post.toObject(),
+      author: {
+        id: post.author.userId._id,
+        name: post.author.userId.storeName || 
+              `${post.author.userId.firstName} ${post.author.userId.lastName}`,
+        image: post.author.userId.profileImage?.url || null,
+        bio: post.author.userId.bio || null,
+        country: post.author.userId.country,
+        type: userModel
+      }
+    }));
 
     const count = await Post.countDocuments({
       'author.userId': userId,
-      'author.userModel': userModel
+      'author.userModel': userModel,
+      visibility
     });
 
     res.json({
-      posts,
+      posts: enhancedPosts,
       totalPages: Math.ceil(count / limit),
       currentPage: parseInt(page),
-      totalPosts: count
+      totalPosts: count,
+      authorInfo: {
+        id: user._id,
+        name: user.storeName || `${user.firstName} ${user.lastName}`,
+        image: user.profileImage?.url || null,
+        bio: user.bio || null,
+        country: user.country,
+        type: userModel
+      }
     });
-
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch user posts',
@@ -476,6 +692,240 @@ exports.deleteComment = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to delete comment',
+      error: error.message
+    });
+  }
+};
+
+// Like/Unlike a post
+exports.likePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Get user information
+    const UserModel = mongoose.model(userModel);
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize reactions array if it doesn't exist
+    if (!post.reactions) {
+      post.reactions = [];
+    }
+
+    // Check if already liked
+    const existingReactionIndex = post.reactions.findIndex(
+      reaction => 
+        reaction.user.userId.toString() === userId.toString() && 
+        reaction.user.userModel === userModel
+    );
+
+    if (existingReactionIndex > -1) {
+      // Remove existing reaction
+      post.reactions.splice(existingReactionIndex, 1);
+    } else {
+      // Add new reaction
+      post.reactions.push({
+        type: 'like',
+        user: {
+          userId,
+          userModel,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImage: user.profileImage,
+          storeName: userModel === 'Seller' ? user.storeName : undefined,
+          username: userModel === 'Buyer' ? user.username : undefined
+        }
+      });
+    }
+
+    await post.save();
+
+    res.json({
+      message: existingReactionIndex > -1 ? 'Post unliked' : 'Post liked',
+      likeCount: post.reactions.filter(r => r.type === 'like').length
+    });
+  } catch (error) {
+    console.error('Like post error:', error);
+    res.status(500).json({
+      message: 'Failed to like/unlike post',
+      error: error.message
+    });
+  }
+};
+
+// Dislike a post
+exports.dislikePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Check if already disliked
+    const alreadyDisliked = post.dislikes.some(dislike => 
+      dislike.userId.equals(userId) && dislike.userModel === userModel
+    );
+
+    if (alreadyDisliked) {
+      // Remove dislike
+      post.dislikes = post.dislikes.filter(dislike => 
+        !(dislike.userId.equals(userId) && dislike.userModel === userModel)
+      );
+    } else {
+      // Remove from likes if exists
+      post.likes = post.likes.filter(like => 
+        !(like.userId.equals(userId) && like.userModel === userModel)
+      );
+      // Add dislike
+      post.dislikes.push({ userId, userModel });
+    }
+
+    await post.save();
+
+    res.json({
+      message: alreadyDisliked ? 'Post undisliked' : 'Post disliked',
+      likes: post.stats.likeCount,
+      dislikes: post.stats.dislikeCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to dislike/undislike post',
+      error: error.message
+    });
+  }
+};
+
+// Get trending posts
+exports.getTrendingPosts = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const posts = await Post.aggregate([
+      { $match: { visibility: 'public' } },
+      {
+        $addFields: {
+          // Ensure reactions is an array even if it doesn't exist
+          safeReactions: { $ifNull: ['$reactions', []] },
+          // Get counts for different types of reactions
+          likeCount: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ['$reactions', []] },
+                as: 'reaction',
+                cond: { $eq: ['$$reaction.type', 'like'] }
+              }
+            }
+          },
+          commentCount: {
+            $size: { $ifNull: ['$comments', []] }
+          }
+        }
+      },
+      {
+        $addFields: {
+          score: {
+            $add: [
+              { $multiply: ['$likeCount', 2] },
+              { $multiply: ['$commentCount', 3] },
+              { $multiply: ['$stats.viewCount', 1] },
+              { $multiply: ['$stats.shareCount', 3] }
+            ]
+          }
+        }
+      },
+      { $sort: { score: -1, createdAt: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ]);
+
+    const enhancedPosts = posts.map(post => ({
+      ...post,
+      author: {
+        id: post.author.userId,
+        name: post.author.storeName || 
+              post.author.username || 
+              `${post.author.firstName} ${post.author.lastName}`,
+        image: post.author.profileImage?.url || null,
+        bio: post.author.bio || null,
+        country: post.author.country,
+        type: post.author.userModel
+      },
+      stats: {
+        likeCount: post.likeCount,
+        commentCount: post.commentCount,
+        viewCount: post.stats?.viewCount || 0,
+        shareCount: post.stats?.shareCount || 0
+      }
+    }));
+
+    const count = await Post.countDocuments({ visibility: 'public' });
+
+    res.json({
+      posts: enhancedPosts,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      totalPosts: count
+    });
+  } catch (error) {
+    console.error('Get trending posts error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch trending posts',
+      error: error.message
+    });
+  }
+};
+
+// Get new posts
+exports.getNewPosts = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const posts = await Post.find({ visibility: 'public' })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const enhancedPosts = posts.map(post => ({
+      ...post.toObject(),
+      author: {
+        id: post.author.userId,
+        name: post.author.storeName || 
+              post.author.username || 
+              `${post.author.firstName} ${post.author.lastName}`,
+        image: post.author.profileImage?.url || null,
+        bio: post.author.bio || null,
+        country: post.author.country,
+        type: post.author.userModel
+      }
+    }));
+
+    const count = await Post.countDocuments({ visibility: 'public' });
+
+    res.json({
+      posts: enhancedPosts,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      totalPosts: count
+    });
+  } catch (error) {
+    console.error('Get new posts error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch new posts',
       error: error.message
     });
   }

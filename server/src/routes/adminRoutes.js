@@ -476,27 +476,38 @@ router.get('/categories/:categoryId/subcategories', authMiddleware.verifyToken, 
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - category
+ *               - callToActionLink
+ *               - mainImage
  *             properties:
  *               title:
  *                 type: string
  *               description:
  *                 type: string
- *               mainImage:
- *                 type: string
  *               category:
  *                 type: string
  *               callToActionLink:
  *                 type: string
+ *               mainImage:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Banner created successfully
  *       400:
  *         description: Bad request
  */
-router.post('/banners', authMiddleware.verifyToken, adminController.createBanner);
+router.post('/banners', 
+  authMiddleware.verifyToken,
+  upload.single('mainImage'),
+  adminController.createBanner
+);
 
 /**
  * @swagger
@@ -516,7 +527,7 @@ router.post('/banners', authMiddleware.verifyToken, adminController.createBanner
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -524,12 +535,14 @@ router.post('/banners', authMiddleware.verifyToken, adminController.createBanner
  *                 type: string
  *               description:
  *                 type: string
- *               mainImage:
- *                 type: string
  *               category:
  *                 type: string
  *               callToActionLink:
  *                 type: string
+ *               mainImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional. Only include if updating the image
  *     responses:
  *       200:
  *         description: Banner updated successfully
@@ -538,7 +551,11 @@ router.post('/banners', authMiddleware.verifyToken, adminController.createBanner
  *       500:
  *         description: Internal server error
  */
-router.put('/banners/:bannerId', authMiddleware.verifyToken, adminController.updateBanner);
+router.put('/banners/:bannerId', 
+  authMiddleware.verifyToken,
+  upload.single('mainImage'),
+  adminController.updateBanner
+);
 
 /**
  * @swagger

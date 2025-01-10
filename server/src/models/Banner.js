@@ -5,7 +5,7 @@ const bannerSchema = new mongoose.Schema({
   description: { type: String, required: true },
   mainImage: {
     url: { type: String, required: true },
-    public_id: { type: String, required: true },
+    public_id: { type: String, required: true }
   },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
   callToActionLink: { type: String, required: true },
