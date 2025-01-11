@@ -35,25 +35,54 @@ async function generateSlug(name) {
   return slug;
 }
 
-const variantOptionSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  value: { type: String, },
+// Sub-sub-variant Schema (e.g., wool, plastic, rubber)
+const subSubVariantSchema = new mongoose.Schema({
+  name: { type: String, required: true },     // e.g., "wool", "plastic"
+  value: { type: String, required: true },    // e.g., "wool", "plastic"
   price: { type: Number },
   stock: { type: Number, default: 0 },
   sku: { type: String },
   images: [{
-    url: { type: String },
+    data: { type: String, required: true },
+    contentType: { type: String },
     isDefault: { type: Boolean, default: false }
   }]
 });
 
+// Sub-variant Schema (e.g., small, medium)
+const subVariantSchema = new mongoose.Schema({
+  name: { type: String, required: true },     // e.g., "small", "medium"
+  value: { type: String, required: true },    // e.g., "s", "m"
+  price: { type: Number },
+  stock: { type: Number, default: 0 },
+  sku: { type: String },
+  images: [{
+    data: { type: String, required: true },
+    contentType: { type: String },
+    isDefault: { type: Boolean, default: false }
+  }],
+  subVariants: [subSubVariantSchema]          // Array of material options
+});
+
+// Main variant option Schema (e.g., red, blue)
+const variantOptionSchema = new mongoose.Schema({
+  name: { type: String, required: true },     // e.g., "red", "blue"
+  value: { type: String, required: true },    // e.g., "red", "blue"
+  price: { type: Number },
+  stock: { type: Number, default: 0 },
+  sku: { type: String },
+  images: [{
+    data: { type: String, required: true },
+    contentType: { type: String },
+    isDefault: { type: Boolean, default: false }
+  }],
+  subVariants: [subVariantSchema]             // Array of size options
+});
+
+// Main variant type schema (Color)
 const variantSchema = new mongoose.Schema({
-  type: { 
-    type: String, 
-    required: true,
-  },
-  name: { type: String, required: true },
-  options: [variantOptionSchema]
+  name: { type: String, required: true },     // e.g., "Color"
+  options: [variantOptionSchema],
 });
 
 const productSchema = new mongoose.Schema({

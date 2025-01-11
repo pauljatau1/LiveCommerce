@@ -26,41 +26,45 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    // Process variants and their images
+    // Process variants and their nested images
     let processedVariants = [];
     if (variants && Array.isArray(variants)) {
       processedVariants = await Promise.all(variants.map(async (variant) => {
+        // Process main variant options (e.g., colors)
         const processedOptions = await Promise.all(variant.options.map(async (option) => {
-          let images = [];
-          
-          // Process images for each variant option if provided
-          if (option.images && Array.isArray(option.images)) {
-            images = await Promise.all(option.images.map(async (image) => {
-              // Generate unique filename
-              const key = `products/${Date.now()}-${Math.random().toString(36).substring(7)}`;
-              
-              // Upload to S3
-              await s3.upload({
-                Bucket: 'auqli-uploads',
-                Key: key,
-                Body: Buffer.from(image.data, 'base64'),
-                ContentType: image.contentType
-              }).promise();
+          // Process main variant option images
+          const optionImages = await processImages(option.images);
+
+          // Process sub-variants (e.g., sizes)
+          const processedSubVariants = await Promise.all((option.subVariants || []).map(async (subVariant) => {
+            // Process sub-variant images
+            const subVariantImages = await processImages(subVariant.images);
+
+            // Process sub-sub-variants (e.g., materials)
+            const processedSubSubVariants = await Promise.all((subVariant.subVariants || []).map(async (subSubVariant) => {
+              // Process sub-sub-variant images
+              const subSubVariantImages = await processImages(subSubVariant.images);
 
               return {
-                url: `https://auqli-uploads.s3.amazonaws.com/${key}`,
-                isDefault: image.isDefault || false
+                ...subSubVariant,
+                images: subSubVariantImages,
+                sku: generateVariantSKU(variant.name, option.value, subVariant.value, subSubVariant.value)
               };
             }));
-          }
 
-          // Generate SKU for variant
-          const variantSku = `${variant.type}-${option.value}`.toLowerCase().replace(/\s+/g, '-');
-          
+            return {
+              ...subVariant,
+              images: subVariantImages,
+              sku: generateVariantSKU(variant.name, option.value, subVariant.value),
+              subVariants: processedSubSubVariants
+            };
+          }));
+
           return {
             ...option,
-            images,
-            sku: `${variantSku}-${Date.now()}`
+            images: optionImages,
+            sku: generateVariantSKU(variant.name, option.value),
+            subVariants: processedSubVariants
           };
         }));
 
@@ -92,6 +96,48 @@ exports.createProduct = async (req, res) => {
     });
   }
 };
+
+// Helper function to process images and upload to S3
+async function processImages(images) {
+  if (!images || !Array.isArray(images)) {
+    return [];
+  }
+
+  return Promise.all(images.map(async (image) => {
+    try {
+      // Generate unique filename
+      const key = `products/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      
+      // Upload to S3
+      await s3.upload({
+        Bucket: 'auqli-uploads',
+        Key: key,
+        Body: Buffer.from(image.data, 'base64'),
+        ContentType: image.contentType,
+        ACL: 'public-read' // Make the image publicly accessible
+      }).promise();
+
+      return {
+        data: `https://auqli-uploads.s3.amazonaws.com/${key}`,
+        contentType: image.contentType,
+        isDefault: image.isDefault || false
+      };
+    } catch (error) {
+      console.error('Error uploading image to S3:', error);
+      throw error;
+    }
+  }));
+}
+
+// Helper function to generate SKU for variants
+function generateVariantSKU(...parts) {
+  const timestamp = Date.now().toString().slice(-4);
+  const processedParts = parts
+    .filter(Boolean)
+    .map(part => part.toLowerCase().replace(/\s+/g, '-'));
+  
+  return `${processedParts.join('-')}-${timestamp}`;
+}
 
 // Get all products
 exports.getAllProducts = async (req, res) => {
