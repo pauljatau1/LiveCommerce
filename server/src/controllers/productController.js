@@ -12,58 +12,150 @@ const NotificationController = require('../controllers/notificationController');
 // Create a new product
 exports.createProduct = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      price,
-      category,
-      variants,
-      // ... other fields
-    } = req.body;
-
+    const sellerId = req.user.id;
+    
     // Validate required fields
-    if (!name || !description || !price || !category) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    const requiredFields = ['name', 'description', 'price', 'category', 'stock', 'sku'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `Missing required fields: ${missingFields.join(', ')}`
+      });
     }
 
-    // Process variants and their nested images
-    let processedVariants = [];
-    if (variants && Array.isArray(variants)) {
-      processedVariants = await Promise.all(variants.map(async (variant) => {
-        // Process main variant options (e.g., colors)
+    // Parse JSON fields with error handling
+    const parseJsonField = (field, fieldName) => {
+      if (!field) return undefined;
+      try {
+        return typeof field === 'string' ? JSON.parse(field) : field;
+      } catch (error) {
+        throw new Error(`Invalid JSON format for ${fieldName}: ${error.message}`);
+      }
+    };
+
+    // Parse JSON strings for objects with error handling
+    const parsedBody = {
+      ...req.body,
+      returnPolicy: parseJsonField(req.body.returnPolicy, 'returnPolicy'),
+      shippingInfo: parseJsonField(req.body.shippingInfo, 'shippingInfo'),
+      seo: parseJsonField(req.body.seo, 'seo'),
+      variants: parseJsonField(req.body.variants, 'variants'),
+    };
+
+    // Convert comma-separated strings to arrays
+    if (typeof req.body.tags === 'string') {
+      parsedBody.tags = req.body.tags.split(',').map(tag => tag.trim());
+    }
+    if (typeof req.body.colors === 'string') {
+      parsedBody.colors = req.body.colors.split(',').map(color => color.trim());
+    }
+
+    // Validate category and subcategory
+    const categoryDoc = await Category.findOne({ name: parsedBody.category });
+    if (!categoryDoc) {
+      return res.status(400).json({ message: 'Invalid category' });
+    }
+
+    if (parsedBody.subCategory) {
+      const validSubCategory = categoryDoc.subCategories.some(
+        sub => sub.name === parsedBody.subCategory
+      );
+      if (!validSubCategory) {
+        return res.status(400).json({ 
+          message: 'Invalid subcategory for the selected category' 
+        });
+      }
+    }
+
+    // Handle main product images
+    let imagesLinks = [];
+    if (req.files && req.files['images']) {
+      for (let image of req.files['images']) {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}-${image.originalname}`,
+          Body: image.buffer,
+          ContentType: image.mimetype,
+        };
+        const data = await s3.upload(params).promise();
+        imagesLinks.push({ url: data.Location });
+      }
+    }
+
+    // Handle blips/videos
+    let blipsLinks = [];
+    if (req.files && req.files['blips']) {
+      for (let blip of req.files['blips']) {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}-${blip.originalname}`,
+          Body: blip.buffer,
+          ContentType: blip.mimetype,
+        };
+        const data = await s3.upload(params).promise();
+        blipsLinks.push({ url: data.Location });
+      }
+    }
+
+    // Process variant images
+    if (parsedBody.variants && Array.isArray(parsedBody.variants)) {
+      parsedBody.variants = await Promise.all(parsedBody.variants.map(async (variant) => {
         const processedOptions = await Promise.all(variant.options.map(async (option) => {
-          // Process main variant option images
-          const optionImages = await processImages(option.images);
+          // Handle variant option images
+          const variantImages = [];
+          const variantImageFiles = req.files[`variant_images_${option.value}`];
+          if (variantImageFiles) {
+            for (let image of variantImageFiles) {
+              const params = {
+                Bucket: 'auqli-uploads',
+                Key: `variants/${uuidv4()}-${image.originalname}`,
+                Body: image.buffer,
+                ContentType: image.mimetype,
+              };
+              const data = await s3.upload(params).promise();
+              variantImages.push({
+                data: data.Location,
+                contentType: image.mimetype,
+                isDefault: false // Set default as needed
+              });
+            }
+          }
 
-          // Process sub-variants (e.g., sizes)
-          const processedSubVariants = await Promise.all((option.subVariants || []).map(async (subVariant) => {
-            // Process sub-variant images
-            const subVariantImages = await processImages(subVariant.images);
+          // Process sub-variants (sizes)
+          const processedSubVariants = await Promise.all((option.subVariants || []).map(async (size) => {
+            const sizeImages = [];
+            const sizeImageFiles = req.files[`variant_images_${option.value}_${size.value}`];
+            if (sizeImageFiles) {
+              // Process size variant images
+              // Similar to above variant images processing
+            }
 
-            // Process sub-sub-variants (e.g., materials)
-            const processedSubSubVariants = await Promise.all((subVariant.subVariants || []).map(async (subSubVariant) => {
-              // Process sub-sub-variant images
-              const subSubVariantImages = await processImages(subSubVariant.images);
+            // Process material variants
+            const processedMaterials = await Promise.all((size.subVariants || []).map(async (material) => {
+              const materialImages = [];
+              const materialImageFiles = req.files[`variant_images_${option.value}_${size.value}_${material.value}`];
+              if (materialImageFiles) {
+                // Process material variant images
+                // Similar to above variant images processing
+              }
 
               return {
-                ...subSubVariant,
-                images: subSubVariantImages,
-                sku: generateVariantSKU(variant.name, option.value, subVariant.value, subSubVariant.value)
+                ...material,
+                images: materialImages
               };
             }));
 
             return {
-              ...subVariant,
-              images: subVariantImages,
-              sku: generateVariantSKU(variant.name, option.value, subVariant.value),
-              subVariants: processedSubSubVariants
+              ...size,
+              images: sizeImages,
+              subVariants: processedMaterials
             };
           }));
 
           return {
             ...option,
-            images: optionImages,
-            sku: generateVariantSKU(variant.name, option.value),
+            images: variantImages,
             subVariants: processedSubVariants
           };
         }));
@@ -75,24 +167,42 @@ exports.createProduct = async (req, res) => {
       }));
     }
 
-    const product = new Product({
-      ...req.body,
-      variants: processedVariants,
-      seller: req.user.id,
+    // Create new product
+    const newProduct = new Product({
+      ...parsedBody,
+      seller: sellerId,
+      images: imagesLinks,
+      blips: blipsLinks,
     });
 
-    await product.save();
+    await newProduct.save();
 
     // Populate seller details
-    const populatedProduct = await Product.findById(product._id)
+    const populatedProduct = await Product.findById(newProduct._id)
       .populate('seller', 'name avatarUrl about');
 
     res.status(201).json(populatedProduct);
   } catch (error) {
-    console.error('Error in createProduct:', error);
+    console.error('Product creation error:', error);
+    
+    if (error.message.includes('Invalid JSON format')) {
+      return res.status(400).json({
+        message: 'Data format error',
+        error: error.message
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Validation error',
+        error: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
     res.status(500).json({ 
       message: 'Failed to create product', 
-      error: error.message 
+      error: error.message,
+      details: error.stack 
     });
   }
 };
