@@ -52,37 +52,27 @@ const subSubVariantSchema = new mongoose.Schema({
 // Sub-variant Schema (e.g., small, medium)
 const subVariantSchema = new mongoose.Schema({
   name: { type: String, required: true },     // e.g., "small", "medium"
-  value: { type: String, required: true },    // e.g., "s", "m"
+  value: { type: String, required: true },    // e.g., "small", "medium"
   price: { type: Number },
   stock: { type: Number, default: 0 },
-  sku: { type: String },
   images: [{
     data: { type: String, required: true },
     contentType: { type: String },
-    isDefault: { type: Boolean, default: false }
   }],
-  subVariants: [subSubVariantSchema]          // Array of material options
-});
-
-// Main variant option Schema (e.g., red, blue)
-const variantOptionSchema = new mongoose.Schema({
-  name: { type: String, required: true },     // e.g., "red", "blue"
-  value: { type: String, required: true },    // e.g., "red", "blue"
-  price: { type: Number },
-  stock: { type: Number, default: 0 },
-  sku: { type: String },
-  images: [{
-    data: { type: String, required: true },
-    contentType: { type: String },
-    isDefault: { type: Boolean, default: false }
-  }],
-  subVariants: [subVariantSchema]             // Array of size options
+  subSubVariants: [subSubVariantSchema]          // Array of material options
 });
 
 // Main variant type schema (Color)
 const variantSchema = new mongoose.Schema({
   name: { type: String, required: true },     // e.g., "Color"
-  options: [variantOptionSchema],
+  value: { type: String, required: true },    // e.g., "red", "blue"
+  price: { type: Number, required: true },
+  totalStock: { type: Number },
+  images: [{
+    data: { type: String, required: true },
+    contentType: { type: String },
+  }],
+  subVariants: [subVariantSchema],
 });
 
 const productSchema = new mongoose.Schema({
