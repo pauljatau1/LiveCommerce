@@ -101,68 +101,82 @@ exports.createProduct = async (req, res) => {
     // Process variant images
     if (parsedBody.variants && Array.isArray(parsedBody.variants)) {
       parsedBody.variants = await Promise.all(parsedBody.variants.map(async (variant) => {
-        const processedOptions = await Promise.all(variant.options.map(async (option) => {
-          // Handle variant option images
-          const variantImages = [];
-          const variantImageFiles = req.files[`variant_images_${option.value}`];
-          if (variantImageFiles) {
-            for (let image of variantImageFiles) {
+        // Process color variant images
+        const variantImages = [];
+        if (variant.images && Array.isArray(variant.images)) {
+          for (let image of variant.images) {
+            const params = {
+              Bucket: 'auqli-uploads',
+              Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
+              Body: image.data,
+              ContentType: image.contentType,
+            };
+            const data = await s3.upload(params).promise();
+            variantImages.push({
+              data: data.Location,
+              contentType: image.contentType,
+              isDefault: image.isDefault || false
+            });
+          }
+        }
+
+        // Process size variants
+        const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (sizeVariant) => {
+          const sizeImages = [];
+          if (sizeVariant.images && Array.isArray(sizeVariant.images)) {
+            for (let image of sizeVariant.images) {
               const params = {
                 Bucket: 'auqli-uploads',
-                Key: `variants/${uuidv4()}-${image.originalname}`,
-                Body: image.buffer,
-                ContentType: image.mimetype,
+                Key: `variants/sizes/${uuidv4()}-${variant.value}_${sizeVariant.value}.jpg`,
+                Body: image.data,
+                ContentType: image.contentType,
               };
               const data = await s3.upload(params).promise();
-              variantImages.push({
+              sizeImages.push({
                 data: data.Location,
-                contentType: image.mimetype,
-                isDefault: false // Set default as needed
+                contentType: image.contentType,
+                isDefault: image.isDefault || false
               });
             }
           }
 
-          // Process sub-variants (sizes)
-          const processedSubVariants = await Promise.all((option.subVariants || []).map(async (size) => {
-            const sizeImages = [];
-            const sizeImageFiles = req.files[`variant_images_${option.value}_${size.value}`];
-            if (sizeImageFiles) {
-              // Process size variant images
-              // Similar to above variant images processing
+          // Process material variants
+          const processedMaterialVariants = await Promise.all((sizeVariant.subSubVariants || []).map(async (materialVariant) => {
+            const materialImages = [];
+            if (materialVariant.images && Array.isArray(materialVariant.images)) {
+              for (let image of materialVariant.images) {
+                const params = {
+                  Bucket: 'auqli-uploads',
+                  Key: `variants/materials/${uuidv4()}-${variant.value}_${sizeVariant.value}_${materialVariant.value}.jpg`,
+                  Body: image.data,
+                  ContentType: image.contentType,
+                };
+                const data = await s3.upload(params).promise();
+                materialImages.push({
+                  data: data.Location,
+                  contentType: image.contentType,
+                  isDefault: image.isDefault || false
+                });
+              }
             }
 
-            // Process material variants
-            const processedMaterials = await Promise.all((size.subVariants || []).map(async (material) => {
-              const materialImages = [];
-              const materialImageFiles = req.files[`variant_images_${option.value}_${size.value}_${material.value}`];
-              if (materialImageFiles) {
-                // Process material variant images
-                // Similar to above variant images processing
-              }
-
-              return {
-                ...material,
-                images: materialImages
-              };
-            }));
-
             return {
-              ...size,
-              images: sizeImages,
-              subVariants: processedMaterials
+              ...materialVariant,
+              images: materialImages.length > 0 ? materialImages : materialVariant.images
             };
           }));
 
           return {
-            ...option,
-            images: variantImages,
-            subVariants: processedSubVariants
+            ...sizeVariant,
+            images: sizeImages.length > 0 ? sizeImages : sizeVariant.images,
+            subSubVariants: processedMaterialVariants
           };
         }));
 
         return {
           ...variant,
-          options: processedOptions
+          images: variantImages.length > 0 ? variantImages : variant.images,
+          subVariants: processedSubVariants
         };
       }));
     }
