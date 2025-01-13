@@ -400,11 +400,7 @@ exports.getProduct = async (req, res) => {
         }
       },
       {
-        $project: {
-          // Include all base fields
-          ...productSchema.obj, // Spread operator to include all fields from the schema
-          
-          // Seller information
+        $addFields: {
           seller: {
             _id: '$sellerInfo._id',
             name: '$sellerInfo.name',
@@ -415,8 +411,6 @@ exports.getProduct = async (req, res) => {
             verified: '$sellerInfo.verified',
             about: '$sellerInfo.about'
           },
-          
-          // Reviews and stats
           reviews: '$reviewDetails',
           stats: {
             averageRating: {
@@ -437,6 +431,12 @@ exports.getProduct = async (req, res) => {
             soldCount: '$soldCount',
             lastViewed: '$stats.lastViewed'
           }
+        }
+      },
+      {
+        $project: {
+          sellerInfo: 0,
+          reviewDetails: 0
         }
       }
     ]);
