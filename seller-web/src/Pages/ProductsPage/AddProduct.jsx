@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { Icon } from "@iconify/react";
 //import { useNavigation, useOutletContext } from "react-router-dom";
 {/*import {
@@ -38,12 +38,20 @@ import Header from '../../Components/ui/Header/Header';
 import NoCatImage from '../../assets/no-cat.png';
 import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "../../Components/ui/tooltip";
+import { cn } from '../../lib/utils';
+import { useVariantContext, VariantProvider } from '../../Contexts/VariantContext'
 
 const AddProduct = () => {
     //const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
     //const { seller } = useAuthContext();
     const dispatch = useDispatch();
-    const { message, error, isLoading } = useSelector(state => state.product)
+    const { message, error, isLoading, response } = useSelector(state => state.product)
     //const [notification, setNotification] = useState(true);
     //const [open, setOpen] = useState(false);
     //const [isChatVisible, setIsChatVisible] = useState(true);
@@ -64,7 +72,6 @@ const AddProduct = () => {
         }
     });
     const [showVariants, setShowVariants] = useState(false);
-    const [variants, setVariants] = useState([]);
     const [newVariant, setNewVariant] = useState({
         size: '',
         price: null,
@@ -90,6 +97,21 @@ const AddProduct = () => {
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
     const [productSpecs, setProductSpecs] = useState({});
+    const [variantOptions, setVariantOptions] = useState([]);
+    const [tempOptionValues, setTempOptionValues] = useState(['']);
+    const [expandedOption, setExpandedOption] = useState(null);
+    const [expandedVariants, setExpandedVariants] = useState(new Set());
+    const [allExpanded, setAllExpanded] = useState(false);
+    const {
+        variants,
+        variantDetails,
+        addColorVariant,
+        addSizeVariant,
+        addMaterialVariant,
+        updateVariantDetails,
+        getTotalStock,
+        getVariantsForSubmission
+    } = useVariantContext();
 
     const handleSpecificationsChange = (specs) => {
         setProductSpecs(specs);
@@ -145,38 +167,6 @@ const AddProduct = () => {
         });
     };
 
-    // handle variant change
-    const handleVariantChange = (field, value) => {
-        setNewVariant(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
-
-    // handle add variant
-    const handleAddVariant = () => {
-        if (variants.length >= 2) return; // Prevent adding more than 2 variants
-        if (newVariant.size && newVariant.price && newVariant.stock) {
-            setVariants(prev => [...prev, { ...newVariant, id: Date.now() }]);
-            setNewVariant({ size: '', price: '', stock: '' }); // Reset form
-        }
-    };
-
-    // handle remove variant
-    const handleRemoveVariant = (variantId) => {
-        setVariants(prev => prev.filter(variant => variant.id !== variantId));
-    };
-
-    const handleAddColor = () => {
-        if (newColor.trim() && colors.length < 5) {
-            setColors(prev => [...prev, newColor.trim()]);
-            setNewColor('');
-        }
-    };
-
-    const handleRemoveColor = (indexToRemove) => {
-        setColors(prev => prev.filter((_, index) => index !== indexToRemove));
-    };
 
     const handleImageUpload = (e) => {
         if (e.target.files[0]) {
@@ -287,10 +277,9 @@ const AddProduct = () => {
     //submit product
     const handleSubmitProduct = async (e) => {
         e.preventDefault();
-
         const formData = new FormData();
 
-        // Handle files
+        // Handle main product images
         for (let i = 0; i < images.length; i++) {
             const base64Response = await fetch(images[i].url);
             const blob = await base64Response.blob();
@@ -298,6 +287,7 @@ const AddProduct = () => {
             formData.append('images', file);
         }
 
+        // Handle video if exists
         if (videos.length > 0) {
             const base64Response = await fetch(videos[0].url);
             const blob = await base64Response.blob();
@@ -308,15 +298,18 @@ const AddProduct = () => {
         // Basic data
         formData.append('name', title);
         formData.append('description', description);
-        formData.append('price', shippingDetails.pricing);
-        formData.append('salePrice', shippingDetails.salePrice);
-        formData.append('weight', shippingDetails.weight);
-        formData.append('stock', shippingDetails.inventory);
+        formData.append('price', Number(shippingDetails.pricing));
+        formData.append('salePrice', Number(shippingDetails.salePrice));
+        formData.append('weight', Number(shippingDetails.weight));
+        formData.append('stock', Number(shippingDetails.inventory));
         formData.append('condition', shippingDetails.condition);
 
-        // Shipping info - needs to be stringified as it's an object
+        // Shipping info
         formData.append('shippingInfo', JSON.stringify({
-            weight: Number(shippingDetails.weight),
+            weight: {
+                value: Number(shippingDetails.weight),
+                unit: shippingDetails.weightUnit
+            },
             dimensions: {
                 length: Number(shippingDetails.dimensions.length),
                 width: Number(shippingDetails.dimensions.width),
@@ -326,17 +319,7 @@ const AddProduct = () => {
             shippingClass: 'standard'
         }));
 
-        // Price variants - needs to be stringified as it's an array
-        if (variants.length > 0) {
-            formData.append('priceVariants', JSON.stringify(variants.map(variant => ({
-                size: variant.size,
-                price: Number(variant.price),
-            }))));
-        }
-
         // Basic fields
-        formData.append('size', selectedSize);
-        formData.append('colors', colors);
         formData.append('status', productStatus);
         formData.append('category', selectedCategory);
         formData.append('subCategory', selectedSubCategory);
@@ -357,38 +340,44 @@ const AddProduct = () => {
             });
         }
 
+        // Get processed variants from context
+        const processedVariants = await getVariantsForSubmission();
+        
+        // Add variants to formData
+        formData.append('variants', JSON.stringify(processedVariants));
+
+        // Validate and submit
         if (title && description && images.length > 0 && shippingDetails.pricing &&
             shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
             selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
             await dispatch(createProduct(formData));
             // Reset fields after successful submission
-            setTitle('');
-            setDescription('');
-            setImages([]);
-            setShippingDetails({
-                pricing: null,
-                salePrice: null,
-                weight: null,
-                weightUnit: 'kg',
-                inventory: null,
-                condition: 'fairly-used',
-                dimensions: {
-                    length: null,
-                    width: null,
-                    height: null
-                }
-            });
-            setSelectedCategory('');
-            setSelectedSubCategory('');
-            setSkuNumber('');
-            setUpcNumber('');
-            setBrand('');
-            setVariants([]);
-            setColors([]);
-            setVideos([]);
-            setSelectedSize('');
-            setProductStatus('active');
-            setProductSpecs({}); // Reset specifications
+            if (response === 'success') {
+                setTitle('');
+                setDescription('');
+                setImages([]);
+                setShippingDetails({
+                    pricing: null,
+                    salePrice: null,
+                    weight: null,
+                    weightUnit: 'kg',
+                    inventory: null,
+                    condition: 'fairly-used',
+                    dimensions: {
+                        length: null,
+                        width: null,
+                        height: null
+                    }
+                });
+                setSelectedCategory('');
+                setSelectedSubCategory('');
+                setSkuNumber('');
+                setUpcNumber('');
+                setBrand('');
+                setVideos([]);
+                setProductStatus('active');
+                setProductSpecs({}); // Reset specifications
+            }
         } else {
             toast.error('Please fill all required fields');
         }
@@ -435,6 +424,415 @@ const AddProduct = () => {
     RequiredLabel.propTypes = {
         children: PropTypes.node.isRequired
     };
+
+    const handleAddNewOption = () => {
+        if (variantOptions.length >= 3) return;
+
+        const newOption = {
+            id: Date.now(),
+            name: '',
+            values: [],
+            isExpanded: true
+        };
+
+        setVariantOptions([...variantOptions, newOption]);
+        setTempOptionValues(['']);
+        setExpandedOption(newOption.id);
+    };
+
+    const handleOptionNameChange = (optionId, name) => {
+        setVariantOptions(prev => prev.map(opt => 
+            opt.id === optionId ? { ...opt, name } : opt
+        ));
+    };
+
+    const handleOptionValueChange = (index, value) => {
+        setTempOptionValues(prev => {
+            const newValues = [...prev];
+            newValues[index] = value;
+            if (index === newValues.length - 1 && value !== '') {
+                newValues.push('');
+            }
+            return newValues;
+        });
+    };
+
+    const handleDeleteOption = (optionId) => {
+        setVariantOptions(prev => prev.filter(option => option.id !== optionId));
+        setExpandedOption(null);
+    };
+
+    const handleDoneOption = (optionId) => {
+        const option = variantOptions.find(opt => opt.id === optionId);
+        const optionIndex = variantOptions.findIndex(opt => opt.id === optionId);
+        const validValues = tempOptionValues.filter(value => value.trim() !== '');
+
+        switch(optionIndex) {
+            case 0: // Main variant (Color)
+                validValues.forEach(value => {
+                    addColorVariant({
+                        name: option.name,
+                        value: value
+                    });
+                    updateVariantDetails(value, {
+                        price: 0,
+                        stock: 0,
+                        images: []
+                    });
+                });
+                break;
+            case 1: // Sub-variant (Size)
+                const mainVariant = variantOptions[0];
+                mainVariant.values.forEach(mainValue => {
+                    validValues.forEach(subValue => {
+                        addSizeVariant(mainValue, {
+                            name: option.name,
+                            value: subValue
+                        });
+                        updateVariantDetails(`${mainValue}_${subValue}`, {
+                            price: 0,
+                            stock: 0,
+                            images: []
+                        });
+                    });
+                });
+                break;
+            case 2: // Sub-sub-variant (Material)
+                const mainValues = variantOptions[0].values;
+                const subValues = variantOptions[1].values;
+                mainValues.forEach(mainValue => {
+                    subValues.forEach(subValue => {
+                        validValues.forEach(subSubValue => {
+                            addMaterialVariant(`${mainValue}_${subValue}`, {
+                                name: option.name,
+                                value: subSubValue
+                            });
+                            updateVariantDetails(`${mainValue}_${subValue}_${subSubValue}`, {
+                                price: 0,
+                                stock: 0,
+                                images: []
+                            });
+                        });
+                    });
+                });
+                break;
+        }
+
+        setVariantOptions(prev => prev.map(opt => 
+            opt.id === optionId 
+                ? { ...opt, isExpanded: false, values: validValues } 
+                : opt
+        ));
+        setExpandedOption(null);
+        setTempOptionValues(['']);
+    };
+
+    const handleExpandOption = (optionId) => {
+        const option = variantOptions.find(o => o.id === optionId);
+        setTempOptionValues([...option.values, '']);
+        setExpandedOption(optionId);
+    };
+
+    const generateVariantCombinations = () => {
+        if (variantOptions.length === 0) return [];
+
+        const allValues = variantOptions.map(option => option.values);
+
+        const combine = (arrays, current = []) => {
+            if (arrays.length === 0) return [current];
+
+            return arrays[0].reduce((acc, value) => {
+                return [...acc, ...combine(arrays.slice(1), [...current, value])];
+            }, []);
+        };
+
+        return combine(allValues);
+    };
+
+    // Add this function to handle variant expansion
+    const toggleVariantExpansion = (variantValue) => {
+        setExpandedVariants(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(variantValue)) {
+                newSet.delete(variantValue);
+            } else {
+                newSet.add(variantValue);
+            }
+            return newSet;
+        });
+    };
+
+
+    // Individual input components for maximum performance
+    const PriceInput = memo(({ variantPath, value }) => {
+        const { updateDraft, commitDraft, getDraftValue, variantDetails } = useVariantContext();
+        // Initialize from either draft value or committed value
+        const initialValue = getDraftValue(variantPath, 'price') || variantDetails[variantPath]?.price || value || '';
+        const [localValue, setLocalValue] = useState(initialValue);
+        
+        const handleChange = (e) => {
+            const newValue = e.target.value;
+            setLocalValue(newValue);
+            updateDraft(variantPath, 'price', newValue);
+        };
+
+        return (
+            <div className="w-40 relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                <Input
+                    type="text"
+                    value={localValue}
+                    onChange={handleChange}
+                    onFocusOut={() => commitDraft(variantPath)}
+                    placeholder="0.00"
+                    className="text-right pr-3 pl-8"
+                />
+            </div>
+        );
+    });
+    PriceInput.displayName = 'PriceInput';
+
+    const StockInput = memo(({ variantPath, value }) => {
+        const { updateDraft, commitDraft, getDraftValue, variantDetails } = useVariantContext();
+        // Initialize from either draft value or committed value
+        const initialValue = getDraftValue(variantPath, 'stock') || variantDetails[variantPath]?.stock || value || '';
+        const [localValue, setLocalValue] = useState(initialValue);
+        
+        const handleChange = (e) => {
+            const newValue = e.target.value;
+            setLocalValue(newValue);
+            updateDraft(variantPath, 'stock', newValue);
+        };
+
+        return (
+            <Input
+                type="text"
+                value={localValue}
+                onChange={handleChange}
+                onFocusOut={() => commitDraft(variantPath)}
+                placeholder="stock"
+                className="w-20 text-center"
+            />
+        );
+    });
+    StockInput.displayName = 'StockInput';
+
+    const StockDisplay = memo(({ value }) => {
+        return (
+            <div className="w-20 h-10 bg-[#05031F]/10 flex items-center justify-center rounded-lg text-[#05031F]/50">
+                {value || 0}
+            </div>
+        );
+    });
+    StockDisplay.displayName = 'StockDisplay';
+
+    const ImageUploadSection = memo(({ images, onUpload, onRemove }) => {
+        return (
+            <div className="flex items-center gap-2">
+                <div className="flex gap-2">
+                    {images?.map((image, index) => (
+                        <div key={index} className="relative w-12 h-12">
+                            <img
+                                src={image.data}
+                                alt={`Variant ${index + 1}`}
+                                className="w-full h-full object-cover rounded-lg"
+                            />
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemove(index);
+                                }}
+                                className="absolute -top-1 -right-1 bg-white rounded-full p-0.5"
+                            >
+                                <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                    <label className="w-12 h-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50">
+                        <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                                e.stopPropagation();
+                                onUpload(e);
+                            }}
+                        />
+                        <Icon icon="solar:gallery-add-bold" className="w-6 h-6 text-gray-400" />
+                        <span className="text-[10px] text-gray-400">Upload</span>
+                    </label>
+                </div>
+            </div>
+        );
+    });
+    ImageUploadSection.displayName = 'ImageUploadSection';
+
+    // Update VariantGroupHeader to use the new components
+    const VariantGroupHeader = memo(({ variant, onToggle, isExpanded }) => {
+        const { 
+            variantDetails, 
+            updateVariantDetails,
+            getTotalStock 
+        } = useVariantContext();
+        
+        // Memoize these values to prevent unnecessary re-renders
+        const details = useMemo(() => variantDetails[variant.value] || {}, [variantDetails, variant.value]);
+        const totalStock = useMemo(() => getTotalStock(variant.value), [getTotalStock, variant.value]);
+        
+        // Memoize the input handler
+        const handleInputChange = useCallback((field, value) => {
+            requestAnimationFrame(() => {
+                updateVariantDetails(variant.value, {
+                    ...details,
+                    [field]: value
+                });
+            });
+        }, [variant.value, details]);
+
+        // Keep ALL existing image handling code
+        const handleVariantImageUpload = async (e, variantPath) => {
+            const files = Array.from(e.target.files);
+            const images = await Promise.all(files.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve({
+                        data: reader.result,
+                        contentType: file.type,
+                        isDefault: false
+                    });
+                    reader.readAsDataURL(file);
+                });
+            }));
+
+            if (images.length > 0) {
+                images[0].isDefault = true;
+            }
+
+            updateVariantDetails(variantPath, {
+                ...variantDetails[variantPath],
+                images
+            });
+        };
+
+        const handleVariantImageRemove = async (index, variantPath) => {
+            // Get current images
+            const currentImages = variantDetails[variantPath]?.images || [];
+            
+            // Create new array without the removed image
+            const updatedImages = currentImages.filter((_, i) => i !== index);
+
+            // If we still have images, make sure first one is default
+            if (updatedImages.length > 0) {
+                updatedImages[0].isDefault = true;
+            }
+
+            // Update variant details with new images array
+            updateVariantDetails(variantPath, {
+                ...variantDetails[variantPath],
+                images: updatedImages
+            });
+        };
+
+        return (
+            <div className="space-y-2">
+                {/* Main variant row */}
+                <div className="flex flex-wrap w-full items-center gap-4 p-3 border rounded-lg">
+                    <input type="checkbox" className="w-4 h-4" onClick={e => e.stopPropagation()} />
+                    {/* Image upload for main variant */}
+                    <ImageUploadSection
+                        images={variantDetails[variant.value]?.images}
+                        onUpload={(e) => handleVariantImageUpload(e, variant.value)}
+                        onRemove={(index) => handleVariantImageRemove(index, variant.value)}
+                    />
+                    <div className="flex flex-grow flex-wrap justify-between items-center gap-4">
+                        <div className={cn(
+                            "flex items-center gap-2 md:gap-4 flex-1",
+                            variant.subVariants?.length > 0 && "cursor-pointer"
+                        )} onClick={() => variant.subVariants?.length > 0 && onToggle(variant.value)}>
+                            <div>
+                                <div className="font-medium">{variant.value}</div>
+                                {variant.subVariants?.length > 0 && (
+                                    <div className="text-sm text-gray-500">
+                                        {variant.subVariants.length} variants {isExpanded ? '▼' : '▶'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4" onClick={e => e.stopPropagation()}>
+                            <PriceInput
+                                variantPath={variant.value}
+                                value={details.price || ''}
+                                onChange={(e) => handleInputChange('price', e.target.value)}
+                            />
+                            <StockDisplay value={totalStock} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sub-variants section */}
+                {variant.subVariants?.length > 0 && isExpanded && (
+                    <div className="pl-8 space-y-2">
+                        {variant.subVariants.map((subVariant, index) => {
+                            const subVariantPath = `${variant.value}/${subVariant[1]}/${subVariant[2]}`;
+                            const subDetails = useMemo(() => variantDetails[subVariantPath] || {}, 
+                                [variantDetails, subVariantPath]);
+
+                            return (
+                                <div key={index} className="flex flex-wrap items-center gap-4 p-3 bg-white border rounded-lg">
+                                    <input type="checkbox" className="w-4 h-4" />
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <ImageUploadSection
+                                            images={variantDetails[subVariantPath]?.images}
+                                            onUpload={(e) => handleVariantImageUpload(e, subVariantPath)}
+                                            onRemove={(index) => handleVariantImageRemove(index, subVariantPath)}
+                                        />
+                                        <span>{`${subVariant[1]} ${subVariant[2] ? `/ ${subVariant[2]}` : ''}`}</span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <PriceInput
+                                            variantPath={subVariantPath}
+                                            value={subDetails.price || ''}
+                                            onChange={(e) => handleInputChange('price', e.target.value)}
+                                        />
+                                        <StockInput
+                                            variantPath={subVariantPath}
+                                            value={subDetails.stock || ''}
+                                            onChange={(e) => handleInputChange('stock', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    });
+    VariantGroupHeader.displayName = 'VariantGroupHeader';
+
+    VariantGroupHeader.propTypes = {
+        variant: PropTypes.object.isRequired,
+        onToggle: PropTypes.func.isRequired,
+        isExpanded: PropTypes.bool.isRequired
+    };
+
+    // Add function to handle expand/close all
+    const handleExpandAll = () => {
+        if (allExpanded) {
+            // Close all variants
+            setExpandedVariants(new Set());
+        } else {
+            // Expand all variants that have sub-variants
+            const variantsToExpand = variantOptions[0]?.values
+                .filter(value => variantOptions[1]?.values?.length > 0);
+            setExpandedVariants(new Set(variantsToExpand));
+        }
+        setAllExpanded(!allExpanded);
+    };
+
+
 
     return (
         <>
@@ -717,279 +1115,180 @@ const AddProduct = () => {
 
                                             {/* Variants Section */}
                                             <Card>
-                                                <CardHeader className="flex flex-row items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="rounded"
-                                                            checked={showVariants}
-                                                            onChange={(e) => setShowVariants(e.target.checked)}
-                                                        />
-                                                        <CardTitle>Variants (Optional)</CardTitle>
-                                                    </div>
+                                                <CardHeader>
+                                                    <CardTitle>Variants (Optional)</CardTitle>
                                                 </CardHeader>
                                                 <CardContent>
-                                                    {showVariants ? (
-                                                        <div className="space-y-4">
-                                                            {variants.map((variant) => (
-                                                                <div key={variant.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                                                                    <div className="w-12 h-12 border-2 border-dashed rounded-lg flex items-center justify-center">
-                                                                        <Icon icon="solar:upload-linear" className="w-6 h-6 text-gray-400" />
-                                                                    </div>
-                                                                    <div className="flex flex-col lg:flex-row items-center gap-4">
-                                                                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                                            <Input
-                                                                                value={variant.size}
-                                                                                placeholder="Size"
-                                                                                disabled
-                                                                                className="rounded-full w-full"
-                                                                            />
-                                                                            <div className="relative">
-                                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                                                <Input
-                                                                                    value={variant.price}
-                                                                                    placeholder="0.00"
-                                                                                    disabled
-                                                                                    className="pl-8 rounded-full w-full"
-                                                                                />
-                                                                            </div>
-                                                                            <Input
-                                                                                value={variant.stock}
-                                                                                placeholder="Stock"
-                                                                                disabled
-                                                                                className="rounded-full w-full"
-                                                                            />
-                                                                        </div>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => handleRemoveVariant(variant.id)}
-                                                                            className="text-red-500"
-                                                                        >
-                                                                            <Icon icon="solar:trash-bin-trash-bold" className="w-10 h-10" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-
-                                                            {variants.length < 2 && (
-                                                                <div className="flex items-center gap-4 p-4 border rounded-lg">
-                                                                    <div className="w-12 h-12 border-2 border-dashed rounded-lg flex items-center justify-center">
-                                                                        <Icon icon="solar:upload-linear" className="w-6 h-6 text-gray-400" />
-                                                                    </div>
-                                                                    <div className="flex flex-col lg:flex-row items-center gap-4">
-                                                                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                                            <Input
-                                                                                value={newVariant.size}
-                                                                                onChange={(e) => handleVariantChange('size', e.target.value)}
-                                                                                placeholder="Size"
-                                                                                className="rounded-full"
-                                                                            />
-                                                                            <div className="relative">
-                                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                                                <Input
-                                                                                    value={newVariant.price}
-                                                                                    onChange={(e) => handleVariantChange('price', e.target.value)}
-                                                                                    placeholder="0.00"
-                                                                                    type="number"
-                                                                                    className="pl-8 rounded-full"
-                                                                                />
-                                                                            </div>
-                                                                            <Input
-                                                                                value={newVariant.stock}
-                                                                                onChange={(e) => handleVariantChange('stock', e.target.value)}
-                                                                                placeholder="Stock"
-                                                                                type="number"
-                                                                                className="rounded-full"
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {variants.length < 2 && (
-                                                                <Button
-                                                                    onClick={handleAddVariant}
-                                                                    variant="outline"
-                                                                    className="mt-4 bg-[#05031F] text-white rounded-full px-4 py-2 flex items-center gap-2 hover:bg-[#05031F]/80"
-                                                                >
-                                                                    <Icon icon="simple-line-icons:plus" className="w-4 h-4" />
-                                                                    Add
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    ) : (
+                                                    {variantOptions.length === 0 ? (
                                                         <>
-                                                            <div className="flex flex-col items-center justify-center py-8">
+                                                            <div className="text-center py-8">
                                                                 <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
                                                                 <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
                                                             </div>
                                                             <Button
-                                                                onClick={() => setShowVariants(true)}
+                                                                onClick={handleAddNewOption}
                                                                 variant="outline"
-                                                                className="mt-4 lg:mt-12 bg-[#05031F] w-fit flex items-center justify-center gap-2 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80"
-                                                            >
-                                                                <Icon icon="simple-line-icons:plus" className="w-4 h-4" />
-                                                                Add New
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-
-                                            {/* Size Options */}
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Size Options</CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {!showSizeForm ? (
-                                                        <>
-                                                            <div className="text-center py-8">
-                                                                <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
-                                                                <p className="mt-2 text-gray-500">Add product size (small, medium, or large), there are none yet!!</p>
-                                                            </div>
-                                                            <Button
-                                                                variant="outline"
-                                                                onClick={() => setShowSizeForm(true)}
                                                                 className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white"
                                                             >
-                                                                <Icon icon="simple-line-icons:plus" className="mr-2" color="#FFFFFF" />
-                                                                Add New
+                                                                <Icon icon="simple-line-icons:plus" className="w-4 h-4 mr-2" />
+                                                                Add options like size or color
                                                             </Button>
                                                         </>
                                                     ) : (
-                                                        <div className="space-y-6">
-                                                            <div>
-                                                                <Label>Fashion Spec Mapping</Label>
-                                                                <Select
-                                                                    value={selectedSize}
-                                                                    onValueChange={setSelectedSize}
-                                                                >
-                                                                    <SelectTrigger className="w-full rounded-full border border-[#02020238] mt-2">
-                                                                        <SelectValue placeholder="Select product size" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        <SelectItem value="small">Small</SelectItem>
-                                                                        <SelectItem value="medium">Medium</SelectItem>
-                                                                        <SelectItem value="large">Large</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
+                                                        <div className="space-y-4">
+                                                            {variantOptions.map((option, optionIndex) => (
+                                                                <div key={option.id} className="border rounded-lg p-4">
+                                                                    <h3 className="font-medium font-cabin text-base mb-3">
+                                                                        {optionIndex === 0 ? "Main Variant" :
+                                                                            optionIndex === 1 ? "Sub-Variant" :
+                                                                                "Sub-Sub-Variant"}
+                                                                    </h3>
 
-                                                            <div className="flex justify-between">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    className="text-red-500 border-red-500 rounded-full"
-                                                                    onClick={() => {
-                                                                        setShowSizeForm(false);
-                                                                        setSelectedSize('');
-                                                                    }}
-                                                                >
-                                                                    Delete
-                                                                </Button>
-                                                                {/*<Button 
-                                                        onClick={() => {
-                                                            if (selectedSize) {
-                                                                // Handle saving the selected size
-                                                                setShowSizeForm(false);
-                                                            }
-                                                        }}
-                                                        className="bg-[#05031F] text-white rounded-full"
-                                                    >
-                                                        Done
-                                                    </Button>*/}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
+                                                                    {option.isExpanded || expandedOption === option.id ? (
+                                                                        <>
+                                                                            <div className="space-y-4">
+                                                                                <div>
+                                                                                    <Label>Option name</Label>
+                                                                                    <Input
+                                                                                        value={option.name}
+                                                                                        onChange={(e) => handleOptionNameChange(option.id, e.target.value)}
+                                                                                        placeholder="Enter option name (e.g. Size, Color)"
+                                                                                        className="mt-2"
+                                                                                    />
+                                                                                </div>
 
-                                            {/* Color Options */}
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Color Options</CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {!showColorForm && colors.length === 0 ? (
-                                                        <>
-                                                            <div className="text-center py-8">
-                                                                <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
-                                                                <p className="mt-2 text-gray-500">Add a new color variant, there are none yet!!</p>
-                                                            </div>
-                                                            <Button
-                                                                variant="outline"
-                                                                onClick={() => setShowColorForm(true)}
-                                                                className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white"
-                                                            >
-                                                                <Icon icon="simple-line-icons:plus" className="mr-2" color="#FFFFFF" />
-                                                                Add New
-                                                            </Button>
-                                                        </>
-                                                    ) : (
-                                                        <div className="space-y-6">
-                                                            {/* Display existing colors */}
-                                                            {colors.map((color, index) => (
-                                                                <div key={index} className="flex items-center gap-2">
-                                                                    <Icon icon="solar:menu-dots-bold" className="text-gray-400" />
-                                                                    <Input
-                                                                        value={color}
-                                                                        disabled
-                                                                        className="rounded-full"
-                                                                    />
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => handleRemoveColor(index)}
-                                                                        className="text-gray-400"
-                                                                    >
-                                                                        <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5" />
-                                                                    </Button>
+                                                                                <div>
+                                                                                    <Label>Option values</Label>
+                                                                                    {tempOptionValues.map((value, index) => (
+                                                                                        <div key={index} className="flex items-center gap-2 mt-2">
+                                                                                            <Input
+                                                                                                value={value}
+                                                                                                onChange={(e) => handleOptionValueChange(index, e.target.value)}
+                                                                                                placeholder="Enter option value"
+                                                                                            />
+                                                                                            {index < tempOptionValues.length - 1 && (
+                                                                                                <Button
+                                                                                                    variant="ghost"
+                                                                                                    size="icon"
+                                                                                                    onClick={() => handleDeleteOption(option.id)}
+                                                                                                >
+                                                                                                    <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5" />
+                                                                                                </Button>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div className="flex justify-between mt-4">
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    className="text-red-500"
+                                                                                    onClick={() => handleDeleteOption(option.id)}
+                                                                                >
+                                                                                    Delete
+                                                                                </Button>
+                                                                                <Button
+                                                                                    onClick={() => handleDoneOption(option.id)}
+                                                                                    className="bg-[#05031F] text-white"
+                                                                                >
+                                                                                    Done
+                                                                                </Button>
+                                                                            </div>
+                                                                        </>
+                                                                    ) : (
+                                                                        <div
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => handleExpandOption(option.id)}
+                                                                        >
+                                                                            <p className="font-medium">{option.name}</p>
+                                                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                                                {option.values.map((value, index) => (
+                                                                                    <span
+                                                                                        key={index}
+                                                                                        className="px-2 py-1 bg-gray-100 rounded-full text-sm"
+                                                                                    >
+                                                                                        {value}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             ))}
 
-                                                            {/* New color input field */}
-                                                            {colors.length < 5 && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <Icon icon="solar:menu-dots-bold" className="text-gray-400" />
-                                                                    <Input
-                                                                        value={newColor}
-                                                                        onChange={(e) => setNewColor(e.target.value)}
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter') {
-                                                                                handleAddColor();
-                                                                            }
-                                                                        }}
-                                                                        className="rounded-full"
-                                                                        placeholder="Add color value"
-                                                                    />
-                                                                </div>
+                                                            {variantOptions.length < 3 && (
+                                                                <Button
+                                                                    onClick={handleAddNewOption}
+                                                                    variant="outline"
+                                                                    className="w-full mt-4"
+                                                                >
+                                                                    Add another option
+                                                                </Button>
                                                             )}
 
-                                                            <div className="flex justify-between">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    className="text-red-500 border-red-500 rounded-full"
-                                                                    onClick={() => {
-                                                                        setShowColorForm(false);
-                                                                        setColors([]);
-                                                                        setNewColor('');
-                                                                    }}
-                                                                >
-                                                                    Delete
-                                                                </Button>
-                                                                <Button
-                                                                    onClick={() => {
-                                                                        if (newColor.trim()) {
-                                                                            handleAddColor(); // Save current color if any
-                                                                        }
-                                                                        setNewColor(''); // Clear input for next color
-                                                                    }}
-                                                                    className="bg-[#05031F] text-white rounded-full"
-                                                                >
-                                                                    Done
-                                                                </Button>
-                                                            </div>
+                                                            {/* Variant Combinations */}
+                                                            {variantOptions.length > 0 && (
+                                                                <div className="mt-8">
+                                                                    <div className="flex items-center justify-between flex-wrap mb-4">
+                                                                        <h3 className="font-medium font-cabin text-base">Variant Combinations</h3>
+                                                                        {/*<div className="flex items-center gap-2">
+                                                                            <span className="text-sm text-gray-500">Group by</span>
+                                                                            <Select defaultValue={variantOptions[0]?.name?.toLowerCase() || 'variant'}>
+                                                                                <SelectTrigger className="w-[120px]">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {variantOptions.map(option => (
+                                                                                        <SelectItem 
+                                                                                            key={option.id}
+                                                                                            value={option.name?.toLowerCase() || `variant-${option.id}`}
+                                                                                        >
+                                                                                            {option.name || 'Variant'}
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        </div>*/}
+                                                                    </div>
+
+                                                                    <div className="space-y-2">
+                                                                        {/* Header */}
+                                                                        <div className="hidden md:flex items-center gap-4 px-3 py-2 text-sm text-gray-500">
+                                                                            <input type="checkbox" className="w-4 h-4 opacity-0" />
+                                                                            <button
+                                                                                onClick={handleExpandAll}
+                                                                                className="flex-1 text-left whitespace-nowrap  cursor-pointer"
+                                                                            >
+                                                                                Variant
+                                                                                <span className="whitespace-nowrap hover:underline hover:underline-offset-4 "> {allExpanded ? '· Close all' : '· Expand all'}</span>
+                                                                            </button>
+                                                                            <span className="w-40 text-right">Price</span>
+                                                                            <span className="w-20 text-center">Available</span>
+                                                                        </div>
+
+                                                                        {/* Main variants with sub-variants */}
+                                                                        {variantOptions[0]?.values.map((value) => {
+                                                                            // Check if there are any sub-variant values
+                                                                            const hasSubVariants = variantOptions[1]?.values?.length > 0;
+
+                                                                            return (
+                                                                                <VariantGroupHeader
+                                                                                    key={value}
+                                                                                    variant={{
+                                                                                        value,
+                                                                                        // Only include subVariants if they exist
+                                                                                        subVariants: hasSubVariants ? generateVariantCombinations()
+                                                                                            .filter(combo => combo[0] === value) : []
+                                                                                    }}
+                                                                                    onToggle={toggleVariantExpansion}
+                                                                                    isExpanded={expandedVariants.has(value)}
+                                                                                />
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </CardContent>

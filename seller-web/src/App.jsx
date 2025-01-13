@@ -33,6 +33,7 @@ import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
 import MarketingPage from './Pages/MarketingPage/MarketingPage';
+import { VariantProvider } from './Contexts/VariantContext';
 
 
 
@@ -170,7 +171,11 @@ const router = createBrowserRouter([
           },
           {
             path: 'add-products',
-            element: <AddProduct />,
+            element: (
+              <VariantProvider>
+                <AddProduct />
+              </VariantProvider>
+            ),
             errorElement: <NotFoundPage />
           },
           {
