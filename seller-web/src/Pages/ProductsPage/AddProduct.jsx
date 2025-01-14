@@ -104,6 +104,7 @@ const AddProduct = () => {
     const [allExpanded, setAllExpanded] = useState(false);
     const {
         variants,
+        setVariants,
         variantDetails,
         addColorVariant,
         addSizeVariant,
@@ -342,7 +343,7 @@ const AddProduct = () => {
 
         // Get processed variants from context
         const processedVariants = await getVariantsForSubmission();
-        
+
         // Add variants to formData
         formData.append('variants', JSON.stringify(processedVariants));
 
@@ -429,7 +430,7 @@ const AddProduct = () => {
         if (variantOptions.length >= 3) return;
 
         const newOption = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             name: '',
             values: [],
             isExpanded: true
@@ -441,7 +442,7 @@ const AddProduct = () => {
     };
 
     const handleOptionNameChange = (optionId, name) => {
-        setVariantOptions(prev => prev.map(opt => 
+        setVariantOptions(prev => prev.map(opt =>
             opt.id === optionId ? { ...opt, name } : opt
         ));
     };
@@ -459,6 +460,7 @@ const AddProduct = () => {
 
     const handleDeleteOption = (optionId) => {
         setVariantOptions(prev => prev.filter(option => option.id !== optionId));
+        setVariants(prev => prev.filter(variant => variant.id !== optionId));
         setExpandedOption(null);
     };
 
@@ -467,14 +469,16 @@ const AddProduct = () => {
         const optionIndex = variantOptions.findIndex(opt => opt.id === optionId);
         const validValues = tempOptionValues.filter(value => value.trim() !== '');
 
-        switch(optionIndex) {
+        switch (optionIndex) {
             case 0: // Main variant (Color)
                 validValues.forEach(value => {
                     addColorVariant({
+                        id: optionId, // Use the existing optionId for updates
                         name: option.name,
                         value: value
                     });
-                    updateVariantDetails(value, {
+                    updateVariantDetails(optionId, {
+                        id: optionId,
                         price: 0,
                         stock: 0,
                         images: []
@@ -485,11 +489,13 @@ const AddProduct = () => {
                 const mainVariant = variantOptions[0];
                 mainVariant.values.forEach(mainValue => {
                     validValues.forEach(subValue => {
-                        addSizeVariant(mainValue, {
+                        addSizeVariant(mainVariant.id, { // Pass parent's ID
+                            id: crypto.randomUUID(),
                             name: option.name,
                             value: subValue
                         });
-                        updateVariantDetails(`${mainValue}_${subValue}`, {
+                        updateVariantDetails(`${mainVariant.id}_${optionId}`, {
+                            id: optionId,
                             price: 0,
                             stock: 0,
                             images: []
@@ -503,11 +509,13 @@ const AddProduct = () => {
                 mainValues.forEach(mainValue => {
                     subValues.forEach(subValue => {
                         validValues.forEach(subSubValue => {
-                            addMaterialVariant(`${mainValue}_${subValue}`, {
+                            addMaterialVariant(`${mainValues[0].id}_${subValues[0].id}`, { // Pass parent IDs
+                                id: crypto.randomUUID(),
                                 name: option.name,
                                 value: subSubValue
                             });
-                            updateVariantDetails(`${mainValue}_${subValue}_${subSubValue}`, {
+                            updateVariantDetails(`${mainValues[0].id}_${subValues[0].id}_${optionId}`, {
+                                id: optionId,
                                 price: 0,
                                 stock: 0,
                                 images: []
@@ -518,9 +526,9 @@ const AddProduct = () => {
                 break;
         }
 
-        setVariantOptions(prev => prev.map(opt => 
-            opt.id === optionId 
-                ? { ...opt, isExpanded: false, values: validValues } 
+        setVariantOptions(prev => prev.map(opt =>
+            opt.id === optionId
+                ? { ...opt, isExpanded: false, values: validValues }
                 : opt
         ));
         setExpandedOption(null);
@@ -564,12 +572,11 @@ const AddProduct = () => {
 
 
     // Individual input components for maximum performance
-    const PriceInput = memo(({ variantPath, value }) => {
-        const { updateDraft, commitDraft, getDraftValue, variantDetails } = useVariantContext();
-        // Initialize from either draft value or committed value
-        const initialValue = getDraftValue(variantPath, 'price') || variantDetails[variantPath]?.price || value || '';
+    const PriceInput = memo(({ variantPath, value, onChange }) => {
+        const { updateDraft, commitDraft, getDraftValue } = useVariantContext();
+        const initialValue = getDraftValue(variantPath, 'price') || value;
         const [localValue, setLocalValue] = useState(initialValue);
-        
+
         const handleChange = (e) => {
             const newValue = e.target.value;
             setLocalValue(newValue);
@@ -583,7 +590,7 @@ const AddProduct = () => {
                     type="text"
                     value={localValue}
                     onChange={handleChange}
-                    onFocusOut={() => commitDraft(variantPath)}
+                    onBlur={() => commitDraft(variantPath)}
                     placeholder="0.00"
                     className="text-right pr-3 pl-8"
                 />
@@ -592,12 +599,11 @@ const AddProduct = () => {
     });
     PriceInput.displayName = 'PriceInput';
 
-    const StockInput = memo(({ variantPath, value }) => {
-        const { updateDraft, commitDraft, getDraftValue, variantDetails } = useVariantContext();
-        // Initialize from either draft value or committed value
-        const initialValue = getDraftValue(variantPath, 'stock') || variantDetails[variantPath]?.stock || value || '';
+    const StockInput = memo(({ variantPath, value, onChange }) => {
+        const { updateDraft, commitDraft, getDraftValue } = useVariantContext();
+        const initialValue = getDraftValue(variantPath, 'stock') || value;
         const [localValue, setLocalValue] = useState(initialValue);
-        
+
         const handleChange = (e) => {
             const newValue = e.target.value;
             setLocalValue(newValue);
@@ -609,7 +615,7 @@ const AddProduct = () => {
                 type="text"
                 value={localValue}
                 onChange={handleChange}
-                onFocusOut={() => commitDraft(variantPath)}
+                onBlur={() => commitDraft(variantPath)}
                 placeholder="stock"
                 className="w-20 text-center"
             />
@@ -670,16 +676,16 @@ const AddProduct = () => {
 
     // Update VariantGroupHeader to use the new components
     const VariantGroupHeader = memo(({ variant, onToggle, isExpanded }) => {
-        const { 
-            variantDetails, 
+        const {
+            variantDetails,
             updateVariantDetails,
-            getTotalStock 
+            getTotalStock
         } = useVariantContext();
-        
+
         // Memoize these values to prevent unnecessary re-renders
         const details = useMemo(() => variantDetails[variant.value] || {}, [variantDetails, variant.value]);
         const totalStock = useMemo(() => getTotalStock(variant.value), [getTotalStock, variant.value]);
-        
+
         // Memoize the input handler
         const handleInputChange = useCallback((field, value) => {
             requestAnimationFrame(() => {
@@ -718,7 +724,7 @@ const AddProduct = () => {
         const handleVariantImageRemove = async (index, variantPath) => {
             // Get current images
             const currentImages = variantDetails[variantPath]?.images || [];
-            
+
             // Create new array without the removed image
             const updatedImages = currentImages.filter((_, i) => i !== index);
 
@@ -733,6 +739,16 @@ const AddProduct = () => {
                 images: updatedImages
             });
         };
+
+        // Memoize all subvariant details outside the map
+        const subVariantDetails = useMemo(() =>
+            variant.subVariants?.reduce((acc, subVariant) => {
+                const path = `${variant.value}${`_${subVariant[1]}`}${subVariant[2] ? `_${subVariant[2]}` : ''}`;
+                acc[path] = variantDetails[path] || {};
+                return acc;
+            }, {}),
+            [variant.subVariants, variant.value, variantDetails]
+        );
 
         return (
             <div className="space-y-2">
@@ -775,9 +791,8 @@ const AddProduct = () => {
                 {variant.subVariants?.length > 0 && isExpanded && (
                     <div className="pl-8 space-y-2">
                         {variant.subVariants.map((subVariant, index) => {
-                            const subVariantPath = `${variant.value}/${subVariant[1]}/${subVariant[2]}`;
-                            const subDetails = useMemo(() => variantDetails[subVariantPath] || {}, 
-                                [variantDetails, subVariantPath]);
+                            const subVariantPath = `${variant.value}${`_${subVariant[1]}`}${subVariant[2] ? `_${subVariant[2]}` : ''}`;
+                            const subDetails = subVariantDetails[subVariantPath];
 
                             return (
                                 <div key={index} className="flex flex-wrap items-center gap-4 p-3 bg-white border rounded-lg">
@@ -832,7 +847,18 @@ const AddProduct = () => {
         setAllExpanded(!allExpanded);
     };
 
-
+    // Add this function to check if all variant combinations have values
+    const areAllVariantsFilled = useCallback(() => {
+        // Check each variant in variantDetails
+        return Object.entries(variantDetails).every(([_, details]) => {
+            return (
+                details.price &&
+                Number(details.price) > 0 &&
+                details.stock &&
+                Number(details.stock) > 0
+            );
+        });
+    }, []);
 
     return (
         <>
@@ -1126,9 +1152,18 @@ const AddProduct = () => {
                                                                 <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
                                                             </div>
                                                             <Button
-                                                                onClick={handleAddNewOption}
+                                                                onClick={() => {
+                                                                    if (!areAllVariantsFilled()) {
+                                                                        toast.error('Please fill in all variant prices and stock values before adding another option', {
+                                                                            description: "All variants must have price and stock values"
+                                                                        });
+                                                                        return;
+                                                                    }
+                                                                    handleAddNewOption();
+                                                                }}
                                                                 variant="outline"
                                                                 className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white"
+                                                                disabled={!areAllVariantsFilled()}
                                                             >
                                                                 <Icon icon="simple-line-icons:plus" className="w-4 h-4 mr-2" />
                                                                 Add options like size or color
@@ -1219,9 +1254,18 @@ const AddProduct = () => {
 
                                                             {variantOptions.length < 3 && (
                                                                 <Button
-                                                                    onClick={handleAddNewOption}
+                                                                    onClick={() => {
+                                                                        if (!areAllVariantsFilled()) {
+                                                                            toast.error('Please fill in all variant prices and stock values before adding another option', {
+                                                                                description: "All variants must have price and stock values"
+                                                                            });
+                                                                            return;
+                                                                        }
+                                                                        handleAddNewOption();
+                                                                    }}
                                                                     variant="outline"
                                                                     className="w-full mt-4"
+                                                                    disabled={!areAllVariantsFilled()}
                                                                 >
                                                                     Add another option
                                                                 </Button>

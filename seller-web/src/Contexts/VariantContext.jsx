@@ -10,10 +10,31 @@ export const VariantProvider = ({ children }) => {
     const [inputValues, setInputValues] = useState({});
 
     const batchUpdate = useCallback((updates) => {
-        setVariantDetails(prev => ({
-            ...prev,
-            ...updates
-        }));
+        setVariantDetails(prev => {
+            const variantPath = Object.keys(updates)[0];
+            // Ensure prev and prev[variantPath] exist
+            if (!prev || !prev[variantPath]) {
+                return {
+                    ...prev,
+                    [variantPath]: {
+                        images: [],
+                        price: 0,
+                        stock: 0,
+                        ...updates[variantPath]
+                    }
+                };
+            }
+
+            return {
+                ...prev,
+                [variantPath]: {
+                    ...prev[variantPath],
+                    price: updates[variantPath].price ? Number(updates[variantPath].price) : prev[variantPath].price,
+                    stock: updates[variantPath].stock ? Number(updates[variantPath].stock) : prev[variantPath].stock,
+                    images: updates[variantPath].images || prev[variantPath].images
+                }
+            };
+        });
     }, []);
 
     const updateDraft = useCallback((variantPath, field, value) => {
@@ -22,55 +43,80 @@ export const VariantProvider = ({ children }) => {
             [field]: value
         };
     }, []);
-
-    const commitDraft = useCallback((variantPath) => {
-        if (draftRef.current[variantPath]) {
-            batchUpdate({
-                [variantPath]: {
-                    ...variantDetails[variantPath],
-                    ...draftRef.current[variantPath]
-                }
-            });
-            delete draftRef.current[variantPath];
-        }
-    }, [variantDetails, batchUpdate]);
-
+    
     const updateVariantDetails = useCallback((variantPath, details) => {
+        // Convert price and stock to numbers if they exist
+        const normalizedDetails = {
+            ...details,
+            price: details.price ? Number(details.price) : details.price,
+            stock: details.stock ? Number(details.stock) : details.stock
+        };
+
         batchUpdate({
             [variantPath]: {
                 ...variantDetails[variantPath],
-                ...details
+                ...normalizedDetails
             }
         });
     }, [variantDetails, batchUpdate]);
 
+    const commitDraft = useCallback((variantPath) => {
+        if (draftRef.current[variantPath]) {
+            const draftValues = draftRef.current[variantPath];
+            console.log('draft values', draftValues); // For debugging
+            
+            updateVariantDetails(variantPath, {
+                price: draftValues.price,
+                stock: draftValues.stock
+            });
+            delete draftRef.current[variantPath];
+        }
+    }, [updateVariantDetails]);
+
+
     const addColorVariant = useCallback((colorVariant) => {
         setVariants(prev => {
-            const exists = prev.some(v => v.value === colorVariant.value);
-            if (!exists) {
+            const existingIndex = prev.findIndex(v => v.id === colorVariant.id);
+            if (existingIndex !== -1) {
+                // Update existing variant
+                return prev.map((variant, index) => 
+                    index === existingIndex 
+                        ? { ...variant, name: colorVariant.name, value: colorVariant.value }
+                        : variant
+                );
+            } else {
+                // Create new variant with unique ID
                 return [...prev, {
+                    id: colorVariant.id,
                     name: colorVariant.name,
                     value: colorVariant.value,
                     subVariants: []
                 }];
             }
-            return prev;
         });
     }, []);
 
-    const addSizeVariant = useCallback((colorValue, sizeVariant) => {
+    const addSizeVariant = useCallback((colorId, sizeVariant) => {
         setVariants(prev => prev.map(colorVar => {
-            if (colorVar.value === colorValue) {
+            if (colorVar.id === colorId) {
+                const existingSizeIndex = colorVar.subVariants.findIndex(
+                    v => v.id === sizeVariant.id
+                );
+                
                 return {
                     ...colorVar,
-                    subVariants: [
-                        ...colorVar.subVariants,
-                        {
+                    subVariants: existingSizeIndex !== -1
+                        ? colorVar.subVariants.map((sizeVar, index) =>
+                            index === existingSizeIndex
+                                ? { ...sizeVar, name: sizeVariant.name, value: sizeVariant.value }
+                                : sizeVar
+                          )
+                        : [...colorVar.subVariants, {
+                            id: sizeVariant.id,
                             name: sizeVariant.name,
                             value: sizeVariant.value,
                             subSubVariants: []
-                        }
-                    ]
+                        }]
                 };
             }
             return colorVar;
@@ -85,15 +131,23 @@ export const VariantProvider = ({ children }) => {
                     ...colorVar,
                     subVariants: colorVar.subVariants.map(sizeVar => {
                         if (sizeVar.value === sizeValue) {
+                            const existingMaterialIndex = sizeVar.subSubVariants.findIndex(
+                                v => v.id === materialVariant.id
+                            );
+
                             return {
                                 ...sizeVar,
-                                subSubVariants: [
-                                    ...sizeVar.subSubVariants,
-                                    {
+                                subSubVariants: existingMaterialIndex !== -1
+                                    ? sizeVar.subSubVariants.map((materialVar, index) =>
+                                        index === existingMaterialIndex
+                                            ? { ...materialVar, name: materialVariant.name, value: materialVariant.value }
+                                            : materialVar
+                                      )
+                                    : [...sizeVar.subSubVariants, {
+                                        id: materialVariant.id,
                                         name: materialVariant.name,
                                         value: materialVariant.value
-                                    }
-                                ]
+                                    }]
                             };
                         }
                         return sizeVar;
@@ -116,13 +170,26 @@ export const VariantProvider = ({ children }) => {
         });
     }, [updateVariantDetails]);
 
-    const getTotalStock = useCallback((variantValue) => {
-        const relevantKeys = Object.keys(variantDetails).filter(key => 
-            key.startsWith(`${variantValue}_`) && key.split('_').length === 3
-        );
+    const getTotalStock = useCallback((mainVariant) => {
+        // Get all keys from both variantDetails and draftRef
+        const allKeys = new Set([
+            ...Object.keys(variantDetails),
+            ...Object.keys(draftRef.current)
+        ]);
 
-        return relevantKeys.reduce((total, key) => {
-            return total + (Number(variantDetails[key]?.stock) || 0);
+        // Filter and sum all relevant variants
+        return Array.from(allKeys).reduce((total, key) => {
+            // Check if this key belongs to the main variant
+            if (key.startsWith(mainVariant) && key !== mainVariant) {
+                // Get stock from draft or committed state
+                const draftStock = Number(draftRef.current[key]?.stock) || 0;
+                const committedStock = Number(variantDetails[key]?.stock) || 0;
+                
+                // Use draft value if it exists, otherwise use committed value
+                return total + (draftRef.current[key] ? draftStock : committedStock);
+            }
+            console.log('total', total);
+            return total;
         }, 0);
     }, [variantDetails]);
 
@@ -194,8 +261,13 @@ export const VariantProvider = ({ children }) => {
         });
     }, [inputValues]);
 
+    const getDraftValue = useCallback((variantPath, field) => 
+        draftRef.current[variantPath]?.[field] ?? variantDetails[variantPath]?.[field],
+    [variantDetails]);
+
     const value = {
         variants,
+        setVariants,
         variantDetails,
         addColorVariant,
         addSizeVariant,
@@ -209,8 +281,7 @@ export const VariantProvider = ({ children }) => {
         inputValues,
         updateDraft,
         commitDraft,
-        getDraftValue: (variantPath, field) => 
-            draftRef.current[variantPath]?.[field] ?? variantDetails[variantPath]?.[field],
+        getDraftValue,
         syncVariantDetails
     };
 

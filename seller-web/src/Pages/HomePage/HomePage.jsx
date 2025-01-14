@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 import { Icon } from "@iconify/react";
-import { orderTempData, toDoCardTempData, suggestVideosData, platformAnnouncementData } from "../../Utilities/data";
+import { orderTempData, toDoCardTempData, suggestVideosData } from "../../Utilities/data";
 import { Crisp } from "crisp-sdk-web";
 import { useNavigate, useNavigation } from "react-router-dom";
 import { useSidebar } from '../../Hooks/useSideBar';
 import SideBarNav from "../../Components/ui/DashboardHomepageUi/SideBarNav";
 import { BASE_URL } from "../../Constants/Server";
-import { getTotalSellerUCustomers } from "../../Utilities/apiRestaurant";
+import { getTotalSellerUCustomers, getPlatformAnnouncement, getPublicResources } from "../../Utilities/apiRestaurant";
 import SearchBar from "../../Components/ui/DashboardHomepageUi/SearchBar";
 import AlertNotification from "../../Components/ui/AlertNotification";
 import HomeAnalyticsCard from "../../Components/ui/DashboardHomepageUi/HomeAnalyticsCard";
@@ -19,6 +19,7 @@ import AnnouncementCard from "../../Components/AnnouncementCard";
 import axios from "axios";
 import LinearProgress from '@mui/material/LinearProgress';
 import ObjectID from 'bson-objectid';
+import CircularProgress from '@mui/material/CircularProgress';
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
 // Example: formatNumber(1500, "view") returns "1.5K views"
@@ -31,17 +32,19 @@ const formatNumber = (number, label) => {
 const HomePage = () => {
   // Core hooks initialization
   const navigate = useNavigate();
-  const { seller, fetchSellerDetails } = useAuthContext();
+  const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications } = useAuthContext();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
 
   // State management for dashboard data and UI
   const [notification, setNotification] = useState(false);  // Controls notification visibility
   const [orders, setOrders] = useState([]);               // Stores all seller orders
-  const [isLoading, setIsLoading] = useState(true);       // Controls loading state
+  const [isDataLoading, setIsDataLoading] = useState(true);       // Controls loading state
   const [isDataReady, setIsDataReady] = useState(false);  // Indicates when data is ready to display
   const [error, setError] = useState(null);               // Stores error state
   const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]); // Analytics cards data
-
+  const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
+  const [publicResources, setPublicResources] = useState([]);
+  const [topSellingProducts, setTopSellingProducts] = useState([]);
 
   // Returns appropriate greeting based on Nigerian time
   const getGreeting = () => {
@@ -157,7 +160,7 @@ const HomePage = () => {
 
     const fetchDashboardData = async () => {
       try {
-        setIsLoading(true);
+        setIsDataLoading(true);
         setIsDataReady(false);
 
         // Authentication setup
@@ -166,7 +169,7 @@ const HomePage = () => {
         const seller = JSON.parse(localStorage.getItem('seller'));
 
         // Parallel API calls for better performance
-        const [ordersResponse, customersResponse] = await Promise.all([
+        const [ordersResponse, customersResponse, platformAnnouncementResponse, publicResourcesResponse ] = await Promise.all([
           axios.get(
             `${BASE_URL}/order/seller/${seller._id}`,
             {
@@ -174,7 +177,9 @@ const HomePage = () => {
               signal
             }
           ),
-          getTotalSellerUCustomers()
+          getTotalSellerUCustomers(),
+          getPlatformAnnouncement(),
+          getPublicResources(),
         ]);
 
         // Process and update state with fetched data
@@ -187,7 +192,10 @@ const HomePage = () => {
 
         setOrders(newOrders);
         setHomeAnalyticsCardData(analyticsData);
+        setPlatformAnnouncement(platformAnnouncementResponse);
+        setPublicResources(publicResourcesResponse);
         setIsDataReady(true);
+
 
       } catch (error) {
         // Handle fetch abortion and errors
@@ -199,7 +207,7 @@ const HomePage = () => {
         setError(error.message);
         console.error('Dashboard loading error:', error);
       } finally {
-        setIsLoading(false);
+        setIsDataLoading(false);
       }
     };
 
@@ -208,6 +216,15 @@ const HomePage = () => {
     // Cleanup: abort any pending requests when component unmounts
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    getTop3SellingProducts();
+    getSellerNotifications();
+  }, []);
+
+  console.log('platformAnnouncement', platformAnnouncement);
+  console.log('publicResources', publicResources);
+  console.log('stuffToDo', stuffToDo);
 
 
 
@@ -225,7 +242,7 @@ const HomePage = () => {
         )
       }
 
-      {isLoading || !isDataReady ? (
+      {isDataLoading || !isDataReady ? (
         <div className="flex flex-col justify-center items-center h-[80dvh]">
           <div className="w-1/4">
             <LinearProgress color="success" />
@@ -267,9 +284,15 @@ const HomePage = () => {
               </div>
               <div className="flex flex-col md:h-[364px] gap-4 border border-[#00000026] bg-[#F7F7F7] px-4 py-3 lg:px-8 lg:py-7 rounded-[10px] mt-7">
                 {
-                  toDoCardTempData.map((card) => (
-                    <ToDoCard key={card.id} card={card} />
-                  ))
+                  isLoading ? (
+                    <div className="flex justify-center items-center h-full">
+                      <CircularProgress size={20} color="#05031F" />
+                    </div>
+                  ) : (
+                    stuffToDo?.notifications?.map((card) => (
+                      <ToDoCard key={card.id} card={card} />
+                    ))
+                  )
                 }
               </div>
             </div>
@@ -282,9 +305,15 @@ const HomePage = () => {
               </div>
               <div className="flex flex-col md:h-[364px] gap-4 border border-[#00000026] bg-[#F7F7F7] px-4 py-3 lg:px-8 lg:py-7 rounded-[10px] mt-5">
                 {
-                  orderTempData.map((order) => (
-                    <QuickOrderCard key={order.id} order={order} />
-                  ))
+                  isLoading ? (
+                    <div className="flex justify-center items-center h-full">
+                      <CircularProgress size={20} color="#05031F" />
+                    </div>
+                  ) : (
+                    orderTempData?.map((product) => (
+                      <QuickOrderCard key={product.id} order={product} />
+                    ))
+                  )
                 }
               </div>
             </div>
@@ -304,7 +333,7 @@ const HomePage = () => {
               [&::-webkit-scrollbar-thumb]:bg-gray-300
               hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
                 {
-                  suggestVideosData.map((video) => (
+                  suggestVideosData?.map((video) => (
                     <div key={video.id} className="flex-none">
                       <SuggestedVideoCard video={video} />
                     </div>
@@ -317,8 +346,8 @@ const HomePage = () => {
             <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Platform Announcements</h1>
             <div className="flex flex-col mt-4 bg-[#0BB2481A] " >
               {
-                platformAnnouncementData.map((announcement) => (
-                  <AnnouncementCard key={announcement.id} announcement={announcement} />
+                platformAnnouncement.map((announcement) => (
+                  <AnnouncementCard key={announcement._id} announcement={announcement} />
                 ))
               }
             </div>
