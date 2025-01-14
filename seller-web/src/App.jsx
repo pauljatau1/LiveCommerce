@@ -34,8 +34,11 @@ import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
 import MarketingPage from './Pages/MarketingPage/MarketingPage';
 import { VariantProvider } from './Contexts/VariantContext';
+import Payout from './Pages/payout/Payout';
+import Messages from './Pages/messages/messages';
+import { SocketProvider } from './Contexts/SocketContext';
 
-
+// fixed
 
 
 
@@ -44,11 +47,13 @@ import { VariantProvider } from './Contexts/VariantContext';
 const router = createBrowserRouter([
   {
     element: (
+      <SocketProvider>
       <AuthProvider>
         <OnboardingProvider>
           <AppLayout />
         </OnboardingProvider>
       </AuthProvider>
+      </SocketProvider>
     ),
     errorElement: <NotFoundPage />,
 
@@ -191,6 +196,16 @@ const router = createBrowserRouter([
           {
             path: 'marketing',
             element: <MarketingPage />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'earnings-payouts',
+            element: <Payout />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'messages',
+            element: <Messages />,
             errorElement: <NotFoundPage />
           }
         ]
