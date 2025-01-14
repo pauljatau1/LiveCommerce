@@ -18,7 +18,9 @@ function AuthProvider({ children }) {
         token: null,
         message: "",
         otpStatus: "",
-        isTokenValid: false
+        isTokenValid: false,
+        top3SellingProducts: null,
+        stuffToDo: null
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -122,6 +124,16 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     isTokenValid: false
+                };
+            case "FETCH_TOP_3_SELLING_PRODUCTS":
+                return {
+                    ...state,
+                    top3SellingProducts: action.payload
+                };
+            case "FETCH_STUFF_TO_DO":
+                return {
+                    ...state,
+                    stuffToDo: action.payload
                 };
             default:
                 return state;
@@ -337,8 +349,8 @@ function AuthProvider({ children }) {
         }
     };
 
-     //function to log user out
-     const logout = () => {
+    //function to log user out
+    const logout = () => {
         localStorage.removeItem('sellerToken');
         dispatch({ type: 'LOGOUT' });
         Crisp.setTokenId();
@@ -388,6 +400,50 @@ function AuthProvider({ children }) {
         }
     };
 
+    const getTop3SellingProducts = async () => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const token = localStorage.getItem('sellerToken');
+            if (token) {
+                const { data } = JSON.parse(token);
+                const response = await axios.get(`${BASE_URL}/seller/top-sold-products`, {
+                    headers: {
+                        Authorization: `Bearer ${data}`
+                    }
+                });
+                if (response.status === 200) {
+                    dispatch({ type: 'FETCH_TOP_3_SELLING_PRODUCTS', payload: response.data });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch top 3 selling products', error);
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+    }
+
+    const getSellerNotifications = async () => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const token = localStorage.getItem('sellerToken');
+            if (token) {
+                const { data } = JSON.parse(token);
+                const response = await axios.get(`${BASE_URL}/notifications`, {
+                    headers: {
+                        Authorization: `Bearer ${data}`
+                    }
+                });
+                if (response.status === 200) {
+                    dispatch({ type: 'FETCH_STUFF_TO_DO', payload: response.data });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch seller notifications', error);
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+    }
+
 
     return (
         <AuthContext.Provider value={{
@@ -400,7 +456,9 @@ function AuthProvider({ children }) {
             logout,
             resetPassword,
             fetchSellerDetails,
-            checkTokenValidity
+            checkTokenValidity,
+            getTop3SellingProducts,
+            getSellerNotifications
         }}>
             {children}
         </AuthContext.Provider>

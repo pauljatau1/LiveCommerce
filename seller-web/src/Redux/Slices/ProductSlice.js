@@ -9,7 +9,8 @@ const initialState = {
     product: {},
     isLoading: false,
     error: null,
-    message: null
+    message: null,
+    response: ''
 };
 
 
@@ -54,6 +55,7 @@ const productSlice = createSlice({
     extraReducers: (builder) => builder.addCase(
         createProduct.pending, (state) => {
             state.isLoading = true;
+            state.response = 'pending';
         }
     ).addCase(createProduct.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -65,6 +67,7 @@ const productSlice = createSlice({
                 color: '#fff',
             }
         });
+        state.response = 'success';
         console.log(action.payload);
     }).addCase(createProduct.rejected, (state, action) => {
         state.isLoading = false;
