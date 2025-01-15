@@ -87,6 +87,7 @@ const orderSchema = new mongoose.Schema({
         default: 'NGN'
       }
     },
+    rate_id: { type: String },
     estimatedDeliveryDate: {
       type: Date,
       default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -96,7 +97,7 @@ const orderSchema = new mongoose.Schema({
       carrier: String,
       status: {
         type: String,
-        enum: ['pending', 'picked_up', 'in_transit', 'delivered', 'failed'],
+        enum: ['pending', 'pickup_arranged', 'picked_up', 'in_transit', 'delivered', 'failed'],
         default: 'pending'
       },
       lastUpdate: Date,

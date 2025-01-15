@@ -521,7 +521,7 @@ exports.markAsPaid = async (req, res) => {
 
   try {
     const { orderId } = req.params;
-    const { amount, carrier_reference, shipping_fee, carrier_name } = req.body;
+    const { amount, carrier_reference, shipping_fee, carrier_name, rate_id } = req.body;
 
     const order = await Order.findById(orderId).session(session);
 
@@ -538,24 +538,21 @@ exports.markAsPaid = async (req, res) => {
     order.paymentInfo.status = 'paid';
     order.paymentInfo.paidAt = new Date();
 
+    // Update shipping information with rate_id
+    if (rate_id) {
+      order.shipping.rate_id = rate_id;
+    }
+
     // Update sold count for each product in the order
     for (const item of order.items) {
       const product = await Product.findById(item.product).session(session);
       if (product) {
-        // Increment the soldCount in product stats
         product.stats.soldCount = (product.stats.soldCount || 0) + item.quantity;
         await product.save();
       }
     }
 
     await order.save();
-
-    // Send confirmation emails
-    try {
-      // ... existing email sending code ...
-    } catch (emailError) {
-      console.error('Error sending payment confirmation emails:', emailError);
-    }
 
     await session.commitTransaction();
 
@@ -1399,6 +1396,177 @@ exports.addNote = async (req, res) => {
     res.status(500).json({ 
       message: 'Failed to add note', 
       error: error.message 
+    });
+    
+  }
+};
+
+// Arrange pickup for an order
+exports.arrangePickup = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { rate_id, shipment_id, purchase_insurance = false } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate required fields
+    if (!rate_id || !shipment_id) {
+      return res.status(400).json({ 
+        message: 'rate_id and shipment_id are required' 
+      });
+    }
+
+    // Find and validate order
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Verify seller ownership
+    if (order.seller._id.toString() !== sellerId) {
+      return res.status(403).json({ message: 'Not authorized to arrange pickup for this order' });
+    }
+
+    // Verify order is paid
+    if (!order.paid) {
+      return res.status(400).json({ message: 'Cannot arrange pickup for unpaid order' });
+    }
+
+    // Check if pickup has already been arranged
+    if (order.shipping?.tracking?.number) {
+      return res.status(400).json({ 
+        message: 'Pickup has already been arranged for this order',
+        tracking: {
+          number: order.shipping.tracking.number,
+          url: order.shipping.tracking.url
+        }
+      });
+    }
+
+    // Call Terminal Africa API to arrange pickup
+    try {
+      const response = await terminalAPI.post('/shipments/pickup', {
+        rate_id,
+        shipment_id,
+        purchase_insurance
+      });
+
+      if (!response.data.status) {
+        // Handle specific Terminal Africa error messages
+        const errorMessage = response.data.message?.toLowerCase() || '';
+        
+        if (errorMessage.includes('rate has already been used')) {
+          return res.status(400).json({
+            message: 'This shipping rate has already been used. Please generate a new shipping rate.',
+            error: 'INVALID_RATE',
+            details: 'Shipping rates can only be used once. Request a new rate and try again.'
+          });
+        }
+
+        throw new Error(response.data.message || 'Failed to arrange pickup');
+      }
+
+      // Rest of the success flow...
+      order.shipping = {
+        ...order.shipping,
+        tracking: {
+          number: response.data.data.extras.tracking_number,
+          url: response.data.data.extras.tracking_url,
+          carrier: response.data.data.carrier,
+          status: 'pickup_arranged',
+          statusHistory: [
+            ...order.shipping.tracking.statusHistory || [],
+            {
+              status: 'pickup_arranged',
+              timestamp: new Date(),
+              note: 'Pickup arranged by seller'
+            }
+          ]
+        }
+      };
+
+      // Update order status
+      order.status = 'out_for_pickup';
+      await order.save();
+
+      // Send email to buyer
+      const buyerEmail = {
+        to: order.buyer.email,
+        from: 'Auqli Shipping <shipping@auqli.com>',
+        subject: 'Your Order is Ready for Pickup',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Pickup Arranged</h2>
+            <p>Dear ${order.buyer.firstName},</p>
+            <p>Great news! Your order #${order.orderNumber} is being prepared for shipping.</p>
+            <p>Tracking Details:</p>
+            <ul>
+              <li>Tracking Number: ${response.data.data.extras.tracking_number}</li>
+              <li>Carrier: ${response.data.data.carrier || 'To be assigned'}</li>
+            </ul>
+            <p>You can track your shipment here: <a href="${response.data.data.extras.tracking_url}">Track Shipment</a></p>
+            <p>Thank you for shopping with us!</p>
+          </div>
+        `
+      };
+
+      // Send email to seller
+      const sellerEmail = {
+        to: order.seller.email,
+        from: 'Auqli Shipping <shipping@auqli.com>',
+        subject: 'Pickup Arrangement Confirmed',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Pickup Arrangement Confirmed</h2>
+            <p>Dear ${order.seller.firstName},</p>
+            <p>The pickup arrangement for order #${order.orderNumber} has been confirmed.</p>
+            <p>Tracking Details:</p>
+            <ul>
+              <li>Tracking Number: ${response.data.data.extras.tracking_number}</li>
+              <li>Shipment ID: ${shipment_id}</li>
+            </ul>
+            <p>Please ensure the package is ready for pickup.</p>
+          </div>
+        `
+      };
+
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+
+      res.json({
+        message: 'Pickup arranged successfully',
+        tracking: {
+          number: response.data.data.extras.tracking_number,
+          url: response.data.data.extras.tracking_url
+        },
+        status: order.status
+      });
+
+    } catch (apiError) {
+      console.error('Terminal Africa API Error:', apiError.response?.data || apiError);
+      
+      // Handle different types of API errors
+      if (apiError.response?.data) {
+        return res.status(400).json({
+          message: 'Shipping provider error',
+          error: apiError.response.data.message,
+          details: 'Please verify the rate_id and shipment_id are valid and try again.'
+        });
+      }
+
+      throw new Error('Failed to communicate with shipping provider');
+    }
+
+  } catch (error) {
+    console.error('Arrange pickup error:', error);
+    res.status(500).json({
+      message: 'Failed to arrange pickup',
+      error: error.message,
+      details: 'Please try again or contact support if the problem persists'
     });
   }
 };

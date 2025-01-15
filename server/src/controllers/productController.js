@@ -1903,3 +1903,36 @@ exports.getPersonalizedProducts = async (req, res) => {
     });
   }
 };
+
+// Add a new controller method for updating product discount
+exports.updateProductDiscount = async (req, res) => {
+  const { id } = req.params;
+  const { isActive, type, value, startDate, endDate } = req.body;
+
+  try {
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Update discount fields
+    product.discount = {
+      isActive: isActive ?? product.discount.isActive,
+      type: type ?? product.discount.type,
+      value: value ?? product.discount.value,
+      startDate: startDate ? new Date(startDate) : product.discount.startDate,
+      endDate: endDate ? new Date(endDate) : product.discount.endDate
+    };
+
+    const updatedProduct = await product.save();
+    const populatedProduct = await Product.findById(updatedProduct._id)
+      .populate('seller', 'name avatarUrl about');
+
+    res.json(populatedProduct);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update product discount', 
+      error: error.message 
+    });
+  }
+};

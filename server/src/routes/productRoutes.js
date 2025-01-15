@@ -944,10 +944,6 @@ router.get('/:id/stats',
  *                 type: string
  *               taxRate:
  *                 type: number
- *               onSale:
- *                 type: boolean
- *               salePrice:
- *                 type: number
  *               warranty:
  *                 type: string
  *               minimumPurchaseQuantity:
@@ -1386,5 +1382,46 @@ router.delete('/:id',
  *         description: Internal server error
  */
 router.get('/:id/sold-count', productController.getProductSoldCount);
+
+/**
+ * @swagger
+ * /api/products/{id}/discount:
+ *   put:
+ *     summary: Update product discount
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *               type:
+ *                 type: string
+ *               value:
+ *                 type: number
+ *               startDate:
+ *                 type: string
+ *               endDate:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Discount updated successfully
+ */
+router.put('/:id/discount', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  productController.updateProductDiscount
+);
 
 module.exports = router;
