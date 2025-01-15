@@ -392,14 +392,6 @@ exports.getProduct = async (req, res) => {
       },
       { $unwind: '$sellerInfo' },
       {
-        $lookup: {
-          from: 'reviews',
-          localField: 'reviews',
-          foreignField: '_id',
-          as: 'reviewDetails'
-        }
-      },
-      {
         $addFields: {
           seller: {
             _id: '$sellerInfo._id',
@@ -411,19 +403,25 @@ exports.getProduct = async (req, res) => {
             verified: '$sellerInfo.verified',
             about: '$sellerInfo.about'
           },
-          reviews: '$reviewDetails',
+          // Calculate stats based on embedded reviews
           stats: {
             averageRating: {
               $cond: {
-                if: { $isArray: '$reviewDetails' },
-                then: { $avg: '$reviewDetails.rating' },
+                if: { $isArray: '$reviews' },
+                then: { 
+                  $cond: {
+                    if: { $gt: [{ $size: '$reviews' }, 0] },
+                    then: { $avg: '$reviews.rating' },
+                    else: null
+                  }
+                },
                 else: null
               }
             },
             reviewCount: {
               $cond: {
-                if: { $isArray: '$reviewDetails' },
-                then: { $size: '$reviewDetails' },
+                if: { $isArray: '$reviews' },
+                then: { $size: '$reviews' },
                 else: 0
               }
             },
@@ -435,8 +433,7 @@ exports.getProduct = async (req, res) => {
       },
       {
         $project: {
-          sellerInfo: 0,
-          reviewDetails: 0
+          sellerInfo: 0 // Remove the temporary sellerInfo field
         }
       }
     ]);
@@ -1536,42 +1533,48 @@ exports.addReview = async (req, res) => {
     const { rating, comment } = req.body;
     const buyerId = req.user.id;
 
+    const buyer = await Buyer.findById(buyerId).select('firstName lastName');
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Check if buyer has purchased the product
-    const order = await Order.findOne({
-      user: buyerId,
-      'cart.product': id,
-      'tracking.status': 'delivered'
-    });
+    // // Check if buyer has already reviewed
+    // const existingReview = product.reviews.find(review => 
+    //   review.buyer.toString() === buyerId
+    // );
 
-    if (!order) {
-      return res.status(403).json({ message: 'You must purchase and receive the product before reviewing' });
-    }
+    // if (existingReview) {
+    //   return res.status(400).json({ message: 'You have already reviewed this product' });
+    // }
 
-    // Check if buyer has already reviewed
-    const existingReview = product.reviews.find(review => 
-      review.buyer.toString() === buyerId
-    );
-
-    if (existingReview) {
-      return res.status(400).json({ message: 'You have already reviewed this product' });
-    }
-
-    product.reviews.push({
+    // Add review with buyer details and formatted date
+    const newReview = {
       buyer: buyerId,
+      firstName: buyer.firstName,
+      lastName: buyer.lastName,
       rating,
       comment,
-      createdAt: Date.now()
-    });
+      createdAt: new Date().toISOString() // Format date as ISO string
+    };
 
+    product.reviews.push(newReview);
     await product.save();
-    res.json(product);
+
+    res.json({
+      message: 'Review added successfully',
+      review: newReview
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to add review', error: error.message });
+    console.error('Error in addReview:', error);
+    res.status(500).json({ 
+      message: 'Failed to add review', 
+      error: error.message 
+    });
   }
 };
 

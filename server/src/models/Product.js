@@ -153,9 +153,12 @@ const productSchema = new mongoose.Schema({
   metaKeywords: { type: String },
   reviews: [{
     buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer', required: true },
+    firstName: { type: String, },
+    lastName: { type: String, },
     rating: { type: Number, required: true },
     comment: { type: String },
     createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date }
   }],
   logistics: {
     shippingOptions: [{ type: String }],
