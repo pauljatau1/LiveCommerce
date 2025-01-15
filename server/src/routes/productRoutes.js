@@ -1108,7 +1108,7 @@ router.delete('/bulk-delete',
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -1120,50 +1120,31 @@ router.delete('/bulk-delete',
  *                 type: number
  *                 minimum: 1
  *                 maximum: 5
- *                 description: Rating between 1 and 5
  *               title:
  *                 type: string
- *                 description: Review title
  *               comment:
  *                 type: string
- *                 description: Review comment
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               purchasedVariant:
+ *                 type: object
+ *                 properties:
+ *                   color:
+ *                     type: string
+ *                   size:
+ *                     type: string
+ *                   material:
+ *                     type: string
  *     responses:
  *       200:
  *         description: Review added successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 review:
- *                   type: object
- *                   properties:
- *                     buyer:
- *                       type: string
- *                     firstName:
- *                       type: string
- *                     lastName:
- *                       type: string
- *                     title:
- *                       type: string
- *                     rating:
- *                       type: number
- *                     comment:
- *                       type: string
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *       400:
- *         description: Invalid request or user has already reviewed
- *       404:
- *         description: Product or buyer not found
- *       500:
- *         description: Server error
  */
 router.post('/:id/reviews',
   authMiddleware.verifyToken,
+  upload.array('images', 5), // Allow up to 5 images
   productController.addReview
 );
 

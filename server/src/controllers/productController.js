@@ -1530,8 +1530,8 @@ exports.getProductPerformance = async (req, res) => {
 exports.addReview = async (req, res) => {
   try {
     const { id } = req.params;
-    const { rating, title, comment } = req.body;
     const buyerId = req.user.id;
+    const { rating, title, comment, purchasedVariant } = req.body;
 
     // Validate required fields
     if (!rating || !title || !comment) {
@@ -1540,49 +1540,69 @@ exports.addReview = async (req, res) => {
       });
     }
 
-    // Validate rating range
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ 
-        message: 'Rating must be between 1 and 5' 
-      });
-    }
-
-    const buyer = await Buyer.findById(buyerId).select('firstName lastName');
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
-    }
-
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Check if buyer has already reviewed
-    const existingReview = product.reviews.find(review => 
-      review.buyer.toString() === buyerId
-    );
+    // Check if user has already reviewed
+    // const existingReview = product.reviews.find(
+    //   review => review.buyer.toString() === buyerId
+    // );
+    // if (existingReview) {
+    //   return res.status(400).json({ 
+    //     message: 'You have already reviewed this product' 
+    //   });
+    // }
 
-    if (existingReview) {
-      return res.status(400).json({ message: 'You have already reviewed this product' });
+    // Upload images to S3
+    const reviewImages = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `reviews/${uuidv4()}-${file.originalname}`,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        };
+        const uploadResult = await s3.upload(params).promise();
+        reviewImages.push({
+          url: uploadResult.Location,
+          contentType: file.mimetype
+        });
+      }
     }
 
-    // Add review with buyer details and formatted date
-    const newReview = {
+    // Get buyer info
+    const buyer = await Buyer.findById(buyerId)
+      .select('firstName lastName');
+
+    // Create review object
+    const review = {
       buyer: buyerId,
       firstName: buyer.firstName,
       lastName: buyer.lastName,
       title,
       rating,
       comment,
-      createdAt: new Date().toISOString()
+      images: reviewImages,
+      purchasedVariant: purchasedVariant ? JSON.parse(purchasedVariant) : undefined,
+      createdAt: new Date()
     };
 
-    product.reviews.push(newReview);
+    // Add review and update product stats
+    product.reviews.push(review);
+    
+    // Update product stats
+    const allRatings = product.reviews.map(r => r.rating);
+    product.stats.averageRating = allRatings.reduce((a, b) => a + b, 0) / allRatings.length;
+    product.stats.reviewCount = product.reviews.length;
+
     await product.save();
 
-    res.json({
+    res.status(201).json({
       message: 'Review added successfully',
-      review: newReview
+      review
     });
   } catch (error) {
     console.error('Error in addReview:', error);
@@ -1612,9 +1632,15 @@ exports.getProductReviews = async (req, res) => {
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
 
+    // Sort reviews by date and include all fields
     const reviews = product.reviews
       .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(startIndex, endIndex);
+      .slice(startIndex, endIndex)
+      .map(review => ({
+        ...review.toObject(),
+        images: review.images || [],
+        purchasedVariant: review.purchasedVariant || {}
+      }));
 
     res.json({
       reviews,
@@ -1623,7 +1649,10 @@ exports.getProductReviews = async (req, res) => {
       totalReviews: product.reviews.length
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to get product reviews', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to get product reviews', 
+      error: error.message 
+    });
   }
 };
 
