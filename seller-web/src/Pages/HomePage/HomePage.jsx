@@ -44,7 +44,6 @@ const HomePage = () => {
   const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]); // Analytics cards data
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
-  const [topSellingProducts, setTopSellingProducts] = useState([]);
 
   // Returns appropriate greeting based on Nigerian time
   const getGreeting = () => {
@@ -225,6 +224,7 @@ const HomePage = () => {
   console.log('platformAnnouncement', platformAnnouncement);
   console.log('publicResources', publicResources);
   console.log('stuffToDo', stuffToDo);
+  console.log('top3SellingProducts', top3SellingProducts);
 
 
 
@@ -282,7 +282,7 @@ const HomePage = () => {
               <div>
                 <h3 className="text-lg font-cabin font-bold text-black">Stuff to do</h3>
               </div>
-              <div className="flex flex-col md:h-[364px] gap-4 border border-[#00000026] bg-[#F7F7F7] px-4 py-3 lg:px-8 lg:py-7 rounded-[10px] mt-7">
+              <div className="flex flex-col lg:h-[364px] border border-[#00000026] bg-[#F7F7F7]  rounded-[10px] mt-7">
                 {
                   isLoading ? (
                     <div className="flex justify-center items-center h-full">
@@ -303,15 +303,15 @@ const HomePage = () => {
                 <h3 className="text-lg font-cabin font-bold text-black">Your top 3 selling products</h3>
                 <button className="text-sm font-cabin font-normal  rounded-[7.8px] px-4 py-2 bg-[#05031F] text-white ">View all</button>
               </div>
-              <div className="flex flex-col md:h-[364px] gap-4 border border-[#00000026] bg-[#F7F7F7] px-4 py-3 lg:px-8 lg:py-7 rounded-[10px] mt-5">
+              <div className="flex flex-col md:h-[364px] gap-2 border border-[#00000026] bg-[#F7F7F7]  rounded-[10px] mt-5">
                 {
                   isLoading ? (
                     <div className="flex justify-center items-center h-full">
                       <CircularProgress size={20} color="#05031F" />
                     </div>
                   ) : (
-                    orderTempData?.map((product) => (
-                      <QuickOrderCard key={product.id} order={product} />
+                    top3SellingProducts?.map((product) => (
+                      <QuickOrderCard key={product._id} product={product} />
                     ))
                   )
                 }
