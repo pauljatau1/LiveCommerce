@@ -1530,8 +1530,22 @@ exports.getProductPerformance = async (req, res) => {
 exports.addReview = async (req, res) => {
   try {
     const { id } = req.params;
-    const { rating, comment } = req.body;
+    const { rating, title, comment } = req.body;
     const buyerId = req.user.id;
+
+    // Validate required fields
+    if (!rating || !title || !comment) {
+      return res.status(400).json({ 
+        message: 'Rating, title and comment are required' 
+      });
+    }
+
+    // Validate rating range
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ 
+        message: 'Rating must be between 1 and 5' 
+      });
+    }
 
     const buyer = await Buyer.findById(buyerId).select('firstName lastName');
     if (!buyer) {
@@ -1543,23 +1557,24 @@ exports.addReview = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // // Check if buyer has already reviewed
-    // const existingReview = product.reviews.find(review => 
-    //   review.buyer.toString() === buyerId
-    // );
+    // Check if buyer has already reviewed
+    const existingReview = product.reviews.find(review => 
+      review.buyer.toString() === buyerId
+    );
 
-    // if (existingReview) {
-    //   return res.status(400).json({ message: 'You have already reviewed this product' });
-    // }
+    if (existingReview) {
+      return res.status(400).json({ message: 'You have already reviewed this product' });
+    }
 
     // Add review with buyer details and formatted date
     const newReview = {
       buyer: buyerId,
       firstName: buyer.firstName,
       lastName: buyer.lastName,
+      title,
       rating,
       comment,
-      createdAt: new Date().toISOString() // Format date as ISO string
+      createdAt: new Date().toISOString()
     };
 
     product.reviews.push(newReview);

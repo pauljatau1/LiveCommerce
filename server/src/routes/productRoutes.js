@@ -1108,20 +1108,63 @@ router.delete('/bulk-delete',
  *         required: true
  *         schema:
  *           type: string
+ *         description: Product ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - rating
+ *               - title
+ *               - comment
  *             properties:
  *               rating:
  *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: Rating between 1 and 5
+ *               title:
+ *                 type: string
+ *                 description: Review title
  *               comment:
  *                 type: string
+ *                 description: Review comment
  *     responses:
  *       200:
  *         description: Review added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 review:
+ *                   type: object
+ *                   properties:
+ *                     buyer:
+ *                       type: string
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     rating:
+ *                       type: number
+ *                     comment:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Invalid request or user has already reviewed
+ *       404:
+ *         description: Product or buyer not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:id/reviews',
   authMiddleware.verifyToken,
