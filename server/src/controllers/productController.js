@@ -1077,66 +1077,103 @@ exports.getSellerBlips = async (req, res) => {
 
 // Get seller's products
 exports.getSellerProducts = async (req, res) => {
-  const { sellerId } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-
   try {
-    // Validate sellerId
-    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
-      return res.status(400).json({ message: 'Invalid seller ID' });
+    const { sellerId } = req.params;
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      visibility,
+      sortBy = 'newest' 
+    } = req.query;
+
+    // Build query
+    const query = { seller: sellerId };
+    if (status) query.status = status;
+    if (visibility) query.visibility = visibility;
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      default: // 'newest'
+        sortOptions = { createdAt: -1 };
     }
 
-    const products = await Product.find({ seller: sellerId })
-      .sort({ createdAt: -1 })
+    // Get products with all necessary fields
+    const products = await Product.find(query)
+      .select(`
+        name 
+        description
+        price 
+        category 
+        images 
+        status
+        variants
+        stock
+        inventory
+        stats
+        discount
+        pricing
+        createdAt
+        brand
+        sku
+      `)
+      .sort(sortOptions)
       .skip((page - 1) * limit)
-      .limit(limit)
-      .select('name description price images category brand reviews');
+      .limit(limit);
 
-    const total = await Product.countDocuments({ seller: sellerId });
-
-    // Get seller info
-    const seller = await Seller.findById(sellerId, {
-      firstName: 1,
-      lastName: 1,
-      businessName: 1,
-      storeName: 1
-    });
-
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // Check if seller has any products
-    if (products.length === 0) {
-      return res.json({
-        message: 'Seller has no products',
-        seller,
-        products: [],
-        currentPage: page,
-        totalPages: 0,
-        totalProducts: 0
-      });
-    }
+    // Get total count for pagination
+    const totalProducts = await Product.countDocuments(query);
 
     res.json({
-      products,
-      seller,
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      totalProducts: total
+      products: products.map(product => ({
+        ...product.toObject(),
+        isLowStock: product.stock <= product.inventory.lowStockThreshold,
+        hasDiscount: product.discount?.isActive || false,
+        discountedPrice: product.discountedPrice,
+        stock: product.stock,
+        // Add additional product information
+        productInfo: {
+          stock: product.stock,
+          sku: product.inventory.sku,
+          lowStockThreshold: product.inventory.lowStockThreshold,
+          isOutOfStock: product.stock === 0,
+          variantsInfo: product.variants?.map(variant => ({
+            ...variant.toObject(),
+            stock: variant.totalStock,
+            isOutOfStock: variant.totalStock === 0,
+            isLowStock: variant.totalStock <= product.inventory.lowStockThreshold
+          })) || []
+        }
+      })),
+      totalPages: Math.ceil(totalProducts / limit),
+      currentPage: parseInt(page),
+      totalProducts
     });
+
   } catch (error) {
-    console.error('Error in getSellerProducts:', error);
-    res.status(500).json({ message: 'Failed to retrieve seller products', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to retrieve seller products', 
+      error: error.message 
+    });
   }
 };
 
 // Get seller's product reviews
-exports.getSellerReviews = async (req, res) => {
+exports.getSellerInfo = async (req, res) => {
   const { sellerId } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
 
   try {
     const seller = await Seller.findById(sellerId);
@@ -1144,51 +1181,14 @@ exports.getSellerReviews = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    const reviews = await Product.aggregate([
-      { $match: { seller: mongoose.Types.ObjectId(sellerId) }},
-      { $unwind: '$reviews' },
-      {
-        $lookup: {
-          from: 'buyers',
-          localField: 'reviews.buyer',
-          foreignField: '_id',
-          as: 'buyerInfo'
-        }
-      },
-      { $unwind: '$buyerInfo' },
-      {
-        $project: {
-          productId: '$_id',
-          productName: '$name',
-          review: '$reviews',
-          'buyerInfo.firstName': 1,
-          'buyerInfo.lastName': 1,
-          'buyerInfo.profileImage': 1
-        }
-      },
-      { $sort: { 'review.createdAt': -1 }},
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
-    ]);
-
-    const total = await Product.aggregate([
-      { $match: { seller: mongoose.Types.ObjectId(sellerId) }},
-      { $unwind: '$reviews' },
-      { $count: 'total' }
-    ]);
-
     res.json({
-      reviews,
       sellerInfo: {
         name: seller.name,
         businessName: seller.businessName
-      },
-      currentPage: page,
-      totalPages: Math.ceil((total[0]?.total || 0) / limit),
-      totalReviews: total[0]?.total || 0
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve seller reviews', error: error.message });
+    res.status(500).json({ message: 'Failed to retrieve seller information', error: error.message });
   }
 };
 
