@@ -181,6 +181,7 @@ exports.createOrder = async (req, res) => {
         }
         itemsBySeller[sellerId].items.push({
           product: item.productId,
+          productName: product.name,
           seller: sellerId,
           quantity: item.quantity,
           price: product.price
@@ -516,60 +517,109 @@ exports.getShippingRates = async (req, res) => {
 
 // Mark order as paid
 exports.markAsPaid = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { orderId } = req.params;
-    const { amount, carrier_reference, shipping_fee, carrier_name, rate_id } = req.body;
+    const { 
+      amount, 
+      carrier_reference, 
+      shipping_fee, 
+      carrier_name,
+      rate_id 
+    } = req.body;
 
-    const order = await Order.findById(orderId).session(session);
+    console.log('Request payload:', {
+      orderId,
+      amount,
+      carrier_reference,
+      shipping_fee,
+      carrier_name,
+      rate_id
+    });
 
+    const order = await Order.findById(orderId);
     if (!order) {
+      console.log('Order not found:', orderId);
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    if (order.paid) {
-      return res.status(400).json({ message: 'Order is already marked as paid' });
+    // Verify amount matches order total
+    if (amount !== order.totalAmount) {
+      console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
+      return res.status(400).json({ 
+        message: 'Payment amount does not match order total' 
+      });
     }
 
-    // Update order payment status
+    // Update payment info
     order.paid = true;
-    order.paymentInfo.status = 'paid';
-    order.paymentInfo.paidAt = new Date();
+    order.paymentInfo = {
+      ...order.paymentInfo,
+      status: 'paid',
+      paidAt: new Date()
+    };
 
-    // Update shipping information with rate_id
-    if (rate_id) {
-      order.shipping.rate_id = rate_id;
-    }
+    // Ensure tracking object exists with required fields
+    const tracking = {
+      status: 'pending',
+      history: [],
+      carrier: carrier_name,
+      ...(order.shipping.tracking || {}) // Preserve existing tracking data if any
+    };
 
-    // Update sold count for each product in the order
-    for (const item of order.items) {
-      const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.stats.soldCount = (product.stats.soldCount || 0) + item.quantity;
-        await product.save();
-      }
-    }
+    // Update shipping information
+    order.shipping = {
+      ...order.shipping, // Preserve existing shipping data
+      method: order.shipping.method || 'standard',
+      carrier: {
+        name: carrier_name,
+        reference: carrier_reference
+      },
+      fee: {
+        amount: shipping_fee,
+        currency: 'NGN'
+      },
+      rate_id: rate_id,
+      tracking: tracking,
+      shipment_id: order.shipping.shipment_id,
+      shipment_purpose: order.shipping.shipment_purpose || 'commercial',
+      documents: {} // Initialize empty documents object
+    };
+
+    console.log('Final order shipping before save:', JSON.stringify(order.shipping, null, 2));
 
     await order.save();
 
-    await session.commitTransaction();
+    // Notify seller of payment
+    // await notificationController.createNotification({
+    //   recipient: order.seller,
+    //   type: 'ORDER_PAID',
+    //   title: 'New Order Payment',
+    //   message: `Payment received for order #${order._id}`,
+    //   reference: order._id
+    // });
 
     res.json({
       message: 'Order marked as paid successfully',
-      order
+      order: {
+        _id: order._id,
+        paid: order.paid,
+        paymentInfo: order.paymentInfo,
+        shipping: {
+          carrier: order.shipping.carrier,
+          fee: order.shipping.fee,
+          rate_id: order.shipping.rate_id,
+          tracking: order.shipping.tracking
+        }
+      }
     });
 
   } catch (error) {
-    await session.abortTransaction();
-    console.error('Error marking order as paid:', error);
+    console.error('Mark as paid error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       message: 'Failed to mark order as paid',
       error: error.message
     });
-  } finally {
-    session.endSession();
   }
 };
 
@@ -1269,7 +1319,7 @@ exports.getOrderDetails = async (req, res) => {
     const order = await Order.findById(orderId)
       .populate({
         path: 'items.product',
-        select: 'name description images price specifications categories'
+        select: 'name description images price specifications categories discount variants'
       })
       .populate({
         path: 'items.seller',
@@ -1278,6 +1328,10 @@ exports.getOrderDetails = async (req, res) => {
       .populate({
         path: 'buyer',
         select: 'firstName lastName email phoneNumber'
+      })
+      .populate({
+        path: 'seller',
+        select: 'businessName email phoneNumber storeName'
       });
 
     if (!order) {
@@ -1302,47 +1356,86 @@ exports.getOrderDetails = async (req, res) => {
       timeline.push({ status: 'paid', timestamp: order.paymentInfo.paidAt });
     }
 
-    if (order.shipping.tracking.statusHistory) {
-      timeline.push(...order.shipping.tracking.statusHistory.map(status => ({
+    if (order.shipping.tracking.history && order.shipping.tracking.history.length > 0) {
+      timeline.push(...order.shipping.tracking.history.map(status => ({
         status: status.status,
-        timestamp: status.timestamp,
-        note: status.note
+        location: status.location,
+        timestamp: status.timestamp
       })));
     }
 
-    // Format response
+    // Format response with all order details
     const response = {
       order: {
         _id: order._id,
-        orderNumber: order.orderNumber,
-        status: order.status,
+        channel: order.channel,
         createdAt: order.createdAt,
         totalAmount: order.totalAmount,
+        paid: order.paid,
         paymentInfo: {
           method: order.paymentInfo.method,
           status: order.paymentInfo.status,
+          transactionId: order.paymentInfo.transactionId,
           paidAt: order.paymentInfo.paidAt
         }
       },
       buyer: order.buyer,
+      seller: order.seller,
       items: order.items.map(item => ({
         product: item.product,
+        productName: item.productName,
         seller: item.seller,
         quantity: item.quantity,
         price: item.price,
-        status: item.status
+        status: item.status,
+        statusHistory: item.statusHistory
       })),
-      shipping: {
-        address: order.delivery_address,
-        method: order.shipping.method,
-        fee: order.shipping.fee,
-        tracking: order.shipping.tracking,
-        estimatedDeliveryDate: order.shipping.estimatedDeliveryDate
+      addresses: {
+        delivery: order.delivery_address,
+        pickup: order.pickup_address
       },
-      timeline: timeline.sort((a, b) => b.timestamp - a.timestamp),
-      dispute: order.dispute,
-      refund: order.refund,
-      notes: order.notes
+      shipping: {
+        method: order.shipping.method,
+        carrier: order.shipping.carrier,
+        fee: order.shipping.fee,
+        rate_id: order.shipping.rate_id,
+        estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
+        tracking: {
+          number: order.shipping.tracking.number,
+          carrier: order.shipping.tracking.carrier,
+          status: order.shipping.tracking.status,
+          lastUpdate: order.shipping.tracking.lastUpdate,
+          history: order.shipping.tracking.history
+        },
+       
+        shipment_id: order.shipping.shipment_id,
+        shipment_purpose: order.shipping.shipment_purpose,
+        documents: {
+          shippingLabel: order.shipping?.documents?.shippingLabel,
+          commercialInvoice: order.shipping?.documents?.commercialInvoice
+        },
+      },
+      discount: order.discount ? {
+        code: order.discount.code,
+        amount: order.discount.amount
+      } : null,
+      dispute: {
+        status: order.dispute.status,
+        reason: order.dispute.reason,
+        description: order.dispute.description,
+        openedAt: order.dispute.openedAt,
+        resolvedAt: order.dispute.resolvedAt,
+        resolution: order.dispute.resolution
+      },
+      refund: {
+        status: order.refund.status,
+        amount: order.refund.amount,
+        reason: order.refund.reason,
+        requestedAt: order.refund.requestedAt,
+        processedAt: order.refund.processedAt
+      },
+      notes: order.notes,
+      timeline: timeline.sort((a, b) => b.timestamp - a.timestamp)
     };
 
     res.json(response);
@@ -1405,47 +1498,32 @@ exports.addNote = async (req, res) => {
 exports.arrangePickup = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { rate_id, shipment_id, purchase_insurance = false } = req.body;
-    const sellerId = req.user.id;
+    const { purchase_insurance = false } = req.body;
 
-    // Validate required fields
-    if (!rate_id || !shipment_id) {
-      return res.status(400).json({ 
-        message: 'rate_id and shipment_id are required' 
-      });
-    }
+    console.log('Arrange Pickup Request:', {
+      orderId,
+      purchase_insurance
+    });
 
-    // Find and validate order
-    const order = await Order.findById(orderId)
-      .populate('buyer', 'email firstName lastName')
-      .populate('seller', 'email firstName lastName businessName');
-
+    const order = await Order.findById(orderId);
     if (!order) {
+      console.log('Order not found:', orderId);
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Verify seller ownership
-    if (order.seller._id.toString() !== sellerId) {
-      return res.status(403).json({ message: 'Not authorized to arrange pickup for this order' });
-    }
+    console.log('Original order shipping:', JSON.stringify(order.shipping, null, 2));
 
-    // Verify order is paid
-    if (!order.paid) {
-      return res.status(400).json({ message: 'Cannot arrange pickup for unpaid order' });
-    }
+    // Use existing rate_id and shipping info from the order
+    const rate_id = order.shipping.rate_id;
+    const shipment_id = order.shipping.shipment_id;
 
-    // Check if pickup has already been arranged
-    if (order.shipping?.tracking?.number) {
+    if (!rate_id) {
+      console.log('No rate_id found');
       return res.status(400).json({ 
-        message: 'Pickup has already been arranged for this order',
-        tracking: {
-          number: order.shipping.tracking.number,
-          url: order.shipping.tracking.url
-        }
+        message: 'No rate_id found for this order' 
       });
     }
 
-    // Call Terminal Africa API to arrange pickup
     try {
       const response = await terminalAPI.post('/shipments/pickup', {
         rate_id,
@@ -1453,45 +1531,59 @@ exports.arrangePickup = async (req, res) => {
         purchase_insurance
       });
 
-      if (!response.data.status) {
-        // Handle specific Terminal Africa error messages
-        const errorMessage = response.data.message?.toLowerCase() || '';
-        
-        if (errorMessage.includes('rate has already been used')) {
-          return res.status(400).json({
-            message: 'This shipping rate has already been used. Please generate a new shipping rate.',
-            error: 'INVALID_RATE',
-            details: 'Shipping rates can only be used once. Request a new rate and try again.'
-          });
-        }
+      console.log('Terminal Africa API Response:', response.data);
 
+      if (!response.data.status) {
         throw new Error(response.data.message || 'Failed to arrange pickup');
       }
 
-      // Rest of the success flow...
-      order.shipping = {
-        ...order.shipping,
-        tracking: {
-          number: response.data.data.extras.tracking_number,
-          url: response.data.data.extras.tracking_url,
-          carrier: response.data.data.carrier,
-          status: 'pickup_arranged',
-          statusHistory: [
-            ...order.shipping.tracking.statusHistory || [],
-            {
-              status: 'pickup_arranged',
-              timestamp: new Date(),
-              note: 'Pickup arranged by seller'
-            }
-          ]
+      // Create a new tracking history entry
+      const newTrackingEntry = {
+        status: 'pickup_arranged',
+        timestamp: new Date(),
+        note: 'Pickup arranged by seller'
+      };
+
+      // Update order shipping information while preserving existing data
+      const shippingUpdate = {
+        $set: {
+          'shipping.tracking.number': response.data.data.extras.tracking_number,
+          'shipping.tracking.url': response.data.data.extras.tracking_url,
+          'shipping.tracking.status': 'pickup_arranged',
+          'shipping.tracking.lastUpdate': new Date(),
+          'shipping.documents.shippingLabel': response.data.data.extras.shipping_label_url,
+          'shipping.documents.commercialInvoice': response.data.data.extras.commercial_invoice_url
+        },
+        $push: {
+          'shipping.tracking.history': newTrackingEntry
         }
       };
 
-      // Update order status
-      order.status = 'out_for_pickup';
-      await order.save();
+      // Use findByIdAndUpdate to avoid validation issues
+      const updatedOrder = await Order.findByIdAndUpdate(
+        orderId,
+        shippingUpdate,
+        { new: true, runValidators: false }
+      );
 
-      // Send email to buyer
+      if (!updatedOrder) {
+        throw new Error('Failed to update order');
+      }
+
+       try {
+      const order = await Order.findById(orderId)
+        .populate('buyer', 'email firstName')
+        .populate('seller', 'email firstName');
+
+      if (!order.buyer.email || !order.seller.email) {
+        console.log('Missing email addresses:', {
+          buyerEmail: order.buyer.email,
+          sellerEmail: order.seller.email
+        });
+        throw new Error('Missing required email addresses');
+      }
+
+      // Buyer email
       const buyerEmail = {
         to: order.buyer.email,
         from: 'Auqli Shipping <shipping@auqli.com>',
@@ -1500,11 +1592,11 @@ exports.arrangePickup = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Order Pickup Arranged</h2>
             <p>Dear ${order.buyer.firstName},</p>
-            <p>Great news! Your order #${order.orderNumber} is being prepared for shipping.</p>
+            <p>Great news! Your order #${order._id} is being prepared for shipping.</p>
             <p>Tracking Details:</p>
             <ul>
               <li>Tracking Number: ${response.data.data.extras.tracking_number}</li>
-              <li>Carrier: ${response.data.data.carrier || 'To be assigned'}</li>
+              <li>Carrier: ${order.shipping.carrier.name}</li>
             </ul>
             <p>You can track your shipment here: <a href="${response.data.data.extras.tracking_url}">Track Shipment</a></p>
             <p>Thank you for shopping with us!</p>
@@ -1512,7 +1604,7 @@ exports.arrangePickup = async (req, res) => {
         `
       };
 
-      // Send email to seller
+      // Seller email
       const sellerEmail = {
         to: order.seller.email,
         from: 'Auqli Shipping <shipping@auqli.com>',
@@ -1521,7 +1613,7 @@ exports.arrangePickup = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Pickup Arrangement Confirmed</h2>
             <p>Dear ${order.seller.firstName},</p>
-            <p>The pickup arrangement for order #${order.orderNumber} has been confirmed.</p>
+            <p>The pickup arrangement for order #${order._id} has been confirmed.</p>
             <p>Tracking Details:</p>
             <ul>
               <li>Tracking Number: ${response.data.data.extras.tracking_number}</li>
@@ -1536,28 +1628,31 @@ exports.arrangePickup = async (req, res) => {
         sgMail.send(buyerEmail),
         sgMail.send(sellerEmail)
       ]);
+      console.log('Notification emails sent successfully');
+    } catch (emailError) {
+      console.error('Email notification error:', emailError);
+        // Continue execution even if email fails
+      }
 
       res.json({
         message: 'Pickup arranged successfully',
         tracking: {
           number: response.data.data.extras.tracking_number,
-          url: response.data.data.extras.tracking_url
+          url: response.data.data.extras.tracking_url,
+          carrier: order.shipping.carrier.name
         },
-        status: order.status
+        shipping: {
+          carrier: order.shipping.carrier,
+          fee: order.shipping.fee,
+          documents: {
+            shippingLabel: response.data.data.extras.shipping_label_url,
+            commercialInvoice: response.data.data.extras.commercial_invoice_url
+          }
+        }
       });
 
     } catch (apiError) {
       console.error('Terminal Africa API Error:', apiError.response?.data || apiError);
-      
-      // Handle different types of API errors
-      if (apiError.response?.data) {
-        return res.status(400).json({
-          message: 'Shipping provider error',
-          error: apiError.response.data.message,
-          details: 'Please verify the rate_id and shipment_id are valid and try again.'
-        });
-      }
-
       throw new Error('Failed to communicate with shipping provider');
     }
 
@@ -1565,8 +1660,7 @@ exports.arrangePickup = async (req, res) => {
     console.error('Arrange pickup error:', error);
     res.status(500).json({
       message: 'Failed to arrange pickup',
-      error: error.message,
-      details: 'Please try again or contact support if the problem persists'
+      error: error.message
     });
   }
 };

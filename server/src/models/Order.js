@@ -10,7 +10,7 @@ const addressSchema = new mongoose.Schema({
   line2: { type: String },
   city: { type: String, required: true },
   state: { type: String, required: true },
-  country: { type: String, required: true }, // ISO 2 country code
+  country: { type: String, required: true }, 
   zip: { type: String, required: true }
 });
 
@@ -19,6 +19,9 @@ const orderItemSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
     required: true
+  },
+  productName: {
+    type: String,
   },
   seller: {
     type: mongoose.Schema.Types.ObjectId,
@@ -70,48 +73,37 @@ const orderSchema = new mongoose.Schema({
   delivery_address: addressSchema,
   pickup_address: addressSchema,
   shipping: {
-    method: {
-      type: String,
-      enum: ['standard', 'express', 'economy'],
-      default: 'standard'
-    },
+    method: String,
     carrier: {
       name: String,
-      reference: String,
-      logo: String
+      reference: String
     },
     fee: {
       amount: Number,
-      currency: {
-        type: String,
-        default: 'NGN'
-      }
+      currency: String
     },
-    rate_id: { type: String },
-    estimatedDeliveryDate: {
-      type: Date,
-      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    },
+    rate_id: String,
+    estimatedDeliveryDate: Date,
     tracking: {
       number: String,
+      url: String,
       carrier: String,
       status: {
         type: String,
-        enum: ['pending', 'pickup_arranged', 'picked_up', 'in_transit', 'delivered', 'failed'],
         default: 'pending'
       },
       lastUpdate: Date,
       history: [{
         status: String,
-        location: String,
-        timestamp: Date
+        timestamp: Date,
+        note: String
       }]
     },
     shipment_id: String,
-    shipment_purpose: {
-      type: String,
-      enum: ['commercial', 'personal', 'sample', 'return-after-repair', 'return-for-repair'],
-      default: 'commercial'
+    shipment_purpose: String,
+    documents: {
+      shippingLabel: String,
+      commercialInvoice: String
     }
   },
   paid: {
