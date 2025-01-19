@@ -27,7 +27,8 @@ import Header from "../../Components/ui/Header/Header";
 const ProductsPage = () => {
     const navigation = useNavigation();
     const dispatch = useDispatch();
-    const { products, isLoading } = useSelector((state) => state.product);
+    const { products, isLoading, deleteStatus } = useSelector((state) => state.product);
+
 
 
     useEffect(() => {

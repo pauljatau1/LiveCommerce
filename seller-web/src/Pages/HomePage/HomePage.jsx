@@ -9,6 +9,7 @@ import SideBarNav from "../../Components/ui/DashboardHomepageUi/SideBarNav";
 import { BASE_URL } from "../../Constants/Server";
 import { getTotalSellerUCustomers, getPlatformAnnouncement, getPublicResources } from "../../Utilities/apiRestaurant";
 import SearchBar from "../../Components/ui/DashboardHomepageUi/SearchBar";
+import { Link } from "react-router-dom";
 import AlertNotification from "../../Components/ui/AlertNotification";
 import HomeAnalyticsCard from "../../Components/ui/DashboardHomepageUi/HomeAnalyticsCard";
 import ToDoCard from "../../Components/ToDoCard";
@@ -301,7 +302,7 @@ const HomePage = () => {
               {/* Top 3 selling products */}
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-cabin font-bold text-black">Your top 3 selling products</h3>
-                <button className="text-sm font-cabin font-normal  rounded-[7.8px] px-4 py-2 bg-[#05031F] text-white ">View all</button>
+                <Link to="/dashboard/products" className="text-sm font-cabin font-normal  rounded-[7.8px] px-4 py-2 bg-[#05031F] hover:bg-[#05031F]/85 transition-all duration-300 ease-in-out text-white ">View all</Link>
               </div>
               <div className="flex flex-col md:h-[364px] gap-2 border border-[#00000026] bg-[#F7F7F7]  rounded-[10px] mt-5">
                 {

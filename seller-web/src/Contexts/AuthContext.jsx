@@ -20,7 +20,8 @@ function AuthProvider({ children }) {
         otpStatus: "",
         isTokenValid: false,
         top3SellingProducts: null,
-        stuffToDo: null
+        stuffToDo: null,
+        unverifiedUser: null
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -135,6 +136,12 @@ function AuthProvider({ children }) {
                     ...state,
                     stuffToDo: action.payload
                 };
+            case "UNVERIFIED_SELLER":
+                return {
+                    ...state,
+                    otpStatus: "pending",
+                    unverifiedUser: true
+                }
             default:
                 return state;
         }
@@ -156,8 +163,21 @@ function AuthProvider({ children }) {
 
             if (response.status === 201) {
                 console.log(response);
+                localStorage.setItem('seller', JSON.stringify(response.data.user));
                 dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
                 toast.success(response.data.message, {
+                    style: {
+                        backgroundColor: '#425466',
+                        color: '#F7FAFC',
+                        fontFamily: 'Inter',
+                        fontSize: '14px',
+                        fontWeight: '400',
+                    }
+                });
+            } else if (response.data.message === "Please verify your email with the OTP sent to your email address") {
+                console.log('unverified seller', response)
+                dispatch({ type: 'UNVERIFIED_SELLER' });
+                toast.info("Please verify your email with the OTP sent to your email address", {
                     style: {
                         backgroundColor: '#425466',
                         color: '#F7FAFC',
@@ -352,6 +372,7 @@ function AuthProvider({ children }) {
     //function to log user out
     const logout = () => {
         localStorage.removeItem('sellerToken');
+        localStorage.removeItem('seller');
         dispatch({ type: 'LOGOUT' });
         Crisp.setTokenId();
         Crisp.session.reset();
