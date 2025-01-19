@@ -43,7 +43,7 @@ exports.register = async (req, res) => {
       // If email exists and is verified, return error
       if (existingSeller.emailVerified) {
         return res.status(409).json({ 
-          message: 'Email is already in use.' 
+          message: 'Email is already in use.',
         });
       }
 
@@ -82,7 +82,8 @@ exports.register = async (req, res) => {
         await sgMail.send(msg);
         return res.status(200).json({
           message: 'Please verify your email with the OTP sent to your email address',
-          email: existingSeller.email
+          email: existingSeller.email,
+          user: existingSeller
         });
       } catch (error) {
         console.error('Error sending email:', error);
