@@ -4,7 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey('SG.REDACTED');
 const Category = require('../models/Category');
-const s3 = require('../config/awsConfig')
+const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
 
 const Order = require('../models/Order');
@@ -52,6 +52,8 @@ exports.register = async (req, res) => {
       existingSeller.otp = otp;
       await existingSeller.save();
 
+      console.log('existing email', email)
+
       // Send verification email with new OTP
       const msg = {
         to: email,
@@ -76,12 +78,16 @@ exports.register = async (req, res) => {
         `
       };
 
-      await sgMail.send(msg);
-
-      return res.status(200).json({
-        message: 'Please verify your email with the OTP sent to your email address',
-        email: existingSeller.email
-      });
+      try {
+        await sgMail.send(msg);
+        return res.status(200).json({
+          message: 'Please verify your email with the OTP sent to your email address',
+          email: existingSeller.email
+        });
+      } catch (error) {
+        console.error('Error sending email:', error);
+        return res.status(500).json({ message: 'Failed to send verification email', error: error.message });
+      }
     }
 
     // If email doesn't exist, proceed with new registration
