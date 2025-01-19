@@ -944,10 +944,6 @@ router.get('/:id/stats',
  *                 type: string
  *               taxRate:
  *                 type: number
- *               onSale:
- *                 type: boolean
- *               salePrice:
- *                 type: number
  *               warranty:
  *                 type: string
  *               minimumPurchaseQuantity:
@@ -1108,23 +1104,47 @@ router.delete('/bulk-delete',
  *         required: true
  *         schema:
  *           type: string
+ *         description: Product ID
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - rating
+ *               - title
+ *               - comment
  *             properties:
  *               rating:
  *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *               title:
+ *                 type: string
  *               comment:
  *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               purchasedVariant:
+ *                 type: object
+ *                 properties:
+ *                   color:
+ *                     type: string
+ *                   size:
+ *                     type: string
+ *                   material:
+ *                     type: string
  *     responses:
  *       200:
  *         description: Review added successfully
  */
 router.post('/:id/reviews',
   authMiddleware.verifyToken,
+  upload.array('images', 5), // Allow up to 5 images
   productController.addReview
 );
 
@@ -1343,5 +1363,46 @@ router.delete('/:id',
  *         description: Internal server error
  */
 router.get('/:id/sold-count', productController.getProductSoldCount);
+
+/**
+ * @swagger
+ * /api/products/{id}/discount:
+ *   put:
+ *     summary: Update product discount
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *               type:
+ *                 type: string
+ *               value:
+ *                 type: number
+ *               startDate:
+ *                 type: string
+ *               endDate:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Discount updated successfully
+ */
+router.put('/:id/discount', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  productController.updateProductDiscount
+);
 
 module.exports = router;

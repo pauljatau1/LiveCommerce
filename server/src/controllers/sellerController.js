@@ -1302,14 +1302,29 @@ exports.getFollowers = async (req, res) => {
     // Get additional order information for each follower
     const followersWithDetails = await Promise.all(
       followers.map(async (follower) => {
-        const orderCount = await Order.countDocuments({
+        // Get all orders from this follower with this seller
+        const orders = await Order.find({
           buyer: follower.buyerId,
           'items.seller': seller._id
         });
 
+        // Calculate total amount spent
+        const totalSpent = orders.reduce((sum, order) => {
+          // Sum up only the items from this seller in each order
+          const sellerItems = order.items.filter(item => 
+            item.seller.toString() === seller._id.toString()
+          );
+          return sum + sellerItems.reduce((itemSum, item) => 
+            itemSum + (item.price * item.quantity), 0
+          );
+        }, 0);
+
         return {
           ...follower.toObject(),
-          totalOrders: orderCount
+          totalOrders: orders.length,
+          totalSpent: totalSpent,
+          name: `${follower.firstName} ${follower.lastName}`,
+          followedAt: follower.followDate // For consistency in naming
         };
       })
     );
@@ -1334,97 +1349,80 @@ exports.getFollowers = async (req, res) => {
 // Get detailed buyer information
 exports.getBuyerDetails = async (req, res) => {
   try {
-    const sellerId = req.user.id;
     const { buyerId } = req.params;
+    const sellerId = req.user.id;
 
-    // Check if buyer exists
-    const buyer = await Buyer.findById(buyerId)
-      .select('firstName lastName email createdAt shippingAddresses activityFeed');
-
+    // Get buyer information
+    const buyer = await Buyer.findById(buyerId);
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    // Get all orders from this buyer (general)
-    const allOrders = await Order.find({
-      buyer: buyerId
-    }).populate('items.product', 'name price images')
-      .populate('items.seller', 'storeName businessName');
+    // Get all orders for this buyer with this seller
+    const orders = await Order.find({
+      buyer: buyerId,
+      seller: sellerId
+    }).sort({ createdAt: -1 });
 
-    // Get orders specific to this seller
-    const sellerOrders = allOrders.filter(order => 
-      order.items.some(item => item.seller._id.toString() === sellerId)
-    );
+    if (orders.length === 0) {
+      return res.status(403).json({ message: 'Buyer has not ordered from this seller' });
+    }
 
-    // Calculate general order statistics
-    const generalStats = allOrders.reduce((stats, order) => {
-      const orderTotal = order.items.reduce((sum, item) => 
-        sum + (item.price * item.quantity), 0
-      );
+    // Get recent 5 orders with details
+    const recentOrders = await Order.find({
+      buyer: buyerId,
+      seller: sellerId
+    })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate({
+      path: 'items.product',
+      select: 'name images price'
+    });
 
-      return {
-        totalOrders: stats.totalOrders + 1,
-        totalSpent: stats.totalSpent + orderTotal,
-      };
-    }, { totalOrders: 0, totalSpent: 0 });
+    // Calculate order statistics
+    const orderStats = {
+      general: {
+        totalOrders: orders.length,
+        totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+        averageOrderValue: orders.length > 0 
+          ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+          : 0
+      },
+      withSeller: {
+        totalOrders: orders.length,
+        totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+        averageOrderValue: orders.length > 0 
+          ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+          : 0
+      }
+    };
 
-    // Calculate seller-specific order statistics
-    const sellerStats = sellerOrders.reduce((stats, order) => {
-      const sellerItems = order.items.filter(item => 
-        item.seller._id.toString() === sellerId
-      );
-      
-      const orderTotal = sellerItems.reduce((sum, item) => 
-        sum + (item.price * item.quantity), 0
-      );
-
-      return {
-        totalOrders: stats.totalOrders + 1,
-        totalSpent: stats.totalSpent + orderTotal,
-      };
-    }, { totalOrders: 0, totalSpent: 0 });
-
-    // Calculate average order values
-    generalStats.averageOrderValue = 
-      generalStats.totalOrders > 0 
-        ? generalStats.totalSpent / generalStats.totalOrders 
-        : 0;
-
-    sellerStats.averageOrderValue = 
-      sellerStats.totalOrders > 0 
-        ? sellerStats.totalSpent / sellerStats.totalOrders 
-        : 0;
-
-    // Get top purchased products (across all sellers)
+    // Get top purchases
     const productPurchases = {};
-    allOrders.forEach(order => {
+    orders.forEach(order => {
       order.items.forEach(item => {
-        const productKey = `${item.product._id}-${item.seller._id}`;
-        if (!productPurchases[productKey]) {
-          productPurchases[productKey] = {
-            productId: item.product._id,
+        const productId = item.product.toString();
+        if (!productPurchases[productId]) {
+          productPurchases[productId] = {
+            productId,
             name: item.product.name,
             quantity: 0,
             totalSpent: 0,
             seller: {
-              id: item.seller._id,
-              name: item.seller.storeName || item.seller.businessName
+              id: sellerId,
+              name: order.items[0].seller.storeName || 'Unknown Store'
             }
           };
         }
-        productPurchases[productKey].quantity += item.quantity;
-        productPurchases[productKey].totalSpent += item.price * item.quantity;
+        productPurchases[productId].quantity += item.quantity;
+        productPurchases[productId].totalSpent += item.price * item.quantity;
       });
     });
 
     const topPurchases = Object.values(productPurchases)
       .sort((a, b) => b.totalSpent - a.totalSpent)
       .slice(0, 5);
-
-    // Get recent activity feed
-    const recentActivities = buyer.activityFeed
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 10);
 
     res.json({
       buyerInfo: {
@@ -1433,20 +1431,32 @@ exports.getBuyerDetails = async (req, res) => {
         email: buyer.email,
         joinDate: buyer.createdAt
       },
-      orderStats: {
-        general: generalStats,
-        withSeller: sellerStats
-      },
+      orderStats,
       shippingAddresses: buyer.shippingAddresses,
-      activityFeed: recentActivities,
+      activityFeed: buyer.activityFeed,
       topPurchases,
-      hasOrderedFromSeller: sellerOrders.length > 0
+      recentOrders: recentOrders.map(order => ({
+        _id: order._id,
+        orderNumber: order.orderNumber || order._id,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        createdAt: order.createdAt,
+        items: order.items.map(item => ({
+          product: {
+            name: item.product.name,
+            images: item.product.images,
+            price: item.price
+          },
+          quantity: item.quantity
+        }))
+      })),
+      hasOrderedFromSeller: true
     });
 
   } catch (error) {
-    console.error('Get buyer details error:', error);
+    console.error('Error getting buyer details:', error);
     res.status(500).json({ 
-      message: 'Failed to retrieve buyer details', 
+      message: 'Failed to get buyer details', 
       error: error.message 
     });
   }

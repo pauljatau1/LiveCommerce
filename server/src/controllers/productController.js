@@ -392,19 +392,7 @@ exports.getProduct = async (req, res) => {
       },
       { $unwind: '$sellerInfo' },
       {
-        $lookup: {
-          from: 'reviews',
-          localField: 'reviews',
-          foreignField: '_id',
-          as: 'reviewDetails'
-        }
-      },
-      {
-        $project: {
-          // Include all base fields
-          ...productSchema.obj, // Spread operator to include all fields from the schema
-          
-          // Seller information
+        $addFields: {
           seller: {
             _id: '$sellerInfo._id',
             name: '$sellerInfo.name',
@@ -415,21 +403,25 @@ exports.getProduct = async (req, res) => {
             verified: '$sellerInfo.verified',
             about: '$sellerInfo.about'
           },
-          
-          // Reviews and stats
-          reviews: '$reviewDetails',
+          // Calculate stats based on embedded reviews
           stats: {
             averageRating: {
               $cond: {
-                if: { $isArray: '$reviewDetails' },
-                then: { $avg: '$reviewDetails.rating' },
+                if: { $isArray: '$reviews' },
+                then: { 
+                  $cond: {
+                    if: { $gt: [{ $size: '$reviews' }, 0] },
+                    then: { $avg: '$reviews.rating' },
+                    else: null
+                  }
+                },
                 else: null
               }
             },
             reviewCount: {
               $cond: {
-                if: { $isArray: '$reviewDetails' },
-                then: { $size: '$reviewDetails' },
+                if: { $isArray: '$reviews' },
+                then: { $size: '$reviews' },
                 else: 0
               }
             },
@@ -437,6 +429,11 @@ exports.getProduct = async (req, res) => {
             soldCount: '$soldCount',
             lastViewed: '$stats.lastViewed'
           }
+        }
+      },
+      {
+        $project: {
+          sellerInfo: 0 // Remove the temporary sellerInfo field
         }
       }
     ]);
@@ -1080,66 +1077,103 @@ exports.getSellerBlips = async (req, res) => {
 
 // Get seller's products
 exports.getSellerProducts = async (req, res) => {
-  const { sellerId } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-
   try {
-    // Validate sellerId
-    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
-      return res.status(400).json({ message: 'Invalid seller ID' });
+    const { sellerId } = req.params;
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      visibility,
+      sortBy = 'newest' 
+    } = req.query;
+
+    // Build query
+    const query = { seller: sellerId };
+    if (status) query.status = status;
+    if (visibility) query.visibility = visibility;
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      default: // 'newest'
+        sortOptions = { createdAt: -1 };
     }
 
-    const products = await Product.find({ seller: sellerId })
-      .sort({ createdAt: -1 })
+    // Get products with all necessary fields
+    const products = await Product.find(query)
+      .select(`
+        name 
+        description
+        price 
+        category 
+        images 
+        status
+        variants
+        stock
+        inventory
+        stats
+        discount
+        pricing
+        createdAt
+        brand
+        sku
+      `)
+      .sort(sortOptions)
       .skip((page - 1) * limit)
-      .limit(limit)
-      .select('name description price images category brand reviews');
+      .limit(limit);
 
-    const total = await Product.countDocuments({ seller: sellerId });
-
-    // Get seller info
-    const seller = await Seller.findById(sellerId, {
-      firstName: 1,
-      lastName: 1,
-      businessName: 1,
-      storeName: 1
-    });
-
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // Check if seller has any products
-    if (products.length === 0) {
-      return res.json({
-        message: 'Seller has no products',
-        seller,
-        products: [],
-        currentPage: page,
-        totalPages: 0,
-        totalProducts: 0
-      });
-    }
+    // Get total count for pagination
+    const totalProducts = await Product.countDocuments(query);
 
     res.json({
-      products,
-      seller,
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      totalProducts: total
+      products: products.map(product => ({
+        ...product.toObject(),
+        isLowStock: product.stock <= product.inventory.lowStockThreshold,
+        hasDiscount: product.discount?.isActive || false,
+        discountedPrice: product.discountedPrice,
+        stock: product.stock,
+        // Add additional product information
+        productInfo: {
+          stock: product.stock,
+          sku: product.inventory.sku,
+          lowStockThreshold: product.inventory.lowStockThreshold,
+          isOutOfStock: product.stock === 0,
+          variantsInfo: product.variants?.map(variant => ({
+            ...variant.toObject(),
+            stock: variant.totalStock,
+            isOutOfStock: variant.totalStock === 0,
+            isLowStock: variant.totalStock <= product.inventory.lowStockThreshold
+          })) || []
+        }
+      })),
+      totalPages: Math.ceil(totalProducts / limit),
+      currentPage: parseInt(page),
+      totalProducts
     });
+
   } catch (error) {
-    console.error('Error in getSellerProducts:', error);
-    res.status(500).json({ message: 'Failed to retrieve seller products', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to retrieve seller products', 
+      error: error.message 
+    });
   }
 };
 
 // Get seller's product reviews
-exports.getSellerReviews = async (req, res) => {
+exports.getSellerInfo = async (req, res) => {
   const { sellerId } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
 
   try {
     const seller = await Seller.findById(sellerId);
@@ -1147,51 +1181,14 @@ exports.getSellerReviews = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    const reviews = await Product.aggregate([
-      { $match: { seller: mongoose.Types.ObjectId(sellerId) }},
-      { $unwind: '$reviews' },
-      {
-        $lookup: {
-          from: 'buyers',
-          localField: 'reviews.buyer',
-          foreignField: '_id',
-          as: 'buyerInfo'
-        }
-      },
-      { $unwind: '$buyerInfo' },
-      {
-        $project: {
-          productId: '$_id',
-          productName: '$name',
-          review: '$reviews',
-          'buyerInfo.firstName': 1,
-          'buyerInfo.lastName': 1,
-          'buyerInfo.profileImage': 1
-        }
-      },
-      { $sort: { 'review.createdAt': -1 }},
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
-    ]);
-
-    const total = await Product.aggregate([
-      { $match: { seller: mongoose.Types.ObjectId(sellerId) }},
-      { $unwind: '$reviews' },
-      { $count: 'total' }
-    ]);
-
     res.json({
-      reviews,
       sellerInfo: {
         name: seller.name,
         businessName: seller.businessName
-      },
-      currentPage: page,
-      totalPages: Math.ceil((total[0]?.total || 0) / limit),
-      totalReviews: total[0]?.total || 0
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve seller reviews', error: error.message });
+    res.status(500).json({ message: 'Failed to retrieve seller information', error: error.message });
   }
 };
 
@@ -1533,45 +1530,86 @@ exports.getProductPerformance = async (req, res) => {
 exports.addReview = async (req, res) => {
   try {
     const { id } = req.params;
-    const { rating, comment } = req.body;
     const buyerId = req.user.id;
+    const { rating, title, comment, purchasedVariant } = req.body;
+
+    // Validate required fields
+    if (!rating || !title || !comment) {
+      return res.status(400).json({ 
+        message: 'Rating, title and comment are required' 
+      });
+    }
 
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Check if buyer has purchased the product
-    const order = await Order.findOne({
-      user: buyerId,
-      'cart.product': id,
-      'tracking.status': 'delivered'
-    });
+    // Check if user has already reviewed
+    // const existingReview = product.reviews.find(
+    //   review => review.buyer.toString() === buyerId
+    // );
+    // if (existingReview) {
+    //   return res.status(400).json({ 
+    //     message: 'You have already reviewed this product' 
+    //   });
+    // }
 
-    if (!order) {
-      return res.status(403).json({ message: 'You must purchase and receive the product before reviewing' });
+    // Upload images to S3
+    const reviewImages = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `reviews/${uuidv4()}-${file.originalname}`,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        };
+        const uploadResult = await s3.upload(params).promise();
+        reviewImages.push({
+          url: uploadResult.Location,
+          contentType: file.mimetype
+        });
+      }
     }
 
-    // Check if buyer has already reviewed
-    const existingReview = product.reviews.find(review => 
-      review.buyer.toString() === buyerId
-    );
+    // Get buyer info
+    const buyer = await Buyer.findById(buyerId)
+      .select('firstName lastName');
 
-    if (existingReview) {
-      return res.status(400).json({ message: 'You have already reviewed this product' });
-    }
-
-    product.reviews.push({
+    // Create review object
+    const review = {
       buyer: buyerId,
+      firstName: buyer.firstName,
+      lastName: buyer.lastName,
+      title,
       rating,
       comment,
-      createdAt: Date.now()
-    });
+      images: reviewImages,
+      purchasedVariant: purchasedVariant ? JSON.parse(purchasedVariant) : undefined,
+      createdAt: new Date()
+    };
+
+    // Add review and update product stats
+    product.reviews.push(review);
+    
+    // Update product stats
+    const allRatings = product.reviews.map(r => r.rating);
+    product.stats.averageRating = allRatings.reduce((a, b) => a + b, 0) / allRatings.length;
+    product.stats.reviewCount = product.reviews.length;
 
     await product.save();
-    res.json(product);
+
+    res.status(201).json({
+      message: 'Review added successfully',
+      review
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to add review', error: error.message });
+    console.error('Error in addReview:', error);
+    res.status(500).json({ 
+      message: 'Failed to add review', 
+      error: error.message 
+    });
   }
 };
 
@@ -1594,9 +1632,15 @@ exports.getProductReviews = async (req, res) => {
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
 
+    // Sort reviews by date and include all fields
     const reviews = product.reviews
       .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(startIndex, endIndex);
+      .slice(startIndex, endIndex)
+      .map(review => ({
+        ...review.toObject(),
+        images: review.images || [],
+        purchasedVariant: review.purchasedVariant || {}
+      }));
 
     res.json({
       reviews,
@@ -1605,7 +1649,10 @@ exports.getProductReviews = async (req, res) => {
       totalReviews: product.reviews.length
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to get product reviews', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to get product reviews', 
+      error: error.message 
+    });
   }
 };
 
@@ -1882,6 +1929,39 @@ exports.getPersonalizedProducts = async (req, res) => {
     res.status(500).json({
       message: 'Failed to retrieve personalized products',
       error: error.message
+    });
+  }
+};
+
+// Add a new controller method for updating product discount
+exports.updateProductDiscount = async (req, res) => {
+  const { id } = req.params;
+  const { isActive, type, value, startDate, endDate } = req.body;
+
+  try {
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Update discount fields
+    product.discount = {
+      isActive: isActive ?? product.discount.isActive,
+      type: type ?? product.discount.type,
+      value: value ?? product.discount.value,
+      startDate: startDate ? new Date(startDate) : product.discount.startDate,
+      endDate: endDate ? new Date(endDate) : product.discount.endDate
+    };
+
+    const updatedProduct = await product.save();
+    const populatedProduct = await Product.findById(updatedProduct._id)
+      .populate('seller', 'name avatarUrl about');
+
+    res.json(populatedProduct);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update product discount', 
+      error: error.message 
     });
   }
 };

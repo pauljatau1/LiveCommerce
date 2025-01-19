@@ -300,8 +300,7 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  * @swagger
  * /api/order/{orderId}/mark-paid:
  *   post:
- *     summary: Mark an order as paid and enable carrier
- *     description: Marks an order as paid and enables the carrier for shipping
+ *     summary: Mark an order as paid
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -317,11 +316,6 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - amount
- *               - carrier_reference
- *               - shipping_fee
- *               - carrier_name
  *             properties:
  *               amount:
  *                 type: number
@@ -331,13 +325,16 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *                 type: number
  *               carrier_name:
  *                 type: string
+ *               rate_id:
+ *                 type: string
+ *                 description: The shipping rate ID from the carrier
  *     responses:
  *       200:
  *         description: Order marked as paid successfully
  *       400:
- *         description: Invalid request body
+ *         description: Order is already paid
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - No token provided
  *       404:
  *         description: Order not found
  *       500:
@@ -913,5 +910,60 @@ router.post('/:orderId/note', authMiddleware.verifyToken, orderController.addNot
  *         description: Server error
  */
 router.get('/:orderId', authMiddleware.verifyToken, orderController.getOrderDetails);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/arrange-pickup:
+ *   post:
+ *     summary: Arrange pickup for an order's shipment
+ *     description: Allows sellers to arrange pickup for a paid order using Terminal Africa's shipping service
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rate_id
+ *               - shipment_id
+ *             properties:
+ *               rate_id:
+ *                 type: string
+ *                 description: Unique reference of selected rate
+ *               shipment_id:
+ *                 type: string
+ *                 description: Unique ID of existing draft shipment
+ *               purchase_insurance:
+ *                 type: boolean
+ *                 description: Optional - Indicate if insurance coverage should be provided
+ *                 default: false
+ *     responses:
+ *       200:
+ *         description: Pickup arranged successfully
+ *       400:
+ *         description: Invalid request or order not in correct state
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Not the seller of this order
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/arrange-pickup', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  orderController.arrangePickup
+);
 
 module.exports = router;
