@@ -26,76 +26,7 @@ const LoginPage = () => {
 
 
 
-  const onboardingStep = onboardingProcess?.onboardingProcess;
-
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const storedToken = localStorage.getItem('sellerToken');
-    const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-    console.log("Token Data:", tokenData.data);
-    const checkTokenValidity = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL}/seller/check-token`, {
-          headers: {
-            Authorization: `Bearer ${tokenData.data}`
-          }
-        }, { signal });
-        if (response.status === 200) {
-          if (tokenData.data && tokenData.isVerified === false && onboardingStep !== "") {
-            //if the seller is logged in and the first time, redirect to the onboarding page
-            if (onboardingStep) {
-              navigate(`/${onboardingStep}`, { replace: true });
-              setTimeout(() => {
-                toast.success('Continue Onboarding', {
-                  description: 'Continue from where you left off',
-                  style: {
-                    background: '#05031F',
-                    color: '#fff',
-                  }
-                });
-              }, 2500);
-            } else {
-              navigate('/onboarding', { replace: true });
-            }
-          } else if (tokenData.data && tokenData.isVerified === true) {
-            navigate('/dashboard/home', { replace: true });
-          } else {
-            navigate('/onboarding', { replace: true });
-          }
-        } else if (response.status === 401) {
-          console.log("Token is invalid");
-          toast.error("Token is invalid", {
-            description: "Please login again",
-            style: {
-              background: '#05031F',
-              color: '#fff',
-            }
-          });
-          navigate('/', { replace: true });
-        }
-      } catch (error) {
-        console.log(error);
-        toast.error('Token Verification Failed', {
-          description: error.response?.data?.message || error.message,
-          style: {
-            background: '#05031F',
-            color: '#fff',
-          }
-        });
-      }
-    }
-
-    if (tokenData.data) {
-      checkTokenValidity();
-    } else if (token) {
-      navigate('/onboarding', { replace: true });
-    } else {
-      console.log("No user found");
-    }
-    return () => controller.abort();
-  }, [token, navigate, onboardingStep]);
+  
 
  
 

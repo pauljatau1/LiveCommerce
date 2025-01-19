@@ -45,6 +45,87 @@ const HomePage = () => {
   const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]); // Analytics cards data
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
+  
+  // Fetch seller details on component mount
+  useEffect(() => {
+    fetchSellerDetails();
+  }, []);
+
+  // Main data fetching effect
+  // Retrieves orders and customer data on component mount
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const fetchDashboardData = async () => {
+      try {
+        setIsDataLoading(true);
+        setIsDataReady(false);
+
+        // Authentication setup
+        const token = localStorage.getItem('sellerToken');
+        const { data: authToken } = JSON.parse(token);
+        const seller = JSON.parse(localStorage.getItem('seller'));
+
+        // Parallel API calls for better performance
+        const [ordersResponse, customersResponse, platformAnnouncementResponse, publicResourcesResponse ] = await Promise.all([
+          axios.get(
+            `${BASE_URL}/order/seller/${seller._id}`,
+            {
+              headers: { Authorization: `Bearer ${authToken}` },
+              signal
+            }
+          ),
+          getTotalSellerUCustomers(),
+          getPlatformAnnouncement(),
+          getPublicResources(),
+        ]);
+
+        // Process and update state with fetched data
+        const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
+        const analyticsData = prepareAnalyticsData(
+          newOrders,
+          seller?.storeVisits,
+          customersResponse
+        );
+
+        setOrders(newOrders);
+        setHomeAnalyticsCardData(analyticsData);
+        setPlatformAnnouncement(platformAnnouncementResponse);
+        setPublicResources(publicResourcesResponse);
+        setIsDataReady(true);
+
+
+      } catch (error) {
+        // Handle fetch abortion and errors
+        if (error.name === 'AbortError') {
+          console.log('Fetch aborted');
+          return;
+        }
+        setIsDataReady(true)
+        setError(error.message);
+        console.error('Dashboard loading error:', error);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+
+    // Cleanup: abort any pending requests when component unmounts
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    getTop3SellingProducts();
+    getSellerNotifications();
+  }, []);
+
+  console.log('platformAnnouncement', platformAnnouncement);
+  console.log('publicResources', publicResources);
+  console.log('stuffToDo', stuffToDo);
+  console.log('top3SellingProducts', top3SellingProducts);
+
 
   // Returns appropriate greeting based on Nigerian time
   const getGreeting = () => {
@@ -60,10 +141,6 @@ const HomePage = () => {
     return "Good Evening";
   };
 
-  // Fetch seller details on component mount
-  useEffect(() => {
-    fetchSellerDetails();
-  }, []);
 
   console.log(orders);
 
@@ -152,80 +229,7 @@ const HomePage = () => {
     ];
   };
 
-  // Main data fetching effect
-  // Retrieves orders and customer data on component mount
-  useEffect(() => {
-    const controller = new AbortController();
-    const signal = controller.signal;
-
-    const fetchDashboardData = async () => {
-      try {
-        setIsDataLoading(true);
-        setIsDataReady(false);
-
-        // Authentication setup
-        const token = localStorage.getItem('sellerToken');
-        const { data: authToken } = JSON.parse(token);
-        const seller = JSON.parse(localStorage.getItem('seller'));
-
-        // Parallel API calls for better performance
-        const [ordersResponse, customersResponse, platformAnnouncementResponse, publicResourcesResponse ] = await Promise.all([
-          axios.get(
-            `${BASE_URL}/order/seller/${seller._id}`,
-            {
-              headers: { Authorization: `Bearer ${authToken}` },
-              signal
-            }
-          ),
-          getTotalSellerUCustomers(),
-          getPlatformAnnouncement(),
-          getPublicResources(),
-        ]);
-
-        // Process and update state with fetched data
-        const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
-        const analyticsData = prepareAnalyticsData(
-          newOrders,
-          seller?.storeVisits,
-          customersResponse
-        );
-
-        setOrders(newOrders);
-        setHomeAnalyticsCardData(analyticsData);
-        setPlatformAnnouncement(platformAnnouncementResponse);
-        setPublicResources(publicResourcesResponse);
-        setIsDataReady(true);
-
-
-      } catch (error) {
-        // Handle fetch abortion and errors
-        if (error.name === 'AbortError') {
-          console.log('Fetch aborted');
-          return;
-        }
-        setIsDataReady(true)
-        setError(error.message);
-        console.error('Dashboard loading error:', error);
-      } finally {
-        setIsDataLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-
-    // Cleanup: abort any pending requests when component unmounts
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    getTop3SellingProducts();
-    getSellerNotifications();
-  }, []);
-
-  console.log('platformAnnouncement', platformAnnouncement);
-  console.log('publicResources', publicResources);
-  console.log('stuffToDo', stuffToDo);
-  console.log('top3SellingProducts', top3SellingProducts);
+  
 
 
 

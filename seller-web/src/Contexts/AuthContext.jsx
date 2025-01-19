@@ -140,7 +140,8 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     otpStatus: "pending",
-                    unverifiedUser: true
+                    unverifiedUser: true,
+                    seller: action.payload
                 }
             default:
                 return state;
@@ -176,7 +177,7 @@ function AuthProvider({ children }) {
                 });
             } else if (response.data.message === "Please verify your email with the OTP sent to your email address") {
                 console.log('unverified seller', response)
-                dispatch({ type: 'UNVERIFIED_SELLER' });
+                dispatch({ type: 'UNVERIFIED_SELLER', payload: response.data.user });
                 toast.info("Please verify your email with the OTP sent to your email address", {
                     style: {
                         backgroundColor: '#425466',
@@ -273,12 +274,14 @@ function AuthProvider({ children }) {
                 password
             });
             if (response.status === 200) {
-                console.log('login response:', response.data);
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                localStorage.setItem('seller', JSON.stringify(response.data.user));
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
                     isVerified: response.data.user.isVerified
                 }));
+                console.log('login response:', response.data);
+                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
                 Crisp.setTokenId(response.data.token);
                 Crisp.user.setEmail(response.data.user.email);
                 Crisp.user.setNickname(response.data.user.firstName + " " + response.data.user.lastName);

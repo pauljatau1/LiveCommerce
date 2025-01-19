@@ -49,11 +49,13 @@ const router = createBrowserRouter([
   {
     element: (
       <SocketProvider>
-      <AuthProvider>
-        <OnboardingProvider>
-          <AppLayout />
-        </OnboardingProvider>
-      </AuthProvider>
+        <AuthProvider>
+          <ProtectedRoute>
+            <OnboardingProvider>
+              <AppLayout />
+            </OnboardingProvider>
+          </ProtectedRoute>
+        </AuthProvider>
       </SocketProvider>
     ),
     errorElement: <NotFoundPage />,
@@ -134,11 +136,9 @@ const router = createBrowserRouter([
       {
         path: '/dashboard',
         element: (
-          <ProtectedRoute>
-              <ProductProvider>
-                <DashboardLayout />
-              </ProductProvider>
-          </ProtectedRoute>
+          <ProductProvider>
+            <DashboardLayout />
+          </ProductProvider>
         ),
         loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
         errorElement: <NotFoundPage />,
