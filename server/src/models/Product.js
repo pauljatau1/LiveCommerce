@@ -627,4 +627,32 @@ productSchema.pre('save', function(next) {
   next();
 });
 
+// Add this method to the schema
+productSchema.methods.updateStock = async function(quantity, operation) {
+  if (operation === 'add') {
+    this.stock += parseInt(quantity);
+  } else if (operation === 'subtract') {
+    if (this.stock < quantity) {
+      throw new Error('Insufficient stock');
+    }
+    this.stock -= parseInt(quantity);
+  } else if (operation === 'set') {
+    this.stock = parseInt(quantity);
+  } else {
+    throw new Error('Invalid operation. Use "add", "subtract", or "set"');
+  }
+
+  // Update the lastRestocked date if adding stock
+  if (operation === 'add' || operation === 'set') {
+    this.stats.lastRestocked = new Date();
+  }
+
+  return this.save();
+};
+
+// Add a method to check low stock
+productSchema.methods.isLowStock = function() {
+  return this.stock <= this.lowStockAlert;
+};
+
 module.exports = mongoose.model('Product', productSchema);

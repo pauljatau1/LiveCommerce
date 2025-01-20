@@ -626,31 +626,89 @@ router.post('/',
 
 /**
  * @swagger
- * /api/products/inventory:
+ * /api/products/{productId}/inventory:
  *   put:
  *     summary: Update product inventory
+ *     description: Update product stock quantity. Can add, subtract, or set specific stock levels.
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to update
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - quantity
  *             properties:
- *               productId:
- *                 type: string
  *               quantity:
  *                 type: number
+ *                 description: The quantity to add, subtract, or set
+ *                 example: 10
  *               operation:
  *                 type: string
- *                 enum: [increase, decrease]
+ *                 enum: [add, subtract, set]
+ *                 description: Type of inventory operation to perform
+ *                 default: set
+ *                 example: add
  *     responses:
  *       200:
  *         description: Inventory updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Inventory updated successfully
+ *                 product:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Product ID
+ *                     name:
+ *                       type: string
+ *                       description: Product name
+ *                     stock:
+ *                       type: number
+ *                       description: Current stock level
+ *                     lowStockAlert:
+ *                       type: number
+ *                       description: Low stock threshold
+ *                     isLowStock:
+ *                       type: boolean
+ *                       description: Whether the product is in low stock
+ *       400:
+ *         description: Invalid request or operation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Failed to update inventory
+ *                 error:
+ *                   type: string
+ *                   example: Invalid operation. Use "add", "subtract", or "set"
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized to update this product
+ *       404:
+ *         description: Product not found
  */
-router.put('/inventory',
+router.put('/:productId/inventory',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
   productController.updateInventory

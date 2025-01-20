@@ -1198,37 +1198,58 @@ exports.updateInventory = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { productId, quantity, operation } = req.body;
+    const { productId } = req.params;
+    const { quantity, operation = 'set' } = req.body;
+
+    if (!quantity || isNaN(parseInt(quantity))) {
+      throw new Error('Valid quantity is required');
+    }
+
     const product = await Product.findById(productId).session(session);
 
     if (!product) {
       throw new Error('Product not found');
     }
 
+    // Verify seller ownership
     if (product.seller.toString() !== req.user.id) {
       throw new Error('Not authorized to update this product');
     }
 
-    await product.updateStock(quantity, operation);
+    // Update the stock
+    await product.updateStock(parseInt(quantity), operation);
     
     // Check if low stock notification needed
     if (product.isLowStock()) {
-      // Notify seller
+      // Notify seller (if you have notification system)
       await notificationController.createNotification({
         recipient: product.seller,
         type: 'low_stock',
         title: 'Low Stock Alert',
         message: `${product.name} is running low on stock (${product.stock} remaining)`,
         data: { productId: product._id }
-      });
+      }).catch(err => console.error('Failed to send notification:', err));
     }
 
     await session.commitTransaction();
-    res.json({ message: 'Inventory updated successfully', product });
+    
+    res.json({ 
+      message: 'Inventory updated successfully', 
+      product: {
+        id: product._id,
+        name: product.name,
+        stock: product.stock,
+        lowStockAlert: product.lowStockAlert,
+        isLowStock: product.isLowStock()
+      }
+    });
 
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ message: 'Failed to update inventory', error: error.message });
+    res.status(400).json({ 
+      message: 'Failed to update inventory', 
+      error: error.message 
+    });
   } finally {
     session.endSession();
   }
