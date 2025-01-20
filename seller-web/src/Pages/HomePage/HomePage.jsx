@@ -9,6 +9,7 @@ import SideBarNav from "../../Components/ui/DashboardHomepageUi/SideBarNav";
 import { BASE_URL } from "../../Constants/Server";
 import { getTotalSellerUCustomers, getPlatformAnnouncement, getPublicResources } from "../../Utilities/apiRestaurant";
 import SearchBar from "../../Components/ui/DashboardHomepageUi/SearchBar";
+import { Link } from "react-router-dom";
 import AlertNotification from "../../Components/ui/AlertNotification";
 import HomeAnalyticsCard from "../../Components/ui/DashboardHomepageUi/HomeAnalyticsCard";
 import ToDoCard from "../../Components/ToDoCard";
@@ -44,6 +45,87 @@ const HomePage = () => {
   const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]); // Analytics cards data
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
+  
+  // Fetch seller details on component mount
+  useEffect(() => {
+    fetchSellerDetails();
+  }, []);
+
+  // Main data fetching effect
+  // Retrieves orders and customer data on component mount
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const fetchDashboardData = async () => {
+      try {
+        setIsDataLoading(true);
+        setIsDataReady(false);
+
+        // Authentication setup
+        const token = localStorage.getItem('sellerToken');
+        const { data: authToken } = JSON.parse(token);
+        const seller = JSON.parse(localStorage.getItem('seller'));
+
+        // Parallel API calls for better performance
+        const [ordersResponse, customersResponse, platformAnnouncementResponse, publicResourcesResponse ] = await Promise.all([
+          axios.get(
+            `${BASE_URL}/order/seller/${seller._id}`,
+            {
+              headers: { Authorization: `Bearer ${authToken}` },
+              signal
+            }
+          ),
+          getTotalSellerUCustomers(),
+          getPlatformAnnouncement(),
+          getPublicResources(),
+        ]);
+
+        // Process and update state with fetched data
+        const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
+        const analyticsData = prepareAnalyticsData(
+          newOrders,
+          seller?.storeVisits,
+          customersResponse
+        );
+
+        setOrders(newOrders);
+        setHomeAnalyticsCardData(analyticsData);
+        setPlatformAnnouncement(platformAnnouncementResponse);
+        setPublicResources(publicResourcesResponse);
+        setIsDataReady(true);
+
+
+      } catch (error) {
+        // Handle fetch abortion and errors
+        if (error.name === 'AbortError') {
+          console.log('Fetch aborted');
+          return;
+        }
+        setIsDataReady(true)
+        setError(error.message);
+        console.error('Dashboard loading error:', error);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+
+    // Cleanup: abort any pending requests when component unmounts
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    getTop3SellingProducts();
+    getSellerNotifications();
+  }, []);
+
+  console.log('platformAnnouncement', platformAnnouncement);
+  console.log('publicResources', publicResources);
+  console.log('stuffToDo', stuffToDo);
+  console.log('top3SellingProducts', top3SellingProducts);
+
 
   // Returns appropriate greeting based on Nigerian time
   const getGreeting = () => {
@@ -59,10 +141,6 @@ const HomePage = () => {
     return "Good Evening";
   };
 
-  // Fetch seller details on component mount
-  useEffect(() => {
-    fetchSellerDetails();
-  }, []);
 
   console.log(orders);
 
@@ -151,80 +229,7 @@ const HomePage = () => {
     ];
   };
 
-  // Main data fetching effect
-  // Retrieves orders and customer data on component mount
-  useEffect(() => {
-    const controller = new AbortController();
-    const signal = controller.signal;
-
-    const fetchDashboardData = async () => {
-      try {
-        setIsDataLoading(true);
-        setIsDataReady(false);
-
-        // Authentication setup
-        const token = localStorage.getItem('sellerToken');
-        const { data: authToken } = JSON.parse(token);
-        const seller = JSON.parse(localStorage.getItem('seller'));
-
-        // Parallel API calls for better performance
-        const [ordersResponse, customersResponse, platformAnnouncementResponse, publicResourcesResponse ] = await Promise.all([
-          axios.get(
-            `${BASE_URL}/order/seller/${seller._id}`,
-            {
-              headers: { Authorization: `Bearer ${authToken}` },
-              signal
-            }
-          ),
-          getTotalSellerUCustomers(),
-          getPlatformAnnouncement(),
-          getPublicResources(),
-        ]);
-
-        // Process and update state with fetched data
-        const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
-        const analyticsData = prepareAnalyticsData(
-          newOrders,
-          seller?.storeVisits,
-          customersResponse
-        );
-
-        setOrders(newOrders);
-        setHomeAnalyticsCardData(analyticsData);
-        setPlatformAnnouncement(platformAnnouncementResponse);
-        setPublicResources(publicResourcesResponse);
-        setIsDataReady(true);
-
-
-      } catch (error) {
-        // Handle fetch abortion and errors
-        if (error.name === 'AbortError') {
-          console.log('Fetch aborted');
-          return;
-        }
-        setIsDataReady(true)
-        setError(error.message);
-        console.error('Dashboard loading error:', error);
-      } finally {
-        setIsDataLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-
-    // Cleanup: abort any pending requests when component unmounts
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    getTop3SellingProducts();
-    getSellerNotifications();
-  }, []);
-
-  console.log('platformAnnouncement', platformAnnouncement);
-  console.log('publicResources', publicResources);
-  console.log('stuffToDo', stuffToDo);
-  console.log('top3SellingProducts', top3SellingProducts);
+  
 
 
 
@@ -301,7 +306,7 @@ const HomePage = () => {
               {/* Top 3 selling products */}
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-cabin font-bold text-black">Your top 3 selling products</h3>
-                <button className="text-sm font-cabin font-normal  rounded-[7.8px] px-4 py-2 bg-[#05031F] text-white ">View all</button>
+                <Link to="/dashboard/products" className="text-sm font-cabin font-normal  rounded-[7.8px] px-4 py-2 bg-[#05031F] hover:bg-[#05031F]/85 transition-all duration-300 ease-in-out text-white ">View all</Link>
               </div>
               <div className="flex flex-col md:h-[364px] gap-2 border border-[#00000026] bg-[#F7F7F7]  rounded-[10px] mt-5">
                 {

@@ -1,24 +1,244 @@
+import { useState, useMemo, useCallback } from 'react';
 import { Icon } from '@iconify/react';
+import { useDispatch, useSelector } from 'react-redux';
+import { deleteProduct } from '../../../Redux/Slices/ProductSlice';
 import PropTypes from 'prop-types';
+import CircularProgress from '@mui/material/CircularProgress';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandItem,
+    CommandList,
+} from "../../ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "../../ui/popover";
+import { BASE_URL } from '../../../Constants/Server';
+import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
+import Modal from '@mui/material/Modal';
+import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import axios from 'axios';
+import React from 'react';
+
+// Create a separate component for the stock update modal
+const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitting }) => {
+    const [newStock, setNewStock] = useState(item?.stock || null);
+    
+
+    // Modal style configuration
+    const modalStyle = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '90%',
+        maxWidth: '425px',
+        bgcolor: 'background.paper',
+        borderRadius: '8px',
+        boxShadow: 24,
+        p: { xs: 2, sm: 4 },
+        maxHeight: '90vh',
+        overflow: 'auto',
+        '&:focus': {
+            outline: 'none',
+        }
+    };
+
+    const handleStockChange = useCallback((e) => {
+        const value = e.target.value;
+        setNewStock(Math.max(0, parseInt(value) || 0));
+    }, []);
+
+    const handleSubmit = async () => {
+        await onUpdate(newStock);
+    };
+
+    return (
+        <Modal open={open} onClose={onClose}>
+            <Box sx={modalStyle}>
+                <div className="relative">
+                    <button
+                        onClick={onClose}
+                        className="absolute right-0 top-0 rounded-full p-1.5 sm:p-2 hover:bg-gray-100"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="sm:w-6 sm:h-6">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                    </button>
+                    <div className="flex flex-col gap-6 pt-4">
+                        <div className="text-center">
+                            <h1 className="text-xl xl:text-2xl font-bold text-[#05031F]">Update Stock</h1>
+                            <p className="text-sm text-gray-500 mt-2">Update stock quantity for {item?.name}</p>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
+                                <img
+                                    src={item?.images[0]?.url}
+                                    alt={item?.name}
+                                    className="w-16 h-16 rounded-lg object-contain bg-white"
+                                />
+                                <div>
+                                    <h3 className="font-medium text-[#05031F]">{item?.name}</h3>
+                                    <p className="text-sm text-gray-500">Current Stock: {item?.stock}</p>
+                                </div>
+                            </div>
+
+                            <TextField
+                                label="New Stock Quantity"
+                                type="text"
+                                value={newStock}
+                                onChange={handleStockChange}
+                                fullWidth
+                                variant="outlined"
+                                InputProps={{
+                                    inputProps: { min: 0 }
+                                }}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        '&.Mui-focused fieldset': {
+                                            borderColor: '#05031F',
+                                            borderWidth: '1px',
+                                        },
+                                    },
+                                    '& label.Mui-focused': {
+                                        color: '#05031F',
+                                    },
+                                    '&:hover': {
+                                        borderColor: 'none',
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        <div className="flex gap-3 mt-4">
+                            <Button
+                                fullWidth
+                                variant="outlined"
+                                onClick={onClose}
+                                sx={{
+                                    borderColor: '#05031F',
+                                    color: '#05031F',
+                                    textTransform: 'none',
+                                    '&:hover': {
+                                        borderColor: '#05031F',
+                                        backgroundColor: '#05031F0A',
+                                    }
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                onClick={handleSubmit}
+                                disabled={isSubmitting}
+                                sx={{
+                                    textTransform: 'none',
+                                    backgroundColor: '#05031F',
+                                    '&:hover': {
+                                        backgroundColor: '#05031F',
+                                    }
+                                }}
+                            >
+                                {isSubmitting ? <CircularProgress size={20} color="inherit" /> : 'Update Stock'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </Box>
+        </Modal>
+    );
+});
+
+StockUpdateModal.displayName = 'StockUpdateModal';
+StockUpdateModal.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    item: PropTypes.object.isRequired,
+    onUpdate: PropTypes.func.isRequired,
+    isSubmitting: PropTypes.bool.isRequired,
+};
 
 const ProductCard = ({ item }) => {
+    // Separate states for mobile and desktop popovers
+    const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
+    const [isDesktopPopoverOpen, setIsDesktopPopoverOpen] = useState(false);
+    const [openStockModal, setOpenStockModal] = useState(false);
+    const dispatch = useDispatch();
+    const { isLoading, deleteStatus, deletedProductId } = useSelector(state => state.product);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+
     const getStockStatus = (stock) => {
         if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
         if (stock > 0) return { text: 'Low Stock', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
         return { text: 'Out of Stock', class: 'bg-[#DF0707]/10 text-[#DF0707]' };
     };
 
+    const getUploadStatus = (status) => {
+        if (status == "active") return { text: 'Active', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (status == "draft") return { text: 'Draft', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+    };
+
     const status = getStockStatus(item?.stock);
-    console.log(item.stock)
+    console.log(item.stock);
+
+    const uploadStatus = getUploadStatus(item.status)
+
+    const handleProductDelete = (productId) => {
+        dispatch(deleteProduct(productId));
+    };
+
+    console.log(item)
+
+    const SpecificDeletedProduct = item._id === deletedProductId;
+    console.log('attempted deleted product', deletedProductId)
+    console.log('specific deleted product', SpecificDeletedProduct)
+
+
+    const handleStockUpdate = async (newStock) => {
+        try {
+            setIsSubmitting(true);
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            const response = await axios.put(`${BASE_URL}/products/inventory/`, {
+                productId: item._id,
+                quantity: newStock,
+                operation: "increase"
+            }, {
+                headers: {
+                    Authorization: `Bearer ${tokenData.data}`
+                }
+            });
+            if (response.status === 200) {
+                setOpenStockModal(false);
+                toast.success("Stock updated successfully");
+            }
+        } catch (error) {
+            toast.error("Failed to update stock", {
+                description: error.response.data.message
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     // Mobile Card Layout
     const MobileCard = () => (
         <div className="flex flex-col gap-4 p-4">
             <div className="flex items-start gap-4">
-                <img 
-                    src={item?.images[0]?.url} 
-                    alt={item?.name} 
-                    className="w-[60px] h-[60px] rounded-lg object-cover flex-shrink-0"
+                <img
+                    src={item?.images[0]?.url}
+                    alt={item?.name}
+                    className="w-[60px] h-[60px] rounded-lg object-contain flex-shrink-0"
                 />
                 <div className="flex flex-col flex-1 min-w-0">
                     <h3 className="text-sm font-medium text-[#05031F] truncate">
@@ -28,20 +248,48 @@ const ProductCard = ({ item }) => {
                         {item?.category}
                     </p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${status.class}`}>
-                    {status.text}
-                </span>
+                <div className="flex flex-col gap-2 items-center justify-center">
+                    <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${status.class}`}>
+                        {status.text}
+                    </span>
+                    <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${uploadStatus.class}`}>
+                        {uploadStatus.text}
+                    </span>
+                </div>
             </div>
             <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-[#05031F]">
                     ₦ {item?.price?.toLocaleString()}
                 </p>
                 <div className="flex items-center gap-2">
-                    <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
-                        <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
-                    </button>
-                    <button className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
-                        <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                    <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                                <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[200px] p-0" align="end">
+                            <Command>
+                                <CommandList>
+                                    <CommandGroup>
+                                        <CommandItem onSelect={() => {
+                                            setIsMobilePopoverOpen(false)
+                                            setOpenStockModal(true)
+                                        }}>
+                                            <Icon icon="fluent:box-edit-24-filled" className="w-6 h-6 text-[#05031F]" />
+                                            <span className="ml-2 text-[#05031F]">Change Stock</span>
+                                        </CommandItem>
+                                        <CommandItem onSelect={() => setIsMobilePopoverOpen(false)} className="cursor-pointer">
+                                            <Icon icon="clarity:clipboard-solid" className="w-10 h-10 text-[#05031F]" />
+                                            <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F]">Edit Product</Link>
+                                        </CommandItem>
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                    <button onClick={() => handleProductDelete(item._id)} className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
+                        {deleteStatus ? <CircularProgress color="#DF0707" size={20} /> : <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />}
                     </button>
                 </div>
             </div>
@@ -50,12 +298,12 @@ const ProductCard = ({ item }) => {
 
     // Desktop Card Layout
     const DesktopCard = () => (
-        <div className="hidden lg:grid grid-cols-[80px_2fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 items-center hover:bg-[#F7F7F7] transition-all duration-200">
+        <div className="hidden lg:grid grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 items-center hover:bg-[#F7F7F7] transition-all duration-200">
             <div className="w-12 h-12">
-                <img 
-                    src={item?.images[0]?.url} 
-                    alt={item?.name} 
-                    className="w-full h-full rounded-lg object-cover"
+                <img
+                    src={item?.images[0]?.url}
+                    alt={item?.name}
+                    className="w-full h-full rounded-lg object-contain"
                 />
             </div>
             <div className="truncate pr-4">
@@ -63,6 +311,11 @@ const ProductCard = ({ item }) => {
             </div>
             <div className="truncate">
                 <p className="text-sm text-[#05031F] truncate">{item?.category}</p>
+            </div>
+            <div className="truncate">
+                <p className={`text-sm px-3 py-1 rounded-full w-fit text-[#05031F] truncate ${uploadStatus.class}`}>
+                    {uploadStatus.text}
+                </p>
             </div>
             <div>
                 <p className="text-sm text-[#05031F]">₦ {item?.price?.toLocaleString()}</p>
@@ -73,11 +326,40 @@ const ProductCard = ({ item }) => {
                 </span>
             </div>
             <div className="flex items-center justify-center gap-2">
-                <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
-                    <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
-                </button>
-                <button className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
-                    <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                <Popover open={isDesktopPopoverOpen} onOpenChange={setIsDesktopPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                            <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-0" align="end">
+                        <Command>
+                            <CommandList>
+                                <CommandGroup>
+                                    <CommandItem onSelect={() => {
+                                        setIsDesktopPopoverOpen(false)
+                                        setOpenStockModal(true)
+                                    }} className="cursor-pointer" >
+                                        <Icon icon="fluent:box-edit-24-filled" className="w-10 h-10 text-[#05031F]" />
+                                        <span className="ml-2 text-[#05031F]">Change Stock</span>
+                                    </CommandItem>
+                                    <CommandItem onSelect={() => setIsDesktopPopoverOpen(false)} className="cursor-pointer">
+                                        <Icon icon="clarity:clipboard-solid" className="w-10 h-10 text-[#05031F]" />
+                                        <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F]">Edit Product</Link>
+                                    </CommandItem>
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+                <button onClick={() => handleProductDelete(item._id)} className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
+                    {
+                        SpecificDeletedProduct ? (
+                            deleteStatus ? <CircularProgress color="#DF0707" size={13} /> : <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                        ) : (
+                            <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                        )
+                    }
                 </button>
             </div>
         </div>
@@ -89,6 +371,13 @@ const ProductCard = ({ item }) => {
                 <MobileCard />
             </div>
             <DesktopCard />
+            <StockUpdateModal
+                open={openStockModal}
+                onClose={() => setOpenStockModal(false)}
+                item={item}
+                onUpdate={handleStockUpdate}
+                isSubmitting={isSubmitting}
+            />
         </>
     );
 };
@@ -97,4 +386,8 @@ ProductCard.propTypes = {
     item: PropTypes.object.isRequired,
 };
 
-export default ProductCard;
+// Memoize the entire ProductCard component
+export default React.memo(ProductCard, (prevProps, nextProps) => {
+    return prevProps.item._id === nextProps.item._id &&
+        prevProps.item.stock === nextProps.item.stock;
+});

@@ -20,7 +20,8 @@ function AuthProvider({ children }) {
         otpStatus: "",
         isTokenValid: false,
         top3SellingProducts: null,
-        stuffToDo: null
+        stuffToDo: null,
+        unverifiedUser: null
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -135,6 +136,13 @@ function AuthProvider({ children }) {
                     ...state,
                     stuffToDo: action.payload
                 };
+            case "UNVERIFIED_SELLER":
+                return {
+                    ...state,
+                    otpStatus: "pending",
+                    unverifiedUser: true,
+                    seller: action.payload
+                }
             default:
                 return state;
         }
@@ -156,8 +164,21 @@ function AuthProvider({ children }) {
 
             if (response.status === 201) {
                 console.log(response);
+                localStorage.setItem('seller', JSON.stringify(response.data.user));
                 dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
                 toast.success(response.data.message, {
+                    style: {
+                        backgroundColor: '#425466',
+                        color: '#F7FAFC',
+                        fontFamily: 'Inter',
+                        fontSize: '14px',
+                        fontWeight: '400',
+                    }
+                });
+            } else if (response.data.message === "Please verify your email with the OTP sent to your email address") {
+                console.log('unverified seller', response)
+                dispatch({ type: 'UNVERIFIED_SELLER', payload: response.data.user });
+                toast.info("Please verify your email with the OTP sent to your email address", {
                     style: {
                         backgroundColor: '#425466',
                         color: '#F7FAFC',
@@ -253,12 +274,14 @@ function AuthProvider({ children }) {
                 password
             });
             if (response.status === 200) {
-                console.log('login response:', response.data);
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                localStorage.setItem('seller', JSON.stringify(response.data.user));
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
                     isVerified: response.data.user.isVerified
                 }));
+                console.log('login response:', response.data);
+                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
                 Crisp.setTokenId(response.data.token);
                 Crisp.user.setEmail(response.data.user.email);
                 Crisp.user.setNickname(response.data.user.firstName + " " + response.data.user.lastName);
@@ -352,6 +375,7 @@ function AuthProvider({ children }) {
     //function to log user out
     const logout = () => {
         localStorage.removeItem('sellerToken');
+        localStorage.removeItem('seller');
         dispatch({ type: 'LOGOUT' });
         Crisp.setTokenId();
         Crisp.session.reset();

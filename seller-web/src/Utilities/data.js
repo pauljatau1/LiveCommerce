@@ -13,6 +13,9 @@ import thumbnail1 from '../assets/sg-v1.png';
 import thumbnail2 from '../assets/sg-v2.png';
 import thumbnail3 from '../assets/sg-v3.png';
 import ProductImage from '../assets/p-card.png';
+import LiveIcon1 from '../assets/live-icon1.png';
+import LiveIcon2 from '../assets/live-icon2.png';
+import LiveIcon3 from '../assets/live-icon3.png';
 
 
 export const categoriesData = [
@@ -527,6 +530,34 @@ export const customerLatestOrdersTempData = [
         quantity: 2,
         total: 2000000
     },
+];
+
+
+export const liveStreamCardData = [
+    {
+        id: ObjectID().toHexString(),
+        icon: LiveIcon1,
+        title: 'Auctions',
+        description: 'Start a live and entertaining bidding on Auqli! Perfect for auctioning off your pre-loved items.',
+        link: '/dashboard/live-streams/auctions',
+        available: true
+    },
+    {
+        id: ObjectID().toHexString(),
+        icon: LiveIcon2,
+        title: 'Open Live Show',
+        description: 'Showcase all products in your store through open live shows, engage with customers and increase sales!',
+        link: '/dashboard/live-streams/open-live-shows',
+        available: true
+    },
+    {
+        id: ObjectID().toHexString(),
+        icon: LiveIcon3,
+        title: 'Live Giveaways',
+        description: 'Run giveaways on Auqli! An exciting way to increase your reach, gain followers and potential future customers.',
+        link: '/dashboard/live-streams/live-giveaways',
+        available: false
+    }
 ]
 
 

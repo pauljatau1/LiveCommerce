@@ -7,7 +7,9 @@ const QuickOrderCard = ({ product }) => {
         <div className="w-full cursor-pointer flex justify-between gap-4 items-center  hover:bg-gray-200">
             <div className="w-full px-4 py-3 flex justify-between gap-4 items-center">
                 <div className="flex items-center gap-5 xl:gap-10">
-                    <img src={product?.images[0].url} alt="order-image" className="w-[70px] md:w-[90px] h-[70px] md:h-[90px] rounded-md xl:rounded-lg " />
+                    <div className="h-[70px] md:h-[90px] w-[70px] md:w-[90px]">
+                        <img src={product?.images[0].url} alt="order-image" className="h-full rounded-md xl:rounded-lg " />
+                    </div>
                     <div>
                         <p className="text-sm xl:text-base capitalize font-cabin font-normal text-[#05031F]">{product?.name}</p>
                         <p className="text-sm font-cabin font-normal text-[#05031F]">{product?.stats?.soldCount} {product?.stats?.soldCount > 1 ? 'orders' : 'order'} </p>

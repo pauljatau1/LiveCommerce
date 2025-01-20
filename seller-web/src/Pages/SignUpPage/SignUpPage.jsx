@@ -16,9 +16,8 @@ import 'react-phone-input-2/lib/style.css';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
-  const { createSeller, isLoading, seller, otpStatus, verifyOtp, requestNewOtp } = useAuthContext();
+  const { createSeller, isLoading, seller, otpStatus, verifyOtp, requestNewOtp, unverifiedUser } = useAuthContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [otpCount, setOtpCount] = useState(0);
   const [otp, setOtp] = useState('');
   const [activateOtp, setActivateOtp] = useState(false);
   const [formData, setFormData] = useState({
@@ -32,13 +31,14 @@ const SignUpPage = () => {
     showConfirmPassword: false
   });
 
-  //use effect to check if the seller is authenticated and if the otp status is pending and if the otp count is 0, if so, open the otp modal as a reroute from the signup page
+  //use effect to check if the seller is authenticated and if the otp status is pending, if so, open the otp modal as a reroute from the signup page
   useEffect(() => {
-    if (seller !== null && otpStatus === "pending" && otpCount === 0) {
+    if (seller !== null && otpStatus === "pending") {
       setIsModalOpen(true);
-      setOtpCount((prev) => prev + 1);
+    } else if (otpStatus === "pending" && unverifiedUser) {
+      setIsModalOpen(true);
     }
-  }, [seller, otpStatus, otpCount]);
+  }, [seller, otpStatus]);
 
   //function to submit the user data
   const submitUserData = async (event) => {

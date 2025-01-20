@@ -351,38 +351,41 @@ const AddProduct = () => {
         if (title && description && images.length > 0 && shippingDetails.pricing &&
             shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
             selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
-            await dispatch(createProduct(formData));
-            // Reset fields after successful submission
-            if (response === 'success') {
-                setTitle('');
-                setDescription('');
-                setImages([]);
-                setShippingDetails({
-                    pricing: null,
-                    salePrice: null,
-                    weight: null,
-                    weightUnit: 'kg',
-                    inventory: null,
-                    condition: 'fairly-used',
-                    dimensions: {
-                        length: null,
-                        width: null,
-                        height: null
-                    }
-                });
-                setSelectedCategory('');
-                setSelectedSubCategory('');
-                setSkuNumber('');
-                setUpcNumber('');
-                setBrand('');
-                setVideos([]);
-                setProductStatus('active');
-                setProductSpecs({}); // Reset specifications
-            }
+            dispatch(createProduct(formData));
         } else {
             toast.error('Please fill all required fields');
         }
     };
+
+    useEffect(() => {
+        // Reset fields after successful submission
+        if (response === 'success') {
+            setTitle('');
+            setDescription('');
+            setImages([]);
+            setShippingDetails({
+                pricing: null,
+                salePrice: null,
+                weight: null,
+                weightUnit: 'kg',
+                inventory: null,
+                condition: 'fairly-used',
+                dimensions: {
+                    length: null,
+                    width: null,
+                    height: null
+                }
+            });
+            setSelectedCategory('');
+            setSelectedSubCategory('');
+            setSkuNumber('');
+            setUpcNumber('');
+            setBrand('');
+            setVideos([]);
+            setProductStatus('active');
+            setProductSpecs({}); // Reset specifications
+        }
+    }, [response])
 
     const handleRemoveImage = (indexToRemove) => {
         setImages(prev => {

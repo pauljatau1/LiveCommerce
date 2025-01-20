@@ -10,7 +10,9 @@ const initialState = {
     isLoading: false,
     error: null,
     message: null,
-    response: ''
+    response: '',
+    deleteStatus: false,
+    deletedProductId: ''
 };
 
 
@@ -48,6 +50,28 @@ export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts
     }
 });
 
+export const deleteProduct = createAsyncThunk('product/deleteProduct', async (productId, { rejectWithValue }) => {
+    try {
+        const storedToken = localStorage.getItem('sellerToken');
+        const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+
+        const response = await axios.delete(`${BASE_URL}/products/${productId}`, {
+            headers: {
+                Authorization: `Bearer ${tokenData.data}`,
+            },
+        });
+        if (response.status === 200) {
+            return response.data;
+        }
+    } catch (error) {
+        if (!error.response) {
+            // Network error
+            return rejectWithValue('Network error: Please check your internet connection.');
+        }
+        console.log(error);
+        return rejectWithValue(error.message);
+    }
+});
 
 const productSlice = createSlice({
     name: "product",
@@ -89,6 +113,30 @@ const productSlice = createSlice({
         state.error = action.error.message;
         toast.error('Failed to fetch products', {
             description: "Please reload the page and try again",
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+    }).addCase(deleteProduct.pending, (state, action) => {
+        state.deleteStatus = true;
+        state.deletedProductId = action.meta.arg
+    }).addCase(deleteProduct.fulfilled, (state, action) => {
+        console.log(action.payload);
+        state.deleteStatus = false;
+        state.products = state.products.filter(product => product._id !== action.payload.deletedProduct.id);
+        toast.success(`${action.payload.deletedProduct.name} has been deleted successfully`, {
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+    }).addCase(deleteProduct.rejected, (state, action) => {
+        state.isLoading = false;
+        state.deleteStatus = false;
+        state.error = action.error.message;
+        toast.error('Failed to delete product', {
+            description: "Please try again",
             style: {
                 background: '#05031F',
                 color: '#fff',

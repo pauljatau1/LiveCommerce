@@ -474,6 +474,51 @@ const OnboardingProvider = ({ children }) => {
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
+    };
+
+    const submitProfileImage = async (profileImage) => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const token = localStorage.getItem('sellerToken');
+            const { data } = JSON.parse(token);
+
+            // Convert base64 to blob
+            const base64Response = await fetch(profileImage);
+            const blob = await base64Response.blob();
+            
+            // Create FormData and append the file
+            const formData = new FormData();
+            formData.append('avatar', blob, 'profile-image.jpg');
+
+            const response = await axios.post(`${BASE_URL}/seller/profile/avatar`, formData, {
+                headers: {
+                    Authorization: `Bearer ${data}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            if (response.status === 200) {
+                console.log('Profile image submitted', response);
+                toast.success('Profile image submitted', {
+                    description: 'Your profile image has been uploaded',
+                    style: {
+                        background: '#05031F',
+                        color: '#fff',
+                    }
+                });
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('Error submitting profile image', {
+                description: error.response?.data?.message || error.message,
+                style: {
+                    background: '#05031F',
+                    color: '#fff',
+                }
+            });
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
     }
 
     return (
@@ -489,7 +534,8 @@ const OnboardingProvider = ({ children }) => {
                 submitBusinessCategory,
                 submitShippingOptions,
                 registerIndividualBasicDetails,
-                submitIndividualVerification
+                submitIndividualVerification,
+                submitProfileImage
             }}
         >
             {children}

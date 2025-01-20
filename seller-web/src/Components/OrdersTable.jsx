@@ -8,6 +8,7 @@ import {
 } from "./ui/table"
 import { Button } from "./ui/button";
 import { Icon } from "@iconify/react";
+import { Link } from "react-router-dom";
 import PropTypes from 'prop-types';
 
 
@@ -37,8 +38,8 @@ const OrdersTable = ({ orders }) => {
                     <Button className="text-sm font-cabin text-[#05031F] lg:text-base bg-[#0BB24817] rounded-[7.8px] py-3 px-4 transition-all duration-300 ease-in-out" variant="outline">
                         Channel
                     </Button>
-                    <Button className="text-sm font-cabin text-white bg-[#05031F] lg:text-base rounded-[7.8px] py-3 px-4 transition-all duration-300 ease-in-out">
-                        View All
+                    <Button className="text-sm font-cabin text-white bg-[#05031F] hover:bg-[#05031F]/85 transition-all duration-300 ease-in-out lg:text-base rounded-[7.8px] py-3 px-4">
+                        <Link to="/dashboard/orders">View All</Link>
                     </Button>
                 </div>
             </div>
