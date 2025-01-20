@@ -33,11 +33,14 @@ import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
 import MarketingPage from './Pages/MarketingPage/MarketingPage';
+import { VariantProvider } from './Contexts/VariantContext';
 import Payout from './Pages/payout/Payout';
 import Messages from './Pages/messages/messages';
 import { SocketProvider } from './Contexts/SocketContext';
+import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
+import EditProduct from './Pages/ProductsPage/EditProduct';
+import LiveStream from './Pages/LiveStream/LiveStream';
 
-// fixed
 
 
 
@@ -47,11 +50,13 @@ const router = createBrowserRouter([
   {
     element: (
       <SocketProvider>
-      <AuthProvider>
-        <OnboardingProvider>
-          <AppLayout />
-        </OnboardingProvider>
-      </AuthProvider>
+        <AuthProvider>
+          <ProtectedRoute>
+            <OnboardingProvider>
+              <AppLayout />
+            </OnboardingProvider>
+          </ProtectedRoute>
+        </AuthProvider>
       </SocketProvider>
     ),
     errorElement: <NotFoundPage />,
@@ -132,11 +137,9 @@ const router = createBrowserRouter([
       {
         path: '/dashboard',
         element: (
-          <ProtectedRoute>
-              <ProductProvider>
-                <DashboardLayout />
-              </ProductProvider>
-          </ProtectedRoute>
+          <ProductProvider>
+            <DashboardLayout />
+          </ProductProvider>
         ),
         loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
         errorElement: <NotFoundPage />,
@@ -175,7 +178,20 @@ const router = createBrowserRouter([
           },
           {
             path: 'add-products',
-            element: <AddProduct />,
+            element: (
+              <VariantProvider>
+                <AddProduct />
+              </VariantProvider>
+            ),
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'edit-product/:id',
+            element: (
+              <VariantProvider>
+                <EditProduct />
+              </VariantProvider>
+            ),
             errorElement: <NotFoundPage />
           },
           {
@@ -201,6 +217,16 @@ const router = createBrowserRouter([
           {
             path: 'messages',
             element: <Messages />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'auqli-connect',
+            element: <AuqliConnect />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'live-streams',
+            element: <LiveStream />,
             errorElement: <NotFoundPage />
           }
         ]

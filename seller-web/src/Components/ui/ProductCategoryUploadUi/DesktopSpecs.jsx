@@ -49,9 +49,9 @@ const DesktopSpecs = ({ specs, onChange }) => {
     '& .MuiOutlinedInput-root': {
       borderRadius: '0.5rem',
       height: '48px',
-      '& fieldset': { borderColor: '#e2e8f0' },
-      '&:hover fieldset': { borderColor: '#e2e8f0' },
-      '&.Mui-focused fieldset': { borderColor: '#05031F' }
+      '& fieldset': { borderColor: '#02020238' },
+      '&:hover fieldset': { borderColor: '#02020238' },
+      '&.Mui-focused fieldset': { borderColor: '#02020238' }
     },
     '& .MuiInputBase-input': {
       padding: '0.75rem',

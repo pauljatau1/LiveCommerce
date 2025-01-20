@@ -1,153 +1,168 @@
-import { useEffect, useState } from 'react';
-import { Icon } from '@iconify/react';
-import { Command, CommandList, CommandGroup, CommandItem } from '../../ui/command';
-import { Popover, PopoverTrigger, PopoverContent } from '../../ui/popover';
-import { Crisp } from "crisp-sdk-web";
-import { useNavigation, useOutletContext } from "react-router-dom";
-import AlertNotification from '../AlertNotification';
-import PropTypes from 'prop-types';
+import { Icon } from "@iconify/react"
+import { useEffect, useState } from "react"
+import { Command, CommandGroup, CommandItem, CommandList } from "../../ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
+import { Crisp } from "crisp-sdk-web"
+import PropTypes from "prop-types"
+import { BASE_URL } from "@/Constants/Server"
 
+const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
+  const [open, setOpen] = useState(false)
+  const [isChatVisible, setIsChatVisible] = useState(true)
+  const [seller, setSeller] = useState(null)
+  const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1"
 
-const Header = ({ notificationData, showNotification = false, notificationColor, notificationBackgroundColor, search = '', setSearch = () => { }, showSearch = false, headerTitle = 'Products', searchPlaceholder = 'Search', notificationIcon = 'formkit:warning', showLive = false, showHeader = false }) => {
-    const navigation = useNavigation();
-    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
-    const [isChatVisible, setIsChatVisible] = useState(true);
-    const [open, setOpen] = useState(false);
-    const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1";
-
-
-    useEffect(() => {
-        // Configure Crisp
-        Crisp.configure(WEBSITE_ID, {
-            autoLoad: false,
-        });
-
-        // Hide the default Crisp button initially
-        window.$crisp.push(["do", "chat:hide"]);
-
-        // Add event listener for chat close
-        window.$crisp.push(["on", "chat:closed", () => {
-            setIsChatVisible(false);
-            // Hide the default Crisp button when chat is closed
-            window.$crisp.push(["do", "chat:hide"]);
-        }]);
-
-        // Optional: Reset visibility when component unmounts
-        return () => {
-            window.$crisp.push(["off", "chat:closed"]);
-        };
-    }, []);
-
-    const handleChatOpen = () => {
-        setIsChatVisible(true);
-        // Show the Crisp widget when opening chat
-        window.$crisp.push(["do", "chat:show"]);
-        Crisp.chat.open();
-    };
-
-
-    return (
-        <div className="flex flex-col justify-between gap-4 py-6">
-            <div className="flex justify-between items-center w-full ">
-                {
-                    !isSidebarOpen && (
-                        <Icon icon="pepicons-pencil:menu" color="#05031F" width="34" height="34" className='md:hidden' onClick={() => setIsSidebarOpen(!isSidebarOpen)} />
-                    )
-                }
-                {
-                    showHeader && (
-                        <h1 className="text-xl md:text-2xl uppercase font-bold font-lexend">{headerTitle}</h1>
-                    )
-                }
-                <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <button className='bg-[#DF0707] lg:hidden items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
-                            <Icon icon="ri:live-fill"  color="#FFFFFF" className="lg:hidden w-5 h-5 md:w-6 md:h-6" />
-                        </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[200px] p-0">
-                        <Command>
-                            <CommandList>
-                                <CommandGroup>
-                                    <CommandItem onSelect={() => {
-                                        // Handle Go Live action
-                                        setOpen(false)
-                                    }}>
-                                        <Icon icon="fluent:live-20-filled" width="20" height="20" color="#05031F" />
-                                        <span className="ml-2 text-[#05031F]">Go Live</span>
-                                    </CommandItem>
-                                    <CommandItem onSelect={() => {
-                                        handleChatOpen();
-                                        setOpen(false);
-                                    }}>
-                                        <Icon icon="solar:chat-line-bold" width="24" height="24" color='#05031F' />
-                                        <span className="ml-2 text-[#05031F]">Live Chat</span>
-                                    </CommandItem>
-                                    <CommandItem onSelect={() => {
-                                        // Handle Notification action
-                                        setOpen(false)
-                                    }}>
-                                        <Icon icon="mingcute:notification-fill" width="24" height="24" color='#05031F' />
-                                        <span className="ml-2 text-[#05031F]">Notification</span>
-                                    </CommandItem>
-                                    <CommandItem onSelect={() => {
-                                        // Handle Profile action
-                                        setOpen(false)
-                                    }}>
-                                        <Icon icon="iconamoon:profile-fill" width="24" height="24" color='#05031F' />
-                                        <span className="ml-2 text-[#05031F]">Profile</span>
-                                    </CommandItem>
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
-                <div className='items-center gap-7 hidden lg:flex'>
-                    <button className='bg-[#DF0707] hidden lg:flex items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
-                        <span className=' whitespace-nowrap'>Go Live</span>
-                    </button>
-                    <button onClick={handleChatOpen} className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                        <span className="relative z-10">
-                            <Icon icon="solar:chat-line-bold" width="24" height="24" color='#FFFFFF' />
-                        </span>
-                    </button>
-                    <button className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                        <span className="relative z-10">
-                            <Icon icon="si:notifications-thick-duotone" width="24" height="24" color='#FFFFFF' />
-                        </span>
-                    </button>
-                    <button className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                        <span className="relative z-10">
-                            <Icon icon="iconamoon:profile-fill" width="24" height="24" color='#FFFFFF' />
-                        </span>
-                    </button>
-                </div>
-            </div>
-            {showNotification && <AlertNotification message={notificationData} color={notificationColor} background={notificationBackgroundColor} notificationIcon={notificationIcon} />}
-            {
-                showSearch && (
-                    <div className="flex items-center gap-2 w-full h-[40px] bg-[#05031F] rounded-full py-6 pl-6 pr-6 mt-4 lg:mt-6 focus-within:outline focus-within:outline-white">
-                        <Icon icon="iconamoon:search-thin" className='w-5 h-5 md:w-6 md:h-6' color="#FFFFFF" />
-                        <input type="text" placeholder={`${searchPlaceholder}...`} value={search} onChange={(e) => setSearch(e.target.value)} className='w-full h-full px-1 bg-[#05031F] text-[#FFFFFF] rounded-full py-6 placeholder:text-sm outline-none' />
-                    </div>
-                )
+  useEffect(() => {
+    const fetchSellerProfile = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken')
+        if (sellerToken) {
+          const tokenData = JSON.parse(sellerToken)
+          const token = tokenData.data
+          
+          const response = await fetch(`${BASE_URL}/seller/profile`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
             }
+          })
+          const data = await response.json()
+          setSeller(data)
+        }
+      } catch (error) {
+        console.error('Error fetching seller profile:', error)
+      }
+    }
+
+    fetchSellerProfile()
+  }, [])
+
+  useEffect(() => {
+    Crisp.configure(WEBSITE_ID, {
+      autoLoad: false,
+    })
+    window.$crisp.push(["do", "chat:hide"])
+    window.$crisp.push([
+      "on",
+      "chat:closed",
+      () => {
+        setIsChatVisible(false)
+        window.$crisp.push(["do", "chat:hide"])
+      },
+    ])
+    return () => {
+      window.$crisp.push(["off", "chat:closed"])
+    }
+  }, [])
+
+  const handleChatOpen = () => {
+    setIsChatVisible(true)
+    window.$crisp.push(["do", "chat:show"])
+    Crisp.chat.open()
+  }
+
+  const getInitials = (firstName, lastName) => {
+    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
+  }
+
+  return (
+    <header className="bg-white border-b border-gray-200">
+      <div className="max-w-7xl mx-auto py-3">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center">
+            {!isSidebarOpen && (
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500 lg:hidden"
+              >
+                <Icon icon="pepicons-pencil:menu" className="h-6 w-6" />
+              </button>
+            )}
+            <h1 className="ml-2 lg:ml-0 text-2xl font-semibold text-gray-900">Dashboard</h1>
+          </div>
+
+          {/* Mobile Menu */}
+          <Popover open={open} onOpenChange={setOpen} className="lg:hidden">
+            <PopoverTrigger asChild>
+              <button className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500">
+                <Icon icon="heroicon-o:menu" className="h-6 w-6" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 mt-2 p-2 bg-white rounded-md shadow-lg border border-gray-200">
+              <Command>
+                <CommandList>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => setOpen(false)}
+                      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
+                    >
+                      <Icon icon="fluent:live-20-filled" className="mr-2 h-5 w-5 text-gray-400" />
+                      <span>Go Live</span>
+                    </CommandItem>
+                    <CommandItem
+                      onSelect={() => {
+                        handleChatOpen()
+                        setOpen(false)
+                      }}
+                      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
+                    >
+                      <Icon icon="solar:chat-line-bold" className="mr-2 h-5 w-5 text-gray-400" />
+                      <span>Live Chat</span>
+                    </CommandItem>
+                    <CommandItem
+                      onSelect={() => setOpen(false)}
+                      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
+                    >
+                      <Icon icon="mingcute:notification-fill" className="mr-2 h-5 w-5 text-gray-400" />
+                      <span>Notifications</span>
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* Desktop Menu */}
+          <div className="hidden lg:flex lg:items-center lg:gap-4">
+            <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+              Go Live
+            </button>
+
+            {isChatVisible && (
+              <button
+                onClick={handleChatOpen}
+                className="p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <Icon icon="solar:chat-line-bold" className="h-6 w-6" />
+              </button>
+            )}
+
+            <button className="p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+              <Icon icon="mingcute:notification-fill" className="h-6 w-6" />
+            </button>
+
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+                  {getInitials(seller?.firstName, seller?.lastName)}
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-700">
+                  {seller?.firstName} {seller?.lastName}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-    )
-};
+      </div>
+    </header>
+  )
+}
 
 Header.propTypes = {
-    notificationData: PropTypes.string,
-    showNotification: PropTypes.bool,
-    notificationColor: PropTypes.string,
-    notificationBackgroundColor: PropTypes.string,
-    search: PropTypes.string,
-    setSearch: PropTypes.func,
-    showSearch: PropTypes.bool.isRequired,
-    headerTitle: PropTypes.string.isRequired,
-    searchPlaceholder: PropTypes.string,
-    showLive: PropTypes.bool,
-    showHeader: PropTypes.bool.isRequired,
+  isSidebarOpen: PropTypes.bool.isRequired,
+  setIsSidebarOpen: PropTypes.func.isRequired,
 }
 
 export default Header
+

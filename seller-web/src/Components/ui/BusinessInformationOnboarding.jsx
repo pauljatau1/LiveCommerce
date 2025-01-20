@@ -641,8 +641,8 @@ const BusinessInformationOnboarding = () => {
                                 )
                             }
                             <div className="flex items-center justify-center gap-10 mt-20 lg:mt-14 ">
-                                <button onClick={handleBack} className="bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">Back</button>
-                                <button onClick={handleNext} className="bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">
+                                <button onClick={handleBack} className="bg-transparent text-[#0BB248] border border-[#0BB248] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">Back</button>
+                                <button onClick={handleNext} className="bg-[#0BB248] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">
                                     {
                                         isLoading ? <CircularProgress size={20} color='white' /> : 'Next'
                                     }
