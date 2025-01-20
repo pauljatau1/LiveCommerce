@@ -22,6 +22,7 @@ import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
 import NotFound from "../../assets/not-found-icon2.png";
 import LinearProgress from "@mui/material/LinearProgress";
 import Header from "../../Components/ui/Header/Header";
+import React from 'react';
 
 
 const ProductsPage = () => {
@@ -35,6 +36,13 @@ const ProductsPage = () => {
         dispatch(fetchSellerProducts());
     }, [dispatch]);
     console.log("products:", products);
+
+    // Memoize the products list
+    const memoizedProducts = React.useMemo(() => {
+        return products.map((item) => (
+            <ProductCard key={item._id} item={item} />
+        ));
+    }, [products]);
 
 
 
@@ -83,21 +91,20 @@ const ProductsPage = () => {
                         </div>
                         <div className="flex flex-col w-full bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
                             {/* Table Headers - Desktop */}
-                            <div className="hidden lg:grid grid-cols-[80px_2fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white">
+                            <div className="hidden lg:grid grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white">
                                 <div className="text-sm font-medium text-[#05031F]">Image</div>
                                 <div className="text-sm font-medium text-[#05031F]">Product Name</div>
                                 <div className="text-sm font-medium text-[#05031F]">Category</div>
+                                <div className="text-sm font-medium text-[#05031F]">Upload Status</div>
                                 <div className="text-sm font-medium text-[#05031F]">Price</div>
-                                <div className="text-sm font-medium text-[#05031F] text-center">Status</div>
+                                <div className="text-sm font-medium text-[#05031F] text-center">Stock Status</div>
                                 <div className="text-sm font-medium text-[#05031F] text-center">Actions</div>
                             </div>
 
                             {/* Products List */}
                             <div className="divide-y divide-[#E5E7EB]">
                                 {products.length > 0 ? (
-                                    products.map((item) => (
-                                        <ProductCard key={item.id} item={item} />
-                                    ))
+                                    memoizedProducts
                                 ) : (
                                     <div className="flex flex-col h-[50dvh] items-center justify-center gap-4">
                                         <img src={NotFound} alt="not-found" className="w-[180px] md:w-[220px] h-[180px] md:h-[220px]" />

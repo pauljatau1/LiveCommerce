@@ -38,7 +38,8 @@ import Payout from './Pages/payout/Payout';
 import Messages from './Pages/messages/messages';
 import { SocketProvider } from './Contexts/SocketContext';
 import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
-
+import EditProduct from './Pages/ProductsPage/EditProduct';
+import LiveStream from './Pages/LiveStream/LiveStream';
 
 
 
@@ -185,6 +186,15 @@ const router = createBrowserRouter([
             errorElement: <NotFoundPage />
           },
           {
+            path: 'edit-product/:id',
+            element: (
+              <VariantProvider>
+                <EditProduct />
+              </VariantProvider>
+            ),
+            errorElement: <NotFoundPage />
+          },
+          {
             path: 'drafts',
             element: <Drafts />,
             errorElement: <NotFoundPage />
@@ -212,6 +222,11 @@ const router = createBrowserRouter([
           {
             path: 'auqli-connect',
             element: <AuqliConnect />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'live-streams',
+            element: <LiveStream />,
             errorElement: <NotFoundPage />
           }
         ]
