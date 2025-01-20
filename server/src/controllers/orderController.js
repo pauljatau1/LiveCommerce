@@ -519,22 +519,9 @@ exports.getShippingRates = async (req, res) => {
 exports.markAsPaid = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { 
-      amount, 
-      carrier_reference, 
-      shipping_fee, 
-      carrier_name,
-      rate_id 
-    } = req.body;
+    const { amount, carrier_reference, shipping_fee, carrier_name, rate_id } = req.body;
 
-    console.log('Request payload:', {
-      orderId,
-      amount,
-      carrier_reference,
-      shipping_fee,
-      carrier_name,
-      rate_id
-    });
+    console.log('Starting markAsPaid process for order:', orderId);
 
     const order = await Order.findById(orderId);
     if (!order) {
@@ -542,11 +529,61 @@ exports.markAsPaid = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    console.log('Found order:', {
+      orderId: order._id,
+      items: order.items,
+      totalAmount: order.totalAmount
+    });
+
     // Verify amount matches order total
     if (amount !== order.totalAmount) {
       console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
       return res.status(400).json({ 
         message: 'Payment amount does not match order total' 
+      });
+    }
+
+    // Update soldCount and decrease stock for each product
+    for (const item of order.items) {
+      console.log('Processing item:', {
+        productId: item.product,
+        quantity: item.quantity
+      });
+
+      const productBefore = await Product.findById(item.product);
+      console.log('Product before update:', {
+        productId: productBefore._id,
+        currentStock: productBefore.stock,
+        currentInventoryQuantity: productBefore.inventory.quantity,
+        currentSoldCount: productBefore.stats.soldCount
+      });
+
+      const updateResult = await Product.findByIdAndUpdate(
+        item.product,
+        { 
+          $inc: { 
+            'stats.soldCount': item.quantity,
+            'stock': -item.quantity,
+            'inventory.quantity': -item.quantity 
+          }
+        },
+        { new: true }
+      );
+
+      // Update seller's wallet balance
+      await Seller.findByIdAndUpdate(
+        item.seller,
+        {
+          $inc: { 'walletBalance': item.price * item.quantity }
+        }
+      );
+
+      console.log('Product after update:', {
+        productId: updateResult._id,
+        newStock: updateResult.stock,
+        newInventoryQuantity: updateResult.inventory.quantity,
+        newSoldCount: updateResult.stats.soldCount,
+        updateSuccessful: !!updateResult
       });
     }
 
@@ -557,6 +594,8 @@ exports.markAsPaid = async (req, res) => {
       status: 'paid',
       paidAt: new Date()
     };
+
+    console.log('Updating order payment status');
 
     // Ensure tracking object exists with required fields
     const tracking = {
@@ -598,6 +637,8 @@ exports.markAsPaid = async (req, res) => {
     //   reference: order._id
     // });
 
+    console.log('Order marked as paid successfully');
+
     res.json({
       message: 'Order marked as paid successfully',
       order: {
@@ -614,8 +655,10 @@ exports.markAsPaid = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Mark as paid error:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Error in markAsPaid:', {
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({
       message: 'Failed to mark order as paid',
       error: error.message
@@ -723,64 +766,76 @@ exports.updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
 
-    const order = await Order.findById(orderId)
-      .populate('buyer')
-      .populate('seller');
+    console.log('Starting updateOrderStatus process:', {
+      orderId,
+      newStatus: status
+    });
 
+    const order = await Order.findById(orderId);
     if (!order) {
+      console.log('Order not found:', orderId);
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    const oldStatus = order.status;
-    order.status = status;
-    await order.save();
-
-    // Prepare webhook data
-    const webhookData = {
+    console.log('Found order:', {
       orderId: order._id,
-      orderNumber: order.orderNumber,
-      oldStatus,
-      newStatus: status,
-      updatedAt: new Date(),
-      items: order.items.map(item => ({
-        productId: item.product,
-        quantity: item.quantity,
-        status: item.status
-      })),
-      shipping: {
-        trackingNumber: order.shipping.tracking.number,
-        carrier: order.shipping.tracking.carrier,
-        estimatedDelivery: order.shipping.estimatedDeliveryDate
-      }
-    };
-
-    // Send webhooks to both seller and buyer
-    await WebhookService.sendWebhookEvent('order.status_updated', webhookData, {
-      sellerId: order.seller._id,
-      buyerId: order.buyer._id
+      currentStatus: order.status,
+      items: order.items
     });
 
-    // Send specific event based on status
-    if (status === 'out_for_delivery') {
-      await WebhookService.sendWebhookEvent('order.out_for_delivery', webhookData, {
-        sellerId: order.seller._id,
-        buyerId: order.buyer._id
+    // Update soldCount and decrease stock for each product
+    for (const item of order.items) {
+      console.log('Processing item:', {
+        productId: item.product,
+        quantity: item.quantity
       });
-    } else if (status === 'delivered') {
-      await WebhookService.sendWebhookEvent('order.delivered', webhookData, {
-        sellerId: order.seller._id,
-        buyerId: order.buyer._id
+
+      const productBefore = await Product.findById(item.product);
+      console.log('Product before update:', {
+        productId: productBefore._id,
+        currentStock: productBefore.stock,
+        currentInventoryQuantity: productBefore.inventory.quantity,
+        currentSoldCount: productBefore.stats.soldCount
+      });
+
+      const updateResult = await Product.findByIdAndUpdate(
+        item.product,
+        { 
+          $inc: { 
+            'stats.soldCount': item.quantity,
+            'stock': -item.quantity,
+            'inventory.quantity': -item.quantity 
+          }
+        },
+        { new: true } // Return the updated document
+      );
+
+      console.log('Product after update:', {
+        productId: updateResult._id,
+        newStock: updateResult.stock,
+        newInventoryQuantity: updateResult.inventory.quantity,
+        newSoldCount: updateResult.stats.soldCount,
+        updateSuccessful: !!updateResult
       });
     }
 
-    res.json({
-      message: 'Order status updated successfully',
-      order
+    order.status = status;
+    await order.save();
+
+    console.log('Order status updated successfully');
+
+    res.json({ 
+      message: 'Order status updated successfully', 
+      order 
     });
   } catch (error) {
-    res.status(500).json({
-      message: 'Failed to update order status',
-      error: error.message
+    console.error('Error in updateOrderStatus:', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      message: 'Failed to update order status', 
+      error: error.message 
     });
   }
 };
@@ -1602,8 +1657,7 @@ exports.arrangePickup = async (req, res) => {
             <p>You can track your shipment here: <a href="${response.data.data.extras.tracking_url}">Track Shipment</a></p>
             <p>Thank you for shopping with us!</p>
           </div>
-        `
-      };
+        `      };
 
       // Seller email
       const sellerEmail = {

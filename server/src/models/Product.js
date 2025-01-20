@@ -154,10 +154,9 @@ const productSchema = new mongoose.Schema({
   },
   stats: {
     views: { type: Number, default: 0 },
-    lastRestocked: Date,
-    averageRating: { type: Number, default: 0 },
-    reviewCount: { type: Number, default: 0 },
-    soldCount: { type: Number, default: 0 }
+    soldCount: { type: Number, default: 0 },
+    lastViewed: { type: Date },
+    lastRestocked: { type: Date }
   },
   lowStockAlert: { type: Number, default: 5 },
   sku: { type: String, required: true },
