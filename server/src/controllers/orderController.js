@@ -626,7 +626,7 @@ exports.markAsPaid = async (req, res) => {
 // Get all orders
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find().populate('buyer', 'firstName lastName').populate('seller', 'name');
+    const orders = await Order.find().sort({ createdAt: -1 }).populate('buyer', 'firstName lastName').populate('seller', 'name');
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve orders', error: error.message });
@@ -638,7 +638,7 @@ exports.getOrdersForBuyer = async (req, res) => {
   const { buyerId } = req.params;
 
   try {
-    const orders = await Order.find({ buyer: buyerId })
+    const orders = await Order.find({ buyer: buyerId }).sort({ createdAt: -1 })
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'name');
     res.json(orders);
@@ -652,7 +652,7 @@ exports.getOrdersForSeller = async (req, res) => {
   const { sellerId } = req.params;
 
   try {
-    const orders = await Order.find({ seller: sellerId })
+    const orders = await Order.find({ seller: sellerId }).sort({ createdAt: -1 })
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'name');
     res.json(orders);
@@ -660,6 +660,7 @@ exports.getOrdersForSeller = async (req, res) => {
     res.status(500).json({ message: 'Failed to retrieve orders for seller', error: error.message });
   }
 };
+
 
 // Update an order
 exports.updateOrder = async (req, res) => {
