@@ -98,7 +98,7 @@ export default function OrdersDashboard() {
     const statusColors = {
       pending: 'bg-yellow-100 text-yellow-700',
       pickup_arranged: 'bg-blue-100 text-blue-700',
-      picked_up: 'bg-indigo-100 text-indigo-700',
+      picked_up: 'bg-green-100 text-green-700',
       in_transit: 'bg-purple-100 text-purple-700',
       delivered: 'bg-green-100 text-green-700',
       failed: 'bg-red-100 text-red-700'

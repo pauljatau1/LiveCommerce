@@ -1,3 +1,4 @@
+import React from 'react';
 import {
     Table,
     TableBody,
@@ -5,41 +6,57 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "./ui/table"
-import { Button } from "./ui/button";
-import { Icon } from "@iconify/react";
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import PropTypes from 'prop-types';
 
-
 const OrdersTable = ({ orders }) => {
-
     const getTotalProductQuantityOrdered = (orders) => {
         const productsInAnOrder = orders?.items.length;
         const totalQuantity = orders?.items.reduce((total, product) => total + product.quantity, 0);
         return { productsInAnOrder, totalQuantity };
     };
 
-
-    
-
-
-
+    const getStatusColor = (status) => {
+        const statusColors = {
+            pending: 'bg-yellow-100 text-yellow-700',
+            pickup_arranged: 'bg-blue-100 text-blue-700',
+            picked_up: 'bg-green-100 text-green-700',
+            in_transit: 'bg-purple-100 text-purple-700',
+            delivered: 'bg-green-100 text-green-700',
+            failed: 'bg-red-100 text-red-700'
+        };
+        return statusColors[status] || 'bg-gray-100 text-gray-700';
+    };
 
     return (
-        <div className="w-full rounded-xl overflow-hidden border border-[#00000026] ">
-            <div className="bg-[#F0F5F2] p-4 flex justify-between items-center">
-                <h2 className="text-lg font-bold text-[#05031F] font-lexend">Latest Orders</h2>
-                <div className="flex gap-4">
-                    <Button variant="outline" className="hidden lg:flex text-sm lg:text-base font-cabin text-[#05031F] bg-[#0BB24817] transition-all duration-300 ease-in-out">
-                        <Icon icon="solar:calendar-outline" width="20" height="20" color="#05031F" />
-                        Filtering by date
+        <div className="w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+            <div className="bg-white border-b border-gray-200 p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Latest Orders</h2>
+                    <p className="text-sm text-gray-500 mt-1">Manage and track your recent orders</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                    <Button 
+                        variant="outline" 
+                        className="text-gray-700 border-gray-300 hover:bg-gray-50"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Filter by Date
                     </Button>
-                    <Button className="text-sm font-cabin text-[#05031F] lg:text-base bg-[#0BB24817] rounded-[7.8px] py-3 px-4 transition-all duration-300 ease-in-out" variant="outline">
+                    <Button 
+                        variant="outline"
+                        className="text-gray-700 border-gray-300 hover:bg-gray-50"
+                    >
                         Channel
                     </Button>
-                    <Button className="text-sm font-cabin text-white bg-[#05031F] hover:bg-[#05031F]/85 transition-all duration-300 ease-in-out lg:text-base rounded-[7.8px] py-3 px-4">
-                        <Link to="/dashboard/orders">View All</Link>
+                    <Button 
+                        className="bg-green-600 text-white hover:bg-green-700"
+                    >
+                        <Link to="/dashboard/orders">View All Orders</Link>
                     </Button>
                 </div>
             </div>
@@ -47,60 +64,99 @@ const OrdersTable = ({ orders }) => {
             <div className="overflow-x-auto">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-[#F0F5F2] hover:bg-[#F0F5F2]">
-                            <TableHead className=" hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Order ID</TableHead>
-                            <TableHead className="table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Quantity</TableHead>
-                            <TableHead className=" text-sm lg:text-base font-cabin font-normal text-[#000000]">Order Date</TableHead>
-                            <TableHead className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Price</TableHead>
-                            <TableHead className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#000000]">Payment</TableHead>
-                            <TableHead className="text-sm lg:text-base font-cabin font-normal text-[#000000]">Status</TableHead>
-                            <TableHead className="text-sm lg:text-base font-cabin font-normal text-[#000000]">Action</TableHead>
+                        <TableRow className="bg-gray-50">
+                            <TableHead className="hidden md:table-cell font-semibold text-gray-900">Order ID</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Items</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Order Date</TableHead>
+                            <TableHead className="hidden md:table-cell font-semibold text-gray-900">Price</TableHead>
+                            <TableHead className="hidden md:table-cell font-semibold text-gray-900">Payment</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Status</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {
-                            orders.length > 0 ? (
-                                orders?.slice(0, 10).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((order) => (
-                                    <TableRow key={order?._id}>
-                                        <TableCell className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#00000090]">
-                                            <span className="block break-all max-w-[80px] md:max-w-[150px]" title={order?._id}>
-                                                {order?._id}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className=" text-sm lg:text-base font-cabin font-normal text-[#00000090]">{getTotalProductQuantityOrdered(order)?.totalQuantity}</TableCell>
-                                        <TableCell className="text-sm lg:text-base font-cabin font-normal text-[#00000090]">{order?.createdAt.split('T')[0]}</TableCell>
-                                        <TableCell className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#00000090]">{order?.totalAmount.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}</TableCell>
-                                        <TableCell className="hidden md:table-cell text-sm lg:text-base font-cabin font-normal text-[#00000090]">{order?.paymentInfo?.status}</TableCell>
-                                        <TableCell>
-                                            <span className={`px-2 py-1 rounded-full text-sm  ${order?.shipping?.tracking?.status === "completed"
-                                                ? "bg-green-100 text-green-600"
-                                                : "bg-yellow-100 text-yellow-600"
-                                                }`}>
-                                                {order?.shipping?.tracking?.status}
+                        {orders.length > 0 ? (
+                            orders?.slice(0, 10)
+                                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                .map((order) => (
+                                    <TableRow 
+                                        key={order?._id}
+                                        className="hover:bg-gray-50 transition-colors"
+                                    >
+                                        <TableCell className="hidden md:table-cell">
+                                            <span className="font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                                                {order?._id.slice(-8).toUpperCase()}
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <Button className="text-sm text-[#05031F90] font-cabin border border-[#05031F90] hover:border-[#05031F] transition-all duration-500 ease-in-out rounded-2xl" variant="outline" size="sm">
-                                                View Order
-                                            </Button>
+                                            <div className="space-y-1">
+                                                {order?.items.map((item, index) => (
+                                                    <div key={index} className="text-sm">
+                                                        {item.productName} x {item.quantity}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-gray-600">
+                                            {new Date(order?.createdAt).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell font-medium text-gray-900">
+                                            {order?.totalAmount.toLocaleString('en-NG', { 
+                                                style: 'currency', 
+                                                currency: 'NGN' 
+                                            })}
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                ${order?.paymentInfo?.status === 'paid' 
+                                                    ? 'bg-green-100 text-green-800' 
+                                                    : 'bg-yellow-100 text-yellow-800'}`}>
+                                                {order?.paymentInfo?.status}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                getStatusColor(order?.shipping?.tracking?.status)
+                                            }`}>
+                                                {order?.shipping?.tracking?.status?.replace('_', ' ')}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Link to={`/dashboard/order/${order._id}`}>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    className="text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300 transition-colors"
+                                                >
+                                                    View Details
+                                                </Button>
+                                            </Link>
                                         </TableCell>
                                     </TableRow>
                                 ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan="7" className="text-center text-sm lg:text-base font-cabin font-normal text-[#00000090]">No orders found</TableCell>
-                                </TableRow>
-                            )
-                        }
+                        ) : (
+                            <TableRow>
+                                <TableCell 
+                                    colSpan="7" 
+                                    className="text-center py-8 text-gray-500"
+                                >
+                                    No orders found
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </div>
         </div>
-    )
+    );
 };
 
 OrdersTable.propTypes = {
     orders: PropTypes.array.isRequired,
 };
 
-export default OrdersTable
+export default OrdersTable;

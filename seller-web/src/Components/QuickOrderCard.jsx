@@ -1,31 +1,48 @@
-import PropTypes from 'prop-types';
+import PropTypes from "prop-types"
+
 
 const QuickOrderCard = ({ product }) => {
-    //const orderQuantityDisplay = order.quantity > 1 ? 'orders' : 'order';
-
-    return (
-        <div className="w-full cursor-pointer flex justify-between gap-4 items-center  hover:bg-gray-200">
-            <div className="w-full px-4 py-3 flex justify-between gap-4 items-center">
-                <div className="flex items-center gap-5 xl:gap-10">
-                    <div className="h-[70px] md:h-[90px] w-[70px] md:w-[90px]">
-                        <img src={product?.images[0].url} alt="order-image" className="h-full rounded-md xl:rounded-lg " />
-                    </div>
-                    <div>
-                        <p className="text-sm xl:text-base capitalize font-cabin font-normal text-[#05031F]">{product?.name}</p>
-                        <p className="text-sm font-cabin font-normal text-[#05031F]">{product?.stats?.soldCount} {product?.stats?.soldCount > 1 ? 'orders' : 'order'} </p>
-                    </div>
-                </div>
-                <div className="flex flex-col items-end">
-                    {/*<p className="text-sm font-cabin font-normal text-[#05031F]">{order.percentage}</p>*/}
-                    <p className="text-sm xl:text-base font-cabin font-normal text-[#05031F]">₦{product?.price?.toLocaleString()}</p>
-                </div>
-            </div>
+  return (
+    <div className="w-full cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+      <div className="flex items-center justify-between p-4 gap-4">
+        <div className="flex items-center space-x-4">
+          <div className="relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden">
+            <img
+              src={product?.images[0].url || "/placeholder.svg"}
+              alt={product?.name}
+             
+              className="rounded-md"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">{product?.name}</p>
+            <p className="text-sm text-gray-500">
+              {product?.stats?.soldCount} {product?.stats?.soldCount === 1 ? "order" : "orders"}
+            </p>
+          </div>
         </div>
-    )
-};
+        <div className="text-right">
+          <p className="text-sm font-medium text-gray-900">₦{product?.price?.toLocaleString()}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 QuickOrderCard.propTypes = {
-    product: PropTypes.object.isRequired
-};
+  product: PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    images: PropTypes.arrayOf(
+      PropTypes.shape({
+        url: PropTypes.string.isRequired,
+      }),
+    ).isRequired,
+    stats: PropTypes.shape({
+      soldCount: PropTypes.number.isRequired,
+    }).isRequired,
+    price: PropTypes.number.isRequired,
+  }).isRequired,
+}
 
 export default QuickOrderCard
+

@@ -1,136 +1,147 @@
-import { Icon } from '@iconify/react';
-import { useEffect, useState } from 'react';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandItem,
-    CommandList,
-} from "../../ui/command"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "../../ui/popover";
-import { Crisp } from "crisp-sdk-web";
-import PropTypes from 'prop-types';
-
+import { Icon } from "@iconify/react"
+import { useEffect, useState } from "react"
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "../../ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
+import { Crisp } from "crisp-sdk-web"
+import PropTypes from "prop-types"
 
 const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
-    const [open, setOpen] = useState(false);
-    const [isChatVisible, setIsChatVisible] = useState(true);
-    const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1";
+  const [open, setOpen] = useState(false)
+  const [isChatVisible, setIsChatVisible] = useState(true)
+  const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1"
 
-    useEffect(() => {
-        // Configure Crisp
-        Crisp.configure(WEBSITE_ID, {
-            autoLoad: false,
-        });
+  useEffect(() => {
+    Crisp.configure(WEBSITE_ID, {
+      autoLoad: false,
+    })
+    window.$crisp.push(["do", "chat:hide"])
+    window.$crisp.push([
+      "on",
+      "chat:closed",
+      () => {
+        setIsChatVisible(false)
+        window.$crisp.push(["do", "chat:hide"])
+      },
+    ])
+    return () => {
+      window.$crisp.push(["off", "chat:closed"])
+    }
+  }, [])
 
-        // Hide the default Crisp button initially
-        window.$crisp.push(["do", "chat:hide"]);
+  const handleChatOpen = () => {
+    setIsChatVisible(true)
+    window.$crisp.push(["do", "chat:show"])
+    Crisp.chat.open()
+  }
 
-        // Add event listener for chat close
-        window.$crisp.push(["on", "chat:closed", () => {
-            setIsChatVisible(false);
-            // Hide the default Crisp button when chat is closed
-            window.$crisp.push(["do", "chat:hide"]);
-        }]);
+  return (
+    <div className="flex items-center justify-between gap-4 py-6">
+      <div className="flex items-center gap-4 flex-1">
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
+          >
+            <Icon icon="pepicons-pencil:menu" className="w-6 h-6 text-gray-700" />
+          </button>
+        )}
 
-        // Optional: Reset visibility when component unmounts
-        return () => {
-            window.$crisp.push(["off", "chat:closed"]);
-        };
-    }, []);
-
-    const handleChatOpen = () => {
-        setIsChatVisible(true);
-        // Show the Crisp widget when opening chat
-        window.$crisp.push(["do", "chat:show"]);
-        Crisp.chat.open();
-    };
-
-    return (
-        <div className='py-10 flex justify-between items-center'>
-            {
-                !isSidebarOpen && (
-                    <Icon icon="pepicons-pencil:menu" width="34" height="34" color="#05031F" className='md:hidden' onClick={() => setIsSidebarOpen(!isSidebarOpen)} />
-                )
-            }
-            <input type="text" placeholder='Search...' className=' w-[160px] md:w-[405px] lg:w-[305px] xl:w-full h-[40px] bg-[#05031F] text-[#FFFFFF] rounded-full py-6 pl-6 md:pl-[44px] xl:pl-[74px] pr-6 ' />
-
-            <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <button className='bg-[#DF0707] lg:hidden items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
-                        <Icon icon="ri:live-fill" width="24" height="24" color="#FFFFFF" className="lg:hidden" />
-                    </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[200px] p-0">
-                    <Command>
-                        <CommandList>
-                            <CommandGroup>
-                                <CommandItem onSelect={() => {
-                                    // Handle Go Live action
-                                    setOpen(false)
-                                }}>
-                                    <Icon icon="fluent:live-20-filled" width="20" height="20" color="#05031F" />
-                                    <span className="ml-2 text-[#05031F]">Go Live</span>
-                                </CommandItem>
-                                <CommandItem onSelect={() => {
-                                    handleChatOpen();
-                                    setOpen(false);
-                                }}>
-                                    <Icon icon="solar:chat-line-bold" width="24" height="24" color='#05031F' />
-                                    <span className="ml-2 text-[#05031F]">Live Chat</span>
-                                </CommandItem>
-                                <CommandItem onSelect={() => {
-                                    // Handle Notification action
-                                    setOpen(false)
-                                }}>
-                                    <Icon icon="mingcute:notification-fill" width="24" height="24" color='#05031F' />
-                                    <span className="ml-2 text-[#05031F]">Notification</span>
-                                </CommandItem>
-                                <CommandItem onSelect={() => {
-                                    // Handle Profile action
-                                    setOpen(false)
-                                }}>
-                                    <Icon icon="iconamoon:profile-fill" width="24" height="24" color='#05031F' />
-                                    <span className="ml-2 text-[#05031F]">Profile</span>
-                                </CommandItem>
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
-                </PopoverContent>
-            </Popover>
-            <div className='items-center gap-7 hidden lg:flex'>
-                <button className='bg-[#DF0707] hidden lg:flex items-center justify-center w-fit text-white text-base font-bold font-lexend px-6 py-3 rounded-full xl:ml-[56px] xl:mr-[30px] relative overflow-hidden transition-all duration-150 hover:shadow-lg group isolate before:absolute before:bg-white/30 before:content-[""] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]'>
-                    <span className=' whitespace-nowrap'>Go Live</span>
-                </button>
-                {isChatVisible && (
-                    <button onClick={handleChatOpen} className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                        <span className="relative z-10">
-                            <Icon icon="solar:chat-line-bold" width="24" height="24" color='#FFFFFF' />
-                        </span>
-                    </button>
-                )}
-                <button className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                    <span className="relative z-10">
-                        <Icon icon="si:notifications-thick-duotone" width="24" height="24" color='#FFFFFF' />
-                    </span>
-                </button>
-                <button className="bg-[#05031F] rounded-full p-3 flex items-center justify-center relative overflow-hidden transition-all duration-150 hover:shadow-lg isolate before:absolute before:bg-white/20 before:content-[''] before:h-full before:w-0 before:top-0 before:left-[50%] before:transform before:-translate-x-1/2 before:-z-10 hover:before:w-full before:transition-all before:duration-150 active:scale-[0.98]" >
-                    <span className="relative z-10">
-                        <Icon icon="iconamoon:profile-fill" width="24" height="24" color='#FFFFFF' />
-                    </span>
-                </button>
-            </div>
+        <div className="relative flex-1 max-w-2xl">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Icon icon="iconamoon:search-thin" className="w-5 h-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full h-12 pl-11 pr-4 bg-white text-gray-900 placeholder-gray-500 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+          />
         </div>
-    )
-};
+      </div>
+
+      {/* Mobile Menu */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button className="lg:hidden inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
+            <Icon icon="ri:live-fill" className="w-5 h-5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-2 shadow-lg rounded-lg border border-gray-200">
+          <Command className="rounded-lg">
+            <CommandList>
+              <CommandGroup>
+                <CommandItem
+                  onSelect={() => setOpen(false)}
+                  className="px-2 py-3 hover:bg-gray-100 rounded-md cursor-pointer"
+                >
+                  <Icon icon="fluent:live-20-filled" className="w-5 h-5 text-gray-700" />
+                  <span className="ml-3 text-gray-700">Go Live</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => {
+                    handleChatOpen()
+                    setOpen(false)
+                  }}
+                  className="px-2 py-3 hover:bg-gray-100 rounded-md cursor-pointer"
+                >
+                  <Icon icon="solar:chat-line-bold" className="w-5 h-5 text-gray-700" />
+                  <span className="ml-3 text-gray-700">Live Chat</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => setOpen(false)}
+                  className="px-2 py-3 hover:bg-gray-100 rounded-md cursor-pointer"
+                >
+                  <Icon icon="mingcute:notification-fill" className="w-5 h-5 text-gray-700" />
+                  <span className="ml-3 text-gray-700">Notification</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => setOpen(false)}
+                  className="px-2 py-3 hover:bg-gray-100 rounded-md cursor-pointer"
+                >
+                  <Icon icon="iconamoon:profile-fill" className="w-5 h-5 text-gray-700" />
+                  <span className="ml-3 text-gray-700">Profile</span>
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {/* Desktop Menu */}
+      <div className="items-center gap-4 hidden lg:flex">
+        <button className="inline-flex items-center px-6 py-2.5 text-sm font-medium bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
+          <span className="whitespace-nowrap">Go Live</span>
+        </button>
+
+        <div className="flex items-center gap-3">
+          {isChatVisible && (
+            <button
+              onClick={handleChatOpen}
+              className="relative inline-flex items-center justify-center p-2.5 text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+            >
+              <Icon icon="solar:chat-line-bold" className="w-5 h-5" />
+            </button>
+          )}
+
+          <button className="relative inline-flex items-center justify-center p-2.5 text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+            <Icon icon="si:notifications-thick-duotone" className="w-5 h-5" />
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-medium text-white">
+              3
+            </span>
+          </button>
+
+          <button className="relative inline-flex items-center justify-center p-2.5 text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+            <Icon icon="iconamoon:profile-fill" className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 SearchBar.propTypes = {
-    isSidebarOpen: PropTypes.bool.isRequired,
-    setIsSidebarOpen: PropTypes.func.isRequired,
-};
+  isSidebarOpen: PropTypes.bool.isRequired,
+  setIsSidebarOpen: PropTypes.func.isRequired,
+}
 
 export default SearchBar
+
