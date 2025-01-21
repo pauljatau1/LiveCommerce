@@ -1,20 +1,5 @@
-import { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
 import { Icon } from "@iconify/react";
-//import { useNavigation, useOutletContext } from "react-router-dom";
-{/*import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandItem,
-    CommandList,
-} from "../../Components/ui/command";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "../../Components/ui/popover";
-import { Crisp } from "crisp-sdk-web";
-import AlertNotification from '../../Components/ui/AlertNotification';*/}
 import {
     Collapsible,
     CollapsibleContent,
@@ -38,14 +23,13 @@ import Header from '../../Components/ui/Header/Header';
 import NoCatImage from '../../assets/no-cat.png';
 import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "../../Components/ui/tooltip";
-import { cn } from '../../lib/utils';
-import { useVariantContext, VariantProvider } from '../../Contexts/VariantContext'
+import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
+import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
+import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
+import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
+import VariantImageUpload from '../../Components/ui/VariantComponents/VariantImageUpload';
+import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
+import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 
 const EditProduct = () => {
     //const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
@@ -71,19 +55,8 @@ const EditProduct = () => {
             height: null
         }
     });
-    const [showVariants, setShowVariants] = useState(false);
-    const [newVariant, setNewVariant] = useState({
-        size: '',
-        price: null,
-        stock: null
-    });
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [showSizeForm, setShowSizeForm] = useState(false);
-    const [selectedSize, setSelectedSize] = useState('');
-    const [showColorForm, setShowColorForm] = useState(false);
-    const [colors, setColors] = useState([]);
-    const [newColor, setNewColor] = useState('');
     const [videos, setVideos] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -97,57 +70,10 @@ const EditProduct = () => {
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
     const [productSpecs, setProductSpecs] = useState({});
-    const [variantOptions, setVariantOptions] = useState([]);
-    const [tempOptionValues, setTempOptionValues] = useState(['']);
-    const [expandedOption, setExpandedOption] = useState(null);
-    const [expandedVariants, setExpandedVariants] = useState(new Set());
-    const [allExpanded, setAllExpanded] = useState(false);
-    const [variants, setVariants] = useState([]);
-    const [variantInputs, setVariantInputs] = useState({});
+    const { variantStructure } = useVariants();
 
-    // Define addColorVariant BEFORE using it in other hooks
-    const addColorVariant = useCallback((colorVariant) => {
-        setVariants(prev => {
-            const existingIndex = prev.findIndex(v => v.id === colorVariant.id);
-            if (existingIndex !== -1) {
-                return prev.map((variant, index) => 
-                    index === existingIndex 
-                        ? { ...variant, name: "Color", value: colorVariant.value }
-                        : variant
-                );
-            }
-            return [...prev, {
-                id: colorVariant.id,
-                name: "Color",
-                value: colorVariant.value,
-                subVariants: []
-            }];
-        });
-    }, []);
-
-    // Now we can use addColorVariant in other hooks
-    const handleDoneOption = useCallback((optionId) => {
-        const option = variantOptions.find(opt => opt.id === optionId);
-        const validValues = tempOptionValues.filter(value => value.trim() !== '');
-
-        setVariantOptions(prev => prev.map(opt =>
-            opt.id === optionId
-                ? { ...opt, isExpanded: false, values: validValues }
-                : opt
-        ));
-
-        if (option.name.toLowerCase() === 'color') {
-            validValues.forEach(value => {
-                addColorVariant({
-                    id: crypto.randomUUID(),
-                    value: value
-                });
-            });
-        }
-
-        setExpandedOption(null);
-        setTempOptionValues(['']);
-    }, [variantOptions, tempOptionValues, addColorVariant]);
+    // Create a ref to store the variant context
+    const variantContextRef = useRef(null);
 
     const handleSpecificationsChange = (specs) => {
         setProductSpecs(specs);
@@ -202,7 +128,6 @@ const EditProduct = () => {
             };
         });
     };
-
 
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
@@ -343,6 +268,49 @@ const EditProduct = () => {
         e.preventDefault();
         const formData = new FormData();
 
+        // Get variant data from the ref
+        const processedVariants = variantContextRef.current?.variantStructure?.map(mainVariant => ({
+            name: mainVariant.name,
+            value: mainVariant.value,
+            price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+            totalStock: mainVariant.subVariants.reduce((total, subVar) => 
+                total + subVar.subSubVariants.reduce((subTotal, subSubVar) => 
+                    subTotal + (parseInt(subSubVar.stock) || 0), 0
+                ), 0
+            ),
+            images: mainVariant.images.map(img => ({
+                data: img.url,
+                contentType: img.type || 'image/jpeg'
+            })) || [],
+            subVariants: mainVariant.subVariants.map(subVariant => ({
+                name: subVariant.name,
+                value: subVariant.value,
+                price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                stock: subVariant.subSubVariants.reduce((total, subSubVar) => 
+                    total + (parseInt(subSubVar.stock) || 0), 0
+                ),
+                images: subVariant.images.map(img => ({
+                    data: img.url,
+                    contentType: img.type || 'image/jpeg'
+                })) || [],
+                subSubVariants: subVariant.subSubVariants.map(subSubVariant => ({
+                    name: subSubVariant.name,
+                    value: subSubVariant.value,
+                    price: parseFloat(subSubVariant.price) || parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                    stock: parseInt(subSubVariant.stock) || 0,
+                    sku: `${skuNumber}-${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`.toUpperCase().replace(/\s+/g, '-'),
+                    images: subSubVariant.images.map(img => ({
+                        data: img.url,
+                        contentType: img.type || 'image/jpeg',
+                        isDefault: img.isDefault || false
+                    })) || []
+                }))
+            }))
+        })) || [];
+
+        console.log('Processed Variants:', JSON.stringify(processedVariants, null, 2));
+        formData.append('variants', JSON.stringify(processedVariants));
+
         // Handle main product images
         for (let i = 0; i < images.length; i++) {
             const base64Response = await fetch(images[i].url);
@@ -403,11 +371,6 @@ const EditProduct = () => {
                 }
             });
         }
-
-
-
-        // Add variants to formData
-        //formData.append('variants', JSON.stringify(processedVariants));
 
         // Validate and submit
         if (title && description && images.length > 0 && shippingDetails.pricing &&
@@ -491,555 +454,119 @@ const EditProduct = () => {
         children: PropTypes.node.isRequired
     };
 
-    const handleAddNewOption = useCallback(() => {
-        if (variantOptions.length >= 3) return;
+    // Modified VariantSection component
+    const VariantSection = memo(() => {
+        const variantContext = useVariants();
+        
+        // Store the context in the ref whenever it changes
+        useEffect(() => {
+            variantContextRef.current = variantContext;
+        }, [variantContext]);
 
-        const newOption = {
-            id: crypto.randomUUID(),
-            name: '',
-            values: [],
-            isExpanded: true
-        };
-
-        setVariantOptions([...variantOptions, newOption]);
-        setTempOptionValues(['']);
-        setExpandedOption(newOption.id);
-    }, [variantOptions]);
-
-    const handleOptionNameChange = useCallback((optionId, name) => {
-        setVariantOptions(prev => prev.map(opt =>
-            opt.id === optionId ? { ...opt, name } : opt
-        ));
-    }, []);
-
-    const handleOptionValueChange = useCallback((index, value) => {
-        setTempOptionValues(prev => {
-            const newValues = [...prev];
-            newValues[index] = value;
-            if (index === newValues.length - 1 && value !== '') {
-                newValues.push('');
-            }
-            return newValues;
-        });
-    }, []);
-
-    // Add this function to handle variant expansion
-    const toggleVariantExpansion = (variantValue) => {
-        setExpandedVariants(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(variantValue)) {
-                newSet.delete(variantValue);
-            } else {
-                newSet.add(variantValue);
-            }
-            return newSet;
-        });
-    };
-
-
-    // Individual input components for maximum performance
-    const PriceInput = memo(({ variantPath, value, onChange }) => {
-        const { updateDraft, commitDraft, getDraftValue } = useVariantContext();
-        const initialValue = getDraftValue(variantPath, 'price') || value;
-        const [localValue, setLocalValue] = useState(initialValue);
-
-        const handleChange = (e) => {
-            const newValue = e.target.value;
-            setLocalValue(newValue);
-            updateDraft(variantPath, 'price', newValue);
-        };
-
-        return (
-            <div className="w-40 relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                <Input
-                    type="text"
-                    value={localValue}
-                    onChange={handleChange}
-                    onBlur={() => commitDraft(variantPath)}
-                    placeholder="0.00"
-                    className="text-right pr-3 pl-8"
-                />
-            </div>
-        );
-    });
-    PriceInput.displayName = 'PriceInput';
-
-    const StockInput = memo(({ variantPath, value, onChange }) => {
-        const { updateDraft, commitDraft, getDraftValue } = useVariantContext();
-        const initialValue = getDraftValue(variantPath, 'stock') || value;
-        const [localValue, setLocalValue] = useState(initialValue);
-
-        const handleChange = (e) => {
-            const newValue = e.target.value;
-            setLocalValue(newValue);
-            updateDraft(variantPath, 'stock', newValue);
-        };
-
-        return (
-            <Input
-                type="text"
-                value={localValue}
-                onChange={handleChange}
-                onBlur={() => commitDraft(variantPath)}
-                placeholder="stock"
-                className="w-20 text-center"
-            />
-        );
-    });
-    StockInput.displayName = 'StockInput';
-
-    const StockDisplay = memo(({ value }) => {
-        return (
-            <div className="w-20 h-10 bg-[#05031F]/10 flex items-center justify-center rounded-lg text-[#05031F]/50">
-                {value || 0}
-            </div>
-        );
-    });
-    StockDisplay.displayName = 'StockDisplay';
-
-    const ImageUploadSection = memo(({ images, onUpload, onRemove }) => {
-        return (
-            <div className="flex items-center gap-2">
-                <div className="flex gap-2">
-                    {images?.map((image, index) => (
-                        <div key={index} className="relative w-12 h-12">
-                            <img
-                                src={image.data}
-                                alt={`Variant ${index + 1}`}
-                                className="w-full h-full object-cover rounded-lg"
-                            />
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemove(index);
-                                }}
-                                className="absolute -top-1 -right-1 bg-white rounded-full p-0.5"
-                            >
-                                <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
-                    <label className="w-12 h-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50">
-                        <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                onUpload(e);
-                            }}
-                        />
-                        <Icon icon="solar:gallery-add-bold" className="w-6 h-6 text-gray-400" />
-                        <span className="text-[10px] text-gray-400">Upload</span>
-                    </label>
-                </div>
-            </div>
-        );
-    });
-    ImageUploadSection.displayName = 'ImageUploadSection';
-
-    // Update VariantGroupHeader to use the new components
-    const VariantGroupHeader = memo(({ variant, onToggle, isExpanded }) => {
+        const [showAddOption, setShowAddOption] = useState(false);
+        const [editingVariantId, setEditingVariantId] = useState(null);
         const {
-            getTotalStock
-        } = useVariantContext();
+            options,
+            deleteOption,
+            setOptions,
+            updateVariantValue,
+        } = useVariants();
 
-        // Memoize these values to prevent unnecessary re-renders
-        const totalStock = useMemo(() => getTotalStock(variant.value), [getTotalStock, variant.value]);
+        const handleDone = useCallback(() => {
+            setShowAddOption(false);
+            setEditingVariantId(null);
+        }, []);
 
-        // Memoize the input handler
-        const handleInputChange = useCallback((field, value) => {
-            setVariantInputs(prev => ({
-                ...prev,
-                [variant.value]: {
-                    ...prev[variant.value],
-                    [field]: value
-                }
-            }));
-        }, [variant.value]);
+        const handleDeleteOption = useCallback((optionId) => {
+            const optionIndex = options.findIndex(opt => opt.id === optionId);
 
-        // Keep ALL existing image handling code
-        const handleVariantImageUpload = async (e, variantPath) => {
-            const files = Array.from(e.target.files);
-            const images = await Promise.all(files.map(file => {
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve({
-                        data: reader.result,
-                        contentType: file.type,
-                        isDefault: false
-                    });
-                    reader.readAsDataURL(file);
-                });
-            }));
-
-            if (images.length > 0) {
-                images[0].isDefault = true;
+            // If deleting a subvariant (size), remove both size and material cards
+            if (optionIndex === 1) {
+                // Remove both size and material options
+                setOptions(prev => prev.slice(0, 1)); // Keep only the first option (color)
+                deleteOption(optionId); // Also call deleteOption to update variant combinations
+            } else {
+                deleteOption(optionId);
             }
-
-            setVariantInputs(prev => ({
-                ...prev,
-                [variantPath]: {
-                    ...prev[variantPath],
-                    images
-                }
-            }));
-        };
-
-        const handleVariantImageRemove = async (index, variantPath) => {
-            setVariantInputs(prev => {
-                const currentImages = prev[variantPath]?.images || [];
-                const updatedImages = currentImages.filter((_, i) => i !== index);
-
-                if (updatedImages.length > 0) {
-                    updatedImages[0].isDefault = true;
-                }
-
-                return {
-                    ...prev,
-                    [variantPath]: {
-                        ...prev[variantPath],
-                        images: updatedImages
-                    }
-                };
-            });
-        };
-
-        // Memoize all subvariant details outside the map
-        const subVariantDetails = useMemo(() =>
-            variant.subVariants?.reduce((acc, subVariant) => {
-                const path = `${variant.value}${`_${subVariant[1]}`}${subVariant[2] ? `_${subVariant[2]}` : ''}`;
-                acc[path] = variantInputs[path] || {};
-                return acc;
-            }, {}),
-            [variant.subVariants, variant.value, variantInputs]
-        );
+            updateVariantValue(optionId, null, null);
+        }, [deleteOption, updateVariantValue, options, setOptions]);
 
         return (
-            <div className="space-y-2">
-                {/* Main variant row */}
-                <div className="flex flex-wrap w-full items-center gap-4 p-3 border rounded-lg">
-                    <input type="checkbox" className="w-4 h-4" onClick={e => e.stopPropagation()} />
-                    {/* Image upload for main variant */}
-                    <ImageUploadSection
-                        images={variantInputs[variant.value]?.images}
-                        onUpload={(e) => handleVariantImageUpload(e, variant.value)}
-                        onRemove={(index) => handleVariantImageRemove(index, variant.value)}
-                    />
-                    <div className="flex flex-grow flex-wrap justify-between items-center gap-4">
-                        <div className={cn(
-                            "flex items-center gap-2 md:gap-4 flex-1",
-                            variant.subVariants?.length > 0 && "cursor-pointer"
-                        )} onClick={() => variant.subVariants?.length > 0 && onToggle(variant.value)}>
-                            <div>
-                                <div className="font-medium">{variant.value}</div>
-                                {variant.subVariants?.length > 0 && (
-                                    <div className="text-sm text-gray-500">
-                                        {variant.subVariants.length} variants {isExpanded ? '▼' : '▶'}
-                                    </div>
-                                )}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Variants (Optional)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {options.length === 0 && !showAddOption ? (
+                        // Initial empty state
+                        <>
+                            <div className="text-center py-8">
+                                <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
+                                <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
                             </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-4" onClick={e => e.stopPropagation()}>
-                            <PriceInput
-                                variantPath={variant.value}
-                                value={subVariantDetails.price || ''}
-                                onChange={(e) => handleInputChange('price', e.target.value)}
-                            />
-                            <StockDisplay value={totalStock} />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Sub-variants section */}
-                {variant.subVariants?.length > 0 && isExpanded && (
-                    <div className="pl-8 space-y-2">
-                        {variant.subVariants.map((subVariant, index) => {
-                            const subVariantPath = `${variant.value}${`_${subVariant[1]}`}${subVariant[2] ? `_${subVariant[2]}` : ''}`;
-                            const subDetails = subVariantDetails[subVariantPath];
-
-                            return (
-                                <div key={index} className="flex flex-wrap items-center gap-4 p-3 bg-white border rounded-lg">
-                                    <input type="checkbox" className="w-4 h-4" />
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <ImageUploadSection
-                                            images={variantInputs[subVariantPath]?.images}
-                                            onUpload={(e) => handleVariantImageUpload(e, subVariantPath)}
-                                            onRemove={(index) => handleVariantImageRemove(index, subVariantPath)}
-                                        />
-                                        <span>{`${subVariant[1]} ${subVariant[2] ? `/ ${subVariant[2]}` : ''}`}</span>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <PriceInput
-                                            variantPath={subVariantPath}
-                                            value={subDetails.price || ''}
-                                            onChange={(e) => handleInputChange('price', e.target.value)}
-                                        />
-                                        <StockInput
-                                            variantPath={subVariantPath}
-                                            value={subDetails.stock || ''}
-                                            onChange={(e) => handleInputChange('stock', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-        );
-    });
-    VariantGroupHeader.displayName = 'VariantGroupHeader';
-
-    VariantGroupHeader.propTypes = {
-        variant: PropTypes.object.isRequired,
-        onToggle: PropTypes.func.isRequired,
-        isExpanded: PropTypes.bool.isRequired
-    };
-
-    // Add function to handle expand/close all
-    const handleExpandAll = () => {
-        if (allExpanded) {
-            // Close all variants
-            setExpandedVariants(new Set());
-        } else {
-            // Expand all variants that have sub-variants
-            const variantsToExpand = variantOptions[0]?.values
-                .filter(value => variantOptions[1]?.values?.length > 0);
-            setExpandedVariants(new Set(variantsToExpand));
-        }
-        setAllExpanded(!allExpanded);
-    };
-
-    // Add this function to check if all variant combinations have values
-    const areAllVariantsFilled = useCallback(() => {
-        // Check each variant in variantInputs
-        return Object.entries(variantInputs).every(([_, details]) => {
-            return (
-                details.price &&
-                Number(details.price) > 0 &&
-                details.stock &&
-                Number(details.stock) > 0
-            );
-        });
-    }, []);
-
-
-    // Memoized input handlers
-    const handleVariantInputChange = useCallback((variantPath, field, value) => {
-        setVariantInputs(prev => ({
-            ...prev,
-            [variantPath]: {
-                ...prev[variantPath],
-                [field]: value
-            }
-        }));
-    }, []);
-
-    // Memoized variant handlers
-    const addSizeVariant = useCallback((colorId, sizeVariant) => {
-        setVariants(prev => prev.map(colorVar => {
-            if (colorVar.id === colorId) {
-                return {
-                    ...colorVar,
-                    subVariants: [...(colorVar.subVariants || []), {
-                        id: sizeVariant.id,
-                        name: "Size",
-                        value: sizeVariant.value,
-                        subSubVariants: []
-                    }]
-                };
-            }
-            return colorVar;
-        }));
-    }, []);
-
-    const addMaterialVariant = useCallback((colorId, sizeId, materialVariant) => {
-        setVariants(prev => prev.map(colorVar => {
-            if (colorVar.id === colorId) {
-                return {
-                    ...colorVar,
-                    subVariants: colorVar.subVariants.map(sizeVar => {
-                        if (sizeVar.id === sizeId) {
-                            return {
-                                ...sizeVar,
-                                subSubVariants: [...(sizeVar.subSubVariants || []), {
-                                    id: materialVariant.id,
-                                    name: "Material",
-                                    value: materialVariant.value
-                                }]
-                            };
-                        }
-                        return sizeVar;
-                    })
-                };
-            }
-            return colorVar;
-        }));
-    }, []);
-
-    // Memoized input component to prevent re-renders
-    const VariantInput = memo(({ variantPath, field, value, onChange }) => {
-        const handleChange = useCallback((e) => {
-            onChange(variantPath, field, e.target.value);
-        }, [variantPath, field, onChange]);
-
-        return (
-            <input
-                type="number"
-                value={value || ''}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded"
-            />
-        );
-    });
-
-    // Transform variants for API submission
-    const transformVariantsForSubmission = useCallback(() => {
-        return variants.map(colorVar => ({
-            name: "Color",
-            value: colorVar.value,
-            price: Number(variantInputs[colorVar.value]?.price || 0),
-            totalStock: colorVar.subVariants.reduce((total, sizeVar) =>
-                total + Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.stock || 0), 0),
-            images: variantInputs[colorVar.value]?.images || [],
-            subVariants: colorVar.subVariants.map(sizeVar => ({
-                name: "Size",
-                value: sizeVar.value,
-                price: Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.price || 0),
-                stock: Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.stock || 0),
-                images: variantInputs[`${colorVar.value}_${sizeVar.value}`]?.images || [],
-                subSubVariants: (sizeVar.subSubVariants || []).map(materialVar => ({
-                    name: "Material",
-                    value: materialVar.value,
-                    price: Number(variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.price || 0),
-                    stock: Number(variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.stock || 0),
-                    sku: `SWT-${colorVar.value}-${sizeVar.value}-${materialVar.value}`.toUpperCase(),
-                    images: variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.images || []
-                }))
-            }))
-        }));
-    }, [variants, variantInputs]);
-
-    // Handle form submission
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const productData = {
-            name: title,
-            description,
-            price: Number(shippingDetails.pricing),
-            category: selectedCategory,
-            subCategory: selectedSubCategory,
-            brand,
-            modelNumber: skuNumber,
-            stock: Number(shippingDetails.inventory),
-            variants: transformVariantsForSubmission()
-        };
-
-        // Your existing submission logic
-    };
-
-    // Memoized variant row components
-    const VariantRow = memo(({
-        variant,
-        variantPath,
-        variantInputs,
-        onInputChange,
-        level = 0
-    }) => {
-        const inputValue = variantInputs[variantPath] || {};
-
-        const handlePriceChange = useCallback((e) => {
-            onInputChange(variantPath, 'price', e.target.value);
-        }, [variantPath, onInputChange]);
-
-        const handleStockChange = useCallback((e) => {
-            onInputChange(variantPath, 'stock', e.target.value);
-        }, [variantPath, onInputChange]);
-
-        return (
-            <div className={`flex items-center gap-4 p-4 ${level > 0 ? 'pl-' + (level * 8) : ''}`}>
-                <div className="flex items-center gap-2 flex-1">
-                    <input type="checkbox" className="form-checkbox" />
-                    <div className="upload-placeholder w-12 h-12" />
-                    <span>{variant.value}</span>
-                </div>
-                <input
-                    type="number"
-                    value={inputValue.price || ''}
-                    onChange={handlePriceChange}
-                    className="w-32 px-3 py-2 border rounded"
-                    placeholder="Price"
-                />
-                <input
-                    type="number"
-                    value={inputValue.stock || ''}
-                    onChange={handleStockChange}
-                    className="w-24 px-3 py-2 border rounded"
-                    placeholder="Stock"
-                />
-            </div>
-        );
-    });
-
-    // Memoized variant section component
-    const VariantSection = memo(({
-        variants,
-        variantInputs,
-        onInputChange
-    }) => {
-        return (
-            <div className="variant-combinations">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Variant Combinations</h3>
-                    <div className="flex items-center gap-4">
-                        <span>Price</span>
-                        <span>Available</span>
-                    </div>
-                </div>
-
-                {variants.map(colorVar => (
-                    <div key={colorVar.id} className="variant-group">
-                        {/* Color variant row */}
-                        <VariantRow
-                            variant={colorVar}
-                            variantPath={colorVar.value}
-                            variantInputs={variantInputs}
-                            onInputChange={onInputChange}
-                        />
-
-                        {/* Size variants */}
-                        {colorVar.subVariants?.map(sizeVar => (
-                            <div key={sizeVar.id}>
-                                <VariantRow
-                                    variant={sizeVar}
-                                    variantPath={`${colorVar.value}_${sizeVar.value}`}
-                                    variantInputs={variantInputs}
-                                    onInputChange={onInputChange}
-                                    level={1}
-                                />
-
-                                {/* Material variants */}
-                                {sizeVar.subSubVariants?.map(materialVar => (
-                                    <VariantRow
-                                        key={materialVar.id}
-                                        variant={materialVar}
-                                        variantPath={`${colorVar.value}_${sizeVar.value}_${materialVar.value}`}
-                                        variantInputs={variantInputs}
-                                        onInputChange={onInputChange}
-                                        level={2}
+                            <Button
+                                onClick={() => setShowAddOption(true)}
+                                className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white w-full md:w-auto"
+                            >
+                                <Icon icon="simple-line-icons:plus" className="w-4 h-4 mr-2" />
+                                Add options like size or color
+                            </Button>
+                        </>
+                    ) : (
+                        <div className="space-y-4">
+                            {/* Show existing variant cards */}
+                            {options.map(option => (
+                                editingVariantId === option.id ? (
+                                    <VariantOptions
+                                        key={option.id}
+                                        onDone={() => setEditingVariantId(null)}
+                                        editingVariant={option}
                                     />
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-                ))}
-            </div>
+                                ) : (
+                                    <VariantCard
+                                        key={option.id}
+                                        variant={option}
+                                        onEdit={() => setEditingVariantId(option.id)}
+                                        onDelete={() => handleDeleteOption(option.id)}
+                                    />
+                                )
+                            ))}
+
+                            {/* Show AddOptionCard when adding new option */}
+                            {showAddOption && (
+                                <AddOptionCard onDone={handleDone} />
+                            )}
+
+                            {/* Show add another option button if not currently adding */}
+                            {!showAddOption && options.length < 3 && (
+                                <button
+                                    onClick={() => setShowAddOption(true)}
+                                    className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 bg-[#FFFFFF]/90 border border-gray-300 text-gray-500 hover:bg-[#FFFFFF]/80 hover:border-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out"
+                                >
+                                    <Icon icon="simple-line-icons:plus" className="w-4 h-4" />
+                                    Add another option
+                                </button>
+                            )}
+
+                            {/* Show combinations if options exist */}
+                            {options.length > 0 && (
+                                <>
+                                    <div className="hidden md:block mt-6">
+                                        <VariantCombinations />
+                                    </div>
+                                    <div className="md:hidden mt-6">
+                                        <VariantCombinationsMobile />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         );
     });
+
+    VariantSection.displayName = 'VariantSection';
 
     return (
         <>
@@ -1322,203 +849,9 @@ const EditProduct = () => {
                                             </Card>
 
                                             {/* Variants Section */}
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Variants (Optional)</CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {variantOptions.length === 0 ? (
-                                                        <>
-                                                            <div className="text-center py-8">
-                                                                <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
-                                                                <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
-                                                            </div>
-                                                            <Button
-                                                                onClick={() => {
-                                                                    if (!areAllVariantsFilled()) {
-                                                                        toast.error('Please fill in all variant prices and stock values before adding another option', {
-                                                                            description: "All variants must have price and stock values"
-                                                                        });
-                                                                        return;
-                                                                    }
-                                                                    handleAddNewOption();
-                                                                }}
-                                                                variant="outline"
-                                                                className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white"
-                                                                disabled={!areAllVariantsFilled()}
-                                                            >
-                                                                <Icon icon="simple-line-icons:plus" className="w-4 h-4 mr-2" />
-                                                                Add options like size or color
-                                                            </Button>
-                                                        </>
-                                                    ) : (
-                                                        <div className="space-y-4">
-                                                            {variantOptions.map((option, optionIndex) => (
-                                                                <div key={option.id} className="border rounded-lg p-4">
-                                                                    <h3 className="font-medium font-cabin text-base mb-3">
-                                                                        {optionIndex === 0 ? "Main Variant" :
-                                                                            optionIndex === 1 ? "Sub-Variant" :
-                                                                                "Sub-Sub-Variant"}
-                                                                    </h3>
-
-                                                                    {option.isExpanded || expandedOption === option.id ? (
-                                                                        <>
-                                                                            <div className="space-y-4">
-                                                                                <div>
-                                                                                    <Label>Option name</Label>
-                                                                                    <Input
-                                                                                        value={option.name}
-                                                                                        onChange={(e) => handleOptionNameChange(option.id, e.target.value)}
-                                                                                        placeholder="Enter option name (e.g. Size, Color)"
-                                                                                        className="mt-2"
-                                                                                    />
-                                                                                </div>
-
-                                                                                <div>
-                                                                                    <Label>Option values</Label>
-                                                                                    {tempOptionValues.map((value, index) => (
-                                                                                        <div key={index} className="flex items-center gap-2 mt-2">
-                                                                                            <Input
-                                                                                                value={value}
-                                                                                                onChange={(e) => handleOptionValueChange(index, e.target.value)}
-                                                                                                placeholder="Enter option value"
-                                                                                            />
-                                                                                            {index < tempOptionValues.length - 1 && (
-                                                                                                <Button
-                                                                                                    variant="ghost"
-                                                                                                    size="icon"
-                                                                                                    onClick={() => handleDoneOption(option.id)}
-                                                                                                >
-                                                                                                    <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5" />
-                                                                                                </Button>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            <div className="flex justify-between mt-4">
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    className="text-red-500"
-                                                                                    onClick={() => handleDeleteOption(option.id)}
-                                                                                >
-                                                                                    Delete
-                                                                                </Button>
-                                                                                <Button
-                                                                                    onClick={() => handleDoneOption(option.id)}
-                                                                                    className="bg-[#05031F] text-white"
-                                                                                >
-                                                                                    Done
-                                                                                </Button>
-                                                                            </div>
-                                                                        </>
-                                                                    ) : (
-                                                                        <div
-                                                                            className="cursor-pointer"
-                                                                            onClick={() => handleExpandOption(option.id)}
-                                                                        >
-                                                                            <p className="font-medium">{option.name}</p>
-                                                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                                                {option.values.map((value, index) => (
-                                                                                    <span
-                                                                                        key={index}
-                                                                                        className="px-2 py-1 bg-gray-100 rounded-full text-sm"
-                                                                                    >
-                                                                                        {value}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-
-                                                            {variantOptions.length < 3 && (
-                                                                <Button
-                                                                    onClick={() => {
-                                                                        if (!areAllVariantsFilled()) {
-                                                                            toast.error('Please fill in all variant prices and stock values before adding another option', {
-                                                                                description: "All variants must have price and stock values"
-                                                                            });
-                                                                            return;
-                                                                        }
-                                                                        handleAddNewOption();
-                                                                    }}
-                                                                    variant="outline"
-                                                                    className="w-full mt-4"
-                                                                    disabled={!areAllVariantsFilled()}
-                                                                >
-                                                                    Add another option
-                                                                </Button>
-                                                            )}
-
-                                                            {/* Variant Combinations */}
-                                                            {variantOptions.length > 0 && (
-                                                                <div className="mt-8">
-                                                                    <div className="flex items-center justify-between flex-wrap mb-4">
-                                                                        <h3 className="font-medium font-cabin text-base">Variant Combinations</h3>
-                                                                        {/*<div className="flex items-center gap-2">
-                                                                            <span className="text-sm text-gray-500">Group by</span>
-                                                                            <Select defaultValue={variantOptions[0]?.name?.toLowerCase() || 'variant'}>
-                                                                                <SelectTrigger className="w-[120px]">
-                                                                                    <SelectValue />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {variantOptions.map(option => (
-                                                                                        <SelectItem 
-                                                                                            key={option.id}
-                                                                                            value={option.name?.toLowerCase() || `variant-${option.id}`}
-                                                                                        >
-                                                                                            {option.name || 'Variant'}
-                                                                                        </SelectItem>
-                                                                                    ))}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </div>*/}
-                                                                    </div>
-
-                                                                    <div className="space-y-2">
-                                                                        {/* Header */}
-                                                                        <div className="hidden md:flex items-center gap-4 px-3 py-2 text-sm text-gray-500">
-                                                                            <input type="checkbox" className="w-4 h-4 opacity-0" />
-                                                                            <button
-                                                                                onClick={handleExpandAll}
-                                                                                className="flex-1 text-left whitespace-nowrap  cursor-pointer"
-                                                                            >
-                                                                                Variant
-                                                                                <span className="whitespace-nowrap hover:underline hover:underline-offset-4 "> {allExpanded ? '· Close all' : '· Expand all'}</span>
-                                                                            </button>
-                                                                            <span className="w-40 text-right">Price</span>
-                                                                            <span className="w-20 text-center">Available</span>
-                                                                        </div>
-
-                                                                        {/* Main variants with sub-variants */}
-                                                                        {variantOptions[0]?.values.map((value) => {
-                                                                            // Check if there are any sub-variant values
-                                                                            const hasSubVariants = variantOptions[1]?.values?.length > 0;
-
-                                                                            return (
-                                                                                <VariantGroupHeader
-                                                                                    key={value}
-                                                                                    variant={{
-                                                                                        value,
-                                                                                        // Only include subVariants if they exist
-                                                                                        subVariants: hasSubVariants ? generateVariantCombinations()
-                                                                                            .filter(combo => combo[0] === value) : []
-                                                                                    }}
-                                                                                    onToggle={toggleVariantExpansion}
-                                                                                    isExpanded={expandedVariants.has(value)}
-                                                                                />
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
+                                            <VariantsProvider>
+                                                <VariantSection />
+                                            </VariantsProvider>
 
                                             {/* Blips Section */}
                                             <Card>
@@ -1614,7 +947,7 @@ const EditProduct = () => {
 
                                     <CollapsibleContent className="p-4 space-y-4">
                                         <div className="space-y-2">
-                                            <Label>Status</Label>
+                                            <Label>Upload Status</Label>
                                             <Select
                                                 value={productStatus}
                                                 onValueChange={setProductStatus}
@@ -1800,8 +1133,7 @@ const EditProduct = () => {
                         {/* Bottom Action Buttons */}
                         <div className="flex flex-wrap justify-end gap-4 mt-6">
                             <Button variant="outline">Cancel</Button>
-                            <Button variant="outline">Save Draft</Button>
-                            <Button onClick={handleSubmit} className="bg-[#05031F]">
+                            <Button onClick={handleSubmitProduct} className="bg-[#05031F]">
                                 {
                                     isLoading ? 'Publishing...' : 'Publish Product'
                                 }

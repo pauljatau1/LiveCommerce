@@ -33,13 +33,14 @@ import OrderDetails from './Pages/Orders/OrderDetails';
 import OrdersDashboard from './Pages/Orders/Orders';
 import CookieConsent from './Components/CookieConsent';
 import MarketingPage from './Pages/MarketingPage/MarketingPage';
-import { VariantProvider } from './Contexts/VariantContext';
+import { VariantsProvider } from './Contexts/VariantContext';
 import Payout from './Pages/payout/Payout';
 import Messages from './Pages/messages/messages';
 import { SocketProvider } from './Contexts/SocketContext';
 import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
 import EditProduct from './Pages/ProductsPage/EditProduct';
 import LiveStream from './Pages/LiveStream/LiveStream';
+import DashboardRoute from './Components/DashboardRoute';
 
 
 
@@ -49,15 +50,15 @@ import LiveStream from './Pages/LiveStream/LiveStream';
 const router = createBrowserRouter([
   {
     element: (
-      <SocketProvider>
-        <AuthProvider>
-          <ProtectedRoute>
+      <AuthProvider>
+        <ProtectedRoute>
+          <SocketProvider>
             <OnboardingProvider>
               <AppLayout />
             </OnboardingProvider>
-          </ProtectedRoute>
-        </AuthProvider>
-      </SocketProvider>
+          </SocketProvider>
+        </ProtectedRoute>
+      </AuthProvider>
     ),
     errorElement: <NotFoundPage />,
 
@@ -137,9 +138,13 @@ const router = createBrowserRouter([
       {
         path: '/dashboard',
         element: (
-          <ProductProvider>
-            <DashboardLayout />
-          </ProductProvider>
+          <ProtectedRoute>
+            <DashboardRoute>
+              <ProductProvider>
+                <DashboardLayout />
+              </ProductProvider>
+            </DashboardRoute>
+          </ProtectedRoute>
         ),
         loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
         errorElement: <NotFoundPage />,
@@ -179,18 +184,18 @@ const router = createBrowserRouter([
           {
             path: 'add-products',
             element: (
-              <VariantProvider>
+              <VariantsProvider>
                 <AddProduct />
-              </VariantProvider>
+              </VariantsProvider>
             ),
             errorElement: <NotFoundPage />
           },
           {
             path: 'edit-product/:id',
             element: (
-              <VariantProvider>
+              <VariantsProvider>
                 <EditProduct />
-              </VariantProvider>
+              </VariantsProvider>
             ),
             errorElement: <NotFoundPage />
           },
