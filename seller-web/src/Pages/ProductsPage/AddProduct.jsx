@@ -1,20 +1,5 @@
-import { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
 import { Icon } from "@iconify/react";
-//import { useNavigation, useOutletContext } from "react-router-dom";
-{/*import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandItem,
-    CommandList,
-} from "../../Components/ui/command";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "../../Components/ui/popover";
-import { Crisp } from "crisp-sdk-web";
-import AlertNotification from '../../Components/ui/AlertNotification';*/}
 import {
     Collapsible,
     CollapsibleContent,
@@ -38,13 +23,6 @@ import Header from '../../Components/ui/Header/Header';
 import NoCatImage from '../../assets/no-cat.png';
 import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "../../Components/ui/tooltip";
-import { cn } from '../../lib/utils';
 import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
 import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
 import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
@@ -77,19 +55,8 @@ const AddProduct = () => {
             height: null
         }
     });
-    const [showVariants, setShowVariants] = useState(false);
-    const [newVariant, setNewVariant] = useState({
-        size: '',
-        price: null,
-        stock: null
-    });
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [showSizeForm, setShowSizeForm] = useState(false);
-    const [selectedSize, setSelectedSize] = useState('');
-    const [showColorForm, setShowColorForm] = useState(false);
-    const [colors, setColors] = useState([]);
-    const [newColor, setNewColor] = useState('');
     const [videos, setVideos] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -103,66 +70,10 @@ const AddProduct = () => {
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
     const [productSpecs, setProductSpecs] = useState({});
-    const [variantOptions, setVariantOptions] = useState({
-        main: { name: '', values: [] },
-        sub: { name: '', values: [] }
-    });
-    const [variantCombinations, setVariantCombinations] = useState([]);
-    const [tempOptionValues, setTempOptionValues] = useState(['']);
-    const [expandedOption, setExpandedOption] = useState(null);
-    const [expandedVariants, setExpandedVariants] = useState(new Set());
-    const [allExpanded, setAllExpanded] = useState(false);
-    const [variants, setVariants] = useState([]);
-    const [variantInputs, setVariantInputs] = useState({});
-    const [showOptions, setShowOptions] = useState(false);
-    const [editingVariant, setEditingVariant] = useState(null);
-    const { options, deleteOption, tempInputs, updateVariantValue, toggleExpanded, areAllVariantsFilled, variantStructure } = useVariants();
-    const [showAddOption, setShowAddOption] = useState(false);
-    const [editingVariantId, setEditingVariantId] = useState(null);
+    const { variantStructure } = useVariants();
 
-    // Define addColorVariant BEFORE using it in other hooks
-    const addColorVariant = useCallback((colorVariant) => {
-        setVariants(prev => {
-            const existingIndex = prev.findIndex(v => v.id === colorVariant.id);
-            if (existingIndex !== -1) {
-                return prev.map((variant, index) =>
-                    index === existingIndex
-                        ? { ...variant, name: "Color", value: colorVariant.value }
-                        : variant
-                );
-            }
-            return [...prev, {
-                id: colorVariant.id,
-                name: "Color",
-                value: colorVariant.value,
-                subVariants: []
-            }];
-        });
-    }, []);
-
-    // Now we can use addColorVariant in other hooks
-    const handleDoneOption = useCallback((optionId) => {
-        const option = variantOptions.find(opt => opt.id === optionId);
-        const validValues = tempOptionValues.filter(value => value.trim() !== '');
-
-        setVariantOptions(prev => prev.map(opt =>
-            opt.id === optionId
-                ? { ...opt, isExpanded: false, values: validValues }
-                : opt
-        ));
-
-        if (option.name.toLowerCase() === 'color') {
-            validValues.forEach(value => {
-                addColorVariant({
-                    id: crypto.randomUUID(),
-                    value: value
-                });
-            });
-        }
-
-        setExpandedOption(null);
-        setTempOptionValues(['']);
-    }, [variantOptions, tempOptionValues, addColorVariant]);
+    // Create a ref to store the variant context
+    const variantContextRef = useRef(null);
 
     const handleSpecificationsChange = (specs) => {
         setProductSpecs(specs);
@@ -217,7 +128,6 @@ const AddProduct = () => {
             };
         });
     };
-
 
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
@@ -358,51 +268,47 @@ const AddProduct = () => {
         e.preventDefault();
         const formData = new FormData();
 
-        // Process variants data to match the required JSON structure
-        const processVariants = () => {
-            return variantStructure.map(mainVariant => ({
-                name: mainVariant.name,
-                value: mainVariant.value,
-                price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing), // Use main product price as fallback
-                totalStock: mainVariant.subVariants.reduce((total, subVar) => 
-                    total + subVar.subSubVariants.reduce((subTotal, subSubVar) => 
-                        subTotal + (parseInt(subSubVar.stock) || 0), 0
-                    ), 0
+        // Get variant data from the ref
+        const processedVariants = variantContextRef.current?.variantStructure?.map(mainVariant => ({
+            name: mainVariant.name,
+            value: mainVariant.value,
+            price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+            totalStock: mainVariant.subVariants.reduce((total, subVar) => 
+                total + subVar.subSubVariants.reduce((subTotal, subSubVar) => 
+                    subTotal + (parseInt(subSubVar.stock) || 0), 0
+                ), 0
+            ),
+            images: mainVariant.images.map(img => ({
+                data: img.url,
+                contentType: img.type || 'image/jpeg'
+            })) || [],
+            subVariants: mainVariant.subVariants.map(subVariant => ({
+                name: subVariant.name,
+                value: subVariant.value,
+                price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                stock: subVariant.subSubVariants.reduce((total, subSubVar) => 
+                    total + (parseInt(subSubVar.stock) || 0), 0
                 ),
-                images: mainVariant.images.map(img => ({
+                images: subVariant.images.map(img => ({
                     data: img.url,
                     contentType: img.type || 'image/jpeg'
                 })) || [],
-                subVariants: mainVariant.subVariants.map(subVariant => ({
-                    name: subVariant.name,
-                    value: subVariant.value,
-                    price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                    stock: subVariant.subSubVariants.reduce((total, subSubVar) => 
-                        total + (parseInt(subSubVar.stock) || 0), 0
-                    ),
-                    images: subVariant.images.map(img => ({
+                subSubVariants: subVariant.subSubVariants.map(subSubVariant => ({
+                    name: subSubVariant.name,
+                    value: subSubVariant.value,
+                    price: parseFloat(subSubVariant.price) || parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                    stock: parseInt(subSubVariant.stock) || 0,
+                    sku: `${skuNumber}-${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`.toUpperCase().replace(/\s+/g, '-'),
+                    images: subSubVariant.images.map(img => ({
                         data: img.url,
-                        contentType: img.type || 'image/jpeg'
-                    })) || [],
-                    subSubVariants: subVariant.subSubVariants.map(subSubVariant => ({
-                        name: subSubVariant.name,
-                        value: subSubVariant.value,
-                        price: parseFloat(subSubVariant.price) || parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                        stock: parseInt(subSubVariant.stock) || 0,
-                        sku: `${skuNumber}-${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`.toUpperCase().replace(/\s+/g, '-'),
-                        images: subSubVariant.images.map(img => ({
-                            data: img.url,
-                            contentType: img.type || 'image/jpeg',
-                            isDefault: img.isDefault || false
-                        })) || []
-                    }))
+                        contentType: img.type || 'image/jpeg',
+                        isDefault: img.isDefault || false
+                    })) || []
                 }))
-            }));
-        };
+            }))
+        })) || [];
 
-        // Process and append variants
-        const processedVariants = processVariants();
-        console.log('Processed Variants:', JSON.stringify(processedVariants, null, 2)); // For verification
+        console.log('Processed Variants:', JSON.stringify(processedVariants, null, 2));
         formData.append('variants', JSON.stringify(processedVariants));
 
         // Handle main product images
@@ -548,438 +454,22 @@ const AddProduct = () => {
         children: PropTypes.node.isRequired
     };
 
-    const handleAddNewOption = useCallback(() => {
-        if (variantOptions.length >= 3) return;
-
-        const newOption = {
-            id: crypto.randomUUID(),
-            name: '',
-            values: [],
-            isExpanded: true
-        };
-
-        setVariantOptions([...variantOptions, newOption]);
-        setTempOptionValues(['']);
-        setExpandedOption(newOption.id);
-    }, [variantOptions]);
-
-    const handleOptionNameChange = useCallback((optionId, name) => {
-        setVariantOptions(prev => prev.map(opt =>
-            opt.id === optionId ? { ...opt, name } : opt
-        ));
-    }, []);
-
-    const handleOptionValueChange = useCallback((index, value) => {
-        setTempOptionValues(prev => {
-            const newValues = [...prev];
-            newValues[index] = value;
-            if (index === newValues.length - 1 && value !== '') {
-                newValues.push('');
-            }
-            return newValues;
-        });
-    }, []);
-
-    // Add this function to handle variant expansion
-    const toggleVariantExpansion = (variantValue) => {
-        setExpandedVariants(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(variantValue)) {
-                newSet.delete(variantValue);
-            } else {
-                newSet.add(variantValue);
-            }
-            return newSet;
-        });
-    };
-
-
-    // Individual input components for maximum performance
-    const PriceInput = memo(({ variantPath, value, onChange }) => {
-        const { updateDraft, commitDraft, getDraftValue } = useVariants();
-        const initialValue = getDraftValue(variantPath, 'price') || value;
-        const [localValue, setLocalValue] = useState(initialValue);
-
-        const handleChange = (e) => {
-            const newValue = e.target.value;
-            setLocalValue(newValue);
-            updateDraft(variantPath, 'price', newValue);
-        };
-
-        return (
-            <div className="w-40 relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                <Input
-                    type="text"
-                    value={localValue}
-                    onChange={handleChange}
-                    onBlur={() => commitDraft(variantPath)}
-                    placeholder="0.00"
-                    className="text-right pr-3 pl-8"
-                />
-            </div>
-        );
-    });
-    PriceInput.displayName = 'PriceInput';
-
-    const StockInput = memo(({ variantPath, value, onChange }) => {
-        const { updateDraft, commitDraft, getDraftValue } = useVariants();
-        const initialValue = getDraftValue(variantPath, 'stock') || value;
-        const [localValue, setLocalValue] = useState(initialValue);
-
-        const handleChange = (e) => {
-            const newValue = e.target.value;
-            setLocalValue(newValue);
-            updateDraft(variantPath, 'stock', newValue);
-        };
-
-        return (
-            <Input
-                type="text"
-                value={localValue}
-                onChange={handleChange}
-                onBlur={() => commitDraft(variantPath)}
-                placeholder="stock"
-                className="w-20 text-center"
-            />
-        );
-    });
-    StockInput.displayName = 'StockInput';
-
-    const StockDisplay = memo(({ value }) => {
-        return (
-            <div className="w-20 h-10 bg-[#05031F]/10 flex items-center justify-center rounded-lg text-[#05031F]/50">
-                {value || 0}
-            </div>
-        );
-    });
-    StockDisplay.displayName = 'StockDisplay';
-
-    const ImageUploadSection = memo(({ images, onUpload, onRemove }) => {
-        return (
-            <div className="flex items-center gap-2">
-                <div className="flex gap-2">
-                    {images?.map((image, index) => (
-                        <div key={index} className="relative w-12 h-12">
-                            <img
-                                src={image.data}
-                                alt={`Variant ${index + 1}`}
-                                className="w-full h-full object-cover rounded-lg"
-                            />
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemove(index);
-                                }}
-                                className="absolute -top-1 -right-1 bg-white rounded-full p-0.5"
-                            >
-                                <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
-                    <label className="w-12 h-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50">
-                        <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                onUpload(e);
-                            }}
-                        />
-                        <Icon icon="solar:gallery-add-bold" className="w-6 h-6 text-gray-400" />
-                        <span className="text-[10px] text-gray-400">Upload</span>
-                    </label>
-                </div>
-            </div>
-        );
-    });
-    ImageUploadSection.displayName = 'ImageUploadSection';
-
-    // Update VariantGroupHeader to use the new components
-    const VariantGroupHeader = memo(({ variant, onToggle, isExpanded }) => {
-        const {
-            getTotalStock
-        } = useVariants();
-
-        // Memoize these values to prevent unnecessary re-renders
-        const totalStock = useMemo(() => getTotalStock(variant.value), [getTotalStock, variant.value]);
-
-        // Memoize the input handler
-        const handleInputChange = useCallback((field, value) => {
-            setVariantInputs(prev => ({
-                ...prev,
-                [variant.value]: {
-                    ...prev[variant.value],
-                    [field]: value
-                }
-            }));
-        }, [variant.value]);
-
-        // Keep ALL existing image handling code
-        const handleVariantImageUpload = async (e, variantPath) => {
-            const files = Array.from(e.target.files);
-            const images = await Promise.all(files.map(file => {
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve({
-                        data: reader.result,
-                        contentType: file.type,
-                        isDefault: false
-                    });
-                    reader.readAsDataURL(file);
-                });
-            }));
-
-            if (images.length > 0) {
-                images[0].isDefault = true;
-            }
-
-            setVariantInputs(prev => ({
-                ...prev,
-                [variantPath]: {
-                    ...prev[variantPath],
-                    images
-                }
-            }));
-        };
-
-        const handleVariantImageRemove = async (index, variantPath) => {
-            setVariantInputs(prev => {
-                const currentImages = prev[variantPath]?.images || [];
-                const updatedImages = currentImages.filter((_, i) => i !== index);
-
-                if (updatedImages.length > 0) {
-                    updatedImages[0].isDefault = true;
-                }
-
-                return {
-                    ...prev,
-                    [variantPath]: {
-                        ...prev[variantPath],
-                        images: updatedImages
-                    }
-                };
-            });
-        };
-
-        // Memoize all subvariant details outside the map
-        const subVariantDetails = useMemo(() =>
-            variant.subVariants?.reduce((acc, subVariant) => {
-                const path = `${variant.value}${`_${subVariant[1]}`}${subVariant[2] ? `_${subVariant[2]}` : ''}`;
-                acc[path] = variantInputs[path] || {};
-                return acc;
-            }, {}),
-            [variant.subVariants, variant.value, variantInputs]
-        );
-
-        return (
-            <div className="space-y-2">
-                {/* Main variant row */}
-                <div className="flex flex-wrap w-full items-center gap-4 p-3 border rounded-lg">
-                    <input type="checkbox" className="w-4 h-4" onClick={e => e.stopPropagation()} />
-                    {/* Image upload for main variant */}
-                    <ImageUploadSection
-                        images={variantInputs[variant.value]?.images}
-                        onUpload={(e) => handleVariantImageUpload(e, variant.value)}
-                        onRemove={(index) => handleVariantImageRemove(index, variant.value)}
-                    />
-                    <div className="flex flex-grow flex-wrap justify-between items-center gap-4">
-                        <div className={cn(
-                            "flex items-center gap-2 md:gap-4 flex-1",
-                            variant.subVariants?.length > 0 && "cursor-pointer"
-                        )} onClick={() => variant.subVariants?.length > 0 && onToggle(variant.value)}>
-                            <div>
-                                <div className="font-medium">{variant.value}</div>
-                                {variant.subVariants?.length > 0 && (
-                                    <div className="text-sm text-gray-500">
-                                        {variant.subVariants.length} variants {isExpanded ? '▼' : '▶'}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-4" onClick={e => e.stopPropagation()}>
-                            <PriceInput
-                                variantPath={variant.value}
-                                value={subVariantDetails.price || ''}
-                                onChange={(e) => handleInputChange('price', e.target.value)}
-                            />
-                            <StockDisplay value={totalStock} />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Sub-variants section */}
-                {variant.subVariants?.length > 0 && isExpanded && (
-                    <div className="pl-8 space-y-2">
-                        {variant.subVariants.map((subVariant, index) => {
-                            const subVariantPath = `${variant.value}${`_${subVariant[1]}`}${subVariant[2] ? `_${subVariant[2]}` : ''}`;
-                            const subDetails = subVariantDetails[subVariantPath];
-
-                            return (
-                                <div key={index} className="flex flex-wrap items-center gap-4 p-3 bg-white border rounded-lg">
-                                    <input type="checkbox" className="w-4 h-4" />
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <ImageUploadSection
-                                            images={variantInputs[subVariantPath]?.images}
-                                            onUpload={(e) => handleVariantImageUpload(e, subVariantPath)}
-                                            onRemove={(index) => handleVariantImageRemove(index, subVariantPath)}
-                                        />
-                                        <span>{`${subVariant[1]} ${subVariant[2] ? `/ ${subVariant[2]}` : ''}`}</span>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <PriceInput
-                                            variantPath={subVariantPath}
-                                            value={subDetails.price || ''}
-                                            onChange={(e) => handleInputChange('price', e.target.value)}
-                                        />
-                                        <StockInput
-                                            variantPath={subVariantPath}
-                                            value={subDetails.stock || ''}
-                                            onChange={(e) => handleInputChange('stock', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-        );
-    });
-    VariantGroupHeader.displayName = 'VariantGroupHeader';
-
-    VariantGroupHeader.propTypes = {
-        variant: PropTypes.object.isRequired,
-        onToggle: PropTypes.func.isRequired,
-        isExpanded: PropTypes.bool.isRequired
-    };
-
-    // Add function to handle expand/close all
-    const handleExpandAll = () => {
-        if (allExpanded) {
-            // Close all variants
-            setExpandedVariants(new Set());
-        } else {
-            // Expand all variants that have sub-variants
-            const variantsToExpand = variantOptions[0]?.values
-                .filter(value => variantOptions[1]?.values?.length > 0);
-            setExpandedVariants(new Set(variantsToExpand));
-        }
-        setAllExpanded(!allExpanded);
-    };
-
-    // Memoized input handlers
-    const handleVariantInputChange = useCallback((variantPath, field, value) => {
-        setVariantInputs(prev => ({
-            ...prev,
-            [variantPath]: {
-                ...prev[variantPath],
-                [field]: value
-            }
-        }));
-    }, []);
-
-    // Memoized variant handlers
-    const addSizeVariant = useCallback((colorId, sizeVariant) => {
-        setVariants(prev => prev.map(colorVar => {
-            if (colorVar.id === colorId) {
-                return {
-                    ...colorVar,
-                    subVariants: [...(colorVar.subVariants || []), {
-                        id: sizeVariant.id,
-                        name: "Size",
-                        value: sizeVariant.value,
-                        subSubVariants: []
-                    }]
-                };
-            }
-            return colorVar;
-        }));
-    }, []);
-
-    const addMaterialVariant = useCallback((colorId, sizeId, materialVariant) => {
-        setVariants(prev => prev.map(colorVar => {
-            if (colorVar.id === colorId) {
-                return {
-                    ...colorVar,
-                    subVariants: colorVar.subVariants.map(sizeVar => {
-                        if (sizeVar.id === sizeId) {
-                            return {
-                                ...sizeVar,
-                                subSubVariants: [...(sizeVar.subSubVariants || []), {
-                                    id: materialVariant.id,
-                                    name: "Material",
-                                    value: materialVariant.value
-                                }]
-                            };
-                        }
-                        return sizeVar;
-                    })
-                };
-            }
-            return colorVar;
-        }));
-    }, []);
-
-    // Memoized input component to prevent re-renders
-    const VariantInput = memo(({ variantPath, field, value, onChange }) => {
-        const handleChange = useCallback((e) => {
-            onChange(variantPath, field, e.target.value);
-        }, [variantPath, field, onChange]);
-
-        return (
-            <input
-                type="number"
-                value={value || ''}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded"
-            />
-        );
-    });
-
-    // Transform variants for API submission
-    const transformVariantsForSubmission = useCallback(() => {
-        return variants.map(colorVar => ({
-            name: "Color",
-            value: colorVar.value,
-            price: Number(variantInputs[colorVar.value]?.price || 0),
-            totalStock: colorVar.subVariants.reduce((total, sizeVar) =>
-                total + Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.stock || 0), 0),
-            images: variantInputs[colorVar.value]?.images || [],
-            subVariants: colorVar.subVariants.map(sizeVar => ({
-                name: "Size",
-                value: sizeVar.value,
-                price: Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.price || 0),
-                stock: Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.stock || 0),
-                images: variantInputs[`${colorVar.value}_${sizeVar.value}`]?.images || [],
-                subSubVariants: (sizeVar.subSubVariants || []).map(materialVar => ({
-                    name: "Material",
-                    value: materialVar.value,
-                    price: Number(variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.price || 0),
-                    stock: Number(variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.stock || 0),
-                    sku: `SWT-${colorVar.value}-${sizeVar.value}-${materialVar.value}`.toUpperCase(),
-                    images: variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.images || []
-                }))
-            }))
-        }));
-    }, [variants, variantInputs]);
-
-    // Memoized variant section component
+    // Modified VariantSection component
     const VariantSection = memo(() => {
+        const variantContext = useVariants();
+        
+        // Store the context in the ref whenever it changes
+        useEffect(() => {
+            variantContextRef.current = variantContext;
+        }, [variantContext]);
+
         const [showAddOption, setShowAddOption] = useState(false);
         const [editingVariantId, setEditingVariantId] = useState(null);
-        const { 
-            options, 
-            deleteOption, 
+        const {
+            options,
+            deleteOption,
             setOptions,
-            variantCombinations,
-            expandedVariants,
-            tempInputs,
             updateVariantValue,
-            toggleExpanded 
         } = useVariants();
 
         const handleDone = useCallback(() => {
@@ -989,7 +479,7 @@ const AddProduct = () => {
 
         const handleDeleteOption = useCallback((optionId) => {
             const optionIndex = options.findIndex(opt => opt.id === optionId);
-            
+
             // If deleting a subvariant (size), remove both size and material cards
             if (optionIndex === 1) {
                 // Remove both size and material options
@@ -1027,7 +517,7 @@ const AddProduct = () => {
                             {/* Show existing variant cards */}
                             {options.map(option => (
                                 editingVariantId === option.id ? (
-                                    <VariantOptions 
+                                    <VariantOptions
                                         key={option.id}
                                         onDone={() => setEditingVariantId(null)}
                                         editingVariant={option}
@@ -1051,7 +541,7 @@ const AddProduct = () => {
                             {!showAddOption && options.length < 3 && (
                                 <button
                                     onClick={() => setShowAddOption(true)}
-                                    className="w-full flex items-center text-sm md:text-base justify-center gap-2 rounded-lg px-3 py-2 bg-[#FFFFFF]/90 border border-gray-300 text-gray-500 hover:bg-[#FFFFFF]/80 hover:border-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out"
+                                    className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 bg-[#FFFFFF]/90 border border-gray-300 text-gray-500 hover:bg-[#FFFFFF]/80 hover:border-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out"
                                 >
                                     <Icon icon="simple-line-icons:plus" className="w-4 h-4" />
                                     Add another option
@@ -1077,9 +567,6 @@ const AddProduct = () => {
     });
 
     VariantSection.displayName = 'VariantSection';
-
-    // Separate the VariantSection into its own memoized component
-    const MemoizedVariantSection = memo(VariantSection);
 
     return (
         <>
@@ -1363,7 +850,7 @@ const AddProduct = () => {
 
                                             {/* Variants Section */}
                                             <VariantsProvider>
-                                                <MemoizedVariantSection />
+                                                <VariantSection />
                                             </VariantsProvider>
 
                                             {/* Blips Section */}
