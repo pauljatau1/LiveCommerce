@@ -1,5 +1,5 @@
 import { useAuthContext } from '../Hooks/useAuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BASE_URL } from '../Constants/Server';
@@ -8,6 +8,7 @@ import axios from 'axios';
 
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuthContext();
   const [onboardingStep, setOnboardingStep] = useState("");
 
@@ -17,6 +18,9 @@ const ProtectedRoute = ({ children }) => {
   //if the seller is logged in and the first time, redirect to the onboarding page
   //if the seller is logged in and not the first time, redirect to the dashboard home page
   //fetch the token from the local storage
+
+  const fetchSellerFromLocalStorage = localStorage.getItem('seller');
+  const seller = fetchSellerFromLocalStorage ? JSON.parse(fetchSellerFromLocalStorage) : null;
 
   useEffect(() => {
     const getOnboardingProcess = async () => {
@@ -29,6 +33,7 @@ const ProtectedRoute = ({ children }) => {
       }
     };
 
+
     getOnboardingProcess();
   }, []);
 
@@ -37,7 +42,10 @@ const ProtectedRoute = ({ children }) => {
     const signal = controller.signal;
     const storedToken = localStorage.getItem('sellerToken');
     const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-    console.log("Token Data:", tokenData.data);
+
+    // Check if we're already in a dashboard route
+    const isDashboardRoute = location.pathname.startsWith('/dashboard');
+
     const checkTokenValidity = async () => {
       try {
         const response = await axios.get(`${BASE_URL}/seller/check-token`, {
@@ -45,6 +53,7 @@ const ProtectedRoute = ({ children }) => {
             Authorization: `Bearer ${tokenData.data}`
           }
         }, { signal });
+
         if (response.status === 200) {
           if (tokenData?.data && tokenData?.isVerified === false && onboardingStep !== "") {
             //if the seller is logged in and the first time, redirect to the onboarding page
@@ -62,10 +71,9 @@ const ProtectedRoute = ({ children }) => {
             } else {
               navigate('/onboarding');
             }
-          } else if (tokenData?.data && tokenData?.isVerified === true) {
+          } else if (tokenData?.data && tokenData?.isVerified === true && !isDashboardRoute) {
+            // Only redirect to home if not already in a dashboard route
             navigate('/dashboard/home', { replace: true });
-          } else {
-            navigate('/onboarding');
           }
         } else if (response.status === 401) {
           console.log("Token is invalid");
@@ -90,9 +98,10 @@ const ProtectedRoute = ({ children }) => {
       }
     }
 
-    if (tokenData.data) {
+    if (tokenData.data && !isDashboardRoute) {
+      // Only check token validity if not in dashboard route
       checkTokenValidity();
-    } else {
+    } else if (!tokenData.data) {
       navigate('/');
       toast.error("Token is invalid", {
         description: "Please login again",
@@ -101,8 +110,8 @@ const ProtectedRoute = ({ children }) => {
           color: '#fff',
         }
       });
-      console.log("No user found");
     }
+
     return () => controller.abort();
   }, [navigate, isAuthenticated, onboardingStep]);
 

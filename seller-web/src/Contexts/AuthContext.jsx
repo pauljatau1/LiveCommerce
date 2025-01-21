@@ -373,16 +373,25 @@ function AuthProvider({ children }) {
     };
 
     //function to log user out
-    const logout = () => {
-        localStorage.removeItem('sellerToken');
-        localStorage.removeItem('seller');
-        dispatch({ type: 'LOGOUT' });
-        Crisp.setTokenId();
-        Crisp.session.reset();
-        console.log('logout successful')
-        // Return a promise to ensure navigation happens after state updates
-        navigate('/', { replace: true });
-        return Promise.resolve();
+    const logout = async () => {
+        try {
+            // Clear all storage first
+            localStorage.removeItem('sellerToken');
+            localStorage.removeItem('seller');
+            localStorage.removeItem('onboardingProcess');
+            
+            // Reset Crisp
+            Crisp.setTokenId();
+            Crisp.session.reset();
+            
+            // Dispatch logout action
+            dispatch({ type: 'LOGOUT' });
+            
+            // Navigate last, after everything is cleaned up
+            navigate('/', { replace: true });
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
     };
 
     const checkTokenValidity = async () => {

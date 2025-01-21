@@ -55,9 +55,25 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
         setNewStock(Math.max(0, parseInt(value) || 0));
     }, []);
 
+    const handleStockIncreaseButton = () => {
+        setNewStock((prev) => prev + 1)
+    }
+
+    const handleStockDecreaseButton = () => {
+        setNewStock((prev) => {
+            if (prev > 0) {
+                return prev - 1
+            } else {
+                toast.error("Stock cannot be less than 0")
+                return 0
+            }
+        })
+    }
+
     const handleSubmit = async () => {
         await onUpdate(newStock);
     };
+
 
     return (
         <Modal open={open} onClose={onClose}>
@@ -90,12 +106,14 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                 </div>
                             </div>
 
-                            <TextField
+                          <div className="flex items-center justify-between gap-4">
+                          <TextField
                                 label="New Stock Quantity"
                                 type="text"
+                                disabled
                                 value={newStock}
                                 onChange={handleStockChange}
-                                fullWidth
+                               
                                 variant="outlined"
                                 InputProps={{
                                     inputProps: { min: 0 }
@@ -115,40 +133,29 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     }
                                 }}
                             />
+                            <div className="flex items-center gap-4">
+                                <button onClick={handleStockIncreaseButton} className="bg-[#05031F] text-white px-2 py-1 h-14 w-14 rounded-md">+</button>
+                                <button onClick={handleStockDecreaseButton} className="bg-[#05031F] text-white px-2 py-1 h-14 w-14 rounded-md">-</button>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="flex gap-3 mt-4">
-                            <Button
-                                fullWidth
-                                variant="outlined"
+                        <div className="flex gap-3  mt-4">
+                            <button
+                                className=" border border-[#05031F] flex-1 text-[#05031F] px-2 py-1 h-14 w-14 rounded-md"
                                 onClick={onClose}
-                                sx={{
-                                    borderColor: '#05031F',
-                                    color: '#05031F',
-                                    textTransform: 'none',
-                                    '&:hover': {
-                                        borderColor: '#05031F',
-                                        backgroundColor: '#05031F0A',
-                                    }
-                                }}
+                      
                             >
                                 Cancel
-                            </Button>
-                            <Button
-                                fullWidth
-                                variant="contained"
+                            </button>
+                            <button
+                                className="bg-[#05031F] flex-1 text-white px-2 py-1 h-14 w-14 rounded-md hover:bg-[#05031F]/80 transition-all duration-200"
                                 onClick={handleSubmit}
                                 disabled={isSubmitting}
-                                sx={{
-                                    textTransform: 'none',
-                                    backgroundColor: '#05031F',
-                                    '&:hover': {
-                                        backgroundColor: '#05031F',
-                                    }
-                                }}
+                             
                             >
                                 {isSubmitting ? <CircularProgress size={20} color="inherit" /> : 'Update Stock'}
-                            </Button>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -166,7 +173,7 @@ StockUpdateModal.propTypes = {
     isSubmitting: PropTypes.bool.isRequired,
 };
 
-const ProductCard = ({ item }) => {
+const ProductCard = ({ item, setIsStockUpdated }) => {
     // Separate states for mobile and desktop popovers
     const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
     const [isDesktopPopoverOpen, setIsDesktopPopoverOpen] = useState(false);
@@ -209,10 +216,9 @@ const ProductCard = ({ item }) => {
             setIsSubmitting(true);
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
-            const response = await axios.put(`${BASE_URL}/products/inventory/`, {
-                productId: item._id,
+            const response = await axios.put(`${BASE_URL}/products/${item._id}/inventory`, {
                 quantity: newStock,
-                operation: "increase"
+                operation: newStock > item?.stock ? "add" : "subtract"
             }, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
@@ -220,6 +226,7 @@ const ProductCard = ({ item }) => {
             });
             if (response.status === 200) {
                 setOpenStockModal(false);
+                setIsStockUpdated(prev => !prev);
                 toast.success("Stock updated successfully");
             }
         } catch (error) {
@@ -230,6 +237,13 @@ const ProductCard = ({ item }) => {
             setIsSubmitting(false);
         }
     };
+
+    const handleDeleteStatusLoading = () => {
+        if (item._id === deletedProductId) {
+            return deleteStatus
+        }
+        return false
+    }
 
     // Mobile Card Layout
     const MobileCard = () => (
@@ -261,10 +275,10 @@ const ProductCard = ({ item }) => {
                 <p className="text-sm font-medium text-[#05031F]">
                     ₦ {item?.price?.toLocaleString()}
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-[40px_40px] items-center gap-2 h-[40px]">
                     <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
                         <PopoverTrigger asChild>
-                            <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                            <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
                                 <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
                             </button>
                         </PopoverTrigger>
@@ -280,7 +294,7 @@ const ProductCard = ({ item }) => {
                                             <span className="ml-2 text-[#05031F]">Change Stock</span>
                                         </CommandItem>
                                         <CommandItem onSelect={() => setIsMobilePopoverOpen(false)} className="cursor-pointer">
-                                            <Icon icon="clarity:clipboard-solid" className="w-10 h-10 text-[#05031F]" />
+                                            <Icon icon="clarity:clipboard-solid" className="w-6 h-6 text-[#05031F]" />
                                             <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F]">Edit Product</Link>
                                         </CommandItem>
                                     </CommandGroup>
@@ -288,8 +302,14 @@ const ProductCard = ({ item }) => {
                             </Command>
                         </PopoverContent>
                     </Popover>
-                    <button onClick={() => handleProductDelete(item._id)} className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
-                        {deleteStatus ? <CircularProgress color="#DF0707" size={20} /> : <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />}
+                    <button 
+                        onClick={() => handleProductDelete(item._id)} 
+                        className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200"
+                    >
+                        {handleDeleteStatusLoading() ? 
+                            <CircularProgress color="#DF0707" size={16} /> : 
+                            <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                        }
                     </button>
                 </div>
             </div>
@@ -325,10 +345,10 @@ const ProductCard = ({ item }) => {
                     {status.text}
                 </span>
             </div>
-            <div className="flex items-center justify-center gap-2">
+            <div className="grid grid-cols-[40px_40px] items-center gap-2 h-[40px]">
                 <Popover open={isDesktopPopoverOpen} onOpenChange={setIsDesktopPopoverOpen}>
                     <PopoverTrigger asChild>
-                        <button className="p-2 rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                        <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
                             <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
                         </button>
                     </PopoverTrigger>
@@ -339,12 +359,12 @@ const ProductCard = ({ item }) => {
                                     <CommandItem onSelect={() => {
                                         setIsDesktopPopoverOpen(false)
                                         setOpenStockModal(true)
-                                    }} className="cursor-pointer" >
-                                        <Icon icon="fluent:box-edit-24-filled" className="w-10 h-10 text-[#05031F]" />
+                                    }} className="cursor-pointer">
+                                        <Icon icon="fluent:box-edit-24-filled" className="w-6 h-6 text-[#05031F]" />
                                         <span className="ml-2 text-[#05031F]">Change Stock</span>
                                     </CommandItem>
                                     <CommandItem onSelect={() => setIsDesktopPopoverOpen(false)} className="cursor-pointer">
-                                        <Icon icon="clarity:clipboard-solid" className="w-10 h-10 text-[#05031F]" />
+                                        <Icon icon="clarity:clipboard-solid" className="w-6 h-6 text-[#05031F]" />
                                         <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F]">Edit Product</Link>
                                     </CommandItem>
                                 </CommandGroup>
@@ -352,10 +372,13 @@ const ProductCard = ({ item }) => {
                         </Command>
                     </PopoverContent>
                 </Popover>
-                <button onClick={() => handleProductDelete(item._id)} className="p-2 rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200">
+                <button 
+                    onClick={() => handleProductDelete(item._id)} 
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200"
+                >
                     {
                         SpecificDeletedProduct ? (
-                            deleteStatus ? <CircularProgress color="#DF0707" size={13} /> : <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
+                            handleDeleteStatusLoading() ? <CircularProgress color="#DF0707" size={16} /> : <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
                         ) : (
                             <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4 text-[#DF0707]" />
                         )

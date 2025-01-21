@@ -45,7 +45,13 @@ import {
     TooltipTrigger,
 } from "../../Components/ui/tooltip";
 import { cn } from '../../lib/utils';
-import { useVariantContext, VariantProvider } from '../../Contexts/VariantContext'
+import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
+import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
+import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
+import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
+import VariantImageUpload from '../../Components/ui/VariantComponents/VariantImageUpload';
+import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
+import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 
 const AddProduct = () => {
     //const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
@@ -97,22 +103,66 @@ const AddProduct = () => {
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
     const [productSpecs, setProductSpecs] = useState({});
-    const [variantOptions, setVariantOptions] = useState([]);
+    const [variantOptions, setVariantOptions] = useState({
+        main: { name: '', values: [] },
+        sub: { name: '', values: [] }
+    });
+    const [variantCombinations, setVariantCombinations] = useState([]);
     const [tempOptionValues, setTempOptionValues] = useState(['']);
     const [expandedOption, setExpandedOption] = useState(null);
     const [expandedVariants, setExpandedVariants] = useState(new Set());
     const [allExpanded, setAllExpanded] = useState(false);
-    const {
-        variants,
-        setVariants,
-        variantDetails,
-        addColorVariant,
-        addSizeVariant,
-        addMaterialVariant,
-        updateVariantDetails,
-        getTotalStock,
-        getVariantsForSubmission
-    } = useVariantContext();
+    const [variants, setVariants] = useState([]);
+    const [variantInputs, setVariantInputs] = useState({});
+    const [showOptions, setShowOptions] = useState(false);
+    const [editingVariant, setEditingVariant] = useState(null);
+    const { options, deleteOption, tempInputs, updateVariantValue, toggleExpanded, areAllVariantsFilled, variantStructure } = useVariants();
+    const [showAddOption, setShowAddOption] = useState(false);
+    const [editingVariantId, setEditingVariantId] = useState(null);
+
+    // Define addColorVariant BEFORE using it in other hooks
+    const addColorVariant = useCallback((colorVariant) => {
+        setVariants(prev => {
+            const existingIndex = prev.findIndex(v => v.id === colorVariant.id);
+            if (existingIndex !== -1) {
+                return prev.map((variant, index) =>
+                    index === existingIndex
+                        ? { ...variant, name: "Color", value: colorVariant.value }
+                        : variant
+                );
+            }
+            return [...prev, {
+                id: colorVariant.id,
+                name: "Color",
+                value: colorVariant.value,
+                subVariants: []
+            }];
+        });
+    }, []);
+
+    // Now we can use addColorVariant in other hooks
+    const handleDoneOption = useCallback((optionId) => {
+        const option = variantOptions.find(opt => opt.id === optionId);
+        const validValues = tempOptionValues.filter(value => value.trim() !== '');
+
+        setVariantOptions(prev => prev.map(opt =>
+            opt.id === optionId
+                ? { ...opt, isExpanded: false, values: validValues }
+                : opt
+        ));
+
+        if (option.name.toLowerCase() === 'color') {
+            validValues.forEach(value => {
+                addColorVariant({
+                    id: crypto.randomUUID(),
+                    value: value
+                });
+            });
+        }
+
+        setExpandedOption(null);
+        setTempOptionValues(['']);
+    }, [variantOptions, tempOptionValues, addColorVariant]);
 
     const handleSpecificationsChange = (specs) => {
         setProductSpecs(specs);
@@ -169,11 +219,39 @@ const AddProduct = () => {
     };
 
 
-    const handleImageUpload = (e) => {
-        if (e.target.files[0]) {
-            const newImage = e.target.files[0];
-            const imageUrl = URL.createObjectURL(newImage);
-            setImages(prev => [...prev, { url: imageUrl }]);
+    const handleImageUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        const remainingSlots = 5 - images.length;
+
+        if (remainingSlots <= 0) {
+            toast.error('Maximum 5 images allowed');
+            return;
+        }
+
+        // Take only the number of files that will fit within the limit
+        const filesToProcess = files.slice(0, remainingSlots);
+
+        const newImages = await Promise.all(filesToProcess.map(file => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve({
+                    url: reader.result,
+                    contentType: file.type,
+                    isDefault: false
+                });
+                reader.readAsDataURL(file);
+            });
+        }));
+
+        if (newImages.length > 0) {
+            newImages[0].isDefault = true;
+        }
+
+        setImages(prev => [...prev, ...newImages]);
+
+        // Show message if some files were not processed due to limit
+        if (files.length > remainingSlots) {
+            toast.warning(`Only ${remainingSlots} image${remainingSlots > 1 ? 's' : ''} added. Maximum limit reached.`);
         }
     };
 
@@ -280,6 +358,53 @@ const AddProduct = () => {
         e.preventDefault();
         const formData = new FormData();
 
+        // Process variants data to match the required JSON structure
+        const processVariants = () => {
+            return variantStructure.map(mainVariant => ({
+                name: mainVariant.name,
+                value: mainVariant.value,
+                price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing), // Use main product price as fallback
+                totalStock: mainVariant.subVariants.reduce((total, subVar) => 
+                    total + subVar.subSubVariants.reduce((subTotal, subSubVar) => 
+                        subTotal + (parseInt(subSubVar.stock) || 0), 0
+                    ), 0
+                ),
+                images: mainVariant.images.map(img => ({
+                    data: img.url,
+                    contentType: img.type || 'image/jpeg'
+                })) || [],
+                subVariants: mainVariant.subVariants.map(subVariant => ({
+                    name: subVariant.name,
+                    value: subVariant.value,
+                    price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                    stock: subVariant.subSubVariants.reduce((total, subSubVar) => 
+                        total + (parseInt(subSubVar.stock) || 0), 0
+                    ),
+                    images: subVariant.images.map(img => ({
+                        data: img.url,
+                        contentType: img.type || 'image/jpeg'
+                    })) || [],
+                    subSubVariants: subVariant.subSubVariants.map(subSubVariant => ({
+                        name: subSubVariant.name,
+                        value: subSubVariant.value,
+                        price: parseFloat(subSubVariant.price) || parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                        stock: parseInt(subSubVariant.stock) || 0,
+                        sku: `${skuNumber}-${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`.toUpperCase().replace(/\s+/g, '-'),
+                        images: subSubVariant.images.map(img => ({
+                            data: img.url,
+                            contentType: img.type || 'image/jpeg',
+                            isDefault: img.isDefault || false
+                        })) || []
+                    }))
+                }))
+            }));
+        };
+
+        // Process and append variants
+        const processedVariants = processVariants();
+        console.log('Processed Variants:', JSON.stringify(processedVariants, null, 2)); // For verification
+        formData.append('variants', JSON.stringify(processedVariants));
+
         // Handle main product images
         for (let i = 0; i < images.length; i++) {
             const base64Response = await fetch(images[i].url);
@@ -340,12 +465,6 @@ const AddProduct = () => {
                 }
             });
         }
-
-        // Get processed variants from context
-        const processedVariants = await getVariantsForSubmission();
-
-        // Add variants to formData
-        formData.append('variants', JSON.stringify(processedVariants));
 
         // Validate and submit
         if (title && description && images.length > 0 && shippingDetails.pricing &&
@@ -429,7 +548,7 @@ const AddProduct = () => {
         children: PropTypes.node.isRequired
     };
 
-    const handleAddNewOption = () => {
+    const handleAddNewOption = useCallback(() => {
         if (variantOptions.length >= 3) return;
 
         const newOption = {
@@ -442,15 +561,15 @@ const AddProduct = () => {
         setVariantOptions([...variantOptions, newOption]);
         setTempOptionValues(['']);
         setExpandedOption(newOption.id);
-    };
+    }, [variantOptions]);
 
-    const handleOptionNameChange = (optionId, name) => {
+    const handleOptionNameChange = useCallback((optionId, name) => {
         setVariantOptions(prev => prev.map(opt =>
             opt.id === optionId ? { ...opt, name } : opt
         ));
-    };
+    }, []);
 
-    const handleOptionValueChange = (index, value) => {
+    const handleOptionValueChange = useCallback((index, value) => {
         setTempOptionValues(prev => {
             const newValues = [...prev];
             newValues[index] = value;
@@ -459,106 +578,7 @@ const AddProduct = () => {
             }
             return newValues;
         });
-    };
-
-    const handleDeleteOption = (optionId) => {
-        setVariantOptions(prev => prev.filter(option => option.id !== optionId));
-        setVariants(prev => prev.filter(variant => variant.id !== optionId));
-        setExpandedOption(null);
-    };
-
-    const handleDoneOption = (optionId) => {
-        const option = variantOptions.find(opt => opt.id === optionId);
-        const optionIndex = variantOptions.findIndex(opt => opt.id === optionId);
-        const validValues = tempOptionValues.filter(value => value.trim() !== '');
-
-        switch (optionIndex) {
-            case 0: // Main variant (Color)
-                validValues.forEach(value => {
-                    addColorVariant({
-                        id: optionId, // Use the existing optionId for updates
-                        name: option.name,
-                        value: value
-                    });
-                    updateVariantDetails(optionId, {
-                        id: optionId,
-                        price: 0,
-                        stock: 0,
-                        images: []
-                    });
-                });
-                break;
-            case 1: // Sub-variant (Size)
-                const mainVariant = variantOptions[0];
-                mainVariant.values.forEach(mainValue => {
-                    validValues.forEach(subValue => {
-                        addSizeVariant(mainVariant.id, { // Pass parent's ID
-                            id: crypto.randomUUID(),
-                            name: option.name,
-                            value: subValue
-                        });
-                        updateVariantDetails(`${mainVariant.id}_${optionId}`, {
-                            id: optionId,
-                            price: 0,
-                            stock: 0,
-                            images: []
-                        });
-                    });
-                });
-                break;
-            case 2: // Sub-sub-variant (Material)
-                const mainValues = variantOptions[0].values;
-                const subValues = variantOptions[1].values;
-                mainValues.forEach(mainValue => {
-                    subValues.forEach(subValue => {
-                        validValues.forEach(subSubValue => {
-                            addMaterialVariant(`${mainValues[0].id}_${subValues[0].id}`, { // Pass parent IDs
-                                id: crypto.randomUUID(),
-                                name: option.name,
-                                value: subSubValue
-                            });
-                            updateVariantDetails(`${mainValues[0].id}_${subValues[0].id}_${optionId}`, {
-                                id: optionId,
-                                price: 0,
-                                stock: 0,
-                                images: []
-                            });
-                        });
-                    });
-                });
-                break;
-        }
-
-        setVariantOptions(prev => prev.map(opt =>
-            opt.id === optionId
-                ? { ...opt, isExpanded: false, values: validValues }
-                : opt
-        ));
-        setExpandedOption(null);
-        setTempOptionValues(['']);
-    };
-
-    const handleExpandOption = (optionId) => {
-        const option = variantOptions.find(o => o.id === optionId);
-        setTempOptionValues([...option.values, '']);
-        setExpandedOption(optionId);
-    };
-
-    const generateVariantCombinations = () => {
-        if (variantOptions.length === 0) return [];
-
-        const allValues = variantOptions.map(option => option.values);
-
-        const combine = (arrays, current = []) => {
-            if (arrays.length === 0) return [current];
-
-            return arrays[0].reduce((acc, value) => {
-                return [...acc, ...combine(arrays.slice(1), [...current, value])];
-            }, []);
-        };
-
-        return combine(allValues);
-    };
+    }, []);
 
     // Add this function to handle variant expansion
     const toggleVariantExpansion = (variantValue) => {
@@ -576,7 +596,7 @@ const AddProduct = () => {
 
     // Individual input components for maximum performance
     const PriceInput = memo(({ variantPath, value, onChange }) => {
-        const { updateDraft, commitDraft, getDraftValue } = useVariantContext();
+        const { updateDraft, commitDraft, getDraftValue } = useVariants();
         const initialValue = getDraftValue(variantPath, 'price') || value;
         const [localValue, setLocalValue] = useState(initialValue);
 
@@ -603,7 +623,7 @@ const AddProduct = () => {
     PriceInput.displayName = 'PriceInput';
 
     const StockInput = memo(({ variantPath, value, onChange }) => {
-        const { updateDraft, commitDraft, getDraftValue } = useVariantContext();
+        const { updateDraft, commitDraft, getDraftValue } = useVariants();
         const initialValue = getDraftValue(variantPath, 'stock') || value;
         const [localValue, setLocalValue] = useState(initialValue);
 
@@ -680,24 +700,22 @@ const AddProduct = () => {
     // Update VariantGroupHeader to use the new components
     const VariantGroupHeader = memo(({ variant, onToggle, isExpanded }) => {
         const {
-            variantDetails,
-            updateVariantDetails,
             getTotalStock
-        } = useVariantContext();
+        } = useVariants();
 
         // Memoize these values to prevent unnecessary re-renders
-        const details = useMemo(() => variantDetails[variant.value] || {}, [variantDetails, variant.value]);
         const totalStock = useMemo(() => getTotalStock(variant.value), [getTotalStock, variant.value]);
 
         // Memoize the input handler
         const handleInputChange = useCallback((field, value) => {
-            requestAnimationFrame(() => {
-                updateVariantDetails(variant.value, {
-                    ...details,
+            setVariantInputs(prev => ({
+                ...prev,
+                [variant.value]: {
+                    ...prev[variant.value],
                     [field]: value
-                });
-            });
-        }, [variant.value, details]);
+                }
+            }));
+        }, [variant.value]);
 
         // Keep ALL existing image handling code
         const handleVariantImageUpload = async (e, variantPath) => {
@@ -718,28 +736,31 @@ const AddProduct = () => {
                 images[0].isDefault = true;
             }
 
-            updateVariantDetails(variantPath, {
-                ...variantDetails[variantPath],
-                images
-            });
+            setVariantInputs(prev => ({
+                ...prev,
+                [variantPath]: {
+                    ...prev[variantPath],
+                    images
+                }
+            }));
         };
 
         const handleVariantImageRemove = async (index, variantPath) => {
-            // Get current images
-            const currentImages = variantDetails[variantPath]?.images || [];
+            setVariantInputs(prev => {
+                const currentImages = prev[variantPath]?.images || [];
+                const updatedImages = currentImages.filter((_, i) => i !== index);
 
-            // Create new array without the removed image
-            const updatedImages = currentImages.filter((_, i) => i !== index);
+                if (updatedImages.length > 0) {
+                    updatedImages[0].isDefault = true;
+                }
 
-            // If we still have images, make sure first one is default
-            if (updatedImages.length > 0) {
-                updatedImages[0].isDefault = true;
-            }
-
-            // Update variant details with new images array
-            updateVariantDetails(variantPath, {
-                ...variantDetails[variantPath],
-                images: updatedImages
+                return {
+                    ...prev,
+                    [variantPath]: {
+                        ...prev[variantPath],
+                        images: updatedImages
+                    }
+                };
             });
         };
 
@@ -747,10 +768,10 @@ const AddProduct = () => {
         const subVariantDetails = useMemo(() =>
             variant.subVariants?.reduce((acc, subVariant) => {
                 const path = `${variant.value}${`_${subVariant[1]}`}${subVariant[2] ? `_${subVariant[2]}` : ''}`;
-                acc[path] = variantDetails[path] || {};
+                acc[path] = variantInputs[path] || {};
                 return acc;
             }, {}),
-            [variant.subVariants, variant.value, variantDetails]
+            [variant.subVariants, variant.value, variantInputs]
         );
 
         return (
@@ -760,7 +781,7 @@ const AddProduct = () => {
                     <input type="checkbox" className="w-4 h-4" onClick={e => e.stopPropagation()} />
                     {/* Image upload for main variant */}
                     <ImageUploadSection
-                        images={variantDetails[variant.value]?.images}
+                        images={variantInputs[variant.value]?.images}
                         onUpload={(e) => handleVariantImageUpload(e, variant.value)}
                         onRemove={(index) => handleVariantImageRemove(index, variant.value)}
                     />
@@ -782,7 +803,7 @@ const AddProduct = () => {
                         <div className="flex flex-wrap items-center gap-4" onClick={e => e.stopPropagation()}>
                             <PriceInput
                                 variantPath={variant.value}
-                                value={details.price || ''}
+                                value={subVariantDetails.price || ''}
                                 onChange={(e) => handleInputChange('price', e.target.value)}
                             />
                             <StockDisplay value={totalStock} />
@@ -802,7 +823,7 @@ const AddProduct = () => {
                                     <input type="checkbox" className="w-4 h-4" />
                                     <div className="flex flex-wrap items-center gap-4">
                                         <ImageUploadSection
-                                            images={variantDetails[subVariantPath]?.images}
+                                            images={variantInputs[subVariantPath]?.images}
                                             onUpload={(e) => handleVariantImageUpload(e, subVariantPath)}
                                             onRemove={(index) => handleVariantImageRemove(index, subVariantPath)}
                                         />
@@ -850,18 +871,215 @@ const AddProduct = () => {
         setAllExpanded(!allExpanded);
     };
 
-    // Add this function to check if all variant combinations have values
-    const areAllVariantsFilled = useCallback(() => {
-        // Check each variant in variantDetails
-        return Object.entries(variantDetails).every(([_, details]) => {
-            return (
-                details.price &&
-                Number(details.price) > 0 &&
-                details.stock &&
-                Number(details.stock) > 0
-            );
-        });
+    // Memoized input handlers
+    const handleVariantInputChange = useCallback((variantPath, field, value) => {
+        setVariantInputs(prev => ({
+            ...prev,
+            [variantPath]: {
+                ...prev[variantPath],
+                [field]: value
+            }
+        }));
     }, []);
+
+    // Memoized variant handlers
+    const addSizeVariant = useCallback((colorId, sizeVariant) => {
+        setVariants(prev => prev.map(colorVar => {
+            if (colorVar.id === colorId) {
+                return {
+                    ...colorVar,
+                    subVariants: [...(colorVar.subVariants || []), {
+                        id: sizeVariant.id,
+                        name: "Size",
+                        value: sizeVariant.value,
+                        subSubVariants: []
+                    }]
+                };
+            }
+            return colorVar;
+        }));
+    }, []);
+
+    const addMaterialVariant = useCallback((colorId, sizeId, materialVariant) => {
+        setVariants(prev => prev.map(colorVar => {
+            if (colorVar.id === colorId) {
+                return {
+                    ...colorVar,
+                    subVariants: colorVar.subVariants.map(sizeVar => {
+                        if (sizeVar.id === sizeId) {
+                            return {
+                                ...sizeVar,
+                                subSubVariants: [...(sizeVar.subSubVariants || []), {
+                                    id: materialVariant.id,
+                                    name: "Material",
+                                    value: materialVariant.value
+                                }]
+                            };
+                        }
+                        return sizeVar;
+                    })
+                };
+            }
+            return colorVar;
+        }));
+    }, []);
+
+    // Memoized input component to prevent re-renders
+    const VariantInput = memo(({ variantPath, field, value, onChange }) => {
+        const handleChange = useCallback((e) => {
+            onChange(variantPath, field, e.target.value);
+        }, [variantPath, field, onChange]);
+
+        return (
+            <input
+                type="number"
+                value={value || ''}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded"
+            />
+        );
+    });
+
+    // Transform variants for API submission
+    const transformVariantsForSubmission = useCallback(() => {
+        return variants.map(colorVar => ({
+            name: "Color",
+            value: colorVar.value,
+            price: Number(variantInputs[colorVar.value]?.price || 0),
+            totalStock: colorVar.subVariants.reduce((total, sizeVar) =>
+                total + Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.stock || 0), 0),
+            images: variantInputs[colorVar.value]?.images || [],
+            subVariants: colorVar.subVariants.map(sizeVar => ({
+                name: "Size",
+                value: sizeVar.value,
+                price: Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.price || 0),
+                stock: Number(variantInputs[`${colorVar.value}_${sizeVar.value}`]?.stock || 0),
+                images: variantInputs[`${colorVar.value}_${sizeVar.value}`]?.images || [],
+                subSubVariants: (sizeVar.subSubVariants || []).map(materialVar => ({
+                    name: "Material",
+                    value: materialVar.value,
+                    price: Number(variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.price || 0),
+                    stock: Number(variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.stock || 0),
+                    sku: `SWT-${colorVar.value}-${sizeVar.value}-${materialVar.value}`.toUpperCase(),
+                    images: variantInputs[`${colorVar.value}_${sizeVar.value}_${materialVar.value}`]?.images || []
+                }))
+            }))
+        }));
+    }, [variants, variantInputs]);
+
+    // Memoized variant section component
+    const VariantSection = memo(() => {
+        const [showAddOption, setShowAddOption] = useState(false);
+        const [editingVariantId, setEditingVariantId] = useState(null);
+        const { 
+            options, 
+            deleteOption, 
+            setOptions,
+            variantCombinations,
+            expandedVariants,
+            tempInputs,
+            updateVariantValue,
+            toggleExpanded 
+        } = useVariants();
+
+        const handleDone = useCallback(() => {
+            setShowAddOption(false);
+            setEditingVariantId(null);
+        }, []);
+
+        const handleDeleteOption = useCallback((optionId) => {
+            const optionIndex = options.findIndex(opt => opt.id === optionId);
+            
+            // If deleting a subvariant (size), remove both size and material cards
+            if (optionIndex === 1) {
+                // Remove both size and material options
+                setOptions(prev => prev.slice(0, 1)); // Keep only the first option (color)
+                deleteOption(optionId); // Also call deleteOption to update variant combinations
+            } else {
+                deleteOption(optionId);
+            }
+            updateVariantValue(optionId, null, null);
+        }, [deleteOption, updateVariantValue, options, setOptions]);
+
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Variants (Optional)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {options.length === 0 && !showAddOption ? (
+                        // Initial empty state
+                        <>
+                            <div className="text-center py-8">
+                                <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
+                                <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
+                            </div>
+                            <Button
+                                onClick={() => setShowAddOption(true)}
+                                className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white w-full md:w-auto"
+                            >
+                                <Icon icon="simple-line-icons:plus" className="w-4 h-4 mr-2" />
+                                Add options like size or color
+                            </Button>
+                        </>
+                    ) : (
+                        <div className="space-y-4">
+                            {/* Show existing variant cards */}
+                            {options.map(option => (
+                                editingVariantId === option.id ? (
+                                    <VariantOptions 
+                                        key={option.id}
+                                        onDone={() => setEditingVariantId(null)}
+                                        editingVariant={option}
+                                    />
+                                ) : (
+                                    <VariantCard
+                                        key={option.id}
+                                        variant={option}
+                                        onEdit={() => setEditingVariantId(option.id)}
+                                        onDelete={() => handleDeleteOption(option.id)}
+                                    />
+                                )
+                            ))}
+
+                            {/* Show AddOptionCard when adding new option */}
+                            {showAddOption && (
+                                <AddOptionCard onDone={handleDone} />
+                            )}
+
+                            {/* Show add another option button if not currently adding */}
+                            {!showAddOption && options.length < 3 && (
+                                <button
+                                    onClick={() => setShowAddOption(true)}
+                                    className="w-full flex items-center text-sm md:text-base justify-center gap-2 rounded-lg px-3 py-2 bg-[#FFFFFF]/90 border border-gray-300 text-gray-500 hover:bg-[#FFFFFF]/80 hover:border-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out"
+                                >
+                                    <Icon icon="simple-line-icons:plus" className="w-4 h-4" />
+                                    Add another option
+                                </button>
+                            )}
+
+                            {/* Show combinations if options exist */}
+                            {options.length > 0 && (
+                                <>
+                                    <div className="hidden md:block mt-6">
+                                        <VariantCombinations />
+                                    </div>
+                                    <div className="md:hidden mt-6">
+                                        <VariantCombinationsMobile />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        );
+    });
+
+    VariantSection.displayName = 'VariantSection';
+
+    // Separate the VariantSection into its own memoized component
+    const MemoizedVariantSection = memo(VariantSection);
 
     return (
         <>
@@ -874,7 +1092,7 @@ const AddProduct = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col justify-between gap-4 py-6">
-                        <Header headerTitle="Add Product" showHeader={true} showNotification notificationData='Need help? Visit the seller university for detailed guides' notificationColor='#05031F' notificationBackgroundColor="#0BB24847" notificationIcon='bi:info-circle' />
+                        <Header headerTitle="Edit Product" showHeader={true} showNotification notificationData='Need help? Visit the seller university for detailed guides' notificationColor='#05031F' notificationBackgroundColor="#0BB24847" notificationIcon='bi:info-circle' />
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">
                             {/* Left Section */}
                             <div className="flex-1 space-y-4 bg-[#F7F7F7] border border-[#00000024] rounded-lg py-3 lg:py-7 px-3 lg:px-6 ">
@@ -1014,6 +1232,7 @@ const AddProduct = () => {
                                                                             className="hidden"
                                                                             accept="image/*"
                                                                             onChange={handleImageUpload}
+                                                                            multiple
                                                                         />
                                                                         Add Image
                                                                         <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
@@ -1143,203 +1362,9 @@ const AddProduct = () => {
                                             </Card>
 
                                             {/* Variants Section */}
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Variants (Optional)</CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {variantOptions.length === 0 ? (
-                                                        <>
-                                                            <div className="text-center py-8">
-                                                                <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
-                                                                <p className="mt-2 text-gray-500">Add a new variant, there are none yet!!</p>
-                                                            </div>
-                                                            <Button
-                                                                onClick={() => {
-                                                                    if (!areAllVariantsFilled()) {
-                                                                        toast.error('Please fill in all variant prices and stock values before adding another option', {
-                                                                            description: "All variants must have price and stock values"
-                                                                        });
-                                                                        return;
-                                                                    }
-                                                                    handleAddNewOption();
-                                                                }}
-                                                                variant="outline"
-                                                                className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white"
-                                                                disabled={!areAllVariantsFilled()}
-                                                            >
-                                                                <Icon icon="simple-line-icons:plus" className="w-4 h-4 mr-2" />
-                                                                Add options like size or color
-                                                            </Button>
-                                                        </>
-                                                    ) : (
-                                                        <div className="space-y-4">
-                                                            {variantOptions.map((option, optionIndex) => (
-                                                                <div key={option.id} className="border rounded-lg p-4">
-                                                                    <h3 className="font-medium font-cabin text-base mb-3">
-                                                                        {optionIndex === 0 ? "Main Variant" :
-                                                                            optionIndex === 1 ? "Sub-Variant" :
-                                                                                "Sub-Sub-Variant"}
-                                                                    </h3>
-
-                                                                    {option.isExpanded || expandedOption === option.id ? (
-                                                                        <>
-                                                                            <div className="space-y-4">
-                                                                                <div>
-                                                                                    <Label>Option name</Label>
-                                                                                    <Input
-                                                                                        value={option.name}
-                                                                                        onChange={(e) => handleOptionNameChange(option.id, e.target.value)}
-                                                                                        placeholder="Enter option name (e.g. Size, Color)"
-                                                                                        className="mt-2"
-                                                                                    />
-                                                                                </div>
-
-                                                                                <div>
-                                                                                    <Label>Option values</Label>
-                                                                                    {tempOptionValues.map((value, index) => (
-                                                                                        <div key={index} className="flex items-center gap-2 mt-2">
-                                                                                            <Input
-                                                                                                value={value}
-                                                                                                onChange={(e) => handleOptionValueChange(index, e.target.value)}
-                                                                                                placeholder="Enter option value"
-                                                                                            />
-                                                                                            {index < tempOptionValues.length - 1 && (
-                                                                                                <Button
-                                                                                                    variant="ghost"
-                                                                                                    size="icon"
-                                                                                                    onClick={() => handleDeleteOption(option.id)}
-                                                                                                >
-                                                                                                    <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5" />
-                                                                                                </Button>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            <div className="flex justify-between mt-4">
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    className="text-red-500"
-                                                                                    onClick={() => handleDeleteOption(option.id)}
-                                                                                >
-                                                                                    Delete
-                                                                                </Button>
-                                                                                <Button
-                                                                                    onClick={() => handleDoneOption(option.id)}
-                                                                                    className="bg-[#05031F] text-white"
-                                                                                >
-                                                                                    Done
-                                                                                </Button>
-                                                                            </div>
-                                                                        </>
-                                                                    ) : (
-                                                                        <div
-                                                                            className="cursor-pointer"
-                                                                            onClick={() => handleExpandOption(option.id)}
-                                                                        >
-                                                                            <p className="font-medium">{option.name}</p>
-                                                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                                                {option.values.map((value, index) => (
-                                                                                    <span
-                                                                                        key={index}
-                                                                                        className="px-2 py-1 bg-gray-100 rounded-full text-sm"
-                                                                                    >
-                                                                                        {value}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-
-                                                            {variantOptions.length < 3 && (
-                                                                <Button
-                                                                    onClick={() => {
-                                                                        if (!areAllVariantsFilled()) {
-                                                                            toast.error('Please fill in all variant prices and stock values before adding another option', {
-                                                                                description: "All variants must have price and stock values"
-                                                                            });
-                                                                            return;
-                                                                        }
-                                                                        handleAddNewOption();
-                                                                    }}
-                                                                    variant="outline"
-                                                                    className="w-full mt-4"
-                                                                    disabled={!areAllVariantsFilled()}
-                                                                >
-                                                                    Add another option
-                                                                </Button>
-                                                            )}
-
-                                                            {/* Variant Combinations */}
-                                                            {variantOptions.length > 0 && (
-                                                                <div className="mt-8">
-                                                                    <div className="flex items-center justify-between flex-wrap mb-4">
-                                                                        <h3 className="font-medium font-cabin text-base">Variant Combinations</h3>
-                                                                        {/*<div className="flex items-center gap-2">
-                                                                            <span className="text-sm text-gray-500">Group by</span>
-                                                                            <Select defaultValue={variantOptions[0]?.name?.toLowerCase() || 'variant'}>
-                                                                                <SelectTrigger className="w-[120px]">
-                                                                                    <SelectValue />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {variantOptions.map(option => (
-                                                                                        <SelectItem 
-                                                                                            key={option.id}
-                                                                                            value={option.name?.toLowerCase() || `variant-${option.id}`}
-                                                                                        >
-                                                                                            {option.name || 'Variant'}
-                                                                                        </SelectItem>
-                                                                                    ))}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </div>*/}
-                                                                    </div>
-
-                                                                    <div className="space-y-2">
-                                                                        {/* Header */}
-                                                                        <div className="hidden md:flex items-center gap-4 px-3 py-2 text-sm text-gray-500">
-                                                                            <input type="checkbox" className="w-4 h-4 opacity-0" />
-                                                                            <button
-                                                                                onClick={handleExpandAll}
-                                                                                className="flex-1 text-left whitespace-nowrap  cursor-pointer"
-                                                                            >
-                                                                                Variant
-                                                                                <span className="whitespace-nowrap hover:underline hover:underline-offset-4 "> {allExpanded ? '· Close all' : '· Expand all'}</span>
-                                                                            </button>
-                                                                            <span className="w-40 text-right">Price</span>
-                                                                            <span className="w-20 text-center">Available</span>
-                                                                        </div>
-
-                                                                        {/* Main variants with sub-variants */}
-                                                                        {variantOptions[0]?.values.map((value) => {
-                                                                            // Check if there are any sub-variant values
-                                                                            const hasSubVariants = variantOptions[1]?.values?.length > 0;
-
-                                                                            return (
-                                                                                <VariantGroupHeader
-                                                                                    key={value}
-                                                                                    variant={{
-                                                                                        value,
-                                                                                        // Only include subVariants if they exist
-                                                                                        subVariants: hasSubVariants ? generateVariantCombinations()
-                                                                                            .filter(combo => combo[0] === value) : []
-                                                                                    }}
-                                                                                    onToggle={toggleVariantExpansion}
-                                                                                    isExpanded={expandedVariants.has(value)}
-                                                                                />
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
+                                            <VariantsProvider>
+                                                <MemoizedVariantSection />
+                                            </VariantsProvider>
 
                                             {/* Blips Section */}
                                             <Card>
@@ -1435,7 +1460,7 @@ const AddProduct = () => {
 
                                     <CollapsibleContent className="p-4 space-y-4">
                                         <div className="space-y-2">
-                                            <Label>Status</Label>
+                                            <Label>Upload Status</Label>
                                             <Select
                                                 value={productStatus}
                                                 onValueChange={setProductStatus}
@@ -1621,7 +1646,6 @@ const AddProduct = () => {
                         {/* Bottom Action Buttons */}
                         <div className="flex flex-wrap justify-end gap-4 mt-6">
                             <Button variant="outline">Cancel</Button>
-                            <Button variant="outline">Save Draft</Button>
                             <Button onClick={handleSubmitProduct} className="bg-[#05031F]">
                                 {
                                     isLoading ? 'Publishing...' : 'Publish Product'

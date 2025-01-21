@@ -2,19 +2,19 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { NavLink } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import ComingSoon from '../assets/coming-soon.png'
+import ComingSoonTag from './ComingSoonTag';
 
 const MarketingAdsCard = ({ item }) => {
     return (
-        <div className="w-full xl:w-[404px] h-[139.5px] md:h-[229px] relative bg-[#05031F] rounded-lg py-3 px-4 md:py-6 md:px-7 space-y-3 md:space-y-6">
-            {
-                !item.available && (
-                    <div className="absolute -top-9 -right-7">
-                        <img src={ComingSoon} alt="Coming Soon" className="w-[174px] md:w-[194px] h-[58px] md:h-[60px]" />
-                    </div>
-                )
-            }
-            <div className="flex items-center gap-2">
+        <div className="w-full xl:w-[404px] h-[169.5px] md:h-[239px] relative bg-[#05031F] rounded-lg py-3 px-4 md:py-6 md:px-7 space-y-3 md:space-y-6">
+            <div className="absolute top-0 right-0">
+                {
+                    !item?.available && (
+                        <ComingSoonTag />
+                    )
+                }
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center gap-2">
                 <h1 className="text-white text-sm md:text-lg font-medium font-lexend">{item.title}</h1>
                 <div className="flex flex-wrap gap-2">
                     {

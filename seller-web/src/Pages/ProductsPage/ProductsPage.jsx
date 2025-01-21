@@ -29,18 +29,19 @@ const ProductsPage = () => {
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const { products, isLoading, deleteStatus } = useSelector((state) => state.product);
+    const [isStockUpdated, setIsStockUpdated] = useState(false);
 
 
 
     useEffect(() => {
         dispatch(fetchSellerProducts());
-    }, [dispatch]);
+    }, [dispatch, isStockUpdated]);
     console.log("products:", products);
 
     // Memoize the products list
     const memoizedProducts = React.useMemo(() => {
         return products.map((item) => (
-            <ProductCard key={item._id} item={item} />
+            <ProductCard key={item._id} item={item} setIsStockUpdated={setIsStockUpdated} />
         ));
     }, [products]);
 
