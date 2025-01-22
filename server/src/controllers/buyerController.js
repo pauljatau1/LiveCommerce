@@ -1125,3 +1125,136 @@ exports.verifyPhoneOTP = async (req, res) => {
   }
 };
 
+// Get buyer details
+exports.getBuyerDetails = async (req, res) => {
+  try {
+    // Find buyer and populate essential fields
+    const buyer = await Buyer.findById(req.user.id)
+      .select('-password -resetPasswordToken -resetPasswordExpires')
+      .populate({
+        path: 'selectedCategories',
+        select: 'name subCategories'
+      });
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Get buyer's latest 5 orders with populated data
+    const recentOrders = await Order.find({ buyer: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate({
+        path: 'items.product',
+        select: 'name images price description'
+      })
+      .populate({
+        path: 'seller',
+        select: 'storeName businessName'
+      })
+      .select('orderNumber totalAmount status createdAt items delivery_address shipping paymentInfo');
+
+    // Get unique product IDs from all orders
+    const allOrderedProductIds = await Order.find({ 
+      buyer: req.user.id,
+      'paymentInfo.status': 'completed' 
+    })
+      .distinct('items.product');
+
+    // Get latest 3 unique products purchased
+    const recentProducts = await Product.find({
+      _id: { $in: allOrderedProductIds }
+    })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate('seller', 'storeName businessName')
+      .select('name images price description category');
+
+    // Format shipping addresses with additional details
+    const formattedAddresses = buyer.shippingAddresses.map(address => ({
+      id: address._id,
+      type: address.addressType,
+      fullName: `${address.firstName} ${address.lastName}`,
+      fullAddress: `${address.addressLine1}${address.addressLine2 ? `, ${address.addressLine2}` : ''}`,
+      city: address.city,
+      state: address.state,
+      country: address.country,
+      zipCode: address.zipCode,
+      isDefault: address.isDefault || false,
+      lastUsed: address.lastUsed,
+      phoneNumber: address.phoneNumber,
+      email: address.email,
+      coordinates: address.coordinates || null
+    }));
+
+    // Prepare response object
+    const response = {
+      personalInfo: {
+        id: buyer._id,
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        phoneNumber: buyer.phoneNumber,
+        profileImage: buyer.profileImage,
+        country: buyer.country,
+        joinedDate: buyer.createdAt,
+        isVerified: buyer.isIdentityVerified,
+        bio: buyer.bio
+      },
+      addresses: formattedAddresses,
+      preferences: {
+        selectedCategories: buyer.selectedCategories,
+        notifications: buyer.notificationPreferences,
+        currency: buyer.preferredCurrency || 'NGN',
+        language: buyer.preferredLanguage || 'en'
+      },
+      orderStats: {
+        totalOrders: await Order.countDocuments({ buyer: req.user.id }),
+        recentOrders: recentOrders.map(order => ({
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          date: order.createdAt,
+          total: order.totalAmount,
+          status: order.status,
+          items: order.items.map(item => ({
+            product: {
+              id: item.product._id,
+              name: item.product.name,
+              image: item.product.images[0],
+              price: item.price
+            },
+            quantity: item.quantity,
+            status: item.status
+          })),
+          shipping: {
+            method: order.shipping.method,
+            address: order.delivery_address,
+            status: order.shipping.status
+          },
+          payment: {
+            method: order.paymentInfo.method,
+            status: order.paymentInfo.status
+          }
+        }))
+      },
+      recentlyPurchased: recentProducts.map(product => ({
+        id: product._id,
+        name: product.name,
+        image: product.images[0],
+        price: product.price,
+        category: product.category,
+        seller: product.seller
+      })),
+      wishlistCount: buyer.wishlist ? buyer.wishlist.length : 0
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error in getBuyerDetails:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve buyer details', 
+      error: error.message 
+    });
+  }
+};
+

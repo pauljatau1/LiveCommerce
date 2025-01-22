@@ -1363,7 +1363,9 @@ exports.getBuyerDetails = async (req, res) => {
     const orders = await Order.find({
       buyer: buyerId,
       seller: sellerId
-    }).sort({ createdAt: -1 });
+    })
+    .populate('items.product', 'name images price')
+    .sort({ createdAt: -1 });
 
     if (orders.length === 0) {
       return res.status(403).json({ message: 'Buyer has not ordered from this seller' });
@@ -1376,10 +1378,7 @@ exports.getBuyerDetails = async (req, res) => {
     })
     .sort({ createdAt: -1 })
     .limit(5)
-    .populate({
-      path: 'items.product',
-      select: 'name images price'
-    });
+    .populate('items.product', 'name images price');
 
     // Calculate order statistics
     const orderStats = {
@@ -1399,20 +1398,22 @@ exports.getBuyerDetails = async (req, res) => {
       }
     };
 
-    // Get top purchases
+    // Get top purchases - Modified to handle null products
     const productPurchases = {};
     orders.forEach(order => {
       order.items.forEach(item => {
-        const productId = item.product.toString();
+        if (!item.product) return; // Skip if product is null
+        
+        const productId = item.product._id.toString();
         if (!productPurchases[productId]) {
           productPurchases[productId] = {
             productId,
-            name: item.product.name,
+            name: item.product.name || 'Product Unavailable',
             quantity: 0,
             totalSpent: 0,
             seller: {
               id: sellerId,
-              name: order.items[0].seller.storeName || 'Unknown Store'
+              name: order.seller?.storeName || 'Unknown Store'
             }
           };
         }
@@ -1443,9 +1444,13 @@ exports.getBuyerDetails = async (req, res) => {
         status: order.status,
         createdAt: order.createdAt,
         items: order.items.map(item => ({
-          product: {
+          product: item.product ? {
             name: item.product.name,
             images: item.product.images,
+            price: item.price
+          } : {
+            name: 'Product Unavailable',
+            images: [],
             price: item.price
           },
           quantity: item.quantity
