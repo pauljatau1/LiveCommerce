@@ -16,6 +16,31 @@ import ProductImage from '../assets/p-card.png';
 import LiveIcon1 from '../assets/live-icon1.png';
 import LiveIcon2 from '../assets/live-icon2.png';
 import LiveIcon3 from '../assets/live-icon3.png';
+import { 
+    MdDashboard, 
+    MdPeople, 
+    MdShoppingBag,
+    MdInventory2,
+    MdCampaign,
+    MdMessage,
+    MdLiveTv,
+    MdInsights,
+    MdPayments,
+    MdLink,
+    MdSchool,
+    MdHelpOutline,
+    MdSettings,
+    MdLogout
+} from 'react-icons/md';
+import { 
+    BsBoxSeam, 
+    BsFileEarmarkText, 
+    BsFileX,
+    BsTicketPerforated,
+    BsLightning,
+    BsInbox,
+    BsShare 
+} from 'react-icons/bs';
 
 
 export const categoriesData = [
@@ -49,107 +74,115 @@ export const sideBarNavData = [
     {
         id: ObjectID().toHexString(),
         name: 'Dashboard',
-        icon: 'fluent:data-pie-16-regular',
+        icon: MdDashboard,
         path: '/dashboard/home',
     },
     {
         id: ObjectID().toHexString(),
         name: 'Customers',
-        icon: 'eva:people-outline',
+        icon: MdPeople,
         path: '/dashboard/customers'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Orders',
-        icon: 'heroicons:shopping-bag',
+        icon: MdShoppingBag,
         path: '/dashboard/orders'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Products',
-        icon: 'iconoir:box-iso',
+        icon: MdInventory2,
         path: '/dashboard/products',
         subNav: [
             {
                 id: ObjectID().toHexString(),
                 name: 'Add Products',
                 path: 'add-products',
+                icon: BsBoxSeam
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Drafts',
-                path: 'drafts'
-            }, {
+                path: 'drafts',
+                icon: BsFileEarmarkText
+            }, 
+            {
                 id: ObjectID().toHexString(),
                 name: 'Inactive',
-                path: 'inactive'
+                path: 'inactive',
+                icon: BsFileX
             }
         ]
     },
     {
         id: ObjectID().toHexString(),
         name: 'Marketing',
-        icon: 'mage:megaphone-a',
+        icon: MdCampaign,
         path: '/dashboard/marketing',
         subNav: [
             {
                 id: ObjectID().toHexString(),
                 name: 'Coupons',
-                path: 'coupons'
+                path: 'coupons',
+                icon: BsTicketPerforated
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Flash Sales',
-                path: 'flash-sales'
+                path: 'flash-sales',
+                icon: BsLightning
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Inbox Campaigns',
-                path: 'inbox-campaigns'
+                path: 'inbox-campaigns',
+                icon: BsInbox
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Referrals',
-                path: 'referrals'
+                path: 'referrals',
+                icon: BsShare
             }
         ]
     },
     {
         id: ObjectID().toHexString(),
         name: 'Messages',
-        icon: 'token:chat',
+        icon: MdMessage,
         path: '/dashboard/messages'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Live Streams',
-        icon: 'mynaui:video',
+        icon: MdLiveTv,
         path: '/dashboard/live-streams'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Analytics & Insights',
-        icon: 'mage:chart-up',
+        icon: MdInsights,
         path: '/dashboard/analytics-insights'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Earnings & Payouts',
-        icon: 'solar:dollar-linear',
+        icon: MdPayments,
         path: '/dashboard/earnings-payouts'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Auqli Connect',
-        icon: 'system-uicons:chain',
+        icon: MdLink,
         path: '/dashboard/auqli-connect'
     },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Shop Manager',
-        icon: 'bi:shop',
-        path: '/dashboard/shop-manager'
-    },
+    // {
+    //     id: ObjectID().toHexString(),
+    //     name: 'Shop Manager',
+    //     icon: 'bi:shop',
+    //     path: '/dashboard/shop-manager'
+    // },
 ];
 
 export const homeAnalyticsCardData = [
@@ -559,5 +592,33 @@ export const liveStreamCardData = [
         available: false
     }
 ]
+
+// Add these utility navigation items if you want to use them separately
+export const utilityNavData = [
+    {
+        id: ObjectID().toHexString(),
+        name: 'Auqli University',
+        icon: MdSchool,
+        path: '/dashboard/university'
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Help & Support',
+        icon: MdHelpOutline,
+        path: '/dashboard/help'
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Settings',
+        icon: MdSettings,
+        path: '/dashboard/settings'
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Log Out',
+        icon: MdLogout,
+        path: '/logout'
+    }
+];
 
 

@@ -17,12 +17,12 @@ export default {
   			cabin: [
   				'Cabin'
   			],
-			inter: [
-				'Inter'
-			],
-			lexendDeca: [
-				'Lexend Deca'
-			],
+  			inter: [
+  				'Inter'
+  			],
+  			lexendDeca: [
+  				'Lexend Deca'
+  			]
   		},
   		height: {
   			screen: '100dvh'
@@ -50,10 +50,28 @@ export default {
   				'80%': {
   					backgroundPosition: '0% 50%, 50% 50%, 100% 100%'
   				}
+  			},
+  			'accordion-down': {
+  				from: {
+  					height: '0'
+  				},
+  				to: {
+  					height: 'var(--radix-accordion-content-height)'
+  				}
+  			},
+  			'accordion-up': {
+  				from: {
+  					height: 'var(--radix-accordion-content-height)'
+  				},
+  				to: {
+  					height: '0'
+  				}
   			}
   		},
   		animation: {
-  			loading: 'loading 1s infinite linear'
+  			loading: 'loading 1s infinite linear',
+  			'accordion-down': 'accordion-down 0.2s ease-out',
+  			'accordion-up': 'accordion-up 0.2s ease-out'
   		}
   	}
   },

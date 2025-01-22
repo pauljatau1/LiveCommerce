@@ -1,5 +1,3 @@
-'use client'
-
 import { useState, useEffect, useRef } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -11,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { MessageCircle, Share2, MoreVertical, ImageIcon, VideoIcon, ThumbsUp, Heart, Bookmark, Send, Smile, AtSign, Hash, X } from 'lucide-react'
+import { MessageCircle, Share2, MoreVertical, ImageIcon, VideoIcon, ThumbsUp, Heart, Bookmark, Send, Smile, AtSign, Hash, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 import { Tooltip } from "@/components/ui/tooltip"
 import { Search } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +19,162 @@ import LinearProgress from "@mui/material/LinearProgress"
 import { toast } from "sonner"
 import { Carousel } from 'react-responsive-carousel'
 import 'react-responsive-carousel/lib/styles/carousel.min.css'
+
+// Create a new separate component for the create post modal
+const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, setPostForm }) => {
+  const [previews, setPreviews] = useState([])
+
+  const handleMediaChange = (e) => {
+    const files = Array.from(e.target.files)
+    setPostForm(prev => ({
+      ...prev,
+      media: files
+    }))
+
+    // Generate previews
+    const newPreviews = files.map(file => ({
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith('image/') ? 'image' : 'video'
+    }))
+    
+    // Clean up previous preview URLs
+    previews.forEach(preview => URL.revokeObjectURL(preview.url))
+    setPreviews(newPreviews)
+  }
+
+  // Cleanup preview URLs when modal closes
+  useEffect(() => {
+    return () => {
+      previews.forEach(preview => URL.revokeObjectURL(preview.url))
+    }
+  }, [])
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Create New Post</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              value={postForm.title}
+              onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="Enter post title"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="body">Content</Label>
+            <Textarea
+              id="body"
+              value={postForm.body}
+              onChange={(e) => setPostForm(prev => ({ ...prev, body: e.target.value }))}
+              placeholder="What's on your mind?"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="media">Media</Label>
+            <Input
+              id="media"
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleMediaChange}
+              className="cursor-pointer"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              You can select multiple images and videos
+            </p>
+          </div>
+
+          {/* Media Previews */}
+          {previews.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+              {previews.map((preview, index) => (
+                <div key={index} className="relative group">
+                  <div className="aspect-[16/9] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                    {preview.type === 'image' ? (
+                      <img
+                        src={preview.url}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <video
+                        src={preview.url}
+                        className="w-full h-full object-cover"
+                        controls
+                      />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      URL.revokeObjectURL(preview.url)
+                      setPreviews(prev => prev.filter((_, i) => i !== index))
+                      setPostForm(prev => ({
+                        ...prev,
+                        media: prev.media.filter((_, i) => i !== index)
+                      }))
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/50 text-white text-xs">
+                    {preview.type === 'image' ? 'Image' : 'Video'} {index + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="tags">Tags</Label>
+            <Input
+              id="tags"
+              value={postForm.tags}
+              onChange={(e) => setPostForm(prev => ({ ...prev, tags: e.target.value }))}
+              placeholder="Enter tags separated by commas"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="visibility">Visibility</Label>
+            <Select
+              value={postForm.visibility}
+              onValueChange={(value) => setPostForm(prev => ({ ...prev, visibility: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isSubmitting ? 'Creating...' : 'Create Post'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export default function SocialFeed() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -49,7 +203,7 @@ export default function SocialFeed() {
     productIds: []
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [currentSlide, setCurrentSlide] = useState(0)
+  const [slideIndices, setSlideIndices] = useState({})
   const carouselRef = useRef(null)
 
   useEffect(() => {
@@ -163,6 +317,13 @@ export default function SocialFeed() {
     }
   }
 
+  const handleSlideChange = (postId, newIndex) => {
+    setSlideIndices(prev => ({
+      ...prev,
+      [postId]: newIndex
+    }))
+  }
+
   const handleReact = async (postId) => {
     try {
       const sellerToken = localStorage.getItem('sellerToken')
@@ -180,7 +341,32 @@ export default function SocialFeed() {
 
       if (!response.ok) throw new Error('Failed to react to post')
 
-      fetchPosts()
+      const updatedPosts = await response.json()
+      
+      switch (selectedTab) {
+        case 'all':
+          setPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+        case 'trending':
+          setTrendingPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+        case 'new':
+          setNewPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+        case 'my-posts':
+          setMyPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+      }
+
+      toast.success('Reaction updated successfully')
 
     } catch (error) {
       toast.error('Failed to react to post: ' + error.message)
@@ -223,12 +409,13 @@ export default function SocialFeed() {
       const postDate = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Unknown date'
       const postBody = post.body || ''
       const postTags = Array.isArray(post.tags) ? post.tags : []
+      const currentSlideIndex = slideIndices[post._id] || 0
       const postImages = Array.isArray(post.images) ? post.images : []
       const reactionCount = post.reactions?.reduce((sum, r) => sum + (r.count || 0), 0) || 0
       const commentCount = Array.isArray(post.comments) ? post.comments.length : 0
 
       return (
-        <Card key={post._id} className="overflow-hidden hover:shadow-lg transition-shadow">
+        <Card key={post._id} className="overflow-hidden hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center space-y-0 p-4">
             <div className="flex items-center gap-3 flex-1">
               <Avatar className="h-10 w-10 uppercase ring-2 ring-green/10">
@@ -266,58 +453,100 @@ export default function SocialFeed() {
               <div className="relative rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
                 <div className="flex gap-4 p-4">
                   <div className="flex-1">
-                    <Carousel
-                      ref={carouselRef}
-                      showThumbs={false}
-                      showStatus={false}
-                      showIndicators={false}
-                      selectedItem={currentSlide}
-                      onChange={(index) => setCurrentSlide(index)}
-                      className="main-carousel"
-                    >
-                      {postImages.map((img, i) => (
-                        <div 
-                          key={i} 
-                          className="relative aspect-[16/9] overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800"
-                        >
-                          <img
-                            src={img.url}
-                            alt={`Post image ${i + 1}`}
-                            className="absolute inset-0 w-full h-full object-contain"
-                          />
-                        </div>
-                      ))}
-                    </Carousel>
+                    <div className="relative aspect-[16/9] rounded-xl overflow-hidden">
+                      <img
+                        src={postImages[currentSlideIndex]?.url}
+                        alt={`Main image ${currentSlideIndex + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                      {postImages.length > 1 && (
+                        <>
+                          <button
+                            onClick={() => handleSlideChange(
+                              post._id,
+                              currentSlideIndex > 0 ? currentSlideIndex - 1 : postImages.length - 1
+                            )}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full"
+                          >
+                            <ChevronLeft className="h-6 w-6" />
+                          </button>
+                          <button
+                            onClick={() => handleSlideChange(
+                              post._id,
+                              currentSlideIndex < postImages.length - 1 ? currentSlideIndex + 1 : 0
+                            )}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full"
+                          >
+                            <ChevronRight className="h-6 w-6" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  
+
                   {postImages.length > 1 && (
                     <div className="w-32 space-y-2 overflow-y-auto max-h-[400px] custom-scrollbar">
                       {postImages.map((img, index) => (
-                        <div
+                        <button
                           key={index}
-                          onClick={() => {
-                            setCurrentSlide(index)
-                            carouselRef.current.moveTo(index)
-                          }}
+                          onClick={() => handleSlideChange(post._id, index)}
                           className={`
-                            relative aspect-[16/9] rounded-lg overflow-hidden cursor-pointer
-                            transition-all duration-200 hover:ring-2 hover:ring-green-500
-                            ${currentSlide === index ? 'ring-2 ring-green-500' : 'ring-1 ring-gray-200 dark:ring-gray-700'}
+                            relative w-full aspect-[16/9] rounded-lg overflow-hidden
+                            transition-all duration-200
+                            ${currentSlideIndex === index 
+                              ? 'ring-2 ring-green-500 scale-105' 
+                              : 'ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-green-500'
+                            }
                           `}
                         >
                           <img
                             src={img.url}
                             alt={`Thumbnail ${index + 1}`}
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="w-full h-full object-cover"
                           />
                           <div className={`
-                            absolute inset-0 bg-black/10 transition-opacity duration-200
-                            ${currentSlide === index ? 'opacity-0' : 'hover:opacity-0'}
+                            absolute inset-0 bg-black/20
+                            ${currentSlideIndex === index ? 'opacity-0' : 'hover:opacity-0'}
+                            transition-opacity duration-200
                           `} />
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Enhanced post analytics */}
+                <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4 px-4 pb-2">
+                  <div className="grid grid-cols-4 gap-4 text-sm">
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-green-600">
+                        <Eye className="h-4 w-4" />
+                        <span className="font-semibold">{post.stats?.viewCount || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Views</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-red-500">
+                        <Heart className="h-4 w-4" />
+                        <span className="font-semibold">{post.stats?.likeCount || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Likes</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-blue-500">
+                        <MessageCircle className="h-4 w-4" />
+                        <span className="font-semibold">{post.comments?.length || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Comments</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-purple-500">
+                        <Share2 className="h-4 w-4" />
+                        <span className="font-semibold">{post.stats?.shareCount || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Shares</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -634,95 +863,6 @@ export default function SocialFeed() {
     }
   }
 
-  const renderCreatePostModal = () => {
-    return (
-      <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Create New Post</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreatePost} className="space-y-4">
-            <div>
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={postForm.title}
-                onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter post title"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="body">Content</Label>
-              <Textarea
-                id="body"
-                value={postForm.body}
-                onChange={(e) => setPostForm(prev => ({ ...prev, body: e.target.value }))}
-                placeholder="What's on your mind?"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="media">Media</Label>
-              <Input
-                id="media"
-                type="file"
-                multiple
-                accept="image/*,video/*"
-                onChange={(e) => setPostForm(prev => ({
-                  ...prev,
-                  media: Array.from(e.target.files)
-                }))}
-                className="cursor-pointer"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                You can select multiple images and videos
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="tags">Tags</Label>
-              <Input
-                id="tags"
-                value={postForm.tags}
-                onChange={(e) => setPostForm(prev => ({ ...prev, tags: e.target.value }))}
-                placeholder="Enter tags separated by commas"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="visibility">Visibility</Label>
-              <Select
-                value={postForm.visibility}
-                onValueChange={(value) => setPostForm(prev => ({ ...prev, visibility: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select visibility" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isSubmitting ? 'Creating...' : 'Create Post'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    )
-  }
-
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -843,7 +983,14 @@ export default function SocialFeed() {
 
       {renderPostActivity()}
       {renderVideoPlayer()}
-      {renderCreatePostModal()}
+      <CreatePostModal
+        isOpen={isCreatePostOpen}
+        onClose={() => setIsCreatePostOpen(false)}
+        onSubmit={handleCreatePost}
+        isSubmitting={isSubmitting}
+        postForm={postForm}
+        setPostForm={setPostForm}
+      />
     </div>
   )
 }

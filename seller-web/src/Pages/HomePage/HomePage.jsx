@@ -191,16 +191,16 @@ const HomePage = () => {
   // Includes: Store Visits, Total Sales, Orders, Conversions, Customers
   const prepareAnalyticsData = (orders, storeVisits, totalCustomers) => {
     return [
-        {
-            id: ObjectID().toHexString(),
-            title: 'Store Visits',
-            icon: FiUsers,
-            current: formatMetricValue(storeVisits),
-            percentage: '+13%',
-            trend: 'up',
-            iconColor: 'text-blue-600',
-            iconBackground: 'bg-blue-50'
-        },
+        // {
+        //     id: ObjectID().toHexString(),
+        //     title: 'Store Visits',
+        //     icon: FiUsers,
+        //     current: formatMetricValue(storeVisits),
+        //     percentage: '+13%',
+        //     trend: 'up',
+        //     iconColor: 'text-blue-600',
+        //     iconBackground: 'bg-blue-50'
+        // },
         {
             id: ObjectID().toHexString(),
             title: 'Wallet Balance',
@@ -272,7 +272,7 @@ const HomePage = () => {
           <div className="flex justify-center items-center">
             {
               homeAnalyticsCardData.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-9 w-full">
                   {
                     homeAnalyticsCardData.map((card) => (
                       <HomeAnalyticsCard key={card.id} card={card} />
@@ -315,7 +315,7 @@ const HomePage = () => {
           </div>
         ) : stuffToDo?.notifications?.length > 0 ? (
           <div className="divide-y divide-gray-100">
-            {stuffToDo.notifications.slice(0, 5).map((notification) => (
+            {stuffToDo.notifications.slice(0, 4).map((notification) => (
               <div key={notification._id} className="p-4 hover:bg-gray-100 transition-colors">
                 {/* <h4 className="font-medium text-gray-900">{notification.title}</h4> */}
                 <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
