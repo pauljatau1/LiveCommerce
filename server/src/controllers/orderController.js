@@ -15,6 +15,12 @@ const terminalAPI = axios.create({
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const mongoose = require('mongoose');
 const WebhookService = require('../services/WebhookService');
+const { 
+  handleShipmentCreated, 
+  handleShipmentInTransit, 
+  handleShipmentDelivered 
+} = require('../webhooks/terminalWebhook');
+const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
 
 // Initialize Paystack
 const paystackSecretKey = "sk_test_REDACTED";
@@ -25,6 +31,71 @@ const paystack = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+// At the top with other initializations
+const initializeTerminalWebhook = async () => {
+  try {
+    const webhookUrl = process.env.NODE_ENV === 'production' 
+      ? `${process.env.BASE_URL}/webhooks/terminal`
+      : `${process.env.WEBHOOK_URL}`;
+
+    // Define the events we want to track
+    const events = [
+      'shipment.created',
+      'shipment.in-transit',
+      'shipment.updated',
+      'shipment.delivered'
+    ];
+
+    // Create a webhook for each event
+    for (const event of events) {
+      const webhookData = {
+        name: `Shipment ${event.split('.').join(' ')}`,
+        url: webhookUrl,
+        description: `Webhook for tracking ${event} events`,
+        events: [event],
+        live: process.env.NODE_ENV === 'production',
+        active: true
+      };
+
+      console.log(`Creating webhook for event: ${event}`);
+
+      try {
+        const response = await terminalAPI.post('/webhooks', webhookData);
+        
+        if (response.data && response.data.status) {
+          console.log(`Successfully created webhook for ${event}:`, {
+            webhookId: response.data.data?.id,
+            event: event
+          });
+        } else {
+          console.error(`Failed to create webhook for ${event}:`, response.data);
+        }
+      } catch (eventError) {
+        console.error(`Error creating webhook for ${event}:`, {
+          error: eventError.message,
+          response: eventError.response?.data
+        });
+        // Continue with other events even if one fails
+        continue;
+      }
+
+      // Add a small delay between webhook creations to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    console.log('Completed webhook initialization process');
+  } catch (error) {
+    console.error('Failed to initialize Terminal webhooks:', {
+      error: error.message,
+      response: error.response?.data,
+      config: error.config
+    });
+  }
+};
+
+// Call this when your app starts
+initializeTerminalWebhook();
 
 // Helper function to validate address format
 const validateAddress = (address) => {
@@ -92,53 +163,104 @@ exports.createOrder = async (req, res) => {
   try {
     const {
       items,
+      pickup_addresses,
       delivery_address,
-      pickup_address,
       parcel,
       paymentMethod,
       channel = 'marketplace'
     } = req.body;
 
-    // Validate addresses and parcel before proceeding
-    validateAddress(pickup_address);
-    validateAddress(delivery_address);
-    validateParcel(parcel);
-    validateItems(items);
+    console.log('Starting order creation with items:', items);
+    console.log('Pickup addresses:', pickup_addresses);
 
-    try {
+    // Validate delivery address and all pickup addresses
+    validateAddress(delivery_address);
+    if (pickup_addresses) {
+      Object.values(pickup_addresses).forEach(addr => validateAddress(addr));
+    }
+
+    // Group items by seller and create orders
+    const itemsBySeller = {};
+    const orders = [];
+    const shipments = [];
+
+    // First, group items by seller and validate products
+    for (const item of items) {
+      console.log('Processing item:', item);
+      
+      const product = await Product.findById(item.productId)
+        .populate('seller', 'warehouseAddress firstName lastName email phone');
+
+      console.log('Found product:', product);
+      
+      if (!product) {
+        throw new Error(`Product not found: ${item.productId}`);
+      }
+
+      const sellerId = product.seller._id.toString();
+      console.log('Seller ID:', sellerId);
+      
+      if (!itemsBySeller[sellerId]) {
+        // Get pickup address for this seller
+        let pickup_address;
+        if (pickup_addresses && pickup_addresses[sellerId]) {
+          console.log('Using provided pickup address for seller:', sellerId);
+          pickup_address = pickup_addresses[sellerId];
+        } else {
+          console.log('Using warehouse address for seller:', sellerId);
+          pickup_address = {
+            first_name: product.seller.firstName,
+            last_name: product.seller.lastName,
+            email: product.seller.email,
+            phone: product.seller.phone,
+            ...product.seller.warehouseAddress
+          };
+        }
+
+        console.log('Final pickup address:', pickup_address);
+
+        itemsBySeller[sellerId] = {
+          items: [],
+          seller: product.seller,
+          pickup_address
+        };
+      }
+      
+      itemsBySeller[sellerId].items.push({
+        product: product._id,
+        productName: product.name,
+        seller: sellerId,
+        quantity: item.quantity,
+        price: item.price,
+        name: item.name,
+        description: item.description,
+        weight: item.weight,
+        status: 'pending'
+      });
+    }
+
+    console.log('Items grouped by seller:', itemsBySeller);
+
+    // Create shipments and orders for each seller
+    for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
+      console.log('Creating shipment for seller:', sellerId);
+      console.log('Seller data:', sellerData);
+      
+      // Calculate total weight for this seller's items
+      const totalWeight = sellerData.items.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
+
+      // Prepare shipping data for Terminal Africa
       const shippingData = {
-        pickup_address: {
-          first_name: pickup_address.first_name,
-          last_name: pickup_address.last_name,
-          email: pickup_address.email,
-          phone: pickup_address.phone,
-          line1: pickup_address.line1,
-          line2: pickup_address.line2 || '',
-          city: pickup_address.city,
-          state: pickup_address.state,
-          country: pickup_address.country,
-          zip: pickup_address.zip
-        },
-        delivery_address: {
-          first_name: delivery_address.first_name,
-          last_name: delivery_address.last_name,
-          email: delivery_address.email,
-          phone: delivery_address.phone,
-          line1: delivery_address.line1,
-          line2: delivery_address.line2 || '',
-          city: delivery_address.city,
-          state: delivery_address.state,
-          country: delivery_address.country,
-          zip: delivery_address.zip
-        },
+        pickup_address: sellerData.pickup_address,
+        delivery_address,
         parcel: {
-          weight: parcel.weight,
+          weight: totalWeight,
           width: parcel.width,
           height: parcel.height,
           length: parcel.length,
           weight_unit: 'kg',
           description: "Auqli Order Items",
-          items: items.map(item => ({
+          items: sellerData.items.map(item => ({
             name: item.name,
             description: item.description,
             quantity: item.quantity,
@@ -151,328 +273,163 @@ exports.createOrder = async (req, res) => {
         },
         shipment_purpose: "commercial",
         metadata: {
-          order_type: "auqli_order",
-          description: "Auqli Marketplace Order"
+          seller_id: sellerId,
+          channel
         }
       };
 
+      console.log('Shipping data prepared:', shippingData);
+
+      // Create shipment with Terminal Africa
       const shipmentResponse = await terminalAPI.post('/shipments/quick', shippingData);
+      console.log('Terminal Africa response:', shipmentResponse.data);
 
       if (!shipmentResponse.data.status) {
         throw new Error(shipmentResponse.data.message || 'Failed to create shipment');
       }
 
-      // Group items by seller and create orders
-      const itemsBySeller = {};
-      for (const item of items) {
-        const product = await Product.findById(item.productId)
-          .populate('seller', 'warehouseAddress');
+      shipments.push(shipmentResponse.data.data);
 
-        if (!product) {
-          throw new Error(`Product not found: ${item.productId}`);
-        }
-
-        const sellerId = product.seller._id.toString();
-        if (!itemsBySeller[sellerId]) {
-          itemsBySeller[sellerId] = {
-            items: [],
-            seller: sellerId
-          };
-        }
-        itemsBySeller[sellerId].items.push({
-          product: item.productId,
-          productName: product.name,
-          seller: sellerId,
-          quantity: item.quantity,
-          price: product.price
-        });
-      }
-
-      // Create orders for each seller
-      const orderPromises = Object.entries(itemsBySeller).map(([sellerId, sellerData]) => {
-        const orderData = {
-          buyer: req.user.id,
-          seller: sellerId,
-          items: sellerData.items,
-          delivery_address: delivery_address,
-          pickup_address: pickup_address,
-          channel: channel,
-          shipping: {
-            method: shipmentResponse.data.data.carrier?.name || 'standard',
-            fee: shipmentResponse.data.data.amount,
-            estimatedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            tracking: {
-              number: shipmentResponse.data.data.tracking_number,
-              carrier: shipmentResponse.data.data.carrier?.name,
-              status: 'pending'
-            },
-            shipment_id: shipmentResponse.data.data.shipment_id,
-            shipment_purpose: "commercial"
+      // Create order for this seller with safe carrier access
+      const orderData = {
+        buyer: req.user.id,
+        seller: sellerId,
+        items: sellerData.items.map(item => ({
+          ...item,
+          seller: sellerId  // Add seller ID to each item
+        })),
+        delivery_address,
+        pickup_address: sellerData.pickup_address,
+        shipping: {
+          method: 'Terminal Africa',
+          carrier: {
+            name: 'Terminal Africa',
+            reference: shipmentResponse.data.data.shipment_id
           },
-          paymentInfo: {
-            method: paymentMethod,
+          fee: {
+            amount: shipmentResponse.data.data.shipment_cost || 0,
+            currency: 'NGN'
+          },
+          rate_id: shipmentResponse.data.data.rate_id,
+          shipment_id: shipmentResponse.data.data.shipment_id,
+          tracking: {
+            number: shipmentResponse.data.data.tracking_number,
+            url: shipmentResponse.data.data.tracking_url,
             status: 'pending'
-          },
-          totalAmount: sellerData.items.reduce((total, item) => total + item.price * item.quantity, 0)
-        };
+          }
+        },
+        paymentMethod,
+        totalAmount: sellerData.items.reduce((total, item) => total + item.price * item.quantity, 0)
+      };
 
-        const order = new Order(orderData);
-        return order.save({ session });
+      const order = new Order(orderData);
+      const savedOrder = await order.save({ session });
+      orders.push(savedOrder);
+
+      // Create notification for seller
+      await createNotification(sellerId, 'new_order', {
+        orderId: savedOrder._id,
+        buyerName: `${savedOrder.buyer.firstName} ${savedOrder.buyer.lastName}`,
+        amount: savedOrder.totalAmount,
+        items: savedOrder.items.length
       });
-
-      const orders = await Promise.all(orderPromises);
-
-      // Update product stock for each order
-      for (const order of orders) {
-        for (const item of order.items) {
-          const product = await Product.findById(item.product);
-          if (!product) {
-            throw new Error(`Product ${item.product} not found`);
-          }
-          
-          // Check if enough stock is available
-          if (product.stock < item.quantity) {
-            throw new Error(`Insufficient stock for product ${product.name}`);
-          }
-          
-          // Decrease the stock
-          product.stock -= item.quantity;
-          await product.save();
-        }
-      }
-
-      // Update sold count for each product in the order
-      for (const item of items) {
-        await Product.findByIdAndUpdate(
-          item.product,
-          {
-            $inc: { 'stats.soldCount': item.quantity }
-          },
-          { session }
-        );
-      }
-
-      // After creating orders but before webhook events
-      for (const order of orders) {
-        const buyer = await Buyer.findById(req.user.id);
-        const seller = await Seller.findById(order.seller);
-
-        if (!seller.followers) {
-          seller.followers = [];
-        }
-
-        // Check if buyer is already following this seller
-        const isAlreadyFollowing = seller.followers.some(
-          follower => follower.buyerId && follower.buyerId.toString() === buyer._id.toString()
-        );
-
-        // If not already following, add as follower
-        if (!isAlreadyFollowing) {
-          // Get buyer's main address
-          const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
-            ? buyer.shippingAddresses[0] 
-            : null;
-
-          // Add to seller's followers list
-          seller.followers.push({
-            buyerId: buyer._id,
-            firstName: buyer.firstName,
-            lastName: buyer.lastName,
-            email: buyer.email,
-            followDate: new Date(),
-            totalOrders: 1,
-            mainAddress: mainAddress
-          });
-
-          // Add to buyer's activity feed
-          if (!buyer.activityFeed) {
-            buyer.activityFeed = [];
-          }
-
-          buyer.activityFeed.push({
-            type: 'follow',
-            content: `Started following ${seller.storeName || seller.businessName} after placing an order`,
-            reference: seller._id,
-            referenceModel: 'Seller',
-            createdAt: new Date()
-          });
-
-          await Promise.all([
-            seller.save({ session }),
-            buyer.save({ session })
-          ]);
-        } else {
-          // If already following, increment totalOrders
-          const followerIndex = seller.followers.findIndex(
-            follower => follower.buyerId && follower.buyerId.toString() === buyer._id.toString()
-          );
-          if (followerIndex !== -1) {
-            seller.followers[followerIndex].totalOrders += 1;
-            await seller.save({ session });
-          }
-        }
-      }
-
-      // Send emails to seller and buyer
-      for (const order of orders) {
-        // Populate product details for the items
-        await Order.populate(order, {
-          path: 'items.product',
-          select: 'name price'
-        });
-
-        // Format items list for email
-        const itemsList = order.items.map(item => `
-          <tr style="border-bottom: 1px solid #333333;">
-            <td style="padding: 10px 0;">${item.product?.name || 'Product'}</td>
-            <td style="padding: 10px 0;">${item.quantity}</td>
-            <td style="padding: 10px 0;">NGN ${item.price}</td>
-            <td style="padding: 10px 0;">NGN ${item.price * item.quantity}</td>
-          </tr>
-        `).join('');
-
-        // Get seller and buyer details
-        const seller = await Seller.findById(order.seller);
-        const buyer = await Buyer.findById(order.buyer);
-
-        const sellerEmail = {
-          to: order.pickup_address.email,
-          from: 'Joseph From Auqli <joseph@auqli.com>',
-          subject: 'New Order Received - Auqli',
-          html: `
-            <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-              <div style="max-width: 600px; margin: 0 auto;">
-                <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-                <h1 style="color: #4CAF50; margin-bottom: 20px;">New Order Received!</h1>
-                <p style="font-size: 16px; line-height: 1.5;">Hello ${seller?.businessName || 'Seller'},</p>
-                <p style="font-size: 16px; line-height: 1.5;">You have received a new order (#${order._id}) from ${buyer?.firstName} ${buyer?.lastName}.</p>
-                
-                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Order Details:</h3>
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                      <tr style="border-bottom: 2px solid #4CAF50;">
-                        <th style="text-align: left; padding: 10px 0;">Item</th>
-                        <th style="text-align: left; padding: 10px 0;">Qty</th>
-                        <th style="text-align: left; padding: 10px 0;">Price</th>
-                        <th style="text-align: left; padding: 10px 0;">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${itemsList}
-                    </tbody>
-                  </table>
-                  <div style="margin-top: 20px; border-top: 1px solid #4CAF50; padding-top: 15px;">
-                    <p style="margin: 5px 0;">Subtotal: NGN ${order.totalAmount}</p>
-                    <p style="margin: 5px 0;">Shipping Fee: NGN ${order.shipping.fee}</p>
-                    <p style="margin: 5px 0; font-weight: bold; color: #4CAF50;">Total Amount: NGN ${order.totalAmount + order.shipping.fee}</p>
-                  </div>
-                </div>
-
-                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Delivery Information:</h3>
-                  <p style="margin: 5px 0;">Name: ${order.delivery_address.first_name} ${order.delivery_address.last_name}</p>
-                  <p style="margin: 5px 0;">Address: ${order.delivery_address.line1}</p>
-                  <p style="margin: 5px 0;">City: ${order.delivery_address.city}</p>
-                  <p style="margin: 5px 0;">State: ${order.delivery_address.state}</p>
-                  <p style="margin: 5px 0;">Phone: ${order.delivery_address.phone}</p>
-                </div>
-
-                <p style="font-size: 16px;">Please log in to your dashboard to process this order.</p>
-                <hr style="border: 1px solid #333333; margin: 30px 0;">
-                <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-              </div>
-            </div>
-          `
-        };
-
-        const buyerEmail = {
-          to: order.delivery_address.email,
-          from: 'Joseph From Auqli <joseph@auqli.com>',
-          subject: 'Order Confirmation - Auqli',
-          html: `
-            <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-              <div style="max-width: 600px; margin: 0 auto;">
-                <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-                <h1 style="color: #4CAF50; margin-bottom: 20px;">Thank You for Your Order!</h1>
-                <p style="font-size: 16px; line-height: 1.5;">Hello ${buyer?.firstName} ${buyer?.lastName},</p>
-                <p style="font-size: 16px; line-height: 1.5;">Your order (#${order._id}) has been received and is being processed by ${seller?.businessName}.</p>
-
-                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Order Summary:</h3>
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                      <tr style="border-bottom: 2px solid #4CAF50;">
-                        <th style="text-align: left; padding: 10px 0;">Item</th>
-                        <th style="text-align: left; padding: 10px 0;">Qty</th>
-                        <th style="text-align: left; padding: 10px 0;">Price</th>
-                        <th style="text-align: left; padding: 10px 0;">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${itemsList}
-                    </tbody>
-                  </table>
-                  <div style="margin-top: 20px; border-top: 1px solid #4CAF50; padding-top: 15px;">
-                    <p style="margin: 5px 0;">Subtotal: NGN ${order.totalAmount}</p>
-                    <p style="margin: 5px 0;">Shipping Fee: NGN ${order.shipping.fee}</p>
-                    <p style="margin: 5px 0; font-weight: bold; color: #4CAF50;">Total Amount: NGN ${order.totalAmount + order.shipping.fee}</p>
-                  </div>
-                </div>
-
-                <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                  <h3 style="color: #4CAF50; margin-bottom: 15px;">Shipping Information:</h3>
-                  <p style="margin: 5px 0;">Delivery Address: ${order.delivery_address.line1}</p>
-                  <p style="margin: 5px 0;">City: ${order.delivery_address.city}</p>
-                  <p style="margin: 5px 0;">State: ${order.delivery_address.state}</p>
-                  <p style="margin: 5px 0;">Shipping Method: ${order.shipping.method}</p>
-                  <p style="margin: 5px 0;">Tracking Number: ${order.shipping.tracking.number}</p>
-                </div>
-
-                <p style="font-size: 14px; color: #999999;">We'll notify you when your order ships.</p>
-                <hr style="border: 1px solid #333333; margin: 30px 0;">
-                <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-              </div>
-            </div>
-          `
-        };
-
-        try {
-          await Promise.all([
-            sgMail.send(sellerEmail),
-            sgMail.send(buyerEmail)
-          ]);
-        } catch (emailError) {
-          console.error('Error sending order notification emails:', emailError);
-        }
-      }
-
-      await session.commitTransaction();
-
-      // Send webhook events and respond
-      for (const order of orders) {
-        await WebhookService.sendWebhookEvent('order.created', {
-          orderId: order._id,
-          sellerId: order.seller,
-          status: order.status,
-          createdAt: order.createdAt,
-        }, order.seller);
-      }
-
-      res.status(201).json({
-        message: 'Orders created successfully',
-        orders,
-        shipping: shipmentResponse.data.data
-      });
-
-    } catch (error) {
-      console.error('Terminal Africa API Error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Failed to create shipment with Terminal Africa');
     }
 
+    await session.commitTransaction();
+
+    // Send emails for each order
+    for (const order of orders) {
+      const populatedOrder = await Order.findById(order._id)
+        .populate('buyer', 'email firstName lastName')
+        .populate('seller', 'email firstName lastName businessName')
+        .populate('items.product', 'name');
+
+      // Buyer email
+      const buyerEmail = {
+        to: populatedOrder.buyer.email,
+        from: 'Auqli Orders <joseph@auqli.com>',
+        subject: 'Order Confirmation - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Confirmation</h2>
+            <p>Dear ${populatedOrder.buyer.firstName},</p>
+            <p>Thank you for your order! Here are your order details:</p>
+            <p><strong>Order ID:</strong> ${populatedOrder._id}</p>
+            <p><strong>Items:</strong></p>
+            <ul>
+              ${populatedOrder.items.map(item => `
+                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
+              `).join('')}
+            </ul>
+            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
+            <p><strong>Shipping Address:</strong><br>
+              ${populatedOrder.delivery_address.line1}<br>
+              ${populatedOrder.delivery_address.line2 || ''}<br>
+              ${populatedOrder.delivery_address.city}, ${populatedOrder.delivery_address.state}<br>
+              ${populatedOrder.delivery_address.country}
+            </p>
+            <p>We'll notify you once your order is confirmed and ready for shipping.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      // Seller email
+      const sellerEmail = {
+        to: populatedOrder.seller.email,
+        from: 'Auqli Orders <joseph@auqli.com>',
+        subject: 'New Order Received - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>New Order Received</h2>
+            <p>Dear ${populatedOrder.seller.firstName},</p>
+            <p>You have received a new order:</p>
+            <p><strong>Order ID:</strong> ${populatedOrder._id}</p>
+            <p><strong>Items:</strong></p>
+            <ul>
+              ${populatedOrder.items.map(item => `
+                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
+              `).join('')}
+            </ul>
+            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
+            <p><strong>Shipping Details:</strong><br>
+              ${populatedOrder.delivery_address.first_name} ${populatedOrder.delivery_address.last_name}<br>
+              ${populatedOrder.delivery_address.line1}<br>
+              ${populatedOrder.delivery_address.line2 || ''}<br>
+              ${populatedOrder.delivery_address.city}, ${populatedOrder.delivery_address.state}<br>
+              ${populatedOrder.delivery_address.country}
+            </p>
+            <p>Please prepare the items for shipping.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+    }
+
+    res.status(201).json({
+      message: 'Orders created successfully',
+      orders: orders.map(order => ({
+        orderId: order._id,
+        seller: order.seller,
+        shipment_id: order.shipping.shipment_id,
+        items: order.items
+      })),
+      shipments: shipments.map(shipment => ({
+        shipment_id: shipment.shipment_id,
+        tracking_number: shipment.tracking_number,
+        carrier: 'Terminal Africa'
+      }))
+    });
+
   } catch (error) {
+    console.error('Detailed error:', error);
+    console.error('Error stack:', error.stack);
     await session.abortTransaction();
-    console.error('Order Creation Error:', error);
     res.status(error.response?.status || 500).json({
       message: 'Failed to create order',
       error: error.message,
@@ -515,92 +472,224 @@ exports.getShippingRates = async (req, res) => {
   }
 };
 
-// Mark order as paid
+// Mark multiple orders as paid
 exports.markAsPaid = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const { orderId } = req.params;
-    const { 
-      amount, 
-      carrier_reference, 
-      shipping_fee, 
-      carrier_name,
-      rate_id 
-    } = req.body;
+    const { orders } = req.body;
+    console.log('Starting markAsPaid process for orders:', orders);
 
-    console.log('Request payload:', {
-      orderId,
-      amount,
-      carrier_reference,
-      shipping_fee,
-      carrier_name,
-      rate_id
-    });
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      console.log('Order not found:', orderId);
-      return res.status(404).json({ message: 'Order not found' });
+    if (!Array.isArray(orders) || orders.length === 0) {
+      return res.status(400).json({ message: 'Orders array is required' });
     }
 
-    // Verify amount matches order total
-    if (amount !== order.totalAmount) {
-      console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
-      return res.status(400).json({ 
-        message: 'Payment amount does not match order total' 
+    const processedOrders = [];
+    let totalAmount = 0;
+    let totalShippingFee = 0;
+
+    for (const orderData of orders) {
+      const { 
+        orderId, 
+        amount, 
+        carrier_reference, 
+        shipping_fee, 
+        carrier_name, 
+        rate_id 
+      } = orderData;
+
+      console.log('Processing order:', orderId);
+
+      const order = await Order.findById(orderId);
+      if (!order) {
+        console.log('Order not found:', orderId);
+        throw new Error(`Order not found: ${orderId}`);
+      }
+
+      console.log('Found order:', {
+        orderId: order._id,
+        items: order.items,
+        totalAmount: order.totalAmount
+      });
+
+      // Verify amount matches order total
+      if (amount !== order.totalAmount) {
+        console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
+        throw new Error(`Payment amount does not match order total for order ${orderId}`);
+      }
+
+      // Update soldCount and decrease stock for each product
+      for (const item of order.items) {
+        console.log('Processing item:', {
+          productId: item.product,
+          quantity: item.quantity
+        });
+
+        const productBefore = await Product.findById(item.product);
+        console.log('Product before update:', {
+          productId: productBefore._id,
+          currentStock: productBefore.stock,
+          currentInventoryQuantity: productBefore.inventory.quantity,
+          currentSoldCount: productBefore.stats.soldCount
+        });
+
+        const updateResult = await Product.findByIdAndUpdate(
+          item.product,
+          { 
+            $inc: { 
+              'stats.soldCount': item.quantity,
+              'stock': -item.quantity,
+              'inventory.quantity': -item.quantity 
+            }
+          },
+          { new: true, session }
+        );
+
+        // Update seller's wallet balance
+        await Seller.findByIdAndUpdate(
+          item.seller,
+          {
+            $inc: { 'walletBalance': item.price * item.quantity }
+          },
+          { session }
+        );
+
+        console.log('Product after update:', {
+          productId: updateResult._id,
+          newStock: updateResult.stock,
+          newInventoryQuantity: updateResult.inventory.quantity,
+          newSoldCount: updateResult.stats.soldCount,
+          updateSuccessful: !!updateResult
+        });
+      }
+
+      // Ensure tracking object exists with required fields
+      const tracking = {
+        status: 'pending',
+        history: [],
+        carrier: carrier_name,
+        ...(order.shipping.tracking || {}) // Preserve existing tracking data if any
+      };
+
+      // Update shipping information
+      order.shipping = {
+        ...order.shipping,
+        method: order.shipping.method || 'standard',
+        carrier: {
+          name: carrier_name,
+          reference: carrier_reference
+        },
+        fee: {
+          amount: shipping_fee,
+          currency: 'NGN'
+        },
+        rate_id: rate_id,
+        tracking: tracking,
+        documents: order.shipping.documents || {  // Add default documents object
+          shippingLabel: null,
+          commercialInvoice: null
+        }
+      };
+
+      // Ensure all required fields are present
+      const updatedOrder = await Order.findByIdAndUpdate(
+        orderId,
+        {
+          $set: {
+            paid: true,
+            paymentInfo: {
+              ...order.paymentInfo,
+              status: 'paid',
+              paidAt: new Date()
+            },
+            shipping: order.shipping
+          }
+        },
+        { new: true, runValidators: true, session }
+      );
+
+      processedOrders.push(updatedOrder);
+      totalAmount += amount;
+      totalShippingFee += shipping_fee;
+
+      // Create notification for seller
+      await createNotification(order.seller, 'order_paid', {
+        orderId: order._id,
+        amount: order.totalAmount,
+        paymentMethod: order.paymentInfo.method
       });
     }
 
-    // Update payment info
-    order.paid = true;
-    order.paymentInfo = {
-      ...order.paymentInfo,
-      status: 'paid',
-      paidAt: new Date()
-    };
+    await session.commitTransaction();
 
-    // Ensure tracking object exists with required fields
-    const tracking = {
-      status: 'pending',
-      history: [],
-      carrier: carrier_name,
-      ...(order.shipping.tracking || {}) // Preserve existing tracking data if any
-    };
+    // Send emails for each order
+    for (const order of processedOrders) {
+      const populatedOrder = await Order.findById(order._id)
+        .populate('buyer', 'email firstName lastName')
+        .populate('seller', 'email firstName lastName businessName')
+        .populate('items.product', 'name');
 
-    // Update shipping information
-    order.shipping = {
-      ...order.shipping, // Preserve existing shipping data
-      method: order.shipping.method || 'standard',
-      carrier: {
-        name: carrier_name,
-        reference: carrier_reference
-      },
-      fee: {
-        amount: shipping_fee,
-        currency: 'NGN'
-      },
-      rate_id: rate_id,
-      tracking: tracking,
-      shipment_id: order.shipping.shipment_id,
-      shipment_purpose: order.shipping.shipment_purpose || 'commercial',
-      documents: {} // Initialize empty documents object
-    };
+      // Buyer payment confirmation email
+      const buyerEmail = {
+        to: populatedOrder.buyer.email,
+        from: 'Auqli Payments <joseph@auqli.com>',
+        subject: 'Payment Confirmed - Auqli Order',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Payment Confirmed</h2>
+            <p>Dear ${populatedOrder.buyer.firstName},</p>
+            <p>Your payment has been confirmed for order #${populatedOrder._id}.</p>
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              ${populatedOrder.items.map(item => `
+                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
+              `).join('')}
+            </ul>
+            <p><strong>Total Amount Paid:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
+            <p><strong>Shipping Fee:</strong> ₦${populatedOrder.shipping.fee.amount.toLocaleString()}</p>
+            <p>We'll notify you once your order is ready for shipping.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
 
-    console.log('Final order shipping before save:', JSON.stringify(order.shipping, null, 2));
+      // Seller payment notification email
+      const sellerEmail = {
+        to: populatedOrder.seller.email,
+        from: 'Auqli Payments <joseph@auqli.com>',
+        subject: 'Payment Received - Auqli Order',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Payment Received</h2>
+            <p>Dear ${populatedOrder.seller.firstName},</p>
+            <p>Payment has been received for order #${populatedOrder._id}.</p>
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              ${populatedOrder.items.map(item => `
+                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
+              `).join('')}
+            </ul>
+            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
+            <p>Please prepare the order for shipping.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
 
-    await order.save();
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+    }
 
-    // Notify seller of payment
-    // await notificationController.createNotification({
-    //   recipient: order.seller,
-    //   type: 'ORDER_PAID',
-    //   title: 'New Order Payment',
-    //   message: `Payment received for order #${order._id}`,
-    //   reference: order._id
-    // });
+    console.log('Orders marked as paid successfully');
 
     res.json({
-      message: 'Order marked as paid successfully',
-      order: {
+      message: 'Orders marked as paid successfully',
+      totalAmount,
+      totalShippingFee,
+      orders: processedOrders.map(order => ({
         _id: order._id,
         paid: order.paid,
         paymentInfo: order.paymentInfo,
@@ -610,23 +699,28 @@ exports.markAsPaid = async (req, res) => {
           rate_id: order.shipping.rate_id,
           tracking: order.shipping.tracking
         }
-      }
+      }))
     });
 
   } catch (error) {
-    console.error('Mark as paid error:', error);
-    console.error('Error stack:', error.stack);
+    await session.abortTransaction();
+    console.error('Error in markAsPaid:', {
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({
-      message: 'Failed to mark order as paid',
+      message: 'Failed to mark orders as paid',
       error: error.message
     });
+  } finally {
+    session.endSession();
   }
 };
 
 // Get all orders
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find().populate('buyer', 'firstName lastName').populate('seller', 'name');
+    const orders = await Order.find().sort({ createdAt: -1 }).populate('buyer', 'firstName lastName').populate('seller', 'name');
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve orders', error: error.message });
@@ -638,7 +732,7 @@ exports.getOrdersForBuyer = async (req, res) => {
   const { buyerId } = req.params;
 
   try {
-    const orders = await Order.find({ buyer: buyerId })
+    const orders = await Order.find({ buyer: buyerId }).sort({ createdAt: -1 })
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'name');
     res.json(orders);
@@ -652,7 +746,7 @@ exports.getOrdersForSeller = async (req, res) => {
   const { sellerId } = req.params;
 
   try {
-    const orders = await Order.find({ seller: sellerId })
+    const orders = await Order.find({ seller: sellerId }).sort({ createdAt: -1 })
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'name');
     res.json(orders);
@@ -660,6 +754,7 @@ exports.getOrdersForSeller = async (req, res) => {
     res.status(500).json({ message: 'Failed to retrieve orders for seller', error: error.message });
   }
 };
+
 
 // Update an order
 exports.updateOrder = async (req, res) => {
@@ -722,64 +817,76 @@ exports.updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
 
-    const order = await Order.findById(orderId)
-      .populate('buyer')
-      .populate('seller');
+    console.log('Starting updateOrderStatus process:', {
+      orderId,
+      newStatus: status
+    });
 
+    const order = await Order.findById(orderId);
     if (!order) {
+      console.log('Order not found:', orderId);
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    const oldStatus = order.status;
-    order.status = status;
-    await order.save();
-
-    // Prepare webhook data
-    const webhookData = {
+    console.log('Found order:', {
       orderId: order._id,
-      orderNumber: order.orderNumber,
-      oldStatus,
-      newStatus: status,
-      updatedAt: new Date(),
-      items: order.items.map(item => ({
-        productId: item.product,
-        quantity: item.quantity,
-        status: item.status
-      })),
-      shipping: {
-        trackingNumber: order.shipping.tracking.number,
-        carrier: order.shipping.tracking.carrier,
-        estimatedDelivery: order.shipping.estimatedDeliveryDate
-      }
-    };
-
-    // Send webhooks to both seller and buyer
-    await WebhookService.sendWebhookEvent('order.status_updated', webhookData, {
-      sellerId: order.seller._id,
-      buyerId: order.buyer._id
+      currentStatus: order.status,
+      items: order.items
     });
 
-    // Send specific event based on status
-    if (status === 'out_for_delivery') {
-      await WebhookService.sendWebhookEvent('order.out_for_delivery', webhookData, {
-        sellerId: order.seller._id,
-        buyerId: order.buyer._id
+    // Update soldCount and decrease stock for each product
+    for (const item of order.items) {
+      console.log('Processing item:', {
+        productId: item.product,
+        quantity: item.quantity
       });
-    } else if (status === 'delivered') {
-      await WebhookService.sendWebhookEvent('order.delivered', webhookData, {
-        sellerId: order.seller._id,
-        buyerId: order.buyer._id
+
+      const productBefore = await Product.findById(item.product);
+      console.log('Product before update:', {
+        productId: productBefore._id,
+        currentStock: productBefore.stock,
+        currentInventoryQuantity: productBefore.inventory.quantity,
+        currentSoldCount: productBefore.stats.soldCount
+      });
+
+      const updateResult = await Product.findByIdAndUpdate(
+        item.product,
+        { 
+          $inc: { 
+            'stats.soldCount': item.quantity,
+            'stock': -item.quantity,
+            'inventory.quantity': -item.quantity 
+          }
+        },
+        { new: true } // Return the updated document
+      );
+
+      console.log('Product after update:', {
+        productId: updateResult._id,
+        newStock: updateResult.stock,
+        newInventoryQuantity: updateResult.inventory.quantity,
+        newSoldCount: updateResult.stats.soldCount,
+        updateSuccessful: !!updateResult
       });
     }
 
-    res.json({
-      message: 'Order status updated successfully',
-      order
+    order.status = status;
+    await order.save();
+
+    console.log('Order status updated successfully');
+
+    res.json({ 
+      message: 'Order status updated successfully', 
+      order 
     });
   } catch (error) {
-    res.status(500).json({
-      message: 'Failed to update order status',
-      error: error.message
+    console.error('Error in updateOrderStatus:', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      message: 'Failed to update order status', 
+      error: error.message 
     });
   }
 };
@@ -1570,69 +1677,83 @@ exports.arrangePickup = async (req, res) => {
         throw new Error('Failed to update order');
       }
 
-       try {
-      const order = await Order.findById(orderId)
-        .populate('buyer', 'email firstName')
-        .populate('seller', 'email firstName');
+      try {
+        const populatedOrder = await Order.findById(orderId)
+          .populate('buyer', 'email firstName lastName')
+          .populate('seller', 'email firstName lastName businessName')
+          .populate('items.product', 'name');
 
-      if (!order.buyer.email || !order.seller.email) {
-        console.log('Missing email addresses:', {
-          buyerEmail: order.buyer.email,
-          sellerEmail: order.seller.email
-        });
-        throw new Error('Missing required email addresses');
-      }
+        // Buyer pickup arrangement email
+        const buyerEmail = {
+          to: populatedOrder.buyer.email,
+          from: 'Auqli Shipping <joseph@auqli.com>',
+          subject: 'Order Pickup Arranged - Auqli',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Order Pickup Arranged</h2>
+              <p>Dear ${populatedOrder.buyer.firstName},</p>
+              <p>Your order #${populatedOrder._id} is being prepared for shipping!</p>
+              <p><strong>Tracking Details:</strong></p>
+              <ul>
+                <li>Tracking Number: ${populatedOrder.shipping.tracking.number}</li>
+                <li>Carrier: ${populatedOrder.shipping.carrier.name}</li>
+              </ul>
+              <p>You can track your shipment here: <a href="${populatedOrder.shipping.tracking.url}">Track Shipment</a></p>
+              <p><strong>Order Details:</strong></p>
+              <ul>
+                ${populatedOrder.items.map(item => `
+                  <li>${item.product.name} x ${item.quantity}</li>
+                `).join('')}
+              </ul>
+              <p>We'll keep you updated on your shipment's progress.</p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        };
 
-      // Buyer email
-      const buyerEmail = {
-        to: order.buyer.email,
-        from: 'Auqli Shipping <shipping@auqli.com>',
-        subject: 'Your Order is Ready for Pickup',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Order Pickup Arranged</h2>
-            <p>Dear ${order.buyer.firstName},</p>
-            <p>Great news! Your order #${order._id} is being prepared for shipping.</p>
-            <p>Tracking Details:</p>
-            <ul>
-              <li>Tracking Number: ${response.data.data.extras.tracking_number}</li>
-              <li>Carrier: ${order.shipping.carrier.name}</li>
-            </ul>
-            <p>You can track your shipment here: <a href="${response.data.data.extras.tracking_url}">Track Shipment</a></p>
-            <p>Thank you for shopping with us!</p>
-          </div>
-        `
-      };
+        // Seller pickup confirmation email
+        const sellerEmail = {
+          to: populatedOrder.seller.email,
+          from: 'Auqli Shipping <joseph@auqli.com>',
+          subject: 'Pickup Arrangement Confirmed - Auqli',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Pickup Arrangement Confirmed</h2>
+              <p>Dear ${populatedOrder.seller.firstName},</p>
+              <p>The pickup arrangement for order #${populatedOrder._id} has been confirmed.</p>
+              <p><strong>Shipping Details:</strong></p>
+              <ul>
+                <li>Tracking Number: ${populatedOrder.shipping.tracking.number}</li>
+                <li>Carrier: ${populatedOrder.shipping.carrier.name}</li>
+                <li>Shipment ID: ${populatedOrder.shipping.shipment_id}</li>
+              </ul>
+              <p><strong>Important Documents:</strong></p>
+              <ul>
+                <li><a href="${populatedOrder.shipping.documents.shippingLabel}">Download Shipping Label</a></li>
+                <li><a href="${populatedOrder.shipping.documents.commercialInvoice}">Download Commercial Invoice</a></li>
+              </ul>
+              <p>Please ensure the package is ready for pickup.</p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        };
 
-      // Seller email
-      const sellerEmail = {
-        to: order.seller.email,
-        from: 'Auqli Shipping <shipping@auqli.com>',
-        subject: 'Pickup Arrangement Confirmed',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Pickup Arrangement Confirmed</h2>
-            <p>Dear ${order.seller.firstName},</p>
-            <p>The pickup arrangement for order #${order._id} has been confirmed.</p>
-            <p>Tracking Details:</p>
-            <ul>
-              <li>Tracking Number: ${response.data.data.extras.tracking_number}</li>
-              <li>Shipment ID: ${shipment_id}</li>
-            </ul>
-            <p>Please ensure the package is ready for pickup.</p>
-          </div>
-        `
-      };
-
-      await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
-      ]);
-      console.log('Notification emails sent successfully');
-    } catch (emailError) {
-      console.error('Email notification error:', emailError);
+        await Promise.all([
+          sgMail.send(buyerEmail),
+          sgMail.send(sellerEmail)
+        ]);
+        console.log('Notification emails sent successfully');
+      } catch (emailError) {
+        console.error('Email notification error:', emailError);
         // Continue execution even if email fails
       }
+
+      // Create notification for seller
+      await createNotification(order.seller, 'pickup_arranged', {
+        orderId: order._id,
+        pickupDate: new Date(),
+        carrier: order.shipping.carrier.name
+      });
 
       res.json({
         message: 'Pickup arranged successfully',
@@ -1664,3 +1785,59 @@ exports.arrangePickup = async (req, res) => {
     });
   }
 };
+
+
+// Update the test webhook function
+exports.testShipmentWebhook = async (req, res) => {
+  try {
+    console.log('Starting webhook test...');
+    
+    // Simulate a webhook event
+    const mockShipmentData = {
+      shipment_id: "SH-KT355QFI31PZY4GX",
+      status: "confirmed",
+      tracking_number: "7247322121",
+      carrier_name: "DHL Express",
+      carrier_logo: "https://ucarecdn.com/dcdd8109-af8c-4057-8104-192be821dd6e/download4.png",
+      carrier_slug: "dhl-ng",
+      carrier_tracking_url: "https://www.dhl.com/global-en/home/tracking.html?tracking-id=7247322121",
+      shipping_label_url: "https://sandbox.terminal.africa/v1/shipments/label/SH-KT355QFI31PZY4GX.pdf",
+      commercial_invoice_url: "https://sandbox.terminal.africa/v1/shipments/commercial-invoice/SH-KT355QFI31PZY4GX.pdf",
+      delivery_date: "2025-01-20T12:46:17.010Z",
+      events: [{
+        location: "Ajah, NG",
+        description: "Shipment arranged by Paul Jatau",
+        created_at: new Date()
+      }]
+    };
+
+    console.log('Testing shipment.created event...');
+    await handleShipmentCreated(mockShipmentData);
+    
+    // Simulate in-transit after 5 seconds
+    setTimeout(async () => {
+      console.log('Testing shipment.in-transit event...');
+      mockShipmentData.status = "in-transit";
+      mockShipmentData.events[0].description = "Package picked up";
+      await handleShipmentInTransit(mockShipmentData);
+    }, 5000);
+
+    // Simulate delivery after 10 seconds
+    setTimeout(async () => {
+      console.log('Testing shipment.delivered event...');
+      mockShipmentData.status = "delivered";
+      mockShipmentData.events[0].description = "Package delivered";
+      await handleShipmentDelivered(mockShipmentData);
+    }, 10000);
+
+    res.json({ 
+      message: 'Test webhook events triggered',
+      note: 'Check your console for event logs and database for updates'
+    });
+  } catch (error) {
+    console.error('Error in testShipmentWebhook:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+

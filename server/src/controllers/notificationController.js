@@ -1,9 +1,81 @@
 const Notification = require('../models/Notification');
 const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey('SG.REDACTED');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Helper function to get notification title
+const getNotificationTitle = (type) => {
+  switch (type) {
+    case 'new_order':
+      return 'New Order Received';
+    case 'order_paid':
+      return 'Payment Received';
+    case 'pickup_arranged':
+      return 'Pickup Arranged';
+    case 'new_follower':
+      return 'New Follower';
+    case 'low_stock':
+      return 'Low Stock Alert';
+    case 'order_delivered':
+      return 'Order Delivered';
+    case 'order_cancelled':
+      return 'Order Cancelled';
+    case 'review_received':
+      return 'New Review';
+    default:
+      return 'Notification';
+  }
+};
+
+// Helper function to format notification message
+const getNotificationMessage = (type, data) => {
+  switch (type) {
+    case 'new_order':
+      return `You have received a new order #${data.orderId} worth ${data.amount}. ${data.items} item(s) to be fulfilled.`;
+    case 'order_paid':
+      return `Payment of ${data.amount} received for order #${data.orderId} via ${data.paymentMethod}.`;
+    case 'pickup_arranged':
+      return `Pickup has been arranged for order #${data.orderId} with ${data.carrier} on ${new Date(data.pickupDate).toLocaleDateString()}.`;
+    case 'new_follower':
+      return `${data.buyerName} is now following your store.`;
+    case 'low_stock':
+      return `Your product "${data.productName}" is running low on stock (${data.currentStock} units remaining).`;
+    case 'order_delivered':
+      return `Order #${data.orderId} has been successfully delivered to the customer.`;
+    case 'order_cancelled':
+      return `Order #${data.orderId} has been cancelled.`;
+    case 'review_received':
+      return `A new review has been posted for your product "${data.productName}".`;
+    default:
+      return 'You have a new notification.';
+  }
+};
+
+// Helper function to create notifications
+exports.createNotification = async (sellerId, type, data) => {
+  try {
+    // Get the title and message based on notification type
+    const title = getNotificationTitle(type);
+    const message = getNotificationMessage(type, data);
+
+    const notification = new Notification({
+      seller: sellerId,
+      type,
+      title,
+      message,
+      data,
+      isRead: false
+    });
+
+    await notification.save();
+    return notification;
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw error;
+  }
+};
 
 // Helper function to send email notification
-const sendEmailNotification = async (seller, notification) => {
+exports.sendEmailNotification = async (seller, notification) => {
   const msg = {
     to: seller.email,
     from: 'Auqli Seller <joseph@auqli.com>',
@@ -16,25 +88,6 @@ const sendEmailNotification = async (seller, notification) => {
     await sgMail.send(msg);
   } catch (error) {
     console.error('Email sending failed:', error);
-  }
-};
-
-// Create notification and send email
-exports.createNotification = async (seller, type, title, message, data = {}) => {
-  try {
-    const notification = new Notification({
-      seller: seller._id,
-      type,
-      title,
-      message,
-      data
-    });
-
-    await notification.save();
-    await sendEmailNotification(seller, notification);
-    return notification;
-  } catch (error) {
-    console.error('Notification creation failed:', error);
   }
 };
 

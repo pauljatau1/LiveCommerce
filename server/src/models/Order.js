@@ -38,7 +38,7 @@ const orderItemSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'],
+    // enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'returned', 'shipment_in_transit'],
     default: 'pending'
   },
   statusHistory: [{
@@ -61,7 +61,7 @@ const orderSchema = new mongoose.Schema({
   },
   channel: {
     type: String,
-    enum: ['marketplace', 'liveshow', 'other'],
+    // enum: ['marketplace', 'liveshow', 'other'],
     default: 'marketplace'
   },
   items: [orderItemSchema],
@@ -82,6 +82,7 @@ const orderSchema = new mongoose.Schema({
       amount: Number,
       currency: String
     },
+    // fee: Number,
     rate_id: String,
     estimatedDeliveryDate: Date,
     tracking: {
@@ -96,7 +97,8 @@ const orderSchema = new mongoose.Schema({
       history: [{
         status: String,
         timestamp: Date,
-        note: String
+        location: String,
+        description: String
       }]
     },
     shipment_id: String,
@@ -104,6 +106,10 @@ const orderSchema = new mongoose.Schema({
     documents: {
       shippingLabel: String,
       commercialInvoice: String
+    },
+    delivery: {
+      estimatedDate: Date,
+      actualDate: Date
     }
   },
   paid: {
@@ -118,7 +124,7 @@ const orderSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'paid'],
+      // enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'paid', 'shipment_in_transit'],
       default: 'pending'
     },
     transactionId: String,
@@ -131,7 +137,7 @@ const orderSchema = new mongoose.Schema({
   dispute: {
     status: {
       type: String,
-      enum: ['none', 'opened', 'under_review', 'resolved', 'closed'],
+      // enum: ['none', 'opened', 'under_review', 'resolved', 'closed'],
       default: 'none'
     },
     reason: String,
@@ -143,7 +149,7 @@ const orderSchema = new mongoose.Schema({
   refund: {
     status: {
       type: String,
-      enum: ['none', 'requested', 'approved', 'processed', 'rejected'],
+      // enum: ['none', 'requested', 'approved', 'processed', 'rejected'],
       default: 'none'
     },
     amount: Number,

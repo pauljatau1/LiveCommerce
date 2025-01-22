@@ -8,7 +8,16 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['new_follower', 'new_order', 'account_approved', 'new_message', 'product_created', 'order_status_update'],
+    // enum: [
+    //   'new_order',
+    //   'order_paid',
+    //   'pickup_arranged',
+    //   'new_follower',
+    //   'low_stock',
+    //   'order_delivered',
+    //   'order_cancelled',
+    //   'review_received'
+    // ],
     required: true
   },
   title: {
