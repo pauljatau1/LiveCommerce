@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -19,7 +19,8 @@ import { Bell } from 'lucide-react'
 import { BASE_URL } from "@/Constants/Server"
 import LinearProgress from "@mui/material/LinearProgress"
 import { toast } from "sonner"
-
+import { Carousel } from 'react-responsive-carousel'
+import 'react-responsive-carousel/lib/styles/carousel.min.css'
 
 export default function SocialFeed() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -48,8 +49,9 @@ export default function SocialFeed() {
     productIds: []
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const carouselRef = useRef(null)
 
-  // Simulated loading state
   useEffect(() => {
     setIsLoading(true)
     setTimeout(() => setIsLoading(false), 1000)
@@ -65,7 +67,6 @@ export default function SocialFeed() {
         const tokenData = JSON.parse(sellerToken)
         const token = tokenData.data
 
-        // Fetch data based on selected tab
         switch (selectedTab) {
           case 'all':
             const postsRes = await fetch(`${BASE_URL}/posts`)
@@ -104,7 +105,6 @@ export default function SocialFeed() {
             break
         }
 
-        // Fetch conversations for chat sidebar
         const conversationsRes = await fetch(`${BASE_URL}/conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -151,7 +151,6 @@ export default function SocialFeed() {
 
       if (!response.ok) throw new Error('Failed to add comment')
 
-      // Refresh post activity
       const updatedPost = await response.json()
       setActivePost(updatedPost)
       setNewComment('')
@@ -181,7 +180,6 @@ export default function SocialFeed() {
 
       if (!response.ok) throw new Error('Failed to react to post')
 
-      // Refresh posts to update like status
       fetchPosts()
 
     } catch (error) {
@@ -189,22 +187,6 @@ export default function SocialFeed() {
     }
   }
 
-  const getGridClass = (imageCount) => {
-    switch(imageCount) {
-      case 1:
-        return 'grid-cols-1'
-      case 2:
-        return 'grid-cols-2'
-      case 3:
-        return 'grid-cols-2 md:grid-cols-3'
-      case 4:
-        return 'grid-cols-2 md:grid-cols-2'
-      default:
-        return 'grid-cols-2 md:grid-cols-3'
-    }
-  }
-
-  // Helper function to render posts based on selected tab
   const renderPosts = () => {
     let postsToRender = []
     switch (selectedTab) {
@@ -224,7 +206,6 @@ export default function SocialFeed() {
         postsToRender = posts
     }
 
-    // Handle empty or undefined posts
     if (!postsToRender || postsToRender.length === 0) {
       return (
         <div className="text-center py-12">
@@ -235,12 +216,10 @@ export default function SocialFeed() {
     }
 
     return postsToRender.map((post) => {
-      // Skip rendering if post is invalid
       if (!post || !post._id) return null
 
-      // Safely access nested properties
       const authorName = post.author?.name || post.author?.businessName || 'Anonymous'
-      const authorImage = post.author?.image || "https://v0.dev/placeholder.svg"
+      const authorImage = post.author?.image
       const postDate = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Unknown date'
       const postBody = post.body || ''
       const postTags = Array.isArray(post.tags) ? post.tags : []
@@ -252,12 +231,12 @@ export default function SocialFeed() {
         <Card key={post._id} className="overflow-hidden hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center space-y-0 p-4">
             <div className="flex items-center gap-3 flex-1">
-              <Avatar className="h-10 w-10 ring-2 ring-primary/10">
+              <Avatar className="h-10 w-10 uppercase ring-2 ring-green/10">
                 <AvatarImage src={authorImage} />
                 <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold hover:underline cursor-pointer">
+                <p className="font-semibold u hover:underline cursor-pointer">
                   {authorName}
                 </p>
                 <p className="text-sm text-gray-500">{postDate}</p>
@@ -267,16 +246,16 @@ export default function SocialFeed() {
               <MoreVertical className="h-4 w-4" />
             </Button>
           </CardHeader>
-          
+
           <CardContent className="p-4 pt-0 space-y-4">
             <p className="text-lg">{postBody}</p>
             {postTags.length > 0 && (
               <div className="flex gap-2 flex-wrap">
                 {postTags.map((tag, index) => (
-                  <Badge 
-                    key={`${tag}-${index}`} 
-                    variant="secondary" 
-                    className="hover:bg-primary/10 cursor-pointer"
+                  <Badge
+                    key={`${tag}-${index}`}
+                    variant="secondary"
+                    className="hover:bg-green/10 cursor-pointer"
                   >
                     {tag}
                   </Badge>
@@ -284,16 +263,62 @@ export default function SocialFeed() {
               </div>
             )}
             {postImages.length > 0 && (
-              <div className={`grid ${getGridClass(postImages.length)} gap-2`}>
-                {postImages.map((img, i) => (
-                  <img
-                    key={i}
-                    src={img.url}
-                    alt={`Post image ${i + 1}`}
-                    className="rounded-xl w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                    style={{ aspectRatio: '1/1' }}
-                  />
-                ))}
+              <div className="relative rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
+                <div className="flex gap-4 p-4">
+                  <div className="flex-1">
+                    <Carousel
+                      ref={carouselRef}
+                      showThumbs={false}
+                      showStatus={false}
+                      showIndicators={false}
+                      selectedItem={currentSlide}
+                      onChange={(index) => setCurrentSlide(index)}
+                      className="main-carousel"
+                    >
+                      {postImages.map((img, i) => (
+                        <div 
+                          key={i} 
+                          className="relative aspect-[16/9] overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800"
+                        >
+                          <img
+                            src={img.url}
+                            alt={`Post image ${i + 1}`}
+                            className="absolute inset-0 w-full h-full object-contain"
+                          />
+                        </div>
+                      ))}
+                    </Carousel>
+                  </div>
+                  
+                  {postImages.length > 1 && (
+                    <div className="w-32 space-y-2 overflow-y-auto max-h-[400px] custom-scrollbar">
+                      {postImages.map((img, index) => (
+                        <div
+                          key={index}
+                          onClick={() => {
+                            setCurrentSlide(index)
+                            carouselRef.current.moveTo(index)
+                          }}
+                          className={`
+                            relative aspect-[16/9] rounded-lg overflow-hidden cursor-pointer
+                            transition-all duration-200 hover:ring-2 hover:ring-green-500
+                            ${currentSlide === index ? 'ring-2 ring-green-500' : 'ring-1 ring-gray-200 dark:ring-gray-700'}
+                          `}
+                        >
+                          <img
+                            src={img.url}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                          <div className={`
+                            absolute inset-0 bg-black/10 transition-opacity duration-200
+                            ${currentSlide === index ? 'opacity-0' : 'hover:opacity-0'}
+                          `} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -325,14 +350,12 @@ export default function SocialFeed() {
     })
   }
 
-  // Update the post activity dialog to handle null values
   const renderPostActivity = () => {
     if (!activePost) return null
 
     const reactions = activePost.reactions || []
     const comments = activePost.comments || []
 
-    // Helper function to get author initial
     const getAuthorInitial = (author) => {
       if (!author) return 'A'
       if (typeof author === 'string') return author.charAt(0)
@@ -341,7 +364,6 @@ export default function SocialFeed() {
       return 'A'
     }
 
-    // Helper function to get author name
     const getAuthorName = (author) => {
       if (!author) return 'Anonymous'
       if (typeof author === 'string') return author
@@ -368,7 +390,7 @@ export default function SocialFeed() {
                 ))}
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Comments</h3>
               <ScrollArea className="h-[400px] pr-4">
@@ -378,8 +400,8 @@ export default function SocialFeed() {
                     className="flex items-start gap-3 mb-6"
                   >
                     <Avatar>
-                      <AvatarImage 
-                        src={comment.author?.image} 
+                      <AvatarImage
+                        src={comment.author?.image}
                         alt={getAuthorName(comment.author)}
                       />
                       <AvatarFallback>
@@ -395,7 +417,7 @@ export default function SocialFeed() {
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                         <span>
-                          {comment.createdAt 
+                          {comment.createdAt
                             ? new Date(comment.createdAt).toLocaleDateString()
                             : 'Recently'
                           }
@@ -408,7 +430,6 @@ export default function SocialFeed() {
                 ))}
               </ScrollArea>
 
-              {/* Add comment input */}
               <div className="flex items-center gap-2 mt-4">
                 <Input
                   value={newComment}
@@ -416,7 +437,7 @@ export default function SocialFeed() {
                   placeholder="Write a comment..."
                   className="flex-1"
                 />
-                <Button 
+                <Button
                   onClick={() => handleAddComment(activePost._id)}
                   disabled={!newComment.trim() || isLoading}
                 >
@@ -430,12 +451,10 @@ export default function SocialFeed() {
     )
   }
 
-  // Update the tab selection handler
   const handleTabChange = (value) => {
     setSelectedTab(value)
   }
 
-  // Separate render function for blips
   const renderBlips = () => {
     if (!blips || blips.length === 0) {
       return (
@@ -449,14 +468,14 @@ export default function SocialFeed() {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {blips.map(blip => (
-          <div 
-            key={blip._id} 
+          <div
+            key={blip._id}
             className="relative group cursor-pointer"
             onClick={() => handleBlipClick(blip)}
           >
             <div className="relative aspect-[9/16] rounded-xl overflow-hidden">
-              <img 
-                src={blip.images || "https://v0.dev/placeholder.svg"} 
+              <img
+                src={blip.images || "https://v0.dev/placeholder.svg"}
                 alt={blip.productName}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
@@ -481,17 +500,14 @@ export default function SocialFeed() {
     )
   }
 
-  // Add function to handle blip selection
   const handleBlipClick = (blip) => {
     setSelectedBlip(blip)
   }
 
-  // Add function to close video player
   const handleCloseVideo = () => {
     setSelectedBlip(null)
   }
 
-  // Add video player dialog component
   const renderVideoPlayer = () => {
     if (!selectedBlip) return null
 
@@ -507,7 +523,7 @@ export default function SocialFeed() {
             >
               <X className="h-6 w-6" />
             </Button>
-            
+
             <video
               src={selectedBlip.blipUrl}
               className="w-full aspect-[9/16]"
@@ -526,10 +542,9 @@ export default function SocialFeed() {
                 <p className="text-lg text-white">
                   ₦{selectedBlip.price?.toLocaleString()}
                 </p>
-                <Button 
+                <Button
                   className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={() => {
-                    // Add product to cart or navigate to product page
                     console.log('View product:', selectedBlip.productId)
                   }}
                 >
@@ -543,7 +558,6 @@ export default function SocialFeed() {
     )
   }
 
-  // Handle post creation
   const handleCreatePost = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -560,8 +574,7 @@ export default function SocialFeed() {
       formData.append('body', postForm.body)
       formData.append('tags', postForm.tags)
       formData.append('visibility', postForm.visibility)
-      
-      // Append each media file
+
       postForm.media.forEach(file => {
         formData.append('media', file)
       })
@@ -586,8 +599,7 @@ export default function SocialFeed() {
         media: [],
         productIds: []
       })
-      
-      // Refresh posts
+
       fetchPosts()
 
     } catch (error) {
@@ -597,7 +609,6 @@ export default function SocialFeed() {
     }
   }
 
-  // Handle post deletion
   const handleDeletePost = async (postId) => {
     try {
       const sellerToken = localStorage.getItem('sellerToken')
@@ -616,7 +627,6 @@ export default function SocialFeed() {
       if (!response.ok) throw new Error('Failed to delete post')
 
       toast.success('Post deleted successfully')
-      // Refresh posts
       fetchPosts()
 
     } catch (error) {
@@ -624,7 +634,6 @@ export default function SocialFeed() {
     }
   }
 
-  // Add create post modal
   const renderCreatePostModal = () => {
     return (
       <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
@@ -643,7 +652,7 @@ export default function SocialFeed() {
                 required
               />
             </div>
-            
+
             <div>
               <Label htmlFor="body">Content</Label>
               <Textarea
@@ -662,9 +671,9 @@ export default function SocialFeed() {
                 type="file"
                 multiple
                 accept="image/*,video/*"
-                onChange={(e) => setPostForm(prev => ({ 
-                  ...prev, 
-                  media: Array.from(e.target.files) 
+                onChange={(e) => setPostForm(prev => ({
+                  ...prev,
+                  media: Array.from(e.target.files)
                 }))}
                 className="cursor-pointer"
               />
@@ -724,7 +733,6 @@ export default function SocialFeed() {
     )
   }
 
-  // Update the TabsList to include My Posts
   return (
     <div className='min-h-screen dark:bg-gray-900'>
       <div className='py-8 px-4'>
@@ -790,7 +798,6 @@ export default function SocialFeed() {
             </Tabs>
           </div>
 
-          {/* Right Sidebar - Chats */}
           <div className="w-80 hidden lg:block">
             <Card className="sticky top-8">
               <CardHeader className="p-4">

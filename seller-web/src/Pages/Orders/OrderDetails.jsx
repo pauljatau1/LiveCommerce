@@ -68,8 +68,24 @@ export default function OrderDetails() {
       if (!response.ok) throw new Error('Failed to arrange pickup')
 
       toast.success('Pickup arranged successfully')
-      // Refresh order data
-      fetchOrderDetails()
+      // Fetch order details again
+      const fetchOrderDetails = async () => {
+        try {
+          const tokenData = JSON.parse(localStorage.getItem('sellerToken'))
+          const token = tokenData.data
+          const response = await fetch(`${BASE_URL}/order/${id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          const data = await response.json()
+          setOrderData(data)
+        } catch (error) {
+          console.error('Error fetching order details:', error)
+          toast.error('Failed to refresh order details')
+        }
+      }
+      await fetchOrderDetails()
     } catch (error) {
       toast.error('Failed to arrange pickup: ' + error.message)
     } finally {
@@ -129,7 +145,7 @@ export default function OrderDetails() {
                 </p>
               </div>
 
-              {shipping?.tracking?.status === 'pending' && (
+              {shipping?.tracking?.status === 'pending' && shipping?.rate_id && (
                 <Button
                   onClick={arrangePickup}
                   disabled={arrangePickupLoading}

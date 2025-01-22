@@ -1,0 +1,92 @@
+/* Updated custom styles for the carousel */
+.main-carousel .carousel.carousel-slider {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: transparent;
+}
+
+.main-carousel .control-arrow {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-radius: 50%;
+  height: 40px;
+  width: 40px;
+  margin: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.main-carousel:hover .control-arrow {
+  opacity: 1;
+}
+
+.main-carousel .control-arrow:hover {
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.main-carousel .control-prev.control-arrow::before {
+  border-right-color: white;
+}
+
+.main-carousel .control-next.control-arrow::before {
+  border-left-color: white;
+}
+
+/* Custom scrollbar for thumbnails */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+}
+
+/* Dark mode adjustments */
+.dark .custom-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.post-carousel .carousel.carousel-slider {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.post-carousel .thumbs-wrapper {
+  margin: 10px 0 !important;
+  padding: 0 !important;
+}
+
+.post-carousel .thumbs {
+  display: flex;
+  gap: 8px;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.post-carousel .thumb {
+  border: 2px solid transparent !important;
+  border-radius: 6px;
+  padding: 0 !important;
+  margin: 0 !important;
+  transition: all 0.2s ease;
+}
+
+.post-carousel .thumb.selected {
+  border-color: #22c55e !important; /* or your primary color */
+} 
