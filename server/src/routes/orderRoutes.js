@@ -298,49 +298,87 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
 
 /**
  * @swagger
- * /api/order/{orderId}/mark-paid:
+ * /api/order/mark-as-paid:
  *   post:
- *     summary: Mark an order as paid
+ *     summary: Mark multiple orders as paid
+ *     description: Updates the payment status for multiple orders and processes related updates
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: orderId
- *         required: true
- *         schema:
- *           type: string
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - orders
  *             properties:
- *               amount:
- *                 type: number
- *               carrier_reference:
- *                 type: string
- *               shipping_fee:
- *                 type: number
- *               carrier_name:
- *                 type: string
- *               rate_id:
- *                 type: string
- *                 description: The shipping rate ID from the carrier
+ *               orders:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - orderId
+ *                     - amount
+ *                     - carrier_reference
+ *                     - shipping_fee
+ *                     - carrier_name
+ *                     - rate_id
+ *                   properties:
+ *                     orderId:
+ *                       type: string
+ *                       description: ID of the order to mark as paid
+ *                     amount:
+ *                       type: number
+ *                       description: Payment amount for this order
+ *                     carrier_reference:
+ *                       type: string
+ *                       description: Reference ID from the shipping carrier
+ *                     shipping_fee:
+ *                       type: number
+ *                       description: Shipping fee for this order
+ *                     carrier_name:
+ *                       type: string
+ *                       description: Name of the shipping carrier
+ *                     rate_id:
+ *                       type: string
+ *                       description: Rate ID for the shipping service
  *     responses:
  *       200:
- *         description: Order marked as paid successfully
+ *         description: Orders marked as paid successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 totalAmount:
+ *                   type: number
+ *                 totalShippingFee:
+ *                   type: number
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       paid:
+ *                         type: boolean
+ *                       paymentInfo:
+ *                         type: object
+ *                       shipping:
+ *                         type: object
  *       400:
- *         description: Order is already paid
- *       401:
- *         description: Unauthorized - No token provided
+ *         description: Invalid request or order validation failed
  *       404:
- *         description: Order not found
+ *         description: One or more orders not found
  *       500:
  *         description: Server error
  */
-router.post('/:orderId/mark-paid', authMiddleware.verifyToken, orderController.markAsPaid);
+router.post('/mark-as-paid', authMiddleware.verifyToken, orderController.markAsPaid);
 
 
 
@@ -965,5 +1003,20 @@ router.post('/:orderId/arrange-pickup',
   authMiddleware.isSeller, 
   orderController.arrangePickup
 );
+
+/**
+ * @swagger
+ * /api/order/test-webhook:
+ *   post:
+ *     summary: Test webhook for shipment events
+ *     description: Triggers test webhook events for shipment status updates. This endpoint is public and can be used for testing purposes.
+ *     tags: [Order]
+ *     responses:
+ *       200:
+ *         description: Test webhook events triggered successfully
+ *       500:
+ *         description: Server error
+ */
+router.post('/test-webhook', orderController.testShipmentWebhook);
 
 module.exports = router;

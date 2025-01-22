@@ -41,7 +41,7 @@ exports.register = async (req, res) => {
       details: {
         firstName: !firstName ? 'First name is required' : null,
         lastName: !lastName ? 'Last name is required' : null,
-        username: !username ? 'Username is required' : null,
+        // username: !username ? 'Username is required' : null,
         email: !email ? 'Email is required' : null,
         phoneNumber: !phoneNumber ? 'Phone number is required' : null,
         password: !password ? 'Password is required' : null
@@ -80,9 +80,40 @@ exports.register = async (req, res) => {
     const msg = {
       to: email,
       from: 'Joseph From Auqli <joseph@auqli.com>',
-      subject: 'Welcome to Auqli!',
-      text: `Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.`,
-      html: `<strong>Hi ${firstName}, welcome to Auqli! Your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+      subject: 'Welcome to Auqli! Verify Your Account',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli, ${firstName}!</h1>
+            <p style="font-size: 16px; line-height: 1.5;">Thank you for joining our community. We're excited to have you on board!</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Your Verification Code</h3>
+              <p style="font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px; margin: 20px 0; color: #4CAF50;">${otp}</p>
+              <p style="font-size: 14px; color: #999999;">Please enter this code to verify your email address and activate your account.</p>
+            </div>
+
+            <div style="margin: 30px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">What's Next?</h3>
+              <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 10px; display: flex; align-items: center;">
+                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> Verify your email using the code above
+                </li>
+                <li style="margin-bottom: 10px; display: flex; align-items: center;">
+                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> Complete your profile
+                </li>
+                <li style="margin-bottom: 10px; display: flex; align-items: center;">
+                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> Start exploring products
+                </li>
+              </ul>
+            </div>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
     };
 
     try {
@@ -277,9 +308,27 @@ exports.resendOTP = async (req, res) => {
     const msg = {
       to: email,
       from: 'Joseph From Auqli <joseph@auqli.com>',
-      subject: 'Your OTP Code',
-      text: `Hi, your OTP is ${otp}. Please use this OTP to verify your email.`,
-      html: `<strong>Hi, your OTP is ${otp}. Please use this OTP to verify your email.</strong>`,
+      subject: 'Your New Verification Code - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">New Verification Code</h1>
+            <p style="font-size: 16px; line-height: 1.5;">You requested a new verification code. Here it is:</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Your New Code</h3>
+              <p style="font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px; margin: 20px 0; color: #4CAF50;">${otp}</p>
+              <p style="font-size: 14px; color: #999999;">This code will expire in 10 minutes.</p>
+            </div>
+
+            <p style="font-size: 14px; line-height: 1.5; color: #999999;">If you didn't request this code, please ignore this email or contact our support team if you have concerns.</p>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
     };
 
     try {
@@ -350,15 +399,35 @@ exports.forgotPassword = async (req, res) => {
     const msg = {
       to: email,
       from: 'Joseph From Auqli <joseph@auqli.com>',
-      subject: 'Password Reset Request',
-      text: `You requested a password reset. Please click on the following link to reset your password: ${resetUrl}. If you didn't request this, please ignore this email.`,
+      subject: 'Password Reset Request - Auqli',
       html: `
-        <p>You requested a password reset.</p>
-        <p>Please click on the following link to reset your password:</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-        <p>If you didn't request this, please ignore this email.</p>
-        <p>This link will expire in 1 hour.</p>
-      `,
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Reset Your Password</h1>
+            <p style="font-size: 16px; line-height: 1.5;">We received a request to reset your password. Click the button below to create a new password:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reset Password</a>
+            </div>
+
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Important Security Notice</h3>
+              <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 10px; color: #999999;">• This link will expire in 1 hour</li>
+                <li style="margin-bottom: 10px; color: #999999;">• If you didn't request this reset, please ignore this email</li>
+                <li style="margin-bottom: 10px; color: #999999;">• Never share your password reset link with anyone</li>
+              </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #999999;">Alternatively, you can copy and paste this link into your browser:</p>
+            <p style="font-size: 14px; color: #4CAF50; word-break: break-all;">${resetUrl}</p>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
     };
 
     await sgMail.send(msg);
@@ -397,9 +466,34 @@ exports.resetPassword = async (req, res) => {
     const msg = {
       to: buyer.email,
       from: 'Joseph From Auqli <joseph@auqli.com>',
-      subject: 'Password Reset Successful',
-      text: 'Your password has been successfully reset.',
-      html: '<strong>Your password has been successfully reset.</strong>',
+      subject: 'Password Reset Successful - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Successful!</h1>
+            <p style="font-size: 16px; line-height: 1.5;">Your password has been successfully reset.</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">What's Next?</h3>
+              <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 10px; display: flex; align-items: center;">
+                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> You can now log in with your new password
+                </li>
+                <li style="margin-bottom: 10px; display: flex; align-items: center;">
+                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> Review your account security settings
+                </li>
+                <li style="margin-bottom: 10px; display: flex; align-items: center;">
+                  <span style="color: #4CAF50; margin-right: 10px;">⚠</span> If you didn't make this change, please contact support immediately
+                </li>
+              </ul>
+            </div>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
     };
 
     await sgMail.send(msg);
@@ -753,6 +847,13 @@ exports.followSeller = async (req, res) => {
     });
 
     await buyer.save();
+
+    // Create notification for seller
+    await notificationController.createNotification(sellerId, 'new_follower', {
+      buyerId: buyerId,
+      buyerName: `${buyer.firstName} ${buyer.lastName}`,
+      followDate: new Date()
+    });
 
     res.json({
       message: 'Successfully followed seller',

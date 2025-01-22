@@ -376,6 +376,8 @@ exports.getAllProducts = async (req, res) => {
 // Get a single product
 exports.getProduct = async (req, res) => {
   try {
+    console.log('Fetching product with ID:', req.params.id);
+
     const product = await Product.aggregate([
       {
         $match: {
@@ -395,13 +397,46 @@ exports.getProduct = async (req, res) => {
         $addFields: {
           seller: {
             _id: '$sellerInfo._id',
-            name: '$sellerInfo.name',
-            storeName: '$sellerInfo.storeName',
-            businessName: '$sellerInfo.businessName',
-            avatarUrl: '$sellerInfo.avatarUrl',
-            rating: '$sellerInfo.rating',
-            verified: '$sellerInfo.verified',
-            about: '$sellerInfo.about'
+            personalInfo: {
+              firstName: '$sellerInfo.firstName',
+              lastName: '$sellerInfo.lastName',
+              email: '$sellerInfo.email',
+              phoneNumber: '$sellerInfo.phoneNumber'
+            },
+            businessInfo: {
+              businessName: '$sellerInfo.businessName',
+              businessType: '$sellerInfo.businessType',
+              businessEmail: '$sellerInfo.businessEmail',
+              businessNumber: '$sellerInfo.businessNumber',
+              businessAddress: '$sellerInfo.businessAddress',
+              taxInformation: '$sellerInfo.taxInformation'
+            },
+            storeInfo: {
+              storeName: '$sellerInfo.storeName',
+              aboutStore: '$sellerInfo.aboutStore',
+              storeAvatar: '$sellerInfo.storeAvatar',
+              storeBanner: '$sellerInfo.storeBanner',
+              categories: '$sellerInfo.categories',
+              followerCount: { $size: { $ifNull: ['$sellerInfo.followers', []] } }
+            },
+            shippingInfo: {
+              shippingOptions: '$sellerInfo.shippingOptions',
+              warehouseDetails: '$sellerInfo.warehouseDetails'
+            },
+            addresses: {
+              businessAddress: '$sellerInfo.businessAddress',
+              warehouseAddress: '$sellerInfo.warehouseDetails.address',
+              sellerAddress: '$sellerInfo.sellerAddress'
+            },
+            verification: {
+              isVerified: '$sellerInfo.isVerified',
+              accountType: '$sellerInfo.accountType'
+            },
+            stats: {
+              storeVisits: '$sellerInfo.storeVisits',
+              totalProducts: { $size: { $ifNull: ['$sellerInfo.products', []] } },
+              totalCustomers: { $size: { $ifNull: ['$sellerInfo.customers', []] } }
+            }
           },
           // Calculate stats based on embedded reviews
           stats: {
@@ -433,7 +468,14 @@ exports.getProduct = async (req, res) => {
       },
       {
         $project: {
-          sellerInfo: 0 // Remove the temporary sellerInfo field
+          sellerInfo: 0, // Remove the temporary sellerInfo field
+          'seller.password': 0,
+          'seller.otp': 0,
+          'seller.passwordResetToken': 0,
+          'seller.passwordResetExpires': 0,
+          'seller.bankDetails.accountNumber': 0,
+          'seller.bankDetails.swiftCode': 0,
+          'seller.bankDetails.bankIdentifierCode': 0
         }
       }
     ]);
@@ -448,6 +490,7 @@ exports.getProduct = async (req, res) => {
       $set: { 'stats.lastViewed': new Date() }
     });
 
+    console.log('Product retrieved successfully');
     res.json(product[0]);
   } catch (error) {
     console.error('Error in getProduct:', error);
@@ -1982,6 +2025,97 @@ exports.updateProductDiscount = async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       message: 'Failed to update product discount', 
+      error: error.message 
+    });
+  }
+};
+
+// Get single product by ID
+exports.getProductById = async (req, res) => {
+  try {
+    console.log('Fetching product with ID:', req.params.id);
+
+    const product = await Product.findById(req.params.id)
+      .populate({
+        path: 'seller',
+        select: `
+          firstName lastName email phoneNumber businessName 
+          businessType businessEmail businessNumber businessAddress 
+          storeName aboutStore storeAvatar storeBanner 
+          shippingOptions warehouseDetails categories followers
+          bankDetails.accountName bankDetails.bankName
+          stats.totalProducts stats.totalOrders stats.totalRevenue
+          stats.averageRating stats.reviewCount
+        `
+      });
+
+    console.log('Raw product after populate:', JSON.stringify(product, null, 2));
+    console.log('Seller data:', JSON.stringify(product.seller, null, 2));
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if seller is populated
+    if (!product.seller || typeof product.seller === 'string') {
+      console.error('Seller not properly populated:', product.seller);
+      return res.status(500).json({ 
+        message: 'Failed to load seller details',
+        sellerId: product.seller
+      });
+    }
+
+    // Format seller information for better organization
+    const formattedProduct = {
+      ...product.toObject(),
+      seller: {
+        id: product.seller._id,
+        personalInfo: {
+          firstName: product.seller.firstName,
+          lastName: product.seller.lastName,
+          email: product.seller.email,
+          phoneNumber: product.seller.phoneNumber
+        },
+        businessInfo: {
+          businessName: product.seller.businessName,
+          businessType: product.seller.businessType,
+          businessEmail: product.seller.businessEmail,
+          businessNumber: product.seller.businessNumber,
+          businessAddress: product.seller.businessAddress
+        },
+        storeInfo: {
+          storeName: product.seller.storeName,
+          aboutStore: product.seller.aboutStore,
+          storeAvatar: product.seller.storeAvatar,
+          storeBanner: product.seller.storeBanner,
+          categories: product.seller.categories,
+          followerCount: product.seller.followers?.length || 0
+        },
+        shippingInfo: {
+          shippingOptions: product.seller.shippingOptions,
+          warehouseDetails: product.seller.warehouseDetails
+        },
+        stats: {
+          totalProducts: product.seller.stats?.totalProducts || 0,
+          totalOrders: product.seller.stats?.totalOrders || 0,
+          totalRevenue: product.seller.stats?.totalRevenue || 0,
+          averageRating: product.seller.stats?.averageRating || 0,
+          reviewCount: product.seller.stats?.reviewCount || 0
+        },
+        bankInfo: {
+          bankName: product.seller.bankDetails?.bankName,
+          accountName: product.seller.bankDetails?.accountName
+        }
+      }
+    };
+
+    console.log('Formatted product:', JSON.stringify(formattedProduct, null, 2));
+
+    res.json(formattedProduct);
+  } catch (error) {
+    console.error('Error in getProductById:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve product', 
       error: error.message 
     });
   }

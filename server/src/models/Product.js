@@ -154,10 +154,9 @@ const productSchema = new mongoose.Schema({
   },
   stats: {
     views: { type: Number, default: 0 },
-    lastRestocked: Date,
-    averageRating: { type: Number, default: 0 },
-    reviewCount: { type: Number, default: 0 },
-    soldCount: { type: Number, default: 0 }
+    soldCount: { type: Number, default: 0 },
+    lastViewed: { type: Date },
+    lastRestocked: { type: Date }
   },
   lowStockAlert: { type: Number, default: 5 },
   sku: { type: String, required: true },
@@ -602,6 +601,21 @@ productSchema.pre('save', async function(next) {
     if (!this.seo.slug) {
       this.seo.slug = await generateSlug(this.name);
     }
+
+    // Check for low stock
+    if (this.inventory.quantity <= this.inventory.lowStockThreshold) {
+      try {
+        await createNotification(this.seller, 'low_stock', {
+          productId: this._id,
+          productName: this.name,
+          currentStock: this.inventory.quantity,
+          threshold: this.inventory.lowStockThreshold
+        });
+      } catch (error) {
+        console.error('Error creating low stock notification:', error);
+      }
+    }
+
     next();
   } catch (error) {
     next(error);
