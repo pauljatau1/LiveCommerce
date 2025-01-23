@@ -82,7 +82,7 @@ const orderSchema = new mongoose.Schema({
       amount: Number,
       currency: String
     },
-    // fee: Number,
+    
     rate_id: String,
     estimatedDeliveryDate: Date,
     tracking: {

@@ -1632,24 +1632,46 @@ exports.arrangePickup = async (req, res) => {
     }
 
     try {
+      console.log('Making Terminal Africa API request for pickup arrangement...');
       const response = await terminalAPI.post('/shipments/pickup', {
         rate_id,
         shipment_id,
         purchase_insurance
       });
 
-      console.log('Terminal Africa API Response:', response.data);
+      console.log('Terminal Africa API Response:', {
+        status: response.status,
+        shipmentId: response.data.data.shipment_id,
+        trackingNumber: response.data.data.extras.tracking_number
+      });
 
-      if (!response.data.status) {
-        throw new Error(response.data.message || 'Failed to arrange pickup');
-      }
-
-      // Create a new tracking history entry
+      // Create tracking entry for webhook history
       const newTrackingEntry = {
-        status: 'pickup_arranged',
+        status: 'created',
         timestamp: new Date(),
-        note: 'Pickup arranged by seller'
+        location: response.data.data.pickup_address?.city || 'Unknown',
+        description: `Shipment created and pickup arranged by ${order.seller.firstName} ${order.seller.lastName}`
       };
+
+      // Prepare webhook data
+      const webhookData = {
+        shipment_id: response.data.data.shipment_id,
+        status: 'created',
+        tracking_number: response.data.data.extras.tracking_number,
+        carrier_name: order.shipping.carrier.name,
+        carrier_tracking_url: response.data.data.extras.tracking_url,
+        shipping_label_url: response.data.data.extras.shipping_label_url,
+        commercial_invoice_url: response.data.data.extras.commercial_invoice_url,
+        events: [{
+          location: response.data.data.pickup_address?.city || 'Unknown',
+          description: `Shipment created and pickup arranged`,
+          created_at: new Date()
+        }]
+      };
+
+      // Trigger webhook handler
+      console.log('Triggering shipment.created webhook handler...');
+      await handleShipmentCreated(webhookData);
 
       // Update order shipping information while preserving existing data
       const shippingUpdate = {
