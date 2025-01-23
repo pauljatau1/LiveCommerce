@@ -26,7 +26,7 @@ import { BiWallet } from 'react-icons/bi';
 import Header from "@/Components/ui/Header/Header";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Dialog, DialogTrigger } from "@/Components/ui/Dialog";
+import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
 import NotificationsDialog from "../../Components/NotificationsDialog";
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
