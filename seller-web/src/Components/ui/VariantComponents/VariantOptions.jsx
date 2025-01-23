@@ -71,59 +71,58 @@ const VariantOptions = memo(({ onDone, editingVariant }) => {
     }, [editingVariant, options, setOptions, setVariantStructure, onDone]);
 
     return (
-        <div className="p-6 border rounded-lg bg-white space-y-4">
-            <div>
-                <label className="text-sm text-gray-600">Option Name</label>
-                <input
-                    type="text"
-                    value={optionName}
-                    onChange={(e) => setOptionName(e.target.value)}
-                    placeholder="Option name (e.g., Color, Size)"
-                    className="w-full mt-1 text-sm md:text-base p-2 border border-gray-300 rounded-lg"
-                />
-            </div>
+        <div className="border rounded-lg p-4 bg-white shadow-sm h-auto">
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h3 className="font-medium">Add {editingVariant ? editingVariant.name : 'Option'}</h3>
+                    <button onClick={onDone} className="text-sm text-blue-600 hover:text-blue-700">
+                        Done
+                    </button>
+                </div>
+                <div>
+                    <label className="text-sm text-gray-600">Option Name</label>
+                    <input
+                        type="text"
+                        value={optionName}
+                        onChange={(e) => setOptionName(e.target.value)}
+                        placeholder="Option name (e.g., Color, Size)"
+                        className="w-full mt-1 text-sm md:text-base p-2 border border-gray-300 rounded-lg"
+                    />
+                </div>
 
-            <div>
-                <label className="text-sm text-gray-600">Option Values</label>
-                {optionValues.map((value, index) => (
-                    <div key={index} className="mt-2 flex items-center gap-2">
-                        <input
-                            type="text"
-                            value={value}
-                            onChange={(e) => {
-                                const newValues = [...optionValues];
-                                newValues[index] = e.target.value;
-                                if (index === optionValues.length - 1 && e.target.value) {
-                                    newValues.push('');
-                                }
-                                setOptionValues(newValues);
-                            }}
-                            placeholder="Option value"
-                            className="flex-1 p-2 border border-gray-300 rounded-lg"
-                        />
-                        {index < optionValues.length - 1 && (
-                            <button
-                                onClick={() => {
+                <div>
+                    <label className="text-sm text-gray-600">Option Values</label>
+                    {optionValues.map((value, index) => (
+                        <div key={index} className="mt-2 flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={value}
+                                onChange={(e) => {
                                     const newValues = [...optionValues];
-                                    newValues.splice(index, 1);
+                                    newValues[index] = e.target.value;
+                                    if (index === optionValues.length - 1 && e.target.value) {
+                                        newValues.push('');
+                                    }
                                     setOptionValues(newValues);
                                 }}
-                                className="text-red-500 hover:text-red-700"
-                            >
-                                <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5" />
-                            </button>
-                        )}
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex justify-between mt-6">
-                <Button
-                    onClick={handleDone}
-                    className="ml-auto bg-[#05031F] text-white"
-                >
-                    Done
-                </Button>
+                                placeholder="Option value"
+                                className="flex-1 p-2 border border-gray-300 rounded-lg"
+                            />
+                            {index < optionValues.length - 1 && (
+                                <button
+                                    onClick={() => {
+                                        const newValues = [...optionValues];
+                                        newValues.splice(index, 1);
+                                        setOptionValues(newValues);
+                                    }}
+                                    className="text-red-500 hover:text-red-700"
+                                >
+                                    <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5" />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );

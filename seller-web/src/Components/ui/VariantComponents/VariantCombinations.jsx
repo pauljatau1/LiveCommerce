@@ -183,15 +183,15 @@ const VariantCombinations = memo(() => {
     );
 
     return (
-        <div className="mt-6">
-            <div className="flex justify-between mb-2 px-4">
+        <div className="mt-6 flex flex-col h-full max-h-[600px]">
+            <div className="flex justify-between mb-2 px-4 sticky top-0 bg-white z-10">
                 <h3 className="font-medium">Variant Combinations</h3>
                 <div className="flex gap-8">
                     <span>Price</span>
                     <span>Available</span>
                 </div>
             </div>
-            <div className="border rounded-lg">
+            <div className="border rounded-lg overflow-auto">
                 {variantStructure.map(mainVariant => (
                     <div key={mainVariant.value}>
                         <div 

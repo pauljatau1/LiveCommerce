@@ -270,7 +270,7 @@ const EditProduct = () => {
     //submit product
     const handleSubmitProduct = async (e) => {
         e.preventDefault();
-    
+
         try {
             // Helper function to convert blob to base64
             const convertBlobToBase64 = (blob) => {
@@ -307,7 +307,7 @@ const EditProduct = () => {
                         isDefault: img.isDefault || false
                     };
                 }));
-        
+
                 return {
                     name: mainVariant.name,
                     value: mainVariant.value,
@@ -338,7 +338,7 @@ const EditProduct = () => {
                                 isDefault: img?.isDefault || false
                             };
                         }));
-        
+
                         return {
                             name: subVariant.name,
                             value: subVariant.value,
@@ -367,7 +367,7 @@ const EditProduct = () => {
                                         isDefault: img?.isDefault || false
                                     };
                                 }));
-        
+
                                 return {
                                     name: subSubVariant.name,
                                     value: subSubVariant.value,
@@ -381,7 +381,7 @@ const EditProduct = () => {
                     }))
                 };
             }) || []);
-        
+
             // Process main product images
             const processedImages = await Promise.all(images.map(async (image) => {
                 if (image?.url.startsWith('https://auqli-uploads.s3')) {
@@ -399,7 +399,7 @@ const EditProduct = () => {
                     contentType: 'image/jpeg'
                 };
             }));
-        
+
             // Process video if exists
             const processedBlips = [];
             if (videos.length > 0) {
@@ -416,7 +416,7 @@ const EditProduct = () => {
                     });
                 }
             }
-        
+
             // Create the product data object
             const productData = {
                 name: title,
@@ -449,7 +449,7 @@ const EditProduct = () => {
                     shippingClass: 'standard'
                 }
             };
-        
+
             // Add product specifications
             if (productSpecs) {
                 Object.entries(productSpecs).forEach(([key, value]) => {
@@ -460,12 +460,12 @@ const EditProduct = () => {
             }
 
             console.log('productData', productData);
-        
+
             // Validate and submit
             if (title && description && images.length > 0 && shippingDetails.pricing &&
                 shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
                 selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
-                
+
                 dispatch(updateProduct({ productId: product._id, formData: productData }));
             } else {
                 toast.error('Please fill all required fields', {
@@ -595,11 +595,11 @@ const EditProduct = () => {
         }, [deleteOption, updateVariantValue, options, setOptions]);
 
         return (
-            <Card>
+            <Card className="relative">
                 <CardHeader>
                     <CardTitle>Variants (Optional)</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-col min-h-[400px]">
                     {options.length === 0 && !showAddOption ? (
                         // Initial empty state
                         <>
@@ -616,7 +616,7 @@ const EditProduct = () => {
                             </Button>
                         </>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-4 h-full">
                             {/* Show existing variant cards */}
                             {options.map(option => (
                                 editingVariantId === option.id ? (
@@ -651,16 +651,16 @@ const EditProduct = () => {
                                 </button>
                             )}
 
-                            {/* Show combinations if options exist */}
+                            {/* Wrap combinations in a div with fixed height */}
                             {options.length > 0 && (
-                                <>
-                                    <div className="hidden md:block mt-6">
+                                <div className="h-full max-h-[600px]">
+                                    <div className="hidden md:block">
                                         <VariantCombinations />
                                     </div>
-                                    <div className="md:hidden mt-6">
+                                    <div className="md:hidden">
                                         <VariantCombinationsMobile />
                                     </div>
-                                </>
+                                </div>
                             )}
                         </div>
                     )}
@@ -1017,7 +1017,7 @@ const EditProduct = () => {
             }
         }
     }, [product]);
-    
+
     useEffect(() => {
         if (product?.variants) {
             // Transform backend variants to match variantStructure format
