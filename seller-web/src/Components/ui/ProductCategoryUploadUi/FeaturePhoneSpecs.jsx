@@ -87,7 +87,7 @@ const FeaturePhoneSpecs = ({ specs, onChange }) => {
             }
             return option.label;
           }}
-          value={connectivityTypes.find(type => type.value === specs.phones_connectivity) || specs.phones_connectivity || null}
+          value={connectivityTypes.find(type => type.value === specs.phones_connectivity || []) || specs.phones_connectivity || []}
           onChange={(_, newValue) => {
             const value = typeof newValue === 'string' ? newValue : newValue?.value || '';
             onChange('phones_connectivity', value);

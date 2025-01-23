@@ -236,6 +236,7 @@ export const VariantsProvider = ({ children }) => {
             options,
             setOptions,
             variantStructure,
+            setVariantStructure,
             addOption,
             updateOption,
             deleteOption,

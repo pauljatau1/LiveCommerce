@@ -1,6 +1,8 @@
-import React, { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { Icon } from "@iconify/react";
 import { useVariants } from '../../../Contexts/VariantContext';
+import { toast } from 'sonner';
+import PropTypes from 'prop-types';
 
 const VariantCombinations = memo(() => {
     const { variantStructure, updateVariantValue } = useVariants();
@@ -13,6 +15,13 @@ const VariantCombinations = memo(() => {
     const handleImageUpload = useCallback(async (e, variantPath) => {
         const file = e.target.files[0];
         if (file) {
+            // Check file size (5MB = 5 * 1024 * 1024 bytes)
+            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+            if (file.size > MAX_FILE_SIZE) {
+                toast.error('Image size must be less than 5MB');
+                return;
+            }
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 updateVariantValue(variantPath, 'images', [{
@@ -32,20 +41,20 @@ const VariantCombinations = memo(() => {
     const ImageUploadButton = ({ variantPath, images = [] }) => (
         <div className="flex items-center gap-2">
             {images && images.length > 0 ? (
-                <div className="relative group">
+                <div className="relative">
                     <img 
                         src={images[0].url} 
                         alt="Variant" 
-                        className="w-8 h-8 rounded-md object-cover"
+                        className="w-10 h-10 rounded-md object-cover"
                     />
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             handleRemoveImage(variantPath);
                         }}
-                        className="absolute -top-1 -right-1 hidden group-hover:flex bg-red-500 text-white rounded-full p-0.5"
+                        className="absolute -top-1 -right-1 flex bg-white text-white rounded-full p-0.5"
                     >
-                        <Icon icon="solar:close-circle-bold" className="w-3 h-3" />
+                        <Icon icon="solar:close-circle-bold" color='#05031F' className="w-4 h-4" />
                     </button>
                 </div>
             ) : (
@@ -65,6 +74,11 @@ const VariantCombinations = memo(() => {
         </div>
     );
 
+    ImageUploadButton.propTypes = {
+        variantPath: PropTypes.string.isRequired,
+        images: PropTypes.array.isRequired
+    };
+
     const toggleExpand = (variantId) => {
         setExpandedVariants(prev => {
             const newSet = new Set(prev);
@@ -80,14 +94,20 @@ const VariantCombinations = memo(() => {
     const renderSubSubVariant = (mainVariant, subVariant, subSubVariant) => (
         <div 
             key={`${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`}
-            className="flex items-center justify-between py-2 pl-16 border-t"
+            className="flex items-center justify-between py-2 pl-12 border-t"
         >
-            <span className="text-sm text-gray-600">{subSubVariant.value}</span>
+            <div className="flex items-center gap-2">
+                <ImageUploadButton 
+                    variantPath={`${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`}
+                    images={subSubVariant.images}
+                />
+                <span>{subSubVariant.value}</span>
+            </div>
             <div className="flex gap-4">
                 <input
                     type="text"
                     value={subSubVariant.price || ''}
-                    onChange={(e) => handleInputChange(
+                    onChange={(e) => updateVariantValue(
                         `${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`,
                         'price',
                         e.target.value
@@ -98,7 +118,7 @@ const VariantCombinations = memo(() => {
                 <input
                     type="text"
                     value={subSubVariant.stock || ''}
-                    onChange={(e) => handleInputChange(
+                    onChange={(e) => updateVariantValue(
                         `${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`,
                         'stock',
                         e.target.value
@@ -163,15 +183,15 @@ const VariantCombinations = memo(() => {
     );
 
     return (
-        <div className="mt-6">
-            <div className="flex justify-between mb-2 px-4">
+        <div className="mt-6 flex flex-col h-full max-h-[600px]">
+            <div className="flex justify-between mb-2 px-4 sticky top-0 bg-white z-10">
                 <h3 className="font-medium">Variant Combinations</h3>
                 <div className="flex gap-8">
                     <span>Price</span>
                     <span>Available</span>
                 </div>
             </div>
-            <div className="border rounded-lg">
+            <div className="border rounded-lg overflow-auto">
                 {variantStructure.map(mainVariant => (
                     <div key={mainVariant.value}>
                         <div 

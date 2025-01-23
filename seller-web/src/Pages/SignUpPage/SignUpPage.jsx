@@ -16,7 +16,7 @@ import 'react-phone-input-2/lib/style.css';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
-  const { createSeller, isLoading, seller, otpStatus, verifyOtp, requestNewOtp, unverifiedUser } = useAuthContext();
+  const { createSeller, isLoading, signUpSellerDetails, otpStatus, verifyOtp, requestNewOtp, unverifiedUser } = useAuthContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [otp, setOtp] = useState('');
   const [activateOtp, setActivateOtp] = useState(false);
@@ -33,12 +33,12 @@ const SignUpPage = () => {
 
   //use effect to check if the seller is authenticated and if the otp status is pending, if so, open the otp modal as a reroute from the signup page
   useEffect(() => {
-    if (seller !== null && otpStatus === "pending") {
+    if (signUpSellerDetails && otpStatus === "pending") {
       setIsModalOpen(true);
     } else if (otpStatus === "pending" && unverifiedUser) {
       setIsModalOpen(true);
     }
-  }, [seller, otpStatus]);
+  }, [signUpSellerDetails, otpStatus]);
 
   //function to submit the user data
   const submitUserData = async (event) => {
@@ -87,8 +87,8 @@ const SignUpPage = () => {
 
   //function to submit the otp to verify new user
   const handleOtpSubmit = async () => {
-    if (otp.length === 4 && seller !== null) {
-      await verifyOtp(seller?.email, otp);
+    if (otp.length === 4 && signUpSellerDetails !== null) {
+      await verifyOtp(signUpSellerDetails?.email, otp);
       setIsModalOpen(false);
     } else {
       toast.error("Please fill in all fields");
@@ -96,8 +96,9 @@ const SignUpPage = () => {
   };
 
   const handleNewOtpRequest = async () => {
-    if (seller !== null) {
-      await requestNewOtp(seller?.email);
+    if (signUpSellerDetails !== null) {
+      await requestNewOtp(signUpSellerDetails?.email);
+      setActivateOtp(true);
     } else {
       toast.error("You are unauthorized to request for a new OTP");
     }
@@ -318,9 +319,9 @@ const SignUpPage = () => {
           <Modal>
             <img src={MailIcon} alt="Mail Icon" className="w-[83.5px] h-[83.5px] lg:w-[127px] lg:h-[127px] mb-10" />
             <h3 className="text-base sm:text-2xl font-medium text-[#FFFFFF] leading-normal sm:leading-[21.86px] text-center">
-              {`We've sent a link to ${seller?.email}`}
+              {`We've sent a link to ${signUpSellerDetails?.email}`}
             </h3>
-            <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center mt-4 ">Please verify your email address by clicking on the link we sent to your email and inputting the code we sent to your email.</p>
+            <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center mt-4 ">Please verify your email address by inputting the OTP we sent to your email.</p>
             {
               activateOtp ? (
                 <>
@@ -356,11 +357,24 @@ const SignUpPage = () => {
                 </>
               ) : (
                 <>
-                  <a href={`https://mail.google.com/mail/u/0/#inbox`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] bg-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Go to Gmail <Icon icon="radix-icons:arrow-top-right" width="25" height="25" color="#FFFFFF" />
-                  </a>
-                  <button onClick={() => setActivateOtp(true)} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border border-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-5 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Input Code</button>
+                  {
+                    unverifiedUser ? (
+                      <>
+                        <button
+                          onClick={handleNewOtpRequest}
+                          className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] bg-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Request New Otp <Icon icon="radix-icons:arrow-top-right" width="25" height="25" color="#FFFFFF" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <a href={`https://mail.google.com/mail/u/0/#inbox`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] bg-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-10 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Go to Gmail <Icon icon="radix-icons:arrow-top-right" width="25" height="25" color="#FFFFFF" />
+                        </a>
+                        <button onClick={() => setActivateOtp(true)} className="text-base sm:text-lg font-medium leading-normal sm:leading-[21.86px] text-[#FFFFFF] border border-[#0BB248] rounded-md w-full py-4 sm:py-[22px] mt-5 flex items-center justify-center gap-4 md:gap-6 lg:gap-8 hover:transform hover:scale-95 transition-transform duration-300 ">Input Code</button>
+                      </>
+                    )
+                  }
                 </>
               )
             }

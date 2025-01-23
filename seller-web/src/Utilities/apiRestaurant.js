@@ -27,7 +27,7 @@ export const fetchOnboardingProcess = async () => {
                 }
             });
             if (response.status === 200) {
-                console.log(response.data);
+                console.log(response);
                 return response.data;
             }
         }
