@@ -6,6 +6,7 @@ const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
 const http = require('http');
 const initializeSocket = require('./socket/socketManager');
+const compression = require('compression');
 
 
 // Import routes
@@ -41,8 +42,16 @@ app.use((req, res, next) => {
 
 // Middleware
 app.use(cors({ origin: '*' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({
+  limit: '1024mb', // 1GB
+  parameterLimit: 1000000,
+  extended: true
+}));
+app.use(express.urlencoded({
+  limit: '1024mb', // 1GB
+  parameterLimit: 1000000,
+  extended: true
+}));
 
 // Configure express-session middleware
 app.use(session({
@@ -54,6 +63,9 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Add compression middleware
+app.use(compression());
 
 // Basic route
 app.get('/', (req, res) => {

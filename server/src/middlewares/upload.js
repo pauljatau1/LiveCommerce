@@ -25,11 +25,16 @@ const fileFilter = (req, file, cb) => {
 
 // Create multer upload instance
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
   }
-});
+}).fields([
+  { name: 'images', maxCount: 10 },
+  { name: /^variant-[^-]+-images$/, maxCount: 10 },                    // For variant-red-images
+  { name: /^variant-[^-]+-[^-]+-images$/, maxCount: 10 },             // For variant-red-large-images
+  { name: /^variant-[^-]+-[^-]+-[^-]+-images$/, maxCount: 10 }        // For variant-red-large-cotton-images
+]);
 
 module.exports = upload;

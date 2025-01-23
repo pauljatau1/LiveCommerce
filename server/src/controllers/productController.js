@@ -40,7 +40,6 @@ exports.createProduct = async (req, res) => {
       returnPolicy: parseJsonField(req.body.returnPolicy, 'returnPolicy'),
       shippingInfo: parseJsonField(req.body.shippingInfo, 'shippingInfo'),
       seo: parseJsonField(req.body.seo, 'seo'),
-      variants: parseJsonField(req.body.variants, 'variants'),
     };
 
     // Convert comma-separated strings to arrays
@@ -70,13 +69,14 @@ exports.createProduct = async (req, res) => {
 
     // Handle main product images
     let imagesLinks = [];
-    if (req.files && req.files['images']) {
-      for (let image of req.files['images']) {
+    if (req.body.images && Array.isArray(req.body.images)) {
+      for (let image of req.body.images) {
+        const buffer = Buffer.from(image.data, 'base64');
         const params = {
           Bucket: 'auqli-uploads',
-          Key: `${uuidv4()}-${image.originalname}`,
-          Body: image.buffer,
-          ContentType: image.mimetype,
+          Key: `${uuidv4()}.jpg`,
+          Body: buffer,
+          ContentType: image.contentType,
         };
         const data = await s3.upload(params).promise();
         imagesLinks.push({ url: data.Location });
@@ -85,13 +85,14 @@ exports.createProduct = async (req, res) => {
 
     // Handle blips/videos
     let blipsLinks = [];
-    if (req.files && req.files['blips']) {
-      for (let blip of req.files['blips']) {
+    if (req.body.blips && Array.isArray(req.body.blips)) {
+      for (let blip of req.body.blips) {
+        const buffer = Buffer.from(blip.data, 'base64');
         const params = {
           Bucket: 'auqli-uploads',
-          Key: `${uuidv4()}-${blip.originalname}`,
-          Body: blip.buffer,
-          ContentType: blip.mimetype,
+          Key: `${uuidv4()}.mp4`,
+          Body: buffer,
+          ContentType: blip.contentType,
         };
         const data = await s3.upload(params).promise();
         blipsLinks.push({ url: data.Location });
@@ -99,16 +100,17 @@ exports.createProduct = async (req, res) => {
     }
 
     // Process variant images
-    if (parsedBody.variants && Array.isArray(parsedBody.variants)) {
-      parsedBody.variants = await Promise.all(parsedBody.variants.map(async (variant) => {
-        // Process color variant images
+    if (req.body.variants && Array.isArray(req.body.variants)) {
+      parsedBody.variants = await Promise.all(req.body.variants.map(async (variant) => {
+        // Process main variant images
         const variantImages = [];
         if (variant.images && Array.isArray(variant.images)) {
           for (let image of variant.images) {
+            const buffer = Buffer.from(image.data, 'base64');
             const params = {
               Bucket: 'auqli-uploads',
               Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
-              Body: image.data,
+              Body: buffer,
               ContentType: image.contentType,
             };
             const data = await s3.upload(params).promise();
@@ -120,19 +122,20 @@ exports.createProduct = async (req, res) => {
           }
         }
 
-        // Process size variants
-        const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (sizeVariant) => {
-          const sizeImages = [];
-          if (sizeVariant.images && Array.isArray(sizeVariant.images)) {
-            for (let image of sizeVariant.images) {
+        // Process subvariants
+        const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
+          const subVariantImages = [];
+          if (subVariant.images && Array.isArray(subVariant.images)) {
+            for (let image of subVariant.images) {
+              const buffer = Buffer.from(image.data, 'base64');
               const params = {
                 Bucket: 'auqli-uploads',
-                Key: `variants/sizes/${uuidv4()}-${variant.value}_${sizeVariant.value}.jpg`,
-                Body: image.data,
+                Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
+                Body: buffer,
                 ContentType: image.contentType,
               };
               const data = await s3.upload(params).promise();
-              sizeImages.push({
+              subVariantImages.push({
                 data: data.Location,
                 contentType: image.contentType,
                 isDefault: image.isDefault || false
@@ -140,19 +143,20 @@ exports.createProduct = async (req, res) => {
             }
           }
 
-          // Process material variants
-          const processedMaterialVariants = await Promise.all((sizeVariant.subSubVariants || []).map(async (materialVariant) => {
-            const materialImages = [];
-            if (materialVariant.images && Array.isArray(materialVariant.images)) {
-              for (let image of materialVariant.images) {
+          // Process subsubvariants
+          const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
+            const subSubVariantImages = [];
+            if (subSubVariant.images && Array.isArray(subSubVariant.images)) {
+              for (let image of subSubVariant.images) {
+                const buffer = Buffer.from(image.data, 'base64');
                 const params = {
                   Bucket: 'auqli-uploads',
-                  Key: `variants/materials/${uuidv4()}-${variant.value}_${sizeVariant.value}_${materialVariant.value}.jpg`,
-                  Body: image.data,
+                  Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
+                  Body: buffer,
                   ContentType: image.contentType,
                 };
                 const data = await s3.upload(params).promise();
-                materialImages.push({
+                subSubVariantImages.push({
                   data: data.Location,
                   contentType: image.contentType,
                   isDefault: image.isDefault || false
@@ -161,15 +165,15 @@ exports.createProduct = async (req, res) => {
             }
 
             return {
-              ...materialVariant,
-              images: materialImages.length > 0 ? materialImages : materialVariant.images
+              ...subSubVariant,
+              images: subSubVariantImages.length > 0 ? subSubVariantImages : subSubVariant.images
             };
           }));
 
           return {
-            ...sizeVariant,
-            images: sizeImages.length > 0 ? sizeImages : sizeVariant.images,
-            subSubVariants: processedMaterialVariants
+            ...subVariant,
+            images: subVariantImages.length > 0 ? subVariantImages : subVariant.images,
+            subSubVariants: processedSubSubVariants
           };
         }));
 

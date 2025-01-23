@@ -619,7 +619,9 @@ router.post('/',
   upload.fields([
     { name: 'images', maxCount: 8 },
     { name: 'blips', maxCount: 4 },
-    { name: 'variants.*.options.*.images', maxCount: 8 }
+    { name: /^variant-[a-zA-Z0-9]+-images$/, maxCount: 10 },
+    { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 },
+    { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 }
   ]),
   productController.createProduct
 );
