@@ -522,6 +522,150 @@ exports.updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update this product' });
     }
 
+    // Handle main product images
+    if (updates.images && Array.isArray(updates.images)) {
+      const imagesLinks = [];
+      for (let image of updates.images) {
+        if (image.data.startsWith('https://auqli-uploads.s3')) {
+          imagesLinks.push({ url: image.data }); // Keep existing S3 image
+        } else {
+          // Process new base64 image
+          const buffer = Buffer.from(image.data, 'base64');
+          const params = {
+            Bucket: 'auqli-uploads',
+            Key: `${uuidv4()}.jpg`,
+            Body: buffer,
+            ContentType: image.contentType,
+          };
+          const data = await s3.upload(params).promise();
+          imagesLinks.push({ url: data.Location });
+        }
+      }
+      updates.images = imagesLinks;
+    }
+
+    // Handle blips/videos
+    if (updates.blips && Array.isArray(updates.blips)) {
+      const blipsLinks = [];
+      for (let blip of updates.blips) {
+        if (blip.data.startsWith('https://auqli-uploads.s3')) {
+          blipsLinks.push({ url: blip.data }); // Keep existing S3 video
+        } else {
+          // Process new base64 video
+          const buffer = Buffer.from(blip.data, 'base64');
+          const params = {
+            Bucket: 'auqli-uploads',
+            Key: `${uuidv4()}.mp4`,
+            Body: buffer,
+            ContentType: blip.contentType,
+          };
+          const data = await s3.upload(params).promise();
+          blipsLinks.push({ url: data.Location });
+        }
+      }
+      updates.blips = blipsLinks;
+    }
+
+    // Process variant images if they exist
+    if (updates.variants && Array.isArray(updates.variants)) {
+      updates.variants = await Promise.all(updates.variants.map(async (variant) => {
+        // Process main variant images
+        const variantImages = [];
+        if (variant.images && Array.isArray(variant.images)) {
+          for (let image of variant.images) {
+            // Check if image is already on S3
+            if (image.data.startsWith('https://auqli-uploads.s3')) {
+              variantImages.push(image); // Keep existing S3 image as is
+            } else {
+              // Process new base64 image
+              const buffer = Buffer.from(image.data.split(',')[1], 'base64');
+              const params = {
+                Bucket: 'auqli-uploads',
+                Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
+                Body: buffer,
+                ContentType: image.contentType,
+              };
+              const data = await s3.upload(params).promise();
+              variantImages.push({
+                data: data.Location,
+                contentType: image.contentType,
+                isDefault: image.isDefault || false
+              });
+            }
+          }
+        }
+
+        // Process subvariants
+        const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
+          const subVariantImages = [];
+          if (subVariant.images && Array.isArray(subVariant.images)) {
+            for (let image of subVariant.images) {
+              if (image.data.startsWith('https://auqli-uploads.s3')) {
+                subVariantImages.push(image);
+              } else {
+                const buffer = Buffer.from(image.data.split(',')[1], 'base64');
+                const params = {
+                  Bucket: 'auqli-uploads',
+                  Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
+                  Body: buffer,
+                  ContentType: image.contentType,
+                };
+                const data = await s3.upload(params).promise();
+                subVariantImages.push({
+                  data: data.Location,
+                  contentType: image.contentType,
+                  isDefault: image.isDefault || false
+                });
+              }
+            }
+          }
+
+          // Process subsubvariants
+          const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
+            const subSubVariantImages = [];
+            if (subSubVariant.images && Array.isArray(subSubVariant.images)) {
+              for (let image of subSubVariant.images) {
+                if (image.data.startsWith('https://auqli-uploads.s3')) {
+                  subSubVariantImages.push(image);
+                } else {
+                  const buffer = Buffer.from(image.data.split(',')[1], 'base64');
+                  const params = {
+                    Bucket: 'auqli-uploads',
+                    Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
+                    Body: buffer,
+                    ContentType: image.contentType,
+                  };
+                  const data = await s3.upload(params).promise();
+                  subSubVariantImages.push({
+                    data: data.Location,
+                    contentType: image.contentType,
+                    isDefault: image.isDefault || false
+                  });
+                }
+              }
+            }
+
+            return {
+              ...subSubVariant,
+              images: subSubVariantImages.length > 0 ? subSubVariantImages : subSubVariant.images
+            };
+          }));
+
+          return {
+            ...subVariant,
+            images: subVariantImages.length > 0 ? subVariantImages : variant.images,
+            subSubVariants: processedSubSubVariants
+          };
+        }));
+
+        return {
+          ...variant,
+          images: variantImages.length > 0 ? variantImages : variant.images,
+          subVariants: processedSubVariants
+        };
+      }));
+    }
+
     // Protected fields that shouldn't be updated directly
     const protectedFields = ['_id', 'seller', 'createdAt', 'reviews', 'analytics'];
 
