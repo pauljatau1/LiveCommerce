@@ -1,6 +1,13 @@
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const notificationController = require('../controllers/notificationController');
+const sgMail = require('@sendgrid/mail');
+const {
+  getShipmentCreatedEmailTemplate,
+  getShipmentInTransitEmailTemplate,
+  getShipmentDeliveredEmailTemplate,
+  getShipmentCancelledEmailTemplate
+} = require('../templates/shipmentEmailTemplates');
 
 const verifyWebhookSignature = (signature, body, secret) => {
   const computedSignature = crypto
@@ -60,131 +67,379 @@ const handleDeliveryException = async (exceptionData) => {
 
 const handleShipmentCreated = async (data) => {
   try {
+    console.log('Processing shipment.created webhook:', {
+      shipmentId: data.shipment_id,
+      trackingNumber: data.tracking_number,
+      status: data.status
+    });
+
+    const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id })
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName');
+
+    if (!order) {
+      console.log('No order found for shipment:', data.shipment_id);
+      return;
+    }
+
+    console.log('Found order:', order._id);
+    console.log('Buyer email:', order.buyer.email);
+    console.log('Seller email:', order.seller.email);
+
+    // Preserve existing shipping data and update only necessary fields
+    const updatedShipping = {
+      ...order.shipping.toObject(), // Convert to plain object
+      status: data.status,
+      tracking: {
+        ...order.shipping.tracking, // Preserve existing tracking data
+        number: data.tracking_number,
+        url: data.carrier_tracking_url,
+        status: data.status,
+        lastUpdate: new Date(),
+        history: [
+          ...(order.shipping.tracking.history || []),
+          {
+            status: data.status,
+            location: data.events[0]?.location || 'Unknown',
+            timestamp: new Date(),
+            description: data.events[0]?.description || 'Shipment created'
+          }
+        ]
+      },
+      documents: {
+        ...order.shipping.documents, // Preserve existing documents
+        shippingLabel: data.shipping_label_url,
+        commercialInvoice: data.commercial_invoice_url
+      }
+    };
+
+    console.log('Updated shipping object:', updatedShipping);
+
+    // Update order using findOneAndUpdate to ensure atomic operation
+    const updatedOrder = await Order.findOneAndUpdate(
+      { _id: order._id },
+      { $set: { shipping: updatedShipping } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedOrder) {
+      throw new Error('Failed to update order');
+    }
+
+    console.log('Order updated successfully');
+
+    // Send emails with error handling
+    try {
+      const emailTemplate = getShipmentCreatedEmailTemplate(order, data.tracking_number);
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com';
+      
+      if (!order.buyer.email || !order.seller.email) {
+        throw new Error('Missing recipient email addresses');
+      }
+
+      console.log('Preparing to send emails:', {
+        from: fromEmail,
+        buyer: order.buyer.email,
+        seller: order.seller.email
+      });
+
+      // Send buyer email
+      await sgMail.send({
+        to: order.buyer.email,
+        from: fromEmail,
+        subject: emailTemplate.buyer.subject,
+        html: emailTemplate.buyer.html
+      });
+
+      // Send seller email
+      await sgMail.send({
+        to: order.seller.email,
+        from: fromEmail,
+        subject: emailTemplate.seller.subject,
+        html: emailTemplate.seller.html
+      });
+
+      console.log('Shipment created emails sent successfully');
+    } catch (emailError) {
+      console.error('Error sending shipment created emails:', {
+        error: emailError.message,
+        stack: emailError.stack,
+        buyerEmail: order.buyer.email,
+        sellerEmail: order.seller.email
+      });
+    }
+
+    // Continue with notifications
+    await Promise.all([
+      notificationController.createNotification(
+        order.buyer,
+        'shipment_created',
+        'Shipment Created',
+        `Your shipment for order #${order._id} has been created. Tracking number: ${data.tracking_number}`,
+        { orderId: order._id }
+      ),
+      notificationController.createNotification(
+        order.seller,
+        'shipment_created',
+        'Shipment Created',
+        `Shipment created for order #${order._id}. Tracking number: ${data.tracking_number}`,
+        { orderId: order._id }
+      )
+    ]);
+
+  } catch (error) {
+    console.error('Error in handleShipmentCreated:', error);
+    throw error;
+  }
+};
+
+const handleShipmentInTransit = async (data) => {
+  try {
+    console.log('Processing shipment.in-transit webhook:', {
+      shipmentId: data.shipment_id,
+      trackingNumber: data.tracking_number,
+      status: data.status
+    });
+
+    const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id })
+      .populate('buyer', 'email firstName lastName');
+
+    if (!order) {
+      console.log('No order found for shipment:', data.shipment_id);
+      return;
+    }
+
+    console.log('Found order:', order._id);
+
+    // Update tracking history
+    const updatedShipping = {
+      ...order.shipping.toObject(),
+      status: data.status,
+      tracking: {
+        ...order.shipping.tracking,
+        status: data.status,
+        lastUpdate: new Date(),
+        history: [
+          ...(order.shipping.tracking.history || []),
+          {
+            status: data.status,
+            location: data.events[0]?.location || 'Unknown',
+            timestamp: new Date(),
+            description: data.events[0]?.description || 'Shipment in transit'
+          }
+        ]
+      }
+    };
+
+    // Update order using findOneAndUpdate
+    const updatedOrder = await Order.findOneAndUpdate(
+      { _id: order._id },
+      { $set: { shipping: updatedShipping } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedOrder) {
+      throw new Error('Failed to update order');
+    }
+
+    // Send email with error handling
+    try {
+      if (!order.buyer.email) {
+        throw new Error('Missing buyer email address');
+      }
+
+      const emailTemplate = getShipmentInTransitEmailTemplate(
+        order, 
+        data.events[0]?.location
+      );
+      
+      await sgMail.send({
+        to: order.buyer.email,
+        from: {
+          email: process.env.SENDGRID_FROM_EMAIL,
+          name: 'Auqli Shipping'
+        },
+        ...emailTemplate.buyer
+      });
+
+      console.log('Shipment in transit email sent successfully');
+    } catch (emailError) {
+      console.error('Error sending in-transit email:', {
+        error: emailError.message,
+        buyerEmail: order.buyer.email
+      });
+    }
+
+  } catch (error) {
+    console.error('Error in handleShipmentInTransit:', error);
+    throw error;
+  }
+};
+
+const handleShipmentDelivered = async (data) => {
+  try {
+    console.log('Processing shipment.delivered webhook:', {
+      shipmentId: data.shipment_id,
+      trackingNumber: data.tracking_number,
+      status: data.status
+    });
+
+    const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id })
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName');
+
+    if (!order) {
+      console.log('No order found for shipment:', data.shipment_id);
+      return;
+    }
+
+    // Update tracking and delivery information
+    const updatedShipping = {
+      ...order.shipping.toObject(),
+      status: data.status,
+      tracking: {
+        ...order.shipping.tracking,
+        status: data.status,
+        lastUpdate: new Date(),
+        history: [
+          ...(order.shipping.tracking.history || []),
+          {
+            status: data.status,
+            location: data.events[0]?.location || 'Unknown',
+            timestamp: new Date(),
+            description: data.events[0]?.description || 'Shipment delivered'
+          }
+        ]
+      },
+      delivery: {
+        ...order.shipping.delivery,
+        actualDate: new Date(),
+        signedBy: data.events[0]?.description?.match(/signed by (.*)/i)?.[1] || 'Unknown'
+      }
+    };
+
+    // Update order
+    const updatedOrder = await Order.findOneAndUpdate(
+      { _id: order._id },
+      { $set: { shipping: updatedShipping } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedOrder) {
+      throw new Error('Failed to update order');
+    }
+
+    // Send emails with error handling
+    try {
+      if (!order.buyer.email || !order.seller.email) {
+        throw new Error('Missing recipient email addresses');
+      }
+
+      const emailTemplate = getShipmentDeliveredEmailTemplate(order);
+      
+      await Promise.all([
+        sgMail.send({
+          to: order.buyer.email,
+          from: {
+            email: process.env.SENDGRID_FROM_EMAIL,
+            name: 'Auqli Shipping'
+          },
+          ...emailTemplate.buyer
+        }),
+        sgMail.send({
+          to: order.seller.email,
+          from: {
+            email: process.env.SENDGRID_FROM_EMAIL,
+            name: 'Auqli Shipping'
+          },
+          ...emailTemplate.seller
+        })
+      ]);
+
+      console.log('Shipment delivered emails sent successfully');
+    } catch (emailError) {
+      console.error('Error sending delivered emails:', {
+        error: emailError.message,
+        buyerEmail: order.buyer.email,
+        sellerEmail: order.seller.email
+      });
+    }
+
+  } catch (error) {
+    console.error('Error in handleShipmentDelivered:', error);
+    throw error;
+  }
+};
+
+const handleShipmentCancelled = async (data) => {
+  try {
+    console.log('Processing shipment.cancelled webhook:', {
+      shipmentId: data.shipment_id,
+      trackingNumber: data.tracking_number,
+      status: data.status
+    });
+
     const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id });
     if (!order) {
       console.log('No order found for shipment:', data.shipment_id);
       return;
     }
 
-    // Update order with shipment details
-    order.shipping = {
-      ...order.shipping,
-      status: data.status,
-      fee: data.shipment_cost || 0,
-      carrier: {
-        name: data.carrier_name,
-        reference: data.carrier_slug
-      },
+    // Update shipping information
+    const updatedShipping = {
+      ...order.shipping.toObject(),
+      status: 'cancelled',
       tracking: {
-        number: data.tracking_number,
-        url: data.carrier_tracking_url,
-        status: data.status,
-        carrier: data.carrier_name,
+        ...order.shipping.tracking,
+        status: 'cancelled',
         lastUpdate: new Date(),
-        history: [{
-          status: data.status,
-          location: data.events[0]?.location,
-          timestamp: new Date(),
-          description: data.events[0]?.description
-        }]
-      },
-      documents: {
-        shippingLabel: data.shipping_label_url,
-        commercialInvoice: data.commercial_invoice_url
-      },
-      delivery: {
-        estimatedDate: data.delivery_date,
-        actualDate: null
+        history: [
+          ...(order.shipping.tracking.history || []),
+          {
+            status: 'cancelled',
+            location: data.events[0]?.location || 'Unknown',
+            timestamp: new Date(),
+            description: data.events[0]?.description || 'Shipment cancelled'
+          }
+        ]
       }
     };
 
-    await order.save();
-    console.log('Order updated with shipment details:', order._id);
-
-    // Notify buyer
-    await notificationController.createNotification(
-      order.buyer,
-      'shipment_created',
-      'Shipment Created',
-      `Your shipment for order #${order._id} has been created. Tracking number: ${data.tracking_number}`,
-      { orderId: order._id }
+    // Update order
+    const updatedOrder = await Order.findOneAndUpdate(
+      { _id: order._id },
+      { $set: { shipping: updatedShipping } },
+      { new: true, runValidators: true }
     );
-  } catch (error) {
-    console.error('Error handling shipment.created:', error);
-  }
-};
 
-const handleShipmentInTransit = async (data) => {
-  try {
-    const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id });
-    if (!order) return;
-
-    // Update tracking history
-    order.shipping.tracking.status = data.status;
-    order.shipping.tracking.lastUpdate = new Date();
-    order.shipping.tracking.history.push({
-      status: data.status,
-      location: data.events[0]?.location,
-      timestamp: new Date(),
-      description: data.events[0]?.description
-    });
-
-    await order.save();
-
-    // Notify buyer
-    await notificationController.createNotification(
-      order.buyer,
-      'order_updated',
-      'Shipment In Transit',
-      `Your order #${order._id} is now in transit. Current location: ${data.events[0]?.location}`,
-      { orderId: order._id }
-    );
-  } catch (error) {
-    console.error('Error handling shipment.in-transit:', error);
-  }
-};
-
-const handleShipmentDelivered = async (data) => {
-  try {
-    const order = await Order.findOne({ 'shipping.shipment_id': data.shipment_id });
-    if (!order) return;
-
-    // Update order status
-    order.shipping.tracking.status = data.status;
-    order.shipping.tracking.lastUpdate = new Date();
-    order.shipping.tracking.history.push({
-      status: data.status,
-      location: data.events[0]?.location,
-      timestamp: new Date(),
-      description: data.events[0]?.description
-    });
-    
-    if (!order.shipping.delivery) {
-      order.shipping.delivery = {};
+    if (!updatedOrder) {
+      throw new Error('Failed to update order');
     }
-    order.shipping.delivery.actualDate = new Date();
 
-    await order.save();
-
-    // Notify both parties
+    // Send emails
+    const emailTemplate = getShipmentCancelledEmailTemplate(
+      order, 
+      data.events[0]?.description
+    );
+    
     await Promise.all([
-      notificationController.createNotification(
-        order.buyer,
-        'order_delivered',
-        'Order Delivered',
-        `Your order #${order._id} has been delivered!`,
-        { orderId: order._id }
-      ),
-      notificationController.createNotification(
-        order.seller,
-        'order_delivered',
-        'Order Delivered',
-        `Order #${order._id} has been delivered to the customer`,
-        { orderId: order._id }
-      )
+      sgMail.send({
+        to: order.buyer.email,
+        from: process.env.SENDGRID_FROM_EMAIL,
+        ...emailTemplate.buyer
+      }),
+      sgMail.send({
+        to: order.seller.email,
+        from: process.env.SENDGRID_FROM_EMAIL,
+        ...emailTemplate.seller
+      })
     ]);
+
+    console.log('Shipment cancelled emails sent successfully');
+
   } catch (error) {
-    console.error('Error handling shipment.delivered:', error);
+    console.error('Error in handleShipmentCancelled:', error);
+    throw error;
   }
 };
 
@@ -193,7 +448,7 @@ module.exports = {
     const signature = req.headers['x-terminal-signature'];
     console.log('Received Terminal webhook:', {
       event: req.body.event,
-      signature: signature?.substring(0, 10) + '...' // Log partial signature for debugging
+      signature: signature?.substring(0, 10) + '...' 
     });
     
     if (!verifyWebhookSignature(signature, req.body, process.env.TERMINAL_SECRET_KEY)) {
@@ -221,6 +476,9 @@ module.exports = {
         case 'shipment.in-transit':
           await handleShipmentInTransit(data);
           break;
+        case 'shipment.cancelled':
+          await handleShipmentCancelled(data);
+          break;
         default:
           console.log('Unhandled webhook event:', event);
       }
@@ -234,5 +492,7 @@ module.exports = {
   },
   handleShipmentCreated,
   handleShipmentInTransit,
-  handleShipmentDelivered
+  handleShipmentDelivered,
+  handleShipmentCancelled,
+  verifyWebhookSignature
 }; 
