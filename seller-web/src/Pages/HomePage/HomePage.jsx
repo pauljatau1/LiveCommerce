@@ -26,6 +26,8 @@ import { BiWallet } from 'react-icons/bi';
 import Header from "@/Components/ui/Header/Header";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
+import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
+import NotificationsDialog from "../../Components/NotificationsDialog";
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
 // Example: formatNumber(1500, "view") returns "1.5K views"
@@ -189,16 +191,16 @@ const HomePage = () => {
   // Includes: Store Visits, Total Sales, Orders, Conversions, Customers
   const prepareAnalyticsData = (orders, storeVisits, totalCustomers) => {
     return [
-        {
-            id: ObjectID().toHexString(),
-            title: 'Store Visits',
-            icon: FiUsers,
-            current: formatMetricValue(storeVisits),
-            percentage: '+13%',
-            trend: 'up',
-            iconColor: 'text-blue-600',
-            iconBackground: 'bg-blue-50'
-        },
+        // {
+        //     id: ObjectID().toHexString(),
+        //     title: 'Store Visits',
+        //     icon: FiUsers,
+        //     current: formatMetricValue(storeVisits),
+        //     percentage: '+13%',
+        //     trend: 'up',
+        //     iconColor: 'text-blue-600',
+        //     iconBackground: 'bg-blue-50'
+        // },
         {
             id: ObjectID().toHexString(),
             title: 'Wallet Balance',
@@ -270,7 +272,7 @@ const HomePage = () => {
           <div className="flex justify-center items-center">
             {
               homeAnalyticsCardData.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-9 w-full">
                   {
                     homeAnalyticsCardData.map((card) => (
                       <HomeAnalyticsCard key={card.id} card={card} />
@@ -290,22 +292,37 @@ const HomePage = () => {
           <div className="mt-10 flex flex-col lg:flex-row lg:align-center lg:justify-between gap-14 lg:gap-4">
           <div className="w-full">
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-gray-900">Stuff to do</h3>
-        <p className="text-sm text-gray-500 mt-1">Your pending tasks and notifications</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Notifications</h3>
+            <p className="text-sm text-gray-500 mt-1">Your recent updates and alerts</p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="text-sm text-green-600 hover:text-green-700 font-medium">
+                View all
+              </button>
+            </DialogTrigger>
+            <NotificationsDialog notifications={stuffToDo?.notifications} />
+          </Dialog>
+        </div>
       </div>
 
-      <div className="bg-gray-50 rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className=" rounded-xl border border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center items-center h-[364px]">
-            <CircularProgress
-              size={24}
-              className="text-green-600"
-            />
+            <CircularProgress size={24} className="text-green-600" />
           </div>
         ) : stuffToDo?.notifications?.length > 0 ? (
           <div className="divide-y divide-gray-100">
-            {stuffToDo.notifications.map((card) => (
-              <ToDoCard key={card.id} card={card} />
+            {stuffToDo.notifications.slice(0, 4).map((notification) => (
+              <div key={notification._id} className="p-4 hover:bg-gray-100 transition-colors">
+                {/* <h4 className="font-medium text-gray-900">{notification.title}</h4> */}
+                <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                {/* <p className="text-xs text-gray-400 mt-2">
+                  {new Date(notification.createdAt).toLocaleDateString()}
+                </p> */}
+              </div>
             ))}
           </div>
         ) : (
@@ -317,10 +334,10 @@ const HomePage = () => {
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
               />
             </svg>
-            <p className="text-base font-medium">No tasks pending</p>
+            <p className="text-base font-medium">No notifications</p>
             <p className="text-sm">You're all caught up!</p>
           </div>
         )}

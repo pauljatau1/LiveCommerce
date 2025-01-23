@@ -6,6 +6,7 @@ import { useAuthContext } from "../../../Hooks/useAuthContext";
 import Logo from '../../../assets/auqli-official-logo.png'
 import { useNavigate, useLocation } from "react-router-dom";
 import PropTypes from 'prop-types';
+import { MdClose } from 'react-icons/md';
 
 
 const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
@@ -62,7 +63,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                         hover:bg-white/10 hover:backdrop-blur-sm
                         active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md"
                 >
-                  <Icon icon={item.icon} width={24} height={24} color="#ffffff" />
+                  <item.icon size={24} className="text-white" />
                   <span className="text-white text-sm">{item.name}</span>
                 </NavLink>
                 {
@@ -94,10 +95,10 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
             <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
               Auqli University
             </NavLink>
-            <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+            <NavLink to="/dashboard/help" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
               Help & Support
             </NavLink>
-            <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+            <NavLink to="/dashboard/settings" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
               Settings
             </NavLink>
             <button
@@ -120,12 +121,9 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
             {/* Sidebar */}
             <div className="fixed top-0 left-0 h-full w-[257px] bg-[#05031F] flex flex-col">
               {/* Close Button */}
-              <Icon
-                icon="line-md:menu-to-close-transition"
-                width="24"
-                height="24"
-                color="#ffffff"
-                className="absolute top-4 right-4 cursor-pointer"
+              <MdClose
+                size={24}
+                className="absolute top-4 right-4 cursor-pointer text-white"
                 onClick={() => setIsSidebarOpen(false)}
               />
 
@@ -152,7 +150,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                         hover:bg-white/10 hover:backdrop-blur-sm
                         active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md"
                       >
-                        <Icon icon={item.icon} width={24} height={24} color="#ffffff" />
+                        <item.icon size={24} className="text-white" />
                         <span className="text-white text-sm">{item.name}</span>
                       </NavLink>
                       {
@@ -183,10 +181,10 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
                   <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                     Auqli University
                   </NavLink>
-                  <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                  <NavLink to="/help" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                     Help & Support
                   </NavLink>
-                  <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                  <NavLink to="/settings" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                     Settings
                   </NavLink>
                   <button

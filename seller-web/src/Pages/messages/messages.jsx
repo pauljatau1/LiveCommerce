@@ -1,21 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
-import { Card } from "@/Components/ui/card"
-import { Button } from "@/Components/ui/button"
-import { Input } from "@/Components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
-import { 
-  PaperclipIcon, 
-  SmileIcon, 
-  SendHorizontal, 
-  MessageSquare, 
-  Check, 
+import { useState, useEffect, useRef } from 'react';
+import { Card } from "@/Components/ui/card";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
+import {
+  PaperclipIcon,
+  SmileIcon,
+  SendHorizontal,
+  MessageSquare,
+  Check,
   CheckCheck,
-  Eye 
-} from 'lucide-react'
-import { toast } from "sonner"
-import { BASE_URL } from "@/Constants/Server"
+  Eye
+} from 'lucide-react';
+import { toast } from "sonner";
+import { BASE_URL } from "@/Constants/Server";
 import { io } from "socket.io-client";
 import { useSocket } from "@/Contexts/SocketContext";
 
@@ -29,8 +29,8 @@ const formatMessageTime = (timestamp) => {
 
   // If message is from today, show time
   if (diffInHours < 24) {
-    return date.toLocaleTimeString([], { 
-      hour: '2-digit', 
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
       minute: '2-digit'
     });
   }
@@ -42,7 +42,7 @@ const formatMessageTime = (timestamp) => {
 
   // If message is from this week, show day name
   if (diffInHours < 168) {
-    return date.toLocaleDateString([], { 
+    return date.toLocaleDateString([], {
       weekday: 'long'
     });
   }
@@ -56,55 +56,56 @@ const formatMessageTime = (timestamp) => {
 };
 
 export default function ChatInterface() {
-  const [conversations, setConversations] = useState([])
-  const [currentConversation, setCurrentConversation] = useState(null)
-  const [messages, setMessages] = useState([])
-  const [messageInput, setMessageInput] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [sellerProducts, setSellerProducts] = useState([])
-  const [sellerId, setSellerId] = useState(null)
-  const [isSending, setIsSending] = useState(false)
-  const messagesEndRef = useRef(null)
+  const [conversations, setConversations] = useState([]);
+  const [currentConversation, setCurrentConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sellerProducts, setSellerProducts] = useState([]);
+  const [sellerId, setSellerId] = useState(null);
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef(null);
   const socket = useSocket();
 
   // Fetch conversations
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
         const response = await fetch(`${BASE_URL}/conversations`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
-        })
-        const data = await response.json()
-        setConversations(data.conversations)
+        });
+        const data = await response.json();
+        setConversations(data.conversations);
       } catch (error) {
-        console.error('Error fetching conversations:', error)
+        console.error('Error fetching conversations:', error);
       }
-    }
-    fetchConversations()
-  }, [])
+    };
+    fetchConversations();
+  }, []);
 
   // Fetch messages when conversation changes
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!currentConversation) return
+      if (!currentConversation) return;
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
         const response = await fetch(`${BASE_URL}/messages/${currentConversation._id}`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
-        })
-        const data = await response.json()
-        setMessages(data)
+        });
+        const data = await response.json();
+        console.log('Fetched messages:', data);
+        setMessages(data);
       } catch (error) {
-        console.error('Error fetching messages:', error)
+        console.error('Error fetching messages:', error);
       }
-    }
-    fetchMessages()
-  }, [currentConversation])
+    };
+    fetchMessages();
+  }, [currentConversation]);
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
@@ -123,20 +124,32 @@ export default function ChatInterface() {
     if (!socket) return;
 
     socket.on('receive_message', (newMessage) => {
+      console.log('Socket: Received new message:', newMessage);
+      console.log('Current conversation:', currentConversation);
+
+      // Handle the message object if it's wrapped
+      const messageData = newMessage.message || newMessage;
+
       // Update messages if the message belongs to current conversation
-      if (newMessage.conversation === currentConversation?._id) {
-        setMessages(prev => [...prev, newMessage]);
+      if (messageData.conversation === currentConversation?._id) {
+        console.log('Adding message to current conversation');
+        setMessages(prev => {
+          console.log('Previous messages:', prev);
+          const updated = [...prev, messageData];
+          console.log('Updated messages:', updated);
+          return updated;
+        });
       }
-      
-      // Update conversations list with new last message
+
+      // Update conversations list
       setConversations(prev =>
         prev.map(conv =>
-          conv._id === newMessage.conversation
+          conv._id === messageData.conversation
             ? {
                 ...conv,
                 lastMessage: {
-                  content: newMessage.content,
-                  createdAt: newMessage.createdAt
+                  content: messageData.content,
+                  createdAt: messageData.createdAt
                 },
                 unreadCount: conv.unreadCount + 1
               }
@@ -162,26 +175,34 @@ export default function ChatInterface() {
     }
 
     setIsSending(true);
-    const tempId = Date.now().toString(); // Temporary ID for optimistic update
+    const tempId = Date.now().toString();
     const newMessageContent = messageInput;
-    setMessageInput(""); // Clear input immediately
+    setMessageInput("");
 
     // Create temporary message for immediate display
     const tempMessage = {
       _id: tempId,
       sender: {
         model: 'Seller',
-        // Add other sender details from your auth context if needed
+        id: sellerId,
       },
       content: newMessageContent,
       messageType: 'text',
       createdAt: new Date().toISOString(),
       isRead: false,
       isDelivered: false,
+      conversation: currentConversation._id,
     };
 
+    console.log('Adding temporary message:', tempMessage);
+
     // Add message to UI immediately
-    setMessages(prev => [...(prev || []), tempMessage]);
+    setMessages(prev => {
+      console.log('Previous messages before adding temp:', prev);
+      const updated = [...(prev || []), tempMessage];
+      console.log('Messages after adding temp:', updated);
+      return updated;
+    });
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
@@ -201,27 +222,37 @@ export default function ChatInterface() {
           content: newMessageContent
         })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
 
-      const serverMessage = await response.json();
-      
-      // Emit socket event for real-time delivery
-      socket.emit('new_message', {
-        conversationId: currentConversation._id,
-        message: serverMessage
+      const serverResponse = await response.json();
+      console.log('Received server message:', serverResponse);
+
+      // Extract the actual message from the response
+      const serverMessage = serverResponse.message;
+
+      // Update messages by replacing temp message with server message
+      setMessages(prev => {
+        console.log('Previous messages before server update:', prev);
+        const updated = prev.map(msg =>
+          msg._id === tempId
+            ? {
+                ...serverMessage,
+                conversation: currentConversation._id,
+                sender: {
+                  model: 'Seller',
+                  id: sellerId,
+                }
+              }
+            : msg
+        );
+        console.log('Messages after server update:', updated);
+        return updated;
       });
 
-      // Replace temporary message with server response
-      setMessages(prev => 
-        prev.map(msg => 
-          msg._id === tempId ? serverMessage : msg
-        )
-      );
-
-      // Update last message in conversations list
+      // Update conversations list
       setConversations(prev =>
         prev.map(conv =>
           conv._id === currentConversation._id
@@ -236,13 +267,20 @@ export default function ChatInterface() {
         )
       );
 
+      console.log('Emitting socket event for new message');
+      // Emit socket event for real-time delivery
+      socket.emit('new_message', {
+        conversationId: currentConversation._id,
+        message: serverMessage
+      });
+
     } catch (error) {
+      console.error('Error in handleSendMessage:', error);
       // Remove temporary message if send failed
-      setMessages(prev => 
+      setMessages(prev =>
         prev.filter(msg => msg._id !== tempId)
       );
       setMessageInput(newMessageContent); // Restore message input
-      console.error('Error sending message:', error);
       toast.error(error.message || "Failed to send message. Please try again.");
     } finally {
       setIsSending(false);
@@ -271,6 +309,7 @@ export default function ChatInterface() {
       _id: tempId,
       sender: {
         model: 'Seller',
+        id: sellerId,
       },
       content: 'Sending image...',
       messageType: 'image',
@@ -278,6 +317,7 @@ export default function ChatInterface() {
       createdAt: new Date().toISOString(),
       isRead: false,
       isDelivered: false,
+      conversation: currentConversation._id,
     };
 
     // Add message to UI immediately
@@ -304,19 +344,50 @@ export default function ChatInterface() {
         throw new Error('Failed to upload image');
       }
 
-      const serverMessage = await response.json();
-      
+      const serverResponse = await response.json();
+      const serverMessage = serverResponse.message || serverResponse;
+
       // Replace temporary message with server response
-      setMessages(prev => 
-        prev.map(msg => 
-          msg._id === tempId ? serverMessage : msg
+      setMessages(prev =>
+        prev.map(msg =>
+          msg._id === tempId
+            ? {
+                ...serverMessage,
+                conversation: currentConversation._id,
+                sender: {
+                  model: 'Seller',
+                  id: sellerId,
+                }
+              }
+            : msg
         )
       );
+
+      // Update conversations list
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === currentConversation._id
+            ? {
+                ...conv,
+                lastMessage: {
+                  content: 'Image message',
+                  createdAt: new Date().toISOString()
+                }
+              }
+            : conv
+        )
+      );
+
+      // Emit socket event for real-time delivery
+      socket.emit('new_message', {
+        conversationId: currentConversation._id,
+        message: serverMessage
+      });
 
       toast.success("Image sent successfully");
     } catch (error) {
       // Remove temporary message if upload failed
-      setMessages(prev => 
+      setMessages(prev =>
         prev.filter(msg => msg._id !== tempId)
       );
       console.error('Error uploading image:', error);
@@ -328,36 +399,57 @@ export default function ChatInterface() {
   useEffect(() => {
     const fetchSellerProfile = async () => {
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
         const response = await fetch(`${BASE_URL}/seller/profile`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
-        })
-        const profileData = await response.json()
-        setSellerId(profileData._id)
+        });
+        const profileData = await response.json();
+        setSellerId(profileData._id);
 
         // Fetch products once we have the seller ID
         const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData._id}`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
-        })
-        const productsData = await productsResponse.json()
-        setSellerProducts(productsData.products)
+        });
+        const productsData = await productsResponse.json();
+        setSellerProducts(productsData.products);
       } catch (error) {
-        console.error('Error fetching seller profile and products:', error)
+        console.error('Error fetching seller profile and products:', error);
       }
-    }
-    fetchSellerProfile()
-  }, [])
+    };
+    fetchSellerProfile();
+  }, []);
 
   // Handle sending product message
   const handleSendProduct = async (product) => {
-    if (!currentConversation) return
+    if (!currentConversation) return;
+
+    const tempId = Date.now().toString();
+
+    // Create temporary message for immediate display
+    const tempMessage = {
+      _id: tempId,
+      sender: {
+        model: 'Seller',
+        id: sellerId,
+      },
+      content: `Product: ${product.name} - ${product.price}`,
+      messageType: 'product',
+      product: product,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      isDelivered: false,
+      conversation: currentConversation._id,
+    };
+
+    // Add message to UI immediately
+    setMessages(prev => [...(prev || []), tempMessage]);
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
       const response = await fetch(`${BASE_URL}/messages/product`, {
         method: 'POST',
         headers: {
@@ -370,13 +462,62 @@ export default function ChatInterface() {
           productId: product._id,
           content: `Check out this product: ${product.name}`
         })
-      })
-      const newMessage = await response.json()
-      setMessages(prev => [...prev, newMessage])
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send product message');
+      }
+
+      const serverResponse = await response.json();
+      const serverMessage = serverResponse.message || serverResponse;
+
+      // Replace temporary message with server response
+      setMessages(prev =>
+        prev.map(msg =>
+          msg._id === tempId
+            ? {
+                ...serverMessage,
+                conversation: currentConversation._id,
+                sender: {
+                  model: 'Seller',
+                  id: sellerId,
+                }
+              }
+            : msg
+        )
+      );
+
+      // Update conversations list
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === currentConversation._id
+            ? {
+                ...conv,
+                lastMessage: {
+                  content: `Check out this product: ${product.name}`,
+                  createdAt: new Date().toISOString()
+                }
+              }
+            : conv
+        )
+      );
+
+      // Emit socket event for real-time delivery
+      socket.emit('new_message', {
+        conversationId: currentConversation._id,
+        message: serverMessage
+      });
+
+      toast.success("Product shared successfully");
     } catch (error) {
-      console.error('Error sending product message:', error)
+      // Remove temporary message if send failed
+      setMessages(prev =>
+        prev.filter(msg => msg._id !== tempId)
+      );
+      console.error('Error sending product message:', error);
+      toast.error("Failed to share product. Please try again.");
     }
-  }
+  };
 
   // Update chat list rendering
   const renderChatList = () => (
@@ -416,7 +557,7 @@ export default function ChatInterface() {
         </div>
       ))}
     </ScrollArea>
-  )
+  );
 
   // Empty state component
   const EmptyState = () => (
@@ -425,14 +566,14 @@ export default function ChatInterface() {
       <h3 className="text-xl font-semibold text-gray-900 mb-2">No Conversation Selected</h3>
       <p className="text-gray-500">Select a conversation from the list to start messaging</p>
     </div>
-  )
+  );
 
   // Update chat header to show current conversation
   const ChatHeader = () => {
     if (!currentConversation) return null;
-    
+
     const participant = currentConversation.participant;
-    
+
     return (
       <div className="p-6 border-b bg-white">
         <div className="flex items-start gap-4">
@@ -457,8 +598,8 @@ export default function ChatInterface() {
           </div>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   // Update messages rendering with proper checks
   const renderMessages = () => (
@@ -467,7 +608,7 @@ export default function ChatInterface() {
         {messages && messages.length > 0 ? (
           messages.map((message) => {
             if (!message || !message.sender) return null;
-            
+
             return (
               <div
                 key={message._id}
@@ -482,19 +623,19 @@ export default function ChatInterface() {
                 >
                   {/* Image message */}
                   {message.messageType === 'image' && message.media?.length > 0 && (
-                    <img 
-                      src={message.media[0].url} 
-                      alt="Message attachment" 
+                    <img
+                      src={message.media[0].url}
+                      alt="Message attachment"
                       className="max-w-full rounded-lg mb-2"
                     />
                   )}
-                  
+
                   {/* Product message */}
                   {message.messageType === 'product' && message.product && (
                     <div className="bg-white rounded-lg p-2 mb-2">
-                      <img 
-                        src={message.product.image} 
-                        alt={message.product.name} 
+                      <img
+                        src={message.product.image}
+                        alt={message.product.name}
                         className="w-full h-32 object-cover rounded-lg"
                       />
                       <h4 className="font-medium mt-2 text-gray-900">{message.product.name}</h4>
@@ -506,10 +647,10 @@ export default function ChatInterface() {
                       </p>
                     </div>
                   )}
-                  
+
                   {/* Message content */}
                   <p className="text-sm">{message.content}</p>
-                  
+
                   {/* Message metadata */}
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`text-xs ${
@@ -583,8 +724,8 @@ export default function ChatInterface() {
                       <Eye className="h-3 w-3 mr-1" />
                       View
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
                       onClick={() => handleSendProduct(product)}
                       disabled={!currentConversation}
@@ -609,12 +750,12 @@ export default function ChatInterface() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
       {/* Header */}
-      <div className=" py-6 bg-white shadow-sm z-10">
+      <div className="py-6 bg-white shadow-sm z-10">
         <h1 className='text-2xl font-bold text-gray-900'>Messages</h1>
       </div>
 
@@ -623,7 +764,7 @@ export default function ChatInterface() {
         {/* Chat List */}
         <div className="w-[320px] border-r bg-white flex flex-col">
           <div className="p-4 border-b">
-            <Input å
+            <Input
               placeholder="Search messages..."
               className="bg-gray-50"
               prefix={<MessageSquare className="h-4 w-4 text-gray-400" />}
@@ -637,7 +778,7 @@ export default function ChatInterface() {
           <div className="flex-1 flex flex-col bg-white">
             <ChatHeader />
             {renderMessages()}
-            
+
             {/* Message Input */}
             <div className="px-6 py-4 border-t bg-white">
               <div className="flex gap-3">
@@ -660,9 +801,9 @@ export default function ChatInterface() {
                     accept="image/*"
                     onChange={(e) => handleFileUpload(e.target.files[0])}
                   />
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
+                  <Button
+                    variant="outline"
+                    size="icon"
                     className="text-gray-500 hover:text-gray-700"
                     onClick={() => document.getElementById('file-upload').click()}
                   >
@@ -671,8 +812,8 @@ export default function ChatInterface() {
                   <Button variant="outline" size="icon" className="text-gray-500 hover:text-gray-700">
                     <SmileIcon className="h-5 w-5" />
                   </Button>
-                  <Button 
-                    size="icon" 
+                  <Button
+                    size="icon"
                     className="bg-green-600 hover:bg-green-700"
                     onClick={handleSendMessage}
                   >
@@ -690,5 +831,5 @@ export default function ChatInterface() {
         {renderQuickTools()}
       </div>
     </div>
-  )
+  );
 }

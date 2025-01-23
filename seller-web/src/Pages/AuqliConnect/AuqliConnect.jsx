@@ -1,6 +1,4 @@
-'use client'
-
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -11,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { MessageCircle, Share2, MoreVertical, ImageIcon, VideoIcon, ThumbsUp, Heart, Bookmark, Send, Smile, AtSign, Hash, X } from 'lucide-react'
+import { MessageCircle, Share2, MoreVertical, ImageIcon, VideoIcon, ThumbsUp, Heart, Bookmark, Send, Smile, AtSign, Hash, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 import { Tooltip } from "@/components/ui/tooltip"
 import { Search } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +17,164 @@ import { Bell } from 'lucide-react'
 import { BASE_URL } from "@/Constants/Server"
 import LinearProgress from "@mui/material/LinearProgress"
 import { toast } from "sonner"
+import { Carousel } from 'react-responsive-carousel'
+import 'react-responsive-carousel/lib/styles/carousel.min.css'
 
+// Create a new separate component for the create post modal
+const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, setPostForm }) => {
+  const [previews, setPreviews] = useState([])
+
+  const handleMediaChange = (e) => {
+    const files = Array.from(e.target.files)
+    setPostForm(prev => ({
+      ...prev,
+      media: files
+    }))
+
+    // Generate previews
+    const newPreviews = files.map(file => ({
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith('image/') ? 'image' : 'video'
+    }))
+    
+    // Clean up previous preview URLs
+    previews.forEach(preview => URL.revokeObjectURL(preview.url))
+    setPreviews(newPreviews)
+  }
+
+  // Cleanup preview URLs when modal closes
+  useEffect(() => {
+    return () => {
+      previews.forEach(preview => URL.revokeObjectURL(preview.url))
+    }
+  }, [])
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Create New Post</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              value={postForm.title}
+              onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="Enter post title"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="body">Content</Label>
+            <Textarea
+              id="body"
+              value={postForm.body}
+              onChange={(e) => setPostForm(prev => ({ ...prev, body: e.target.value }))}
+              placeholder="What's on your mind?"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="media">Media</Label>
+            <Input
+              id="media"
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleMediaChange}
+              className="cursor-pointer"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              You can select multiple images and videos
+            </p>
+          </div>
+
+          {/* Media Previews */}
+          {previews.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+              {previews.map((preview, index) => (
+                <div key={index} className="relative group">
+                  <div className="aspect-[16/9] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                    {preview.type === 'image' ? (
+                      <img
+                        src={preview.url}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <video
+                        src={preview.url}
+                        className="w-full h-full object-cover"
+                        controls
+                      />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      URL.revokeObjectURL(preview.url)
+                      setPreviews(prev => prev.filter((_, i) => i !== index))
+                      setPostForm(prev => ({
+                        ...prev,
+                        media: prev.media.filter((_, i) => i !== index)
+                      }))
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/50 text-white text-xs">
+                    {preview.type === 'image' ? 'Image' : 'Video'} {index + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="tags">Tags</Label>
+            <Input
+              id="tags"
+              value={postForm.tags}
+              onChange={(e) => setPostForm(prev => ({ ...prev, tags: e.target.value }))}
+              placeholder="Enter tags separated by commas"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="visibility">Visibility</Label>
+            <Select
+              value={postForm.visibility}
+              onValueChange={(value) => setPostForm(prev => ({ ...prev, visibility: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isSubmitting ? 'Creating...' : 'Create Post'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export default function SocialFeed() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -48,8 +203,9 @@ export default function SocialFeed() {
     productIds: []
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [slideIndices, setSlideIndices] = useState({})
+  const carouselRef = useRef(null)
 
-  // Simulated loading state
   useEffect(() => {
     setIsLoading(true)
     setTimeout(() => setIsLoading(false), 1000)
@@ -65,7 +221,6 @@ export default function SocialFeed() {
         const tokenData = JSON.parse(sellerToken)
         const token = tokenData.data
 
-        // Fetch data based on selected tab
         switch (selectedTab) {
           case 'all':
             const postsRes = await fetch(`${BASE_URL}/posts`)
@@ -104,7 +259,6 @@ export default function SocialFeed() {
             break
         }
 
-        // Fetch conversations for chat sidebar
         const conversationsRes = await fetch(`${BASE_URL}/conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -151,7 +305,6 @@ export default function SocialFeed() {
 
       if (!response.ok) throw new Error('Failed to add comment')
 
-      // Refresh post activity
       const updatedPost = await response.json()
       setActivePost(updatedPost)
       setNewComment('')
@@ -162,6 +315,13 @@ export default function SocialFeed() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSlideChange = (postId, newIndex) => {
+    setSlideIndices(prev => ({
+      ...prev,
+      [postId]: newIndex
+    }))
   }
 
   const handleReact = async (postId) => {
@@ -181,30 +341,38 @@ export default function SocialFeed() {
 
       if (!response.ok) throw new Error('Failed to react to post')
 
-      // Refresh posts to update like status
-      fetchPosts()
+      const updatedPosts = await response.json()
+      
+      switch (selectedTab) {
+        case 'all':
+          setPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+        case 'trending':
+          setTrendingPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+        case 'new':
+          setNewPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+        case 'my-posts':
+          setMyPosts(prev => prev.map(post => 
+            post._id === postId ? { ...post, ...updatedPosts } : post
+          ))
+          break
+      }
+
+      toast.success('Reaction updated successfully')
 
     } catch (error) {
       toast.error('Failed to react to post: ' + error.message)
     }
   }
 
-  const getGridClass = (imageCount) => {
-    switch(imageCount) {
-      case 1:
-        return 'grid-cols-1'
-      case 2:
-        return 'grid-cols-2'
-      case 3:
-        return 'grid-cols-2 md:grid-cols-3'
-      case 4:
-        return 'grid-cols-2 md:grid-cols-2'
-      default:
-        return 'grid-cols-2 md:grid-cols-3'
-    }
-  }
-
-  // Helper function to render posts based on selected tab
   const renderPosts = () => {
     let postsToRender = []
     switch (selectedTab) {
@@ -224,7 +392,6 @@ export default function SocialFeed() {
         postsToRender = posts
     }
 
-    // Handle empty or undefined posts
     if (!postsToRender || postsToRender.length === 0) {
       return (
         <div className="text-center py-12">
@@ -235,29 +402,28 @@ export default function SocialFeed() {
     }
 
     return postsToRender.map((post) => {
-      // Skip rendering if post is invalid
       if (!post || !post._id) return null
 
-      // Safely access nested properties
       const authorName = post.author?.name || post.author?.businessName || 'Anonymous'
-      const authorImage = post.author?.image || "https://v0.dev/placeholder.svg"
+      const authorImage = post.author?.image
       const postDate = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Unknown date'
       const postBody = post.body || ''
       const postTags = Array.isArray(post.tags) ? post.tags : []
+      const currentSlideIndex = slideIndices[post._id] || 0
       const postImages = Array.isArray(post.images) ? post.images : []
       const reactionCount = post.reactions?.reduce((sum, r) => sum + (r.count || 0), 0) || 0
       const commentCount = Array.isArray(post.comments) ? post.comments.length : 0
 
       return (
-        <Card key={post._id} className="overflow-hidden hover:shadow-lg transition-shadow">
+        <Card key={post._id} className="overflow-hidden hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center space-y-0 p-4">
             <div className="flex items-center gap-3 flex-1">
-              <Avatar className="h-10 w-10 ring-2 ring-primary/10">
+              <Avatar className="h-10 w-10 uppercase ring-2 ring-green/10">
                 <AvatarImage src={authorImage} />
                 <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold hover:underline cursor-pointer">
+                <p className="font-semibold u hover:underline cursor-pointer">
                   {authorName}
                 </p>
                 <p className="text-sm text-gray-500">{postDate}</p>
@@ -267,16 +433,16 @@ export default function SocialFeed() {
               <MoreVertical className="h-4 w-4" />
             </Button>
           </CardHeader>
-          
+
           <CardContent className="p-4 pt-0 space-y-4">
             <p className="text-lg">{postBody}</p>
             {postTags.length > 0 && (
               <div className="flex gap-2 flex-wrap">
                 {postTags.map((tag, index) => (
-                  <Badge 
-                    key={`${tag}-${index}`} 
-                    variant="secondary" 
-                    className="hover:bg-primary/10 cursor-pointer"
+                  <Badge
+                    key={`${tag}-${index}`}
+                    variant="secondary"
+                    className="hover:bg-green/10 cursor-pointer"
                   >
                     {tag}
                   </Badge>
@@ -284,16 +450,104 @@ export default function SocialFeed() {
               </div>
             )}
             {postImages.length > 0 && (
-              <div className={`grid ${getGridClass(postImages.length)} gap-2`}>
-                {postImages.map((img, i) => (
-                  <img
-                    key={i}
-                    src={img.url}
-                    alt={`Post image ${i + 1}`}
-                    className="rounded-xl w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                    style={{ aspectRatio: '1/1' }}
-                  />
-                ))}
+              <div className="relative rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
+                <div className="flex gap-4 p-4">
+                  <div className="flex-1">
+                    <div className="relative aspect-[16/9] rounded-xl overflow-hidden">
+                      <img
+                        src={postImages[currentSlideIndex]?.url}
+                        alt={`Main image ${currentSlideIndex + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                      {postImages.length > 1 && (
+                        <>
+                          <button
+                            onClick={() => handleSlideChange(
+                              post._id,
+                              currentSlideIndex > 0 ? currentSlideIndex - 1 : postImages.length - 1
+                            )}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full"
+                          >
+                            <ChevronLeft className="h-6 w-6" />
+                          </button>
+                          <button
+                            onClick={() => handleSlideChange(
+                              post._id,
+                              currentSlideIndex < postImages.length - 1 ? currentSlideIndex + 1 : 0
+                            )}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full"
+                          >
+                            <ChevronRight className="h-6 w-6" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {postImages.length > 1 && (
+                    <div className="w-32 space-y-2 overflow-y-auto max-h-[400px] custom-scrollbar">
+                      {postImages.map((img, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleSlideChange(post._id, index)}
+                          className={`
+                            relative w-full aspect-[16/9] rounded-lg overflow-hidden
+                            transition-all duration-200
+                            ${currentSlideIndex === index 
+                              ? 'ring-2 ring-green-500 scale-105' 
+                              : 'ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-green-500'
+                            }
+                          `}
+                        >
+                          <img
+                            src={img.url}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className={`
+                            absolute inset-0 bg-black/20
+                            ${currentSlideIndex === index ? 'opacity-0' : 'hover:opacity-0'}
+                            transition-opacity duration-200
+                          `} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Enhanced post analytics */}
+                <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4 px-4 pb-2">
+                  <div className="grid grid-cols-4 gap-4 text-sm">
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-green-600">
+                        <Eye className="h-4 w-4" />
+                        <span className="font-semibold">{post.stats?.viewCount || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Views</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-red-500">
+                        <Heart className="h-4 w-4" />
+                        <span className="font-semibold">{post.stats?.likeCount || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Likes</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-blue-500">
+                        <MessageCircle className="h-4 w-4" />
+                        <span className="font-semibold">{post.comments?.length || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Comments</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-2 text-purple-500">
+                        <Share2 className="h-4 w-4" />
+                        <span className="font-semibold">{post.stats?.shareCount || 0}</span>
+                      </div>
+                      <span className="text-gray-500 mt-1">Shares</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
@@ -325,14 +579,12 @@ export default function SocialFeed() {
     })
   }
 
-  // Update the post activity dialog to handle null values
   const renderPostActivity = () => {
     if (!activePost) return null
 
     const reactions = activePost.reactions || []
     const comments = activePost.comments || []
 
-    // Helper function to get author initial
     const getAuthorInitial = (author) => {
       if (!author) return 'A'
       if (typeof author === 'string') return author.charAt(0)
@@ -341,7 +593,6 @@ export default function SocialFeed() {
       return 'A'
     }
 
-    // Helper function to get author name
     const getAuthorName = (author) => {
       if (!author) return 'Anonymous'
       if (typeof author === 'string') return author
@@ -368,7 +619,7 @@ export default function SocialFeed() {
                 ))}
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Comments</h3>
               <ScrollArea className="h-[400px] pr-4">
@@ -378,8 +629,8 @@ export default function SocialFeed() {
                     className="flex items-start gap-3 mb-6"
                   >
                     <Avatar>
-                      <AvatarImage 
-                        src={comment.author?.image} 
+                      <AvatarImage
+                        src={comment.author?.image}
                         alt={getAuthorName(comment.author)}
                       />
                       <AvatarFallback>
@@ -395,7 +646,7 @@ export default function SocialFeed() {
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                         <span>
-                          {comment.createdAt 
+                          {comment.createdAt
                             ? new Date(comment.createdAt).toLocaleDateString()
                             : 'Recently'
                           }
@@ -408,7 +659,6 @@ export default function SocialFeed() {
                 ))}
               </ScrollArea>
 
-              {/* Add comment input */}
               <div className="flex items-center gap-2 mt-4">
                 <Input
                   value={newComment}
@@ -416,7 +666,7 @@ export default function SocialFeed() {
                   placeholder="Write a comment..."
                   className="flex-1"
                 />
-                <Button 
+                <Button
                   onClick={() => handleAddComment(activePost._id)}
                   disabled={!newComment.trim() || isLoading}
                 >
@@ -430,12 +680,10 @@ export default function SocialFeed() {
     )
   }
 
-  // Update the tab selection handler
   const handleTabChange = (value) => {
     setSelectedTab(value)
   }
 
-  // Separate render function for blips
   const renderBlips = () => {
     if (!blips || blips.length === 0) {
       return (
@@ -449,14 +697,14 @@ export default function SocialFeed() {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {blips.map(blip => (
-          <div 
-            key={blip._id} 
+          <div
+            key={blip._id}
             className="relative group cursor-pointer"
             onClick={() => handleBlipClick(blip)}
           >
             <div className="relative aspect-[9/16] rounded-xl overflow-hidden">
-              <img 
-                src={blip.images || "https://v0.dev/placeholder.svg"} 
+              <img
+                src={blip.images || "https://v0.dev/placeholder.svg"}
                 alt={blip.productName}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
@@ -481,17 +729,14 @@ export default function SocialFeed() {
     )
   }
 
-  // Add function to handle blip selection
   const handleBlipClick = (blip) => {
     setSelectedBlip(blip)
   }
 
-  // Add function to close video player
   const handleCloseVideo = () => {
     setSelectedBlip(null)
   }
 
-  // Add video player dialog component
   const renderVideoPlayer = () => {
     if (!selectedBlip) return null
 
@@ -507,7 +752,7 @@ export default function SocialFeed() {
             >
               <X className="h-6 w-6" />
             </Button>
-            
+
             <video
               src={selectedBlip.blipUrl}
               className="w-full aspect-[9/16]"
@@ -526,10 +771,9 @@ export default function SocialFeed() {
                 <p className="text-lg text-white">
                   ₦{selectedBlip.price?.toLocaleString()}
                 </p>
-                <Button 
+                <Button
                   className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={() => {
-                    // Add product to cart or navigate to product page
                     console.log('View product:', selectedBlip.productId)
                   }}
                 >
@@ -543,7 +787,6 @@ export default function SocialFeed() {
     )
   }
 
-  // Handle post creation
   const handleCreatePost = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -560,8 +803,7 @@ export default function SocialFeed() {
       formData.append('body', postForm.body)
       formData.append('tags', postForm.tags)
       formData.append('visibility', postForm.visibility)
-      
-      // Append each media file
+
       postForm.media.forEach(file => {
         formData.append('media', file)
       })
@@ -586,8 +828,7 @@ export default function SocialFeed() {
         media: [],
         productIds: []
       })
-      
-      // Refresh posts
+
       fetchPosts()
 
     } catch (error) {
@@ -597,7 +838,6 @@ export default function SocialFeed() {
     }
   }
 
-  // Handle post deletion
   const handleDeletePost = async (postId) => {
     try {
       const sellerToken = localStorage.getItem('sellerToken')
@@ -616,102 +856,11 @@ export default function SocialFeed() {
       if (!response.ok) throw new Error('Failed to delete post')
 
       toast.success('Post deleted successfully')
-      // Refresh posts
       fetchPosts()
 
     } catch (error) {
       toast.error('Failed to delete post: ' + error.message)
     }
-  }
-
-  // Add create post modal
-  const renderCreatePostModal = () => {
-    return (
-      <Dialog open={isCreatePostOpen} onOpenChange={setIsCreatePostOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Create New Post</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreatePost} className="space-y-4">
-            <div>
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={postForm.title}
-                onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter post title"
-                required
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="body">Content</Label>
-              <Textarea
-                id="body"
-                value={postForm.body}
-                onChange={(e) => setPostForm(prev => ({ ...prev, body: e.target.value }))}
-                placeholder="What's on your mind?"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="media">Media</Label>
-              <Input
-                id="media"
-                type="file"
-                multiple
-                accept="image/*,video/*"
-                onChange={(e) => setPostForm(prev => ({ 
-                  ...prev, 
-                  media: Array.from(e.target.files) 
-                }))}
-                className="cursor-pointer"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                You can select multiple images and videos
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="tags">Tags</Label>
-              <Input
-                id="tags"
-                value={postForm.tags}
-                onChange={(e) => setPostForm(prev => ({ ...prev, tags: e.target.value }))}
-                placeholder="Enter tags separated by commas"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="visibility">Visibility</Label>
-              <Select
-                value={postForm.visibility}
-                onValueChange={(value) => setPostForm(prev => ({ ...prev, visibility: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select visibility" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isSubmitting ? 'Creating...' : 'Create Post'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    )
   }
 
   if (loading) {
@@ -724,7 +873,6 @@ export default function SocialFeed() {
     )
   }
 
-  // Update the TabsList to include My Posts
   return (
     <div className='min-h-screen dark:bg-gray-900'>
       <div className='py-8 px-4'>
@@ -790,7 +938,6 @@ export default function SocialFeed() {
             </Tabs>
           </div>
 
-          {/* Right Sidebar - Chats */}
           <div className="w-80 hidden lg:block">
             <Card className="sticky top-8">
               <CardHeader className="p-4">
@@ -836,7 +983,14 @@ export default function SocialFeed() {
 
       {renderPostActivity()}
       {renderVideoPlayer()}
-      {renderCreatePostModal()}
+      <CreatePostModal
+        isOpen={isCreatePostOpen}
+        onClose={() => setIsCreatePostOpen(false)}
+        onSubmit={handleCreatePost}
+        isSubmitting={isSubmitting}
+        postForm={postForm}
+        setPostForm={setPostForm}
+      />
     </div>
   )
 }

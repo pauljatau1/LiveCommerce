@@ -1,66 +1,70 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Link } from 'react-router-dom'
-import SearchBar from '@/Components/ui/DashboardHomepageUi/SearchBar'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Link } from "react-router-dom"
+import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import LinearProgress from "@mui/material/LinearProgress";
-import { BASE_URL } from "@/Constants/Server";
-import Header from "@/Components/ui/Header/Header";
+import LinearProgress from "@mui/material/LinearProgress"
+import { BASE_URL } from "@/Constants/Server"
+import Header from "@/Components/ui/Header/Header"
 
 export default function OrdersDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [sellerId, setSellerId] = useState(null)
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTab, setActiveTab] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [ordersPerPage, setOrdersPerPage] = useState(20)
+  const [totalOrders, setTotalOrders] = useState(0)
 
   // Filter orders based on active tab
-  const filteredOrders = orders.filter(order => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'process') return order.shipping.tracking.status === 'pending';
-    if (activeTab === 'transit') return ['pickup_arranged', 'picked_up', 'in_transit'].includes(order.shipping.tracking.status);
-    if (activeTab === 'delivered') return order.shipping.tracking.status === 'delivered';
-    if (activeTab === 'cancelled') return order.shipping.tracking.status === 'failed';
-    return true;
-  });
+  const filteredOrders = orders.filter((order) => {
+    if (activeTab === "all") return true
+    if (activeTab === "process") return order.shipping.tracking.status === "pending"
+    if (activeTab === "transit")
+      return ["pickup_arranged", "picked_up", "in_transit"].includes(order.shipping.tracking.status)
+    if (activeTab === "delivered") return order.shipping.tracking.status === "delivered"
+    if (activeTab === "cancelled") return order.shipping.tracking.status === "failed"
+    return true
+  })
+
+  const handleOrdersPerPageChange = (e) => {
+    setOrdersPerPage(Number.parseInt(e, 10))
+    setCurrentPage(1)
+  }
+
+  const handlePrevPage = () => {
+    setCurrentPage((prevPage) => Math.max(1, prevPage - 1))
+  }
+
+  const handleNextPage = () => {
+    setCurrentPage((prevPage) => Math.min(Math.ceil(totalOrders / ordersPerPage), prevPage + 1))
+  }
 
   console.log(sellerId)
 
   useEffect(() => {
     const fetchSellerProfile = async () => {
       try {
-        const sellerToken = localStorage.getItem('sellerToken')
+        const sellerToken = localStorage.getItem("sellerToken")
         if (sellerToken) {
           const tokenData = JSON.parse(sellerToken)
           const token = tokenData.data
           const response = await fetch(`${BASE_URL}/seller/profile`, {
             headers: {
-              'Authorization': `Bearer ${token}`
-            }
+              Authorization: `Bearer ${token}`,
+            },
           })
           const data = await response.json()
           setSellerId(data._id)
           fetchOrders(data._id, token)
         }
       } catch (error) {
-        console.error('Error fetching seller profile:', error)
+        console.error("Error fetching seller profile:", error)
         setLoading(false)
       }
     }
@@ -69,13 +73,14 @@ export default function OrdersDashboard() {
       try {
         const response = await fetch(`${BASE_URL}/order/seller/${id}`, {
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         })
         const data = await response.json()
         setOrders(data)
+        setTotalOrders(data.length)
       } catch (error) {
-        console.error('Error fetching orders:', error)
+        console.error("Error fetching orders:", error)
       } finally {
         setLoading(false)
       }
@@ -96,15 +101,19 @@ export default function OrdersDashboard() {
 
   const getStatusColor = (status) => {
     const statusColors = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      pickup_arranged: 'bg-blue-100 text-blue-700',
-      picked_up: 'bg-green-100 text-green-700',
-      in_transit: 'bg-purple-100 text-purple-700',
-      delivered: 'bg-green-100 text-green-700',
-      failed: 'bg-red-100 text-red-700'
-    };
-    return statusColors[status] || 'bg-gray-100 text-gray-700';
-  };
+      pending: "bg-yellow-100 text-yellow-700",
+      pickup_arranged: "bg-blue-100 text-blue-700",
+      picked_up: "bg-green-100 text-green-700",
+      in_transit: "bg-purple-100 text-purple-700",
+      delivered: "bg-green-100 text-green-700",
+      failed: "bg-red-100 text-red-700",
+    }
+    return statusColors[status] || "bg-gray-100 text-gray-700"
+  }
+
+  const startIndex = (currentPage - 1) * ordersPerPage
+  const endIndex = startIndex + ordersPerPage
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex)
 
   return (
     <>
@@ -187,16 +196,16 @@ export default function OrdersDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
+                {paginatedOrders.map((order) => (
                   <TableRow key={order._id} className="hover:bg-gray-50">
                     <TableCell>
                       <div className="space-y-1">
                         <div className="font-medium">{order._id}</div>
                         <div className="text-sm text-gray-500">
-                          {new Date(order.createdAt).toLocaleDateString('en-US', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
+                          {new Date(order.createdAt).toLocaleDateString("en-US", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
                           })}
                         </div>
                       </div>
@@ -218,7 +227,7 @@ export default function OrdersDashboard() {
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(order.shipping.tracking.status)}>
-                        {order.shipping.tracking.status.replace('_', ' ')}
+                        {order.shipping.tracking.status.replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -234,15 +243,10 @@ export default function OrdersDashboard() {
                         {order.paymentInfo.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      ₦{order.totalAmount.toLocaleString()}
-                    </TableCell>
+                    <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
                     <TableCell>
                       <Link to={`/dashboard/order/${order._id}`}>
-                        <Button
-                          variant="secondary"
-                          className="bg-green-600 text-white hover:bg-green-700"
-                        >
+                        <Button variant="secondary" className="bg-green-600 text-white hover:bg-green-700">
                           View Details
                         </Button>
                       </Link>
@@ -254,7 +258,7 @@ export default function OrdersDashboard() {
           </div>
 
           <div className="flex justify-between items-center mt-6">
-            <Select defaultValue="20">
+            <Select value={ordersPerPage.toString()} onValueChange={handleOrdersPerPageChange}>
               <SelectTrigger className="bg-white w-[140px]">
                 <SelectValue />
               </SelectTrigger>
@@ -264,13 +268,23 @@ export default function OrdersDashboard() {
                 <SelectItem value="40">40 PER PAGE</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex gap-4">
-              <Button variant="outline" className="bg-white">
-                ← Back
-              </Button>
-              <Button variant="outline" className="bg-white">
-                Next →
-              </Button>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">
+                Page {currentPage} of {Math.ceil(totalOrders / ordersPerPage)}
+              </span>
+              <div className="flex gap-4">
+                <Button variant="outline" className="bg-white" onClick={handlePrevPage} disabled={currentPage === 1}>
+                  ← Back
+                </Button>
+                <Button
+                  variant="outline"
+                  className="bg-white"
+                  onClick={handleNextPage}
+                  disabled={currentPage === Math.ceil(totalOrders / ordersPerPage)}
+                >
+                  Next →
+                </Button>
+              </div>
             </div>
           </div>
         </div>

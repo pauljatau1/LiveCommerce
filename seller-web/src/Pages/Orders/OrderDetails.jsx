@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle } from 'lucide-react'
+import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -68,8 +68,24 @@ export default function OrderDetails() {
       if (!response.ok) throw new Error('Failed to arrange pickup')
 
       toast.success('Pickup arranged successfully')
-      // Refresh order data
-      fetchOrderDetails()
+      // Fetch order details again
+      const fetchOrderDetails = async () => {
+        try {
+          const tokenData = JSON.parse(localStorage.getItem('sellerToken'))
+          const token = tokenData.data
+          const response = await fetch(`${BASE_URL}/order/${id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          const data = await response.json()
+          setOrderData(data)
+        } catch (error) {
+          console.error('Error fetching order details:', error)
+          toast.error('Failed to refresh order details')
+        }
+      }
+      await fetchOrderDetails()
     } catch (error) {
       toast.error('Failed to arrange pickup: ' + error.message)
     } finally {
@@ -97,76 +113,117 @@ export default function OrderDetails() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Order Header */}
-      <Card className="border-none shadow-sm">
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-4">
+    <div className="container mx-auto p-4 py-10 space-y-6 min-h-screen">
+      {/* Order Header - More subtle design */}
+      <Card className="border border-gray-100 shadow-sm bg-white overflow-hidden">
+        <div className="bg-gradient-to-r from-green-50/90 to-green-100/90 p-4 text-gray-800">
+          <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold">Order #{order?._id?.slice(-8)}</h1>
-                  <Badge variant="outline" className="text-blue-600 border-blue-600">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4" />
+                  <h1 className="text-xl font-semibold">Order #{order?._id}</h1>
+                  <Badge variant="outline" className="bg-blue-600 text-white border-white/10 text-xs">
                     {order?.channel}
                   </Badge>
                 </div>
-                <div className="flex gap-2">
-                  <Badge className={getStatusColor(order?.paymentInfo?.status)}>
-                    Payment: {order?.paymentInfo?.status}
-                  </Badge>
-                  <Badge className={getStatusColor(shipping?.tracking?.status)}>
-                    Shipping: {shipping?.tracking?.status}
-                  </Badge>
-                  {order?.dispute?.status !== 'none' && (
-                    <Badge variant="destructive">Dispute: {order?.dispute?.status}</Badge>
-                  )}
-                  {order?.refund?.status !== 'none' && (
-                    <Badge variant="warning">Refund: {order?.refund?.status}</Badge>
-                  )}
-                </div>
-                <p className="text-gray-600">
+                <p className="flex items-center gap-2 text-gray-900 text-xs">
+                  <Clock className="h-3 w-3" />
                   Placed on {new Date(order?.createdAt).toLocaleString()}
                 </p>
               </div>
 
-              {shipping?.tracking?.status === 'pending' && (
+              {shipping?.tracking?.status === 'pending' && shipping?.rate_id && (
                 <Button
                   onClick={arrangePickup}
                   disabled={arrangePickupLoading}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  size="lg"
+                  className="bg-green-600 hover:bg-green-600 text-white text-sm h-10"
                 >
-                  <Truck className="mr-2 h-4 w-4" />
+                  <Truck className="mr-2 h-3 w-3" />
                   {arrangePickupLoading ? 'Arranging...' : 'Arrange Pickup'}
                 </Button>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold mb-2">Buyer Details</h3>
-                <div className="space-y-1 text-sm">
-                  <p>{buyer?.firstName} {buyer?.lastName}</p>
-                  <p>{buyer?.email}</p>
-                  <p>{buyer?.phoneNumber}</p>
-                </div>
+            <div className="flex gap-2 mt-1">
+              <Badge className={`${getStatusColor(order?.paymentInfo?.status)} text-xs`}>
+                <CreditCard className="h-3 w-3 mr-1" />
+                Payment: {order?.paymentInfo?.status}
+              </Badge>
+              <Badge className={`${getStatusColor(shipping?.tracking?.status)} text-xs`}>
+                <Truck className="h-3 w-3 mr-1" />
+                Shipping: {shipping?.tracking?.status}
+              </Badge>
+              {order?.dispute?.status !== 'none' && (
+                <Badge variant="destructive" className="text-xs">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Dispute: {order?.dispute?.status || 'none'}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-3 bg-gray-50 rounded-md border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="h-4 w-4 text-blue-500" />
+                <h3 className="text-sm font-medium text-gray-700">Buyer Details</h3>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold mb-2">Seller Details</h3>
-                <div className="space-y-1 text-sm">
-                  <p>{seller?.businessName}</p>
-                  <p>{seller?.email}</p>
-                  <p>{seller?.phoneNumber}</p>
-                </div>
+              <div className="space-y-1 text-xs">
+                <p className="text-gray-700 font-medium">
+                  {buyer?.firstName} {buyer?.lastName}
+                </p>
+                <p className="flex items-center gap-2 text-gray-600">
+                  <Mail className="h-3 w-3" />
+                  {buyer?.email}
+                </p>
+                <p className="flex items-center gap-2 text-gray-600">
+                  <Phone className="h-3 w-3" />
+                  {buyer?.phoneNumber}
+                </p>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold mb-2">Shipping Details</h3>
-                <div className="space-y-1 text-sm">
-                  <p>Carrier Name: {shipping?.carrier?.name}</p>
-                  <p>Method: {shipping?.method}</p>
-                  <p>Shipment ID: {shipping?.shipment_id}</p>
-                  <p>Estimated Delivery: {shipping?.estimatedDeliveryDate ? 
-                    new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 'Not available'}</p>
-                </div>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-md border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="h-4 w-4 text-blue-500" />
+                <h3 className="text-sm font-medium text-gray-700">Seller Details</h3>
+              </div>
+              <div className="space-y-1 text-xs">
+                <p className="text-gray-700 font-medium">
+                  {seller?.businessName}
+                </p>
+                <p className="flex items-center gap-2 text-gray-600">
+                  <Mail className="h-3 w-3" />
+                  {seller?.email}
+                </p>
+                <p className="flex items-center gap-2 text-gray-600">
+                  <Phone className="h-3 w-3" />
+                  {seller?.phoneNumber}
+                </p>
+              </div>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-md border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Truck className="h-4 w-4 text-blue-500" />
+                <h3 className="text-sm font-medium text-gray-700">Shipping Details</h3>
+              </div>
+              <div className="space-y-1 text-xs">
+                <p className="text-gray-700 font-medium">
+                  {shipping?.carrier?.name}
+                </p>
+                <p className="text-gray-700 font-medium">
+                  {shipping?.method}
+                </p>
+                <p className="text-gray-700 font-medium">
+                  {shipping?.shipment_id}
+                </p>
+                <p className="text-gray-700 font-medium">
+                  {shipping?.estimatedDeliveryDate ? 
+                    new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 'Not available'}
+                </p>
               </div>
             </div>
           </div>
@@ -174,50 +231,40 @@ export default function OrderDetails() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Main Content */}
         <div className="md:col-span-2 space-y-6">
-          {/* Order Items */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
+          {/* Order Items - More subtle design */}
+          <Card className="border border-gray-100 shadow-sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+                <Box className="h-4 w-4 text-blue-500" />
                 Order Items
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               {items?.map((item) => (
                 <div key={item._id} className="flex flex-col md:flex-row gap-4 py-4 border-b last:border-0">
-                  <div className="h-32 w-32 bg-gray-100 rounded-lg overflow-hidden">
+                  <div className="h-32 w-32 bg-white rounded-md overflow-hidden border border-gray-100">
                     <img
                       src={item?.product?.images?.[0]?.url || "/placeholder.svg"}
                       alt={item?.product?.name}
                       className="h-full w-full object-cover"
                     />
                   </div>
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <h3 className="font-semibold text-lg">{item?.product?.name}</h3>
-                    <p className="text-sm text-gray-600">{item?.product?.description}</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <h3 className="text-sm font-medium">{item?.product?.name}</h3>
+                    <p className="text-xs text-gray-600">{item?.product?.description}</p>
+                    <div className="flex flex-wrap gap-1">
                       {item?.product?.variants?.map((variant) => (
-                        <Badge key={variant._id} variant="outline">
+                        <Badge key={variant._id} variant="outline" className="text-xs">
                           {variant.name}: {variant.value}
                         </Badge>
                       ))}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(item?.status)}>{item?.status}</Badge>
-                      <span className="text-sm text-gray-600">Quantity: {item?.quantity}</span>
-                    </div>
                   </div>
-                  <div className="text-right space-y-1">
-                    <p className="font-semibold text-lg">₦{item?.price?.toLocaleString()}</p>
-                    {item?.product?.discount?.isActive && (
-                      <p className="text-sm text-green-600">
-                        {item.product.discount.value}% OFF
-                      </p>
-                    )}
-                    <p className="text-sm text-gray-600">
-                      Total: ₦{((item?.price || 0) * (item?.quantity || 1)).toLocaleString()}
+                  <div className="text-right space-y-1 text-sm">
+                    <p className="font-medium">₦{item?.price?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-600">
+                      Qty: {item?.quantity}
                     </p>
                   </div>
                 </div>
@@ -225,19 +272,24 @@ export default function OrderDetails() {
             </CardContent>
           </Card>
 
-          {/* Timeline */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle>Order Timeline</CardTitle>
+          {/* Timeline - More subtle design */}
+          <Card className="border border-gray-100 shadow-sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+                <Clock className="h-4 w-4 text-blue-500" />
+                Order Timeline
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               <div className="space-y-4">
                 {timeline?.map((event, index) => (
-                  <div key={index} className="flex gap-4">
-                    <div className="w-2 h-2 mt-2 rounded-full bg-green-500" />
-                    <div>
-                      <p className="font-medium capitalize">{event?.status}</p>
-                      <p className="text-sm text-gray-600">
+                  <div key={index} className="flex gap-3 relative">
+                    <div className="absolute left-[5px] top-6 bottom-0 w-[1px] bg-gray-200" />
+                    <div className="w-3 h-3 rounded-full bg-blue-500 mt-1.5 z-10" />
+                    <div className="flex-1 text-sm">
+                      <p className="font-medium text-gray-700 capitalize">{event?.status}</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <Calendar className="h-3 w-3" />
                         {event?.timestamp ? new Date(event.timestamp).toLocaleString() : ''}
                       </p>
                     </div>
@@ -248,8 +300,8 @@ export default function OrderDetails() {
           </Card>
 
           {/* Price Breakdown */}
-          <Card className="border-none shadow-sm">
-            <CardContent className="p-6">
+          <Card className="border border-gray-100 shadow-sm bg-white">
+            <CardContent className="p-4">
               <div className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
@@ -293,14 +345,14 @@ export default function OrderDetails() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Addresses */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
+          <Card className="border border-gray-100 shadow-sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+                <MapPin className="h-4 w-4 text-blue-500" />
                 Delivery Details
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4">
               {/* Delivery Address */}
               <div>
                 <h3 className="font-semibold mb-2">Delivery Address</h3>
@@ -340,10 +392,10 @@ export default function OrderDetails() {
           </Card>
 
           {/* Shipping Status */}
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Truck className="h-5 w-5" />
+          <Card className="border border-gray-100 shadow-sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+                <Truck className="h-4 w-4 text-blue-500" />
                 Shipping Information
               </CardTitle>
             </CardHeader>
@@ -369,8 +421,8 @@ export default function OrderDetails() {
                   <div className="flex flex-col gap-2">
                     {shipping.documents.shippingLabel && (
                       <Button
-                        variant="outline"
-                        className="w-full flex items-center justify-center gap-2"
+                        
+                        className="w-full flex items-center bg-gray-800 justify-center gap-2"
                         onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
                       >
                         <svg

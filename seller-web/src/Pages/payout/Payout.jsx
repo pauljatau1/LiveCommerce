@@ -21,6 +21,7 @@ import {
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
 import { Toaster } from "@/Components/ui/sonner";
 import { BASE_URL } from "@/Constants/Server";
+import jsPDF from 'jspdf';
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-NG', {
@@ -147,259 +148,290 @@ export default function Payout() {
 
   const handleViewReceipt = (withdrawal) => {
     if (withdrawal.status === 'completed') {
-      const receiptContent = `
-        <h1>Auqli Receipt</h1>
-        <p>Reference: ${withdrawal.reference}</p>
-        <p>Amount: ${formatCurrency(withdrawal.amount)}</p>
-        <p>Bank: ${withdrawal.bankDetails.bankName}</p>
-        <p>Account Number: ${withdrawal.bankDetails.accountNumber}</p>
-        <p>Account Name: ${withdrawal.bankDetails.accountName}</p>
-        <p>Date: ${new Date(withdrawal.requestDate).toLocaleDateString()}</p>
-      `;
-      const newWindow = window.open('', '_blank');
-      newWindow.document.write(receiptContent);
-      newWindow.document.close();
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.text('Auqli Receipt', 14, 22);
+      doc.setFontSize(12);
+      doc.text(`Reference: ${withdrawal.reference}`, 14, 30);
+      doc.text(`Amount: ${formatCurrency(withdrawal.amount)}`, 14, 38);
+      doc.text(`Bank: ${withdrawal.bankDetails.bankName}`, 14, 46);
+      doc.text(`Account Number: ${withdrawal.bankDetails.accountNumber}`, 14, 54);
+      doc.text(`Account Name: ${withdrawal.bankDetails.accountName}`, 14, 62);
+      doc.text(`Date: ${new Date(withdrawal.requestDate).toLocaleDateString()}`, 14, 70);
+      doc.save(`receipt_${withdrawal.reference}.pdf`);
     } else {
       alert('Receipt is only available for completed withdrawals.');
     }
   };
 
   return (
-    <>
-    {/* <Header title="Earnings & Payouts" /> */}
-    <div className="container mx-auto px-4 py-8 space-y-8">
-      <Toaster />
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-        <h1 className='text-3xl font-bold mb-4 md:mb-0'>Earnings & Payouts</h1>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
-              <ArrowDownToLine className="h-5 w-5" />
-              Withdraw Funds
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogTitle>Withdraw Funds</DialogTitle>
-            <DialogDescription>
-              Enter the amount you wish to withdraw and confirm your bank details.
-            </DialogDescription>
-            <div className="space-y-4">
-              {error && <p className="text-red-500">{error}</p>}
-              <input
-                type="number"
-                value={withdrawalAmount}
-                onChange={(e) => setWithdrawalAmount(Number(e.target.value))}
-                placeholder="Enter amount"
-                className="w-full p-2 border rounded"
-              />
-              <div>
-                <label className="block text-sm font-medium">Bank Name</label>
-                <input
-                  type="text"
-                  value={bankDetails.bankName}
-                  onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-                  className="w-full p-2 border rounded"
-                />
+    <div className="min-h-screen ">
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold mb-4 md:mb-0 text-gray-800">Earnings & Payouts</h1>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 -lg transition-all duration-200 ease-in-out">
+                <ArrowDownToLine className="h-5 w-5" />
+                Withdraw Funds
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl p-6">
+              <DialogTitle className="text-2xl font-bold text-gray-800 mb-4">Withdraw Funds</DialogTitle>
+              <DialogDescription className="text-gray-600 mb-6">
+                Enter the amount you wish to withdraw and confirm your bank details.
+              </DialogDescription>
+              <div className="space-y-5">
+                {error && <p className="text-red-500 bg-red-50 p-3 rounded-lg text-sm">{error}</p>}
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₦</span>
+                  <input
+                    type="number"
+                    value={withdrawalAmount}
+                    onChange={(e) => setWithdrawalAmount(Number(e.target.value))}
+                    placeholder="Enter amount"
+                    className="w-full p-3 pl-8 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                  />
+                </div>
+
+                {/* Bank Details Fields */}
+                <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      value={bankDetails.bankName}
+                      onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                    <input
+                      type="text"
+                      value={bankDetails.accountNumber}
+                      onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+                    <input
+                      type="text"
+                      value={bankDetails.accountName}
+                      onChange={(e) => setBankDetails({ ...bankDetails, accountName: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium">Account Number</label>
-                <input
-                  type="text"
-                  value={bankDetails.accountNumber}
-                  onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
-                  className="w-full p-2 border rounded"
-                />
+              <DialogFooter className="mt-6">
+                <Button onClick={handleWithdrawalRequest}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg -lg transition-all duration-200"
+                  disabled={loading}>
+                  {loading ? 'Processing...' : 'Submit'}
+                </Button>
+                <DialogClose asChild>
+                  <Button variant="outline" className="border-2">Cancel</Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Financial Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-6 bg-white -lg rounded-xl hover:-xl transition-all duration-200">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-full bg-blue-50">
+                <Wallet className="h-6 w-6 text-blue-600" />
               </div>
-              <div>
-                <label className="block text-sm font-medium">Account Name</label>
-                <input
-                  type="text"
-                  value={bankDetails.accountName}
-                  onChange={(e) => setBankDetails({ ...bankDetails, accountName: e.target.value })}
-                  className="w-full p-2 border rounded"
-                />
+              <h3 className="text-sm font-medium text-gray-600">Total Withdrawal</h3>
+            </div>
+            <p className="text-3xl font-semibold mb-4 text-gray-800">
+              {formatCurrency(financialData.totalRevenue)}
+            </p>
+            {/* <Button variant="outline" size="sm" className="w-full border-2 hover:bg-gray-50">
+              <FileText className="h-4 w-4 mr-2" />
+              View Transactions
+            </Button> */}
+          </Card>
+
+          <Card className="p-6 bg-white -lg rounded-xl hover:-xl transition-all duration-200">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-full bg-yellow-50">
+                <Clock className="h-6 w-6 text-yellow-600" />
+              </div>
+              <h3 className="text-sm font-medium text-gray-600">Amount On Hold</h3>
+            </div>
+            <p className="text-3xl font-semibold mb-4 text-gray-800">
+              {formatCurrency(financialData.amountOnHold)}
+            </p>
+            {/* <Button variant="outline" size="sm" className="w-full border-2 hover:bg-gray-50">
+              <FileText className="h-4 w-4 mr-2" />
+              View Details
+            </Button> */}
+          </Card>
+
+          <Card className="p-6 bg-gray-800 -lg rounded-xl hover:-xl transition-all duration-200">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-full bg-green-50">
+                <BanknoteIcon className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-sm font-medium text-white">Available For Withdrawal</h3>
+            </div>
+            <p className="text-3xl font-semibold mb-4 text-white">
+              {formatCurrency(financialData.availableForWithdrawal)}
+            </p>
+            {/* <Button variant="outline" size="sm" className="w-full border-2 hover:bg-gray-50">
+              <FileText className="h-4 w-4 mr-2" />
+              View History
+            </Button> */}
+          </Card>
+        </div>
+
+        {/* Withdrawal Method */}
+        <Card className="p-6 bg-white -lg rounded-xl">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-green-50">
+                <CreditCard className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="font-medium text-gray-800">Withdrawal Method</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-gray-50">
+                <Building2 className="h-6 w-6 text-gray-600" />
+              </div>
+              <span className="font-medium text-gray-700">Bank: {bankDetails.bankName}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-gray-50">
+                <span className="font-medium text-gray-700">Account No: {bankDetails.accountNumber}</span>
               </div>
             </div>
-            <DialogFooter>
-              <Button onClick={handleWithdrawalRequest} className="bg-green-600 hover:bg-green-700 text-white" disabled={loading}>
-                {loading ? 'Processing...' : 'Submit'}
-              </Button>
-              <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Financial Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 bg-gradient-to-br from-[#0a0a29] to-[#1a1a4a] text-white -lg hover:-xl transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <Wallet className="h-6 w-6" />
-            <h3 className="text-sm font-medium">Total Revenue</h3>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-gray-50">
+                <span className="font-medium text-gray-700">Account Name: {bankDetails.accountName}</span>
+              </div>
+            </div>
           </div>
-          <p className="text-3xl font-bold mb-4">
-            {formatCurrency(financialData.totalRevenue)}
-          </p>
-          <Button variant="secondary" size="sm" className="w-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm">
-            <FileText className="h-4 w-4 mr-2" />
-            View Transactions
-          </Button>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-[#0a0a29] to-[#1a1a4a] text-white -lg hover:-xl transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <Clock className="h-6 w-6" />
-            <h3 className="text-sm font-medium">Amount On Hold</h3>
+        {/* Income Information */}
+        <Card className="p-6 bg-white -lg rounded-xl">
+          <div className="flex items-start gap-4">
+            <Info className="h-6 w-6 text-blue-600 mt-1" />
+            <div>
+              <h3 className="font-medium text-lg mb-2">Income Information</h3>
+              <p className="text-gray-600 leading-relaxed">
+                For more details on your income including fees, deductions or any dispute,
+                please visit our help center for information, contact our support or
+                reach out to your account manager.
+              </p>
+            </div>
           </div>
-          <p className="text-3xl font-bold mb-4">
-            {formatCurrency(financialData.amountOnHold)}
-          </p>
-          <Button variant="secondary" size="sm" className="w-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm">
-            <FileText className="h-4 w-4 mr-2" />
-            View Details
-          </Button>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-[#0a0a29] to-[#1a1a4a] text-white -lg hover:-xl transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <BanknoteIcon className="h-6 w-6" />
-            <h3 className="text-sm font-medium">Available For Withdrawal</h3>
+        {/* Withdrawal History */}
+        <Card className="p-6 bg-white -lg rounded-xl">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <h3 className="text-xl font-bold flex items-center gap-3 text-gray-800">
+              <div className="p-2 rounded-lg bg-purple-50">
+                <Receipt className="h-6 w-6 text-purple-600" />
+              </div>
+              Withdrawal History
+            </h3>
+            <Button variant="outline" className="flex items-center gap-2 border-2">
+              <Calendar className="h-5 w-5" />
+              Month to date
+            </Button>
           </div>
-          <p className="text-3xl font-bold mb-4">
-            {formatCurrency(financialData.availableForWithdrawal)}
-          </p>
-          <Button variant="secondary" size="sm" className="w-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm">
-            <FileText className="h-4 w-4 mr-2" />
-            View History
-          </Button>
-        </Card>
-      </div>
 
-      {/* Withdrawal Method */}
-      <Card className="p-6 bg-gradient-to-r from-[#f0f9f0] to-[#e8f5e8] -md hover:-lg transition-all">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="flex items-center gap-3">
-            <CreditCard className="h-6 w-6 text-green-600" />
-            <h3 className="font-medium">Withdrawal Method</h3>
-          </div>
-          <div className="flex items-center gap-3">
-            <Building2 className="h-6 w-6 text-green-600" />
-            <span className="font-medium">Bank: {bankDetails.bankName}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="font-medium">Account No: {bankDetails.accountNumber}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="font-medium">Account Name: {bankDetails.accountName}</span>
-          </div>
-        </div>
-       
-      </Card>
-      <div className="flex justify-end mt-6">
-          <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
-            Bank Settings
-            <ArrowRight className="h-5 w-5" />
-          </Button>
-        </div>
-
-      {/* Income Information */}
-      <Card className="p-6 bg-gradient-to-r from-[#f8f9f8] to-[#f0f1f0] -md hover:-lg transition-all">
-        <div className="flex items-start gap-4">
-          <Info className="h-6 w-6 text-blue-600 mt-1" />
-          <div>
-            <h3 className="font-medium text-lg mb-2">Income Information</h3>
-            <p className="text-gray-600 leading-relaxed">
-              For more details on your income including fees, deductions or any dispute,
-              please visit our help center for information, contact our support or
-              reach out to your account manager.
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Withdrawal History */}
-      <Card className="p-6 -md hover:-lg transition-all">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <Receipt className="h-6 w-6 text-gray-600" />
-            Withdrawal History
-          </h3>
-          <Button variant="outline" className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Month to date
-          </Button>
-        </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Date</TableHead>
-                <TableHead>Transaction Type</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {withdrawals.map((withdrawal) => (
-                <TableRow key={withdrawal._id} className="hover:bg-gray-50">
-                  <TableCell>{new Date(withdrawal.requestDate).toLocaleDateString()}</TableCell>
-                  <TableCell>Bank Withdrawal</TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full" />
-                    {withdrawal.bankDetails.bankName}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${withdrawal.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} font-medium`}>
-                      {withdrawal.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{new Date(withdrawal.requestDate).toLocaleTimeString()}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="bg-[#0a0a29] text-white hover:bg-[#1a1a4a] flex items-center gap-2"
-                      onClick={() => handleViewReceipt(withdrawal)}
-                    >
-                      <FileText className="h-4 w-4" />
-                      Receipt
-                    </Button>
-                  </TableCell>
+          {/* Table styling */}
+          <div className="overflow-x-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-semibold text-gray-600">Date</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Transaction Type</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Amount</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Account</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Time</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="flex flex-col md:flex-row justify-between items-center mt-6 gap-4">
-          <Select defaultValue="20">
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Rows per page" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10 PER PAGE</SelectItem>
-              <SelectItem value="20">20 PER PAGE</SelectItem>
-              <SelectItem value="30">30 PER PAGE</SelectItem>
-              <SelectItem value="40">40 PER PAGE</SelectItem>
-              <SelectItem value="50">50 PER PAGE</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              Next
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+              </TableHeader>
+              <TableBody>
+                {withdrawals.map((withdrawal) => (
+                  <TableRow key={withdrawal._id} className="hover:bg-gray-50">
+                    <TableCell>{new Date(withdrawal.requestDate).toLocaleDateString()}</TableCell>
+                    <TableCell>Bank Withdrawal</TableCell>
+                    <TableCell>{formatCurrency(withdrawal.amount)}</TableCell>
+                    <TableCell className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full" />
+                      {withdrawal.bankDetails.bankName}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                        withdrawal.status === 'completed'
+                          ? 'bg-green-100 text-green-700'
+                          : withdrawal.status === 'processing'
+                          ? 'bg-blue-100 text-blue-700'
+                          : withdrawal.status === 'rejected'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      } font-medium`}>
+                        {withdrawal.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{new Date(withdrawal.requestDate).toLocaleTimeString()}</TableCell>
+                    <TableCell>
+                      {withdrawal.status === 'completed' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="bg-[#0a0a29] text-white hover:bg-[#1a1a4a] flex items-center gap-2"
+                          onClick={() => handleViewReceipt(withdrawal)}
+                        >
+                          <FileText className="h-4 w-4" />
+                          Receipt
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      </Card>
+
+          {/* Pagination controls with improved styling */}
+          <div className="flex flex-col md:flex-row justify-between items-center mt-6 gap-4">
+            <Select defaultValue="20">
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Rows per page" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 PER PAGE</SelectItem>
+                <SelectItem value="20">20 PER PAGE</SelectItem>
+                <SelectItem value="30">30 PER PAGE</SelectItem>
+                <SelectItem value="40">40 PER PAGE</SelectItem>
+                <SelectItem value="50">50 PER PAGE</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <Button variant="outline" className="flex items-center gap-2">
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
-    </>
   )
 }

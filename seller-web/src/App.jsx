@@ -41,6 +41,9 @@ import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
 import EditProduct from './Pages/ProductsPage/EditProduct';
 import LiveStream from './Pages/LiveStream/LiveStream';
 import DashboardRoute from './Components/DashboardRoute';
+import SettingsDashboard from './Pages/Settings/settings';
+import Analytics from './Pages/Analytics/anayltics';
+import Help from './Pages/help/help';
 
 
 
@@ -232,6 +235,21 @@ const router = createBrowserRouter([
           {
             path: 'live-streams',
             element: <LiveStream />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: '/dashboard/settings',
+            element: <SettingsDashboard />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: '/dashboard/help',
+            element: <Help />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'analytics-insights',
+            element: <Analytics />,
             errorElement: <NotFoundPage />
           }
         ]
