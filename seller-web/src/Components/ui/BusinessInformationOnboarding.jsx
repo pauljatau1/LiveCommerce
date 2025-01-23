@@ -260,6 +260,8 @@ const BusinessInformationOnboarding = () => {
         event.preventDefault();
         if (selectedCountry && selectedState && selectedCity && streetAddress1 && zipCode && warehouseName && warehousePhone && selectedCountry2 && selectedState2 && selectedCity2 && warehouseAddress1 && warehouseAddress2 && warehouseZipCode && email && phone) {
             await registerBusinessWarehouse(warehouseData, businessInformationData);
+            console.log('businessInformationData', businessInformationData)
+            console.log('warehouseData', warehouseData)
         } else if (!fillWarehouse) {
             toast.error('Please fill in your warehouse details', {
                 description: 'All fields are required',

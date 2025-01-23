@@ -9,7 +9,7 @@ import axios from 'axios';
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, seller } = useAuthContext();
   const [onboardingStep, setOnboardingStep] = useState("");
 
 
@@ -18,9 +18,6 @@ const ProtectedRoute = ({ children }) => {
   //if the seller is logged in and the first time, redirect to the onboarding page
   //if the seller is logged in and not the first time, redirect to the dashboard home page
   //fetch the token from the local storage
-
-  const fetchSellerFromLocalStorage = localStorage.getItem('seller');
-  const seller = fetchSellerFromLocalStorage ? JSON.parse(fetchSellerFromLocalStorage) : null;
 
   useEffect(() => {
     const getOnboardingProcess = async () => {
@@ -55,9 +52,9 @@ const ProtectedRoute = ({ children }) => {
         }, { signal });
 
         if (response.status === 200) {
-          if (tokenData?.data && tokenData?.isVerified === false && onboardingStep !== "") {
+          if (tokenData?.data && tokenData?.isVerified === false) {
             //if the seller is logged in and the first time, redirect to the onboarding page
-            if (onboardingStep) {
+            if (onboardingStep !== "") {
               navigate(`/${onboardingStep}`);
               setTimeout(() => {
                 toast.success('Continue Onboarding', {
@@ -113,7 +110,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     return () => controller.abort();
-  }, [navigate, isAuthenticated, onboardingStep]);
+  }, [navigate, isAuthenticated, onboardingStep, seller]);
 
   return children;
 }

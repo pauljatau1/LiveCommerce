@@ -24,7 +24,7 @@ export const createProduct = createAsyncThunk('product/createProduct', async (fo
         const response = await axios.post(`${BASE_URL}/products`, formData, {
             headers: {
                 Authorization: `Bearer ${tokenData.data}`,
-                'Content-Type': 'multipart/form-data'
+                'Content-Type': 'application/json'
             },
         });
 
@@ -70,6 +70,38 @@ export const deleteProduct = createAsyncThunk('product/deleteProduct', async (pr
         }
         console.log(error);
         return rejectWithValue(error.message);
+    }
+});
+
+export const getProductDetailsById = createAsyncThunk('product/getProductDetailsById', async (productId) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/products/${productId}`);
+        if (response.status === 200) {
+            return response.data;
+        }
+    } catch (error) {
+        console.log(error);
+    }
+});
+
+export const updateProduct = createAsyncThunk('product/updateProduct', async ({ productId, formData }) => {
+    try {
+        const storedToken = localStorage.getItem('sellerToken');
+        const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+        
+        const response = await axios.put(`${BASE_URL}/products/${productId}`, formData, {
+            headers: {
+                Authorization: `Bearer ${tokenData.data}`,
+                'Content-Type': 'application/json'
+            },
+        });
+
+        if (response.status === 200) {
+            return response.data;
+        }
+    } catch (error) {
+        console.log(error);
+        throw error;
     }
 });
 
@@ -137,6 +169,43 @@ const productSlice = createSlice({
         state.error = action.error.message;
         toast.error('Failed to delete product', {
             description: "Please try again",
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+    }).addCase(getProductDetailsById.pending, (state) => {
+        state.isLoading = true;
+    }).addCase(getProductDetailsById.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.product = action.payload;
+    }).addCase(getProductDetailsById.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message;
+        toast.error('Failed to fetch product details', {
+            description: "Please try again",
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+    }).addCase(updateProduct.pending, (state) => {
+        state.isLoading = true;
+    }).addCase(updateProduct.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.message = action.payload.message;
+        toast.success('Product updated successfully', {
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+        state.response = 'success';
+    }).addCase(updateProduct.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message;
+        toast.error('Failed to update product', {
+            description: action.error.message,
             style: {
                 background: '#05031F',
                 color: '#fff',

@@ -266,119 +266,168 @@ const AddProduct = () => {
     //submit product
     const handleSubmitProduct = async (e) => {
         e.preventDefault();
-        const formData = new FormData();
+    
+        try {
+            // Helper function to convert blob to base64
+            const convertBlobToBase64 = (blob) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64String = reader.result;
+                        resolve(base64String.split(',')[1]); // Remove data URL prefix
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            };
 
-        // Get variant data from the ref
-        const processedVariants = variantContextRef.current?.variantStructure?.map(mainVariant => ({
-            name: mainVariant.name,
-            value: mainVariant.value,
-            price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-            totalStock: mainVariant.subVariants.reduce((total, subVar) => 
-                total + subVar.subSubVariants.reduce((subTotal, subSubVar) => 
-                    subTotal + (parseInt(subSubVar.stock) || 0), 0
-                ), 0
-            ),
-            images: mainVariant.images.map(img => ({
-                data: img.url,
-                contentType: img.type || 'image/jpeg'
-            })) || [],
-            subVariants: mainVariant.subVariants.map(subVariant => ({
-                name: subVariant.name,
-                value: subVariant.value,
-                price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                stock: subVariant.subSubVariants.reduce((total, subSubVar) => 
-                    total + (parseInt(subSubVar.stock) || 0), 0
-                ),
-                images: subVariant.images.map(img => ({
-                    data: img.url,
-                    contentType: img.type || 'image/jpeg'
-                })) || [],
-                subSubVariants: subVariant.subSubVariants.map(subSubVariant => ({
-                    name: subSubVariant.name,
-                    value: subSubVariant.value,
-                    price: parseFloat(subSubVariant.price) || parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                    stock: parseInt(subSubVariant.stock) || 0,
-                    sku: `${skuNumber}-${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`.toUpperCase().replace(/\s+/g, '-'),
-                    images: subSubVariant.images.map(img => ({
-                        data: img.url,
-                        contentType: img.type || 'image/jpeg',
+            // Process variants with base64 images
+            const processedVariants = await Promise.all(variantContextRef.current?.variantStructure?.map(async mainVariant => {
+                // Process main variant images
+                const mainVariantImages = await Promise.all((mainVariant.images || []).map(async (img) => {
+                    const base64Response = await fetch(img.url);
+                    const blob = await base64Response.blob();
+                    const base64 = await convertBlobToBase64(blob);
+                    return {
+                        data: base64,
+                        contentType: 'image/jpeg',
                         isDefault: img.isDefault || false
-                    })) || []
-                }))
-            }))
-        })) || [];
-
-        console.log('Processed Variants:', JSON.stringify(processedVariants, null, 2));
-        formData.append('variants', JSON.stringify(processedVariants));
-
-        // Handle main product images
-        for (let i = 0; i < images.length; i++) {
-            const base64Response = await fetch(images[i].url);
-            const blob = await base64Response.blob();
-            const file = new File([blob], `image-${i}.jpg`, { type: 'image/jpeg' });
-            formData.append('images', file);
-        }
-
-        // Handle video if exists
-        if (videos.length > 0) {
-            const base64Response = await fetch(videos[0].url);
-            const blob = await base64Response.blob();
-            const file = new File([blob], 'video.mp4', { type: 'video/mp4' });
-            formData.append('blips', file);
-        }
-
-        // Basic data
-        formData.append('name', title);
-        formData.append('description', description);
-        formData.append('price', Number(shippingDetails.pricing));
-        formData.append('salePrice', Number(shippingDetails.salePrice));
-        formData.append('weight', Number(shippingDetails.weight));
-        formData.append('stock', Number(shippingDetails.inventory));
-        formData.append('condition', shippingDetails.condition);
-
-        // Shipping info
-        formData.append('shippingInfo', JSON.stringify({
-            weight: {
-                value: Number(shippingDetails.weight),
-                unit: shippingDetails.weightUnit
-            },
-            dimensions: {
-                length: Number(shippingDetails.dimensions.length),
-                width: Number(shippingDetails.dimensions.width),
-                height: Number(shippingDetails.dimensions.height)
-            },
-            freeShipping: false,
-            shippingClass: 'standard'
-        }));
-
-        // Basic fields
-        formData.append('status', productStatus);
-        formData.append('category', selectedCategory);
-        formData.append('subCategory', selectedSubCategory);
-        formData.append('sku', skuNumber);
-        formData.append('upc', upcNumber);
-        formData.append('brand', brand);
-
-        // Add product specifications
-        if (productSpecs) {
-            Object.entries(productSpecs).forEach(([key, value]) => {
-                if (value) {
-                    if (Array.isArray(value)) {
-                        formData.append(key, value.join(','));
-                    } else {
-                        formData.append(key, value);
-                    }
+                    };
+                }));
+        
+                return {
+                    name: mainVariant.name,
+                    value: mainVariant.value,
+                    price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                    totalStock: mainVariant.subVariants.reduce((total, subVar) =>
+                        total + subVar.subSubVariants.reduce((subTotal, subSubVar) =>
+                            subTotal + (parseInt(subSubVar.stock) || 0), 0
+                        ), 0
+                    ),
+                    images: mainVariantImages,
+                    subVariants: await Promise.all(mainVariant.subVariants.map(async subVariant => {
+                        const subVariantImages = await Promise.all((subVariant.images || []).map(async (img) => {
+                            const base64Response = await fetch(img.url);
+                            const blob = await base64Response.blob();
+                            const base64 = await convertBlobToBase64(blob);
+                            return {
+                                data: base64,
+                                contentType: 'image/jpeg',
+                                isDefault: img.isDefault || false
+                            };
+                        }));
+        
+                        return {
+                            name: subVariant.name,
+                            value: subVariant.value,
+                            price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                            stock: subVariant.subSubVariants.reduce((total, subSubVar) =>
+                                total + (parseInt(subSubVar.stock) || 0), 0
+                            ),
+                            images: subVariantImages,
+                            subSubVariants: await Promise.all(subVariant.subSubVariants.map(async subSubVariant => {
+                                const subSubVariantImages = await Promise.all((subSubVariant.images || []).map(async (img) => {
+                                    const base64Response = await fetch(img.url);
+                                    const blob = await base64Response.blob();
+                                    const base64 = await convertBlobToBase64(blob);
+                                    return {
+                                        data: base64,
+                                        contentType: 'image/jpeg',
+                                        isDefault: img.isDefault || false
+                                    };
+                                }));
+        
+                                return {
+                                    name: subSubVariant.name,
+                                    value: subSubVariant.value,
+                                    price: parseFloat(subSubVariant.price) || parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
+                                    stock: parseInt(subSubVariant.stock) || 0,
+                                    sku: `${skuNumber}-${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`.toUpperCase().replace(/\s+/g, '-'),
+                                    images: subSubVariantImages
+                                };
+                            }))
+                        };
+                    }))
+                };
+            }) || []);
+        
+            // Process main product images
+            const processedImages = await Promise.all(images.map(async (image) => {
+                const base64Response = await fetch(image.url);
+                const blob = await base64Response.blob();
+                const base64 = await convertBlobToBase64(blob);
+                return {
+                    data: base64,
+                    contentType: 'image/jpeg'
+                };
+            }));
+        
+            // Process video if exists
+            const processedBlips = [];
+            if (videos.length > 0) {
+                const base64Response = await fetch(videos[0].url);
+                const blob = await base64Response.blob();
+                const base64 = await convertBlobToBase64(blob);
+                processedBlips.push({
+                    data: base64,
+                    contentType: 'video/mp4'
+                });
+            }
+        
+            // Create the product data object
+            const productData = {
+                name: title,
+                description: description,
+                price: Number(shippingDetails.pricing),
+                salePrice: Number(shippingDetails.salePrice),
+                weight: Number(shippingDetails.weight),
+                stock: Number(shippingDetails.inventory),
+                condition: shippingDetails.condition,
+                status: productStatus,
+                category: selectedCategory,
+                subCategory: selectedSubCategory,
+                sku: skuNumber,
+                upc: upcNumber,
+                brand: brand,
+                variants: processedVariants,
+                images: processedImages,
+                blips: processedBlips,
+                shippingInfo: {
+                    weight: {
+                        value: Number(shippingDetails.weight),
+                        unit: shippingDetails.weightUnit
+                    },
+                    dimensions: {
+                        length: Number(shippingDetails.dimensions.length),
+                        width: Number(shippingDetails.dimensions.width),
+                        height: Number(shippingDetails.dimensions.height)
+                    },
+                    freeShipping: false,
+                    shippingClass: 'standard'
                 }
-            });
-        }
-
-        // Validate and submit
-        if (title && description && images.length > 0 && shippingDetails.pricing &&
-            shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
-            selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
-            dispatch(createProduct(formData));
-        } else {
-            toast.error('Please fill all required fields');
+            };
+        
+            // Add product specifications
+            if (productSpecs) {
+                Object.entries(productSpecs).forEach(([key, value]) => {
+                    if (value) {
+                        productData[key] = Array.isArray(value) ? value.join(',') : value;
+                    }
+                });
+            }
+        
+            // Validate and submit
+            if (title && description && images.length > 0 && shippingDetails.pricing &&
+                shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
+                selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
+                
+                dispatch(createProduct(productData));
+            } else {
+                toast.error('Please fill all required fields');
+            }
+        } catch (error) {
+            console.error('Error submitting product:', error);
+            toast.error('Failed to submit product');
         }
     };
 
@@ -421,6 +470,33 @@ const AddProduct = () => {
         });
     };
 
+    const handleCancelButton = () => {
+        setTitle('');
+        setDescription('');
+        setImages([]);
+        setShippingDetails({
+            pricing: null,
+            salePrice: null,
+            weight: null,
+            weightUnit: 'kg',
+            inventory: null,
+            condition: 'fairly-used',
+            dimensions: {
+                length: null,
+                width: null,
+                height: null
+            }
+        });
+        setSelectedCategory('');
+        setSelectedSubCategory('');
+        setSkuNumber('');
+        setUpcNumber('');
+        setBrand('');
+        setVideos([]);
+        setProductStatus('active');
+        setProductSpecs({}); // Reset specifications
+    };
+
     // Move conditions outside of the callback to prevent recreating on every render
     const getContentConditions = () => [
         { met: images.length >= 3, text: "Add at least 3 images" },
@@ -457,7 +533,7 @@ const AddProduct = () => {
     // Modified VariantSection component
     const VariantSection = memo(() => {
         const variantContext = useVariants();
-        
+
         // Store the context in the ref whenever it changes
         useEffect(() => {
             variantContextRef.current = variantContext;
@@ -579,7 +655,7 @@ const AddProduct = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col justify-between gap-4 py-6">
-                        <Header headerTitle="Edit Product" showHeader={true} showNotification notificationData='Need help? Visit the seller university for detailed guides' notificationColor='#05031F' notificationBackgroundColor="#0BB24847" notificationIcon='bi:info-circle' />
+                        <Header headerTitle="Add Product" showHeader={true} showNotification notificationData='Need help? Visit the seller university for detailed guides' notificationColor='#05031F' notificationBackgroundColor="#0BB24847" notificationIcon='bi:info-circle' />
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">
                             {/* Left Section */}
                             <div className="flex-1 space-y-4 bg-[#F7F7F7] border border-[#00000024] rounded-lg py-3 lg:py-7 px-3 lg:px-6 ">
@@ -1132,7 +1208,7 @@ const AddProduct = () => {
 
                         {/* Bottom Action Buttons */}
                         <div className="flex flex-wrap justify-end gap-4 mt-6">
-                            <Button variant="outline">Cancel</Button>
+                            <Button onClick={handleCancelButton} variant="outline">Cancel</Button>
                             <Button onClick={handleSubmitProduct} className="bg-[#05031F]">
                                 {
                                     isLoading ? 'Publishing...' : 'Publish Product'

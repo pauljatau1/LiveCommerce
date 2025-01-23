@@ -10,8 +10,10 @@ const OnboardingProvider = ({ children }) => {
     const navigate = useNavigate();
     const initialState = {
         isLoading: false,
+        isImageUploading: false,
         error: null,
         token: null,
+        imageUploadSuccess: false,
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -21,12 +23,24 @@ const OnboardingProvider = ({ children }) => {
                     ...state,
                     isLoading: action.payload
                 }
+            case "SET_IMAGE_UPLOADING":
+                return {
+                    ...state,
+                    isImageUploading: action.payload
+                }
             case "SET_TOKEN":
                 return {
                     ...state,
                     token: action.payload
                 }
+            case "SET_IMAGE_UPLOAD_SUCCESS":
+                return {
+                    ...state,
+                    imageUploadSuccess: action.payload
+                }
 
+            default:
+                return state;
         }
     }, initialState);
 
@@ -478,7 +492,7 @@ const OnboardingProvider = ({ children }) => {
 
     const submitProfileImage = async (profileImage) => {
         try {
-            dispatch({ type: 'SET_LOADING', payload: true });
+            dispatch({ type: 'SET_IMAGE_UPLOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
 
@@ -499,6 +513,7 @@ const OnboardingProvider = ({ children }) => {
 
             if (response.status === 200) {
                 console.log('Profile image submitted', response);
+                dispatch({ type: 'SET_IMAGE_UPLOAD_SUCCESS', payload: true });
                 toast.success('Profile image submitted', {
                     description: 'Your profile image has been uploaded',
                     style: {
@@ -509,6 +524,7 @@ const OnboardingProvider = ({ children }) => {
             }
         } catch (error) {
             console.log(error);
+            dispatch({ type: 'SET_IMAGE_UPLOAD_SUCCESS', payload: false });
             toast.error('Error submitting profile image', {
                 description: error.response?.data?.message || error.message,
                 style: {
@@ -517,7 +533,7 @@ const OnboardingProvider = ({ children }) => {
                 }
             });
         } finally {
-            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_IMAGE_UPLOADING', payload: false });
         }
     }
 

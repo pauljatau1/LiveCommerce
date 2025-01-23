@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SmartPhoneSpecs from './SmartPhoneSpecs';
 import FeaturePhoneSpecs from './FeaturePhoneSpecs';
 import RefurbishedPhoneSpecs from './RefurbishedPhoneSpecs';
@@ -33,8 +33,15 @@ import ProcessorSpecs from './ProcessorSpecs';
 import CoolingSystemSpecs from './CoolingSystemSpecs';
 import PropTypes from 'prop-types';
 
-const ProductSpecifications = ({ category, subcategory, onSpecsChange }) => {
-  const [specs, setSpecs] = useState({});
+const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSpecs }) => {
+  const [specs, setSpecs] = useState(initialSpecs || {});
+
+  // Update specs when initialSpecs changes
+  useEffect(() => {
+    if (initialSpecs && Object.keys(initialSpecs).length > 0) {
+      setSpecs(initialSpecs);
+    }
+  }, [initialSpecs]);
 
   const handleSpecChange = (field, value) => {
     const updatedSpecs = { ...specs, [field]: value };
@@ -478,6 +485,7 @@ ProductSpecifications.propTypes = {
   category: PropTypes.string.isRequired,
   subcategory: PropTypes.string.isRequired,
   onSpecsChange: PropTypes.func.isRequired,
+  initialSpecs: PropTypes.object,
 };
 
 export default ProductSpecifications;

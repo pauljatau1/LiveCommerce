@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOnboardingContext } from '../../Hooks/useOnboardingContext';
 import { useNavigate, useLoaderData } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -15,7 +15,7 @@ import Box from '@mui/material/Box';
 
 const BusinessCategoryOnboarding = () => {
   const categories = useLoaderData();
-  const { submitBusinessCategory, submitProfileImage, isLoading } = useOnboardingContext();
+  const { submitBusinessCategory, submitProfileImage, isLoading, isImageUploading, imageUploadSuccess } = useOnboardingContext();
   const [selectedCategories, setSelectedCategories] = useState([]);
   const navigate = useNavigate();
   const [openDialog, setOpenDialog] = useState(false);
@@ -25,6 +25,13 @@ const BusinessCategoryOnboarding = () => {
   const [storeName, setStoreName] = useState('');
   const [storeDescription, setStoreDescription] = useState('');
   const [profileImage, setProfileImage] = useState(null);
+
+
+  useEffect(() => {
+    if (imageUploadSuccess) {
+      setOpenProfileModal(false);
+    }
+  }, [imageUploadSuccess])
 
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
@@ -330,7 +337,7 @@ const BusinessCategoryOnboarding = () => {
             onClick={handleImageSubmit}
             className="w-full bg-[#0BB248] text-white rounded-md py-2.5 sm:py-3 text-sm sm:text-base hover:bg-opacity-90 transition-all duration-300 mt-2 sm:mt-4"
           >
-            {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Submit'}
+            {isImageUploading ? <CircularProgress size={20} color="inherit" /> : 'Submit'}
           </button>
         </Box>
       </Modal>

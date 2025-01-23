@@ -12,6 +12,7 @@ function AuthProvider({ children }) {
     const navigate = useNavigate();
     const initialState = {
         seller: null,
+        signUpSellerDetails: null,
         isAuthenticated: false,
         isLoading: false,
         error: null,
@@ -45,7 +46,7 @@ function AuthProvider({ children }) {
             case "SIGNUP_SUCCESS":
                 return {
                     ...state,
-                    seller: action.payload,
+                    signUpSellerDetails: action.payload,
                     message: "Signup successful",
                     otpStatus: "pending"
                 }
@@ -141,7 +142,7 @@ function AuthProvider({ children }) {
                     ...state,
                     otpStatus: "pending",
                     unverifiedUser: true,
-                    seller: action.payload
+                    signUpSellerDetails: action.payload
                 }
             default:
                 return state;
@@ -280,7 +281,6 @@ function AuthProvider({ children }) {
                     isVerified: response.data.user.isVerified
                 }));
                 console.log('login response:', response.data);
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
                 dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
                 Crisp.setTokenId(response.data.token);
                 Crisp.user.setEmail(response.data.user.email);
