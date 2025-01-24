@@ -843,12 +843,41 @@ exports.deepSearchProducts = async (req, res) => {
 };
 
 // Get products that just arrived
+// Get just arrived products
 exports.getJustArrivedProducts = async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 }).limit(10).populate('seller', 'name avatarUrl about').populate('reviews.buyer', 'firstName lastName');
-    res.json(products);
+    console.log('Fetching just arrived products...');
+
+    // Get products from the last 7 days
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - 7);
+
+    console.log('Looking for products after:', dateThreshold);
+
+    const products = await Product.find({
+      createdAt: { $gte: dateThreshold },
+      status: 'active',
+      visibility: 'visible'
+    })
+      .select('name description price images category subCategory seller stats createdAt')
+      .populate('seller', 'name storeName avatarUrl')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log(`Found ${products.length} products`);
+
+    res.json({
+      success: true,
+      products
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve just arrived products', error: error.message });
+    console.error('Error in getJustArrivedProducts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve just arrived products',
+      error: error.message
+    });
   }
 };
 

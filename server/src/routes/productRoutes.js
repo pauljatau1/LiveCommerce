@@ -128,6 +128,37 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get('/blips', productController.getAllBlips);
 router.get('/seller/:sellerId/blips', productController.getSellerBlips);
 
+
+/**
+ * @swagger
+ * /api/products/search:
+ *   get:
+ *     summary: Deep search products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ */
+router.get('/search', productController.deepSearchProducts);
+
+/**
+ * @swagger
+ * /api/products/just-arrived:
+ *   get:
+ *     summary: Get recently added products
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: Recently arrived products retrieved successfully
+ */
+router.get('/just-arrived', productController.getJustArrivedProducts);
+
 /**
  * @swagger
  * /api/products/all:
@@ -420,6 +451,9 @@ router.get('/personalized',
  *                   type: string
  */
 router.get('/:id', productController.getProduct);
+
+
+
 
 /**
  * @swagger
@@ -1050,35 +1084,7 @@ router.put('/:id',
   productController.updateProduct
 );
 
-/**
- * @swagger
- * /api/products/search:
- *   get:
- *     summary: Deep search products
- *     tags: [Products]
- *     parameters:
- *       - in: query
- *         name: query
- *         schema:
- *           type: string
- *         required: true
- *     responses:
- *       200:
- *         description: Products retrieved successfully
- */
-router.get('/search', productController.deepSearchProducts);
 
-/**
- * @swagger
- * /api/products/just-arrived:
- *   get:
- *     summary: Get recently added products
- *     tags: [Products]
- *     responses:
- *       200:
- *         description: Recently arrived products retrieved successfully
- */
-router.get('/just-arrived', productController.getJustArrivedProducts);
 
 /**
  * @swagger

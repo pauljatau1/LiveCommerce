@@ -507,37 +507,18 @@ exports.resetPassword = async (req, res) => {
 // Get buyer's orders with filtering
 exports.getOrders = async (req, res) => {
   try {
-    const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
-    const query = { buyer: req.user.id };
-
-    // Apply filters
-    if (status) {
-      query['items.status'] = status;
-    }
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-
-    const orders = await Order.find(query)
+    const orders = await Order.find({ buyer: req.user.id })
       .populate('items.product', 'name images price')
       .populate('items.seller', 'storeName')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await Order.countDocuments(query);
-
+      .sort({ createdAt: -1 }); 
     res.json({
       orders,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching orders', error: error.message });
   }
 };
+
 
 // Get order details
 exports.getOrderDetails = async (req, res) => {
