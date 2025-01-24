@@ -12,7 +12,6 @@ import SearchBar from "../../Components/ui/DashboardHomepageUi/SearchBar";
 import { Link } from "react-router-dom";
 import AlertNotification from "../../Components/ui/AlertNotification";
 import HomeAnalyticsCard from "../../Components/ui/DashboardHomepageUi/HomeAnalyticsCard";
-import ToDoCard from "../../Components/ToDoCard";
 import QuickOrderCard from "../../Components/QuickOrderCard";
 import OrdersTable from "../../Components/OrdersTable";
 import SuggestedVideoCard from "../../Components/SuggestedVideoCard";
@@ -46,6 +45,25 @@ const formatMetricValue = (value) => {
     return value.toString();
 };
 
+// Add this new API call function
+const getSellerAnalytics = async () => {
+  try {
+    const token = localStorage.getItem('sellerToken');
+    const { data: authToken } = JSON.parse(token);
+    
+    const response = await axios.get(
+      `${BASE_URL}/seller/analytics/metrics`,
+      {
+        headers: { Authorization: `Bearer ${authToken}` }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    return null;
+  }
+};
+
 const HomePage = () => {
   // Core hooks initialization
   const navigate = useNavigate();
@@ -53,22 +71,29 @@ const HomePage = () => {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
 
   // State management for dashboard data and UI
-  const [notification, setNotification] = useState(false);  // Controls notification visibility
-  const [orders, setOrders] = useState([]);               // Stores all seller orders
-  const [isDataLoading, setIsDataLoading] = useState(true);       // Controls loading state
-  const [isDataReady, setIsDataReady] = useState(false);  // Indicates when data is ready to display
-  const [error, setError] = useState(null);               // Stores error state
-  const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]); // Analytics cards data
+  const [notification, setNotification] = useState(false);
+  const [orders, setOrders] = useState([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [isDataReady, setIsDataReady] = useState(false);
+  const [error, setError] = useState(null);
+  const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]);
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
 
-  // Fetch seller details on component mount
+  // Fetch seller details and wallet balance
   useEffect(() => {
-    fetchSellerDetails();
+    const fetchInitialData = async () => {
+      try {
+        await fetchSellerDetails();
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+      }
+    };
+
+    fetchInitialData();
   }, []);
 
-  // Main data fetching effect
-  // Retrieves orders and customer data on component mount
+  // Main data fetching effect with loading optimization
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
@@ -76,15 +101,15 @@ const HomePage = () => {
     const fetchDashboardData = async () => {
       try {
         setIsDataLoading(true);
-        setIsDataReady(false);
 
         // Authentication setup
         const token = localStorage.getItem('sellerToken');
         const { data: authToken } = JSON.parse(token);
         const seller = JSON.parse(localStorage.getItem('seller'));
 
-        // Parallel API calls for better performance
-        const [ordersResponse, customersResponse, platformAnnouncementResponse, publicResourcesResponse ] = await Promise.all([
+        // Split API calls into critical and non-critical data
+        const [analyticsResponse, ordersResponse] = await Promise.all([
+          getSellerAnalytics(),
           axios.get(
             `${BASE_URL}/order/seller/${seller._id}`,
             {
@@ -92,42 +117,56 @@ const HomePage = () => {
               signal
             }
           ),
+        ]);
+
+        const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
+        
+        // Update critical data immediately
+        const initialAnalyticsData = prepareAnalyticsData(
+          newOrders,
+          analyticsResponse?.storeMetrics?.visits || 0,
+          0, // temporary customers count
+          analyticsResponse,
+          seller // Pass the entire seller object
+        );
+        
+        setOrders(newOrders);
+        setHomeAnalyticsCardData(initialAnalyticsData);
+        setIsDataReady(true);
+        setIsDataLoading(false);
+
+        // Non-critical data (load after)
+        const [customersResponse, platformAnnouncementResponse, publicResourcesResponse] = await Promise.all([
           getTotalSellerUCustomers(),
           getPlatformAnnouncement(),
           getPublicResources(),
         ]);
 
-        // Process and update state with fetched data
-        const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
-        const analyticsData = prepareAnalyticsData(
+        // Update analytics with complete data
+        const finalAnalyticsData = prepareAnalyticsData(
           newOrders,
-          seller?.storeVisits,
-          customersResponse
+          analyticsResponse?.storeMetrics?.visits || 0,
+          customersResponse,
+          analyticsResponse,
+          seller
         );
 
-        setOrders(newOrders);
-        setHomeAnalyticsCardData(analyticsData);
+        setHomeAnalyticsCardData(finalAnalyticsData);
         setPlatformAnnouncement(platformAnnouncementResponse);
         setPublicResources(publicResourcesResponse);
-        setIsDataReady(true);
 
       } catch (error) {
-        // Handle fetch abortion and errors
         if (error.name === 'AbortError') {
           console.log('Fetch aborted');
           return;
         }
-        setIsDataReady(true)
         setError(error.message);
         console.error('Dashboard loading error:', error);
-      } finally {
-        setIsDataLoading(false);
       }
     };
 
     fetchDashboardData();
 
-    // Cleanup: abort any pending requests when component unmounts
     return () => controller.abort();
   }, []);
 
@@ -187,9 +226,20 @@ const HomePage = () => {
 
   };
 
+  // Helper function to calculate proper conversion rate (0-100%)
+  const calculateConversionRate = (analytics) => {
+    if (!analytics?.storeMetrics?.visits || !analytics?.orders?.total) return 0;
+    
+    const rate = (analytics.orders.total / analytics.storeMetrics.visits) * 100;
+    // Ensure rate is between 0-100%
+    return Math.min(Math.max(rate, 0), 100).toFixed(1);
+  };
+
   // Prepares data for analytics dashboard cards
   // Includes: Store Visits, Total Sales, Orders, Conversions, Customers
-  const prepareAnalyticsData = (orders, storeVisits, totalCustomers) => {
+  const prepareAnalyticsData = (orders, storeVisits, totalCustomers, analytics, seller) => {
+    const conversionRate = calculateConversionRate(analytics);
+    
     return [
         // {
         //     id: ObjectID().toHexString(),
@@ -215,7 +265,7 @@ const HomePage = () => {
             id: ObjectID().toHexString(),
             title: 'Total Orders',
             icon: FiShoppingBag,
-            current: formatMetricValue(orders.length),
+            current: formatMetricValue(analytics?.orders?.total || 0),
             percentage: '+2%',
             trend: 'up',
             iconColor: 'text-purple-600',
@@ -225,9 +275,9 @@ const HomePage = () => {
             id: ObjectID().toHexString(),
             title: 'Conversion Rate',
             icon: FiBarChart2,
-            current: '15%',
-            percentage: '+23%',
-            trend: 'up',
+            current: `${conversionRate}%`,
+            percentage: analytics?.insights?.find(i => i.metric === "Store Conversion")?.percentageChange + '%' || '0%',
+            trend: analytics?.insights?.find(i => i.metric === "Store Conversion")?.trend || 'neutral',
             iconColor: 'text-green-600',
             iconBackground: 'bg-green-50'
         },
@@ -235,9 +285,9 @@ const HomePage = () => {
             id: ObjectID().toHexString(),
             title: 'New Customers',
             icon: FiUserPlus,
-            current: formatMetricValue(totalCustomers?.followers?.length || 0),
-            percentage: '-4%',
-            trend: 'down',
+            current: formatMetricValue(analytics?.customers?.total || 0),
+            percentage: analytics?.insights?.find(i => i.metric === "Customer Retention")?.percentageChange + '%' || '0%',
+            trend: analytics?.insights?.find(i => i.metric === "Customer Retention")?.trend || 'neutral',
             iconColor: 'text-orange-600',
             iconBackground: 'bg-orange-50'
         }

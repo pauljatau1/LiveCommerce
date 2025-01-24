@@ -1,4 +1,9 @@
 import { useState, useEffect } from "react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Link } from "react-router-dom"
@@ -10,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import LinearProgress from "@mui/material/LinearProgress"
 import { BASE_URL } from "@/Constants/Server"
 import Header from "@/Components/ui/Header/Header"
+import { Input } from "@/components/ui/input"
 
 export default function OrdersDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -20,6 +26,11 @@ export default function OrdersDashboard() {
   const [currentPage, setCurrentPage] = useState(1)
   const [ordersPerPage, setOrdersPerPage] = useState(20)
   const [totalOrders, setTotalOrders] = useState(0)
+  const [date, setDate] = useState()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [paymentFilter, setPaymentFilter] = useState("all")
+  const [channelFilter, setChannelFilter] = useState("all")
+  const [sortConfig, setSortConfig] = useState({ key: "createdAt", direction: "desc" })
 
   // Filter orders based on active tab
   const filteredOrders = orders.filter((order) => {
@@ -31,6 +42,40 @@ export default function OrdersDashboard() {
     if (activeTab === "cancelled") return order.shipping.tracking.status === "failed"
     return true
   })
+
+  // Filter function
+  const getFilteredOrders = () => {
+    return filteredOrders.filter((order) => {
+      // Date range filter
+      const orderDate = new Date(order?.createdAt)
+      const dateInRange = date?.from && date?.to ? 
+        orderDate >= date.from && orderDate <= date.to : true
+
+      // Search filter
+      const searchMatch = searchTerm ? 
+        order?._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order?.buyer?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order?.buyer?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order?.items?.some(item => item?.productName?.toLowerCase().includes(searchTerm.toLowerCase()))
+        : true
+
+      // Payment status filter
+      const paymentMatch = paymentFilter === "all" ? true :
+        order?.paymentInfo?.status === paymentFilter
+
+      // Channel filter
+      const channelMatch = channelFilter === "all" ? true :
+        order?.channel === channelFilter
+
+      return dateInRange && searchMatch && paymentMatch && channelMatch
+    }).sort((a, b) => {
+      const aValue = a[sortConfig.key] || ''
+      const bValue = b[sortConfig.key] || ''
+      return sortConfig.direction === 'asc' ? 
+        (aValue > bValue ? 1 : -1) : 
+        (aValue < bValue ? 1 : -1)
+    })
+  }
 
   const handleOrdersPerPageChange = (e) => {
     setOrdersPerPage(Number.parseInt(e, 10))
@@ -113,13 +158,13 @@ export default function OrdersDashboard() {
 
   const startIndex = (currentPage - 1) * ordersPerPage
   const endIndex = startIndex + ordersPerPage
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex)
+  const paginatedOrders = getFilteredOrders().slice(startIndex, endIndex)
 
   return (
     <>
-      <Header headerTitle="ORDERS" showHeader={true} showSearch />
+     <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Orders" />
 
-      <div className="p-6">
+      <div className="py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
           <TabsList className="border-b h-auto p-0 bg-transparent">
             <TabsTrigger
@@ -158,29 +203,74 @@ export default function OrdersDashboard() {
         <div className="bg-[#F8FAF9] rounded-lg p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">Latest Orders</h2>
-            <div className="flex gap-4">
-              <Select defaultValue="month">
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Month to date" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="month">Month to date</SelectItem>
-                  <SelectItem value="week">Week to date</SelectItem>
-                  <SelectItem value="year">Year to date</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select defaultValue="channel">
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Channel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="channel">Channel</SelectItem>
-                  <SelectItem value="live">Live show</SelectItem>
-                  <SelectItem value="store">Store</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="mb-4 flex flex-wrap gap-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(date.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={setDate}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Input
+              placeholder="Search orders..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-[240px]"
+            />
+
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Payment Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payments</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={channelFilter} onValueChange={setChannelFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Channel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Channels</SelectItem>
+                <SelectItem value="marketplace">Marketplace</SelectItem>
+                <SelectItem value="live">Live Show</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          </div>
+
+
 
           <div className="bg-white rounded-lg overflow-hidden border border-gray-100">
             <Table>

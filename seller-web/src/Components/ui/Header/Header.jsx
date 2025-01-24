@@ -5,11 +5,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
 import { Crisp } from "crisp-sdk-web"
 import PropTypes from "prop-types"
 import { BASE_URL } from "@/Constants/Server"
+import { useNavigate } from "react-router-dom"
+import { Dialog, DialogTrigger } from "../../ui/dialog"
+import NotificationsDialog from "../../NotificationsDialog"
+import { useAuthContext } from "../../../Hooks/useAuthContext"
 
-const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
+const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
   const [open, setOpen] = useState(false)
   const [isChatVisible, setIsChatVisible] = useState(true)
   const [seller, setSeller] = useState(null)
+  const { stuffToDo, getSellerNotifications } = useAuthContext()
+  const navigate = useNavigate()
   const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1"
 
   useEffect(() => {
@@ -19,7 +25,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
         if (sellerToken) {
           const tokenData = JSON.parse(sellerToken)
           const token = tokenData.data
-          
+
           const response = await fetch(`${BASE_URL}/seller/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -54,6 +60,20 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
     }
   }, [])
 
+  useEffect(() => {
+    getSellerNotifications()
+  }, [])
+
+  const calculateNewNotifications = () => {
+    if (!stuffToDo?.notifications) return 0
+    
+    const today = new Date().setHours(0, 0, 0, 0)
+    return stuffToDo.notifications.filter(notification => 
+      !notification.isRead && 
+      new Date(notification.createdAt).setHours(0, 0, 0, 0) === today
+    ).length
+  }
+
   const handleChatOpen = () => {
     setIsChatVisible(true)
     window.$crisp.push(["do", "chat:show"])
@@ -64,9 +84,54 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
   }
 
+  const mobileNotificationsItem = (
+    <Dialog>
+      <DialogTrigger asChild>
+        <CommandItem
+          onSelect={() => setOpen(false)}
+          className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
+        >
+          <Icon icon="mingcute:notification-fill" className="mr-2 h-5 w-5 text-gray-400" />
+          <span>Notifications</span>
+          {calculateNewNotifications() > 0 && (
+            <span className="ml-2 bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs">
+              {calculateNewNotifications()}
+            </span>
+          )}
+        </CommandItem>
+      </DialogTrigger>
+      <NotificationsDialog notifications={stuffToDo?.notifications || []} />
+    </Dialog>
+  )
+
+  const desktopGoLiveButton = (
+    <button 
+      onClick={() => navigate('/dashboard/live-streams')}
+      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+    >
+      Go Live
+    </button>
+  )
+
+  const desktopNotificationsButton = (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="relative p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+          <Icon icon="mingcute:notification-fill" className="h-6 w-6" />
+          {calculateNewNotifications() > 0 && (
+            <span className="absolute -top-0.5 -right-1 bg-blue-600 text-white px-1.5 py-0.5 rounded-full text-xs">
+              {calculateNewNotifications()}
+            </span>
+          )}
+        </button>
+      </DialogTrigger>
+      <NotificationsDialog notifications={stuffToDo?.notifications || []} />
+    </Dialog>
+  )
+
   return (
     <header className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto py-3">
+      <div className="mx-auto py-3">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             {!isSidebarOpen && (
@@ -77,7 +142,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
                 <Icon icon="pepicons-pencil:menu" className="h-6 w-6" />
               </button>
             )}
-            <h1 className="ml-2 lg:ml-0 text-2xl font-semibold text-gray-900">Dashboard</h1>
+            <h1 className="ml-2 lg:ml-0 text-2xl font-semibold text-gray-900">{name}</h1>
           </div>
 
           {/* Mobile Menu */}
@@ -108,13 +173,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
                       <Icon icon="solar:chat-line-bold" className="mr-2 h-5 w-5 text-gray-400" />
                       <span>Live Chat</span>
                     </CommandItem>
-                    <CommandItem
-                      onSelect={() => setOpen(false)}
-                      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
-                    >
-                      <Icon icon="mingcute:notification-fill" className="mr-2 h-5 w-5 text-gray-400" />
-                      <span>Notifications</span>
-                    </CommandItem>
+                    {mobileNotificationsItem}
                   </CommandGroup>
                 </CommandList>
               </Command>
@@ -123,9 +182,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
 
           {/* Desktop Menu */}
           <div className="hidden lg:flex lg:items-center lg:gap-4">
-            <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-              Go Live
-            </button>
+            {desktopGoLiveButton}
 
             {isChatVisible && (
               <button
@@ -136,9 +193,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
               </button>
             )}
 
-            <button className="p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-              <Icon icon="mingcute:notification-fill" className="h-6 w-6" />
-            </button>
+            {desktopNotificationsButton}
 
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -162,7 +217,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen }) => {
 Header.propTypes = {
   isSidebarOpen: PropTypes.bool.isRequired,
   setIsSidebarOpen: PropTypes.func.isRequired,
+  name: PropTypes.string,
 }
 
 export default Header
-

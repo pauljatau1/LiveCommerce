@@ -1,5 +1,6 @@
 import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
 import { useState, useEffect } from "react"
+import Header from "@/Components/ui/Header/Header"
 import {
   Table,
   TableBody,
@@ -13,7 +14,6 @@ import { Avatar, AvatarFallback } from "@/Components/ui/avatar"
 import { Link } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server"
 import LinearProgress from "@mui/material/LinearProgress";
-import Header from "@/Components/ui/Header/Header";
 import { 
   FiUsers, 
   FiShoppingBag, 
@@ -24,11 +24,16 @@ import {
 } from "react-icons/fi"
 import { BiSortAlt2 } from "react-icons/bi"
 import { motion } from "framer-motion"
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
 function Customers() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [followers, setFollowers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
+  const [filteredFollowers, setFilteredFollowers] = useState([])
 
   useEffect(() => {
     const fetchFollowers = async () => {
@@ -63,13 +68,99 @@ function Customers() {
     fetchFollowers()
   }, [])
 
+  // Search and filter logic
+  useEffect(() => {
+    let result = [...followers]
+    
+    // Apply search
+    if (searchTerm) {
+      result = result.filter(follower => {
+        const searchString = `${follower.firstName || ''} ${follower.lastName || ''} ${follower.name || ''} ${follower.email || ''}`.toLowerCase()
+        return searchString.includes(searchTerm.toLowerCase())
+      })
+    }
+
+    // Apply sorting
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let aValue = a[sortConfig.key] || 0
+        let bValue = b[sortConfig.key] || 0
+        
+        if (sortConfig.key === 'name') {
+          aValue = (a.firstName ? `${a.firstName} ${a.lastName}` : a.name) || ''
+          bValue = (b.firstName ? `${b.firstName} ${b.lastName}` : b.name) || ''
+        }
+
+        if (sortConfig.direction === 'asc') {
+          return aValue > bValue ? 1 : -1
+        }
+        return aValue < bValue ? 1 : -1
+      })
+    }
+
+    setFilteredFollowers(result)
+  }, [followers, searchTerm, sortConfig])
+
+  // Sorting handler
+  const handleSort = (key) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  // Export to PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF()
+    
+    // Add title
+    doc.setFontSize(16)
+    doc.text('Customer Report', 14, 15)
+    doc.setFontSize(10)
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 22)
+
+    const tableColumn = [
+      'Customer Name', 
+      'Email', 
+      'Location', 
+      'Total Orders', 
+      'Total Spent (₦)',
+      'Join Date'
+    ]
+
+    const tableRows = filteredFollowers.map(follower => [
+      follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name,
+      follower.email || 'N/A',
+      follower.mainAddress ? 
+        `${follower.mainAddress.city}, ${follower.mainAddress.country}` : 
+        'N/A',
+      follower.totalOrders || 0,
+      (follower.totalSpent || 0).toLocaleString(),
+      new Date(follower.followDate).toLocaleDateString()
+    ])
+
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 30,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [76, 175, 80] }
+    })
+
+    doc.save('customers-report.pdf')
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50/30 p-6">
+    <>
+      <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Customers" />
+   
+    <div className="min-h-screen bg-gray-50/30 py-6">
+     
       {loading ? (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex flex-col justify-center items-center h-[80dvh]"
+          className="flex flex-col justify-center items-center h-[80dvh]" 
         >
           <div className="w-1/4">
             <LinearProgress color="success" />
@@ -82,10 +173,7 @@ function Customers() {
           transition={{ duration: 0.5 }}
         >
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
-            <h1 className="text-3xl font-semibold text-gray-800">Customers</h1>
-            {/* Add more stat cards here */}
-          </div>
+         
 
           {/* Search and Filter Section */}
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-8">
@@ -94,23 +182,50 @@ function Customers() {
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search customers..."
                   className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                 />
               </div>
               <div className="flex items-center gap-4">
-                <Button className="flex items-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100">
-                  <BiSortAlt2 className="w-5 h-5" />
-                  Sort
-                </Button>
-                <Button className="bg-green-600 hover:bg-green-700">
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => handleSort('name')}
+                    className={`flex items-center gap-2 ${
+                      sortConfig.key === 'name' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-700'
+                    } hover:bg-gray-100`}
+                  >
+                    Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Button>
+                  <Button 
+                    onClick={() => handleSort('totalOrders')}
+                    className={`flex items-center gap-2 ${
+                      sortConfig.key === 'totalOrders' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-700'
+                    } hover:bg-gray-100`}
+                  >
+                    Orders {sortConfig.key === 'totalOrders' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Button>
+                  <Button 
+                    onClick={() => handleSort('totalSpent')}
+                    className={`flex items-center gap-2 ${
+                      sortConfig.key === 'totalSpent' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-700'
+                    } hover:bg-gray-100`}
+                  >
+                    Spent {sortConfig.key === 'totalSpent' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </Button>
+                </div>
+                <Button 
+                  onClick={exportToPDF}
+                  className="bg-green-600 hover:bg-green-700"
+                >
                   Export Data
                 </Button>
               </div>
             </div>
           </div>
 
-          {followers?.length === 0 ? (
+          {filteredFollowers.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -148,7 +263,7 @@ function Customers() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {followers.map((follower) => (
+                  {filteredFollowers.map((follower) => (
                     <TableRow key={follower._id} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -205,6 +320,7 @@ function Customers() {
         </motion.div>
       )}
     </div>
+    </>
   )
 }
 

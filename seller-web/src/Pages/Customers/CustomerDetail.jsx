@@ -5,7 +5,7 @@ import { Card } from "@/Components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 import { Button } from "@/Components/ui/button"
 import { CheckCircle2, Star } from 'lucide-react'
-import { useParams } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server";
 import { useSidebar } from "@/Hooks/useSideBar";
 import { Icon } from "@iconify/react";
@@ -16,6 +16,7 @@ import AlertNotification from "@/Components/ui/AlertNotification";
 import CustomerOrdersCard from "@/Components/CustomerOrdersCard";
 import NotFoundIcon from '@/assets/not-found-icon.png';
 import LinearProgress from '@mui/material/LinearProgress';
+import Header from "@/Components/ui/Header/Header"
 
 function CustomerDetail() {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
@@ -23,6 +24,7 @@ function CustomerDetail() {
   const [notification, setNotification] = useState(true);
   const [loading, setLoading] = useState(true)
   const { id } = useParams()
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchCustomerData = async () => {
@@ -73,6 +75,18 @@ function CustomerDetail() {
 
   console.log('customerData', customerData)
 
+  const handleMessageClick = () => {
+    if (!customerData) return;
+    
+    navigate('/dashboard/messages', {
+      state: {
+        customerId: id,
+        customerName: customerData.name,
+        customerEmail: customerData.email,
+      }
+    });
+  };
+
   if (loading) {
     return <div className="flex flex-col justify-center items-center h-[80dvh]">
       <div className="w-1/4">
@@ -87,14 +101,10 @@ function CustomerDetail() {
 
   return (
     <>
+      <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Customer Detail" />
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Search Bar */}
-        <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-
-        {/* Notification
-        {notification && <AlertNotification />} */}
-
+       
         {/* Customer Header - More compact and refined */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 my-6 p-5 bg-white rounded-lg border border-slate-200">
           <Avatar className="h-14 w-14 ring-2 ring-indigo-500/10">
@@ -121,7 +131,11 @@ function CustomerDetail() {
               <span className="text-indigo-600 font-medium">{customerData.email}</span>
             </div>
           </div>
-          <Button variant="primary" className="ml-4 bg-green-600 text-white">
+          <Button 
+            variant="primary" 
+            className="ml-4 bg-green-600 text-white"
+            onClick={handleMessageClick}
+          >
             Message Customer
           </Button>
         </div>
