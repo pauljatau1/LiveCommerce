@@ -1029,4 +1029,111 @@ router.post('/send-phone-otp', authMiddleware.verifyToken, buyerController.sendP
  */
 router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyPhoneOTP);
 
+/**
+ * @swagger
+ * /api/buyer/seller/{sellerId}:
+ *   get:
+ *     summary: Get detailed seller profile and store information
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to fetch
+ *     responses:
+ *       200:
+ *         description: Seller profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 storeInfo:
+ *                   type: object
+ *                   properties:
+ *                     storeName:
+ *                       type: string
+ *                     aboutStore:
+ *                       type: string
+ *                     storeAvatar:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                     storeBanner:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                     isVerified:
+ *                       type: boolean
+ *                     isFeatured:
+ *                       type: boolean
+ *                     joinedDate:
+ *                       type: string
+ *                       format: date-time
+ *                 businessInfo:
+ *                   type: object
+ *                   properties:
+ *                     businessName:
+ *                       type: string
+ *                     businessType:
+ *                       type: string
+ *                     categories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                           subCategories:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                 metrics:
+ *                   type: object
+ *                   properties:
+ *                     totalProducts:
+ *                       type: number
+ *                     averageRating:
+ *                       type: number
+ *                     totalFollowers:
+ *                       type: number
+ *                     responseRate:
+ *                       type: number
+ *                     orderCompletion:
+ *                       type: number
+ *                 recentProducts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getSellerProfile
+);
+
 module.exports = router;

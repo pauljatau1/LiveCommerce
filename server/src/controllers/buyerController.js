@@ -1359,3 +1359,71 @@ exports.getBuyerDetails = async (req, res) => {
   }
 };
 
+exports.getSellerProfile = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    // Get seller details excluding sensitive information
+    const seller = await Seller.findById(sellerId)
+      .select('-password -bankDetails -otp -emailVerified -walletBalance -phoneNumber')
+      .populate('posts');
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Get seller's products
+    const recentProducts = await Product.find({ seller: sellerId })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .select('name price images createdAt');
+
+    // Get metrics
+    const totalProducts = await Product.countDocuments({ seller: sellerId });
+    const totalFollowers = seller.followers ? seller.followers.length : 0;
+    
+    // Get orders for completion rate calculation
+    const allOrders = await Order.find({ seller: sellerId });
+    const completedOrders = allOrders.filter(order => order.status === 'delivered');
+    const orderCompletion = allOrders.length > 0 ? 
+      (completedOrders.length / allOrders.length) * 100 : 0;
+
+    const sellerProfile = {
+      storeInfo: {
+        storeName: seller.storeName,
+        aboutStore: seller.aboutStore,
+        storeAvatar: seller.storeAvatar,
+        storeBanner: seller.storeBanner,
+        isVerified: seller.isVerified,
+        isFeatured: seller.isFeatured,
+        joinedDate: seller.createdAt
+      },
+      businessInfo: {
+        businessName: seller.businessName,
+        businessType: seller.businessType,
+        categories: seller.categories
+      },
+      metrics: {
+        totalProducts,
+        totalFollowers,
+        orderCompletion: parseFloat(orderCompletion.toFixed(2)),
+        responseRate: 95, 
+        averageRating: 4.5 
+      },
+      recentProducts
+    };
+
+    // Increment store visits
+    await Seller.findByIdAndUpdate(sellerId, { $inc: { storeVisits: 1 } });
+
+    res.json(sellerProfile);
+
+  } catch (error) {
+    console.error('Error fetching seller profile:', error);
+    res.status(500).json({
+      message: 'Failed to fetch seller profile',
+      error: error.message
+    });
+  }
+};
+

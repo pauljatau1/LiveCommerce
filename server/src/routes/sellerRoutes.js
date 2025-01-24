@@ -1615,6 +1615,85 @@ router.get('/withdrawals',
   sellerController.getWithdrawalRequests
 );
 
+
+/**
+ * @swagger
+ * /api/seller/analytics/metrics:
+ *   get:
+ *     summary: Get seller's comprehensive analytics and metrics
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Analytics metrics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 revenue:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                     lastMonth:
+ *                       type: number
+ *                     growth:
+ *                       type: number
+ *                 orders:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                     completed:
+ *                       type: number
+ *                     pending:
+ *                       type: number
+ *                     cancelled:
+ *                       type: number
+ *                 customers:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                     returning:
+ *                       type: number
+ *                     averageOrderValue:
+ *                       type: number
+ *                 storeMetrics:
+ *                   type: object
+ *                   properties:
+ *                     visits:
+ *                       type: number
+ *                     conversionRate:
+ *                       type: number
+ *                     averageOrderValue:
+ *                       type: number
+ *                 keyInsights:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       metric:
+ *                         type: string
+ *                       value:
+ *                         type: number
+ *                       trend:
+ *                         type: string
+ *                       percentageChange:
+ *                         type: number
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/analytics/metrics', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getAnalyticsMetrics
+);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

@@ -27,26 +27,45 @@ exports.getConversations = async (req, res) => {
     // Transform conversations to include formatted participant info
     const formattedConversations = conversations.map(conversation => {
       const otherParticipant = conversation.participants.find(
-        p => p.id._id.toString() !== userId
+        p => p.id && p.id._id && p.id._id.toString() !== userId
       );
 
-      const participantInfo = otherParticipant.id ? {
+      // Check if otherParticipant exists and has valid data
+      if (!otherParticipant || !otherParticipant.id) {
+        return {
+          _id: conversation._id,
+          participant: {
+            id: null,
+            model: null,
+            name: 'Unknown User',
+            avatar: null,
+            location: { country: null, city: null },
+            verified: false
+          },
+          lastMessage: conversation.lastMessage,
+          unreadCount: conversation.unreadCount.get(userId.toString()) || 0,
+          createdAt: conversation.createdAt,
+          updatedAt: conversation.updatedAt
+        };
+      }
+
+      const participantInfo = {
         id: otherParticipant.id._id,
         model: otherParticipant.model,
         name: otherParticipant.model === 'Buyer' 
-          ? `${otherParticipant.id.firstName} ${otherParticipant.id.lastName}`
-          : otherParticipant.id.storeName || otherParticipant.id.businessName,
+          ? `${otherParticipant.id.firstName || ''} ${otherParticipant.id.lastName || ''}`.trim() || 'Unknown User'
+          : otherParticipant.id.storeName || otherParticipant.id.businessName || 'Unknown Business',
         avatar: otherParticipant.model === 'Buyer' 
-          ? otherParticipant.id.profileImage?.url
-          : otherParticipant.id.storeAvatar?.url,
+          ? otherParticipant.id.profileImage?.url || null
+          : otherParticipant.id.storeAvatar?.url || null,
         location: {
-          country: otherParticipant.id.country,
-          city: otherParticipant.id.city
+          country: otherParticipant.id.country || null,
+          city: otherParticipant.id.city || null
         },
         verified: otherParticipant.model === 'Buyer' 
-          ? otherParticipant.id.emailVerified
-          : otherParticipant.id.isVerified
-      } : otherParticipant;
+          ? !!otherParticipant.id.emailVerified
+          : !!otherParticipant.id.isVerified
+      };
 
       return {
         _id: conversation._id,
@@ -58,6 +77,9 @@ exports.getConversations = async (req, res) => {
       };
     });
 
+    // Filter out any null values that might have occurred during mapping
+    const validConversations = formattedConversations.filter(conv => conv !== null);
+
     const total = await Conversation.countDocuments({
       'participants': {
         $elemMatch: { id: userId, model: userModel }
@@ -65,7 +87,7 @@ exports.getConversations = async (req, res) => {
     });
 
     res.json({
-      conversations: formattedConversations,
+      conversations: validConversations,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
@@ -77,7 +99,8 @@ exports.getConversations = async (req, res) => {
     console.error('Get conversations error:', error);
     res.status(500).json({ 
       message: 'Failed to retrieve conversations', 
-      error: error.message 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

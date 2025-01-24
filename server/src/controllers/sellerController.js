@@ -1749,3 +1749,183 @@ exports.getWithdrawalRequests = async (req, res) => {
     });
   }
 };
+
+exports.getAnalyticsMetrics = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const seller = await Seller.findById(sellerId);
+    
+    // Get date ranges
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+    const lastYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+
+    // Get all orders
+    const allOrders = await Order.find({
+      seller: sellerId
+    }).populate('items.product');
+
+    const paidOrders = allOrders.filter(order => order.paid);
+
+    // Category Performance Analysis
+    const categoryPerformance = {};
+    paidOrders.forEach(order => {
+      order.items.forEach(item => {
+        if (item.product?.category) {
+          if (!categoryPerformance[item.product.category]) {
+            categoryPerformance[item.product.category] = {
+              soldCount: 0,
+              revenue: 0,
+              orderCount: 0
+            };
+          }
+          categoryPerformance[item.product.category].soldCount += item.quantity;
+          categoryPerformance[item.product.category].revenue += (item.price * item.quantity);
+          categoryPerformance[item.product.category].orderCount += 1;
+        }
+      });
+    });
+
+    // Top Products Analysis
+    const productPerformance = {};
+    paidOrders.forEach(order => {
+      order.items.forEach(item => {
+        if (!productPerformance[item.product?._id]) {
+          productPerformance[item.product?._id] = {
+            name: item.product?.name,
+            soldCount: 0,
+            revenue: 0,
+            orderCount: 0
+          };
+        }
+        productPerformance[item.product?._id].soldCount += item.quantity;
+        productPerformance[item.product?._id].revenue += (item.price * item.quantity);
+        productPerformance[item.product?._id].orderCount += 1;
+      });
+    });
+
+    // Calculate revenue metrics
+    const totalRevenue = paidOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const lastMonthOrders = paidOrders.filter(order => order.createdAt >= lastMonth);
+    const previousMonthOrders = paidOrders.filter(
+      order => order.createdAt >= twoMonthsAgo && order.createdAt < lastMonth
+    );
+    const lastYearOrders = paidOrders.filter(order => order.createdAt >= lastYear);
+    
+    const lastMonthRevenue = lastMonthOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const previousMonthRevenue = previousMonthOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const revenueGrowth = previousMonthRevenue ? 
+      ((lastMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 : 0;
+
+    // Customer Analysis
+    const uniqueCustomers = new Set(paidOrders.map(order => order.buyer.toString()));
+    const returningCustomers = seller.customers.filter(customer => customer.totalOrders > 1);
+    const customerRetentionRate = uniqueCustomers.size ? 
+      (returningCustomers.length / uniqueCustomers.size) * 100 : 0;
+
+    // Store Performance
+    const storeVisits = seller.storeVisits || 0;
+    const conversionRate = storeVisits ? 
+      (paidOrders.length / storeVisits) * 100 : 0;
+
+    const analyticsData = {
+      revenue: {
+        total: totalRevenue,
+        lastMonth: lastMonthRevenue,
+        growth: revenueGrowth,
+        yearToDate: lastYearOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+      },
+      orders: {
+        total: allOrders.length,
+        completed: paidOrders.filter(order => order.status === 'delivered').length,
+        pending: allOrders.filter(order => order.status === 'pending').length,
+        cancelled: allOrders.filter(order => order.status === 'cancelled').length,
+        lastMonth: lastMonthOrders.length,
+        averageOrderValue: paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0
+      },
+      categories: {
+        performance: Object.entries(categoryPerformance)
+          .sort((a, b) => b[1].revenue - a[1].revenue)
+          .map(([category, data]) => ({
+            category,
+            ...data,
+            averageOrderValue: data.orderCount > 0 ? data.revenue / data.orderCount : 0
+          }))
+      },
+      products: {
+        topSelling: Object.entries(productPerformance)
+          .sort((a, b) => b[1].soldCount - a[1].soldCount)
+          .slice(0, 5)
+          .map(([id, data]) => ({
+            id,
+            ...data
+          })),
+        totalActive: await Product.countDocuments({ 
+          seller: sellerId, 
+          status: 'active' 
+        })
+      },
+      customers: {
+        total: uniqueCustomers.size,
+        returning: returningCustomers.length,
+        retentionRate: customerRetentionRate,
+        averageLifetimeValue: uniqueCustomers.size > 0 ? 
+          totalRevenue / uniqueCustomers.size : 0
+      },
+      storeMetrics: {
+        visits: storeVisits,
+        conversionRate,
+        averageOrderValue: paidOrders.length > 0 ? 
+          totalRevenue / paidOrders.length : 0
+      },
+      insights: [
+        {
+          metric: 'Revenue Growth',
+          value: revenueGrowth,
+          trend: revenueGrowth >= 0 ? 'up' : 'down',
+          percentageChange: Math.abs(revenueGrowth),
+          recommendation: revenueGrowth < 0 ? 
+            'Consider running promotions or reviewing pricing strategy' : 
+            'Keep up the good work and consider expanding your product line'
+        },
+        {
+          metric: 'Customer Retention',
+          value: customerRetentionRate,
+          trend: customerRetentionRate >= 70 ? 'up' : 'down',
+          percentageChange: customerRetentionRate,
+          recommendation: customerRetentionRate < 70 ? 
+            'Focus on customer engagement and loyalty programs' : 
+            'Maintain excellent customer service and consider referral programs'
+        },
+        {
+          metric: 'Store Conversion',
+          value: conversionRate,
+          trend: conversionRate >= 2 ? 'up' : 'down',
+          percentageChange: conversionRate,
+          recommendation: conversionRate < 2 ? 
+            'Review product descriptions and pricing strategy' : 
+            'Consider expanding marketing efforts to increase traffic'
+        }
+      ],
+      trends: {
+        monthOverMonth: {
+          revenue: revenueGrowth,
+          orders: lastMonthOrders.length - previousMonthOrders.length,
+          customers: lastMonthOrders.filter(order => 
+            !previousMonthOrders.find(po => po.buyer.toString() === order.buyer.toString())
+          ).length
+        }
+      }
+    };
+
+    res.json(analyticsData);
+
+  } catch (error) {
+    console.error('Error getting analytics metrics:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve analytics metrics',
+      error: error.message
+    });
+  }
+};

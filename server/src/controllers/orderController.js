@@ -187,19 +187,19 @@ exports.createOrder = async (req, res) => {
     // First, group items by seller and validate products
     for (const item of items) {
       console.log('Processing item:', item);
-      
+
       const product = await Product.findById(item.productId)
         .populate('seller', 'warehouseAddress firstName lastName email phone');
 
       console.log('Found product:', product);
-      
+
       if (!product) {
         throw new Error(`Product not found: ${item.productId}`);
       }
 
       const sellerId = product.seller._id.toString();
       console.log('Seller ID:', sellerId);
-      
+
       if (!itemsBySeller[sellerId]) {
         // Get pickup address for this seller
         let pickup_address;
@@ -225,7 +225,7 @@ exports.createOrder = async (req, res) => {
           pickup_address
         };
       }
-      
+
       itemsBySeller[sellerId].items.push({
         product: product._id,
         productName: product.name,
@@ -245,7 +245,7 @@ exports.createOrder = async (req, res) => {
     for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
       console.log('Creating shipment for seller:', sellerId);
       console.log('Seller data:', sellerData);
-      
+
       // Calculate total weight for this seller's items
       const totalWeight = sellerData.items.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
 
@@ -333,6 +333,68 @@ exports.createOrder = async (req, res) => {
         amount: savedOrder.totalAmount,
         items: savedOrder.items.length
       });
+    }
+
+    // Add this code after orders are created but before final response
+    for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
+      const seller = await Seller.findById(sellerId);
+      const buyer = await Buyer.findById(req.user.id);
+
+      console.log('Seller:', seller);
+      console.log('Buyer:', buyer);
+
+      if (!seller || !buyer) {
+        throw new Error('Seller or Buyer not found');
+      }
+
+      // Check if buyer already exists in seller's followers
+      const isFollowing = seller.followers?.some(
+        follower => follower.buyerId?.toString() === buyer._id.toString()
+      );
+
+      if (!isFollowing) {
+        // Get buyer's main address
+        const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
+          ? {
+              country: buyer.shippingAddresses[0].country,
+              city: buyer.shippingAddresses[0].city,
+              address1: buyer.shippingAddresses[0].addressLine1,
+              address2: buyer.shippingAddresses[0].addressLine2,
+              zipCode: buyer.shippingAddresses[0].zipCode
+            }
+          : null;
+
+        // Add buyer to seller's followers
+        seller.followers.push({
+          buyerId: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          email: buyer.email,
+          followDate: new Date(),
+          totalOrders: 1,
+          mainAddress
+        });
+
+        // Add to buyer's activity feed
+        buyer.activityFeed.push({
+          type: 'follow',
+          content: `Started following ${seller.storeName || seller.businessName}`,
+          reference: seller._id,
+          referenceModel: 'Seller',
+          createdAt: new Date()
+        });
+
+        await Promise.all([seller.save(), buyer.save()]);
+      } else {
+        // Update existing follower's order count
+        const followerIndex = seller.followers.findIndex(
+          f => f.buyerId?.toString() === buyer._id.toString()
+        );
+        if (followerIndex !== -1) {
+          seller.followers[followerIndex].totalOrders += 1;
+          await seller.save();
+        }
+      }
     }
 
     await session.commitTransaction();
@@ -439,6 +501,8 @@ exports.createOrder = async (req, res) => {
     session.endSession();
   }
 };
+
+
 
 // Get shipping rates for an order
 exports.getShippingRates = async (req, res) => {
