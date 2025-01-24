@@ -1,25 +1,34 @@
-import { liveStreamCardData } from "../Utilities/data";
-import ComingSoonTag from './ComingSoonTag';
 import PropTypes from 'prop-types';
 import { NavLink } from 'react-router-dom';
+import ComingSoonTag from './ComingSoonTag';
 
 const LiveStreamCard = ({ item }) => {
     return (
-        <div className="w-full xl:w-[404px] h-[159.5px] md:h-[239px] relative bg-[#05031F] rounded-lg py-3 px-4 md:py-6 md:px-7 space-y-3 md:space-y-6">
-            <div className="absolute top-2 right-0">
-                {
-                    !item?.available && (
-                        <ComingSoonTag />
-                    )
-                }
+        <div className="bg-white relative pt-6 px-6 pb-20 xl:pb-20 shadow-sm border rounded-lg border-gray-200 hover:shadow-md transition-all duration-300">
+            <div className="relative">
+                {!item?.available && <ComingSoonTag />}
             </div>
-            <div className="flex items-center gap-2">
-                <img src={item?.icon} alt={item?.title} className="w-8 h-8 " />
-                <h1 className="text-white text-sm md:text-lg xl:text-xl font-medium font-lexend">{item?.title}</h1>
-            </div>
-            <p className="text-white text-xs font-normal md:text-base font-cabin max-w-[500px] xl:max-w-none line-clamp-2">{item?.description}</p>
-            <div className="flex items-center justify-center gap-2">
-                <NavLink className="w-full flex items-center justify-center text-[#FFFFFF] text-xs md:text-base font-bold capitalize bg-[#0BB248] font-cabin rounded-lg px-6 py-2 hover:bg-[#0BB248]/80 transition-all duration-300 ease-in-out">{`Start ${item?.title}`}</NavLink>
+            
+            <div className="flex flex-col items-center justify-center gap-4">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 flex items-center justify-center rounded-lg">
+                        <img src={item?.icon} alt={item?.title} className=" w-[104px] " />
+                    </div>
+                    <h2 className="text-lg font-inter font-semibold border-b border-gray-200 py-4 text-[#05031F]">{item?.title}</h2>
+                </div>
+
+                <div>
+                    <p className="text-sm text-[#425466] text-center py-2 line-clamp">
+                    {item?.description}
+                </p>
+                </div>
+
+                <NavLink 
+                    to={item?.link}
+                    className="w-fit absolute bottom-6 bg-[#16783A] text-white text-[13px] font-medium font-inter py-2.5 px-4 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
+                >
+                    Start {item?.title}
+                </NavLink>
             </div>
         </div>
     )

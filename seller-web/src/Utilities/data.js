@@ -157,7 +157,22 @@ export const sideBarNavData = [
         id: ObjectID().toHexString(),
         name: 'Live Streams',
         icon: MdLiveTv,
-        path: '/dashboard/live-streams'
+        path: '/dashboard/live-streams/live-stream',
+        subNav: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Schedule Shows',
+                path: 'live-streams/schedule-shows',
+                icon: BsBoxSeam
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Past Shows',
+                path: 'live-streams/past-shows',
+                icon: BsBoxSeam
+            },
+         
+        ]
     },
     {
         id: ObjectID().toHexString(),
@@ -572,7 +587,7 @@ export const liveStreamCardData = [
         icon: LiveIcon1,
         title: 'Auctions',
         description: 'Start a live and entertaining bidding on Auqli! Perfect for auctioning off your pre-loved items.',
-        link: '/dashboard/live-streams/auctions',
+        link: '/dashboard/live-streams/create-live-auction',
         available: true
     },
     {
@@ -580,7 +595,7 @@ export const liveStreamCardData = [
         icon: LiveIcon2,
         title: 'Open Live Show',
         description: 'Showcase all products in your store through open live shows, engage with customers and increase sales!',
-        link: '/dashboard/live-streams/open-live-shows',
+        link: '/dashboard/live-streams/create-live-show',
         available: true
     },
     {

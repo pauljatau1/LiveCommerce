@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
 import LoginPage, { Loader as loginLoader } from './Pages/LoginPage/LoginPage';
 import { ProductProvider } from './Contexts/ProductContext';
+import { LivestreamProvider } from './Contexts/LivestreamContext';
 import SignUpPage from './Pages/SignUpPage/SignUpPage';
 import DashboardLayout from './Components/DashboardLayout';
 import AppLayout from './Components/AppLayout';
@@ -44,6 +45,13 @@ import DashboardRoute from './Components/DashboardRoute';
 import SettingsDashboard from './Pages/Settings/settings';
 import Analytics from './Pages/Analytics/anayltics';
 import Help from './Pages/help/help';
+import LiveStreamLayout from './Components/LiveStreamLayout';
+import CreateLiveAuction from './Pages/LiveStream/CreateLiveAuction';
+import CreateLiveShow from './Pages/LiveStream/CreateLiveShow';
+import ScheduleShows from './Pages/LiveStream/ScheduleShows';
+import PastShows from './Pages/LiveStream/PastShows';
+import SubmitLiveShow from './Pages/LiveStream/SubmitLiveShow';
+import SubmitLiveAuction from './Pages/LiveStream/SubmitLiveAuction';
 
 
 
@@ -234,7 +242,49 @@ const router = createBrowserRouter([
           },
           {
             path: 'live-streams',
-            element: <LiveStream />,
+            element: (
+              <LivestreamProvider>
+                <LiveStreamLayout />
+              </LivestreamProvider>
+            ),
+            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+            children: [
+              {
+                path: 'live-stream',
+                element: <LiveStream />,
+                errorElement: <NotFoundPage />
+              },
+              {
+                path: 'create-live-auction',
+                element: <CreateLiveAuction />,
+                errorElement: <NotFoundPage />
+              },
+              {
+                path: 'create-live-show',
+                element: <CreateLiveShow />,
+                errorElement: <NotFoundPage />
+              },
+              {
+                path: 'past-shows',
+                element: <PastShows />,
+                errorElement: <NotFoundPage />
+              },
+              {
+                path: 'scheduled-shows',
+                element: <ScheduleShows />,
+                errorElement: <NotFoundPage />
+              },
+              {
+                path: 'submit-live-show',
+                element: <SubmitLiveShow />,
+                errorElement: <NotFoundPage />
+              },
+              {
+                path: 'submit-live-auction',
+                element: <SubmitLiveAuction />,
+                errorElement: <NotFoundPage />
+              },
+            ],
             errorElement: <NotFoundPage />
           },
           {
