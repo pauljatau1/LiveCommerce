@@ -32,9 +32,12 @@ const MarketingPage = () => {
     
 
     return (
+        <>
+            <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Marketing" />
+       
         <div className="flex flex-col justify-between gap-4 py-6">
-            <Header headerTitle="MARKETING" showHeader={true} />
-           
+               
+                
             <div className="flex flex-wrap mt-5   gap-4">
                 {
                     marketingAdsData.map((item) => (
@@ -64,6 +67,7 @@ const MarketingPage = () => {
                 </div>
             </div>
         </div>
+        </>
     )
 }
 

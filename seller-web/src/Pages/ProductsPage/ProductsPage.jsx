@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useNavigation, useOutletContext } from "react-router-dom";
+import Header from "../../Components/ui/Header/Header";
 //import Loader from '../../Components/Loader';
 import {
     Command,
@@ -21,7 +22,7 @@ import { fetchSellerProducts } from "../../Redux/Slices/ProductSlice";
 import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
 import NotFound from "../../assets/not-found-icon2.png";
 import LinearProgress from "@mui/material/LinearProgress";
-import Header from "../../Components/ui/Header/Header";
+
 import React from 'react';
 
 
@@ -45,12 +46,14 @@ const ProductsPage = () => {
         ));
     }, [products]);
 
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
 
 
     return (
         <>
             {/*isLoading && <Loader />*/}
-            <Header headerTitle="Products" showHeader={true} showSearch />
+            <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="My Products" />
             {
                 isLoading ? (
                     <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -61,7 +64,7 @@ const ProductsPage = () => {
                 ) : (
                     <>
                         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 py-6 w-full">
-                            <h1 className="text-xl font-bold font-lexend">My Products</h1>
+                           
                             <div className="flex items-center flex-wrap gap-4">
                                 {
                                     products.length > 0 && (

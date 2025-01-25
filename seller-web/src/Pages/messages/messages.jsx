@@ -12,12 +12,28 @@ import {
   MessageSquare,
   Check,
   CheckCheck,
-  Eye
+  Eye,
+  MessageSquarePlus
 } from 'lucide-react';
 import { toast } from "sonner";
 import { BASE_URL } from "@/Constants/Server";
 import { io } from "socket.io-client";
 import { useSocket } from "@/Contexts/SocketContext";
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/Components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/Components/ui/select";
 
 // Helper function to format message timestamps
 const formatMessageTime = (timestamp) => {
@@ -66,6 +82,12 @@ export default function ChatInterface() {
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
   const socket = useSocket();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [initialMessage, setInitialMessage] = useState("");
 
   // Fetch conversations
   useEffect(() => {
@@ -162,6 +184,83 @@ export default function ChatInterface() {
       socket.off('receive_message');
     };
   }, [socket, currentConversation]);
+
+  // Add effect to handle direct messaging when navigating from customer details
+  useEffect(() => {
+    const initializeDirectMessage = async () => {
+      if (!location.state?.customerId) return;
+
+      try {
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        
+        // First try to find existing conversation
+        const response = await fetch(`${BASE_URL}/conversations`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const data = await response.json();
+        
+        // Find conversation with this customer
+        const existingConversation = data.conversations.find(conv => 
+          conv.participant.id === location.state.customerId
+        );
+
+        if (existingConversation) {
+          // If conversation exists, set it as current
+          setCurrentConversation(existingConversation);
+        } else {
+          // If no conversation exists, create one by sending first message
+          const response = await fetch(`${BASE_URL}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${sellerToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              recipientId: location.state.customerId,
+              recipientModel: 'Buyer',
+              content: 'Hello! How can I help you today?'
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create conversation');
+          }
+
+          const newMessageData = await response.json();
+          
+          // Create new conversation object
+          const newConversation = {
+            _id: newMessageData.message.conversation,
+            participant: {
+              id: location.state.customerId,
+              name: location.state.customerName,
+              model: 'Buyer'
+            },
+            lastMessage: {
+              content: 'Hello! How can I help you today?',
+              createdAt: new Date().toISOString()
+            },
+            unreadCount: 0
+          };
+
+          // Update conversations list and set current
+          setConversations(prev => [newConversation, ...prev]);
+          setCurrentConversation(newConversation);
+          
+          // Add message to messages list
+          setMessages([newMessageData.message]);
+        }
+
+      } catch (error) {
+        console.error('Error initializing direct message:', error);
+        toast.error('Failed to start conversation');
+      }
+    };
+
+    initializeDirectMessage();
+  }, [location.state]);
 
   // Enhanced handleSendMessage with immediate UI update
   const handleSendMessage = async () => {
@@ -519,43 +618,50 @@ export default function ChatInterface() {
     }
   };
 
-  // Update chat list rendering
+  // Update chat list rendering with improved styling
   const renderChatList = () => (
-    <ScrollArea className="flex-1">
-      {conversations.map((conv) => (
-        <div
-          key={conv._id}
-          className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-            currentConversation?._id === conv._id ? 'bg-green-50 border-l-4 border-green-600' : ''
-          }`}
-          onClick={() => setCurrentConversation(conv)}
-        >
-          <div className="flex gap-3">
-            <div className="relative flex-shrink-0">
-              <Avatar>
+    <ScrollArea className="h-full">
+      {conversations && conversations.length > 0 ? (
+        conversations.map((conv) => (
+          <div
+            key={conv._id}
+            className={`p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-100 ${
+              currentConversation?._id === conv._id ? 'bg-green-50' : ''
+            }`}
+            onClick={() => setCurrentConversation(conv)}
+          >
+            <div className="flex items-center gap-2">
+              <Avatar className="h-10 w-10">
                 <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
                 <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
               </Avatar>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-start">
-                <h3 className="font-semibold text-gray-900 truncate">{conv.participant.name}</h3>
-                <span className="text-xs text-gray-500">
-                  {new Date(conv.lastMessage.createdAt).toLocaleTimeString()}
-                </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-center mb-0.5">
+                  <h3 className="text-sm font-medium text-gray-900 truncate">
+                    {conv.participant.name}
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    {formatMessageTime(conv.lastMessage.createdAt)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 truncate max-w-[180px]">
+                  {conv.lastMessage.content}
+                </p>
+                {conv.unreadCount > 0 && (
+                  <span className="inline-flex items-center justify-center bg-green-600 text-white text-xs rounded-full h-4 min-w-[16px] px-1 mt-1">
+                    {conv.unreadCount}
+                  </span>
+                )}
               </div>
-              <p className="text-sm text-gray-600 truncate">
-                {conv.lastMessage.content}
-              </p>
-              {conv.unreadCount > 0 && (
-                <span className="bg-green-600 text-white text-xs rounded-full px-2 py-0.5 mt-1">
-                  {conv.unreadCount}
-                </span>
-              )}
             </div>
           </div>
+        ))
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full p-4 text-gray-500">
+          <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
+          <p className="text-sm">No conversations yet</p>
         </div>
-      ))}
+      )}
     </ScrollArea>
   );
 
@@ -568,32 +674,37 @@ export default function ChatInterface() {
     </div>
   );
 
-  // Update chat header to show current conversation
+  // Update chat header with improved styling
   const ChatHeader = () => {
     if (!currentConversation) return null;
-
     const participant = currentConversation.participant;
 
     return (
-      <div className="p-6 border-b bg-white">
-        <div className="flex items-start gap-4">
-          <Avatar className="h-12 w-12">
+      <div className="px-4 py-3 border-b bg-white shadow-sm">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10">
             <AvatarImage src={participant.avatar || "/placeholder.svg"} />
             <AvatarFallback>{participant.name[0]}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">{participant.name}</h2>
-                <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                <h2 className="text-base font-semibold text-gray-900">{participant.name}</h2>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span className="flex items-center gap-1">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    Online
+                    <div className="h-1.5 w-1.5 bg-green-500 rounded-full"></div>
+                    last seen recently
                   </span>
-                  <span>Last seen recently</span>
                 </div>
               </div>
-              <Button variant="outline" size="sm">View Profile</Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate(`/dashboard/customer/${participant.id}`)} // Add navigation
+                className="text-xs"
+              >
+                View Profile
+              </Button>
             </div>
           </div>
         </div>
@@ -601,45 +712,44 @@ export default function ChatInterface() {
     );
   };
 
-  // Update messages rendering with proper checks
+  // Update messages rendering with improved styling
   const renderMessages = () => (
-    <ScrollArea className="flex-1 px-6 py-4">
-      <div className="space-y-4">
+    <ScrollArea className="flex-1 p-4">
+      <div className="space-y-3">
         {messages && messages.length > 0 ? (
           messages.map((message) => {
             if (!message || !message.sender) return null;
+            const isSeller = message.sender?.model === 'Seller';
 
             return (
               <div
                 key={message._id}
-                className={`flex ${message.sender?.model === 'Seller' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${isSeller ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[70%] rounded-2xl p-4 ${
-                    message.sender?.model === 'Seller'
+                  className={`max-w-[75%] rounded-lg p-3 ${
+                    isSeller
                       ? 'bg-green-600 text-white'
                       : 'bg-gray-100 text-gray-900'
                   }`}
                 >
-                  {/* Image message */}
                   {message.messageType === 'image' && message.media?.length > 0 && (
                     <img
                       src={message.media[0].url}
                       alt="Message attachment"
-                      className="max-w-full rounded-lg mb-2"
+                      className="max-w-full rounded-md mb-2"
                     />
                   )}
 
-                  {/* Product message */}
                   {message.messageType === 'product' && message.product && (
-                    <div className="bg-white rounded-lg p-2 mb-2">
+                    <div className="bg-white rounded-md p-2 mb-2">
                       <img
                         src={message.product.image}
                         alt={message.product.name}
-                        className="w-full h-32 object-cover rounded-lg"
+                        className="w-full h-24 object-cover rounded-md"
                       />
-                      <h4 className="font-medium mt-2 text-gray-900">{message.product.name}</h4>
-                      <p className="text-sm text-gray-700">
+                      <h4 className="text-sm font-medium mt-1.5 text-gray-900">{message.product.name}</h4>
+                      <p className="text-xs text-gray-700">
                         {new Intl.NumberFormat('en-NG', {
                           style: 'currency',
                           currency: 'NGN'
@@ -648,19 +758,20 @@ export default function ChatInterface() {
                     </div>
                   )}
 
-                  {/* Message content */}
                   <p className="text-sm">{message.content}</p>
 
-                  {/* Message metadata */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-xs ${
-                      message.sender?.model === 'Seller' ? 'text-green-100' : 'text-gray-500'
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className={`text-[10px] ${
+                      isSeller ? 'text-green-100' : 'text-gray-500'
                     }`}>
                       {formatMessageTime(message.createdAt)}
                     </span>
-                    {message.sender?.model === 'Seller' && (
+                    {isSeller && (
                       <span className="text-green-100">
-                        {message.isRead ? <CheckCheck className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                        {message.isRead ? 
+                          <CheckCheck className="h-3 w-3" /> : 
+                          <Check className="h-3 w-3" />
+                        }
                       </span>
                     )}
                   </div>
@@ -669,7 +780,7 @@ export default function ChatInterface() {
             );
           })
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="flex items-center justify-center h-full text-sm text-gray-500">
             No messages yet. Start the conversation!
           </div>
         )}
@@ -678,61 +789,59 @@ export default function ChatInterface() {
     </ScrollArea>
   );
 
-  // Update the Quick Tools section
+  // Update Quick Tools with improved styling
   const renderQuickTools = () => (
-    <div className="w-[320px] border-l bg-white flex flex-col overflow-hidden">
-      <div className="bg-green-50 p-4 border-b">
-        <h2 className="text-lg font-bold text-gray-900">Quick Tools</h2>
+    <div className="w-[280px] border-l bg-white flex flex-col">
+      <div className="px-4 py-3 border-b">
+        <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2>
       </div>
       <Tabs defaultValue="products" className="flex-1 flex flex-col">
         <TabsList className="w-full border-b p-0">
-          <TabsTrigger value="products" className="flex-1 rounded-none">
+          <TabsTrigger value="products" className="flex-1 rounded-none text-sm">
             Products
           </TabsTrigger>
-          <TabsTrigger value="replies" className="flex-1 rounded-none">
+          <TabsTrigger value="replies" className="flex-1 rounded-none text-sm">
             Quick Replies
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="products" className="flex-1 m-0 overflow-hidden">
+        <TabsContent value="products" className="flex-1 m-0 p-0">
           <ScrollArea className="h-full">
-            <div className="p-4 space-y-4">
+            <div className="p-3 space-y-2">
               {sellerProducts.map((product) => (
-                <Card key={product._id} className="p-3 hover:shadow-md transition-shadow">
+                <Card key={product._id} className="p-2 hover:shadow-sm transition-shadow border rounded-md">
                   <div className="flex gap-2">
                     <img
                       src={product.images[0]?.url}
                       alt={product.name}
-                      className="w-10 h-10 object-cover rounded-lg"
+                      className="w-12 h-12 object-cover rounded-md"
                     />
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-xs text-gray-900 truncate">{product.name}</h4>
-                      <div className="text-xs text-gray-600">
+                      <h4 className="text-xs font-medium text-gray-900 truncate">{product.name}</h4>
+                      <p className="text-xs text-gray-600 mt-0.5">
                         {new Intl.NumberFormat('en-NG', {
                           style: 'currency',
                           currency: 'NGN'
                         }).format(product.price)}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1 mt-1">
-                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                          {product.category}
-                        </span>
+                      </p>
+                      <div className="flex gap-1 mt-1">
+                        {/* <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => navigate(`/products/${product._id}`)}
+                        >
+                          View
+                        </Button> */}
+                        <Button
+                          size="sm"
+                          className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                          onClick={() => handleSendProduct(product)}
+                          disabled={!currentConversation}
+                        >
+                          Send
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex gap-1 mt-2">
-                    <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
-                      <Eye className="h-3 w-3 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
-                      onClick={() => handleSendProduct(product)}
-                      disabled={!currentConversation}
-                    >
-                      <SendHorizontal className="h-3 w-3 mr-1" />
-                      Send
-                    </Button>
                   </div>
                 </Card>
               ))}
@@ -752,74 +861,231 @@ export default function ChatInterface() {
     </div>
   );
 
+  // Update customer fetching to match Customers.jsx pattern
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken');
+        if (sellerToken) {
+          const tokenData = JSON.parse(sellerToken);
+          const token = tokenData.data;
+          
+          const response = await fetch(`${BASE_URL}/seller/followers?page=1&limit=20`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          const data = await response.json();
+          if (data && Array.isArray(data.followers)) {
+            setCustomers(data.followers);
+          } else {
+            console.error('Followers data is missing or invalid');
+          }
+        } else {
+          console.error('Seller token not found in localStorage');
+        }
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+        toast.error('Failed to load customers');
+      }
+    };
+
+    fetchCustomers();
+  }, []);
+
+  // Memoize the dialog component to prevent unnecessary re-renders
+  const NewMessageDialog = () => (
+    <Dialog open={newMessageOpen} onOpenChange={setNewMessageOpen}>
+      {/* <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          className="w-full mb-3 flex items-center gap-2 bg-white hover:bg-gray-50"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+          New Message
+        </Button>
+      </DialogTrigger> */}
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Start New Conversation</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select Customer</label>
+            <Select
+              value={selectedCustomer}
+              onValueChange={setSelectedCustomer}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((customer) => (
+                  <SelectItem 
+                    key={customer._id} 
+                    value={customer._id || customer.buyerId}
+                  >
+                    {customer.firstName 
+                      ? `${customer.firstName} ${customer.lastName}`
+                      : customer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Initial Message</label>
+            <textarea
+              value={initialMessage}
+              onChange={(e) => setInitialMessage(e.target.value)}
+              placeholder="Type your message..."
+              className="w-full min-h-[100px] p-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/20"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setNewMessageOpen(false);
+              setSelectedCustomer(null);
+              setInitialMessage("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleStartNewConversation}
+            className="bg-green-600 text-white hover:bg-green-700"
+            disabled={!selectedCustomer || !initialMessage.trim()}
+          >
+            Start Conversation
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Update handleStartNewConversation to use correct customer ID
+  const handleStartNewConversation = async () => {
+    if (!selectedCustomer || !initialMessage.trim()) {
+      toast.error('Please select a customer and enter a message');
+      return;
+    }
+
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipientId: selectedCustomer,
+          recipientModel: 'Buyer',
+          content: initialMessage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start conversation');
+      }
+
+      const newMessageData = await response.json();
+      
+      // Find customer details from our customers list
+      const customerDetails = customers.find(c => (c._id === selectedCustomer || c.buyerId === selectedCustomer));
+      
+      // Create new conversation object
+      const newConversation = {
+        _id: newMessageData.message.conversation,
+        participant: {
+          id: selectedCustomer,
+          name: customerDetails.firstName 
+            ? `${customerDetails.firstName} ${customerDetails.lastName}`
+            : customerDetails.name,
+          model: 'Buyer'
+        },
+        lastMessage: {
+          content: initialMessage,
+          createdAt: new Date().toISOString()
+        },
+        unreadCount: 0
+      };
+
+      // Update conversations list and set current
+      setConversations(prev => [newConversation, ...prev]);
+      setCurrentConversation(newConversation);
+      setMessages([newMessageData.message]);
+      
+      // Reset and close dialog
+      setSelectedCustomer(null);
+      setInitialMessage("");
+      setNewMessageOpen(false);
+      
+      toast.success('Conversation started successfully');
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      toast.error('Failed to start conversation');
+    }
+  };
+
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="py-6 bg-white shadow-sm z-10">
-        <h1 className='text-2xl font-bold text-gray-900'>Messages</h1>
+    <div className="h-[calc(100vh-4rem)] flex flex-col bg-gray-100">
+      <div className="py-4 px-6 bg-white border-b">
+        <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Chat List */}
-        <div className="w-[320px] border-r bg-white flex flex-col">
-          <div className="p-4 border-b">
+        <div className="w-[300px] bg-white border-r flex flex-col">
+          <div className="p-3 border-b space-y-3">
+            <NewMessageDialog />
             <Input
               placeholder="Search messages..."
-              className="bg-gray-50"
+              className="bg-gray-50 text-sm h-9"
               prefix={<MessageSquare className="h-4 w-4 text-gray-400" />}
             />
           </div>
           {renderChatList()}
         </div>
 
-        {/* Chat Area */}
         {currentConversation ? (
           <div className="flex-1 flex flex-col bg-white">
             <ChatHeader />
             {renderMessages()}
-
-            {/* Message Input */}
-            <div className="px-6 py-4 border-t bg-white">
-              <div className="flex gap-3">
+            <div className="px-4 py-3 border-t bg-white">
+              <div className="flex gap-2">
                 <Input
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   placeholder="Type your message..."
-                  className="flex-1"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSendMessage();
-                    }
-                  }}
+                  className="flex-1 text-sm h-9"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 />
-                <div className="flex gap-2">
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => handleFileUpload(e.target.files[0])}
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="text-gray-500 hover:text-gray-700"
-                    onClick={() => document.getElementById('file-upload').click()}
-                  >
-                    <PaperclipIcon className="h-5 w-5" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="text-gray-500 hover:text-gray-700">
-                    <SmileIcon className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={handleSendMessage}
-                  >
-                    <SendHorizontal className="h-5 w-5" />
-                  </Button>
-                </div>
+                <input
+                  type="file"
+                  id="file-upload"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => handleFileUpload(e.target.files[0])}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3"
+                  onClick={() => document.getElementById('file-upload').click()}
+                >
+                  <PaperclipIcon className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-9 px-3 bg-green-600 hover:bg-green-700"
+                  onClick={handleSendMessage}
+                >
+                  <SendHorizontal className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
@@ -827,7 +1093,6 @@ export default function ChatInterface() {
           <EmptyState />
         )}
 
-        {/* Quick Tools */}
         {renderQuickTools()}
       </div>
     </div>

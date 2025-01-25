@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   BarChart,
   Bar,
@@ -31,39 +31,75 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import LinearProgress from "@mui/material/LinearProgress"
+import { BASE_URL } from "@/Constants/Server"
 
-const salesData = [
-  { month: "Jan", sales: 4000, orders: 240 },
-  { month: "Feb", sales: 3000, orders: 198 },
-  { month: "Mar", sales: 5000, orders: 280 },
-  { month: "Apr", sales: 4500, orders: 308 },
-  { month: "May", sales: 6000, orders: 389 },
-  { month: "Jun", sales: 5500, orders: 380 },
-]
-
-const productData = [
-  { name: "Electronics", value: 4000 },
-  { name: "Clothing", value: 3000 },
-  { name: "Books", value: 2000 },
-  { name: "Home & Garden", value: 1500 },
-  { name: "Sports", value: 1000 },
-]
-
-const customerData = [
-  { name: "Week 1", newCustomers: 400, returningCustomers: 300 },
-  { name: "Week 2", newCustomers: 450, returningCustomers: 320 },
-  { name: "Week 3", newCustomers: 500, returningCustomers: 350 },
-  { name: "Week 4", newCustomers: 470, returningCustomers: 380 },
-]
-
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
 export default function AnalyticsAndInsights() {
   const [dateRange, setDateRange] = useState("This Month")
+  const [analyticsData, setAnalyticsData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const sellerToken = localStorage.getItem("sellerToken")
+        if (sellerToken) {
+          const tokenData = JSON.parse(sellerToken)
+          const token = tokenData.data
+          const response = await fetch(`${BASE_URL}/seller/analytics/metrics`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          const data = await response.json()
+          setAnalyticsData(data)
+        }
+      } catch (error) {
+        console.error("Error fetching analytics:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAnalytics()
+  }, [])
+
+  if (loading || !analyticsData) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[80dvh]">
+        <div className="w-1/4">
+          <LinearProgress color="success" />
+        </div>
+      </div>
+    )
+  }
+
+  const categoryData = analyticsData.categories.performance.map(cat => ({
+    name: cat.category,
+    value: cat.revenue
+  }))
+
+  const salesData = [
+    { 
+      month: "Current", 
+      sales: analyticsData.revenue.lastMonth,
+      orders: analyticsData.orders.lastMonth 
+    }
+  ]
+
+  const customerData = [
+    { 
+      name: "Current", 
+      newCustomers: analyticsData.customers.total - analyticsData.customers.returning,
+      returningCustomers: analyticsData.customers.returning 
+    }
+  ]
 
   return (
     <div className="min-h-screen p-8">
-      <div className=" mx-auto">
+      <div className="mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Analytics & Insights</h1>
           <div className="flex items-center space-x-2">
@@ -92,9 +128,12 @@ export default function AnalyticsAndInsights() {
               <DollarSign className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">$45,231.89</div>
+              <div className="text-2xl font-bold text-gray-900">
+                ₦{analyticsData.revenue.total.toLocaleString()}
+              </div>
               <p className="text-xs text-green-500 flex items-center mt-1">
-                <TrendingUp className="h-4 w-4 mr-1" /> +20.1% from last month
+                <TrendingUp className="h-4 w-4 mr-1" /> 
+                {analyticsData.trends.monthOverMonth.revenue}% from last month
               </p>
             </CardContent>
           </Card>
@@ -104,9 +143,12 @@ export default function AnalyticsAndInsights() {
               <ShoppingCart className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">2,350</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {analyticsData.orders.total.toLocaleString()}
+              </div>
               <p className="text-xs text-blue-500 flex items-center mt-1">
-                <TrendingUp className="h-4 w-4 mr-1" /> +10.5% from last month
+                <TrendingUp className="h-4 w-4 mr-1" /> 
+                {analyticsData.trends.monthOverMonth.orders}% from last month
               </p>
             </CardContent>
           </Card>
@@ -116,9 +158,12 @@ export default function AnalyticsAndInsights() {
               <Users className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">12,234</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {analyticsData.customers.total.toLocaleString()}
+              </div>
               <p className="text-xs text-purple-500 flex items-center mt-1">
-                <TrendingUp className="h-4 w-4 mr-1" /> +15.2% from last month
+                <TrendingUp className="h-4 w-4 mr-1" /> 
+                {analyticsData.trends.monthOverMonth.customers}% from last month
               </p>
             </CardContent>
           </Card>
@@ -128,9 +173,11 @@ export default function AnalyticsAndInsights() {
               <ArrowUpRight className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">3.2%</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {analyticsData.storeMetrics.conversionRate.toLocaleString()}%
+              </div>
               <p className="text-xs text-orange-500 flex items-center mt-1">
-                <TrendingUp className="h-4 w-4 mr-1" /> +2.1% from last month
+                Average order value: ₦{analyticsData.storeMetrics.averageOrderValue.toLocaleString()}
               </p>
             </CardContent>
           </Card>
@@ -194,7 +241,7 @@ export default function AnalyticsAndInsights() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={productData}
+                      data={categoryData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -203,7 +250,7 @@ export default function AnalyticsAndInsights() {
                       dataKey="value"
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
-                      {productData.map((entry, index) => (
+                      {categoryData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -251,41 +298,87 @@ export default function AnalyticsAndInsights() {
 
           <Card className="bg-white -lg hover:-xl transition- duration-300">
             <CardHeader>
+              <CardTitle className="text-xl font-semibold text-gray-800">Top Selling Products</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {analyticsData.products.topSelling.map((product, index) => (
+                <div key={index} className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{product.name || `Product ${index + 1}`}</p>
+                    <p className="text-sm text-gray-500">Sold: {product.soldCount}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">₦{product.revenue.toLocaleString()}</p>
+                    <p className="text-sm text-gray-500">Orders: {product.orderCount}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <Card className="bg-white -lg hover:-xl transition- duration-300">
+            <CardHeader>
               <CardTitle className="text-xl font-semibold text-gray-800">Key Insights</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Revenue Growth</AlertTitle>
-                <AlertDescription>
-                  Your revenue has increased by 20.1% compared to last month. This growth is primarily driven by the
-                  Electronics category.
-                </AlertDescription>
-              </Alert>
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Customer Retention</AlertTitle>
-                <AlertDescription>
-                  Your customer retention rate is improving. 45% of this month's sales came from returning customers, up
-                  from 38% last month.
-                </AlertDescription>
-              </Alert>
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Product Performance</AlertTitle>
-                <AlertDescription>
-                  The Clothing category has shown a 15% increase in sales. Consider expanding your product range in this
-                  category.
-                </AlertDescription>
-              </Alert>
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Conversion Rate Optimization</AlertTitle>
-                <AlertDescription>
-                  Your conversion rate has improved to 3.2%. Focus on optimizing your product pages and checkout process
-                  to further increase this rate.
-                </AlertDescription>
-              </Alert>
+              {analyticsData.insights.map((insight, index) => (
+                <Alert key={index}>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>{insight.metric}</AlertTitle>
+                  <AlertDescription>
+                    {insight.recommendation}
+                    {insight.percentageChange > 0 && (
+                      <span className="text-green-600"> (+{insight.percentageChange}%)</span>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white -lg hover:-xl transition- duration-300">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-gray-800">Recommendations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start space-x-2">
+                <div className="bg-blue-100 p-2 rounded-full">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Expand Electronics Category</h3>
+                  <p className="text-sm text-gray-600">
+                    Given the strong performance of the Electronics category, consider expanding your product range or
+                    running promotions to capitalize on this trend.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-2">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <Users className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Enhance Customer Loyalty Program</h3>
+                  <p className="text-sm text-gray-600">
+                    With the increase in returning customers, consider enhancing your loyalty program to further encourage
+                    repeat purchases and increase customer lifetime value.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-2">
+                <div className="bg-purple-100 p-2 rounded-full">
+                  <ShoppingCart className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Optimize Checkout Process</h3>
+                  <p className="text-sm text-gray-600">
+                    With the improved conversion rate, focus on streamlining your checkout process. Implement one-click
+                    purchasing and guest checkout options to reduce cart abandonment.
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
