@@ -300,7 +300,8 @@ exports.getStreamDetails = async (req, res) => {
       .populate('seller', 'storeName businessName avatarUrl rating')
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
-      .populate('viewers', 'firstName lastName username');
+      .populate('viewers', 'firstName lastName username')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt');
 
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
@@ -507,12 +508,10 @@ exports.getStreamsByStatus = async (req, res) => {
     const { status, type, page = 1, limit = 10 } = req.query;
     const query = {};
 
-    // Add status filter if provided
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
     }
 
-    // Add type filter if provided
     if (type && ['auction', 'open_show'].includes(type)) {
       query.type = type;
     }
@@ -520,6 +519,7 @@ exports.getStreamsByStatus = async (req, res) => {
     const streams = await Stream.find(query)
       .populate('seller', 'storeName businessName avatarUrl rating')
       .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
       .sort({ scheduledStartTime: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
@@ -550,12 +550,10 @@ exports.getSellerStreamsByStatus = async (req, res) => {
 
     const query = { seller: sellerId };
 
-    // Add status filter if provided
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
     }
 
-    // Add type filter if provided
     if (type && ['auction', 'open_show'].includes(type)) {
       query.type = type;
     }
@@ -563,6 +561,7 @@ exports.getSellerStreamsByStatus = async (req, res) => {
     const streams = await Stream.find(query)
       .populate('seller', 'storeName businessName avatarUrl rating')
       .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
       .sort({ scheduledStartTime: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
