@@ -137,8 +137,10 @@ const productSlice = createSlice({
         });
     }).addCase(fetchSellerProducts.pending, (state) => {
         state.isLoading = true;
+        state.message = null;
     }).addCase(fetchSellerProducts.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.message = 'Products fetched successfully';
         state.products = action.payload.products;
     }).addCase(fetchSellerProducts.rejected, (state, action) => {
         state.isLoading = false;

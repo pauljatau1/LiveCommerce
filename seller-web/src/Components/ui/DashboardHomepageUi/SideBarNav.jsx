@@ -9,7 +9,7 @@ import PropTypes from 'prop-types';
 import { MdClose } from 'react-icons/md';
 
 
-const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
+const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
   const { logout } = useAuthContext();
   const navigate = useNavigate();
   const activeSideBarRef = useRef(null);
@@ -39,77 +39,81 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="min-h-screen w-[257px] xl:w-[307px] relative bg-[#05031F] z-10 flex-col items-start justify-between hidden md:flex">
-        {/* Logo Section - Fixed at top */}
-        <div className="sticky top-0 w-full z-10 pt-11 pb-3 bg-[#05031F]">
-          <img src={Logo} alt="Logo" className="w-[162px] h-[44.03px] mx-auto" />
-        </div>
+      {
+        !hideSidebar && (
+          <div className="min-h-screen w-[257px] xl:w-[307px] relative bg-[#05031F] z-10 flex-col items-start justify-between hidden md:flex">
+            {/* Logo Section - Fixed at top */}
+            <div className="sticky top-0 w-full z-10 pt-11 pb-3 bg-[#05031F]">
+              <img src={Logo} alt="Logo" className="w-[162px] h-[44.03px] mx-auto" />
+            </div>
 
-        {/* Main Navigation - Scrollable */}
-        <div className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] py-8">
-          <div className="flex flex-col gap-4">
-            {sideBarNavData.map((item) => (
-              <>
-                <NavLink
-                  to={item.path}
-                  key={item.id}
-                  onClick={() => {
-                    setIsSidebarOpen(false);
-                    handleSubNavOpen(item.id);
-                  }}
-                  className="flex items-center gap-2 p-2 px-9 py-4 
+            {/* Main Navigation - Scrollable */}
+            <div className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] py-8">
+              <div className="flex flex-col gap-4">
+                {sideBarNavData.map((item) => (
+                  <>
+                    <NavLink
+                      to={item.path}
+                      key={item.id}
+                      onClick={() => {
+                        setIsSidebarOpen(false);
+                        handleSubNavOpen(item.id);
+                      }}
+                      className="flex items-center gap-2 p-2 px-9 py-4 
                         [&.active]:bg-[#0BB248] 
                         transition-all duration-300 ease-in-out
                         hover:bg-white/10 hover:backdrop-blur-sm
                         active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md"
-                >
-                  <item.icon size={24} className="text-white" />
-                  <span className="text-white text-sm">{item.name}</span>
-                </NavLink>
-                {
-                  item?.subNav?.length > 0 && (
-                    <div className={`flex flex-col gap-2 xl:px-4 py-2 bg-[#5B5B5B] rounded-md mx-auto ${activeSideBarRef.current === item.id ? 'block' : 'hidden'}`}>
-                      {
-                        item?.subNav?.map((subNavItem) => (
-                          <NavLink
-                            to={subNavItem.path}
-                            key={subNavItem.id}
-                            id={subNavItem.id}
-                            className="flex items-center whitespace-nowrap gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
-                          >
-                            {subNavItem.name}
-                          </NavLink>
-                        ))
-                      }
-                    </div>
-                  )
-                }
-              </>
-            ))}
-          </div>
-        </div>
+                    >
+                      <item.icon size={24} className="text-white" />
+                      <span className="text-white text-sm">{item.name}</span>
+                    </NavLink>
+                    {
+                      item?.subNav?.length > 0 && (
+                        <div className={`flex flex-col gap-2 xl:px-4 py-2 bg-[#5B5B5B] rounded-md mx-auto ${activeSideBarRef.current === item.id ? 'block' : 'hidden'}`}>
+                          {
+                            item?.subNav?.map((subNavItem) => (
+                              <NavLink
+                                to={subNavItem.path}
+                                key={subNavItem.id}
+                                id={subNavItem.id}
+                                className="flex items-center whitespace-nowrap gap-2 p-2 px-9 py-2 text-white text-sm [&.active]:bg-[#0BB248] hover:bg-white/10 rounded-md"
+                              >
+                                {subNavItem.name}
+                              </NavLink>
+                            ))
+                          }
+                        </div>
+                      )
+                    }
+                  </>
+                ))}
+              </div>
+            </div>
 
-        {/* Bottom Section - Fixed at bottom */}
-        <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#05031F]">
-          <div className="flex flex-col gap-4 p-4">
-            <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
-              Auqli University
-            </NavLink>
-            <NavLink to="/dashboard/help" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
-              Help & Support
-            </NavLink>
-            <NavLink to="/dashboard/settings" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
-              Settings
-            </NavLink>
-            <button
-              className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md text-left"
-              onClick={handleLogout}
-            >
-              Log Out
-            </button>
+            {/* Bottom Section - Fixed at bottom */}
+            <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#05031F]">
+              <div className="flex flex-col gap-4 p-4">
+                <NavLink className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                  Auqli University
+                </NavLink>
+                <NavLink to="/dashboard/help" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                  Help & Support
+                </NavLink>
+                <NavLink to="/dashboard/settings" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                  Settings
+                </NavLink>
+                <button
+                  className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md text-left"
+                  onClick={handleLogout}
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        )
+      }
 
       {/* Mobile Sidebar */}
       {
@@ -207,6 +211,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen }) => {
 SideBarNav.propTypes = {
   isSidebarOpen: PropTypes.bool.isRequired,
   setIsSidebarOpen: PropTypes.func.isRequired,
+  hideSidebar: PropTypes.bool.isRequired,
 };
 
 export default SideBarNav

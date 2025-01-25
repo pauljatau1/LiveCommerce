@@ -149,19 +149,19 @@ const VariantCombinations = memo(() => {
                 </div>
                 <div className="flex gap-4">
                     <input
-                        type="text"
+                        type='number'
                         value={subVariant.price || ''}
                         onChange={(e) => handleInputChange(
                             `${mainVariant.value}_${subVariant.value}`,
                             'price',
                             e.target.value
                         )}
-                        placeholder="Price"
-                        className="w-24 px-3 py-1 border rounded"
+                        placeholder="₦0.00"
+                        className="w-24 px-3 text-sm md:text-base py-1 focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 border rounded"
                         onClick={e => e.stopPropagation()}
                     />
                     <input
-                        type="text"
+                        type="number"
                         value={subVariant.stock || ''}
                         onChange={(e) => handleInputChange(
                             `${mainVariant.value}_${subVariant.value}`,
@@ -169,7 +169,7 @@ const VariantCombinations = memo(() => {
                             e.target.value
                         )}
                         placeholder="Stock"
-                        className="w-24 px-3 py-1 border rounded"
+                        className="w-24 px-3 text-sm md:text-base py-1 focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 border rounded"
                         onClick={e => e.stopPropagation()}
                     />
                 </div>
@@ -211,15 +211,15 @@ const VariantCombinations = memo(() => {
                             </div>
                             <div className="flex gap-4">
                                 <input
-                                    type="text"
+                                    type='number'
                                     value={mainVariant.price || ''}
                                     onChange={(e) => handleInputChange(
                                         mainVariant.value,
                                         'price',
                                         e.target.value
                                     )}
-                                    placeholder="Price"
-                                    className="w-24 px-3 py-1 border rounded"
+                                    placeholder="₦0.00"
+                                    className="w-24 px-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 py-1 border rounded"
                                     onClick={e => e.stopPropagation()}
                                 />
                                 <input
@@ -231,7 +231,7 @@ const VariantCombinations = memo(() => {
                                         e.target.value
                                     )}
                                     placeholder="Stock"
-                                    className="w-24 px-3 py-1 border rounded"
+                                    className="w-24 px-3 text-sm md:text-base py-1 focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 border rounded"
                                     onClick={e => e.stopPropagation()}
                                 />
                             </div>

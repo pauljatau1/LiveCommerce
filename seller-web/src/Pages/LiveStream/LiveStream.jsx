@@ -5,36 +5,38 @@ import Header from "../../Components/ui/Header/Header";
 
 const LiveStream = () => {
     return (
-        <div className="flex flex-col justify-between gap-4 py-6">
+        <div className="flex flex-col gap-8 ">
             <Header headerTitle="MARKETING" showHeader={true} />
-            <div>
-                <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Choose a live stream model and go live now!</h1>
-                <div className="flex flex-wrap gap-4">
-                    {
-                        liveStreamCardData.map((item) => (
-                            <LiveStreamCard item={item} key={item.id} />
-                        ))
-                    }
+            
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {liveStreamCardData.map((item) => (
+                        <LiveStreamCard item={item} key={item.id} />
+                    ))}
                 </div>
             </div>
-            <div className="mt-20 bg-[#E7F7ED] rounded-[10px] px-4 py-3 lg:px-8 lg:py-7">
-                <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Live Streaming Resources</h1>
-                <p className="text-sm lg:text-base font-cabin font-normal text-[#05031F]">Get tips and best practices to grow your business through live streams</p>
+
+            <div className="bg-[#FFFFFF] border border-gray-200 rounded-xl p-8 space-y-10">
+                <div className="space-y-2">
+                    <h2 className="text-xl font-bold text-[#05031F]">
+                        Live Streaming Resources
+                    </h2>
+                    <p className="text-gray-600">
+                        Get tips and best practices to grow your business through live streams
+                    </p>
+                </div>
+                
                 <div className="relative">
-                    <div className="flex gap-4 lg:gap-8 overflow-x-scroll pb-4 mt-5 scroll-smooth 
-                [&::-webkit-scrollbar]:h-2
-                [&::-webkit-scrollbar-track]:rounded-full
-                [&::-webkit-scrollbar-track]:bg-gray-100
-                [&::-webkit-scrollbar-thumb]:rounded-full
-                [&::-webkit-scrollbar-thumb]:bg-gray-300
-                hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
-                        {
-                            suggestVideosData.map((video) => (
-                                <div key={video.id} className="flex-none">
-                                    <SuggestedVideoCard video={video} />
-                                </div>
-                            ))
-                        }
+                    <div className="flex gap-6 overflow-x-auto pb-4 scroll-smooth 
+                        [&::-webkit-scrollbar]:h-2
+                        [&::-webkit-scrollbar-track]:rounded-full
+                        [&::-webkit-scrollbar-track]:bg-[#C1BEBE]
+                        [&::-webkit-scrollbar-thumb]:rounded-full
+                        [&::-webkit-scrollbar-thumb]:bg-[#16783A]
+                        hover:[&::-webkit-scrollbar-thumb]:bg-[#16783A]/80">
+                        {suggestVideosData.map((video) => (
+                            <SuggestedVideoCard video={video} key={video.id} />
+                        ))}
                     </div>
                 </div>
             </div>
