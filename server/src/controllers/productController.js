@@ -172,7 +172,7 @@ exports.createProduct = async (req, res) => {
 
           return {
             ...subVariant,
-            images: subVariantImages.length > 0 ? subVariantImages : subVariant.images,
+            images: subVariantImages.length > 0 ? subVariantImages : variant.images,
             subSubVariants: processedSubSubVariants
           };
         }));
@@ -465,21 +465,43 @@ exports.getProduct = async (req, res) => {
               }
             },
             viewCount: '$stats.views',
-            soldCount: '$soldCount',
-            lastViewed: '$stats.lastViewed'
+            soldCount: '$stats.soldCount',
+            lastViewed: '$stats.lastViewed',
+            lastRestocked: '$stats.lastRestocked'
+          },
+          // Add inventory information
+          inventory: {
+            currentStock: '$stock',
+            lowStockAlert: '$lowStockAlert',
+            sku: '$sku'
+          },
+          // Add pricing information
+          pricing: {
+            originalPrice: '$price',
+            discountInfo: '$discount',
+            compareAtPrice: '$pricing.compareAtPrice',
+            costPerItem: '$pricing.costPerItem'
+          },
+          // Add shipping information
+          shippingDetails: {
+            weight: '$shippingInfo.weight',
+            dimensions: '$shippingInfo.dimensions',
+            methods: '$shippingInfo.shippingMethods'
           }
         }
       },
       {
         $project: {
-          sellerInfo: 0, // Remove the temporary sellerInfo field
+          sellerInfo: 0,
           'seller.password': 0,
           'seller.otp': 0,
           'seller.passwordResetToken': 0,
           'seller.passwordResetExpires': 0,
           'seller.bankDetails.accountNumber': 0,
           'seller.bankDetails.swiftCode': 0,
-          'seller.bankDetails.bankIdentifierCode': 0
+          'seller.bankDetails.bankIdentifierCode': 0,
+          // Keep other sensitive fields hidden
+          'pricing.costPerItem': 0
         }
       }
     ]);

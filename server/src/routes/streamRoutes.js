@@ -9,7 +9,7 @@ const upload = multer({ storage: multer.memoryStorage() });
  * @swagger
  * /api/streams/create:
  *   post:
- *     summary: Create a new live stream auction
+ *     summary: Create a new auction stream
  *     tags: [Streams]
  *     security:
  *       - bearerAuth: []
@@ -19,10 +19,14 @@ const upload = multer({ storage: multer.memoryStorage() });
  *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - category
+ *               - products
  *             properties:
  *               title:
  *                 type: string
- *                 required: true
  *               description:
  *                 type: string
  *               coverImage:
@@ -30,22 +34,13 @@ const upload = multer({ storage: multer.memoryStorage() });
  *                 format: binary
  *               category:
  *                 type: string
- *                 required: true
  *               tags:
- *                 type: array
- *                 items:
- *                   type: string
+ *                 type: string
+ *                 description: Comma-separated list of tags
  *               products:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     productId:
- *                       type: string
- *                     minBid:
- *                       type: number
- *                     maxBid:
- *                       type: number
+ *                 type: string
+ *                 description: JSON string array of products with bid limits
+ *                 example: '[{"productId":"123","minBid":10,"maxBid":1000},{"productId":"456","minBid":20,"maxBid":2000}]'
  *               scheduledStartTime:
  *                 type: string
  *                 format: date-time
@@ -128,7 +123,7 @@ router.post('/:streamId/end',
  * @swagger
  * /api/streams/bid:
  *   post:
- *     summary: Place a bid on a product in an active stream
+ *     summary: Place a bid on an auction stream product
  *     tags: [Streams]
  *     security:
  *       - bearerAuth: []
@@ -138,22 +133,52 @@ router.post('/:streamId/end',
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - streamId
+ *               - productId
+ *               - bidAmount
  *             properties:
  *               streamId:
  *                 type: string
+ *                 description: ID of the auction stream
  *               productId:
  *                 type: string
+ *                 description: ID of the product being bid on
  *               bidAmount:
  *                 type: number
+ *                 description: Amount of the bid
  *     responses:
  *       200:
  *         description: Bid placed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 currentBid:
+ *                   type: number
+ *                 productId:
+ *                   type: string
+ *                 streamId:
+ *                   type: string
  *       400:
- *         description: Invalid bid amount
- *       401:
- *         description: Unauthorized
+ *         description: Invalid bid amount or stream type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Bids can only be placed on auction streams
+ *       403:
+ *         description: Seller attempting to bid on their own auction
  *       404:
  *         description: Stream or product not found
+ *       500:
+ *         description: Server error
  */
 router.post('/bid',
   authMiddleware.verifyToken,
@@ -246,6 +271,121 @@ router.get('/:streamId',
 
 /**
  * @swagger
+ * /api/streams/seller/{sellerId}:
+ *   get:
+ *     summary: Get all streams for a specific seller
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of seller's streams
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId', streamController.getSellerStreams);
+
+/**
+ * @swagger
+ * /api/streams/open-live-show:
+ *   post:
+ *     summary: Create a new open live show
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - category
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               coverImage:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *               tags:
+ *                 type: string
+ *                 description: Comma-separated list of tags
+ *               scheduledStartTime:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       201:
+ *         description: Open live show created successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/open-live-show',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  upload.single('coverImage'),
+  streamController.createOpenLiveShow
+);
+
+/**
+ * @swagger
  * components:
  *   schemas:
  *     Stream:
@@ -290,5 +430,137 @@ router.get('/:streamId',
  *               currentBidder:
  *                 type: string
  */
+
+/**
+ * @swagger
+ * /api/streams:
+ *   get:
+ *     summary: Get streams filtered by status and type
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of streams
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/', streamController.getStreamsByStatus);
+
+/**
+ * @swagger
+ * /api/streams/seller/{sellerId}/filtered:
+ *   get:
+ *     summary: Get seller's streams filtered by status and type
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of seller's streams
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStatus);
 
 module.exports = router; 

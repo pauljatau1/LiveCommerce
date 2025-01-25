@@ -28,11 +28,15 @@ const streamSchema = new mongoose.Schema({
     },
     minBid: {
       type: Number,
-      required: true
+      required: function() {
+        return this.parent().type === 'auction';
+      }
     },
     maxBid: {
       type: Number,
-      required: true
+      required: function() {
+        return this.parent().type === 'auction';
+      }
     },
     currentBid: {
       type: Number,
@@ -71,7 +75,12 @@ const streamSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  type: {
+    type: String,
+    enum: ['auction', 'open_show'],
+    default: 'auction'
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Stream', streamSchema); 
