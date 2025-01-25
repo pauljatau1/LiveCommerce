@@ -52,6 +52,7 @@ import ScheduleShows from './Pages/LiveStream/ScheduleShows';
 import PastShows from './Pages/LiveStream/PastShows';
 import SubmitLiveShow from './Pages/LiveStream/SubmitLiveShow';
 import SubmitLiveAuction from './Pages/LiveStream/SubmitLiveAuction';
+import LivestreamStudio from './Pages/LiveStream/LivestreamStudio';
 
 
 
@@ -284,6 +285,11 @@ const router = createBrowserRouter([
                 element: <SubmitLiveAuction />,
                 errorElement: <NotFoundPage />
               },
+              {
+                path: 'live-stream-studio/:id',
+                element: <LivestreamStudio />,
+                errorElement: <NotFoundPage />
+              }
             ],
             errorElement: <NotFoundPage />
           },

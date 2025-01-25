@@ -161,8 +161,8 @@ export const sideBarNavData = [
         subNav: [
             {
                 id: ObjectID().toHexString(),
-                name: 'Schedule Shows',
-                path: 'live-streams/schedule-shows',
+                name: 'Scheduled Shows',
+                path: 'live-streams/scheduled-shows',
                 icon: BsBoxSeam
             },
             {

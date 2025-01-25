@@ -1,6 +1,4 @@
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
-import { NavLink } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import Header from "../../Components/ui/Header/Header";
 import LiveShowIcon from '../../assets/Background.png';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -9,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import LiveAuctionProductsCard from '../../Components/LiveAuctionProductsCard';
+import PropTypes from 'prop-types';
 
 const SuccessModal = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
@@ -76,10 +75,14 @@ const SuccessModal = ({ isOpen, onClose }) => {
     );
 };
 
+SuccessModal.propTypes = {
+    isOpen: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+};
+
 const SubmitLiveAuction = () => {
     const navigate = useNavigate();
     const { livestream, scheduleLiveShow, isLoading, message } = useLivestreamContext();
-    const { products } = useSelector(state => state.product);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     useEffect(() => {
