@@ -28,9 +28,9 @@ exports.createStream = async (req, res) => {
     // Parse products array
     let products;
     try {
-      products = typeof req.body.products === 'string' ? 
+      products = typeof req.body.products === 'string' ?
         JSON.parse(req.body.products) : req.body.products;
-      
+
       if (!Array.isArray(products)) {
         products = [products]; // Convert single object to array
       }
@@ -69,7 +69,7 @@ exports.createStream = async (req, res) => {
 
     // Generate unique channel name
     const channelName = `stream_${uuidv4()}`;
-    
+
     // Generate Agora token
     const token = agoraService.generateToken(channelName, req.user.id);
 
@@ -93,7 +93,7 @@ exports.createStream = async (req, res) => {
     });
 
     await stream.save();
-    
+
     const populatedStream = await Stream.findById(stream._id)
       .populate('seller', 'storeName businessName avatarUrl rating')
       .populate('products.product', 'name description images price');
@@ -121,16 +121,25 @@ exports.startStream = async (req, res) => {
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
+    
 
+    // Generate fresh Agora token
+    const freshToken = agoraService.generateToken(stream.channelName, req.user.id);
+
+    // Update stream with new token and status
     stream.status = 'live';
     stream.actualStartTime = new Date();
+    stream.agoraToken = freshToken; // Update with fresh token
     await stream.save();
 
     res.json({
       message: 'Stream started successfully',
-      stream
+      stream: {
+        agoraToken: freshToken // Ensure fresh token is in response
+      }
     });
   } catch (error) {
+    console.error('Start stream error:', error);
     res.status(500).json({
       message: 'Failed to start stream',
       error: error.message
@@ -141,7 +150,7 @@ exports.startStream = async (req, res) => {
 exports.placeBid = async (req, res) => {
   try {
     const { streamId, productId, bidAmount } = req.body;
-    
+
     const stream = await Stream.findOne({
       _id: streamId,
       status: 'live',
@@ -150,15 +159,15 @@ exports.placeBid = async (req, res) => {
     });
 
     if (!stream) {
-      return res.status(404).json({ 
-        message: 'Stream not found or is not an active auction stream' 
+      return res.status(404).json({
+        message: 'Stream not found or is not an active auction stream'
       });
     }
 
     // Check if stream is auction type
     if (stream.type !== 'auction') {
-      return res.status(400).json({ 
-        message: 'Bids can only be placed on auction streams' 
+      return res.status(400).json({
+        message: 'Bids can only be placed on auction streams'
       });
     }
 
@@ -167,43 +176,43 @@ exports.placeBid = async (req, res) => {
     );
 
     if (productIndex === -1) {
-      return res.status(404).json({ 
-        message: 'Product not found in this auction' 
+      return res.status(404).json({
+        message: 'Product not found in this auction'
       });
     }
 
     // Validate bid amount against min/max limits
     if (bidAmount < stream.products[productIndex].minBid) {
-      return res.status(400).json({ 
-        message: `Bid amount must be at least ${stream.products[productIndex].minBid}` 
+      return res.status(400).json({
+        message: `Bid amount must be at least ${stream.products[productIndex].minBid}`
       });
     }
 
     if (bidAmount > stream.products[productIndex].maxBid) {
-      return res.status(400).json({ 
-        message: `Bid amount cannot exceed ${stream.products[productIndex].maxBid}` 
+      return res.status(400).json({
+        message: `Bid amount cannot exceed ${stream.products[productIndex].maxBid}`
       });
     }
 
     // Check if bid is higher than current bid
-    if (stream.products[productIndex].currentBid && 
-        bidAmount <= stream.products[productIndex].currentBid) {
-      return res.status(400).json({ 
-        message: `Bid amount must be higher than current bid of ${stream.products[productIndex].currentBid}` 
+    if (stream.products[productIndex].currentBid &&
+      bidAmount <= stream.products[productIndex].currentBid) {
+      return res.status(400).json({
+        message: `Bid amount must be higher than current bid of ${stream.products[productIndex].currentBid}`
       });
     }
 
     // Prevent seller from bidding on their own auction
     if (stream.seller.toString() === req.user.id) {
-      return res.status(403).json({ 
-        message: 'Sellers cannot bid on their own auctions' 
+      return res.status(403).json({
+        message: 'Sellers cannot bid on their own auctions'
       });
     }
 
     // Update product's current bid and bidder
     stream.products[productIndex].currentBid = bidAmount;
     stream.products[productIndex].currentBidder = req.user.id;
-    
+
     // Add to bid history
     stream.bids.push({
       buyer: req.user.id,
@@ -439,7 +448,7 @@ exports.createOpenLiveShow = async (req, res) => {
 
     // Generate unique channel name
     const channelName = `openshow_${uuidv4()}`;
-    
+
     // Generate Agora token
     const token = agoraService.generateToken(channelName, req.user.id);
 
@@ -475,7 +484,7 @@ exports.createOpenLiveShow = async (req, res) => {
     });
 
     await stream.save();
-    
+
     const populatedStream = await Stream.findById(stream._id)
       .populate('seller', 'storeName businessName avatarUrl rating')
       .populate('products.product', 'name description images price');
@@ -497,12 +506,12 @@ exports.getStreamsByStatus = async (req, res) => {
   try {
     const { status, type, page = 1, limit = 10 } = req.query;
     const query = {};
-    
+
     // Add status filter if provided
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
     }
-    
+
     // Add type filter if provided
     if (type && ['auction', 'open_show'].includes(type)) {
       query.type = type;
@@ -538,14 +547,14 @@ exports.getSellerStreamsByStatus = async (req, res) => {
   try {
     const { sellerId } = req.params;
     const { status, type, page = 1, limit = 10 } = req.query;
-    
+
     const query = { seller: sellerId };
-    
+
     // Add status filter if provided
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
     }
-    
+
     // Add type filter if provided
     if (type && ['auction', 'open_show'].includes(type)) {
       query.type = type;
