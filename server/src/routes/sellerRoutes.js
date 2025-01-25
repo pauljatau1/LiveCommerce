@@ -1694,6 +1694,176 @@ router.get('/analytics/metrics',
   sellerController.getAnalyticsMetrics
 );
 
+/**
+ * @swagger
+ * /api/seller/store-profile:
+ *   put:
+ *     summary: Update store profile information
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               storeName:
+ *                 type: string
+ *               aboutStore:
+ *                 type: string
+ *               categories:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                     subCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *     responses:
+ *       200:
+ *         description: Store profile updated successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/store-profile', authMiddleware.verifyToken, sellerController.updateStoreProfile);
+
+/**
+ * @swagger
+ * /api/seller/warehouse-details:
+ *   put:
+ *     summary: Update warehouse information
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               warehouseDetails:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   contactNumber:
+ *                     type: string
+ *                   address:
+ *                     type: object
+ *                     properties:
+ *                       country:
+ *                         type: string
+ *                       state:
+ *                         type: string
+ *                       city:
+ *                         type: string
+ *                       addressLine1:
+ *                         type: string
+ *                       addressLine2:
+ *                         type: string
+ *                       zipCode:
+ *                         type: string
+ *     responses:
+ *       200:
+ *         description: Warehouse details updated successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/warehouse-details', authMiddleware.verifyToken, sellerController.updateWarehouseDetails);
+
+/**
+ * @swagger
+ * /api/seller/business-address:
+ *   put:
+ *     summary: Update business address
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               businessAddress:
+ *                 type: object
+ *                 properties:
+ *                   country:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   addressLine1:
+ *                     type: string
+ *                   addressLine2:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Business address updated successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/business-address', authMiddleware.verifyToken, sellerController.updateBusinessAddress);
+
+/**
+ * @swagger
+ * /api/seller/notification-preferences:
+ *   put:
+ *     summary: Update notification preferences
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               emailNotifications:
+ *                 type: boolean
+ *               pushNotifications:
+ *                 type: boolean
+ *               notificationTypes:
+ *                 type: object
+ *                 properties:
+ *                   orderUpdates:
+ *                     type: boolean
+ *                   lowStock:
+ *                     type: boolean
+ *                   newReviews:
+ *                     type: boolean
+ *                   promotions:
+ *                     type: boolean
+ *     responses:
+ *       200:
+ *         description: Notification preferences updated successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/notification-preferences', authMiddleware.verifyToken, sellerController.updateNotificationPreferences);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:
