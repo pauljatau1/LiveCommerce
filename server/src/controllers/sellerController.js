@@ -1929,3 +1929,91 @@ exports.getAnalyticsMetrics = async (req, res) => {
     });
   }
 };
+
+// Update store profile
+exports.updateStoreProfile = async (req, res) => {
+  try {
+    const { storeName, aboutStore, categories } = req.body;
+    const seller = await Seller.findById(req.user.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Update store information
+    if (storeName) seller.storeName = storeName;
+    if (aboutStore) seller.aboutStore = aboutStore;
+    if (categories) seller.categories = categories;
+
+    // Update completion flags
+    seller.hasFilledCategoryDetails = !!categories?.length;
+
+    const updatedSeller = await seller.save();
+    res.json({ message: 'Store profile updated successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update store profile', error: error.message });
+  }
+};
+
+// Update warehouse details
+exports.updateWarehouseDetails = async (req, res) => {
+  try {
+    const { warehouseDetails } = req.body;
+    const seller = await Seller.findById(req.user.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.warehouseDetails = warehouseDetails;
+    seller.hasFilledWarehouseAddress = true;
+
+    const updatedSeller = await seller.save();
+    res.json({ message: 'Warehouse details updated successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update warehouse details', error: error.message });
+  }
+};
+
+// Update business address
+exports.updateBusinessAddress = async (req, res) => {
+  try {
+    const { businessAddress } = req.body;
+    const seller = await Seller.findById(req.user.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.businessAddress = businessAddress;
+    seller.hasFilledBusinessAddress = true;
+
+    const updatedSeller = await seller.save();
+    res.json({ message: 'Business address updated successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update business address', error: error.message });
+  }
+};
+
+// Update notification preferences
+exports.updateNotificationPreferences = async (req, res) => {
+  try {
+    const { emailNotifications, pushNotifications, notificationTypes } = req.body;
+    const seller = await Seller.findById(req.user.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.notificationPreferences = {
+      emailNotifications,
+      pushNotifications,
+      notificationTypes
+    };
+
+    const updatedSeller = await seller.save();
+    res.json({ message: 'Notification preferences updated successfully', seller: updatedSeller });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update notification preferences', error: error.message });
+  }
+};

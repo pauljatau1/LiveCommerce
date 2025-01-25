@@ -144,6 +144,16 @@ const sellerSchema = new mongoose.Schema({
   }],
   passwordResetToken: String,
   passwordResetExpires: Date,
+  notificationPreferences: {
+    emailNotifications: { type: Boolean, default: true },
+    pushNotifications: { type: Boolean, default: true },
+    notificationTypes: {
+      orderUpdates: { type: Boolean, default: true },
+      lowStock: { type: Boolean, default: true },
+      newReviews: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: true }
+    }
+  },
 });
 
 // Middleware to update isNew property after 3 days
