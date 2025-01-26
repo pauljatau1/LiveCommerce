@@ -282,6 +282,7 @@ export default function OrdersDashboard() {
                   <TableHead className="font-semibold">Status</TableHead>
                   <TableHead className="font-semibold">Payment</TableHead>
                   <TableHead className="font-semibold">Amount</TableHead>
+                  <TableHead className="font-semibold">Channel</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -290,7 +291,7 @@ export default function OrdersDashboard() {
                   <TableRow key={order._id} className="hover:bg-gray-50">
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium">{order._id}</div>
+                        <div className="font-medium">{order._id.slice(0, 8)}...</div>
                         <div className="text-sm text-gray-500">
                           {new Date(order.createdAt).toLocaleDateString("en-US", {
                             day: "numeric",
@@ -310,7 +311,10 @@ export default function OrdersDashboard() {
                       <div className="space-y-1">
                         {order.items.map((item, index) => (
                           <div key={index} className="text-sm">
-                            {item.productName} x {item.quantity}
+                            {item?.productName?.length > 20 
+                              ? `${item?.productName?.slice(0, 20)}...` 
+                              : item?.productName}
+                            {/* <span className="text-gray-500"> ({item?.product?.slice(0, 8)})</span> */}
                           </div>
                         ))}
                       </div>
@@ -334,6 +338,7 @@ export default function OrdersDashboard() {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
+                    <TableCell>{order.channel}</TableCell>
                     <TableCell>
                       <Link to={`/dashboard/order/${order._id}`}>
                         <Button variant="secondary" className="bg-green-600 text-white hover:bg-green-700">

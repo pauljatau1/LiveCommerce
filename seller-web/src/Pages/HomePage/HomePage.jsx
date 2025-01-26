@@ -241,16 +241,16 @@ const HomePage = () => {
     const conversionRate = calculateConversionRate(analytics);
     
     return [
-        // {
-        //     id: ObjectID().toHexString(),
-        //     title: 'Store Visits',
-        //     icon: FiUsers,
-        //     current: formatMetricValue(storeVisits),
-        //     percentage: '+13%',
-        //     trend: 'up',
-        //     iconColor: 'text-blue-600',
-        //     iconBackground: 'bg-blue-50'
-        // },
+        {
+            id: ObjectID().toHexString(),
+            title: 'Store Visits',
+            icon: FiUsers,
+            current: formatMetricValue(storeVisits),
+            percentage: '+13%',
+            trend: 'up',
+            iconColor: 'text-blue-600',
+            iconBackground: 'bg-blue-50'
+        },
         {
             id: ObjectID().toHexString(),
             title: 'Wallet Balance',
@@ -322,7 +322,7 @@ const HomePage = () => {
           <div className="flex justify-center items-center">
             {
               homeAnalyticsCardData.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-9 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
                   {
                     homeAnalyticsCardData.map((card) => (
                       <HomeAnalyticsCard key={card.id} card={card} />

@@ -106,7 +106,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
 
   const desktopGoLiveButton = (
     <button 
-      onClick={() => navigate('/dashboard/live-streams')}
+      onClick={() => navigate('/dashboard/live-streams/live-stream')}
       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
     >
       Go Live
@@ -128,6 +128,24 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
       <NotificationsDialog notifications={stuffToDo?.notifications || []} />
     </Dialog>
   )
+
+  const renderAvatar = () => {
+    if (seller?.storeAvatar?.url) {
+      return (
+        <img 
+          src={seller.storeAvatar.url} 
+          alt={`${seller.firstName} ${seller.lastName}`}
+          className="h-8 w-8 rounded-full object-cover"
+        />
+      )
+    }
+    
+    return (
+      <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+        {getInitials(seller?.firstName, seller?.lastName)}
+      </div>
+    )
+  }
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -197,14 +215,17 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
 
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
-                  {getInitials(seller?.firstName, seller?.lastName)}
-                </div>
+                {renderAvatar()}
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-700">
                   {seller?.firstName} {seller?.lastName}
                 </p>
+                {seller?.storeName && (
+                  <p className="text-xs text-gray-500">
+                    {seller.storeName}
+                  </p>
+                )}
               </div>
             </div>
           </div>

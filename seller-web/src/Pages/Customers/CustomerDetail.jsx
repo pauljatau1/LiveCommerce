@@ -181,22 +181,29 @@ function CustomerDetail() {
               <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-slate-900">Recent Orders</h2>
-                  <Button variant="outline" size="sm" className="border-blue-200 text-blue-700 hover:bg-blue-50">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                    onClick={() => navigate('/dashboard/orders')}
+                  >
                     View All
                   </Button>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {customerData.recentOrders.map((order) => (
-                    <div key={order._id} className="py-3 flex items-center justify-between">
+                    <div key={order._id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
-                        <p className="font-medium text-slate-900">#{order.orderNumber}</p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {new Date(order.createdAt).toLocaleDateString('en-US', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </p>
+                        <div className="flex items-center justify-between sm:justify-start gap-3">
+                          <p className="font-medium text-slate-900">#{order.orderNumber}</p>
+                          <p className="text-xs text-slate-500">
+                            {new Date(order.createdAt).toLocaleDateString('en-US', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        </div>
                         <div className="mt-1.5">
                           {order.items.map((item, idx) => (
                             <p key={idx} className="text-xs text-slate-600">
@@ -205,7 +212,7 @@ function CustomerDetail() {
                           ))}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <p className="font-medium text-emerald-600">₦{order.totalAmount.toLocaleString()}</p>
                       </div>
                     </div>

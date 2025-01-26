@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { MessageCircle, Share2, MoreVertical, ImageIcon, VideoIcon, ThumbsUp, Heart, Bookmark, Send, Smile, AtSign, Hash, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
+import { MessageCircle, Share2, MoreVertical, ImageIcon, VideoIcon, ThumbsUp, Heart, Bookmark, Send, Smile, AtSign, Hash, X, ChevronLeft, ChevronRight, Eye, MessageSquare } from 'lucide-react'
 import { Tooltip } from "@/components/ui/tooltip"
 import { Search } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,67 @@ import LinearProgress from "@mui/material/LinearProgress"
 import { toast } from "sonner"
 import { Carousel } from 'react-responsive-carousel'
 import 'react-responsive-carousel/lib/styles/carousel.min.css'
+import { useNavigate } from 'react-router-dom'
+import Header from "@/components/ui/Header/Header"
+import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
+import { FaRegCommentDots, FaShareSquare, FaBookmark } from "react-icons/fa";
+import { IoEyeOutline } from "react-icons/io5";
+
+// Helper function to format message timestamps
+const formatMessageTime = (timestamp) => {
+  if (!timestamp) return '';
+
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInHours = (now - date) / (1000 * 60 * 60);
+
+  // If message is from today, show time
+  if (diffInHours < 24) {
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  // If message is from yesterday, show "Yesterday"
+  if (diffInHours < 48) {
+    return 'Yesterday';
+  }
+
+  // If message is from this week, show day name
+  if (diffInHours < 168) {
+    return date.toLocaleDateString([], {
+      weekday: 'long'
+    });
+  }
+
+  // Otherwise show full date
+  return date.toLocaleDateString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+// Helper function to format reaction preview text
+const formatReactionPreview = (reactions) => {
+  if (!reactions || reactions.length === 0) return '';
+  
+  const names = reactions.map(r => `${r.user.firstName} ${r.user.lastName}`);
+  if (names.length === 1) return `${names[0]} liked this`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} liked this`;
+  return `${names[0]} and ${names.length - 1} others liked this`;
+};
+
+// Helper function to format comment preview text
+const formatCommentPreview = (comments) => {
+  if (!comments || comments.length === 0) return '';
+  
+  const names = comments.map(c => `${c.author.firstName} ${c.author.lastName}`);
+  if (names.length === 1) return `${names[0]} commented`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} commented`;
+  return `${names[0]} and ${names.length - 1} others commented`;
+};
 
 // Create a new separate component for the create post modal
 const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, setPostForm }) => {
@@ -176,6 +237,19 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, se
   )
 }
 
+// Add a function to fetch a single post's updated data
+const fetchPostData = async (postId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/posts/${postId}`);
+    if (!response.ok) throw new Error('Failed to fetch post');
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching post:', error);
+    throw error;
+  }
+};
+
 export default function SocialFeed() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [activePost, setActivePost] = useState(null)
@@ -205,6 +279,10 @@ export default function SocialFeed() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [slideIndices, setSlideIndices] = useState({})
   const carouselRef = useRef(null)
+  const navigate = useNavigate()
+  const [currentConversation, setCurrentConversation] = useState(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
     setIsLoading(true)
@@ -275,6 +353,19 @@ export default function SocialFeed() {
     fetchData()
   }, [selectedTab])
 
+  useEffect(() => {
+    const sellerToken = localStorage.getItem('sellerToken');
+    if (sellerToken) {
+      try {
+        const tokenData = JSON.parse(sellerToken);
+        const userData = tokenData.user || {};
+        setCurrentUserId(userData._id);
+      } catch (error) {
+        console.error('Error parsing seller token:', error);
+      }
+    }
+  }, []);
+
   const handleOpenPostActivity = (post) => {
     setActivePost(post)
   }
@@ -284,16 +375,17 @@ export default function SocialFeed() {
   }
 
   const handleAddComment = async (postId) => {
-    if (!newComment.trim()) return
+    if (!newComment.trim()) return;
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
-      if (!sellerToken) throw new Error('Not authenticated')
+      const sellerToken = localStorage.getItem('sellerToken');
+      if (!sellerToken) throw new Error('Not authenticated');
 
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
+      const tokenData = JSON.parse(sellerToken);
+      const token = tokenData.data;
 
+      // Submit the comment
       const response = await fetch(`${BASE_URL}/posts/${postId}/comments`, {
         method: 'POST',
         headers: {
@@ -301,21 +393,36 @@ export default function SocialFeed() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ content: newComment })
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to add comment')
+      if (!response.ok) throw new Error('Failed to add comment');
 
-      const updatedPost = await response.json()
-      setActivePost(updatedPost)
-      setNewComment('')
-      toast.success('Comment added successfully')
+      // Fetch updated post data
+      const updatedPost = await fetchPostData(postId);
+
+      // Update all post lists with the new data
+      const updatePostInArray = (posts) =>
+        posts.map(post => post._id === postId ? updatedPost : post);
+
+      setPosts(prev => updatePostInArray(prev));
+      setTrendingPosts(prev => updatePostInArray(prev));
+      setNewPosts(prev => updatePostInArray(prev));
+      setMyPosts(prev => updatePostInArray(prev));
+
+      // Update active post
+      setActivePost(updatedPost);
+
+      // Clear comment input
+      setNewComment('');
+      toast.success('Comment added successfully');
 
     } catch (error) {
-      toast.error('Failed to add comment: ' + error.message)
+      console.error('Comment error:', error);
+      toast.error('Failed to add comment: ' + error.message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSlideChange = (postId, newIndex) => {
     setSlideIndices(prev => ({
@@ -326,52 +433,44 @@ export default function SocialFeed() {
 
   const handleReact = async (postId) => {
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
-      if (!sellerToken) throw new Error('Not authenticated')
+      const sellerToken = localStorage.getItem('sellerToken');
+      if (!sellerToken) throw new Error('Not authenticated');
 
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
+      const tokenData = JSON.parse(sellerToken);
+      const token = tokenData.data;
 
       const response = await fetch(`${BASE_URL}/posts/${postId}/like`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
         }
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to react to post')
+      if (!response.ok) throw new Error('Failed to react to post');
 
-      const updatedPosts = await response.json()
+      // Fetch updated post data
+      const updatedPost = await fetchPostData(postId);
       
-      switch (selectedTab) {
-        case 'all':
-          setPosts(prev => prev.map(post => 
-            post._id === postId ? { ...post, ...updatedPosts } : post
-          ))
-          break
-        case 'trending':
-          setTrendingPosts(prev => prev.map(post => 
-            post._id === postId ? { ...post, ...updatedPosts } : post
-          ))
-          break
-        case 'new':
-          setNewPosts(prev => prev.map(post => 
-            post._id === postId ? { ...post, ...updatedPosts } : post
-          ))
-          break
-        case 'my-posts':
-          setMyPosts(prev => prev.map(post => 
-            post._id === postId ? { ...post, ...updatedPosts } : post
-          ))
-          break
+      // Update all post lists
+      const updatePostInArray = (posts) =>
+        posts.map(post => post._id === postId ? updatedPost : post);
+
+      setPosts(prev => updatePostInArray(prev));
+      setTrendingPosts(prev => updatePostInArray(prev));
+      setNewPosts(prev => updatePostInArray(prev));
+      setMyPosts(prev => updatePostInArray(prev));
+
+      // If the active post is the one being reacted to, update it as well
+      if (activePost?._id === postId) {
+        setActivePost(updatedPost);
       }
 
-      toast.success('Reaction updated successfully')
+      toast.success('Reaction updated successfully');
 
     } catch (error) {
-      toast.error('Failed to react to post: ' + error.message)
+      toast.error('Failed to react to post: ' + error.message);
     }
-  }
+  };
 
   const renderPosts = () => {
     let postsToRender = []
@@ -414,6 +513,11 @@ export default function SocialFeed() {
       const reactionCount = post.reactions?.reduce((sum, r) => sum + (r.count || 0), 0) || 0
       const commentCount = Array.isArray(post.comments) ? post.comments.length : 0
 
+      const reactionPreview = formatReactionPreview(post.reactions);
+      const commentPreview = formatCommentPreview(post.comments);
+
+      const hasUserReacted = post.reactions?.some(r => r.user?.userId === currentUserId) || false;
+
       return (
         <Card key={post._id} className="overflow-hidden hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center space-y-0 p-4">
@@ -435,9 +539,9 @@ export default function SocialFeed() {
           </CardHeader>
 
           <CardContent className="p-4 pt-0 space-y-4">
-            <p className="text-lg">{postBody}</p>
+            <p className="text-base md:text-lg">{postBody}</p>
             {postTags.length > 0 && (
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 md:flex-wrap custom-scrollbar">
                 {postTags.map((tag, index) => (
                   <Badge
                     key={`${tag}-${index}`}
@@ -451,7 +555,7 @@ export default function SocialFeed() {
             )}
             {postImages.length > 0 && (
               <div className="relative rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
-                <div className="flex gap-4 p-4">
+                <div className="flex flex-col md:flex-row gap-4 p-4">
                   <div className="flex-1">
                     <div className="relative aspect-[16/9] rounded-xl overflow-hidden">
                       <img
@@ -485,7 +589,7 @@ export default function SocialFeed() {
                   </div>
 
                   {postImages.length > 1 && (
-                    <div className="w-32 space-y-2 overflow-y-auto max-h-[400px] custom-scrollbar">
+                    <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:w-32 md:max-h-[400px] custom-scrollbar">
                       {postImages.map((img, index) => (
                         <button
                           key={index}
@@ -515,37 +619,53 @@ export default function SocialFeed() {
                   )}
                 </div>
 
-                {/* Enhanced post analytics */}
-                <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4 px-4 pb-2">
-                  <div className="grid grid-cols-4 gap-4 text-sm">
+                {/* Updated analytics section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-2 text-green-600">
-                        <Eye className="h-4 w-4" />
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <IoEyeOutline className="h-5 w-5" />
                         <span className="font-semibold">{post.stats?.viewCount || 0}</span>
                       </div>
                       <span className="text-gray-500 mt-1">Views</span>
                     </div>
                     <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
                       <div className="flex items-center gap-2 text-red-500">
-                        <Heart className="h-4 w-4" />
+                        <AiFillHeart className="h-5 w-5" />
                         <span className="font-semibold">{post.stats?.likeCount || 0}</span>
                       </div>
                       <span className="text-gray-500 mt-1">Likes</span>
                     </div>
                     <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
                       <div className="flex items-center gap-2 text-blue-500">
-                        <MessageCircle className="h-4 w-4" />
+                        <FaRegCommentDots className="h-5 w-5" />
                         <span className="font-semibold">{post.comments?.length || 0}</span>
                       </div>
                       <span className="text-gray-500 mt-1">Comments</span>
                     </div>
                     <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
                       <div className="flex items-center gap-2 text-purple-500">
-                        <Share2 className="h-4 w-4" />
+                        <FaShareSquare className="h-5 w-5" />
                         <span className="font-semibold">{post.stats?.shareCount || 0}</span>
                       </div>
                       <span className="text-gray-500 mt-1">Shares</span>
                     </div>
+                  </div>
+
+                  {/* Reaction and Comment Previews */}
+                  <div className="mt-4 space-y-2 text-sm">
+                    {reactionPreview && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <AiFillHeart className="h-4 w-4 text-red-500" />
+                        <span>{reactionPreview}</span>
+                      </div>
+                    )}
+                    {commentPreview && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <FaRegCommentDots className="h-4 w-4 text-blue-500" />
+                        <span>{commentPreview}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -554,23 +674,37 @@ export default function SocialFeed() {
 
           <CardFooter className="p-4 flex flex-col gap-4">
             <div className="flex justify-between items-center w-full">
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="gap-2" onClick={() => handleReact(post._id)}>
-                  <Heart className={`h-4 w-4 ${post.liked ? 'fill-red-500 text-red-500' : ''}`} />
-                  {reactionCount}
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2" 
+                  onClick={() => handleReact(post._id)}
+                >
+                  {hasUserReacted ? (
+                    <AiFillHeart className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <AiOutlineHeart className="h-5 w-5" />
+                  )}
+                  <span>{post.stats?.likeCount || 0}</span>
                 </Button>
-                <Button variant="ghost" size="sm" className="gap-2" onClick={() => handleOpenPostActivity(post)}>
-                  <MessageCircle className="h-4 w-4" />
-                  {commentCount}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2" 
+                  onClick={() => handleOpenPostActivity(post)}
+                >
+                  <FaRegCommentDots className="h-5 w-5" />
+                  <span>{post.comments?.length || 0}</span>
                 </Button>
                 <Button variant="ghost" size="sm" className="gap-2">
-                  <Share2 className="h-4 w-4" />
-                  Share
+                  <FaShareSquare className="h-5 w-5" />
+                  <span>Share</span>
                 </Button>
               </div>
               <Button variant="ghost" size="sm" className="gap-2">
-                <Bookmark className={`h-4 w-4 ${post.bookmarked ? 'fill-current' : ''}`} />
-                Save
+                <FaBookmark className={`h-5 w-5 ${post.bookmarked ? 'fill-current' : ''}`} />
+                <span>Save</span>
               </Button>
             </div>
           </CardFooter>
@@ -580,26 +714,12 @@ export default function SocialFeed() {
   }
 
   const renderPostActivity = () => {
-    if (!activePost) return null
-
-    const reactions = activePost.reactions || []
-    const comments = activePost.comments || []
-
-    const getAuthorInitial = (author) => {
-      if (!author) return 'A'
-      if (typeof author === 'string') return author.charAt(0)
-      if (author.name) return author.name.charAt(0)
-      if (author.businessName) return author.businessName.charAt(0)
-      return 'A'
-    }
+    if (!activePost) return null;
 
     const getAuthorName = (author) => {
-      if (!author) return 'Anonymous'
-      if (typeof author === 'string') return author
-      if (author.name) return author.name
-      if (author.businessName) return author.businessName
-      return 'Anonymous'
-    }
+      if (!author) return 'Anonymous';
+      return `${author.firstName} ${author.lastName}`;
+    };
 
     return (
       <Dialog open={!!activePost} onOpenChange={handleClosePostActivity}>
@@ -611,11 +731,11 @@ export default function SocialFeed() {
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Reactions</h3>
               <div className="flex gap-2 flex-wrap">
-                {reactions.map((reaction, index) => (
-                  <Button key={index} variant="outline" size="sm" className="gap-2">
-                    {reaction.type}
-                    <span className="font-semibold">{reaction.count || 0}</span>
-                  </Button>
+                {activePost.reactions?.map((reaction, index) => (
+                  <div key={index} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-full px-3 py-1">
+                    <AiFillHeart className="h-4 w-4 text-red-500" />
+                    <span className="text-sm">{getAuthorName(reaction.user)}</span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -623,7 +743,7 @@ export default function SocialFeed() {
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Comments</h3>
               <ScrollArea className="h-[400px] pr-4">
-                {comments.map((comment, index) => (
+                {activePost.comments?.map((comment, index) => (
                   <div
                     key={comment._id || index}
                     className="flex items-start gap-3 mb-6"
@@ -633,8 +753,9 @@ export default function SocialFeed() {
                         src={comment.author?.image}
                         alt={getAuthorName(comment.author)}
                       />
-                      <AvatarFallback>
-                        {getAuthorInitial(comment.author)}
+                      <AvatarFallback className="bg-green-500 text-white">
+                        {comment.author?.firstName?.[0]}
+                        {comment.author?.lastName?.[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
@@ -642,15 +763,10 @@ export default function SocialFeed() {
                         <p className="font-semibold">
                           {getAuthorName(comment.author)}
                         </p>
-                        <p className="text-sm mt-1">{comment.content || ''}</p>
+                        <p className="text-sm mt-1">{comment.content}</p>
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                        <span>
-                          {comment.createdAt
-                            ? new Date(comment.createdAt).toLocaleDateString()
-                            : 'Recently'
-                          }
-                        </span>
+                        <span>{formatMessageTime(comment.createdAt)}</span>
                         <button className="hover:text-gray-700">Like</button>
                         <button className="hover:text-gray-700">Reply</button>
                       </div>
@@ -659,26 +775,35 @@ export default function SocialFeed() {
                 ))}
               </ScrollArea>
 
-              <div className="flex items-center gap-2 mt-4">
-                <Input
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write a comment..."
-                  className="flex-1"
-                />
-                <Button
-                  onClick={() => handleAddComment(activePost._id)}
-                  disabled={!newComment.trim() || isLoading}
-                >
-                  {isLoading ? 'Posting...' : 'Post'}
-                </Button>
+              <div className="flex items-start gap-3 mt-4 pt-4 border-t">
+                <Avatar>
+                  <AvatarFallback className="bg-green-500 text-white">
+                    {localStorage.getItem('sellerToken') ? 
+                      JSON.parse(localStorage.getItem('sellerToken')).user?.firstName?.[0] : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-3">
+                  <Textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="min-h-[100px] resize-none"
+                  />
+                  <Button
+                    onClick={() => handleAddComment(activePost._id)}
+                    disabled={!newComment.trim() || isLoading}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {isLoading ? 'Posting...' : 'Post Comment'}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-    )
-  }
+    );
+  };
 
   const handleTabChange = (value) => {
     setSelectedTab(value)
@@ -863,6 +988,65 @@ export default function SocialFeed() {
     }
   }
 
+  const renderChatList = () => (
+    <ScrollArea className="h-full">
+      {conversations && conversations.length > 0 ? (
+        conversations.map((conv) => (
+          <div
+            key={conv._id}
+            className={`p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-100 ${
+              currentConversation?._id === conv._id ? 'bg-green-50' : ''
+            }`}
+            onClick={() => {
+              setCurrentConversation(conv)
+              navigate('/dashboard/messages', {
+                state: {
+                  conversationId: conv._id,
+                  participantId: conv.participant.id,
+                  participantName: conv.participant.name
+                }
+              })
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
+                <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-center mb-0.5">
+                  <h3 className="text-sm font-medium text-gray-900 truncate">
+                    {conv.participant.name}
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    {formatMessageTime(conv.lastMessage.createdAt)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-gray-600 truncate max-w-[180px]">
+                    {conv.lastMessage.content.length > 50 
+                      ? `${conv.lastMessage.content.substring(0, 50)}...` 
+                      : conv.lastMessage.content}
+                  </p>
+                  {conv.unreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center bg-green-600 text-white text-xs rounded-full h-4 min-w-[16px] px-1">
+                      {conv.unreadCount}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full p-4 text-gray-500">
+          <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
+          <p className="text-sm">No conversations yet</p>
+        </div>
+      )}
+    </ScrollArea>
+  );
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -875,19 +1059,37 @@ export default function SocialFeed() {
 
   return (
     <div className='min-h-screen dark:bg-gray-900'>
-      <div className='py-8 px-4'>
-        <header className='flex items-center justify-between mb-8'>
-          <h1 className='text-4xl font-bold bg-gradient-to-r from-gray-600 to-gray-950 bg-clip-text text-transparent'>
-            Auqli Connect
-          </h1>
-          <div className='flex items-center gap-4'>
+      <Header 
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        name="Auqli Connect"
+      />
+      
+      <div className='py-4 px-4 md:py-8 md:px-6'>
+        <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8'>
+          <div className='flex items-center justify-between md:justify-start gap-4'>
             <Input
               placeholder="Search posts, people, or tags..."
-              className="w-64 bg-white dark:bg-gray-800"
+              className="flex-1 md:w-64 bg-white dark:bg-gray-800"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               prefix={<Search className="w-4 h-4 text-gray-400" />}
             />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="md:hidden">
+                <Bell className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => setIsCreatePostOpen(true)}
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white md:hidden"
+              >
+                +
+              </Button>
+            </div>
+          </div>
+          
+          <div className='hidden md:flex items-center gap-4'>
             <Button variant="outline" className="gap-2">
               <Bell className="w-4 h-4" />
               <Badge variant="secondary" className="ml-1">3</Badge>
@@ -899,21 +1101,22 @@ export default function SocialFeed() {
               Create Post
             </Button>
           </div>
-        </header>
+        </div>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1">
             <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="grid w-full grid-cols-5 mb-8 p-1 rounded-xl">
-                {["all", "new", "trending", "my-posts", "blips"].map(tab => (
-                  <TabsTrigger
-                    key={tab}
-                    value={tab}
-                    className="data-[state=active]:bg-gray-950 data-[state=active]:text-white rounded-lg transition-all"
-                  >
-                    {tab.toUpperCase()}
-                  </TabsTrigger>
-                ))}
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 mb-6 md:mb-8 p-1 rounded-xl">
+                <TabsTrigger value="all">ALL</TabsTrigger>
+                <TabsTrigger value="new">NEW</TabsTrigger>
+                <TabsTrigger value="trending">TRENDING</TabsTrigger>
+                <TabsTrigger value="my-posts" className="hidden md:block">MY POSTS</TabsTrigger>
+                <TabsTrigger value="blips" className="hidden md:block">BLIPS</TabsTrigger>
+              </TabsList>
+
+              <TabsList className="grid w-full grid-cols-2 mb-6 p-1 rounded-xl md:hidden">
+                <TabsTrigger value="my-posts">MY POSTS</TabsTrigger>
+                <TabsTrigger value="blips">BLIPS</TabsTrigger>
               </TabsList>
 
               <TabsContent value="all" className="space-y-6">
@@ -943,42 +1146,17 @@ export default function SocialFeed() {
               <CardHeader className="p-4">
                 <h2 className="text-xl font-bold">Messages</h2>
               </CardHeader>
-              <ScrollArea className="h-[calc(100vh-200px)]">
-                <CardContent className="p-4 space-y-4">
-                  {conversations.map(chat => (
-                    <div
-                      key={chat._id}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                    >
-                      <div className="relative">
-                        <Avatar>
-                          <AvatarImage src={chat.participant.image || "https://v0.dev/placeholder.svg"} />
-                          <AvatarFallback>{chat.participant.name?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold truncate">{chat.participant.name}</p>
-                          {chat.unreadCount > 0 && (
-                            <Badge variant="secondary" className="ml-2">
-                              {chat.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 truncate">
-                          {chat.lastMessage?.content}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(chat.lastMessage?.createdAt).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </ScrollArea>
+              {renderChatList()}
             </Card>
           </div>
         </div>
+
+        <Button
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white lg:hidden"
+          onClick={() => navigate('/dashboard/messages')}
+        >
+          <MessageCircle className="h-6 w-6" />
+        </Button>
       </div>
 
       {renderPostActivity()}

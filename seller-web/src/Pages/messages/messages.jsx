@@ -5,6 +5,7 @@ import { Input } from "@/Components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
+import { Menu } from 'lucide-react';
 import {
   PaperclipIcon,
   SmileIcon,
@@ -13,7 +14,12 @@ import {
   Check,
   CheckCheck,
   Eye,
-  MessageSquarePlus
+  MessageSquarePlus,
+  Search,
+  MoreVertical,
+  ArrowLeft,
+ 
+  X
 } from 'lucide-react';
 import { toast } from "sonner";
 import { BASE_URL } from "@/Constants/Server";
@@ -88,6 +94,8 @@ export default function ChatInterface() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const [initialMessage, setInitialMessage] = useState("");
+  const [showChatList, setShowChatList] = useState(true);
+  const [showQuickTools, setShowQuickTools] = useState(false);
 
   // Fetch conversations
   useEffect(() => {
@@ -261,6 +269,59 @@ export default function ChatInterface() {
 
     initializeDirectMessage();
   }, [location.state]);
+
+  // Update the effect to properly handle the conversation data
+  useEffect(() => {
+    const handleNavigatedConversation = async () => {
+      if (!location.state?.conversationId) return;
+
+      try {
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        
+        // Fetch conversation details
+        const response = await fetch(`${BASE_URL}/conversations/${location.state.conversationId}`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch conversation');
+        
+        const data = await response.json();
+        
+        // Ensure we have a properly structured conversation object
+        const conversation = {
+          ...data.conversation,
+          participant: {
+            id: location.state.participantId,
+            name: location.state.participantName,
+            avatar: data.conversation?.participant?.avatar || null,
+            isOnline: data.conversation?.participant?.isOnline || false
+          }
+        };
+        
+        setCurrentConversation(conversation);
+        
+        // Fetch messages
+        const messagesResponse = await fetch(`${BASE_URL}/messages/${location.state.conversationId}`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        
+        if (!messagesResponse.ok) throw new Error('Failed to fetch messages');
+        
+        const messagesData = await messagesResponse.json();
+        setMessages(messagesData.messages || []);
+
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+        toast.error('Failed to load conversation');
+      }
+    };
+
+    handleNavigatedConversation();
+  }, [location.state?.conversationId]);
 
   // Enhanced handleSendMessage with immediate UI update
   const handleSendMessage = async () => {
@@ -628,7 +689,16 @@ export default function ChatInterface() {
             className={`p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-100 ${
               currentConversation?._id === conv._id ? 'bg-green-50' : ''
             }`}
-            onClick={() => setCurrentConversation(conv)}
+            onClick={() => {
+              // Navigate to messages with conversation context
+              navigate('/dashboard/messages', {
+                state: {
+                  conversationId: conv._id,
+                  participantId: conv.participant.id,
+                  participantName: conv.participant.name
+                }
+              });
+            }}
           >
             <div className="flex items-center gap-2">
               <Avatar className="h-10 w-10">
@@ -644,14 +714,18 @@ export default function ChatInterface() {
                     {formatMessageTime(conv.lastMessage.createdAt)}
                   </span>
                 </div>
-                <p className="text-xs text-gray-600 truncate max-w-[180px]">
-                  {conv.lastMessage.content}
-                </p>
-                {conv.unreadCount > 0 && (
-                  <span className="inline-flex items-center justify-center bg-green-600 text-white text-xs rounded-full h-4 min-w-[16px] px-1 mt-1">
-                    {conv.unreadCount}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-gray-600 truncate max-w-[180px]">
+                    {conv.lastMessage.content.length > 50 
+                      ? `${conv.lastMessage.content.substring(0, 50)}...` 
+                      : conv.lastMessage.content}
+                  </p>
+                  {conv.unreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center bg-green-600 text-white text-xs rounded-full h-4 min-w-[16px] px-1">
+                      {conv.unreadCount}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -674,38 +748,72 @@ export default function ChatInterface() {
     </div>
   );
 
-  // Update chat header with improved styling
-  const ChatHeader = () => {
-    if (!currentConversation) return null;
-    const participant = currentConversation.participant;
+  // Add helper to determine if mobile view
+  const isMobileView = () => window.innerWidth < 768;
 
+  // Update useEffect to handle mobile navigation
+  useEffect(() => {
+    if (currentConversation && isMobileView()) {
+      setShowChatList(false);
+    }
+  }, [currentConversation]);
+
+  // Add back button component for mobile
+  const BackButton = () => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="md:hidden"
+      onClick={() => {
+        setShowChatList(true);
+        setCurrentConversation(null);
+      }}
+    >
+      <ArrowLeft className="h-4 w-4 mr-2" />
+      Back
+    </Button>
+  );
+
+  // Update ChatHeader with mobile controls
+  const ChatHeader = () => {
+    const participant = currentConversation?.participant || {};
+    
     return (
-      <div className="px-4 py-3 border-b bg-white shadow-sm">
+      <div className="px-4 py-3 border-b bg-white">
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={participant.avatar || "/placeholder.svg"} />
-            <AvatarFallback>{participant.name[0]}</AvatarFallback>
+          <BackButton />
+          <Avatar className="h-9 w-9">
+            {participant.avatar ? (
+              <AvatarImage src={participant.avatar} alt={participant.name || 'User'} />
+            ) : (
+              <AvatarFallback>
+                {participant.name ? participant.name[0].toUpperCase() : 'U'}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div className="flex-1">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">{participant.name}</h2>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <div className="h-1.5 w-1.5 bg-green-500 rounded-full"></div>
-                    last seen recently
-                  </span>
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate(`/dashboard/customer/${participant.id}`)} // Add navigation
-                className="text-xs"
-              >
-                View Profile
-              </Button>
-            </div>
+            <h3 className="text-sm font-medium text-gray-900">
+              {participant.name || 'Unknown User'}
+            </h3>
+            <p className="text-xs text-gray-500">
+              {participant.isOnline ? 'Online' : 'Offline'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 p-0 md:hidden"
+              onClick={() => setShowQuickTools(!showQuickTools)}
+            >
+              <Menu className="h-4 w-4 text-gray-500" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 hidden md:block w-8 p-0">
+              <Search className="h-4 w-4 text-gray-500" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8  hidden md:block w-8 p-0">
+              <MoreVertical className="h-4 w-4 text-gray-500" />
+            </Button>
           </div>
         </div>
       </div>
@@ -791,9 +899,29 @@ export default function ChatInterface() {
 
   // Update Quick Tools with improved styling
   const renderQuickTools = () => (
-    <div className="w-[280px] border-l bg-white flex flex-col">
-      <div className="px-4 py-3 border-b">
+    <div className={`
+      ${showQuickTools ? 'translate-x-0' : 'translate-x-full'}
+      md:translate-x-0
+      transition-transform
+      fixed md:relative
+      right-0 top-0 bottom-0
+      md:right-auto md:top-auto md:bottom-auto
+      w-[280px]
+      border-l bg-white
+      z-50
+      md:flex
+      flex-col
+    `}>
+      <div className="px-4 py-3 border-b flex justify-between items-center">
         <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="md:hidden"
+          onClick={() => setShowQuickTools(false)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
       <Tabs defaultValue="products" className="flex-1 flex flex-col">
         <TabsList className="w-full border-b p-0">
@@ -1039,7 +1167,14 @@ export default function ChatInterface() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-[300px] bg-white border-r flex flex-col">
+        {/* Chat list - hidden on mobile when conversation is open */}
+        <div className={`
+          ${showChatList ? 'flex' : 'hidden'} 
+          md:flex
+          w-full md:w-[300px] 
+          bg-white border-r 
+          flex-col
+        `}>
           <div className="p-3 border-b space-y-3">
             <NewMessageDialog />
             <Input
@@ -1051,49 +1186,83 @@ export default function ChatInterface() {
           {renderChatList()}
         </div>
 
-        {currentConversation ? (
-          <div className="flex-1 flex flex-col bg-white">
-            <ChatHeader />
-            {renderMessages()}
-            <div className="px-4 py-3 border-t bg-white">
-              <div className="flex gap-2">
-                <Input
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  placeholder="Type your message..."
-                  className="flex-1 text-sm h-9"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                />
-                <input
-                  type="file"
-                  id="file-upload"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload(e.target.files[0])}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 px-3"
-                  onClick={() => document.getElementById('file-upload').click()}
-                >
-                  <PaperclipIcon className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-9 px-3 bg-green-600 hover:bg-green-700"
-                  onClick={handleSendMessage}
-                >
-                  <SendHorizontal className="h-4 w-4" />
-                </Button>
+        {/* Main chat area - shown on mobile when conversation is selected */}
+        <div className={`
+          ${(!showChatList || !isMobileView()) ? 'flex' : 'hidden'}
+          md:flex
+          flex-1 flex-col 
+          bg-white
+        `}>
+          {currentConversation ? (
+            <>
+              <ChatHeader />
+              {renderMessages()}
+              <div className="px-4 py-3 border-t bg-white">
+                <div className="flex gap-2">
+                  <Input
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    placeholder="Type your message..."
+                    className="flex-1 text-sm h-9"
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  />
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e.target.files[0])}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-3"
+                    onClick={() => document.getElementById('file-upload').click()}
+                  >
+                    <PaperclipIcon className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-9 px-3 bg-green-600 hover:bg-green-700"
+                    onClick={handleSendMessage}
+                  >
+                    <SendHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        ) : (
-          <EmptyState />
-        )}
+            </>
+          ) : (
+            <EmptyState />
+          )}
+        </div>
 
-        {renderQuickTools()}
+        {/* Quick tools panel - slides in from right on mobile */}
+        <div className={`
+          ${showQuickTools ? 'translate-x-0' : 'translate-x-full'}
+          md:translate-x-0
+          transition-transform
+          fixed md:relative
+          right-0 top-0 bottom-0
+          md:right-auto md:top-auto md:bottom-auto
+          w-[280px]
+          border-l bg-white
+          z-50
+          md:flex
+          flex-col
+        `}>
+          <div className="px-4 py-3 border-b flex justify-between items-center">
+            <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="md:hidden"
+              onClick={() => setShowQuickTools(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {renderQuickTools()}
+        </div>
       </div>
     </div>
   );
