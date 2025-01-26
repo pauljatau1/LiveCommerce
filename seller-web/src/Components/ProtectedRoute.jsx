@@ -87,10 +87,12 @@ const ProtectedRoute = ({ children }) => {
           } else {
             navigate('/login');
           }
-        } else if (response.status === 401) {
-          console.log("Token is invalid");
+        }
+      } catch (error) {
+        if (error.response.status === 401) {
+          console.log("Token is invalid", error);
           toast.error("Token is invalid", {
-            description: "Please login again",
+            description: error.response?.data?.message || error.message,
             style: {
               background: '#05031F',
               color: '#fff',
@@ -98,15 +100,6 @@ const ProtectedRoute = ({ children }) => {
           });
           navigate('/');
         }
-      } catch (error) {
-        console.log(error);
-        toast.error('Token Verification Failed', {
-          description: error.response?.data?.message || error.message,
-          style: {
-            background: '#05031F',
-            color: '#fff',
-          }
-        });
       }
     }
 
