@@ -16,12 +16,19 @@ import {
 } from "@/components/ui/dialog"
 import Loader from '@/Components/Loader'
 import { BASE_URL } from '@/Constants/Server'
+import { useOutletContext } from 'react-router-dom'
 
 export default function OrderDetails() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const { id } = useParams()
   const [orderData, setOrderData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [arrangePickupLoading, setArrangePickupLoading] = useState(false)
+
+  useEffect(() => {
+    setHeaderName('Order')
+    setNavName('Orders Details')
+  }, [])
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -101,15 +108,16 @@ export default function OrderDetails() {
   if (loading || !orderData) return <Loader />
 
   const { order, buyer, seller, items, shipping, addresses, timeline } = orderData
+  console.log('orderData', orderData)
 
   const getStatusColor = (status) => {
     const colors = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      completed: 'bg-green-100 text-green-700',
-      paid: 'bg-green-100 text-green-700',
-      failed: 'bg-red-100 text-red-700'
+      pending: 'bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 text-yellow-700',
+      completed: 'bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 text-green-700',
+      paid: 'bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 text-green-700',
+      failed: 'bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 text-red-700'
     }
-    return colors[status] || 'bg-gray-100 text-gray-700'
+    return colors[status] || 'bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 text-gray-700'
   }
 
   return (
@@ -120,10 +128,10 @@ export default function OrderDetails() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <ShoppingBag className="h-4 w-4" />
-                  <h1 className="text-xl font-semibold">Order #{order?._id}</h1>
-                  <Badge variant="outline" className="bg-blue-600 text-white border-white/10 text-xs">
+                  <h1 className="text-xl font-inter font-semibold">Order #{order?._id}</h1>
+                  <Badge variant="outline" className="bg-blue-600 mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                     {order?.channel}
                   </Badge>
                 </div>
@@ -138,7 +146,7 @@ export default function OrderDetails() {
                   onClick={arrangePickup}
                   disabled={arrangePickupLoading}
                   size="lg"
-                  className="bg-green-600 hover:bg-green-600 text-white text-sm h-10"
+                  className="bg-green-600 hover:bg-green-600 capitalize transition-all duration-300 text-white text-sm h-10"
                 >
                   <Truck className="mr-2 h-3 w-3" />
                   {arrangePickupLoading ? 'Arranging...' : 'Arrange Pickup'}
@@ -146,17 +154,17 @@ export default function OrderDetails() {
               )}
             </div>
 
-            <div className="flex gap-2 mt-1">
-              <Badge className={`${getStatusColor(order?.paymentInfo?.status)} text-xs`}>
+            <div className="flex flex-wrap gap-2 mt-1">
+              <Badge className={`${getStatusColor(order?.paymentInfo?.status)} px-3 py-1 rounded-md text-xs`}>
                 <CreditCard className="h-3 w-3 mr-1" />
                 Payment: {order?.paymentInfo?.status}
               </Badge>
-              <Badge className={`${getStatusColor(shipping?.tracking?.status)} text-xs`}>
+              <Badge className={`${getStatusColor(shipping?.tracking?.status)} px-3 py-1 rounded-md text-xs`}>
                 <Truck className="h-3 w-3 mr-1" />
                 Shipping: {shipping?.tracking?.status}
               </Badge>
               {order?.dispute?.status !== 'none' && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge variant="destructive" className="text-xs px-3 py-1 rounded-md capitalize transition-all duration-300">
                   <AlertCircle className="h-3 w-3 mr-1" />
                   Dispute: {order?.dispute?.status || 'none'}
                 </Badge>
@@ -166,7 +174,7 @@ export default function OrderDetails() {
         </div>
 
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className=" grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="p-3 bg-gray-50 rounded-md border border-gray-100">
               <div className="flex items-center gap-2 mb-2">
                 <User className="h-4 w-4 text-blue-500" />
@@ -230,12 +238,12 @@ export default function OrderDetails() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid gap-6 md:grid-cols-1 xl:grid-cols-3 w-full">
+        <div className="xl:col-span-2 space-y-6">
           {/* Order Items - More subtle design */}
           <Card className="border border-gray-100 shadow-sm bg-white">
             <CardHeader className="border-b border-gray-100 p-4">
-              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+              <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
                 <Box className="h-4 w-4 text-blue-500" />
                 Order Items
               </CardTitle>
@@ -261,7 +269,7 @@ export default function OrderDetails() {
                       ))}
                     </div>
                   </div>
-                  <div className="text-right space-y-1 text-sm">
+                  <div className="text-left md:text-right space-y-1 text-sm">
                     <p className="font-medium">₦{item?.price?.toLocaleString()}</p>
                     <p className="text-xs text-gray-600">
                       Qty: {item?.quantity}
@@ -275,7 +283,7 @@ export default function OrderDetails() {
           {/* Timeline - More subtle design */}
           <Card className="border border-gray-100 shadow-sm bg-white">
             <CardHeader className="border-b border-gray-100 p-4">
-              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+              <CardTitle className="flex items-center font-inter gap-2 text-sm xl:text-base text-gray-700">
                 <Clock className="h-4 w-4 text-blue-500" />
                 Order Timeline
               </CardTitle>
@@ -318,7 +326,7 @@ export default function OrderDetails() {
                   </div>
                 )}
                 <Separator />
-                <div className="flex justify-between text-lg font-semibold">
+                <div className="flex justify-between text-lg font-inter font-semibold">
                   <span>Total</span>
                   <span>₦{((order?.totalAmount || 0) + (shipping?.fee?.amount || 0)).toLocaleString()}</span>
                 </div>
@@ -343,11 +351,11 @@ export default function OrderDetails() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-6 w-full">
           {/* Addresses */}
-          <Card className="border border-gray-100 shadow-sm bg-white">
+          <Card className="border w-full border-gray-100 shadow-sm bg-white">
             <CardHeader className="border-b border-gray-100 p-4">
-              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+              <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
                 <MapPin className="h-4 w-4 text-blue-500" />
                 Delivery Details
               </CardTitle>
@@ -355,7 +363,7 @@ export default function OrderDetails() {
             <CardContent className="space-y-4">
               {/* Delivery Address */}
               <div>
-                <h3 className="font-semibold mb-2">Delivery Address</h3>
+                <h3 className="font-inter font-semibold mb-2">Delivery Address</h3>
                 <div className="text-sm space-y-1">
                   <p className="font-medium">
                     {addresses?.delivery?.first_name} {addresses?.delivery?.last_name}
@@ -373,7 +381,7 @@ export default function OrderDetails() {
 
               {/* Pickup Address */}
               <div>
-                <h3 className="font-semibold mb-2">Pickup Address</h3>
+                <h3 className="font-inter font-semibold mb-2">Pickup Address</h3>
                 <div className="text-sm space-y-1">
                   <p className="font-medium">
                     {addresses?.pickup?.first_name} {addresses?.pickup?.last_name}
@@ -394,7 +402,7 @@ export default function OrderDetails() {
           {/* Shipping Status */}
           <Card className="border border-gray-100 shadow-sm bg-white">
             <CardHeader className="border-b border-gray-100 p-4">
-              <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+              <CardTitle className="flex items-center font-inter gap-2 text-sm text-gray-700">
                 <Truck className="h-4 w-4 text-blue-500" />
                 Shipping Information
               </CardTitle>
@@ -422,7 +430,7 @@ export default function OrderDetails() {
                     {shipping.documents.shippingLabel && (
                       <Button
                         
-                        className="w-full flex items-center bg-gray-800 justify-center gap-2"
+                        className="w-full flex items-center font-inter bg-gray-800 hover:bg-gray-900 transition-all duration-300 justify-center gap-2"
                         onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
                       >
                         <svg
@@ -446,7 +454,7 @@ export default function OrderDetails() {
                     {shipping.documents.commercialInvoice && (
                       <Button
                         variant="outline"
-                        className="w-full flex items-center justify-center gap-2"
+                        className="w-full flex items-center font-inter justify-center gap-2"
                         onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
                       >
                         <svg
@@ -475,7 +483,7 @@ export default function OrderDetails() {
               
               {shipping?.tracking?.history?.length > 0 && (
                 <div className="mt-4">
-                  <h4 className="font-medium mb-2">Tracking History</h4>
+                  <h4 className="font-inter font-medium mb-2">Tracking History</h4>
                   <div className="space-y-2">
                     {shipping.tracking.history.map((event, index) => (
                       <div key={index} className="text-sm border-l-2 border-green-500 pl-4 py-2">

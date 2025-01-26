@@ -27,10 +27,16 @@ import React from 'react';
 
 
 const ProductsPage = () => {
+    const { setHeaderName, setNavName } = useOutletContext()
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const { products, isLoading, deleteStatus } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
+
+    useEffect(() => {
+        setHeaderName('Products')
+        setNavName('')
+    }, [])
 
 
 
@@ -53,7 +59,6 @@ const ProductsPage = () => {
     return (
         <>
             {/*isLoading && <Loader />*/}
-            <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="My Products" />
             {
                 isLoading ? (
                     <div className="flex flex-col justify-center items-center h-[80dvh]">

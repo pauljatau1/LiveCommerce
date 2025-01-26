@@ -10,7 +10,7 @@ import { Dialog, DialogTrigger } from "../../ui/dialog"
 import NotificationsDialog from "../../NotificationsDialog"
 import { useAuthContext } from "../../../Hooks/useAuthContext"
 
-const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }) => {
+const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showHeader = true }) => {
   const [open, setOpen] = useState(false)
   const [isChatVisible, setIsChatVisible] = useState(true)
   const [seller, setSeller] = useState(null)
@@ -143,14 +143,14 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }
   const renderAvatar = () => {
     if (seller?.storeAvatar?.url) {
       return (
-        <img 
-          src={seller.storeAvatar.url} 
+        <img
+          src={seller.storeAvatar.url}
           alt={`${seller.firstName} ${seller.lastName}`}
           className="h-8 w-8 rounded-full object-cover"
         />
       )
     }
-    
+
     return (
       <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
         {getInitials(seller?.firstName, seller?.lastName)}
@@ -158,11 +158,13 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }
     )
   }
 
+  if (!showHeader) return null
+
   return (
     <header className="bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]">
       <div className="mx-auto py-3">
         <div className="flex items-center justify-between h-16">
-          <div className="flex gap-10 items-center">
+          <div className="flex items-center">
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -171,13 +173,15 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }
                 <Icon icon="pepicons-pencil:menu" className="h-6 w-6" />
               </button>
             )}
-            <h1 className="ml-2 lg:ml-0 text-xl font-inter font-semibold text-[#27272E] ">{name}</h1>
-            {navName !== "" && (
-              <div className="flex items-center gap-10">
-                <span className="text-2xl font-inter text-[#888787]">•</span>
-                <h1 className="ml-2 lg:ml-0 capitalize text-xl font-inter font-semibold text-[#16783A] ">{navName}</h1>
-              </div>
-            )}
+            <div className="flex flex-col xl:flex-row xl:gap-10 xl:items-center">
+              <h1 className="ml-2 lg:ml-0 text-lg xl:text-xl font-inter font-semibold text-[#27272E] ">{name}</h1>
+              {navName !== "" && (
+                <div className="flex items-center gap-10">
+                  <span className="text-2xl hidden xl:block font-inter text-[#888787]">•</span>
+                  <h1 className="ml-2 lg:ml-0 capitalize text-lg xl:text-xl font-inter font-semibold text-[#16783A] ">{navName}</h1>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile Menu */}
@@ -218,12 +222,12 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }
           {/* Desktop Menu */}
           <div className="hidden md:flex md:items-center md:gap-2">
             {desktopGoLiveButton}
-              <button
-                onClick={handleChatOpen}
-                className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out"
-              >
-                <Icon icon="icon-park-outline:message" className="h-6 w-6" />
-              </button>
+            <button
+              onClick={handleChatOpen}
+              className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out"
+            >
+              <Icon icon="icon-park-outline:message" className="h-6 w-6" />
+            </button>
             {/* Notifications */}
             {desktopNotificationsButton}
 

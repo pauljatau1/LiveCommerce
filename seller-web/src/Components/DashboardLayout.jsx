@@ -10,6 +10,7 @@ const DashboardLayout = () => {
   const [fullScreenMode, setFullScreenMode] = useState(false);
   const [headerName, setHeaderName] = useState('');
   const [navName, setNavName] = useState('');
+  const [showHeader, setShowHeader] = useState(true);
   const navigation = useNavigation();
   const isLoading = navigation.state === 'loading'
 
@@ -24,7 +25,9 @@ const DashboardLayout = () => {
     headerName,
     setHeaderName,
     navName,
-    setNavName
+    setNavName,
+    showHeader,
+    setShowHeader
   };
 
   console.log('Outlet context:', outletContext); // Debug log
@@ -33,7 +36,7 @@ const DashboardLayout = () => {
     if (fullScreenMode) {
       return "relative h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
     } else {
-      return " relative bg-[#F7FAFC]   h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+      return "relative bg-[#F7FAFC] h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
     }
   }
 
@@ -55,8 +58,9 @@ const DashboardLayout = () => {
             setIsSidebarOpen={setIsSidebarOpen}
             name={headerName}
             navName={navName}
+            showHeader={showHeader}
           />
-          <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14" >
+          <div className={`${fullScreenMode ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
             <Outlet context={outletContext} />
           </div>
         </div>

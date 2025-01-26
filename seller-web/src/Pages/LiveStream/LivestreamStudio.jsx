@@ -16,7 +16,7 @@ const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 
 const LivestreamStudio = () => {
     const { id } = useParams();
-    const { setHideSidebar, setFullScreenMode } = useOutletContext();
+    const { setHideSidebar, setFullScreenMode, setHeaderName, setNavName, setShowHeader } = useOutletContext();
     const { activeStreams, startLiveStream, fetchedLiveStreams, getLiveStreamFullDetails, isLoading, liveStreamDetails, livestreaming, hasLiveStreamStarted } = useLivestreamContext();
     const [localTracks, setLocalTracks] = useState([]);
     const [isStreaming, setIsStreaming] = useState(false);
@@ -28,6 +28,16 @@ const LivestreamStudio = () => {
     const [deviceError, setDeviceError] = useState(null);
     const videoContainerRef = useRef(null);
 
+
+
+    useEffect(() => {
+        setHideSidebar(true);
+        setFullScreenMode(true);
+        setHeaderName('Live Streams')
+        setNavName('Live Studio')
+        setShowHeader(false)
+    }, []);
+
     const {
         channelName,
         agoraToken,
@@ -38,16 +48,6 @@ const LivestreamStudio = () => {
     } = liveStreamDetails !== null ? liveStreamDetails : {};
 
 
-    useEffect(() => {
-        if (setHideSidebar) {
-            setHideSidebar(true);
-            setFullScreenMode(true);
-            return () => {
-                setHideSidebar(false);
-                setFullScreenMode(false);
-            }
-        }
-    }, [setHideSidebar]);
 
     useEffect(() => {
         getLiveStreamFullDetails(id);
@@ -61,9 +61,9 @@ const LivestreamStudio = () => {
     // Add a function to check device permissions
     const checkDevicePermissions = async () => {
         try {
-            const devices = await navigator.mediaDevices.getUserMedia({ 
-                video: true, 
-                audio: true 
+            const devices = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
             });
             // Release the streams immediately after checking
             devices.getTracks().forEach(track => track.stop());
@@ -126,7 +126,7 @@ const LivestreamStudio = () => {
             }
 
             // Play video track
-            videoTrack.play(videoContainerRef.current, { 
+            videoTrack.play(videoContainerRef.current, {
                 fit: 'cover',
                 mirror: true
             });
@@ -139,7 +139,7 @@ const LivestreamStudio = () => {
             console.error("Error starting stream:", error);
             setDeviceError(error.message);
             toast.error('Failed to initialize stream: ' + error.message);
-            
+
             // Cleanup on error
             if (client) {
                 await client.leave();
@@ -186,7 +186,7 @@ const LivestreamStudio = () => {
         }).format(amount)
     };
 
-    
+
 
     const getInitials = (firstName, lastName) => {
         return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
@@ -311,7 +311,7 @@ const LivestreamStudio = () => {
                                                 {deviceError ? (
                                                     <div className="text-red-500 mb-4 text-center">
                                                         <p>{deviceError}</p>
-                                                        <button 
+                                                        <button
                                                             onClick={() => window.location.reload()}
                                                             className="mt-2 text-white bg-red-600 px-4 py-2 rounded-lg"
                                                         >
@@ -328,10 +328,10 @@ const LivestreamStudio = () => {
                                                 )}
                                             </div>
                                         ) : (
-                                            <div 
+                                            <div
                                                 ref={videoContainerRef}
                                                 className="w-full h-full bg-black"
-                                                style={{ 
+                                                style={{
                                                     minHeight: '400px',
                                                     transform: 'scaleX(-1)'
                                                 }}
@@ -526,7 +526,7 @@ const LivestreamStudio = () => {
                                             {deviceError ? (
                                                 <div className="text-red-500 mb-4 text-center">
                                                     <p>{deviceError}</p>
-                                                    <button 
+                                                    <button
                                                         onClick={() => window.location.reload()}
                                                         className="mt-2 text-white bg-red-600 px-4 py-2 rounded-lg"
                                                     >
@@ -543,10 +543,10 @@ const LivestreamStudio = () => {
                                             )}
                                         </div>
                                     ) : (
-                                        <div 
+                                        <div
                                             ref={videoContainerRef}
                                             className="w-full h-full bg-black"
-                                            style={{ 
+                                            style={{
                                                 minHeight: '400px',
                                                 transform: 'scaleX(-1)'
                                             }}

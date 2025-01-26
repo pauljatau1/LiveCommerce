@@ -112,7 +112,7 @@ function CustomerDetail() {
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
        
         {/* Customer Header - More compact and refined */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 my-6 p-5 bg-white rounded-lg border border-slate-200">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 my-6 p-5 bg-white rounded-lg border border-slate-200">
           <Avatar className="h-14 w-14 ring-2 ring-indigo-500/10">
             <AvatarImage src={customerData.avatar} alt={customerData.name} />
             <AvatarFallback className="bg-gray-200">
@@ -139,7 +139,7 @@ function CustomerDetail() {
           </div>
           <Button 
             variant="primary" 
-            className="sm:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
+            className="lg:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
             onClick={handleMessageClick}
           >
             Message Customer
@@ -179,18 +179,18 @@ function CustomerDetail() {
           </Card>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid xl:grid-cols-2 gap-6">
           {/* Left Column */}
           <div className="space-y-6">
             {/* Recent Orders */}
             <Card className="border border-slate-200">
               <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-slate-900">Recent Orders</h2>
+                  <h2 className="text-lg font-semibold font-inter text-slate-900">Recent Orders</h2>
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                    className="border-blue-200 font-inter text-blue-700 hover:bg-blue-50"
                     onClick={() => navigate('/dashboard/orders')}
                   >
                     View All
@@ -200,8 +200,8 @@ function CustomerDetail() {
                   {customerData.recentOrders.map((order) => (
                     <div key={order._id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
-                        <div className="flex items-center justify-between sm:justify-start gap-3">
-                          <p className="font-medium text-slate-900">#{order.orderNumber}</p>
+                        <div className="flex xl:items-center flex-col xl:flex-row justify-between sm:justify-start gap-3">
+                          <p className="font-medium font-inter text-slate-900">#{order.orderNumber}</p>
                           <p className="text-xs text-slate-500">
                             {new Date(order.createdAt).toLocaleDateString('en-US', {
                               day: 'numeric',
@@ -230,7 +230,7 @@ function CustomerDetail() {
             {/* Activity Feed */}
             <Card className="border border-slate-200">
               <div className="p-5">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4">Activity Feed</h2>
+                <h2 className="text-lg font-semibold font-inter text-slate-900 mb-4">Activity Feed</h2>
                 <div className="space-y-4">
                   {customerData.activities.map((activity, index) => (
                     <div key={index} className="flex gap-3">
@@ -265,7 +265,7 @@ function CustomerDetail() {
             {/* Shipping Addresses */}
             <Card className="border border-slate-200">
               <div className="p-5">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4">Shipping Addresses</h2>
+                <h2 className="text-lg font-semibold font-inter text-slate-900 mb-4">Shipping Addresses</h2>
                 <div className="space-y-4">
                   {customerData.addresses.map((address, index) => (
                     <div key={index} className="p-3 bg-slate-50 rounded-md border border-slate-200">
@@ -291,7 +291,7 @@ function CustomerDetail() {
             {/* Customer Stats */}
             <Card className="border border-slate-200">
               <div className="p-5">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4">Customer Statistics</h2>
+                <h2 className="text-lg font-inter font-semibold text-slate-900 mb-4">Customer Statistics</h2>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-slate-50 rounded-md">
                     <span className="text-sm text-slate-600">Average Order Value</span>

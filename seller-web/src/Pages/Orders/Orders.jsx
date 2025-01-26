@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { useOutletContext } from "react-router-dom"
 
 export default function OrdersDashboard() {
-  const { setHeaderName } = useOutletContext()
+  const { setHeaderName, setNavName } = useOutletContext()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -36,6 +36,7 @@ export default function OrdersDashboard() {
 
   useEffect(() => {
     setHeaderName("Orders")
+    setNavName("")
   }, [])
 
   // Filter orders based on active tab
@@ -152,12 +153,12 @@ export default function OrdersDashboard() {
 
   const getStatusColor = (status) => {
     const statusColors = {
-      pending: "bg-yellow-100 text-yellow-700",
-      pickup_arranged: "bg-blue-100 text-blue-700",
-      picked_up: "bg-green-100 text-green-700",
-      in_transit: "bg-purple-100 text-purple-700",
-      delivered: "bg-green-100 text-green-700",
-      failed: "bg-red-100 text-red-700",
+      pending: "bg-yellow-100 px-3 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md py-1 text-yellow-700",
+      pickup_arranged: "bg-blue-100 px-3 hover:bg-blue-200 capitalize transition-all duration-300 rounded-md py-1 text-blue-700",
+      picked_up: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
+      in_transit: "bg-purple-100 px-3 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
+      delivered: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
+      failed: "bg-red-100 px-3 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
     }
     return statusColors[status] || "bg-gray-100 text-gray-700"
   }
@@ -170,34 +171,34 @@ export default function OrdersDashboard() {
     <>
       <div className="py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-          <TabsList className="border-b h-auto p-0 bg-transparent">
+          <TabsList className="border-b gap-6 h-auto p-0 bg-transparent">
             <TabsTrigger
               value="all"
-              className="text-lg data-[state=active]:text-green-600 data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-6 pb-4"
+              className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
             >
               All Orders
             </TabsTrigger>
             <TabsTrigger
               value="process"
-              className="text-lg data-[state=active]:text-green-600 data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-6 pb-4"
+              className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
             >
               To Process
             </TabsTrigger>
             <TabsTrigger
               value="transit"
-              className="text-lg data-[state=active]:text-green-600 data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-6 pb-4"
+              className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
             >
               Transit
             </TabsTrigger>
             <TabsTrigger
               value="delivered"
-              className="text-lg data-[state=active]:text-green-600 data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-6 pb-4"
+              className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
             >
               Delivered
             </TabsTrigger>
             <TabsTrigger
               value="cancelled"
-              className="text-lg data-[state=active]:text-green-600 data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-6 pb-4"
+              className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
             >
               Cancelled
             </TabsTrigger>
@@ -205,15 +206,15 @@ export default function OrdersDashboard() {
         </Tabs>
 
         <div className="bg-[#F8FAF9] rounded-lg p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Latest Orders</h2>
+          <div className="flex flex-col xl:flex-row justify-between gap-4 xl:items-center mb-6">
+            <h2 className="text-xl lg:text-2xl font-semibold font-inter">Latest Orders</h2>
             <div className="mb-4 flex flex-wrap gap-4">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-[240px] justify-start text-left font-normal",
+                    "w-[240px] justify-start bg-[#0BB24817] hover:bg-[#DEFFEE] transition-all duration-300 text-left font-normal",
                     !date && "text-muted-foreground"
                   )}
                 >
@@ -307,14 +308,14 @@ export default function OrdersDashboard() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium">{`${order.buyer.firstName} ${order.buyer.lastName}`}</div>
-                        <div className="text-sm text-gray-500">{order.delivery_address.city}</div>
+                        <div className="font-medium capitalize ">{`${order.buyer.firstName} ${order.buyer.lastName}`}</div>
+                        <div className="text-sm capitalize text-gray-500">{order.delivery_address.city}</div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         {order.items.map((item, index) => (
-                          <div key={index} className="text-sm">
+                          <div key={index} className=" capitalize text-sm">
                             {item?.productName?.length > 20 
                               ? `${item?.productName?.slice(0, 20)}...` 
                               : item?.productName}
@@ -332,10 +333,10 @@ export default function OrdersDashboard() {
                       <Badge
                         className={
                           order.paymentInfo.status === "paid"
-                            ? "bg-green-100 text-green-700"
+                            ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
                             : order.paymentInfo.status === "pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
+                              ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
+                              : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
                         }
                       >
                         {order.paymentInfo.status}
@@ -345,7 +346,7 @@ export default function OrdersDashboard() {
                     <TableCell>{order.channel}</TableCell>
                     <TableCell>
                       <Link to={`/dashboard/order/${order._id}`}>
-                        <Button variant="secondary" className="bg-green-600 text-white hover:bg-green-700">
+                        <Button variant="secondary" className="bg-green-600 font-inter px-2 lg:px-3 text-white hover:bg-green-700">
                           View Details
                         </Button>
                       </Link>
@@ -358,7 +359,7 @@ export default function OrdersDashboard() {
 
           <div className="flex justify-between items-center mt-6">
             <Select value={ordersPerPage.toString()} onValueChange={handleOrdersPerPageChange}>
-              <SelectTrigger className="bg-white w-[140px]">
+              <SelectTrigger className="bg-white w-[140px] tex-base">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -368,7 +369,7 @@ export default function OrdersDashboard() {
               </SelectContent>
             </Select>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm font-inter text-gray-500">
                 Page {currentPage} of {Math.ceil(totalOrders / ordersPerPage)}
               </span>
               <div className="flex gap-4">

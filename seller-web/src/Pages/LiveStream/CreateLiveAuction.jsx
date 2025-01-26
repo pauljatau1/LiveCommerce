@@ -7,12 +7,13 @@ import { Autocomplete, TextField, Chip } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSellerProducts } from '../../Redux/Slices/ProductSlice';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import Header from "../../Components/ui/Header/Header";
 import CreateAuctionIcon from '../../assets/Upload icon.png';
 
 const CreateLiveAuction = () => {
+  const { setHeaderName, setNavName } = useOutletContext()
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
@@ -26,6 +27,12 @@ const CreateLiveAuction = () => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [productQuantities, setProductQuantities] = useState({});
+
+  useEffect(() => {
+    setHeaderName('Live Streams')
+    setNavName('Create Live Auction')
+  }, [])
+
   const MAX_CHARS = 250;
 
   const inputRef = useRef(null);
@@ -222,10 +229,8 @@ const CreateLiveAuction = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
-      <Header headerTitle="CREATE LIVE AUCTION" showHeader={true} />
-
-      <div className="space-y-6">
+    <div className="pt-4 md:pt-6">
+      <div className=" bg-white p-3 lg:p-10 space-y-6">
         {/* Stream Title */}
         <div className="space-y-2">
           <h1 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Auction Stream Title</h1>
@@ -261,7 +266,7 @@ const CreateLiveAuction = () => {
               </div>
             ) : (
               <>
-                <img src={CreateAuctionIcon} alt="Upload" className="w-12 h-12 mb-2" />
+                <img src={CreateAuctionIcon} alt="Upload" className="w-13 h-12 mb-2" />
                 <div className="text-center px-4">
                   <p className="text-sm text-gray-600">
                     Drop & drop files or <span className="text-green-600">Browse</span>
@@ -281,7 +286,7 @@ const CreateLiveAuction = () => {
             />
           </div>
           <p className="text-xs text-gray-500">
-            Make sure to fit and appears for best results. Wrong images will be removed automatically.
+            Make sure the image uploaded fits to appear for best results. Wrong images will be removed automatically.
           </p>
         </div>
 
@@ -453,7 +458,7 @@ const CreateLiveAuction = () => {
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <img 
                           src={product.images[0].url} 
                           alt={product.name} 
@@ -514,7 +519,7 @@ const CreateLiveAuction = () => {
 
           <div className="flex justify-between flex-wrap gap-10 lg:gap-0 items-center pt-4 border-t">
             <div className="text-sm text-gray-500">
-              Showing {sampleProducts.length} items out of {sampleProducts.length} results found
+              Showing {products.length} items out of {products.length} results found
             </div>
             <div className="flex gap-3">
               <button 

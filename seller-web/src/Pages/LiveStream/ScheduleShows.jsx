@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useOutletContext } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import ActiveLiveStreamCard from '../../Components/ActiveLiveStreamCard';
@@ -8,8 +8,14 @@ import NotFoundIcon from "../../assets/not-found-icon.png";
 import DraftCoverPhoto from "../../assets/young-woman-organizing-live-shop 1.png";
 
 const ScheduleShows = () => {
+  const { setHeaderName, setNavName } = useOutletContext()
   const { activeStreams, livestream, getAllSellerActiveStreams, fetchedLiveStreams } = useLivestreamContext();
   const [scheduledShows, setScheduledShows] = useState([]);
+  
+  useEffect(() => {
+    setHeaderName('Live Streams')
+    setNavName('Scheduled Shows')
+  }, [])
 
   useEffect(() => {
     getAllSellerActiveStreams();
@@ -26,7 +32,6 @@ const ScheduleShows = () => {
   console.log('sellerInfo', sellerInfo);
   return (
     <div className="flex relative h-screen flex-col gap-6 p-4 md:p-6">
-      <Header headerTitle="SCHEDULED SHOWS" showHeader={true} />
 
       {/* Grid of Cards */}
       {

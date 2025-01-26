@@ -5,10 +5,7 @@ import ComingSoonTag from './ComingSoonTag';
 const LiveStreamCard = ({ item }) => {
     return (
         <div className="bg-white relative pt-6 px-6 pb-20 xl:pb-20 shadow-sm border rounded-lg border-gray-200 hover:shadow-md transition-all duration-300">
-            <div className="relative">
-                {!item?.available && <ComingSoonTag />}
-            </div>
-            
+            {!item?.available && <ComingSoonTag />}
             <div className="flex flex-col items-center justify-center gap-4">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-12 h-12 flex items-center justify-center rounded-lg">
@@ -19,11 +16,11 @@ const LiveStreamCard = ({ item }) => {
 
                 <div>
                     <p className="text-sm text-[#425466] text-center py-2 line-clamp">
-                    {item?.description}
-                </p>
+                        {item?.description}
+                    </p>
                 </div>
 
-                <NavLink 
+                <NavLink
                     to={item?.link}
                     className="w-fit absolute bottom-6 bg-[#16783A] text-white text-[13px] font-medium font-inter py-2.5 px-4 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
                 >

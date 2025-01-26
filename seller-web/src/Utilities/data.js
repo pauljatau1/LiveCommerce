@@ -149,7 +149,7 @@ export const sideBarNavData = [
         id: ObjectID().toHexString(),
         name: 'Live Streams',
         icon: 'mynaui:video',
-        path: '/dashboard/live-streams'
+        path: '/dashboard/live-streams/live-stream'
     },
     {
         id: ObjectID().toHexString(),

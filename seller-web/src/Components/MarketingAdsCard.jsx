@@ -7,7 +7,7 @@ import ComingSoonTag from './ComingSoonTag';
 const MarketingAdsCard = ({ item }) => {
     return (
         <div className="w-full xl:w-[404px] h-[169.5px] md:h-[239px] relative bg-[#05031F] rounded-lg py-3 px-4 md:py-6 md:px-7 space-y-3 md:space-y-6">
-            <div className="absolute top-0 right-0">
+            <div className="absolute top-3 right-3">
                 {
                     !item?.available && (
                         <ComingSoonTag />
