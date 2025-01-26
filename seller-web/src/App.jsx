@@ -151,11 +151,11 @@ const router = createBrowserRouter([
         path: '/dashboard',
         element: (
           <ProtectedRoute>
-            <DashboardRoute>
+        
               <ProductProvider>
                 <DashboardLayout />
               </ProductProvider>
-            </DashboardRoute>
+      
           </ProtectedRoute>
         ),
         loader: () => new Promise(resolve => setTimeout(resolve, 1000)),

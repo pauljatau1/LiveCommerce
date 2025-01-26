@@ -431,13 +431,22 @@ const HomePage = () => {
                   </div>
                 ) : (
                   <div className=" space-y-3 mt-3 h-full">
-                    {top3SellingProducts?.map((product) => (
-                      <QuickOrderCard
-                        key={product._id}
-                        product={product}
-                        className="hover:bg-gray-50 transition-colors duration-200 p-3"
-                      />
-                    ))}
+                    {
+                      top3SellingProducts.length > 0 ? (
+                        top3SellingProducts?.map((product) => (
+                          <QuickOrderCard
+                            key={product._id}
+                            product={product}
+                            className="hover:bg-gray-50 transition-colors duration-200 p-3"
+                          />
+                        ))
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full min-h-[364px] text-gray-500">
+                          <Icon icon="line-md:bell-loop" className="text-gray-400 w-16 h-16  " />
+                          <p className="text-base font-medium text-[#425466] font-inter">No Products Sold Yet</p>
+                        </div>
+                      )
+                    }
                   </div>
                 )}
               </div>

@@ -36,6 +36,14 @@ const LivestreamStudio = () => {
         setHeaderName('Live Streams')
         setNavName('Live Studio')
         setShowHeader(false)
+
+        return () => {
+            setHideSidebar(false);
+            setFullScreenMode(false);
+            setHeaderName('Live Streams')
+            setNavName('Live Studio')
+            setShowHeader(true)
+        }
     }, []);
 
     const {
