@@ -3,7 +3,7 @@ import PropTypes from "prop-types"
 
 const QuickOrderCard = ({ product }) => {
   return (
-    <div className="w-full cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+    <div className="w-full cursor-pointer border border-gray-200 hover:bg-gray-50 hover:shadow-md transition-colors rounded-lg  ">
       <div className="flex items-center justify-between p-4 gap-4">
         <div className="flex items-center space-x-4">
           <div className="relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden">

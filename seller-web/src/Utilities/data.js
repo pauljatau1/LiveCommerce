@@ -74,130 +74,107 @@ export const sideBarNavData = [
     {
         id: ObjectID().toHexString(),
         name: 'Dashboard',
-        icon: MdDashboard,
+        icon: 'bi:house',
         path: '/dashboard/home',
     },
     {
         id: ObjectID().toHexString(),
         name: 'Customers',
-        icon: MdPeople,
+        icon: 'eva:people-outline',
         path: '/dashboard/customers'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Orders',
-        icon: MdShoppingBag,
+        icon: 'heroicons:shopping-bag',
         path: '/dashboard/orders'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Products',
-        icon: MdInventory2,
+        icon: 'iconoir:box-iso',
         path: '/dashboard/products',
         subNav: [
             {
                 id: ObjectID().toHexString(),
                 name: 'Add Products',
                 path: 'add-products',
-                icon: BsBoxSeam
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Drafts',
-                path: 'drafts',
-                icon: BsFileEarmarkText
-            }, 
-            {
+                path: 'drafts'
+            }, {
                 id: ObjectID().toHexString(),
                 name: 'Inactive',
-                path: 'inactive',
-                icon: BsFileX
+                path: 'inactive'
             }
         ]
     },
     {
         id: ObjectID().toHexString(),
         name: 'Marketing',
-        icon: MdCampaign,
+        icon: 'mage:megaphone-a',
         path: '/dashboard/marketing',
         subNav: [
             {
                 id: ObjectID().toHexString(),
                 name: 'Coupons',
-                path: 'coupons',
-                icon: BsTicketPerforated
+                path: 'coupons'
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Flash Sales',
-                path: 'flash-sales',
-                icon: BsLightning
+                path: 'flash-sales'
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Inbox Campaigns',
-                path: 'inbox-campaigns',
-                icon: BsInbox
+                path: 'inbox-campaigns'
             },
             {
                 id: ObjectID().toHexString(),
                 name: 'Referrals',
-                path: 'referrals',
-                icon: BsShare
+                path: 'referrals'
             }
         ]
     },
     {
         id: ObjectID().toHexString(),
         name: 'Messages',
-        icon: MdMessage,
+        icon: 'token:chat',
         path: '/dashboard/messages'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Live Streams',
-        icon: MdLiveTv,
-        path: '/dashboard/live-streams/live-stream',
-        subNav: [
-            {
-                id: ObjectID().toHexString(),
-                name: 'Scheduled Shows',
-                path: 'live-streams/scheduled-shows',
-                icon: BsBoxSeam
-            },
-            {
-                id: ObjectID().toHexString(),
-                name: 'Past Shows',
-                path: 'live-streams/past-shows',
-                icon: BsBoxSeam
-            },
-         
-        ]
+        icon: 'mynaui:video',
+        path: '/dashboard/live-streams'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Analytics & Insights',
-        icon: MdInsights,
+        icon: 'mage:chart-up',
         path: '/dashboard/analytics-insights'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Earnings & Payouts',
-        icon: MdPayments,
+        icon: 'solar:dollar-linear',
         path: '/dashboard/earnings-payouts'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Auqli Connect',
-        icon: MdLink,
+        icon: 'system-uicons:chain',
         path: '/dashboard/auqli-connect'
     },
-    // {
-    //     id: ObjectID().toHexString(),
-    //     name: 'Shop Manager',
-    //     icon: 'bi:shop',
-    //     path: '/dashboard/shop-manager'
-    // },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Shop Manager',
+        icon: 'bi:shop',
+        path: '/dashboard/shop-manager'
+    },
 ];
 
 export const homeAnalyticsCardData = [

@@ -17,14 +17,21 @@ import CustomerOrdersCard from "@/Components/CustomerOrdersCard";
 import NotFoundIcon from '@/assets/not-found-icon.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import Header from "@/Components/ui/Header/Header"
+import { useOutletContext } from "react-router-dom"
 
 function CustomerDetail() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
   const [customerData, setCustomerData] = useState(null);
   const [notification, setNotification] = useState(true);
   const [loading, setLoading] = useState(true)
   const { id } = useParams()
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setHeaderName('Customer');
+    setNavName('Customer Detail');
+  }, [])
 
   useEffect(() => {
     const fetchCustomerData = async () => {
@@ -101,7 +108,6 @@ function CustomerDetail() {
 
   return (
     <>
-      <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Customer Detail" />
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
        
@@ -115,7 +121,7 @@ function CustomerDetail() {
           </Avatar>
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-slate-900">{customerData.name}</h1>
+              <h1 className="text-xl font-inter font-bold text-slate-900">{customerData.name}</h1>
               {customerData.verified && (
                 <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs border border-blue-200">
                   <Icon icon="fluent-mdl2:verified-brand-solid" width="12" height="12" />
@@ -133,7 +139,7 @@ function CustomerDetail() {
           </div>
           <Button 
             variant="primary" 
-            className="ml-4 bg-green-600 text-white"
+            className="sm:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
             onClick={handleMessageClick}
           >
             Message Customer
@@ -146,8 +152,8 @@ function CustomerDetail() {
             <div className="flex items-center gap-3">
               <Icon icon="hugeicons:cash-02" className="w-8 h-8 opacity-80" />
               <div>
-                <p className="text-xs font-medium text-white/80">Total Spent</p>
-                <p className="text-lg font-bold mt-0.5">₦{customerData.amountSpent.total.toLocaleString()}</p>
+                <p className="text-xs font-medium font-inter text-white/80">Total Spent</p>
+                <p className="text-lg font-bold font-inter mt-0.5">₦{customerData.amountSpent.total.toLocaleString()}</p>
                 <p className="text-xs text-white/70 mt-0.5">With you: ₦{customerData.amountSpent.withSeller.toLocaleString()}</p>
               </div>
             </div>

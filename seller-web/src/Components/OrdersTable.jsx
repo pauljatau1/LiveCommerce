@@ -84,13 +84,13 @@ const OrdersTable = ({ orders }) => {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead className="hidden md:table-cell font-semibold text-gray-900">Order ID</TableHead>
-              <TableHead className="font-semibold text-gray-900">Items</TableHead>
-              <TableHead className="font-semibold text-gray-900">Order Date</TableHead>
-              <TableHead className="hidden md:table-cell font-semibold text-gray-900">Price</TableHead>
-              <TableHead className="hidden md:table-cell font-semibold text-gray-900">Payment</TableHead>
-              <TableHead className="font-semibold text-gray-900">Status</TableHead>
-              <TableHead className="font-semibold text-gray-900">Action</TableHead>
+              <TableHead className="hidden md:table-cell font-semibold text-[#8492A6] font-inter text-sm">Order ID</TableHead>
+              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Items</TableHead>
+              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Order Date</TableHead>
+              <TableHead className="hidden md:table-cell font-semibold text-[#8492A6] font-inter text-sm">Price</TableHead>
+              <TableHead className="hidden md:table-cell font-semibold text-[#8492A6] font-inter text-sm">Payment</TableHead>
+              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Status</TableHead>
+              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,20 +108,20 @@ const OrdersTable = ({ orders }) => {
                     <TableCell>
                       <div className="space-y-1">
                         {order?.items.map((item, index) => (
-                          <div key={index} className="text-sm">
+                          <div key={index} className="text-sm font-inter capitalize text-[#425466]">
                             {item.productName} x {item.quantity}
                           </div>
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-600">
+                    <TableCell className="text-[#425466] font-inter">
                       {new Date(order?.createdAt).toLocaleDateString("en-US", {
                         year: "numeric",
                         month: "short",
                         day: "numeric",
                       })}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell font-medium text-gray-900">
+                    <TableCell className="hidden md:table-cell font-inter font-medium text-[#425466]">
                       {order?.totalAmount.toLocaleString("en-NG", {
                         style: "currency",
                         currency: "NGN",
@@ -129,19 +129,18 @@ const OrdersTable = ({ orders }) => {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                ${
-                                                  order?.paymentInfo?.status === "paid"
-                                                    ? "bg-green-100 text-green-800"
-                                                    : "bg-yellow-100 text-yellow-800"
-                                                }`}
+                        className={`inline-flex items-center px-3 capitalize font-inter py-1.5 rounded-md text-xs font-medium
+                                                ${order?.paymentInfo?.status === "paid"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                          }`}
                       >
                         {order?.paymentInfo?.status}
                       </span>
                     </TableCell>
                     <TableCell>
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                        className={`inline-flex items-center uppercase font-inter px-3 py-1.5 rounded-md text-xs font-medium ${getStatusColor(
                           order?.shipping?.tracking?.status,
                         )}`}
                       >
@@ -153,7 +152,7 @@ const OrdersTable = ({ orders }) => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300 transition-colors"
+                          className="text-green-600 font-inter font-light border-green-300 hover:bg-green-50 hover:border-green-300 transition-colors"
                         >
                           View Details
                         </Button>

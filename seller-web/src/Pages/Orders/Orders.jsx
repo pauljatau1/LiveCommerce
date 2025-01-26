@@ -16,8 +16,10 @@ import LinearProgress from "@mui/material/LinearProgress"
 import { BASE_URL } from "@/Constants/Server"
 import Header from "@/Components/ui/Header/Header"
 import { Input } from "@/components/ui/input"
+import { useOutletContext } from "react-router-dom"
 
 export default function OrdersDashboard() {
+  const { setHeaderName } = useOutletContext()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +33,10 @@ export default function OrdersDashboard() {
   const [paymentFilter, setPaymentFilter] = useState("all")
   const [channelFilter, setChannelFilter] = useState("all")
   const [sortConfig, setSortConfig] = useState({ key: "createdAt", direction: "desc" })
+
+  useEffect(() => {
+    setHeaderName("Orders")
+  }, [])
 
   // Filter orders based on active tab
   const filteredOrders = orders.filter((order) => {
@@ -162,8 +168,6 @@ export default function OrdersDashboard() {
 
   return (
     <>
-     <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Orders" />
-
       <div className="py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
           <TabsList className="border-b h-auto p-0 bg-transparent">

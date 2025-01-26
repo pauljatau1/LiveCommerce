@@ -1,13 +1,15 @@
 import { Outlet, useNavigation } from 'react-router-dom';
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import SideBarNav from '../Components/ui/DashboardHomepageUi/SideBarNav';
-import Loader from './Loader';
 import ScrollToTop from '../Utilities/ScrollToTop';
+import Header from '../Components/ui/Header/Header';
 
 const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [hideSidebar, setHideSidebar] = useState(false);
   const [fullScreenMode, setFullScreenMode] = useState(false);
+  const [headerName, setHeaderName] = useState('');
+  const [navName, setNavName] = useState('');
   const navigation = useNavigation();
   const isLoading = navigation.state === 'loading'
 
@@ -18,7 +20,11 @@ const DashboardLayout = () => {
     hideSidebar,
     setHideSidebar,
     fullScreenMode,
-    setFullScreenMode
+    setFullScreenMode,
+    headerName,
+    setHeaderName,
+    navName,
+    setNavName
   };
 
   console.log('Outlet context:', outletContext); // Debug log
@@ -27,7 +33,7 @@ const DashboardLayout = () => {
     if (fullScreenMode) {
       return "relative h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
     } else {
-      return "pl-[20px] relative pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14  h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+      return " relative bg-[#F7FAFC]   h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
     }
   }
 
@@ -41,10 +47,18 @@ const DashboardLayout = () => {
           setIsSidebarOpen={setIsSidebarOpen}
           hideSidebar={hideSidebar}
         />
-
+  
         {/* Main Content */}
         <div className={displayScreenMode()}>
-          <Outlet context={outletContext} />
+          <Header
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            name={headerName}
+            navName={navName}
+          />
+          <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14" >
+            <Outlet context={outletContext} />
+          </div>
         </div>
       </div>
     </>

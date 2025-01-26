@@ -24,8 +24,11 @@ import {
 } from "react-icons/fi"
 import { BiSortAlt2 } from "react-icons/bi"
 import { motion } from "framer-motion"
+import { useOutletContext } from "react-router-dom"
+import { Icon } from "@iconify/react"
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+
 
 function Customers() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -34,6 +37,13 @@ function Customers() {
   const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
   const [filteredFollowers, setFilteredFollowers] = useState([])
+
+  const { setHeaderName, setNavName } = useOutletContext()
+
+  useEffect(() => {
+    setHeaderName('Customers');
+    setNavName('');
+  }, [])
 
   useEffect(() => {
     const fetchFollowers = async () => {
@@ -117,7 +127,8 @@ function Customers() {
     doc.setFontSize(16)
     doc.text('Customer Report', 14, 15)
     doc.setFontSize(10)
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 22)
+    doc.text('Auqli Inc', 14, 22)
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28)
 
     const tableColumn = [
       'Customer Name', 
@@ -152,8 +163,6 @@ function Customers() {
 
   return (
     <>
-      <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Customers" />
-   
     <div className="min-h-screen bg-gray-50/30 py-6">
      
       {loading ? (
@@ -177,7 +186,7 @@ function Customers() {
 
           {/* Search and Filter Section */}
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-8">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
               <div className="relative flex-1">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -185,10 +194,10 @@ function Customers() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search customers..."
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                  className="w-full pl-10 pr-4 py-2 font-inter rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                 />
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <div className="flex gap-2">
                   <Button 
                     onClick={() => handleSort('name')}
@@ -240,26 +249,26 @@ function Customers() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50/80">
-                    <TableHead className="font-semibold text-gray-600">Customer</TableHead>
-                    <TableHead className="font-semibold text-gray-600">
+                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">Customer</TableHead>
+                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
                       <div className="flex items-center gap-2">
                         <FiMapPin className="w-4 h-4" />
                         Location
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold text-gray-600">
+                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
                       <div className="flex items-center gap-2">
                         <FiShoppingBag className="w-4 h-4" />
                         Orders
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold text-gray-600">
+                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">
                       <div className="flex items-center gap-2">
-                        <FiDollarSign className="w-4 h-4" />
+                      <Icon icon="mdi:naira" width="17" height="17"  style={{color: '#8492A6'}} />
                         Amount spent
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold text-gray-600">Actions</TableHead>
+                    <TableHead className="font-semibold font-inter uppercase text-xs text-[#8492A6]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -273,7 +282,7 @@ function Customers() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-semibold font-inter text-[#27272E]">
                               {follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}
                             </p>
                             <p className="text-sm text-gray-500">ID: {follower._id.slice(-6)}</p>
@@ -293,13 +302,13 @@ function Customers() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
                             {follower?.totalOrders || 0}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium font-inter text-[#27272E]">
                           ₦{follower.totalSpent ? follower.totalSpent.toLocaleString() : '0'}
                         </div>
                       </TableCell>

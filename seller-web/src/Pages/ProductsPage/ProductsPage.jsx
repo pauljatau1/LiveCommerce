@@ -63,7 +63,7 @@ const ProductsPage = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 py-6 w-full">
+                        <div className="flex  flex-col lg:flex-row lg:items-center lg:justify-between gap-4 py-6 w-full">
                            
                             <div className="flex items-center flex-wrap gap-4">
                                 {
