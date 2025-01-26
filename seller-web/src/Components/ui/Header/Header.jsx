@@ -109,7 +109,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }
       <div className="items-center hidden lg:flex px-6 py-2 gap-2 mr-2 rounded-md bg-red-600 cursor-pointer hover:bg-red-700 transition-all duration-300 ease-in-out">
         <Icon icon="mdi:record" className="h-4 w-4 animate-pulse" color="#ffffff" />
         <button
-          onClick={() => navigate('/dashboard/live-streams')}
+          onClick={() => navigate('/dashboard/live-streams/live-stream')}
           className="inline-flex items-center font-lexend  border border-transparent text-sm font-medium text-[#ffffff] "
         >
           Go Live
@@ -139,6 +139,24 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }
       <NotificationsDialog notifications={stuffToDo?.notifications || []} />
     </Dialog>
   )
+
+  const renderAvatar = () => {
+    if (seller?.storeAvatar?.url) {
+      return (
+        <img 
+          src={seller.storeAvatar.url} 
+          alt={`${seller.firstName} ${seller.lastName}`}
+          className="h-8 w-8 rounded-full object-cover"
+        />
+      )
+    }
+    
+    return (
+      <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
+        {getInitials(seller?.firstName, seller?.lastName)}
+      </div>
+    )
+  }
 
   return (
     <header className="bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]">
@@ -211,14 +229,17 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName }
 
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-semibold">
-                  {getInitials(seller?.firstName, seller?.lastName)}
-                </div>
+                {renderAvatar()}
               </div>
               <div className="ml-3">
                 <p className="text-sm font-semibold font-inter capitalize text-[#16192C]">
                   {seller?.firstName} {seller?.lastName}
                 </p>
+                {seller?.storeName && (
+                  <p className="text-xs text-gray-500">
+                    {seller.storeName}
+                  </p>
+                )}
               </div>
             </div>
           </div>
