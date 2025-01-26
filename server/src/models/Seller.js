@@ -11,6 +11,35 @@ const categorySchema = new mongoose.Schema({
   subCategories: [subCategorySchema],
 });
 
+const reviewSchema = new mongoose.Schema({
+  buyer: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Buyer', 
+    required: true 
+  },
+  rating: { 
+    type: Number, 
+    required: true, 
+    min: 1, 
+    max: 5 
+  },
+  comment: { 
+    type: String, 
+    required: true 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date 
+  },
+  isVerifiedPurchase: { 
+    type: Boolean, 
+    default: false 
+  }
+});
+
 const sellerSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
@@ -154,6 +183,18 @@ const sellerSchema = new mongoose.Schema({
       promotions: { type: Boolean, default: true }
     }
   },
+  reviews: [reviewSchema],
+  stats: {
+    averageRating: { type: Number, default: 0 },
+    totalReviews: { type: Number, default: 0 },
+    ratingDistribution: {
+      1: { type: Number, default: 0 },
+      2: { type: Number, default: 0 },
+      3: { type: Number, default: 0 },
+      4: { type: Number, default: 0 },
+      5: { type: Number, default: 0 }
+    }
+  }
 });
 
 // Middleware to update isNew property after 3 days

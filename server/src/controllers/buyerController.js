@@ -1408,3 +1408,152 @@ exports.getSellerProfile = async (req, res) => {
   }
 };
 
+exports.getSelectedCategories = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id)
+      .select('selectedCategories')
+      .populate({
+        path: 'selectedCategories',
+        select: 'name subCategories'
+      });
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.json({
+      categories: buyer.selectedCategories.map(category => ({
+        name: category.name,
+        subCategories: category.subCategories.map(sub => ({
+          name: sub.name
+        }))
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching selected categories:', error);
+    res.status(500).json({
+      message: 'Failed to fetch selected categories',
+      error: error.message
+    });
+  }
+};
+
+// Add a review for a seller
+exports.addSellerReview = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { rating, comment } = req.body;
+    const buyerId = req.user.id;
+
+    // Validate input
+    if (!rating || !comment) {
+      return res.status(400).json({ message: 'Rating and comment are required' });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Check if buyer has already reviewed this seller
+    const existingReview = seller.reviews.find(
+      review => review.buyer.toString() === buyerId
+    );
+
+    if (existingReview) {
+      return res.status(400).json({ message: 'You have already reviewed this seller' });
+    }
+
+    // Check if buyer has made a purchase from this seller
+    const hasPurchased = await Order.findOne({
+      buyer: buyerId,
+      seller: sellerId,
+      status: 'delivered'
+    });
+
+    // Add the review
+    seller.reviews.push({
+      buyer: buyerId,
+      rating,
+      comment,
+      isVerifiedPurchase: !!hasPurchased
+    });
+
+    // Update seller stats
+    seller.stats.totalReviews++;
+    seller.stats.ratingDistribution[rating]++;
+    
+    // Calculate new average rating
+    const totalRating = seller.reviews.reduce((sum, review) => sum + review.rating, 0);
+    seller.stats.averageRating = totalRating / seller.reviews.length;
+
+    await seller.save();
+
+    res.status(201).json({
+      message: 'Review added successfully',
+      review: seller.reviews[seller.reviews.length - 1]
+    });
+
+  } catch (error) {
+    console.error('Error in addSellerReview:', error);
+    res.status(500).json({
+      message: 'Failed to add review',
+      error: error.message
+    });
+  }
+};
+
+// Update an existing review
+exports.updateSellerReview = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { rating, comment } = req.body;
+    const buyerId = req.user.id;
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Find the existing review
+    const review = seller.reviews.find(
+      review => review.buyer.toString() === buyerId
+    );
+
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    // Update rating distribution
+    seller.stats.ratingDistribution[review.rating]--;
+    seller.stats.ratingDistribution[rating]++;
+
+    // Update the review
+    review.rating = rating || review.rating;
+    review.comment = comment || review.comment;
+    review.updatedAt = Date.now();
+
+    // Recalculate average rating
+    const totalRating = seller.reviews.reduce((sum, review) => sum + review.rating, 0);
+    seller.stats.averageRating = totalRating / seller.reviews.length;
+
+    await seller.save();
+
+    res.json({
+      message: 'Review updated successfully',
+      review
+    });
+
+  } catch (error) {
+    console.error('Error in updateSellerReview:', error);
+    res.status(500).json({
+      message: 'Failed to update review',
+      error: error.message
+    });
+  }
+};
+

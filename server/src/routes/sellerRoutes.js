@@ -1864,6 +1864,56 @@ router.put('/business-address', authMiddleware.verifyToken, sellerController.upd
  */
 router.put('/notification-preferences', authMiddleware.verifyToken, sellerController.updateNotificationPreferences);
 
+/**
+ * @swagger
+ * /api/seller/reviews:
+ *   get:
+ *     summary: Get seller's reviews
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [recent, rating-high, rating-low]
+ *     responses:
+ *       200:
+ *         description: Reviews retrieved successfully
+ */
+router.get('/reviews',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getSellerReviews
+);
+
+/**
+ * @swagger
+ * /api/seller/reviews/stats:
+ *   get:
+ *     summary: Get seller's review statistics
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Review statistics retrieved successfully
+ */
+router.get('/reviews/stats',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getReviewStats
+);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

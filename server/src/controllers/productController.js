@@ -975,30 +975,102 @@ exports.getBuyerFeedProducts = async (req, res) => {
 // Get trending products based on review count and ratings
 exports.getTrendingProducts = async (req, res) => {
   try {
-    const products = await Product.aggregate([
-      { 
-        $addFields: {
-          reviewCount: { $size: "$reviews" },
-          averageRating: { $avg: "$reviews.rating" }
-        }
-      },
+    const { 
+      limit = 10, 
+      period = 'week',
+      category 
+    } = req.query;
+
+    // Calculate date threshold based on period
+    const dateThreshold = new Date();
+    switch (period) {
+      case 'day':
+        dateThreshold.setDate(dateThreshold.getDate() - 1);
+        break;
+      case 'month':
+        dateThreshold.setMonth(dateThreshold.getMonth() - 1);
+        break;
+      default: // week
+        dateThreshold.setDate(dateThreshold.getDate() - 7);
+    }
+
+    // Build base query
+    const query = {
+      status: 'active',
+      visibility: 'visible',
+      'stats.lastViewed': { $gte: dateThreshold }
+    };
+
+    // Add category filter if provided
+    if (category) {
+      query.category = category;
+    }
+
+    // Aggregate pipeline to calculate trending score
+    const trendingProducts = await Product.aggregate([
+      { $match: query },
       {
-        $sort: {
-          reviewCount: -1,
-          averageRating: -1
+        $addFields: {
+          reviewCount: { $size: '$reviews' },
+          averageRating: { $avg: '$reviews.rating' },
+          // Calculate trending score based on multiple factors
+          trendingScore: {
+            $add: [
+              { $multiply: [{ $size: '$reviews' }, 2] }, // Review count weight
+              { $multiply: [{ $avg: '$reviews.rating' }, 3] }, // Rating weight
+              { $multiply: ['$stats.views', 0.5] }, // Views weight
+              { $multiply: ['$stats.sales', 4] } // Sales weight
+            ]
+          }
         }
       },
-      { $limit: 20 }
+      { $sort: { trendingScore: -1 } },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'seller'
+        }
+      },
+      { $unwind: '$seller' },
+      {
+        $project: {
+          name: 1,
+          price: 1,
+          discountedPrice: 1,
+          images: 1,
+          category: 1,
+          trendingScore: 1,
+          'seller._id': 1,
+          'seller.storeName': 1,
+          stats: {
+            rating: '$averageRating',
+            reviewCount: '$reviewCount',
+            views: '$stats.views',
+            sales: '$stats.sales'
+          }
+        }
+      }
     ]);
 
-    await Product.populate(products, {
-      path: 'seller',
-      select: 'name avatarUrl about'
+    res.json({
+      success: true,
+      period,
+      products: trendingProducts.map(product => ({
+        ...product,
+        trendingScore: Math.round(product.trendingScore * 100) / 100
+      }))
     });
 
-    res.json(products);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve trending products', error: error.message });
+    console.error('Error fetching trending products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch trending products',
+      error: error.message
+    });
   }
 };
 
