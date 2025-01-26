@@ -97,6 +97,13 @@ variantSchema.virtual('discountedPrice').get(function() {
   }
 });
 
+// Add blip comment schema
+const blipCommentSchema = new mongoose.Schema({
+  buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer', required: true },
+  comment: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
@@ -123,6 +130,13 @@ const productSchema = new mongoose.Schema({
   }],
   blips: [{
     url: { type: String },
+    likes: [{
+      buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    comments: [blipCommentSchema],
+    likesCount: { type: Number, default: 0 },
+    commentsCount: { type: Number, default: 0 }
   }],
   stock: {
     type: Number,
@@ -614,6 +628,14 @@ productSchema.pre('save', async function(next) {
       } catch (error) {
         console.error('Error creating low stock notification:', error);
       }
+    }
+
+    // Update counts
+    if (this.isModified('blips')) {
+      this.blips.forEach(blip => {
+        blip.likesCount = blip.likes.length;
+        blip.commentsCount = blip.comments.length;
+      });
     }
 
     next();

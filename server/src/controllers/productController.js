@@ -1230,25 +1230,66 @@ exports.getAllBlips = async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
 
   try {
+    console.log('Starting getAllBlips aggregation...');
+    
     const blips = await Product.aggregate([
       // Match products that have at least one blip
       { 
         $match: { 
           blips: { $exists: true, $ne: [] },
-          seller: { $exists: true, $ne: null } // Ensure seller exists
+          seller: { $exists: true, $ne: null }
         } 
       },
       // Unwind the blips array
       { $unwind: '$blips' },
-      // Project needed fields including seller ID
+      // Lookup seller information
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'sellerInfo'
+        }
+      },
+      // Unwind seller array
+      { $unwind: '$sellerInfo' },
+      // Project needed fields with safe handling of likes/comments
       {
         $project: {
           blipUrl: '$blips.url',
           productId: '$_id',
           productName: '$name',
           price: '$price',
-          sellerId: '$seller',
+          discountedPrice: '$discountedPrice',
+          seller: {
+            _id: '$sellerInfo._id',
+            firstName: '$sellerInfo.firstName',
+            lastName: '$sellerInfo.lastName',
+            storeName: '$sellerInfo.storeName',
+            storeAvatar: '$sellerInfo.storeAvatar',
+            aboutStore: '$sellerInfo.aboutStore'
+          },
           images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            }
+          },
           averageRating: {
             $cond: {
               if: { $isArray: '$reviews' },
@@ -1262,19 +1303,24 @@ exports.getAllBlips = async (req, res) => {
               then: { $size: '$reviews' },
               else: 0
             }
-          }
+          },
+          createdAt: '$blips.createdAt'
         }
       },
       // Sort by newest first
-      { $sort: { _id: -1 } },
+      { $sort: { createdAt: -1 } },
       // Skip and limit for pagination
       { $skip: (page - 1) * limit },
       { $limit: limit }
     ]);
 
+    console.log(`Found ${blips.length} blips`);
+
     const total = await Product.countDocuments({
       blips: { $exists: true, $ne: [] }
     });
+
+    console.log(`Total blips count: ${total}`);
 
     res.json({
       blips,
@@ -1283,7 +1329,7 @@ exports.getAllBlips = async (req, res) => {
       totalBlips: total
     });
   } catch (error) {
-    console.error('Error in getAllBlips:', error);
+    console.error('Detailed error in getAllBlips:', error);
     res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
   }
 };
@@ -1295,6 +1341,8 @@ exports.getSellerBlips = async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
 
   try {
+    console.log(`Starting getSellerBlips for seller: ${sellerId}`);
+
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ message: 'Invalid seller ID' });
@@ -1305,12 +1353,16 @@ exports.getSellerBlips = async (req, res) => {
       firstName: 1,
       lastName: 1,
       businessName: 1,
-      storeName: 1
+      storeName: 1,
+      storeAvatar: 1,
+      aboutStore: 1
     });
 
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
+
+    console.log('Found seller:', seller.storeName);
 
     // Check if seller has any blips before aggregation
     const hasBlips = await Product.exists({
@@ -1319,6 +1371,7 @@ exports.getSellerBlips = async (req, res) => {
     });
 
     if (!hasBlips) {
+      console.log('No blips found for seller');
       return res.json({
         message: 'Seller has no blips',
         seller,
@@ -1339,15 +1392,43 @@ exports.getSellerBlips = async (req, res) => {
       },
       // Unwind the blips array
       { $unwind: '$blips' },
-      // Project needed fields
+      // Project needed fields with safe handling of likes/comments
       {
         $project: {
           blipUrl: '$blips.url',
           productId: '$_id',
           productName: '$name',
           price: '$price',
-          sellerId: '$seller',
+          discountedPrice: '$discountedPrice',
+          seller: {
+            _id: seller._id,
+            firstName: seller.firstName,
+            lastName: seller.lastName,
+            storeName: seller.storeName,
+            storeAvatar: seller.storeAvatar,
+            aboutStore: seller.aboutStore
+          },
           images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            }
+          },
           averageRating: {
             $cond: {
               if: { $isArray: '$reviews' },
@@ -1361,31 +1442,36 @@ exports.getSellerBlips = async (req, res) => {
               then: { $size: '$reviews' },
               else: 0
             }
-          }
+          },
+          createdAt: '$blips.createdAt'
         }
       },
       // Sort by newest first
-      { $sort: { _id: -1 } },
+      { $sort: { createdAt: -1 } },
       // Skip and limit for pagination
       { $skip: (page - 1) * limit },
       { $limit: limit }
     ]);
+
+    console.log(`Found ${blips.length} blips for seller`);
 
     const total = await Product.countDocuments({
       seller: sellerId,
       blips: { $exists: true, $ne: [] }
     });
 
+    console.log(`Total blips count for seller: ${total}`);
+
     res.json({
-      blips,
       seller,
+      blips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalBlips: total
     });
   } catch (error) {
-    console.error('Error in getSellerBlips:', error);
-    res.status(500).json({ message: 'Failed to retrieve seller blips', error: error.message });
+    console.error('Detailed error in getSellerBlips:', error);
+    res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
   }
 };
 
@@ -2388,6 +2474,132 @@ exports.getProductById = async (req, res) => {
     res.status(500).json({ 
       message: 'Failed to retrieve product', 
       error: error.message 
+    });
+  }
+};
+
+// Toggle like on a blip
+exports.toggleBlipLike = async (req, res) => {
+  try {
+    const { id, blipId } = req.params;
+    const buyerId = req.user.id;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    const likeIndex = blip.likes.findIndex(like => 
+      like.buyer.toString() === buyerId
+    );
+
+    if (likeIndex === -1) {
+      // Add like
+      blip.likes.push({ buyer: buyerId });
+    } else {
+      // Remove like
+      blip.likes.splice(likeIndex, 1);
+    }
+
+    await product.save();
+
+    res.json({
+      message: likeIndex === -1 ? 'Blip liked' : 'Blip unliked',
+      likesCount: blip.likes.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to toggle blip like',
+      error: error.message
+    });
+  }
+};
+
+// Add comment to a blip
+exports.addBlipComment = async (req, res) => {
+  try {
+    const { id, blipId } = req.params;
+    const { comment } = req.body;
+    const buyerId = req.user.id;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    blip.comments.push({
+      buyer: buyerId,
+      comment
+    });
+
+    await product.save();
+
+    res.status(201).json({
+      message: 'Comment added successfully',
+      commentsCount: blip.comments.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to add comment',
+      error: error.message
+    });
+  }
+};
+
+// Get blip comments
+exports.getBlipComments = async (req, res) => {
+  try {
+    const { id, blipId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+
+    const comments = await Product.findOne(
+      { _id: id, 'blips._id': blipId },
+      { 'blips.$': 1 }
+    ).populate({
+      path: 'blips.comments.buyer',
+      select: 'firstName lastName profileImage'
+    });
+
+    const paginatedComments = comments.blips[0].comments
+      .slice(startIndex, endIndex);
+
+    res.json({
+      comments: paginatedComments,
+      pagination: {
+        total: blip.comments.length,
+        pages: Math.ceil(blip.comments.length / limit),
+        currentPage: page,
+        hasMore: endIndex < blip.comments.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get comments',
+      error: error.message
     });
   }
 };
