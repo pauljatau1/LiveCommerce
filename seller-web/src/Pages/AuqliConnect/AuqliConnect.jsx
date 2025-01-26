@@ -1,29 +1,41 @@
 import { useState, useEffect, useRef } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
-import { MessageCircle, Share2, MoreVertical, ImageIcon, VideoIcon, ThumbsUp, Heart, Bookmark, Send, Smile, AtSign, Hash, X, ChevronLeft, ChevronRight, Eye, MessageSquare } from 'lucide-react'
-import { Tooltip } from "@/components/ui/tooltip"
-import { Search } from 'lucide-react'
-import { Badge } from "@/components/ui/badge"
-import { Bell } from 'lucide-react'
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { MessageCircle, MoreVertical, X, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Bell } from 'lucide-react';
 import { BASE_URL } from "@/Constants/Server"
 import LinearProgress from "@mui/material/LinearProgress"
 import { toast } from "sonner"
-import { Carousel } from 'react-responsive-carousel'
-import 'react-responsive-carousel/lib/styles/carousel.min.css'
-import { useNavigate } from 'react-router-dom'
-import Header from "@/components/ui/Header/Header"
+import 'react-responsive-carousel/lib/styles/carousel.min.css';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { FaRegCommentDots, FaShareSquare, FaBookmark } from "react-icons/fa";
 import { IoEyeOutline } from "react-icons/io5";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Check } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { ChevronDown } from "lucide-react"
 
 // Helper function to format message timestamps
 const formatMessageTime = (timestamp) => {
@@ -40,6 +52,7 @@ const formatMessageTime = (timestamp) => {
       minute: '2-digit'
     });
   }
+
 
   // If message is from yesterday, show "Yesterday"
   if (diffInHours < 48) {
@@ -83,7 +96,11 @@ const formatCommentPreview = (comments) => {
 
 // Create a new separate component for the create post modal
 const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, setPostForm }) => {
+  const { setHeaderName, setNavName } = useOutletContext();
   const [previews, setPreviews] = useState([])
+  const [sellerProducts, setSellerProducts] = useState([])
+  const [open, setOpen] = useState(false)
+  const [selectedProducts, setSelectedProducts] = useState([])
 
   const handleMediaChange = (e) => {
     const files = Array.from(e.target.files)
@@ -109,6 +126,49 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, se
       previews.forEach(preview => URL.revokeObjectURL(preview.url))
     }
   }, [])
+ 
+  useEffect(() => {
+    setHeaderName('Customers');
+    setNavName('');
+  }, [setHeaderName, setNavName])
+
+  // Fetch seller products when modal opens
+  useEffect(() => {
+    const fetchSellerProducts = async () => {
+      try {
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const response = await fetch(`${BASE_URL}/seller/profile`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const profileData = await response.json();
+        
+        const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData._id}`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const productsData = await productsResponse.json();
+        setSellerProducts(productsData.products);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        toast.error('Failed to load products');
+      }
+    };
+
+    if (isOpen) {
+      fetchSellerProducts();
+    }
+  }, [isOpen]);
+
+  // Update postForm when products are selected
+  useEffect(() => {
+    setPostForm(prev => ({
+      ...prev,
+      productIds: selectedProducts.map(p => p._id).filter(Boolean)
+    }));
+  }, [selectedProducts, setPostForm]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -196,6 +256,94 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, se
             </div>
           )}
 
+          {/* Add product selection before the tags field */}
+          <div className="space-y-2">
+            <Label>Tag Products</Label>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="w-full justify-between"
+                >
+                  {selectedProducts.length > 0
+                    ? `${selectedProducts.length} products selected`
+                    : "Select products..."}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Search products..." />
+                  <CommandEmpty>No products found.</CommandEmpty>
+                  <CommandGroup className="max-h-64 overflow-auto">
+                    {sellerProducts.map((product) => (
+                      <CommandItem
+                        key={product._id}
+                        onSelect={() => {
+                          setSelectedProducts(prev => {
+                            const isSelected = prev.some(p => p._id === product._id);
+                            if (isSelected) {
+                              return prev.filter(p => p._id !== product._id);
+                            }
+                            return [...prev, product];
+                          });
+                        }}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <img
+                            src={product.images[0]?.url}
+                            alt={product.name}
+                            className="w-8 h-8 object-cover rounded"
+                          />
+                          <span>{product.name}</span>
+                          <Check
+                            className={cn(
+                              "ml-auto h-4 w-4",
+                              selectedProducts.some(p => p._id === product._id)
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            
+            {/* Display selected products */}
+            {selectedProducts.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedProducts.map((product) => (
+                  <div
+                    key={product._id}
+                    className="flex items-center gap-2 bg-gray-100 rounded-md p-2"
+                  >
+                    <img
+                      src={product.images[0]?.url}
+                      alt={product.name}
+                      className="w-6 h-6 object-cover rounded"
+                    />
+                    <span className="text-sm">{product.name}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-1"
+                      onClick={() => setSelectedProducts(prev => 
+                        prev.filter(p => p._id !== product._id)
+                      )}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div>
             <Label htmlFor="tags">Tags</Label>
             <Input
@@ -248,6 +396,40 @@ const fetchPostData = async (postId) => {
     console.error('Error fetching post:', error);
     throw error;
   }
+};
+
+// Add this component for displaying tagged products
+const TaggedProducts = ({ products }) => {
+  if (!products || products.length === 0) return null;
+
+  return (
+    <div className="mt-4 border-t pt-4">
+      <h4 className="text-sm font-medium text-gray-500 mb-3">Tagged Products</h4>
+      <div className="grid grid-cols-2 gap-2">
+        {products.map((product) => (
+          <div
+            key={product.productId._id}
+            className="flex items-center gap-3 p-2 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+            onClick={() => window.open(`/dashboard/products/${product.productId._id}`, '_blank')}
+          >
+            <img
+              src={product.productId.images[0]?.url}
+              alt={product.productId.name}
+              className="w-12 h-12 object-cover rounded-md"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {product.productId.name}
+              </p>
+              <p className="text-sm text-gray-500">
+                ₦{product.productId.price.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export default function SocialFeed() {
@@ -670,6 +852,9 @@ export default function SocialFeed() {
                 </div>
               </div>
             )}
+            
+            {/* Add the tagged products section */}
+            <TaggedProducts products={post.products} />
           </CardContent>
 
           <CardFooter className="p-4 flex flex-col gap-4">
@@ -913,25 +1098,36 @@ export default function SocialFeed() {
   }
 
   const handleCreatePost = async (e) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+    e.preventDefault();
+    setIsSubmitting(true);
 
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
-      if (!sellerToken) throw new Error('Not authenticated')
+      const sellerToken = localStorage.getItem('sellerToken');
+      if (!sellerToken) throw new Error('Not authenticated');
 
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
+      const tokenData = JSON.parse(sellerToken);
+      const token = tokenData.data;
 
-      const formData = new FormData()
-      formData.append('title', postForm.title)
-      formData.append('body', postForm.body)
-      formData.append('tags', postForm.tags)
-      formData.append('visibility', postForm.visibility)
+      const formData = new FormData();
+      formData.append('title', postForm.title);
+      formData.append('body', postForm.body);
+      
+      // Handle tags
+      if (postForm.tags) {
+        formData.append('tags', postForm.tags);
+      }
+      
+      formData.append('visibility', postForm.visibility);
 
+      // Handle media files
       postForm.media.forEach(file => {
-        formData.append('media', file)
-      })
+        formData.append('media', file);
+      });
+
+      // Handle product IDs - make sure to join with commas and no spaces
+      if (postForm.productIds && postForm.productIds.length > 0) {
+        formData.append('productIds', postForm.productIds.join(','));
+      }
 
       const response = await fetch(`${BASE_URL}/posts`, {
         method: 'POST',
@@ -939,12 +1135,12 @@ export default function SocialFeed() {
           'Authorization': `Bearer ${token}`
         },
         body: formData
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to create post')
+      if (!response.ok) throw new Error('Failed to create post');
 
-      toast.success('Post created successfully')
-      setIsCreatePostOpen(false)
+      toast.success('Post created successfully');
+      setIsCreatePostOpen(false);
       setPostForm({
         title: '',
         body: '',
@@ -952,16 +1148,18 @@ export default function SocialFeed() {
         visibility: 'public',
         media: [],
         productIds: []
-      })
+      });
 
-      fetchPosts()
+      // Fetch posts after successful creation
+      fetchPosts();
 
     } catch (error) {
-      toast.error('Failed to create post: ' + error.message)
+      console.error('Error creating post:', error);
+      toast.error('Failed to create post: ' + error.message);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleDeletePost = async (postId) => {
     try {
@@ -1047,6 +1245,39 @@ export default function SocialFeed() {
     </ScrollArea>
   );
 
+  // Add fetchPosts function
+  const fetchPosts = async () => {
+    try {
+      const sellerToken = localStorage.getItem('sellerToken');
+      if (!sellerToken) throw new Error('Not authenticated');
+
+      const tokenData = JSON.parse(sellerToken);
+      const token = tokenData.data;
+
+      const response = await fetch(`${BASE_URL}/posts`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch posts');
+
+      const data = await response.json();
+      setPosts(data.posts);
+      setTrendingPosts(data.posts.filter(post => post.stats?.likeCount > 0));
+      setNewPosts(data.posts.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      setMyPosts(data.posts.filter(post => post.author?.id === tokenData.user?._id));
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      toast.error('Failed to fetch posts');
+    }
+  };
+
+  // Add useEffect to fetch posts on component mount
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -1059,11 +1290,7 @@ export default function SocialFeed() {
 
   return (
     <div className='min-h-screen dark:bg-gray-900'>
-      <Header 
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
-        name="Auqli Connect"
-      />
+     
       
       <div className='py-4 px-4 md:py-8 md:px-6'>
         <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8'>
