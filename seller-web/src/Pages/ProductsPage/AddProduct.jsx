@@ -15,15 +15,16 @@ import { toast } from 'sonner';
 //import { useAuthContext } from '../../Hooks/useAuthContext';
 //import { useProductContext } from '../../Hooks/useProductContext';
 import { useSelector, useDispatch } from 'react-redux';
+import { useOutletContext } from 'react-router-dom'
+import { createProduct } from '../../Redux/Slices/ProductSlice';
+import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
-import { createProduct } from '../../Redux/Slices/ProductSlice';
 import Header from '../../Components/ui/Header/Header';
 import NoCatImage from '../../assets/no-cat.png';
 import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
-import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
 import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
 import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
 import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
@@ -32,6 +33,7 @@ import VariantCombinationsMobile from '../../Components/ui/VariantComponents/Var
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 
 const AddProduct = () => {
+    const { setHeaderName, setNavName } = useOutletContext()
     //const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
     //const { seller } = useAuthContext();
     const dispatch = useDispatch();
@@ -71,6 +73,11 @@ const AddProduct = () => {
     const [contentProgress, setContentProgress] = useState(0);
     const [productSpecs, setProductSpecs] = useState({});
     const { variantStructure } = useVariants();
+
+    useEffect(() => {
+        setHeaderName('Products')
+        setNavName('Add Product')
+    }, [])
 
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);
@@ -266,7 +273,7 @@ const AddProduct = () => {
     //submit product
     const handleSubmitProduct = async (e) => {
         e.preventDefault();
-    
+
         try {
             // Helper function to convert blob to base64
             const convertBlobToBase64 = (blob) => {
@@ -294,7 +301,7 @@ const AddProduct = () => {
                         isDefault: img.isDefault || false
                     };
                 }));
-        
+
                 return {
                     name: mainVariant.name,
                     value: mainVariant.value,
@@ -316,7 +323,7 @@ const AddProduct = () => {
                                 isDefault: img.isDefault || false
                             };
                         }));
-        
+
                         return {
                             name: subVariant.name,
                             value: subVariant.value,
@@ -336,7 +343,7 @@ const AddProduct = () => {
                                         isDefault: img.isDefault || false
                                     };
                                 }));
-        
+
                                 return {
                                     name: subSubVariant.name,
                                     value: subSubVariant.value,
@@ -350,7 +357,7 @@ const AddProduct = () => {
                     }))
                 };
             }) || []);
-        
+
             // Process main product images
             const processedImages = await Promise.all(images.map(async (image) => {
                 const base64Response = await fetch(image.url);
@@ -361,7 +368,7 @@ const AddProduct = () => {
                     contentType: 'image/jpeg'
                 };
             }));
-        
+
             // Process video if exists
             const processedBlips = [];
             if (videos.length > 0) {
@@ -373,7 +380,7 @@ const AddProduct = () => {
                     contentType: 'video/mp4'
                 });
             }
-        
+
             // Create the product data object
             const productData = {
                 name: title,
@@ -406,7 +413,7 @@ const AddProduct = () => {
                     shippingClass: 'standard'
                 }
             };
-        
+
             // Add product specifications
             if (productSpecs) {
                 Object.entries(productSpecs).forEach(([key, value]) => {
@@ -415,12 +422,12 @@ const AddProduct = () => {
                     }
                 });
             }
-        
+
             // Validate and submit
             if (title && description && images.length > 0 && shippingDetails.pricing &&
                 shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
                 selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
-                
+
                 dispatch(createProduct(productData));
             } else {
                 toast.error('Please fill all required fields');
@@ -655,7 +662,6 @@ const AddProduct = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col justify-between gap-4 py-6">
-                        <Header headerTitle="Add Product" showHeader={true} showNotification notificationData='Need help? Visit the seller university for detailed guides' notificationColor='#05031F' notificationBackgroundColor="#0BB24847" notificationIcon='bi:info-circle' />
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">
                             {/* Left Section */}
                             <div className="flex-1 space-y-4 bg-[#F7F7F7] border border-[#00000024] rounded-lg py-3 lg:py-7 px-3 lg:px-6 ">

@@ -6,11 +6,17 @@ import LiveStreamSuccessIcon from '../../assets/Party.png';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useOutletContext } from 'react-router-dom';
 import LiveAuctionProductsCard from '../../Components/LiveAuctionProductsCard';
 import PropTypes from 'prop-types';
 
 const SuccessModal = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
+    const { setHeaderName, setNavName } = useOutletContext()
+    useEffect(() => {
+        setHeaderName('Live Streams')
+        setNavName('Submit Live Auction')
+    }, [])
 
     if (!isOpen) return null;
 
@@ -124,9 +130,7 @@ const SubmitLiveAuction = () => {
 
     return (
         <>
-            <div className="flex flex-col gap-6 ">
-                <Header headerTitle="OPEN LIVE SHOW SUMMARY" showHeader={true} />
-
+            <div className="flex flex-col p-3 lg:p-10 gap-6 ">
                 <div className="max-w-7xl mx-auto w-full space-y-8">
                     {/* Preview Card Container */}
                     <div className="h-fit flex flex-col lg:flex-row items-stretch gap-10">
@@ -196,17 +200,17 @@ const SubmitLiveAuction = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-end gap-3 pt-4">
+                    <div className="flex flex-wrap justify-end gap-3 pt-4">
                         <button
                             onClick={() => navigate(-1)}
-                            className="px-6 py-2.5 text-sm font-medium text-[#505780] bg-[#E4ECF7] rounded-lg hover:bg-[#E4ECF7]/70 transition-all duration-300"
+                            className="px-6 whitespace-nowrap py-2.5 order-2 md:order-1 text-sm font-medium text-[#505780] bg-[#E4ECF7] rounded-lg hover:bg-[#E4ECF7]/70 transition-all duration-300"
                         >
                             Go Back
                         </button>
                         <button
                             onClick={handleSchedulingLiveAuction}
                             disabled={isLoading}
-                            className="px-6 w-[200px] whitespace-nowrap py-2.5 text-sm font-medium text-white bg-[#16783A] rounded-lg hover:bg-[#16783A]/90 disabled:opacity-50 transition-all duration-300"
+                            className="px-6 w-[200px] whitespace-nowrap py-2.5 order-1 md:order-2 text-sm font-medium text-white bg-[#16783A] rounded-lg hover:bg-[#16783A]/90 disabled:opacity-50 transition-all duration-300"
                         >
                             {isLoading ? <CircularProgress size={20} color="#fff" /> : 'Schedule Live Show'}
                         </button>

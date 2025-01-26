@@ -18,6 +18,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
 import { createProduct, getProductDetailsById, updateProduct } from '../../Redux/Slices/ProductSlice';
 import { useParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom'
 import UploadImage from '../../assets/upload-image.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
@@ -32,6 +33,7 @@ import VariantCombinationsMobile from '../../Components/ui/VariantComponents/Var
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 
 const EditProduct = () => {
+    const { setHeaderName, setNavName } = useOutletContext()
     //const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
     //const { seller } = useAuthContext();
     const dispatch = useDispatch();
@@ -71,6 +73,11 @@ const EditProduct = () => {
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
     const [productSpecs, setProductSpecs] = useState({});
+
+    useEffect(() => {
+        setHeaderName('Products')
+        setNavName('Edit Product')
+    }, [])
 
     console.log('productId', id)
     console.log('fetched product', product)
@@ -1096,7 +1103,6 @@ const EditProduct = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col justify-between gap-4 py-6">
-                        <Header headerTitle="Edit Product" showHeader={true} showNotification notificationData='Need help? Visit the seller university for detailed guides' notificationColor='#05031F' notificationBackgroundColor="#0BB24847" notificationIcon='bi:info-circle' />
                         <div className="flex flex-col lg:flex-row mt-[15.5px] xl:mt-[31px] gap-4 relative">
                             {/* Left Section */}
                             <div className="flex-1 space-y-4 bg-[#F7F7F7] border border-[#00000024] rounded-lg py-3 lg:py-7 px-3 lg:px-6 ">

@@ -20,13 +20,14 @@ import axios from "axios";
 import LinearProgress from '@mui/material/LinearProgress';
 import ObjectID from 'bson-objectid';
 import CircularProgress from '@mui/material/CircularProgress';
-import { FiUsers, FiShoppingBag, FiBarChart2, FiUserPlus } from 'react-icons/fi';
+import { FiShoppingBag, FiBarChart2, FiUserPlus } from 'react-icons/fi';
+import { FaStoreAlt } from "react-icons/fa";
 import { BiWallet } from 'react-icons/bi';
-import Header from "@/Components/ui/Header/Header";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
 import NotificationsDialog from "../../Components/NotificationsDialog";
+import { useOutletContext } from "react-router-dom";
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
 // Example: formatNumber(1500, "view") returns "1.5K views"
@@ -38,11 +39,11 @@ const formatNumber = (number, label) => {
 
 // Add this helper function for number formatting
 const formatMetricValue = (value) => {
-    if (!value) return '0';
-    if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    return value.toString();
+  if (!value) return '0';
+  if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return value.toString();
 };
 
 // Add this new API call function
@@ -50,7 +51,7 @@ const getSellerAnalytics = async () => {
   try {
     const token = localStorage.getItem('sellerToken');
     const { data: authToken } = JSON.parse(token);
-    
+
     const response = await axios.get(
       `${BASE_URL}/seller/analytics/metrics`,
       {
@@ -67,6 +68,7 @@ const getSellerAnalytics = async () => {
 const HomePage = () => {
   // Core hooks initialization
   const navigate = useNavigate();
+  const { setHeaderName, setNavName } = useOutletContext()
   const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications } = useAuthContext();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
 
@@ -79,6 +81,11 @@ const HomePage = () => {
   const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]);
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
+
+  useEffect(() => {
+    setHeaderName("Home")
+    setNavName("")
+  }, [])
 
   // Fetch seller details and wallet balance
   useEffect(() => {
@@ -118,9 +125,11 @@ const HomePage = () => {
             }
           ),
         ]);
+        console.log('analyticsResponse', analyticsResponse);
 
         const newOrders = ordersResponse.status === 200 ? ordersResponse.data : [];
-        
+
+
         // Update critical data immediately
         const initialAnalyticsData = prepareAnalyticsData(
           newOrders,
@@ -129,7 +138,7 @@ const HomePage = () => {
           analyticsResponse,
           seller // Pass the entire seller object
         );
-        
+
         setOrders(newOrders);
         setHomeAnalyticsCardData(initialAnalyticsData);
         setIsDataReady(true);
@@ -229,7 +238,7 @@ const HomePage = () => {
   // Helper function to calculate proper conversion rate (0-100%)
   const calculateConversionRate = (analytics) => {
     if (!analytics?.storeMetrics?.visits || !analytics?.orders?.total) return 0;
-    
+
     const rate = (analytics.orders.total / analytics.storeMetrics.visits) * 100;
     // Ensure rate is between 0-100%
     return Math.min(Math.max(rate, 0), 100).toFixed(1);
@@ -239,68 +248,73 @@ const HomePage = () => {
   // Includes: Store Visits, Total Sales, Orders, Conversions, Customers
   const prepareAnalyticsData = (orders, storeVisits, totalCustomers, analytics, seller) => {
     const conversionRate = calculateConversionRate(analytics);
-    
+
     return [
-        {
-            id: ObjectID().toHexString(),
-            title: 'Store Visits',
-            icon: FiUsers,
-            current: formatMetricValue(storeVisits),
-            percentage: '+13%',
-            trend: 'up',
-            iconColor: 'text-blue-600',
-            iconBackground: 'bg-blue-50'
-        },
-        {
-            id: ObjectID().toHexString(),
-            title: 'Wallet Balance',
-            icon: BiWallet,
-            current: `₦${formatMetricValue(seller?.walletBalance || 0)}`,
-            percentage: '+8%',
-            trend: 'up',
-            iconColor: 'text-green-600',
-            iconBackground: 'bg-green-50'
-        },
-        {
-            id: ObjectID().toHexString(),
-            title: 'Total Orders',
-            icon: FiShoppingBag,
-            current: formatMetricValue(analytics?.orders?.total || 0),
-            percentage: '+2%',
-            trend: 'up',
-            iconColor: 'text-purple-600',
-            iconBackground: 'bg-purple-50'
-        },
-        {
-            id: ObjectID().toHexString(),
-            title: 'Conversion Rate',
-            icon: FiBarChart2,
-            current: `${conversionRate}%`,
-            percentage: analytics?.insights?.find(i => i.metric === "Store Conversion")?.percentageChange + '%' || '0%',
-            trend: analytics?.insights?.find(i => i.metric === "Store Conversion")?.trend || 'neutral',
-            iconColor: 'text-green-600',
-            iconBackground: 'bg-green-50'
-        },
-        {
-            id: ObjectID().toHexString(),
-            title: 'New Customers',
-            icon: FiUserPlus,
-            current: formatMetricValue(analytics?.customers?.total || 0),
-            percentage: analytics?.insights?.find(i => i.metric === "Customer Retention")?.percentageChange + '%' || '0%',
-            trend: analytics?.insights?.find(i => i.metric === "Customer Retention")?.trend || 'neutral',
-            iconColor: 'text-orange-600',
-            iconBackground: 'bg-orange-50'
-        }
+      // {
+      //     id: ObjectID().toHexString(),
+      //     title: 'Store Visits',
+      //     icon: FiUsers,
+      //     current: formatMetricValue(storeVisits),
+      //     percentage: '+13%',
+      //     trend: 'up',
+      //     iconColor: 'text-blue-600',
+      //     iconBackground: 'bg-blue-50'
+      // },
+      {
+        id: ObjectID().toHexString(),
+        title: 'Wallet Balance',
+        icon: BiWallet,
+        current: `₦${formatMetricValue(seller?.walletBalance || 0)}`,
+        percentage: '+8%',
+        trend: 'up',
+        iconColor: 'text-green-600',
+        iconBackground: 'bg-green-50'
+      },
+      {
+        id: ObjectID().toHexString(),
+        title: 'Store Visits',
+        icon: FaStoreAlt,
+        current: formatMetricValue(storeVisits),
+        percentage: '+13%',
+        trend: 'up',
+        iconColor: 'text-blue-600',
+        iconBackground: 'bg-blue-50'
+      },
+      {
+        id: ObjectID().toHexString(),
+        title: 'Total Orders',
+        icon: FiShoppingBag,
+        current: formatMetricValue(analytics?.orders?.total || 0),
+        percentage: '+2%',
+        trend: 'up',
+        iconColor: 'text-purple-600',
+        iconBackground: 'bg-purple-50'
+      },
+      {
+        id: ObjectID().toHexString(),
+        title: 'Conversion Rate',
+        icon: FiBarChart2,
+        current: `${conversionRate}%`,
+        percentage: analytics?.insights?.find(i => i.metric === "Store Conversion")?.percentageChange + '%' || '0%',
+        trend: analytics?.insights?.find(i => i.metric === "Store Conversion")?.trend || 'neutral',
+        iconColor: 'text-green-600',
+        iconBackground: 'bg-green-50'
+      },
+      {
+        id: ObjectID().toHexString(),
+        title: 'New Customers',
+        icon: FiUserPlus,
+        current: formatMetricValue(analytics?.customers?.total || 0),
+        percentage: analytics?.insights?.find(i => i.metric === "Customer Retention")?.percentageChange + '%' || '0%',
+        trend: analytics?.insights?.find(i => i.metric === "Customer Retention")?.trend || 'neutral',
+        iconColor: 'text-orange-600',
+        iconBackground: 'bg-orange-50'
+      }
     ];
   };
 
   return (
     <>
-      {/* Search Bar */}
-      <Header
-  isSidebarOpen={isSidebarOpen}
-  setIsSidebarOpen={setIsSidebarOpen}
-/>
       {/* Notification */}
       {
         notification && (
@@ -322,7 +336,7 @@ const HomePage = () => {
           <div className="flex justify-center items-center">
             {
               homeAnalyticsCardData.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-9 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-8 gap-y-2 mt-9 w-full">
                   {
                     homeAnalyticsCardData.map((card) => (
                       <HomeAnalyticsCard key={card.id} card={card} />
@@ -340,97 +354,105 @@ const HomePage = () => {
           </div>
           {/* Stuff to do 1 */}
           <div className="mt-10 flex flex-col lg:flex-row lg:align-center lg:justify-between gap-14 lg:gap-4">
-          <div className="w-full">
-      <div className="mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900">Notifications</h3>
-            <p className="text-sm text-gray-500 mt-1">Your recent updates and alerts</p>
-          </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <button className="text-sm text-green-600 hover:text-green-700 font-medium">
-                View all
-              </button>
-            </DialogTrigger>
-            <NotificationsDialog notifications={stuffToDo?.notifications} />
-          </Dialog>
-        </div>
-      </div>
-
-      <div className=" rounded-xl border border-gray-200 overflow-hidden">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-[364px]">
-            <CircularProgress size={24} className="text-green-600" />
-          </div>
-        ) : stuffToDo?.notifications?.length > 0 ? (
-          <div className="divide-y divide-gray-100">
-            {stuffToDo.notifications.slice(0, 4).map((notification) => (
-              <div key={notification._id} className="p-4 hover:bg-gray-100 transition-colors">
-                {/* <h4 className="font-medium text-gray-900">{notification.title}</h4> */}
-                <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                {/* <p className="text-xs text-gray-400 mt-2">
-                  {new Date(notification.createdAt).toLocaleDateString()}
-                </p> */}
+            {/* Notifications Section */}
+            <div className="w-full bg-[#FFFFFF] rounded-xl border border-gray-200 p-6 flex flex-col">
+              <div className="mb-6">
+                <div className="flex flex-col xl:flex-row justify-between items-start gap-y-4 xl:gap-y-0 xl:items-center">
+                  <div>
+                    <h3 className="text-xl font-semibold text-[#27272E] font-inter ">Notifications</h3>
+                    <p className="text-sm text-[#425466] font-inter mt-1">Your recent updates and alerts</p>
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <button className="text-sm whitespace-nowrap text-[#0BB248] font-inter font-semibold hover:text-green-700">
+                        View all
+                      </button>
+                    </DialogTrigger>
+                    <NotificationsDialog notifications={stuffToDo?.notifications} />
+                  </Dialog>
+                </div>
               </div>
-            ))}
+
+              <div className="overflow-hidden flex-1">
+                {isLoading ? (
+                  <div className="flex justify-center items-center h-full min-h-[364px]">
+                    <CircularProgress size={24} className="text-green-600" />
+                  </div>
+                ) : stuffToDo?.notifications?.length > 0 ? (
+                  <div className="space-y-3 h-full">
+                    {stuffToDo.notifications.slice(0, 4).map((notification) => (
+                      <div key={notification._id} className="p-4 border gap-2 flex-wrap flex items-center justify-between rounded-lg cursor-pointer border-gray-200 hover:bg-gray-50 hover:shadow-md transition-colors">
+                        <div>
+                          <h4 className="text-sm xl:text-base font-inter font-semibold text-[#27272E]">{notification.title}</h4>
+                          <p className="text-sm text-[#425466] max-w-[420px] font-inter mt-1">{notification.message}</p>
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="border border-[#0BB248] text-sm text-[#0BB248] font-cabin whitespace-nowrap hover:bg-[#DEFFEE] px-3 py-1 rounded-lg transition-all duration-300 ease-in-out " >
+                              Check It
+                            </button>
+                          </DialogTrigger>
+                          <NotificationsDialog notifications={stuffToDo?.notifications} />
+                        </Dialog>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[364px] text-gray-500">
+                    <Icon icon="line-md:bell-loop" className="text-gray-400 w-16 h-16  " />
+                    <p className="text-base font-medium text-[#425466] font-inter">No notifications</p>
+                    <p className="text-sm text-[#425466] font-inter">You're all caught up!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Top Selling Products Section */}
+            <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6 flex flex-col">
+              <div className="flex flex-col md:flex-row md:justify-between space-y-3 md:space-y-0 md:items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-[#27272E] font-inter ">Your top 3 selling products</h3>
+                  <p className="text-sm text-[#425466] font-inter mt-0.5">Best performing items this month</p>
+                </div>
+                <Link
+                  to="/dashboard/products"
+                  className="flex items-center w-fit px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow"
+                >
+                  View all
+                  <svg className="ml-1.5 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+              <div className="overflow-hidden flex-1">
+                {isLoading ? (
+                  <div className="flex justify-center items-center h-full min-h-[364px]">
+                    <CircularProgress size={20} className="text-green-600" />
+                  </div>
+                ) : (
+                  <div className=" space-y-3 mt-3 h-full">
+                    {
+                      top3SellingProducts.length > 0 ? (
+                        top3SellingProducts?.map((product) => (
+                          <QuickOrderCard
+                            key={product._id}
+                            product={product}
+                            className="hover:bg-gray-50 transition-colors duration-200 p-3"
+                          />
+                        ))
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full min-h-[364px] text-gray-500">
+                          <Icon icon="line-md:bell-loop" className="text-gray-400 w-16 h-16  " />
+                          <p className="text-base font-medium text-[#425466] font-inter">No Products Sold Yet</p>
+                        </div>
+                      )
+                    }
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-[364px] text-gray-500">
-            <svg
-              className="w-12 h-12 mb-3 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            <p className="text-base font-medium">No notifications</p>
-            <p className="text-sm">You're all caught up!</p>
-          </div>
-        )}
-      </div>
-    </div>
-            {/* Stuff to do 2 */}
-            <div className="w-full">
-  {/* Top 3 selling products */}
-  <div className="flex justify-between items-center mb-4">
-    <div>
-      <h3 className="text-lg font-bold text-gray-900">Your top 3 selling products</h3>
-      <p className="text-xs text-gray-500 mt-0.5">Best performing items this month</p>
-    </div>
-    <Link
-      to="/dashboard/products"
-      className="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200 shadow-sm hover:shadow"
-    >
-      View all
-      <svg className="ml-1.5 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-      </svg>
-    </Link>
-  </div>
-  <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-    {isLoading ? (
-      <div className="flex justify-center items-center h-48">
-        <CircularProgress size={20} className="text-green-600" />
-      </div>
-    ) : (
-      <div className="divide-y divide-gray-100">
-        {top3SellingProducts?.map((product) => (
-          <QuickOrderCard
-            key={product._id}
-            product={product}
-            className="hover:bg-gray-50 transition-colors duration-200 p-3"
-          />
-        ))}
-      </div>
-    )}
-  </div>
-</div>
-          </div>
-          <div className="mt-5">
+          <div className=" bg-white mt-5">
             {isLoading ? (
               <Skeleton height={400} />
             ) : (
@@ -460,7 +482,7 @@ const HomePage = () => {
           </div>
           <div className="mt-5">
             <h1 className="text-lg font-lexend font-bold text-[#05031F] mb-2">Platform Announcements</h1>
-            <div className="flex flex-col mt-4 rounded-md border border-gray-200 " >
+            <div className="flex flex-col bg-white mt-4 rounded-md border border-gray-200 " >
               {
                 platformAnnouncement.length > 0 ? (
                   platformAnnouncement.map((announcement) => (

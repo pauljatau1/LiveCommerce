@@ -25,16 +25,19 @@ import Header from "../../Components/ui/Header/Header";
 
 
 const MarketingPage = () => {
-    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext();
+    const { isSidebarOpen, setIsSidebarOpen, setHeaderName, setNavName } = useOutletContext();
     const [open, setOpen] = useState(false);
     const [isChatVisible, setIsChatVisible] = useState(true);
     const [notification, setNotification] = useState(true);
-    
+
+    useEffect(() => {
+        setHeaderName('Marketing')
+        setNavName('')
+    }, [])
+
 
     return (
-        <>
-            <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} name="Marketing" />
-       
+        <>   
         <div className="flex flex-col justify-between gap-4 py-6">
                
                 

@@ -1,6 +1,6 @@
 const ComingSoonTag = () => {
     return (
-        <div className="absolute top-o right-0">
+        <div className="absolute top-3 right-3">
             <div className="relative">
                 {/* Background with gradient */}
                 <div className="bg-gradient-to-r from-purple-600 to-pink-500 rounded-full px-2 py-1.5 shadow-lg">

@@ -1,13 +1,20 @@
+import { useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { liveStreamCardData, suggestVideosData } from "../../Utilities/data";
 import LiveStreamCard from "../../Components/LiveStreamCard";
 import SuggestedVideoCard from "../../Components/SuggestedVideoCard";
 import Header from "../../Components/ui/Header/Header";
 
+
 const LiveStream = () => {
+    const { setHeaderName, setNavName } = useOutletContext()
+    useEffect(() => {
+        setHeaderName('Live Streams')
+        setNavName('')
+    }, [])
+
     return (
-        <div className="flex flex-col gap-8 ">
-            <Header headerTitle="MARKETING" showHeader={true} />
-            
+        <div className="flex flex-col mt-10 gap-8 ">        
             <div className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                     {liveStreamCardData.map((item) => (

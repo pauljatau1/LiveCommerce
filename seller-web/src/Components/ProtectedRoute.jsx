@@ -39,6 +39,7 @@ const ProtectedRoute = ({ children }) => {
     const signal = controller.signal;
     const storedToken = localStorage.getItem('sellerToken');
     const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+    console.log('tokenData', tokenData) 
 
     // Check if we're already in a dashboard route
     const isDashboardRoute = location.pathname.startsWith('/dashboard');
@@ -51,26 +52,40 @@ const ProtectedRoute = ({ children }) => {
           }
         }, { signal });
 
+        console.log('token validity response', response)
+        console.log('validity', response)
+
         if (response.status === 200) {
-          if (tokenData?.data && tokenData?.isVerified === false) {
-            //if the seller is logged in and the first time, redirect to the onboarding page
-            if (onboardingStep !== "") {
-              navigate(`/${onboardingStep}`);
-              setTimeout(() => {
-                toast.success('Continue Onboarding', {
-                  description: 'Continue from where you left off',
+          if (tokenData?.data) {
+            if (tokenData.isVerified === false) {
+              if (onboardingStep !== "") {
+                navigate(`/${onboardingStep}`);
+                setTimeout(() => {
+                  toast.success('Continue Onboarding', {
+                    description: 'Continue from where you left off',
+                    style: {
+                      background: '#05031F',
+                      color: '#fff',
+                    }
+                  });
+                }, 2500);
+              } else {
+                toast.error('Please complete the onboarding process', {
+                  description: 'All fields are required',
                   style: {
                     background: '#05031F',
                     color: '#fff',
                   }
                 });
-              }, 2500);
-            } else {
-              navigate('/onboarding');
+                navigate('/onboarding');
+              }
+            } else if (tokenData.isVerified === true) {
+              if (!isDashboardRoute) {
+                navigate('/dashboard/home', { replace: true });
+              }
             }
-          } else if (tokenData?.data && tokenData?.isVerified === true && !isDashboardRoute) {
-            // Only redirect to home if not already in a dashboard route
-            navigate('/dashboard/home', { replace: true });
+          } else {
+            navigate('/login');
           }
         } else if (response.status === 401) {
           console.log("Token is invalid");
@@ -95,7 +110,7 @@ const ProtectedRoute = ({ children }) => {
       }
     }
 
-    if (tokenData.data && !isDashboardRoute) {
+    if (tokenData.data) {
       // Only check token validity if not in dashboard route
       checkTokenValidity();
     } else if (!tokenData.data) {

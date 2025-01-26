@@ -8,26 +8,27 @@ import { useOutletContext } from 'react-router-dom';
 const LiveStreamLayout = () => {
   const navigation = useNavigation();
   const isLoading = navigation.state === 'loading'
-  const { isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode } = useOutletContext();
+  const { isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode, setHeaderName, setNavName, showHeader, setShowHeader } = useOutletContext();
 
   const displayScreenMode = () => {
     if (fullScreenMode) {
       return "relative  h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
     } else {
-      return "relative pb-7 lg:pb-14  h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+      return "relative w-full"
     }
   }
 
   return (
-    <div className="flex h-screen w-dvh">
-      {/* Main Content */}
-      <>
-        <ScrollToTop />
+    <>
+      <ScrollToTop />
+      <div className="flex h-screen w-dvh">
+        {/* Main Content */}
+
         <div className={displayScreenMode()}>
-          <Outlet context={{ isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode }} />
+          <Outlet context={{ isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode, setHeaderName, setNavName, showHeader, setShowHeader }} />
         </div>
-      </>
-    </div>
+      </div>
+    </>
   );
 };
 

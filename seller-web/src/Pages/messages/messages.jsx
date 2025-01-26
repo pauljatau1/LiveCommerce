@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { BASE_URL } from "@/Constants/Server";
 import { io } from "socket.io-client";
 import { useSocket } from "@/Contexts/SocketContext";
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select";
+
 
 // Helper function to format message timestamps
 const formatMessageTime = (timestamp) => {
@@ -78,6 +79,7 @@ const formatMessageTime = (timestamp) => {
 };
 
 export default function ChatInterface() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -96,6 +98,11 @@ export default function ChatInterface() {
   const [initialMessage, setInitialMessage] = useState("");
   const [showChatList, setShowChatList] = useState(true);
   const [showQuickTools, setShowQuickTools] = useState(false);
+
+  useEffect(() => {
+    setHeaderName('Messages')
+    setNavName('')
+  }, [])
 
   // Fetch conversations
   useEffect(() => {
@@ -1161,10 +1168,7 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-gray-100">
-      <div className="py-4 px-6 bg-white border-b">
-        <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
-      </div>
+    <div className="h-[calc(100vh-4rem)] mt-10 flex flex-col bg-gray-100">
 
       <div className="flex-1 flex overflow-hidden">
         {/* Chat list - hidden on mobile when conversation is open */}

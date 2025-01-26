@@ -10,7 +10,7 @@ import { Dialog, DialogTrigger } from "../../ui/dialog"
 import NotificationsDialog from "../../NotificationsDialog"
 import { useAuthContext } from "../../../Hooks/useAuthContext"
 
-const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
+const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showHeader = true }) => {
   const [open, setOpen] = useState(false)
   const [isChatVisible, setIsChatVisible] = useState(true)
   const [seller, setSeller] = useState(null)
@@ -66,10 +66,10 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
 
   const calculateNewNotifications = () => {
     if (!stuffToDo?.notifications) return 0
-    
+
     const today = new Date().setHours(0, 0, 0, 0)
-    return stuffToDo.notifications.filter(notification => 
-      !notification.isRead && 
+    return stuffToDo.notifications.filter(notification =>
+      !notification.isRead &&
       new Date(notification.createdAt).setHours(0, 0, 0, 0) === today
     ).length
   }
@@ -105,19 +105,30 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
   )
 
   const desktopGoLiveButton = (
-    <button 
-      onClick={() => navigate('/dashboard/live-streams/live-stream')}
-      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-    >
-      Go Live
-    </button>
+    <>
+      <div className="items-center hidden lg:flex px-6 py-2 gap-2 mr-2 rounded-md bg-red-600 cursor-pointer hover:bg-red-700 transition-all duration-300 ease-in-out">
+        <Icon icon="mdi:record" className="h-4 w-4 animate-pulse" color="#ffffff" />
+        <button
+          onClick={() => navigate('/dashboard/live-streams/live-stream')}
+          className="inline-flex items-center font-lexend  border border-transparent text-sm font-medium text-[#ffffff] "
+        >
+          Go Live
+        </button>
+      </div>
+      <button
+        onClick={() => navigate('/dashboard/live-streams')}
+        className="items-center justify-center lg:hidden flex h-9 w-9 gap-2 mr-2 rounded-full bg-red-600 cursor-pointer hover:bg-red-700 transition-all duration-300 ease-in-out">
+        <Icon icon="material-symbols:screen-record" className="h-4 w-4 animate-pulse" color="#ffffff" />
+      </button>
+    </>
+
   )
 
   const desktopNotificationsButton = (
     <Dialog>
       <DialogTrigger asChild>
-        <button className="relative p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-          <Icon icon="mingcute:notification-fill" className="h-6 w-6" />
+        <button className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
+          <Icon icon="ion:notifications-outline" className="h-7 w-7" />
           {calculateNewNotifications() > 0 && (
             <span className="absolute -top-0.5 -right-1 bg-blue-600 text-white px-1.5 py-0.5 rounded-full text-xs">
               {calculateNewNotifications()}
@@ -132,14 +143,14 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
   const renderAvatar = () => {
     if (seller?.storeAvatar?.url) {
       return (
-        <img 
-          src={seller.storeAvatar.url} 
+        <img
+          src={seller.storeAvatar.url}
           alt={`${seller.firstName} ${seller.lastName}`}
           className="h-8 w-8 rounded-full object-cover"
         />
       )
     }
-    
+
     return (
       <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-medium">
         {getInitials(seller?.firstName, seller?.lastName)}
@@ -147,27 +158,37 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
     )
   }
 
+  if (!showHeader) return null
+
   return (
-    <header className="bg-white border-b border-gray-200">
+    <header className="bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]">
       <div className="mx-auto py-3">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500 lg:hidden"
+                className="p-2 rounded-md md:hidden text-gray-400 hover:text-gray-500 hover:bg-gray-100 lg:hidden"
               >
                 <Icon icon="pepicons-pencil:menu" className="h-6 w-6" />
               </button>
             )}
-            <h1 className="ml-2 lg:ml-0 text-2xl font-semibold text-gray-900">{name}</h1>
+            <div className="flex flex-col xl:flex-row xl:gap-10 xl:items-center">
+              <h1 className="ml-2 lg:ml-0 text-lg xl:text-xl font-inter font-semibold text-[#27272E] ">{name}</h1>
+              {navName !== "" && (
+                <div className="flex items-center gap-10">
+                  <span className="text-2xl hidden xl:block font-inter text-[#888787]">•</span>
+                  <h1 className="ml-2 lg:ml-0 capitalize text-lg xl:text-xl font-inter font-semibold text-[#16783A] ">{navName}</h1>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile Menu */}
-          <Popover open={open} onOpenChange={setOpen} className="lg:hidden">
+          <Popover open={open} onOpenChange={setOpen} className="md:hidden">
             <PopoverTrigger asChild>
-              <button className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500">
-                <Icon icon="heroicon-o:menu" className="h-6 w-6" />
+              <button className="inline-flex items-center justify-center p-3 md:hidden rounded-full bg-[#DEFFEE] text-[#66CB9F] hover:[#66CB9F]/80">
+                <Icon icon="fluent:live-24-regular" className="h-5 w-5 animate-pulse " />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-56 mt-2 p-2 bg-white rounded-md shadow-lg border border-gray-200">
@@ -199,18 +220,15 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
           </Popover>
 
           {/* Desktop Menu */}
-          <div className="hidden lg:flex lg:items-center lg:gap-4">
+          <div className="hidden md:flex md:items-center md:gap-2">
             {desktopGoLiveButton}
-
-            {isChatVisible && (
-              <button
-                onClick={handleChatOpen}
-                className="p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                <Icon icon="solar:chat-line-bold" className="h-6 w-6" />
-              </button>
-            )}
-
+            <button
+              onClick={handleChatOpen}
+              className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out"
+            >
+              <Icon icon="icon-park-outline:message" className="h-6 w-6" />
+            </button>
+            {/* Notifications */}
             {desktopNotificationsButton}
 
             <div className="flex items-center">
@@ -218,7 +236,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard" }) => {
                 {renderAvatar()}
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-semibold font-inter capitalize text-[#16192C]">
                   {seller?.firstName} {seller?.lastName}
                 </p>
                 {seller?.storeName && (
@@ -239,6 +257,7 @@ Header.propTypes = {
   isSidebarOpen: PropTypes.bool.isRequired,
   setIsSidebarOpen: PropTypes.func.isRequired,
   name: PropTypes.string,
+  navName: PropTypes.string
 }
 
 export default Header
