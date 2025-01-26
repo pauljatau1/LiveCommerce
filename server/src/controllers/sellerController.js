@@ -864,8 +864,8 @@ exports.getTopProducts = async (req, res) => {
       },
       // Sort by quantity sold
       { $sort: { totalQuantity: -1 } },
-      // Limit to top 5
-      { $limit: 5 },
+      // Limit to top 4
+      { $limit: 4 },
       // Lookup product details
       {
         $lookup: {
