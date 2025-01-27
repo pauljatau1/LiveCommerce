@@ -169,6 +169,12 @@ export const sideBarNavData = [
         icon: 'system-uicons:chain',
         path: '/dashboard/auqli-connect'
     },
+    // {
+    //     id: ObjectID().toHexString(),
+    //     name: 'Shop Manager',
+    //     icon: 'bi:shop',
+    //     path: '/dashboard/shop-manager'
+    // },
 ];
 
 export const homeAnalyticsCardData = [
