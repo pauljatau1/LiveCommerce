@@ -1,41 +1,100 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuthContext } from '../../Hooks/useAuthContext';
-import Background1 from '../../assets/background-asset1.png';
-import Background2 from '../../assets/background-asset-3.png';
+import { motion } from 'framer-motion';
+import { Icon } from '@iconify/react';
 
 const NotFoundPage = () => {
     const navigate = useNavigate();
-    const { isAuthenticated, seller } = useAuthContext();
 
 
     const storedToken = localStorage.getItem('sellerToken');
     const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
     console.log("Token Data:", tokenData);
-    console.log("Is Authenticated:", isAuthenticated, seller);
-    // function to handle go home button by checking if the user is signed in, if so navigate to seller dashboard page else go to login page
+
+    const isDashboardRoute = location.pathname.startsWith('/dashboard');
+
     const handleGoHome = () => {
-        if (tokenData) {
-          if (tokenData.isVerified) {
-            navigate('/dashboard/home');
-          }
-        } else {
-            navigate('/', { replace: true });
-        }
+      if (isDashboardRoute) {
+        navigate('/dashboard/home', { replace: true });
+      } else {
+        navigate('/temp/login', { replace: true });
+      }
     };
 
+    return (
+        <div className="min-h-screen bg-gradient-to-b from-[#17171B] to-[#17171B]/90 flex items-center justify-center p-4">
+            <div className="max-w-4xl w-full">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="text-center"
+                >
+                    {/* 404 Number */}
+                    <motion.h1 
+                        initial={{ scale: 0.5 }}
+                        animate={{ scale: 1 }}
+                        transition={{ 
+                            type: "spring",
+                            stiffness: 260,
+                            damping: 20 
+                        }}
+                        className="text-[120px] sm:text-[200px] animate-bounce font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0BB248] to-[#34d671] leading-none"
+                    >
+                        404
+                    </motion.h1>
 
-  return (
-    <div>
-      <img src={Background1} alt="Background" className="fixed inset-0- w-screen h-screen 2xl:h-[150dvh] object-cover object-center" />
-      <img src={Background2} alt="Background" className="fixed inset-0 w-screen h-screen 2xl:h-[150dvh] object-none object-center" />
-      <div className="px-4 sm:px-[44px] flex  gap-10 flex-col items-center justify-center relative z-10 py-[21px] min-h-dvh">
-        <div className="bg-[#E9E9E914] backdrop-blur-[349.6px] rounded-[22px] px-4 sm:px-[50px] py-[40px] sm:py-[84px] w-full max-w-[755px] mx-4">
-          <h1 className="text-[#FFFFFF] text-3xl sm:text-[47.64px] font-medium leading-tight sm:leading-[58.07px] mb-8 sm:mb-[96px] capitalize">Ooops, Page Not Found!!</h1>
-          <button onClick={handleGoHome} className="hover:bg-[#FFFFFF] hover:text-[#141B34] transition-all duration-300 bg-transparent border-2 border-[#FFFFFF] text-white text-lg sm:text-xl font-light leading-normal sm:leading-[33.71px] p-4 rounded-lg " >Go Home</button>
+                    {/* Error Message */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="mt-8 space-y-4"
+                    >
+                        <h2 className="text-xl sm:text-4xl font-semibold text-white">
+                            Oops! Page Not Found
+                        </h2>
+                        <p className="text-gray-400 max-w-md mx-auto">
+                            The page you're looking for seems to have wandered off. Let's get you back on track!
+                        </p>
+                    </motion.div>
+
+                    {/* Action Buttons */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.4 }}
+                        className="mt-12 space-x-4"
+                    >
+                        <button
+                            onClick={handleGoHome}
+                            className="px-8 py-3 bg-[#0BB248] text-white rounded-lg font-medium hover:bg-[#0BB248]/90 transition-all duration-300 flex items-center gap-2 mx-auto"
+                        >
+                            <Icon icon="solar:home-2-bold" className="text-xl" />
+                            Back to Home
+                        </button>
+                    </motion.div>
+
+                    {/* Animated Background Elements */}
+                    <div className="absolute inset-0 -z-10 overflow-hidden">
+                        <motion.div
+                            animate={{ 
+                                rotate: 360,
+                                transition: { duration: 20, repeat: Infinity, ease: "linear" }
+                            }}
+                            className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#0BB248]/10 rounded-full blur-3xl"
+                        />
+                        <motion.div
+                            animate={{ 
+                                rotate: -360,
+                                transition: { duration: 25, repeat: Infinity, ease: "linear" }
+                            }}
+                            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#05031F]/20 rounded-full blur-3xl"
+                        />
+                    </div>
+                </motion.div>
+            </div>
         </div>
-      </div>
-    </div>
-  )
+    );
 };
 
-export default NotFoundPage
+export default NotFoundPage;

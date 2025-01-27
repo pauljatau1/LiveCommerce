@@ -1,5 +1,5 @@
 import AuthProvider from './Contexts/AuthContext';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, BrowserRouter } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { Suspense } from 'react';
 import { Toaster } from "sonner";
@@ -53,268 +53,368 @@ import PastShows from './Pages/LiveStream/PastShows';
 import SubmitLiveShow from './Pages/LiveStream/SubmitLiveShow';
 import SubmitLiveAuction from './Pages/LiveStream/SubmitLiveAuction';
 import LivestreamStudio from './Pages/LiveStream/LivestreamStudio';
+import TempLoginPage from './Pages/LoginPage/TempLoginPage';
 
+// Create a wrapper component that provides both Router and Auth contexts
+function AppProviders({ children }) {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
 
-
-
-
-
+// Create router configuration
 const router = createBrowserRouter([
   {
+    path: '/',
+    element: <Navigate to="/login" replace />,
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/temp/login',
     element: (
       <AuthProvider>
         <ProtectedRoute>
-          <SocketProvider>
-            <OnboardingProvider>
-              <AppLayout />
-            </OnboardingProvider>
-          </SocketProvider>
+          <TempLoginPage />
         </ProtectedRoute>
       </AuthProvider>
     ),
-    errorElement: <NotFoundPage />,
-
-    children: [
-      {
-        path: '/',
-        element: <LoginPage />,
-        loader: loginLoader,
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/signup',
-        element: <SignUpPage />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 500)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/onboarding',
-        element: <OnBoardingPage />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/business-onboarding',
-        element: <BusinessOnboarding />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/individual-onboarding',
-        element: <IndividualOnboarding />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/business-information-onboarding',
-        element: <BusinessInformationOnboarding />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/business-verification-onboarding',
-        element: <BusinessVerificationOnboarding />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/business-bank-onboarding',
-        element: <BusinessBankOnboarding />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/business-category-onboarding',
-        element: <BusinessCategoryOnboarding />,
-        loader: categoriesLoader,
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/shipping-options-onboarding',
-        element: <ShippingOptionsOnboarding />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/individual-verification-onboarding',
-        element: <IndividualVerificationOnboarding />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/account-approval',
-        element: <AccountApproval />,
-        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />
-      },
-      {
-        path: '/dashboard',
-        element: (
-          <ProtectedRoute>
-        
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/login',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <LoginPage />
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: loginLoader,
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/signup',
+    element: (
+      <AuthProvider>
+  
+          <SignUpPage />
+    
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 500)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+        <OnboardingProvider>
+          <OnBoardingPage />
+        </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/business-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <BusinessOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/individual-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <IndividualOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/business-information-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <BusinessInformationOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/business-verification-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <BusinessVerificationOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/business-bank-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <BusinessBankOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/business-category-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <BusinessCategoryOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: categoriesLoader,
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/shipping-options-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <ShippingOptionsOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/individual-verification-onboarding',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <IndividualVerificationOnboarding />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/account-approval',
+    element: (
+      <AuthProvider>
+        <ProtectedRoute>
+          <OnboardingProvider>
+            <AccountApproval />
+          </OnboardingProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    ),
+    loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
+    errorElement: <NotFoundPage />
+  },
+  {
+    path: '/dashboard',
+    element: (
+      <AuthProvider>
+        <DashboardRoute>
+          <SocketProvider>
+            <OnboardingProvider>
               <ProductProvider>
                 <DashboardLayout />
               </ProductProvider>
-      
-          </ProtectedRoute>
+            </OnboardingProvider>
+          </SocketProvider>
+        </DashboardRoute>
+      </AuthProvider>
+    ),
+    errorElement: <NotFoundPage />,
+    children: [
+      {
+        path: 'home',
+        element: <HomePage />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'customers',
+        element: <Customers />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'customer/:id',
+        element: <CustomerDetail />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'orders',
+        element: <OrdersDashboard />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'order/:id',
+        element: <OrderDetails />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'products',
+        element: <ProductsPage />,
+        errorElement: <NotFoundPage />,
+      },
+      {
+        path: 'add-products',
+        element: (
+          <VariantsProvider>
+            <AddProduct />
+          </VariantsProvider>
+        ),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'edit-product/:id',
+        element: (
+          <VariantsProvider>
+            <EditProduct />
+          </VariantsProvider>
+        ),
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'drafts',
+        element: <Drafts />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'inactive',
+        element: <Inactive />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'marketing',
+        element: <MarketingPage />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'earnings-payouts',
+        element: <Payout />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'messages',
+        element: <Messages />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'auqli-connect',
+        element: <AuqliConnect />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'live-streams',
+        element: (
+          <LivestreamProvider>
+            <LiveStreamLayout />
+          </LivestreamProvider>
         ),
         loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-        errorElement: <NotFoundPage />,
         children: [
-
           {
-            path: 'home',
-            element: <HomePage />,
+            path: 'live-stream',
+            element: <LiveStream />,
             errorElement: <NotFoundPage />
           },
           {
-            path: 'customers',
-            element: <Customers />,
+            path: 'create-live-auction',
+            element: <CreateLiveAuction />,
             errorElement: <NotFoundPage />
           },
           {
-            path: 'customer/:id',
-            element: <CustomerDetail />,
+            path: 'create-live-show',
+            element: <CreateLiveShow />,
             errorElement: <NotFoundPage />
           },
           {
-            path: 'orders',
-            element: <OrdersDashboard />,
+            path: 'past-shows',
+            element: <PastShows />,
             errorElement: <NotFoundPage />
           },
           {
-            path: 'order/:id',
-            element: <OrderDetails />,
+            path: 'scheduled-shows',
+            element: <ScheduleShows />,
             errorElement: <NotFoundPage />
           },
           {
-            path: 'products',
-            element: <ProductsPage />,
-            errorElement: <NotFoundPage />,
-
-          },
-          {
-            path: 'add-products',
-            element: (
-              <VariantsProvider>
-                <AddProduct />
-              </VariantsProvider>
-            ),
+            path: 'submit-live-show',
+            element: <SubmitLiveShow />,
             errorElement: <NotFoundPage />
           },
           {
-            path: 'edit-product/:id',
-            element: (
-              <VariantsProvider>
-                <EditProduct />
-              </VariantsProvider>
-            ),
+            path: 'submit-live-auction',
+            element: <SubmitLiveAuction />,
             errorElement: <NotFoundPage />
           },
           {
-            path: 'drafts',
-            element: <Drafts />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'inactive',
-            element: <Inactive />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'marketing',
-            element: <MarketingPage />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'earnings-payouts',
-            element: <Payout />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'messages',
-            element: <Messages />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'auqli-connect',
-            element: <AuqliConnect />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'live-streams',
-            element: (
-              <LivestreamProvider>
-                <LiveStreamLayout />
-              </LivestreamProvider>
-            ),
-            loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
-            children: [
-              {
-                path: 'live-stream',
-                element: <LiveStream />,
-                errorElement: <NotFoundPage />
-              },
-              {
-                path: 'create-live-auction',
-                element: <CreateLiveAuction />,
-                errorElement: <NotFoundPage />
-              },
-              {
-                path: 'create-live-show',
-                element: <CreateLiveShow />,
-                errorElement: <NotFoundPage />
-              },
-              {
-                path: 'past-shows',
-                element: <PastShows />,
-                errorElement: <NotFoundPage />
-              },
-              {
-                path: 'scheduled-shows',
-                element: <ScheduleShows />,
-                errorElement: <NotFoundPage />
-              },
-              {
-                path: 'submit-live-show',
-                element: <SubmitLiveShow />,
-                errorElement: <NotFoundPage />
-              },
-              {
-                path: 'submit-live-auction',
-                element: <SubmitLiveAuction />,
-                errorElement: <NotFoundPage />
-              },
-              {
-                path: 'live-stream-studio/:id',
-                element: <LivestreamStudio />,
-                errorElement: <NotFoundPage />
-              }
-            ],
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: '/dashboard/settings',
-            element: <SettingsDashboard />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: '/dashboard/help',
-            element: <Help />,
-            errorElement: <NotFoundPage />
-          },
-          {
-            path: 'analytics-insights',
-            element: <Analytics />,
+            path: 'live-stream-studio/:id',
+            element: <LivestreamStudio />,
             errorElement: <NotFoundPage />
           }
-        ]
+        ],
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/dashboard/settings',
+        element: <SettingsDashboard />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: '/dashboard/help',
+        element: <Help />,
+        errorElement: <NotFoundPage />
+      },
+      {
+        path: 'analytics-insights',
+        element: <Analytics />,
+        errorElement: <NotFoundPage />
       }
     ]
   }
 ]);
 
-const App = () => {
+function App() {
   const handleConsentAccept = () => {
     // Initialize Clarity when user accepts
     window.initClarity?.();
@@ -323,14 +423,14 @@ const App = () => {
   return (
     <Suspense fallback={<Loader />}>
       <RouterProvider router={router} fallbackElement={<Loader />} />
-      <ToastContainer />
       <Toaster />
+      <ToastContainer />
       <CookieConsent
         onAccept={handleConsentAccept}
         onDecline={() => console.log('Analytics declined')}
       />
     </Suspense>
   );
-};
+}
 
 export default App
