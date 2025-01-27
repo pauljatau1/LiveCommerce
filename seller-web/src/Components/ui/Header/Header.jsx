@@ -127,10 +127,10 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   const desktopNotificationsButton = (
     <Dialog>
       <DialogTrigger asChild>
-        <button className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
+        <button className="relative p-2 mr-3 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
           <Icon icon="ion:notifications-outline" className="h-7 w-7" />
           {calculateNewNotifications() > 0 && (
-            <span className="absolute -top-0.5 -right-1 bg-blue-600 text-white px-1.5 py-0.5 rounded-full text-xs">
+            <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs">
               {calculateNewNotifications()}
             </span>
           )}

@@ -42,7 +42,7 @@ import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
 import EditProduct from './Pages/ProductsPage/EditProduct';
 import LiveStream from './Pages/LiveStream/LiveStream';
 import DashboardRoute from './Components/DashboardRoute';
-import SettingsDashboard from './Pages/Settings/settings';
+import SettingsDashboard from './Pages/Settings/SettingsDashboard';
 import Analytics from './Pages/Analytics/anayltics';
 import Help from './Pages/help/help';
 import LiveStreamLayout from './Components/LiveStreamLayout';
@@ -100,9 +100,9 @@ const router = createBrowserRouter([
     path: '/signup',
     element: (
       <AuthProvider>
-  
-          <SignUpPage />
-    
+
+        <SignUpPage />
+
       </AuthProvider>
     ),
     loader: () => new Promise(resolve => setTimeout(resolve, 500)),
@@ -113,9 +113,9 @@ const router = createBrowserRouter([
     element: (
       <AuthProvider>
         <ProtectedRoute>
-        <OnboardingProvider>
-          <OnBoardingPage />
-        </OnboardingProvider>
+          <OnboardingProvider>
+            <OnBoardingPage />
+          </OnboardingProvider>
         </ProtectedRoute>
       </AuthProvider>
     ),

@@ -380,7 +380,7 @@ const HomePage = () => {
                   </div>
                 ) : stuffToDo?.notifications?.length > 0 ? (
                   <div className="space-y-3 h-full">
-                    {stuffToDo.notifications.slice(0, 4).map((notification) => (
+                    {stuffToDo.notifications.slice(0, 3).map((notification) => (
                       <div key={notification._id} className="p-4 border gap-2 flex-wrap flex items-center justify-between rounded-lg cursor-pointer border-gray-200 hover:bg-gray-50 hover:shadow-md transition-colors">
                         <div>
                           <h4 className="text-sm xl:text-base font-inter font-semibold text-[#27272E]">{notification.title}</h4>

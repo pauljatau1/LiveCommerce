@@ -24,6 +24,7 @@ import Header from "@/components/ui/Header/Header"
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { FaRegCommentDots, FaShareSquare, FaBookmark } from "react-icons/fa";
 import { IoEyeOutline } from "react-icons/io5";
+import { useOutletContext } from 'react-router-dom';
 
 // Helper function to format message timestamps
 const formatMessageTime = (timestamp) => {
@@ -251,6 +252,7 @@ const fetchPostData = async (postId) => {
 };
 
 export default function SocialFeed() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [activePost, setActivePost] = useState(null)
   const [newComment, setNewComment] = useState('')
@@ -283,6 +285,11 @@ export default function SocialFeed() {
   const [currentConversation, setCurrentConversation] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  useEffect(() => {
+    setHeaderName('Auqli Connect')
+    setNavName('')
+  }, [])
 
   useEffect(() => {
     setIsLoading(true)
@@ -1058,13 +1065,7 @@ export default function SocialFeed() {
   }
 
   return (
-    <div className='min-h-screen dark:bg-gray-900'>
-      <Header 
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
-        name="Auqli Connect"
-      />
-      
+    <div className='min-h-screen dark:bg-gray-900'>  
       <div className='py-4 px-4 md:py-8 md:px-6'>
         <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8'>
           <div className='flex items-center justify-between md:justify-start gap-4'>

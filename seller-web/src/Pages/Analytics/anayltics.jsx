@@ -33,15 +33,22 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import LinearProgress from "@mui/material/LinearProgress"
 import { BASE_URL } from "@/Constants/Server"
+import { useOutletContext } from 'react-router-dom';
 import Header from "@/components/ui/Header/Header"
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
 export default function AnalyticsAndInsights() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [dateRange, setDateRange] = useState("This Month")
   const [analyticsData, setAnalyticsData] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setHeaderName('Analytics & Insights')
+    setNavName('')
+  }, [])
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -101,12 +108,6 @@ export default function AnalyticsAndInsights() {
 
   return (
     <div className="min-h-screen">
-      <Header 
-        isSidebarOpen={isSidebarOpen} 
-        setIsSidebarOpen={setIsSidebarOpen} 
-        name="Analytics & Insights" 
-      />
-      
       <div className="p-4 md:p-8">
         <div className="mx-auto">
           <div className="flex justify-end items-center mb-8">

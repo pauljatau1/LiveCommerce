@@ -8,11 +8,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchSellerProducts } from '../../Redux/Slices/ProductSlice';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import { NavLink, useNavigate } from 'react-router-dom';
+import {useOutletContext} from 'react-router-dom';
 import axios from 'axios';
 import Header from "../../Components/ui/Header/Header";
 import CreateAuctionIcon from '../../assets/Upload icon.png';
 
 const CreateLiveShow = () => {
+    const {setHeaderName, setNavName} = useOutletContext();
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
@@ -25,6 +27,13 @@ const CreateLiveShow = () => {
     const [description, setDescription] = useState('');
     const [selectedTags, setSelectedTags] = useState([]);
     const [productQuantities, setProductQuantities] = useState({});
+
+
+    useEffect(() => {
+        setHeaderName('Live Streams');
+        setNavName('Create Live Show');
+    }, []);
+
     const MAX_CHARS = 250;
 
     const inputRef = useRef(null);
@@ -140,10 +149,9 @@ const CreateLiveShow = () => {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-6">
-            <Header headerTitle="CREATE LIVE AUCTION" showHeader={true} />
+        <div className="flex flex-col gap-6  py-10">
 
-            <div className="space-y-6">
+            <div className=" bg-white p-4 md:p-6 space-y-6">
                 {/* Stream Title */}
                 <div className="space-y-2">
                     <h1 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Auction Stream Title</h1>
@@ -173,7 +181,7 @@ const CreateLiveShow = () => {
                                 <img
                                     src={URL.createObjectURL(livestream?.coverPhoto)}
                                     alt="Preview"
-                                    className="w-[250px] object-fill md:w-full h-20 rounded-lg mb-2"
+                                    className="w-[250px] object-contain md:w-full h-24 rounded-lg mb-2"
                                 />
                                 <p className="text-sm text-gray-600">{livestream?.coverPhoto.name}</p>
                             </div>
