@@ -1,9 +1,9 @@
 import { createContext, useReducer } from "react";
 import { BASE_URL } from '../Constants/Server';
-import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { Crisp } from "crisp-sdk-web";
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
 const AuthContext = createContext();
@@ -22,7 +22,8 @@ function AuthProvider({ children }) {
         isTokenValid: false,
         top3SellingProducts: null,
         stuffToDo: null,
-        unverifiedUser: null
+        unverifiedUser: null,
+        onboardingStep: null
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -144,6 +145,11 @@ function AuthProvider({ children }) {
                     unverifiedUser: true,
                     signUpSellerDetails: action.payload
                 }
+            case "FETCH_ONBOARDING_PROCESS":
+                return {
+                    ...state,
+                    onboardingStep: action.payload
+                }
             default:
                 return state;
         }
@@ -173,13 +179,14 @@ function AuthProvider({ children }) {
                 dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
                 toast.success(response.data.message, {
                     style: {
-                        backgroundColor: '#425466',
+                        backgroundColor: '#17171B',
                         color: '#F7FAFC',
                         fontFamily: 'Inter',
                         fontSize: '14px',
                         fontWeight: '400',
                     }
                 });
+                
             }
 
         } catch (AxiosError) {
@@ -199,6 +206,66 @@ function AuthProvider({ children }) {
         }
     };
 
+    const getOnboardingProcess = async () => {
+        try {
+            const token = localStorage.getItem('sellerToken');
+            if (token) {
+                const { data } = JSON.parse(token);
+                const response = await axios.get(`${BASE_URL}/seller/onboarding-process`, {
+                    headers: {
+                        Authorization: `Bearer ${data}`
+                    }
+                });
+                if (response.status === 200) {
+                    console.log(response);
+                    dispatch({ type: 'FETCH_ONBOARDING_PROCESS', payload: response.onboardingProcess });
+                } else {
+                    navigate('/signup');
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching onboarding process:", error);
+            console.log("Error status:", error.response.status);
+
+
+
+        }
+    }
+
+    const checkTokenValidity = async () => {
+        try {
+            const storedToken = localStorage.getItem('sellerToken');
+            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+            console.log('tokenData', tokenData)
+            const response = await axios.get(`${BASE_URL}/seller/check-token`, {
+                headers: {
+                    Authorization: `Bearer ${tokenData.data}`
+                }
+            });
+
+            console.log('token validity response', response)
+            console.log('validity', response)
+            if (response.status === 200) {
+                localStorage.setItem('sellerToken', JSON.stringify({
+                    ...tokenData,
+                    data: response.data.token,
+                }));
+                dispatch({ type: 'CHECK_TOKEN_SUCCESS' });
+            }
+        } catch (error) {
+            if (error.response.status === 401) {
+                console.log("Token is invalid", error);
+                toast.error("Token is invalid", {
+                    description: error.response?.data?.message || error.message,
+                    style: {
+                        background: '#05031F',
+                        color: '#fff',
+                    }
+                });
+            }
+        }
+    }
+
     //function to verify otp after sign up
     const verifyOtp = async (email, otp) => {
         try {
@@ -213,7 +280,7 @@ function AuthProvider({ children }) {
                 console.log(`otp: ${response}`);
                 dispatch({ type: 'VERIFY_OTP_SUCCESS' });
                 toast.success(response.data.message);
-                navigate('/onboarding', { replace: true });
+                navigate('/onboarding');
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -247,6 +314,7 @@ function AuthProvider({ children }) {
                     progress: undefined,
                     theme: "dark",
                 });
+
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -286,6 +354,7 @@ function AuthProvider({ children }) {
                         border: '1px solid #05031F',
                     }
                 });
+                navigate('/dashboard/home');
             }
         } catch (error) {
             console.log(error);
@@ -316,17 +385,17 @@ function AuthProvider({ children }) {
                 toast.success('Password reset request sent', {
                     description: 'We have sent a password reset link to your email',
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
             }
         } catch (error) {
             console.log(error);
-            toast.error('Error submitting business category', {
+            toast.error('Login Unauthorized', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -355,7 +424,6 @@ function AuthProvider({ children }) {
                     isVerified: response.data.isVerified
                 }));
                 localStorage.setItem('seller', JSON.stringify(response.data));
-                console.log(response.data);
             }
         } catch (error) {
             console.log(error);
@@ -367,61 +435,17 @@ function AuthProvider({ children }) {
     //function to log user out
     const logout = async () => {
         try {
-            // Clear all storage first
             localStorage.removeItem('sellerToken');
             localStorage.removeItem('seller');
             localStorage.removeItem('onboardingProcess');
             
-            // Reset Crisp
             Crisp.setTokenId();
             Crisp.session.reset();
             
-            // Dispatch logout action
             dispatch({ type: 'LOGOUT' });
-            
-            // Navigate last, after everything is cleaned up
-            navigate('/', { replace: true });
+            navigate('/login');
         } catch (error) {
             console.error('Logout error:', error);
-        }
-    };
-
-    const checkTokenValidity = async () => {
-        try {
-            const storedToken = localStorage.getItem('sellerToken');
-            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-            console.log("Token Data:", tokenData.data);
-            const response = await axios.get(`${BASE_URL}/seller/check-token`, {
-                headers: {
-                    Authorization: `Bearer ${tokenData.data}`
-                }
-            });
-
-            if (response.status === 200) {
-                console.log("Token is valid");
-                dispatch({ type: 'CHECK_TOKEN_SUCCESS' });
-            } else {
-                dispatch({ type: 'CHECK_TOKEN_FAILED' });
-                console.log("User is invalid");
-                toast.error("User is invalid", {
-                    description: "Please login again",
-                    style: {
-                        background: '#05031F',
-                        color: '#fff',
-                    }
-                });
-                logout()
-                navigate('/', { replace: true });
-            }
-        } catch (error) {
-            console.log(error);
-            toast.error('User Verification Failed', {
-                description: error.response?.data?.message || error.message,
-                style: {
-                    background: '#05031F',
-                    color: '#fff',
-                }
-            });
         }
     };
 
@@ -483,7 +507,8 @@ function AuthProvider({ children }) {
             fetchSellerDetails,
             checkTokenValidity,
             getTop3SellingProducts,
-            getSellerNotifications
+            getSellerNotifications,
+            getOnboardingProcess,
         }}>
             {children}
         </AuthContext.Provider>
