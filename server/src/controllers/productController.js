@@ -8,6 +8,7 @@ const Category = require('../models/Category');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
+const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -1233,13 +1234,8 @@ exports.getAllBlips = async (req, res) => {
     console.log('Starting getAllBlips aggregation...');
     
     const blips = await Product.aggregate([
-      // Match products that have at least one blip
-      { 
-        $match: { 
-          blips: { $exists: true, $ne: [] },
-          seller: { $exists: true, $ne: null }
-        } 
-      },
+      // Match products that have blips
+      { $match: { blips: { $exists: true, $ne: [] } } },
       // Unwind the blips array
       { $unwind: '$blips' },
       // Lookup seller information
@@ -1251,11 +1247,12 @@ exports.getAllBlips = async (req, res) => {
           as: 'sellerInfo'
         }
       },
-      // Unwind seller array
       { $unwind: '$sellerInfo' },
-      // Project needed fields with safe handling of likes/comments
+      // Project needed fields
       {
         $project: {
+          _id: '$_id', // This is the product ID
+          blipId: '$blips._id', // Add this line to include the blip ID
           blipUrl: '$blips.url',
           productId: '$_id',
           productName: '$name',
@@ -1395,6 +1392,8 @@ exports.getSellerBlips = async (req, res) => {
       // Project needed fields with safe handling of likes/comments
       {
         $project: {
+          _id: '$_id',                    // Product ID
+          blipId: '$blips._id',          // Actual blip ID
           blipUrl: '$blips.url',
           productId: '$_id',
           productName: '$name',
@@ -1756,7 +1755,7 @@ exports.getProductAnalytics = async (req, res) => {
         const item = order.items.find(item => 
           item.product.toString() === product._id.toString()
         );
-        return sum + (item.price * item.quantity);
+        return sum + (item ? item.price * item.quantity : 0);
       }, 0);
 
       return {
@@ -2484,35 +2483,71 @@ exports.toggleBlipLike = async (req, res) => {
     const { id, blipId } = req.params;
     const buyerId = req.user.id;
 
+    console.log('Debug - Received params:', { productId: id, blipId, buyerId });
+
+    // First validate both IDs
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(blipId)) {
+      return res.status(400).json({ message: 'Invalid ID format' });
+    }
+
     const product = await Product.findById(id);
     if (!product) {
+      console.log('Debug - Product not found:', id);
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Find the blip
     const blip = product.blips.id(blipId);
     if (!blip) {
-      return res.status(404).json({ message: 'Blip not found' });
+      console.log('Debug - Available blip IDs:', product.blips.map(b => b._id));
+      return res.status(404).json({ 
+        message: 'Blip not found',
+        availableBlipIds: product.blips.map(b => b._id)
+      });
     }
 
-    const likeIndex = blip.likes.findIndex(like => 
-      like.buyer.toString() === buyerId
+    // Initialize likes array if it doesn't exist
+    if (!blip.likes) {
+      blip.likes = [];
+    }
+
+    // Check if user already liked the blip
+    const likeIndex = blip.likes.findIndex(
+      like => like.buyer.toString() === buyerId
     );
 
+    let action;
     if (likeIndex === -1) {
       // Add like
-      blip.likes.push({ buyer: buyerId });
+      blip.likes.push({
+        buyer: buyerId,
+        createdAt: new Date()
+      });
+      action = 'liked';
     } else {
       // Remove like
       blip.likes.splice(likeIndex, 1);
+      action = 'unliked';
     }
 
+    // Update likesCount
+    blip.likesCount = blip.likes.length;
+
+    // Save the product
     await product.save();
 
+    // Return updated blip engagement stats
     res.json({
-      message: likeIndex === -1 ? 'Blip liked' : 'Blip unliked',
-      likesCount: blip.likes.length
+      message: `Blip ${action} successfully`,
+      blipEngagement: {
+        likesCount: blip.likes.length,
+        commentsCount: blip.comments ? blip.comments.length : 0
+      },
+      action
     });
+
   } catch (error) {
+    console.error('Error in toggleBlipLike:', error);
     res.status(500).json({
       message: 'Failed to toggle blip like',
       error: error.message

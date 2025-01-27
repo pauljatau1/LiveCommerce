@@ -98,10 +98,42 @@ variantSchema.virtual('discountedPrice').get(function() {
 });
 
 // Add blip comment schema
-const blipCommentSchema = new mongoose.Schema({
-  buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer', required: true },
-  comment: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+const blipSchema = new mongoose.Schema({
+  url: String,
+  thumbnail: String,
+  likes: [{
+    buyer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Buyer'
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  likesCount: {
+    type: Number,
+    default: 0
+  },
+  comments: [{
+    buyer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Buyer'
+    },
+    comment: String,
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  commentsCount: {
+    type: Number,
+    default: 0
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 const productSchema = new mongoose.Schema({
@@ -128,16 +160,7 @@ const productSchema = new mongoose.Schema({
   images: [{
     url: { type: String },
   }],
-  blips: [{
-    url: { type: String },
-    likes: [{
-      buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
-      createdAt: { type: Date, default: Date.now }
-    }],
-    comments: [blipCommentSchema],
-    likesCount: { type: Number, default: 0 },
-    commentsCount: { type: Number, default: 0 }
-  }],
+  blips: [blipSchema],
   stock: {
     type: Number,
     required: true,
