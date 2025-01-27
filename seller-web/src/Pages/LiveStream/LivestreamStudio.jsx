@@ -16,7 +16,7 @@ const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 
 const LivestreamStudio = () => {
     const { id } = useParams();
-    const { setHideSidebar, setFullScreenMode, setHeaderName, setNavName, setShowHeader } = useOutletContext();
+    const { setHideSidebar, setFullScreenMode, setHeaderName, setNavName, setShowBackButton } = useOutletContext();
     const { activeStreams, startLiveStream, fetchedLiveStreams, getLiveStreamFullDetails, isLoading, liveStreamDetails, livestreaming, hasLiveStreamStarted } = useLivestreamContext();
     const [localTracks, setLocalTracks] = useState([]);
     const [isStreaming, setIsStreaming] = useState(false);
@@ -35,14 +35,14 @@ const LivestreamStudio = () => {
         setFullScreenMode(true);
         setHeaderName('Live Streams')
         setNavName('Live Studio')
-        setShowHeader(false)
+        setShowBackButton(false)
 
         return () => {
             setHideSidebar(false);
             setFullScreenMode(false);
             setHeaderName('Live Streams')
             setNavName('Live Studio')
-            setShowHeader(true)
+            setShowBackButton(true)
         }
     }, []);
 

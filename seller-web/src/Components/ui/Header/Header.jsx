@@ -10,7 +10,7 @@ import { Dialog, DialogTrigger } from "../../ui/dialog"
 import NotificationsDialog from "../../NotificationsDialog"
 import { useAuthContext } from "../../../Hooks/useAuthContext"
 
-const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showHeader = true }) => {
+const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showBackButton }) => {
   const [open, setOpen] = useState(false)
   const [isChatVisible, setIsChatVisible] = useState(true)
   const [seller, setSeller] = useState(null)
@@ -127,10 +127,10 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   const desktopNotificationsButton = (
     <Dialog>
       <DialogTrigger asChild>
-        <button className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
+        <button className="relative p-2 mr-3 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
           <Icon icon="ion:notifications-outline" className="h-7 w-7" />
           {calculateNewNotifications() > 0 && (
-            <span className="absolute -top-0.5 -right-1 bg-blue-600 text-white px-1.5 py-0.5 rounded-full text-xs">
+            <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs">
               {calculateNewNotifications()}
             </span>
           )}
@@ -158,7 +158,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     )
   }
 
-  if (!showHeader) return null
+
 
   return (
     <header className="bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]">
@@ -174,7 +174,14 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
               </button>
             )}
             <div className="flex flex-col xl:flex-row xl:gap-10 xl:items-center">
-              <h1 className="ml-2 lg:ml-0 text-lg xl:text-xl font-inter font-semibold text-[#27272E] ">{name}</h1>
+              <div className="flex gap-2 items-center">
+                {showBackButton && (
+                  <button onClick={() => navigate(-1)} className="p-2 rounded-full md:block hidden text-[#272D30] hover:text-[#272D30]/80 transition-all duration-300 ease-in-out hover:bg-[#272D30]/10">
+                    <Icon icon="ep:back" className="h-6 w-6" />
+                  </button>
+                )}
+                <h1 className="ml-2 lg:ml-0 text-lg xl:text-xl font-inter font-semibold text-[#27272E] ">{name}</h1>
+              </div>
               {navName !== "" && (
                 <div className="flex items-center gap-10">
                   <span className="text-2xl hidden xl:block font-inter text-[#888787]">•</span>
@@ -257,7 +264,8 @@ Header.propTypes = {
   isSidebarOpen: PropTypes.bool.isRequired,
   setIsSidebarOpen: PropTypes.func.isRequired,
   name: PropTypes.string,
-  navName: PropTypes.string
+  navName: PropTypes.string,
+  showBackButton: PropTypes.bool
 }
 
 export default Header

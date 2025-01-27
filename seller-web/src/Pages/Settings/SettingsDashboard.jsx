@@ -16,6 +16,7 @@ import { BASE_URL } from '@/Constants/Server';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Header from "@/Components/ui/Header/Header";
+import { useOutletContext } from 'react-router-dom'
 
 const TABS = [
   "Store",
@@ -32,6 +33,7 @@ const BUSINESS_TYPES = [
 ];
 
 export default function SettingsDashboard() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const [activeTab, setActiveTab] = useState("Store");
   const [loading, setLoading] = useState(false);
   const avatarInputRef = useRef(null);
@@ -110,6 +112,11 @@ export default function SettingsDashboard() {
   });
 
   const [followers, setFollowers] = useState({ followers: [], pagination: {} });
+
+  useEffect(() => {
+    setHeaderName('Settings')
+    setNavName('')
+  }, [])
 
   // Fetch initial data
   useEffect(() => {
@@ -431,7 +438,7 @@ export default function SettingsDashboard() {
 
                 <div className="space-y-4">
                   <Label>Store Banner</Label>
-                  <div className="relative h-48 w-full rounded-lg border-2 border-dashed border-gray-300">
+                  <div className={`relative h-48 w-full rounded-lg ${!profileData.storeBanner?.url ? 'border-2 border-dashed border-gray-300' : ''}`}>
                     {profileData.storeBanner?.url ? (
                       <img
                         src={profileData.storeBanner.url}
@@ -994,7 +1001,6 @@ export default function SettingsDashboard() {
 
   return (
     <div className="container mx-auto px-4 pb-8">
-      <Header name="Settings" />
       <div className="flex flex-col pt-5 space-y-8">
         <div className="flex space-x-4">
           {TABS.map((tab) => (

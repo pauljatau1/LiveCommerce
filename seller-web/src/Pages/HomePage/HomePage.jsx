@@ -68,7 +68,7 @@ const getSellerAnalytics = async () => {
 const HomePage = () => {
   // Core hooks initialization
   const navigate = useNavigate();
-  const { setHeaderName, setNavName } = useOutletContext()
+  const { setHeaderName, setNavName, setShowBackButton } = useOutletContext()
   const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications } = useAuthContext();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
 
@@ -85,6 +85,7 @@ const HomePage = () => {
   useEffect(() => {
     setHeaderName("Home")
     setNavName("")
+    setShowBackButton(false)
   }, [])
 
   // Fetch seller details and wallet balance
@@ -336,7 +337,7 @@ const HomePage = () => {
           <div className="flex justify-center items-center">
             {
               homeAnalyticsCardData.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-8 gap-y-2 mt-9 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-4 xl:gap-x-8 gap-y-2 md:gap-y-4 xl:gap-y-8 mt-6 xl:mt-9 w-full">
                   {
                     homeAnalyticsCardData.map((card) => (
                       <HomeAnalyticsCard key={card.id} card={card} />
@@ -409,7 +410,7 @@ const HomePage = () => {
 
             {/* Top Selling Products Section */}
             <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6 flex flex-col">
-              <div className="flex flex-col md:flex-row md:justify-between space-y-3 md:space-y-0 md:items-center mb-4">
+              <div className="flex flex-col xl:flex-row xl:justify-between space-y-3 xl:space-y-0 xl:items-center mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-[#27272E] font-inter ">Your top 3 selling products</h3>
                   <p className="text-sm text-[#425466] font-inter mt-0.5">Best performing items this month</p>

@@ -128,9 +128,9 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, se
   }, [])
  
   useEffect(() => {
-    setHeaderName('Customers');
+    setHeaderName('Auqli Connect');
     setNavName('');
-  }, [setHeaderName, setNavName])
+  }, [])
 
   // Fetch seller products when modal opens
   useEffect(() => {
@@ -433,6 +433,7 @@ const TaggedProducts = ({ products }) => {
 };
 
 export default function SocialFeed() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [activePost, setActivePost] = useState(null)
   const [newComment, setNewComment] = useState('')
@@ -465,6 +466,11 @@ export default function SocialFeed() {
   const [currentConversation, setCurrentConversation] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  useEffect(() => {
+    setHeaderName('Auqli Connect')
+    setNavName('')
+  }, [])
 
   useEffect(() => {
     setIsLoading(true)

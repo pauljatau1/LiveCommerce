@@ -21,6 +21,7 @@ import {
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
 import { Toaster } from "@/Components/ui/sonner";
 import { BASE_URL } from "@/Constants/Server";
+import { useOutletContext } from 'react-router-dom';
 import jsPDF from 'jspdf';
 
 function formatCurrency(amount) {
@@ -31,6 +32,7 @@ function formatCurrency(amount) {
 }
 
 export default function Payout() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const [withdrawals, setWithdrawals] = useState([]);
   const [financialData, setFinancialData] = useState({
     totalRevenue: 0,
@@ -57,6 +59,11 @@ export default function Payout() {
     bankIdentifierCode: ''
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    setHeaderName('Earnings & Payouts')
+    setNavName('')
+  }, [])
 
   useEffect(() => {
     const fetchFinancialData = async () => {
@@ -229,11 +236,6 @@ export default function Payout() {
 
   return (
     <>
-      <Header 
-        isSidebarOpen={isSidebarOpen} 
-        setIsSidebarOpen={setIsSidebarOpen} 
-        name="Earnings & Payouts" 
-      />
       <div className="min-h-screen bg-gray-50/30">
         <div className="container mx-auto px-4 py-6 space-y-4">
           {/* Financial Cards - Updated for better mobile responsiveness */}
