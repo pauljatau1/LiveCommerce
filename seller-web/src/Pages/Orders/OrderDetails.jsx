@@ -130,7 +130,7 @@ export default function OrderDetails() {
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <ShoppingBag className="h-4 w-4" />
-                  <h1 className="text-xl font-inter font-semibold">Order #{order?._id}</h1>
+                  <h1 className="text-xl font-inter font-semibold">Order #{order?.order_id}</h1>
                   <Badge variant="outline" className="bg-blue-600 mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                     {order?.channel}
                   </Badge>

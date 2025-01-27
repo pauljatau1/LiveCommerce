@@ -102,7 +102,7 @@ const OrdersTable = ({ orders }) => {
                   <TableRow key={order?._id} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="hidden md:table-cell">
                       <span className="font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                        {order?._id.slice(-8).toUpperCase()}
+                        {order?.order_id}
                       </span>
                     </TableCell>
                     <TableCell>
