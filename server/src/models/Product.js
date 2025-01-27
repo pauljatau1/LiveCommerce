@@ -99,41 +99,17 @@ variantSchema.virtual('discountedPrice').get(function() {
 
 // Add blip comment schema
 const blipSchema = new mongoose.Schema({
-  url: String,
-  thumbnail: String,
-  likes: [{
-    buyer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Buyer'
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  likesCount: {
-    type: Number,
-    default: 0
-  },
+  url: { type: String },
+  contentType: { type: String },
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' }],
+  likesCount: { type: Number, default: 0 },
   comments: [{
-    buyer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Buyer'
-    },
-    comment: String,
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
+    buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
+    comment: { type: String },
+    createdAt: { type: Date, default: Date.now }
   }],
-  commentsCount: {
-    type: Number,
-    default: 0
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  commentsCount: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
 });
 
 const productSchema = new mongoose.Schema({
