@@ -86,6 +86,11 @@ const HomePage = () => {
     setHeaderName("Home")
     setNavName("")
     setShowBackButton(false)
+
+    return () => {
+      setShowBackButton(true)
+    }
+    
   }, [])
 
   // Fetch seller details and wallet balance
