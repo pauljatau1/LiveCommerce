@@ -438,7 +438,7 @@ export default function SettingsDashboard() {
 
                 <div className="space-y-4">
                   <Label>Store Banner</Label>
-                  <div className="relative h-48 w-full rounded-lg border-2 border-dashed border-gray-300">
+                  <div className={`relative h-48 w-full rounded-lg ${!profileData.storeBanner?.url ? 'border-2 border-dashed border-gray-300' : ''}`}>
                     {profileData.storeBanner?.url ? (
                       <img
                         src={profileData.storeBanner.url}

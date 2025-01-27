@@ -10,7 +10,7 @@ const DashboardLayout = () => {
   const [fullScreenMode, setFullScreenMode] = useState(false);
   const [headerName, setHeaderName] = useState('');
   const [navName, setNavName] = useState('');
-  const [showHeader, setShowHeader] = useState(true);
+  const [showBackButton, setShowBackButton] = useState(true);
   const navigation = useNavigation();
   const isLoading = navigation.state === 'loading'
 
@@ -26,8 +26,8 @@ const DashboardLayout = () => {
     setHeaderName,
     navName,
     setNavName,
-    showHeader,
-    setShowHeader
+    showBackButton,
+    setShowBackButton
   };
 
   console.log('Outlet context:', outletContext); // Debug log
@@ -58,7 +58,7 @@ const DashboardLayout = () => {
             setIsSidebarOpen={setIsSidebarOpen}
             name={headerName}
             navName={navName}
-            showHeader={showHeader}
+            showBackButton={showBackButton}
           />
           <div className={`${fullScreenMode ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
             <Outlet context={outletContext} />

@@ -8,7 +8,7 @@ import { useOutletContext } from 'react-router-dom';
 const LiveStreamLayout = () => {
   const navigation = useNavigation();
   const isLoading = navigation.state === 'loading'
-  const { isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode, setHeaderName, setNavName, showHeader, setShowHeader } = useOutletContext();
+  const { isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode, setHeaderName, setNavName, showBackButton, setShowBackButton } = useOutletContext();
 
   const displayScreenMode = () => {
     if (fullScreenMode) {
@@ -25,7 +25,7 @@ const LiveStreamLayout = () => {
         {/* Main Content */}
 
         <div className={displayScreenMode()}>
-          <Outlet context={{ isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode, setHeaderName, setNavName, showHeader, setShowHeader }} />
+          <Outlet context={{ isSidebarOpen, setIsSidebarOpen, hideSidebar, setHideSidebar, fullScreenMode, setFullScreenMode, setHeaderName, setNavName, showBackButton, setShowBackButton }} />
         </div>
       </div>
     </>
