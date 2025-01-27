@@ -128,9 +128,9 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, se
   }, [])
  
   useEffect(() => {
-    setHeaderName('Customers');
+    setHeaderName('Auqli Connect');
     setNavName('');
-  }, [setHeaderName, setNavName])
+  }, [])
 
   // Fetch seller products when modal opens
   useEffect(() => {
