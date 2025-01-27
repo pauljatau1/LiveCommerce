@@ -17,6 +17,7 @@ const DashboardRoute = ({ children }) => {
             setOnboardingStep(response.onboardingProcess);
           } catch (error) {
             console.error("Error fetching onboarding process:", error);
+            navigate(`/temp/login`, { replace: true });
           }
         };
     
@@ -30,7 +31,7 @@ const DashboardRoute = ({ children }) => {
 
         if (!tokenData.data || !tokenData.isVerified) {
             // Redirect unverified users to onboarding
-            navigate(`/${onboardingStep}`, { replace: true });
+            navigate(`/temp/login`, { replace: true });
             return;
         }
     }, [seller, navigate]);

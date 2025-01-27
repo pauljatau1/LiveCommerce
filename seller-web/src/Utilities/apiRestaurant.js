@@ -2,6 +2,7 @@ import { BASE_URL } from "../Constants/Server";
 import axios from "axios";
 
 
+
 // fetch onboarding Process categories
 export const fetchCategories = async () => {
     try {
