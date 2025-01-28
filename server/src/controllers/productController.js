@@ -10,6 +10,7 @@ const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
 const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
 
+
 // Create a new product
 exports.createProduct = async (req, res) => {
   try {
@@ -2483,71 +2484,85 @@ exports.toggleBlipLike = async (req, res) => {
     const { id, blipId } = req.params;
     const buyerId = req.user.id;
 
-    console.log('Debug - Received params:', { productId: id, blipId, buyerId });
+    // Add debug logging
+    console.log('Debug - Processing like toggle:', {
+      productId: id,
+      blipId: blipId,
+      buyerId: buyerId
+    });
 
-    // First validate both IDs
+    // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(blipId)) {
-      return res.status(400).json({ message: 'Invalid ID format' });
+      return res.status(400).json({ message: 'Invalid product or blip ID format' });
     }
 
-    const product = await Product.findById(id);
-    if (!product) {
-      console.log('Debug - Product not found:', id);
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    // Find the blip
-    const blip = product.blips.id(blipId);
-    if (!blip) {
-      console.log('Debug - Available blip IDs:', product.blips.map(b => b._id));
-      return res.status(404).json({ 
-        message: 'Blip not found',
-        availableBlipIds: product.blips.map(b => b._id)
-      });
-    }
-
-    // Initialize likes array if it doesn't exist
-    if (!blip.likes) {
-      blip.likes = [];
-    }
-
-    // Check if user already liked the blip
-    const likeIndex = blip.likes.findIndex(
-      like => like.buyer.toString() === buyerId
+    const product = await Product.findOne(
+      { _id: id, "blips._id": blipId },
+      { "blips.$": 1 }
     );
 
-    let action;
-    if (likeIndex === -1) {
-      // Add like
-      blip.likes.push({
-        buyer: buyerId,
-        createdAt: new Date()
-      });
-      action = 'liked';
-    } else {
-      // Remove like
-      blip.likes.splice(likeIndex, 1);
-      action = 'unliked';
+    if (!product || !product.blips || product.blips.length === 0) {
+      console.log('Debug - Product or blip not found:', { id, blipId });
+      return res.status(404).json({ message: 'Product or blip not found' });
     }
 
-    // Update likesCount
-    blip.likesCount = blip.likes.length;
+    const blip = product.blips[0];
+    console.log('Debug - Found blip:', {
+      blipId: blip._id,
+      hasLikes: Array.isArray(blip.likes),
+      likesCount: blip.likesCount || 0
+    });
 
-    // Save the product
-    await product.save();
+    // Ensure likes array exists
+    const likes = Array.isArray(blip.likes) ? blip.likes : [];
+    const likeIndex = likes.findIndex(like => like?.toString() === buyerId?.toString());
 
-    // Return updated blip engagement stats
+    console.log('Debug - Current like status:', {
+      likeExists: likeIndex !== -1,
+      currentLikes: blip.likesCount || 0,
+      likeIndex
+    });
+
+    let updateOperation;
+    if (likeIndex === -1) {
+      // Add like
+      updateOperation = {
+        $addToSet: { "blips.$.likes": new mongoose.Types.ObjectId(buyerId) },
+        $inc: { "blips.$.likesCount": 1 }
+      };
+    } else {
+      // Remove like
+      updateOperation = {
+        $pull: { "blips.$.likes": new mongoose.Types.ObjectId(buyerId) },
+        $inc: { "blips.$.likesCount": -1 }
+      };
+    }
+
+    const result = await Product.updateOne(
+      { _id: id, "blips._id": blipId },
+      updateOperation
+    );
+
+    console.log('Debug - Update result:', result);
+
+    if (result.modifiedCount === 0) {
+      console.log('Debug - No document was modified');
+      return res.status(400).json({ message: 'Failed to update like status' });
+    }
+
     res.json({
-      message: `Blip ${action} successfully`,
-      blipEngagement: {
-        likesCount: blip.likes.length,
-        commentsCount: blip.comments ? blip.comments.length : 0
-      },
-      action
+      message: likeIndex === -1 ? 'Blip liked successfully' : 'Blip unliked successfully',
+      liked: likeIndex === -1,
+      likesCount: (blip.likesCount || 0) + (likeIndex === -1 ? 1 : -1)
     });
 
   } catch (error) {
-    console.error('Error in toggleBlipLike:', error);
+    console.error('Toggle blip like error:', {
+      error: error.message,
+      stack: error.stack,
+      params: req.params,
+      user: req.user
+    });
     res.status(500).json({
       message: 'Failed to toggle blip like',
       error: error.message
