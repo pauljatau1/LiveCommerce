@@ -1546,7 +1546,7 @@ router.post('/reset-password-with-token', sellerController.resetPasswordWithToke
  *       200:
  *         description: Top sold products retrieved successfully
  *       500:
- *         description: Internal server error
+ *         description: Internal server error.
  */
 router.get('/top-sold-products', 
   authMiddleware.verifyToken, 
