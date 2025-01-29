@@ -45,7 +45,13 @@ const orderItemSchema = new mongoose.Schema({
     status: String,
     timestamp: { type: Date, default: Date.now },
     note: String
-  }]
+  }],
+  specifications: {
+    color: String,
+    size: String,
+    material: String,
+    // Add any other specification fields you need
+  },
 });
 
 const orderSchema = new mongoose.Schema({
@@ -96,9 +102,14 @@ const orderSchema = new mongoose.Schema({
       amount: Number,
       currency: String
     },
-    
     rate_id: String,
-    estimatedDeliveryDate: Date,
+    estimatedDeliveryDate: {
+      type: String,
+    },
+    estimatedPickupDate: {
+      type: String,
+      
+    },
     tracking: {
       number: String,
       url: String,

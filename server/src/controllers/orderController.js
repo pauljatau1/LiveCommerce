@@ -235,7 +235,12 @@ exports.createOrder = async (req, res) => {
         name: item.name,
         description: item.description,
         weight: item.weight,
-        status: 'pending'
+        status: 'pending',
+        specifications: {
+          color: item.specifications?.color,
+          size: item.specifications?.size,
+          material: item.specifications?.material
+        }
       });
     }
 
@@ -296,7 +301,12 @@ exports.createOrder = async (req, res) => {
         seller: sellerId,
         items: sellerData.items.map(item => ({
           ...item,
-          seller: sellerId  // Add seller ID to each item
+          seller: sellerId,  // Add seller ID to each item
+          specifications: {
+            color: item.specifications?.color,
+            size: item.specifications?.size,
+            material: item.specifications?.material
+          }
         })),
         delivery_address,
         pickup_address: sellerData.pickup_address,
@@ -561,7 +571,9 @@ exports.markAsPaid = async (req, res) => {
         carrier_reference, 
         shipping_fee, 
         carrier_name, 
-        rate_id 
+        rate_id,
+        estimatedDeliveryDate,
+        estimatedPickupDate
       } = orderData;
 
       console.log('Processing order:', orderId);
@@ -582,6 +594,16 @@ exports.markAsPaid = async (req, res) => {
       if (amount !== order.totalAmount) {
         console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
         throw new Error(`Payment amount does not match order total for order ${orderId}`);
+      }
+
+      // Validate dates
+      if (!estimatedDeliveryDate || !estimatedPickupDate) {
+        throw new Error(`Estimated delivery and pickup dates are required for order ${orderId}`);
+      }
+
+      // Validate that pickup date is before delivery date
+      if (new Date(estimatedPickupDate) >= new Date(estimatedDeliveryDate)) {
+        throw new Error(`Estimated pickup date must be before delivery date for order ${orderId}`);
       }
 
       // Update soldCount and decrease stock for each product
@@ -650,6 +672,8 @@ exports.markAsPaid = async (req, res) => {
           currency: 'NGN'
         },
         rate_id: rate_id,
+        estimatedDeliveryDate: new Date(estimatedDeliveryDate),
+        estimatedPickupDate: estimatedPickupDate,
         tracking: tracking,
         documents: order.shipping.documents || {  // Add default documents object
           shippingLabel: null,
@@ -1566,7 +1590,8 @@ exports.getOrderDetails = async (req, res) => {
         quantity: item.quantity,
         price: item.price,
         status: item.status,
-        statusHistory: item.statusHistory
+        statusHistory: item.statusHistory,
+        specifications: item.specifications || {}
       })),
       addresses: {
         delivery: order.delivery_address,
@@ -1578,6 +1603,7 @@ exports.getOrderDetails = async (req, res) => {
         fee: order.shipping.fee,
         rate_id: order.shipping.rate_id,
         estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
+        estimatedPickupDate: order.shipping.estimatedPickupDate,
         tracking: {
           number: order.shipping.tracking.number,
           carrier: order.shipping.tracking.carrier,

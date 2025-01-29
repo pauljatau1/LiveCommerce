@@ -50,6 +50,15 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                       type: number
  *                     price:
  *                       type: number
+ *                     specifications:
+ *                       type: object
+ *                       properties:
+ *                         color:
+ *                           type: string
+ *                         size:
+ *                           type: string
+ *                         material:
+ *                           type: string
  *               pickupAddress:
  *                 type: object
  *                 required:
@@ -325,6 +334,8 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *                     - shipping_fee
  *                     - carrier_name
  *                     - rate_id
+ *                     - estimatedDeliveryDate
+ *                     - estimatedPickupDate
  *                   properties:
  *                     orderId:
  *                       type: string
@@ -343,7 +354,14 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *                       description: Name of the shipping carrier
  *                     rate_id:
  *                       type: string
- *                       description: Rate ID for the shipping service
+ *                     estimatedDeliveryDate:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Expected delivery date for the order
+ *                     estimatedPickupDate:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Expected pickup date from seller
  *     responses:
  *       200:
  *         description: Orders marked as paid successfully
