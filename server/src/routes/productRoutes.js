@@ -333,6 +333,90 @@ router.get('/personalized',
 
 /**
  * @swagger
+ * /api/products/trending:
+ *   get:
+ *     summary: Get trending products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of products to return
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month]
+ *           default: week
+ *         description: Time period for trending calculation
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Optional category filter
+ *     responses:
+ *       200:
+ *         description: List of trending products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 period:
+ *                   type: string
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       discountedPrice:
+ *                         type: number
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                       category:
+ *                         type: string
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                       trendingScore:
+ *                         type: number
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           rating:
+ *                             type: number
+ *                           reviewCount:
+ *                             type: number
+ *                           views:
+ *                             type: number
+ *                           sales:
+ *                             type: number
+ *       500:
+ *         description: Server error
+ */
+router.get('/trending', productController.getTrendingProducts);
+
+/**
+ * @swagger
  * /api/products/{id}:
  *   get:
  *     summary: Get a product by ID
@@ -1470,5 +1554,116 @@ router.put('/:id/discount',
   authMiddleware.isSeller, 
   productController.updateProductDiscount
 );
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/like:
+ *   post:
+ *     summary: Like/unlike a product blip
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: Blip liked/unliked successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.post('/:id/blips/:blipId/like',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.toggleBlipLike
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/comments:
+ *   post:
+ *     summary: Add a comment to a product blip
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comment:
+ *                 type: string
+ *                 required: true
+ *     responses:
+ *       201:
+ *         description: Comment added successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.post('/:id/blips/:blipId/comments',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.addBlipComment
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/comments:
+ *   get:
+ *     summary: Get comments for a product blip
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Comments retrieved successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.get('/:id/blips/:blipId/comments', productController.getBlipComments);
 
 module.exports = router;

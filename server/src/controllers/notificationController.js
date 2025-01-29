@@ -30,19 +30,19 @@ const getNotificationTitle = (type) => {
 const getNotificationMessage = (type, data) => {
   switch (type) {
     case 'new_order':
-      return `You have received a new order #${data.orderId} worth ${data.amount}. ${data.items} item(s) to be fulfilled.`;
+      return `You have received a new order #${data.order_id} worth ${data.amount}. ${data.items} item(s) to be fulfilled.`;
     case 'order_paid':
-      return `Payment of ${data.amount} received for order #${data.orderId} via ${data.paymentMethod}.`;
+      return `Payment of ${data.amount} received for order #${data.order_id} via ${data.paymentMethod}.`;
     case 'pickup_arranged':
-      return `Pickup has been arranged for order #${data.orderId} with ${data.carrier} on ${new Date(data.pickupDate).toLocaleDateString()}.`;
+      return `Pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${new Date(data.pickupDate).toLocaleDateString()}.`;
     case 'new_follower':
       return `${data.buyerName} is now following your store.`;
     case 'low_stock':
       return `Your product "${data.productName}" is running low on stock (${data.currentStock} units remaining).`;
     case 'order_delivered':
-      return `Order #${data.orderId} has been successfully delivered to the customer.`;
+      return `Order #${data.order_id} has been successfully delivered to the customer.`;
     case 'order_cancelled':
-      return `Order #${data.orderId} has been cancelled.`;
+      return `Order #${data.order_id} has been cancelled.`;
     case 'review_received':
       return `A new review has been posted for your product "${data.productName}".`;
     default:

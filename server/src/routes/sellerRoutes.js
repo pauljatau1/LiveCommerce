@@ -1546,7 +1546,7 @@ router.post('/reset-password-with-token', sellerController.resetPasswordWithToke
  *       200:
  *         description: Top sold products retrieved successfully
  *       500:
- *         description: Internal server error
+ *         description: Internal server error.
  */
 router.get('/top-sold-products', 
   authMiddleware.verifyToken, 
@@ -1863,6 +1863,56 @@ router.put('/business-address', authMiddleware.verifyToken, sellerController.upd
  *         description: Internal server error
  */
 router.put('/notification-preferences', authMiddleware.verifyToken, sellerController.updateNotificationPreferences);
+
+/**
+ * @swagger
+ * /api/seller/reviews:
+ *   get:
+ *     summary: Get seller's reviews
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [recent, rating-high, rating-low]
+ *     responses:
+ *       200:
+ *         description: Reviews retrieved successfully
+ */
+router.get('/reviews',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getSellerReviews
+);
+
+/**
+ * @swagger
+ * /api/seller/reviews/stats:
+ *   get:
+ *     summary: Get seller's review statistics
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Review statistics retrieved successfully
+ */
+router.get('/reviews/stats',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getReviewStats
+);
 
 // /**
 //  * @swagger

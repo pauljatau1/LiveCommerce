@@ -66,94 +66,119 @@ const generateVideoThumbnail = async (videoBuffer) => {
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { title, body, tags, visibility, productIds } = req.body;
+    const { title, body, tags, visibility } = req.body;
     const userId = req.user.id;
     const userModel = req.user.role;
 
-    // Get user information
+    // Find the user
     const UserModel = mongoose.model(userModel);
     const user = await UserModel.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Handle media uploads
-    let imagesData = [];
-    let videosData = [];
+    // Process media files
+    const mediaFiles = req.files || [];
+    const images = [];
+    const videos = [];
 
-    if (req.files) {
-      // Handle images
-      const imageFiles = req.files.filter(file => file.mimetype.startsWith('image/'));
-      for (let file of imageFiles) {
-        const params = {
-          Bucket: 'auqli-uploads',
-          Key: `posts/${uuidv4()}-${file.originalname}`,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-        };
-        const uploadResult = await s3.upload(params).promise();
-        imagesData.push({
-          url: uploadResult.Location,
-          public_id: uploadResult.Key
-        });
-      }
-
-      // Handle videos
-      const videoFiles = req.files.filter(file => file.mimetype.startsWith('video/'));
-      for (let file of videoFiles) {
-        const videoParams = {
-          Bucket: 'auqli-uploads',
-          Key: `posts/videos/${uuidv4()}-${file.originalname}`,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-        };
-        const videoUpload = await s3.upload(videoParams).promise();
-
-        videosData.push({
-          url: videoUpload.Location,
-          public_id: videoUpload.Key
-        });
-      }
+    // Handle images
+    const imageFiles = mediaFiles.filter(file => file.mimetype.startsWith('image/'));
+    for (let file of imageFiles) {
+      const params = {
+        Bucket: 'auqli-uploads',
+        Key: `posts/${uuidv4()}-${file.originalname}`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      };
+      const uploadResult = await s3.upload(params).promise();
+      images.push({
+        url: uploadResult.Location,
+        public_id: uploadResult.Key
+      });
     }
 
-    // Handle product references
-    let products = [];
-    if (productIds && productIds.length > 0) {
-      const productIdsArray = Array.isArray(productIds) ? productIds : [productIds];
-      products = productIdsArray.map(productId => ({
-        productId,
-        addedAt: new Date()
-      }));
+    // Handle videos
+    const videoFiles = mediaFiles.filter(file => file.mimetype.startsWith('video/'));
+    for (let file of videoFiles) {
+      const videoParams = {
+        Bucket: 'auqli-uploads',
+        Key: `posts/videos/${uuidv4()}-${file.originalname}`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      };
+      const videoUpload = await s3.upload(videoParams).promise();
+
+      videos.push({
+        url: videoUpload.Location,
+        public_id: videoUpload.Key
+      });
     }
 
-    const post = new Post({
+    // Parse product IDs (handle both arrays and comma-separated strings)
+    let productIds = [];
+    if (req.body.productIds) {
+      productIds = Array.isArray(req.body.productIds) 
+        ? req.body.productIds 
+        : req.body.productIds.split(',').map(id => id.trim());
+    }
+
+    // Format products array
+    const products = productIds.map(productId => ({
+      productId,
+      taggedAt: new Date()
+    }));
+
+    // Parse tagged sellers (handle both arrays and JSON strings)
+    let taggedSellers = [];
+    if (req.body.taggedSellers) {
+      const sellersData = typeof req.body.taggedSellers === 'string' 
+        ? JSON.parse(req.body.taggedSellers) 
+        : req.body.taggedSellers;
+
+      taggedSellers = Array.isArray(sellersData) 
+        ? sellersData.map(seller => ({ sellerId: seller.sellerId }))
+        : [{ sellerId: sellersData.sellerId }];
+    }
+
+    // Parse tags
+    const parsedTags = tags ? (Array.isArray(tags) ? tags : tags.split(',').map(tag => tag.trim())) : [];
+
+    // Create new post
+    const newPost = new Post({
       title,
       body,
       author: {
-        userId,
+        userId: user._id,
         userModel,
         firstName: user.firstName,
         lastName: user.lastName,
         profileImage: user.profileImage,
         country: user.country,
-        bio: user.bio,
-        storeName: userModel === 'Seller' ? user.storeName : undefined,
-        businessName: userModel === 'Seller' ? user.businessName : undefined,
-        username: userModel === 'Buyer' ? user.username : undefined
+        username: user.username,
+        storeName: user.storeName,
+        businessName: user.businessName
       },
-      images: imagesData,
-      videos: videosData,
+      images,
+      videos,
       products,
-      tags: tags || [],
-      visibility: visibility || 'public'
+      taggedSellers,
+      tags: parsedTags,
+      visibility
     });
 
-    await post.save();
+    await newPost.save();
+
+    // Populate references for response
+    const populatedPost = await Post.findById(newPost._id)
+      .populate('products.productId', 'name images price')
+      .populate('taggedSellers.sellerId', 'storeName businessName');
 
     res.status(201).json({
       message: 'Post created successfully',
-      post
+      post: populatedPost
     });
+
   } catch (error) {
     console.error('Create post error:', error);
     res.status(500).json({

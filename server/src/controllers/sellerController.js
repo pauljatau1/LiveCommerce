@@ -864,8 +864,8 @@ exports.getTopProducts = async (req, res) => {
       },
       // Sort by quantity sold
       { $sort: { totalQuantity: -1 } },
-      // Limit to top 5
-      { $limit: 5 },
+      // Limit to top 4
+      { $limit: 4 },
       // Lookup product details
       {
         $lookup: {
@@ -2015,5 +2015,86 @@ exports.updateNotificationPreferences = async (req, res) => {
     res.json({ message: 'Notification preferences updated successfully', seller: updatedSeller });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update notification preferences', error: error.message });
+  }
+};
+
+// Get seller's reviews
+exports.getSellerReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sort = 'recent' } = req.query;
+    const sellerId = req.user.id;
+
+    const seller = await Seller.findById(sellerId)
+      .populate({
+        path: 'reviews.buyer',
+        select: 'firstName lastName profileImage'
+      });
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Sort reviews based on query parameter
+    let sortedReviews = [...seller.reviews];
+    switch (sort) {
+      case 'rating-high':
+        sortedReviews.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'rating-low':
+        sortedReviews.sort((a, b) => a.rating - b.rating);
+        break;
+      default: // recent
+        sortedReviews.sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    // Paginate results
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedReviews = sortedReviews.slice(startIndex, endIndex);
+
+    res.json({
+      reviews: paginatedReviews,
+      pagination: {
+        total: seller.reviews.length,
+        pages: Math.ceil(seller.reviews.length / limit),
+        currentPage: page,
+        hasMore: endIndex < seller.reviews.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getSellerReviews:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve reviews',
+      error: error.message
+    });
+  }
+};
+
+// Get seller's review statistics
+exports.getReviewStats = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const stats = {
+      averageRating: seller.stats.averageRating,
+      totalReviews: seller.stats.totalReviews,
+      ratingDistribution: seller.stats.ratingDistribution,
+      verifiedPurchaseCount: seller.reviews.filter(review => review.isVerifiedPurchase).length
+    };
+
+    res.json(stats);
+
+  } catch (error) {
+    console.error('Error in getReviewStats:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve review statistics',
+      error: error.message
+    });
   }
 };

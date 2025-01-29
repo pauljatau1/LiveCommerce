@@ -96,7 +96,7 @@ const commentSchema = new mongoose.Schema({
 const postSchema = new mongoose.Schema({
   title: { type: String, required: true },
   body: { type: String, required: true },
-  author: authorSchema, // Using the authorSchema instead of just reference
+  author: authorSchema,
   images: [{
     url: { type: String },
     public_id: { type: String }
@@ -108,9 +108,16 @@ const postSchema = new mongoose.Schema({
   products: [{
     productId: { 
       type: mongoose.Schema.Types.ObjectId, 
-      ref: 'Product' 
+      ref: 'Product'
     },
-    addedAt: { type: Date, default: Date.now }
+    taggedAt: { type: Date, default: Date.now }
+  }],
+  taggedSellers: [{
+    sellerId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Seller'
+    },
+    taggedAt: { type: Date, default: Date.now }
   }],
   tags: [{ type: String }],
   visibility: {
@@ -167,6 +174,33 @@ postSchema.pre('save', async function(next) {
         this.author.username = user.username;
       }
     }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add a pre-save middleware to validate tags
+postSchema.pre('save', async function(next) {
+  try {
+    // Validate tagged products exist
+    if (this.products && this.products.length > 0) {
+      const productIds = this.products.map(tag => tag.productId);
+      const products = await mongoose.model('Product').find({ _id: { $in: productIds } });
+      if (products.length !== productIds.length) {
+        throw new Error('One or more tagged products do not exist');
+      }
+    }
+
+    // Validate tagged sellers exist
+    if (this.taggedSellers && this.taggedSellers.length > 0) {
+      const sellerIds = this.taggedSellers.map(tag => tag.sellerId);
+      const sellers = await mongoose.model('Seller').find({ _id: { $in: sellerIds } });
+      if (sellers.length !== sellerIds.length) {
+        throw new Error('One or more tagged sellers do not exist');
+      }
+    }
+
     next();
   } catch (error) {
     next(error);

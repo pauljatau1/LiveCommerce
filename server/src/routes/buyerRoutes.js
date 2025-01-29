@@ -298,6 +298,48 @@ router.post('/resend-otp', buyerController.resendOTP);
  */
 router.put('/selected-categories', authMiddleware.verifyToken, buyerController.updateSelectedCategories);
 
+/**
+ * @swagger
+ * /api/buyer/selected-categories:
+ *   get:
+ *     summary: Get buyer's selected categories
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Selected categories retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 categories:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         example: "Electronics"
+ *                       subCategories:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                               example: "Smartphones"
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/selected-categories', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getSelectedCategories
+);
 
 /**
  * @swagger
@@ -1134,6 +1176,89 @@ router.get('/seller/:sellerId',
   authMiddleware.verifyToken, 
   authMiddleware.isBuyer, 
   buyerController.getSellerProfile
+);
+
+/**
+ * @swagger
+ * /api/buyer/seller/{sellerId}/review:
+ *   post:
+ *     summary: Add a review for a seller
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *               - comment
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *               comment:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Review added successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Seller not found
+ */
+router.post('/seller/:sellerId/review', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.addSellerReview
+);
+
+/**
+ * @swagger
+ * /api/buyer/seller/{sellerId}/review:
+ *   put:
+ *     summary: Update an existing review for a seller
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *               comment:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Review updated successfully
+ *       404:
+ *         description: Review not found
+ */
+router.put('/seller/:sellerId/review',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.updateSellerReview
 );
 
 module.exports = router;

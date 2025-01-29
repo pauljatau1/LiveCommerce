@@ -19,38 +19,152 @@ const upload = multer({ storage: multer.memoryStorage() });
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required:
- *               - title
- *               - body
  *             properties:
  *               title:
  *                 type: string
+ *                 required: true
+ *                 description: Title of the post
  *               body:
  *                 type: string
+ *                 required: true
+ *                 description: Content of the post
  *               media:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: Can include both images and videos (max 10 files)
+ *                 description: Images or videos to be uploaded
  *               productIds:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of product IDs to reference
+ *                 type: string
+ *                 description: Comma-separated list of product IDs or array of product IDs to tag
+ *                 example: "id1,id2,id3"
+ *               taggedSellers:
+ *                 type: string
+ *                 description: JSON string containing seller IDs to tag
+ *                 example: '{"sellerId":"seller123"}'
  *               tags:
- *                 type: array
- *                 items:
- *                   type: string
+ *                 type: string
+ *                 description: Comma-separated list of tags or array of tags
+ *                 example: "fashion,lifestyle,summer"
  *               visibility:
  *                 type: string
  *                 enum: [public, private, draft]
  *                 default: public
+ *                 description: Visibility setting for the post
  *     responses:
  *       201:
  *         description: Post created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Post created successfully
+ *                 post:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     body:
+ *                       type: string
+ *                     author:
+ *                       type: object
+ *                       properties:
+ *                         userId:
+ *                           type: string
+ *                         userModel:
+ *                           type: string
+ *                           enum: [Buyer, Seller]
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                         profileImage:
+ *                           type: object
+ *                         username:
+ *                           type: string
+ *                         storeName:
+ *                           type: string
+ *                     images:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           url:
+ *                             type: string
+ *                           public_id:
+ *                             type: string
+ *                     videos:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           url:
+ *                             type: string
+ *                           public_id:
+ *                             type: string
+ *                     products:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           productId:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               images:
+ *                                 type: array
+ *                               price:
+ *                                 type: number
+ *                           taggedAt:
+ *                             type: string
+ *                             format: date-time
+ *                     taggedSellers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           sellerId:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               storeName:
+ *                                 type: string
+ *                               businessName:
+ *                                 type: string
+ *                           taggedAt:
+ *                             type: string
+ *                             format: date-time
+ *                     tags:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     visibility:
+ *                       type: string
+ *                       enum: [public, private, draft]
+ *                     stats:
+ *                       type: object
+ *                       properties:
+ *                         likeCount:
+ *                           type: number
+ *                         dislikeCount:
+ *                           type: number
+ *                         viewCount:
+ *                           type: number
+ *                         shareCount:
+ *                           type: number
  *       400:
  *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
  *       500:
  *         description: Server error
  */

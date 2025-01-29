@@ -8,6 +8,8 @@ const Category = require('../models/Category');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
+const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
+
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
@@ -1048,30 +1050,102 @@ exports.getBuyerFeedProducts = async (req, res) => {
 // Get trending products based on review count and ratings
 exports.getTrendingProducts = async (req, res) => {
   try {
-    const products = await Product.aggregate([
-      { 
-        $addFields: {
-          reviewCount: { $size: "$reviews" },
-          averageRating: { $avg: "$reviews.rating" }
-        }
-      },
+    const { 
+      limit = 10, 
+      period = 'week',
+      category 
+    } = req.query;
+
+    // Calculate date threshold based on period
+    const dateThreshold = new Date();
+    switch (period) {
+      case 'day':
+        dateThreshold.setDate(dateThreshold.getDate() - 1);
+        break;
+      case 'month':
+        dateThreshold.setMonth(dateThreshold.getMonth() - 1);
+        break;
+      default: // week
+        dateThreshold.setDate(dateThreshold.getDate() - 7);
+    }
+
+    // Build base query
+    const query = {
+      status: 'active',
+      visibility: 'visible',
+      'stats.lastViewed': { $gte: dateThreshold }
+    };
+
+    // Add category filter if provided
+    if (category) {
+      query.category = category;
+    }
+
+    // Aggregate pipeline to calculate trending score
+    const trendingProducts = await Product.aggregate([
+      { $match: query },
       {
-        $sort: {
-          reviewCount: -1,
-          averageRating: -1
+        $addFields: {
+          reviewCount: { $size: '$reviews' },
+          averageRating: { $avg: '$reviews.rating' },
+          // Calculate trending score based on multiple factors
+          trendingScore: {
+            $add: [
+              { $multiply: [{ $size: '$reviews' }, 2] }, // Review count weight
+              { $multiply: [{ $avg: '$reviews.rating' }, 3] }, // Rating weight
+              { $multiply: ['$stats.views', 0.5] }, // Views weight
+              { $multiply: ['$stats.sales', 4] } // Sales weight
+            ]
+          }
         }
       },
-      { $limit: 20 }
+      { $sort: { trendingScore: -1 } },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'seller'
+        }
+      },
+      { $unwind: '$seller' },
+      {
+        $project: {
+          name: 1,
+          price: 1,
+          discountedPrice: 1,
+          images: 1,
+          category: 1,
+          trendingScore: 1,
+          'seller._id': 1,
+          'seller.storeName': 1,
+          stats: {
+            rating: '$averageRating',
+            reviewCount: '$reviewCount',
+            views: '$stats.views',
+            sales: '$stats.sales'
+          }
+        }
+      }
     ]);
 
-    await Product.populate(products, {
-      path: 'seller',
-      select: 'name avatarUrl about'
+    res.json({
+      success: true,
+      period,
+      products: trendingProducts.map(product => ({
+        ...product,
+        trendingScore: Math.round(product.trendingScore * 100) / 100
+      }))
     });
 
-    res.json(products);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve trending products', error: error.message });
+    console.error('Error fetching trending products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch trending products',
+      error: error.message
+    });
   }
 };
 
@@ -1231,25 +1305,62 @@ exports.getAllBlips = async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
 
   try {
+    console.log('Starting getAllBlips aggregation...');
+    
     const blips = await Product.aggregate([
-      // Match products that have at least one blip
-      { 
-        $match: { 
-          blips: { $exists: true, $ne: [] },
-          seller: { $exists: true, $ne: null } // Ensure seller exists
-        } 
-      },
+      // Match products that have blips
+      { $match: { blips: { $exists: true, $ne: [] } } },
       // Unwind the blips array
       { $unwind: '$blips' },
-      // Project needed fields including seller ID
+      // Lookup seller information
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'sellerInfo'
+        }
+      },
+      { $unwind: '$sellerInfo' },
+      // Project needed fields
       {
         $project: {
+          _id: '$_id', // This is the product ID
+          blipId: '$blips._id', // Add this line to include the blip ID
           blipUrl: '$blips.url',
           productId: '$_id',
           productName: '$name',
           price: '$price',
-          sellerId: '$seller',
+          discountedPrice: '$discountedPrice',
+          seller: {
+            _id: '$sellerInfo._id',
+            firstName: '$sellerInfo.firstName',
+            lastName: '$sellerInfo.lastName',
+            storeName: '$sellerInfo.storeName',
+            storeAvatar: '$sellerInfo.storeAvatar',
+            aboutStore: '$sellerInfo.aboutStore'
+          },
           images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            }
+          },
           averageRating: {
             $cond: {
               if: { $isArray: '$reviews' },
@@ -1263,19 +1374,24 @@ exports.getAllBlips = async (req, res) => {
               then: { $size: '$reviews' },
               else: 0
             }
-          }
+          },
+          createdAt: '$blips.createdAt'
         }
       },
       // Sort by newest first
-      { $sort: { _id: -1 } },
+      { $sort: { createdAt: -1 } },
       // Skip and limit for pagination
       { $skip: (page - 1) * limit },
       { $limit: limit }
     ]);
 
+    console.log(`Found ${blips.length} blips`);
+
     const total = await Product.countDocuments({
       blips: { $exists: true, $ne: [] }
     });
+
+    console.log(`Total blips count: ${total}`);
 
     res.json({
       blips,
@@ -1284,7 +1400,7 @@ exports.getAllBlips = async (req, res) => {
       totalBlips: total
     });
   } catch (error) {
-    console.error('Error in getAllBlips:', error);
+    console.error('Detailed error in getAllBlips:', error);
     res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
   }
 };
@@ -1296,6 +1412,8 @@ exports.getSellerBlips = async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
 
   try {
+    console.log(`Starting getSellerBlips for seller: ${sellerId}`);
+
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ message: 'Invalid seller ID' });
@@ -1306,12 +1424,16 @@ exports.getSellerBlips = async (req, res) => {
       firstName: 1,
       lastName: 1,
       businessName: 1,
-      storeName: 1
+      storeName: 1,
+      storeAvatar: 1,
+      aboutStore: 1
     });
 
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
+
+    console.log('Found seller:', seller.storeName);
 
     // Check if seller has any blips before aggregation
     const hasBlips = await Product.exists({
@@ -1320,6 +1442,7 @@ exports.getSellerBlips = async (req, res) => {
     });
 
     if (!hasBlips) {
+      console.log('No blips found for seller');
       return res.json({
         message: 'Seller has no blips',
         seller,
@@ -1340,15 +1463,45 @@ exports.getSellerBlips = async (req, res) => {
       },
       // Unwind the blips array
       { $unwind: '$blips' },
-      // Project needed fields
+      // Project needed fields with safe handling of likes/comments
       {
         $project: {
+          _id: '$_id',                    // Product ID
+          blipId: '$blips._id',          // Actual blip ID
           blipUrl: '$blips.url',
           productId: '$_id',
           productName: '$name',
           price: '$price',
-          sellerId: '$seller',
+          discountedPrice: '$discountedPrice',
+          seller: {
+            _id: seller._id,
+            firstName: seller.firstName,
+            lastName: seller.lastName,
+            storeName: seller.storeName,
+            storeAvatar: seller.storeAvatar,
+            aboutStore: seller.aboutStore
+          },
           images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            }
+          },
           averageRating: {
             $cond: {
               if: { $isArray: '$reviews' },
@@ -1362,31 +1515,36 @@ exports.getSellerBlips = async (req, res) => {
               then: { $size: '$reviews' },
               else: 0
             }
-          }
+          },
+          createdAt: '$blips.createdAt'
         }
       },
       // Sort by newest first
-      { $sort: { _id: -1 } },
+      { $sort: { createdAt: -1 } },
       // Skip and limit for pagination
       { $skip: (page - 1) * limit },
       { $limit: limit }
     ]);
+
+    console.log(`Found ${blips.length} blips for seller`);
 
     const total = await Product.countDocuments({
       seller: sellerId,
       blips: { $exists: true, $ne: [] }
     });
 
+    console.log(`Total blips count for seller: ${total}`);
+
     res.json({
-      blips,
       seller,
+      blips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalBlips: total
     });
   } catch (error) {
-    console.error('Error in getSellerBlips:', error);
-    res.status(500).json({ message: 'Failed to retrieve seller blips', error: error.message });
+    console.error('Detailed error in getSellerBlips:', error);
+    res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
   }
 };
 
@@ -1671,7 +1829,7 @@ exports.getProductAnalytics = async (req, res) => {
         const item = order.items.find(item => 
           item.product.toString() === product._id.toString()
         );
-        return sum + (item.price * item.quantity);
+        return sum + (item ? item.price * item.quantity : 0);
       }, 0);
 
       return {
@@ -2389,6 +2547,182 @@ exports.getProductById = async (req, res) => {
     res.status(500).json({ 
       message: 'Failed to retrieve product', 
       error: error.message 
+    });
+  }
+};
+
+// Toggle like on a blip
+exports.toggleBlipLike = async (req, res) => {
+  try {
+    const { id, blipId } = req.params;
+    const buyerId = req.user.id;
+
+    // Add debug logging
+    console.log('Debug - Processing like toggle:', {
+      productId: id,
+      blipId: blipId,
+      buyerId: buyerId
+    });
+
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(blipId)) {
+      return res.status(400).json({ message: 'Invalid product or blip ID format' });
+    }
+
+    const product = await Product.findOne(
+      { _id: id, "blips._id": blipId },
+      { "blips.$": 1 }
+    );
+
+    if (!product || !product.blips || product.blips.length === 0) {
+      console.log('Debug - Product or blip not found:', { id, blipId });
+      return res.status(404).json({ message: 'Product or blip not found' });
+    }
+
+    const blip = product.blips[0];
+    console.log('Debug - Found blip:', {
+      blipId: blip._id,
+      hasLikes: Array.isArray(blip.likes),
+      likesCount: blip.likesCount || 0
+    });
+
+    // Ensure likes array exists
+    const likes = Array.isArray(blip.likes) ? blip.likes : [];
+    const likeIndex = likes.findIndex(like => like?.toString() === buyerId?.toString());
+
+    console.log('Debug - Current like status:', {
+      likeExists: likeIndex !== -1,
+      currentLikes: blip.likesCount || 0,
+      likeIndex
+    });
+
+    let updateOperation;
+    if (likeIndex === -1) {
+      // Add like
+      updateOperation = {
+        $addToSet: { "blips.$.likes": new mongoose.Types.ObjectId(buyerId) },
+        $inc: { "blips.$.likesCount": 1 }
+      };
+    } else {
+      // Remove like
+      updateOperation = {
+        $pull: { "blips.$.likes": new mongoose.Types.ObjectId(buyerId) },
+        $inc: { "blips.$.likesCount": -1 }
+      };
+    }
+
+    const result = await Product.updateOne(
+      { _id: id, "blips._id": blipId },
+      updateOperation
+    );
+
+    console.log('Debug - Update result:', result);
+
+    if (result.modifiedCount === 0) {
+      console.log('Debug - No document was modified');
+      return res.status(400).json({ message: 'Failed to update like status' });
+    }
+
+    res.json({
+      message: likeIndex === -1 ? 'Blip liked successfully' : 'Blip unliked successfully',
+      liked: likeIndex === -1,
+      likesCount: (blip.likesCount || 0) + (likeIndex === -1 ? 1 : -1)
+    });
+
+  } catch (error) {
+    console.error('Toggle blip like error:', {
+      error: error.message,
+      stack: error.stack,
+      params: req.params,
+      user: req.user
+    });
+    res.status(500).json({
+      message: 'Failed to toggle blip like',
+      error: error.message
+    });
+  }
+};
+
+// Add comment to a blip
+exports.addBlipComment = async (req, res) => {
+  try {
+    const { id, blipId } = req.params;
+    const { comment } = req.body;
+    const buyerId = req.user.id;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    blip.comments.push({
+      buyer: buyerId,
+      comment
+    });
+
+    await product.save();
+
+    res.status(201).json({
+      message: 'Comment added successfully',
+      commentsCount: blip.comments.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to add comment',
+      error: error.message
+    });
+  }
+};
+
+// Get blip comments
+exports.getBlipComments = async (req, res) => {
+  try {
+    const { id, blipId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+
+    const comments = await Product.findOne(
+      { _id: id, 'blips._id': blipId },
+      { 'blips.$': 1 }
+    ).populate({
+      path: 'blips.comments.buyer',
+      select: 'firstName lastName profileImage'
+    });
+
+    const paginatedComments = comments.blips[0].comments
+      .slice(startIndex, endIndex);
+
+    res.json({
+      comments: paginatedComments,
+      pagination: {
+        total: blip.comments.length,
+        pages: Math.ceil(blip.comments.length / limit),
+        currentPage: page,
+        hasMore: endIndex < blip.comments.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get comments',
+      error: error.message
     });
   }
 };

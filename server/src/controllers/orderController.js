@@ -329,6 +329,7 @@ exports.createOrder = async (req, res) => {
       // Create notification for seller
       await createNotification(sellerId, 'new_order', {
         orderId: savedOrder._id,
+        order_id: savedOrder.order_id,
         buyerName: `${savedOrder.buyer.firstName} ${savedOrder.buyer.lastName}`,
         amount: savedOrder.totalAmount,
         items: savedOrder.items.length
@@ -416,7 +417,7 @@ exports.createOrder = async (req, res) => {
             <h2>Order Confirmation</h2>
             <p>Dear ${populatedOrder.buyer.firstName},</p>
             <p>Thank you for your order! Here are your order details:</p>
-            <p><strong>Order ID:</strong> ${populatedOrder._id}</p>
+            <p><strong>Order ID:</strong> ${populatedOrder.order_id}</p>
             <p><strong>Items:</strong></p>
             <ul>
               ${populatedOrder.items.map(item => `
@@ -446,7 +447,7 @@ exports.createOrder = async (req, res) => {
             <h2>New Order Received</h2>
             <p>Dear ${populatedOrder.seller.firstName},</p>
             <p>You have received a new order:</p>
-            <p><strong>Order ID:</strong> ${populatedOrder._id}</p>
+            <p><strong>Order ID:</strong> ${populatedOrder.order_id}</p>
             <p><strong>Items:</strong></p>
             <ul>
               ${populatedOrder.items.map(item => `
@@ -680,6 +681,7 @@ exports.markAsPaid = async (req, res) => {
       // Create notification for seller
       await createNotification(order.seller, 'order_paid', {
         orderId: order._id,
+        order_id: order.order_id,
         amount: order.totalAmount,
         paymentMethod: order.paymentInfo.method
       });
@@ -703,7 +705,7 @@ exports.markAsPaid = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Payment Confirmed</h2>
             <p>Dear ${populatedOrder.buyer.firstName},</p>
-            <p>Your payment has been confirmed for order #${populatedOrder._id}.</p>
+            <p>Your payment has been confirmed for order #${populatedOrder.order_id}.</p>
             <p><strong>Order Details:</strong></p>
             <ul>
               ${populatedOrder.items.map(item => `
@@ -727,7 +729,7 @@ exports.markAsPaid = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Payment Received</h2>
             <p>Dear ${populatedOrder.seller.firstName},</p>
-            <p>Payment has been received for order #${populatedOrder._id}.</p>
+            <p>Payment has been received for order #${populatedOrder.order_id}.</p>
             <p><strong>Order Details:</strong></p>
             <ul>
               ${populatedOrder.items.map(item => `
@@ -995,6 +997,7 @@ exports.initiateRefund = async (req, res) => {
     await notificationController.createNotification({
       recipient: order.buyer,
       type: 'REFUND_INITIATED',
+      order_id: order.order_id,
       title: 'Refund Initiated',
       message: `A refund of ${amount} has been initiated for order #${order._id}`,
       reference: order._id
@@ -1125,6 +1128,7 @@ exports.updateTracking = async (req, res) => {
     await notificationController.createNotification({
       recipient: order.buyer,
       type: 'TRACKING_UPDATED',
+      order_id: order.order_id,
       title: 'Order Tracking Updated',
       message: `Tracking information updated for order #${order._id}`,
       reference: order._id
@@ -1160,6 +1164,7 @@ exports.addOrderNote = async (req, res) => {
       await notificationController.createNotification({
         recipient: order.buyer,
         type: 'ORDER_NOTE',
+        order_id: order.order_id,
         title: 'New Order Note',
         message: `New note added to order #${order._id}`,
         reference: order._id
@@ -1296,14 +1301,14 @@ exports.createDispute = async (req, res) => {
         'dispute_opened',
         'New Dispute Opened',
         `A dispute has been opened for order #${order._id}`,
-        { orderId: order._id }
+        { orderId: order._id, order_id: order.order_id, order_id: order.order_id }
       ),
       notificationController.createNotification(
         'admin', // Special handling in notification controller for admin
         'dispute_opened',
         'New Dispute Opened',
         `A dispute has been opened for order #${order._id}`,
-        { orderId: order._id }
+        { orderId: order._id, order_id: order.order_id, order_id: order.order_id }
       )
     ]);
 
@@ -1351,7 +1356,8 @@ exports.updateDispute = async (req, res) => {
       type: 'DISPUTE_UPDATED',
       title: 'Dispute Updated',
       message: `The dispute for order #${order._id} has been updated`,
-      reference: order._id
+      reference: order._id,
+      order_id: order.order_id
     });
 
     res.json(order);
@@ -1399,7 +1405,7 @@ exports.requestRefund = async (req, res) => {
       'refund_requested',
       'New Refund Request',
       `A refund has been requested for order #${order._id}`,
-      { orderId: order._id }
+      { orderId: order._id, order_id: order.order_id }
     );
 
     res.json({ message: 'Refund requested successfully', order });
@@ -1463,7 +1469,7 @@ exports.processRefund = async (req, res) => {
       'refund_processed',
       'Refund Update',
       `Your refund request for order #${order._id} has been ${status}`,
-      { orderId: order._id }
+      { orderId: order._id, order_id: order.order_id }
     );
 
     await session.commitTransaction();
@@ -1539,6 +1545,7 @@ exports.getOrderDetails = async (req, res) => {
     const response = {
       order: {
         _id: order._id,
+        order_id: order.order_id,
         channel: order.channel,
         createdAt: order.createdAt,
         totalAmount: order.totalAmount,
@@ -1838,7 +1845,8 @@ exports.arrangePickup = async (req, res) => {
       await createNotification(order.seller, 'pickup_arranged', {
         orderId: order._id,
         pickupDate: new Date(),
-        carrier: order.shipping.carrier.name
+        carrier: order.shipping.carrier.name,
+        order_id: order.order_id
       });
 
       res.json({

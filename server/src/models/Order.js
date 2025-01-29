@@ -49,6 +49,20 @@ const orderItemSchema = new mongoose.Schema({
 });
 
 const orderSchema = new mongoose.Schema({
+  order_id: {
+    type: String,
+    unique: true,
+    required: true,
+    default: function() {
+      // Generate a random 5-character alphanumeric string
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = 'OR';
+      for (let i = 0; i < 5; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    }
+  },
   buyer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Buyer',
@@ -171,11 +185,39 @@ const orderSchema = new mongoose.Schema({
   }
 });
 
-// Pre-save middleware to update status history
-orderSchema.pre('save', function(next) {
-  const order = this;
+// Add a pre-save middleware to ensure uniqueness of orderId
+orderSchema.pre('save', async function(next) {
+  if (this.isNew) {
+    const Order = this.constructor;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
 
-  // Update items status history if changed
+    while (!isUnique && attempts < maxAttempts) {
+      // Generate a new orderId
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let newOrderId = 'OR';
+      for (let i = 0; i < 5; i++) {
+        newOrderId += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Check if this orderId already exists
+      const existingOrder = await Order.findOne({ order_id: newOrderId });
+      if (!existingOrder) {
+        this.order_id = newOrderId;
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!isUnique) {
+      next(new Error('Could not generate unique orderId after maximum attempts'));
+      return;
+    }
+  }
+
+  // Continue with the existing pre-save middleware for status history
+  const order = this;
   order.items.forEach(item => {
     if (item.isModified('status')) {
       item.statusHistory.push({
@@ -187,7 +229,5 @@ orderSchema.pre('save', function(next) {
 
   next();
 });
-
-
 
 module.exports = mongoose.model('Order', orderSchema);
