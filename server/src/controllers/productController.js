@@ -8,6 +8,16 @@ const Category = require('../models/Category');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+ffmpeg.setFfmpegPath(ffmpegPath);
+const sharp = require('sharp');
+
+// Initialize FFmpeg
+// const ffmpeg = createFFmpeg({ log: true });
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -88,14 +98,77 @@ exports.createProduct = async (req, res) => {
     if (req.body.blips && Array.isArray(req.body.blips)) {
       for (let blip of req.body.blips) {
         const buffer = Buffer.from(blip.data, 'base64');
-        const params = {
-          Bucket: 'auqli-uploads',
-          Key: `${uuidv4()}.mp4`,
-          Body: buffer,
-          ContentType: blip.contentType,
-        };
-        const data = await s3.upload(params).promise();
-        blipsLinks.push({ url: data.Location });
+        
+        // Log original size
+        const originalSize = buffer.byteLength;
+        console.log(`Original video size: ${(originalSize / 1024 / 1024).toFixed(2)} MB`);
+
+        try {
+          // Create temporary files
+          const tempDir = os.tmpdir();
+          const inputPath = path.join(tempDir, `${uuidv4()}.mp4`);
+          const outputPath = path.join(tempDir, `${uuidv4()}_compressed.mp4`);
+
+          // Write buffer to temp file
+          await fs.writeFile(inputPath, buffer);
+
+          // Compress using fluent-ffmpeg
+          await new Promise((resolve, reject) => {
+            ffmpeg(inputPath)
+              .output(outputPath)
+              .videoCodec('libx264')
+              .outputOptions([
+                '-crf 23',
+                '-preset medium',
+                '-movflags +faststart'
+              ])
+              .on('end', async () => {
+                try {
+                  const compressedBuffer = await fs.readFile(outputPath);
+                  
+                  // Log compressed size
+                  const compressedSize = compressedBuffer.byteLength;
+                  console.log(`Compressed video size: ${(compressedSize / 1024 / 1024).toFixed(2)} MB`);
+                  console.log(`Compression ratio: ${((compressedSize / originalSize) * 100).toFixed(2)}%`);
+
+                  // Upload to S3
+                  const params = {
+                    Bucket: 'auqli-uploads',
+                    Key: `${uuidv4()}.mp4`,
+                    Body: compressedBuffer,
+                    ContentType: blip.contentType,
+                  };
+                  const data = await s3.upload(params).promise();
+                  blipsLinks.push({ url: data.Location });
+
+                  // Cleanup
+                  await Promise.all([
+                    fs.unlink(inputPath),
+                    fs.unlink(outputPath)
+                  ]);
+                  resolve();
+                } catch (error) {
+                  reject(error);
+                }
+              })
+              .on('error', (err) => {
+                console.error('FFmpeg error:', err);
+                reject(err);
+              })
+              .run();
+          });
+        } catch (error) {
+          console.error('Video compression error:', error);
+          // Fallback to original video
+          const params = {
+            Bucket: 'auqli-uploads',
+            Key: `${uuidv4()}.mp4`,
+            Body: buffer,
+            ContentType: blip.contentType,
+          };
+          const data = await s3.upload(params).promise();
+          blipsLinks.push({ url: data.Location });
+        }
       }
     }
 
