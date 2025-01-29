@@ -140,7 +140,7 @@ const productSlice = createSlice({
         state.message = null;
     }).addCase(fetchSellerProducts.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.message = 'Products fetched successfully';
+        console.log('products fetched successfully', action.payload);
         state.products = action.payload.products;
     }).addCase(fetchSellerProducts.rejected, (state, action) => {
         state.isLoading = false;
