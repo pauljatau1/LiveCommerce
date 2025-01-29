@@ -1695,7 +1695,7 @@ exports.updateInventory = async (req, res) => {
     // Check if low stock notification needed
     if (product.isLowStock()) {
       // Notify seller (if you have notification system)
-      await notificationController.createNotification({
+      await NotificationController.createNotification({
         recipient: product.seller,
         type: 'low_stock',
         title: 'Low Stock Alert',
