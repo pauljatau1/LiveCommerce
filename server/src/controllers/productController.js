@@ -123,6 +123,7 @@ exports.createProduct = async (req, res) => {
                 '-crf 28', // Higher CRF for smaller files
                 '-preset ultrafast', // Faster encoding
                 '-movflags +faststart',
+                '-threads 2', //limit cpu threads to two 
               ])
               .on('end', async () => {
                 try {
@@ -1707,7 +1708,7 @@ exports.updateInventory = async (req, res) => {
     // Check if low stock notification needed
     if (product.isLowStock()) {
       // Notify seller (if you have notification system)
-      await notificationController.createNotification({
+      await NotificationController.createNotification({
         recipient: product.seller,
         type: 'low_stock',
         title: 'Low Stock Alert',
