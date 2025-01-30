@@ -1,4 +1,4 @@
-import { createContext, useReducer } from "react";
+import { createContext, useEffect, useReducer } from "react";
 import { BASE_URL } from '../Constants/Server';
 import { toast } from "sonner";
 import { Crisp } from "crisp-sdk-web";
@@ -23,7 +23,8 @@ function AuthProvider({ children }) {
         top3SellingProducts: null,
         stuffToDo: null,
         unverifiedUser: null,
-        onboardingStep: null
+        onboardingStep: null,
+        blockedUser: false,
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -150,6 +151,11 @@ function AuthProvider({ children }) {
                     ...state,
                     onboardingStep: action.payload
                 }
+            case "BLOCKED_USER":
+                return {
+                    ...state,
+                    blockedUser: true
+                }
             default:
                 return state;
         }
@@ -186,7 +192,7 @@ function AuthProvider({ children }) {
                         fontWeight: '400',
                     }
                 });
-                
+
             }
 
         } catch (AxiosError) {
@@ -427,6 +433,22 @@ function AuthProvider({ children }) {
             }
         } catch (error) {
             console.log(error);
+            if (error.response?.status === 404) {
+                console.log("Seller not found, clearing auth state");
+                dispatch({ type: 'BLOCKED_USER' });
+                localStorage.removeItem('sellerToken');
+                localStorage.removeItem('seller');
+                dispatch({ type: 'LOGOUT' });
+                navigate('/login');
+                toast.error('Unauthorized Seller', {
+                    description: error.response.data.message,
+                    style: {
+                        background: '#17171B',
+                        color: '#fff',
+                    }
+                });
+            }
+            return null;
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -438,10 +460,10 @@ function AuthProvider({ children }) {
             localStorage.removeItem('sellerToken');
             localStorage.removeItem('seller');
             localStorage.removeItem('onboardingProcess');
-            
+
             Crisp.setTokenId();
             Crisp.session.reset();
-            
+
             dispatch({ type: 'LOGOUT' });
             navigate('/login');
         } catch (error) {

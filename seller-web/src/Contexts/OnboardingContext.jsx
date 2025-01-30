@@ -93,7 +93,7 @@ const OnboardingProvider = ({ children }) => {
                     onboardingProcess: accountType === 'business' ? 'business-onboarding' : 'individual-onboarding'
                 });
                 if (accountType === 'business') {
-                    navigate("/business-onboarding")
+                    navigate("/onboarding/business-onboarding")
                 } else {
                     navigate("/individual-onboarding")
 
@@ -143,7 +143,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-information-onboarding'
                 });
-                navigate('/business-information-onboarding')
+                navigate('/onboarding/business-information-onboarding')
             }
         } catch (AxiosError) {
             console.log(AxiosError);
@@ -232,7 +232,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-verification-onboarding'
                 });
-                navigate('/business-verification-onboarding');
+                navigate('/onboarding/business-verification-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -277,7 +277,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-bank-onboarding'
                 });
-                navigate('/business-bank-onboarding');
+                navigate('/onboarding/business-bank-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -315,7 +315,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'business-category-onboarding'
                 });
-                navigate('/business-category-onboarding');
+                navigate('/onboarding/business-category-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -332,7 +332,7 @@ const OnboardingProvider = ({ children }) => {
         }
     };
 
-    
+
 
     const submitBusinessCategory = async (selectedCategories) => {
         try {
@@ -354,9 +354,9 @@ const OnboardingProvider = ({ children }) => {
                     }
                 });
                 await storeOnboardingProcess({
-                    onboardingProcess: 'account-approval'
+                    onboardingProcess: 'create-profile'
                 });
-                navigate('/account-approval');
+                navigate('/onboarding/create-profile');
             }
         } catch (error) {
             console.log(error);
@@ -429,7 +429,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'individual-verification-onboarding'
                 });
-                navigate('/individual-verification-onboarding');
+                navigate('/onboarding/individual-verification-onboarding');
             }
         } catch (error) {
             console.log(error);
@@ -474,7 +474,7 @@ const OnboardingProvider = ({ children }) => {
                 await storeOnboardingProcess({
                     onboardingProcess: 'account-approval'
                 })
-                navigate('/account-approval');
+                navigate('/onboarding/account-approval');
             }
         } catch (error) {
             console.log(error);
@@ -490,43 +490,66 @@ const OnboardingProvider = ({ children }) => {
         }
     };
 
-    const submitProfileImage = async (profileImage) => {
+    const submitProfileImages = async (profileImage, bannerImage) => {
         try {
             dispatch({ type: 'SET_IMAGE_UPLOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
 
-            // Convert base64 to blob
-            const base64Response = await fetch(profileImage);
-            const blob = await base64Response.blob();
-            
-            // Create FormData and append the file
-            const formData = new FormData();
-            formData.append('avatar', blob, 'profile-image.jpg');
+            // Convert both images to blobs
+            const [profileBlob, bannerBlob] = await Promise.all([
+                fetch(profileImage).then(r => r.blob()),
+                fetch(bannerImage).then(r => r.blob())
+            ]);
 
-            const response = await axios.post(`${BASE_URL}/seller/profile/avatar`, formData, {
-                headers: {
-                    Authorization: `Bearer ${data}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
+            // Create FormData for both images
+            const profileFormData = new FormData();
+            const bannerFormData = new FormData();
 
-            if (response.status === 200) {
-                console.log('Profile image submitted', response);
+            profileFormData.append('avatar', profileBlob, 'profile-image.jpg');
+            bannerFormData.append('banner', bannerBlob, 'banner-image.jpg');
+
+            // Make both API calls simultaneously
+            const [profileResponse, bannerResponse] = await Promise.all([
+                axios.post(`${BASE_URL}/seller/profile/avatar`, profileFormData, {
+                    headers: {
+                        Authorization: `Bearer ${data}`,
+                        'Content-Type': 'multipart/form-data'
+                    }
+                }),
+                axios.post(`${BASE_URL}/seller/profile/banner`, bannerFormData, {
+                    headers: {
+                        Authorization: `Bearer ${data}`,
+                        'Content-Type': 'multipart/form-data'
+                    }
+                })
+            ]);
+
+            // Check if both responses are successful
+            if (profileResponse.status === 200 && bannerResponse.status === 200) {
                 dispatch({ type: 'SET_IMAGE_UPLOAD_SUCCESS', payload: true });
-                toast.success('Profile image submitted', {
-                    description: 'Your profile image has been uploaded',
+                toast.success('Profile images submitted successfully', {
+                    description: 'Your profile and banner images have been uploaded',
                     style: {
                         background: '#05031F',
                         color: '#fff',
                     }
                 });
+
+                console.log(profileResponse.data);
+                console.log(bannerResponse.data);
+
+                // Navigate after successful upload
+                await storeOnboardingProcess({
+                    onboardingProcess: 'account-approval'
+                })
+                navigate('/onboarding/account-approval');
             }
         } catch (error) {
             console.log(error);
             dispatch({ type: 'SET_IMAGE_UPLOAD_SUCCESS', payload: false });
-            toast.error('Error submitting profile image', {
-                description: error.response?.data?.message || error.message,
+            toast.error('Error submitting images', {
+                description: error.response?.data?.message || 'Failed to upload images. Please try again.',
                 style: {
                     background: '#05031F',
                     color: '#fff',
@@ -535,7 +558,7 @@ const OnboardingProvider = ({ children }) => {
         } finally {
             dispatch({ type: 'SET_IMAGE_UPLOADING', payload: false });
         }
-    }
+    };
 
     return (
         <OnboardingContext.Provider
@@ -551,7 +574,7 @@ const OnboardingProvider = ({ children }) => {
                 submitShippingOptions,
                 registerIndividualBasicDetails,
                 submitIndividualVerification,
-                submitProfileImage
+                submitProfileImages
             }}
         >
             {children}
