@@ -26,9 +26,11 @@ EXPOSE 8000
 
 RUN apt-get update && apt-get install -y \
     libx264-dev \
+    libx265-dev \
     libvpx-dev \
     libopus-dev \
     libmp3lame-dev \
+    libnuma-dev \
     && rm -rf /var/lib/apt/lists/*
 
 CMD [ "node", "server.js" ]

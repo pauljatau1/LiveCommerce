@@ -121,9 +121,9 @@ exports.createProduct = async (req, res) => {
               .videoCodec('libx264')
               .outputOptions([
                 '-crf 28', // Higher CRF for smaller files
-                '-preset ultrafast', // Faster encoding
+                '-preset superfast', // Faster encoding
                 '-movflags +faststart',
-                '-threads 2', //limit cpu threads to two 
+                '-threads 1', //limit cpu threads to one 
               ])
               .on('end', async () => {
                 try {

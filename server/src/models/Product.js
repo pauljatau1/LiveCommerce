@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const NotificationController = require('../controllers/notificationController');
 
 // Helper function to generate SKU
 async function generateSKU(product) {
@@ -618,7 +619,7 @@ productSchema.pre('save', async function(next) {
     // Check for low stock
     if (this.inventory.quantity <= this.inventory.lowStockThreshold) {
       try {
-        await createNotification(this.seller, 'low_stock', {
+        await NotificationController.createNotification(this.seller, 'low_stock', {
           productId: this._id,
           productName: this.name,
           currentStock: this.inventory.quantity,
