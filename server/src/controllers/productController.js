@@ -123,7 +123,6 @@ exports.createProduct = async (req, res) => {
                 '-crf 28', // Higher CRF for smaller files
                 '-preset superfast', // Faster encoding
                 '-movflags +faststart',
-                '-threads 1', //limit cpu threads to one 
               ])
               .on('end', async () => {
                 try {
