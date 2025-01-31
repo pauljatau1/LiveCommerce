@@ -68,13 +68,7 @@ const variantSchema = new mongoose.Schema({
   name: { type: String, required: true },     // e.g., "Color"
   value: { type: String, required: true },    // e.g., "red", "blue"
   price: { type: Number, required: true },
-  discount: {
-    isActive: { type: Boolean, default: false },
-    type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: { type: Number, default: 0 },
-    startDate: { type: Date },
-    endDate: { type: Date }
-  },
+
   totalStock: { type: Number },
   images: [{
     data: { type: String, required: true },
@@ -83,20 +77,7 @@ const variantSchema = new mongoose.Schema({
   subVariants: [subVariantSchema],
 });
 
-// Add virtual field for variant discounted price
-variantSchema.virtual('discountedPrice').get(function() {
-  if (!this.discount.isActive) return this.price;
-  
-  const now = new Date();
-  if (this.discount.startDate && this.discount.startDate > now) return this.price;
-  if (this.discount.endDate && this.discount.endDate < now) return this.price;
 
-  if (this.discount.type === 'percentage') {
-    return Math.round((this.price * (100 - this.discount.value)) / 100);
-  } else {
-    return Math.max(0, this.price - this.discount.value);
-  }
-});
 
 // Add blip comment schema
 const blipSchema = new mongoose.Schema({
@@ -117,13 +98,7 @@ const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
   price: { type: Number, required: true },
-  discount: {
-    isActive: { type: Boolean, default: false },
-    type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: { type: Number, default: 0 },
-    startDate: { type: Date },
-    endDate: { type: Date }
-  },
+  
   priceVariants: [{
     size: { type: String },
     price: { type: Number },
@@ -588,20 +563,7 @@ const productSchema = new mongoose.Schema({
   wearable_Material: {type: String},
 });
 
-// Add a virtual field for the discounted price
-productSchema.virtual('discountedPrice').get(function() {
-  if (!this.discount.isActive) return this.price;
-  
-  const now = new Date();
-  if (this.discount.startDate && this.discount.startDate > now) return this.price;
-  if (this.discount.endDate && this.discount.endDate < now) return this.price;
 
-  if (this.discount.type === 'percentage') {
-    return Math.round((this.price * (100 - this.discount.value)) / 100);
-  } else {
-    return Math.max(0, this.price - this.discount.value);
-  }
-});
 
 // Ensure virtual fields are included when converting to JSON
 productSchema.set('toJSON', { virtuals: true });
@@ -644,24 +606,6 @@ productSchema.pre('save', async function(next) {
   }
 });
 
-productSchema.methods.hasValidDiscount = function() {
-  if (!this.discount.isActive) return false;
-  
-  const now = new Date();
-  if (this.discount.startDate && this.discount.startDate > now) return false;
-  if (this.discount.endDate && this.discount.endDate < now) return false;
-  
-  return true;
-};
-
-// Add middleware to automatically deactivate expired discounts
-productSchema.pre('save', function(next) {
-  const now = new Date();
-  if (this.discount.isActive && this.discount.endDate && this.discount.endDate < now) {
-    this.discount.isActive = false;
-  }
-  next();
-});
 
 // Add this method to the schema
 productSchema.methods.updateStock = async function(quantity, operation) {

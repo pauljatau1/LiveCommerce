@@ -11,6 +11,8 @@ const upload = multer({ storage: multer.memoryStorage() });
  *   get:
  *     summary: Get all blips from all products
  *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -125,7 +127,12 @@ const upload = multer({ storage: multer.memoryStorage() });
  */
 
 // Public routes for blips
-router.get('/blips', productController.getAllBlips);
+
+router.get('/blips', 
+  authMiddleware.verifyToken, 
+  productController.getAllBlips
+);
+
 router.get('/seller/:sellerId/blips', productController.getSellerBlips);
 
 

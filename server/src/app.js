@@ -27,6 +27,9 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const streamRoutes = require('./routes/streamRoutes');
+const couponRoutes = require('./routes/couponRoutes');
+const flashSaleRoutes = require('./routes/flashSaleRoutes');
+const campaignRoutes = require('./routes/campaignRoutes');
 // Import Passport configuration
 require('./config/passport');
 
@@ -88,6 +91,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/streams', streamRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/flash-sales', flashSaleRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

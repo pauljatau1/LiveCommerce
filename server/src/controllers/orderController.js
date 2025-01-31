@@ -157,6 +157,19 @@ const validateItems = (items) => {
 
 // create an order
 exports.createOrder = async (req, res) => {
+  console.log('Starting createOrder with user:', {
+    userId: req.user.id,
+    userRole: req.user.role
+  });
+
+  // Verify user is a buyer
+  if (req.user.role !== 'Buyer') {
+    return res.status(403).json({
+      message: 'Only buyers can create orders',
+      currentRole: req.user.role
+    });
+  }
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -252,14 +265,28 @@ exports.createOrder = async (req, res) => {
       console.log('Seller data:', sellerData);
 
       // Calculate total weight for this seller's items
-      const totalWeight = sellerData.items.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
+      const totalWeight = sellerData.items.reduce((sum, item) => {
+        console.log('Calculating weight for item:', {
+          name: item.name,
+          weight: item.weight,
+          quantity: item.quantity,
+          itemTotalWeight: item.weight * item.quantity
+        });
+        return sum + (item.weight * item.quantity);
+      }, 0);
+
+      console.log('Total calculated weight for seller:', {
+        sellerId,
+        totalWeight,
+        items: sellerData.items.length
+      });
 
       // Prepare shipping data for Terminal Africa
       const shippingData = {
         pickup_address: sellerData.pickup_address,
         delivery_address,
         parcel: {
-          weight: totalWeight,
+          weight: totalWeight, 
           width: parcel.width,
           height: parcel.height,
           length: parcel.length,
@@ -283,7 +310,17 @@ exports.createOrder = async (req, res) => {
         }
       };
 
-      console.log('Shipping data prepared:', shippingData);
+      console.log('Prepared shipping data:', {
+        sellerId,
+        parcelWeight: shippingData.parcel.weight,
+        itemsCount: shippingData.parcel.items.length,
+        items: shippingData.parcel.items.map(item => ({
+          name: item.name,
+          weight: item.weight,
+          quantity: item.quantity,
+          totalWeight: item.weight * item.quantity
+        }))
+      });
 
       // Create shipment with Terminal Africa
       const shipmentResponse = await terminalAPI.post('/shipments/quick', shippingData);
@@ -314,7 +351,7 @@ exports.createOrder = async (req, res) => {
           method: 'Terminal Africa',
           carrier: {
             name: 'Terminal Africa',
-            reference: shipmentResponse.data.data.shipment_id
+            reference: shipmentResponse.data.data.rate_id
           },
           fee: {
             amount: shipmentResponse.data.data.shipment_cost || 0,
@@ -348,63 +385,100 @@ exports.createOrder = async (req, res) => {
 
     // Add this code after orders are created but before final response
     for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
-      const seller = await Seller.findById(sellerId);
-      const buyer = await Buyer.findById(req.user.id);
-
-      console.log('Seller:', seller);
-      console.log('Buyer:', buyer);
-
-      if (!seller || !buyer) {
-        throw new Error('Seller or Buyer not found');
-      }
-
-      // Check if buyer already exists in seller's followers
-      const isFollowing = seller.followers?.some(
-        follower => follower.buyerId?.toString() === buyer._id.toString()
-      );
-
-      if (!isFollowing) {
-        // Get buyer's main address
-        const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
-          ? {
-              country: buyer.shippingAddresses[0].country,
-              city: buyer.shippingAddresses[0].city,
-              address1: buyer.shippingAddresses[0].addressLine1,
-              address2: buyer.shippingAddresses[0].addressLine2,
-              zipCode: buyer.shippingAddresses[0].zipCode
-            }
-          : null;
-
-        // Add buyer to seller's followers
-        seller.followers.push({
-          buyerId: buyer._id,
-          firstName: buyer.firstName,
-          lastName: buyer.lastName,
-          email: buyer.email,
-          followDate: new Date(),
-          totalOrders: 1,
-          mainAddress
+      try {
+        console.log('Processing seller-buyer relationship for:', {
+          sellerId,
+          buyerId: req.user.id
         });
 
-        // Add to buyer's activity feed
-        buyer.activityFeed.push({
-          type: 'follow',
-          content: `Started following ${seller.storeName || seller.businessName}`,
-          reference: seller._id,
-          referenceModel: 'Seller',
-          createdAt: new Date()
+        const seller = await Seller.findById(sellerId);
+        const buyer = await Buyer.findById(req.user.id);
+
+        console.log('Found seller:', {
+          sellerId: seller?._id,
+          sellerEmail: seller?.email,
+          exists: !!seller
         });
 
-        await Promise.all([seller.save(), buyer.save()]);
-      } else {
-        // Update existing follower's order count
-        const followerIndex = seller.followers.findIndex(
-          f => f.buyerId?.toString() === buyer._id.toString()
-        );
-        if (followerIndex !== -1) {
-          seller.followers[followerIndex].totalOrders += 1;
-          await seller.save();
+        console.log('Found buyer:', {
+          buyerId: buyer?._id,
+          buyerEmail: buyer?.email,
+          exists: !!buyer
+        });
+
+        if (!seller || !buyer) {
+          console.error('Missing user data:', {
+            sellerExists: !!seller,
+            buyerExists: !!buyer,
+            requestedSellerId: sellerId,
+            requestedBuyerId: req.user.id
+          });
+          throw new Error(`Seller or Buyer not found - Seller: ${!!seller}, Buyer: ${!!buyer}`);
         }
+
+        // Check if buyer already exists in seller's followers
+        const isFollowing = seller.followers?.some(
+          follower => follower.buyerId?.toString() === buyer._id.toString()
+        );
+
+        console.log('Follower status:', {
+          isFollowing,
+          followersCount: seller.followers?.length || 0
+        });
+
+        if (!isFollowing) {
+          // Get buyer's main address
+          const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
+            ? {
+                country: buyer.shippingAddresses[0].country,
+                city: buyer.shippingAddresses[0].city,
+                address1: buyer.shippingAddresses[0].addressLine1,
+                address2: buyer.shippingAddresses[0].addressLine2,
+                zipCode: buyer.shippingAddresses[0].zipCode
+              }
+            : null;
+
+          console.log('Adding new follower with address:', mainAddress);
+
+          // Add buyer to seller's followers
+          seller.followers.push({
+            buyerId: buyer._id,
+            firstName: buyer.firstName,
+            lastName: buyer.lastName,
+            email: buyer.email,
+            followDate: new Date(),
+            totalOrders: 1,
+            mainAddress
+          });
+
+          // Add to buyer's activity feed
+          buyer.activityFeed.push({
+            type: 'follow',
+            content: `Started following ${seller.storeName || seller.businessName}`,
+            reference: seller._id,
+            referenceModel: 'Seller',
+            createdAt: new Date()
+          });
+
+          await Promise.all([seller.save(), buyer.save()]);
+        } else {
+          // Update existing follower's order count
+          const followerIndex = seller.followers.findIndex(
+            f => f.buyerId?.toString() === buyer._id.toString()
+          );
+          if (followerIndex !== -1) {
+            seller.followers[followerIndex].totalOrders += 1;
+            await seller.save();
+          }
+        }
+      } catch (error) {
+        console.error('Error processing seller-buyer relationship:', {
+          error: error.message,
+          sellerId,
+          buyerId: req.user.id,
+          stack: error.stack
+        });
+        throw error; // Re-throw to be caught by the main try-catch
       }
     }
 
@@ -1084,36 +1158,36 @@ exports.getOrderAnalytics = async (req, res) => {
   }
 };
 
-// Bulk Order Operations
-exports.bulkUpdateOrders = async (req, res) => {
-  try {
-    const { orderIds, update } = req.body;
-    const sellerId = req.user.id;
+// // Bulk Order Operations
+// exports.bulkUpdateOrders = async (req, res) => {
+//   try {
+//     const { orderIds, update } = req.body;
+//     const sellerId = req.user.id;
 
-    // Verify ownership of all orders
-    const orders = await Order.find({
-      _id: { $in: orderIds },
-      seller: sellerId
-    });
+//     // Verify ownership of all orders
+//     const orders = await Order.find({
+//       _id: { $in: orderIds },
+//       seller: sellerId
+//     });
 
-    if (orders.length !== orderIds.length) {
-      return res.status(403).json({ message: 'Not authorized to update some orders' });
-    }
+//     if (orders.length !== orderIds.length) {
+//       return res.status(403).json({ message: 'Not authorized to update some orders' });
+//     }
 
-    const result = await Order.updateMany(
-      { _id: { $in: orderIds } },
-      { $set: update },
-      { new: true }
-    );
+//     const result = await Order.updateMany(
+//       { _id: { $in: orderIds } },
+//       $set: update },
+//       { new: true }
+//     );
 
-    res.json({
-      message: 'Orders updated successfully',
-      modifiedCount: result.nModified
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to bulk update orders', error: error.message });
-  }
-};
+//     res.json({
+//       message: 'Orders updated successfully',
+//       modifiedCount: result.nModified
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Failed to bulk update orders', error: error.message });
+//   }
+// };
 
 // Tracking Management
 exports.updateTracking = async (req, res) => {

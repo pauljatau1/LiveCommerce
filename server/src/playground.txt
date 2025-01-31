@@ -290,3 +290,111 @@ product
   },
   "paymentMethod": "paystack"
 }
+
+
+
+
+
+
+
+
+
+
+
+{
+  "items": [
+    {
+      "description": "iPhone 16 plus",
+      "name": "iPhone 16 plus",
+      "price": 1400000,
+      "productId": "678c1bcbdb92f522edacd425",
+      "sellerId": "6757fc4e814b66b9f8cdc3e3",
+      "quantity": 1,
+      "weight": 2,
+      "specifications": {
+        "color": "blue",
+        "size": "256gb"
+      }
+    },
+    {
+      "description": "68 Keys 65% Layout with Interchangeable Knob Module The EPOMAKER x AU…",
+      "name": "AULA F65 : 65% Wired & Wireless Hot-Swappable Mechanical Keyboard",
+      "price": 82000,
+      "productId": "67981877f4ed74835844f539",
+      "sellerId": "67974a2bb708ae48a32baf87",
+      "quantity": 2,
+      "weight": 3,
+      "specifications": {
+        "color": "black"
+      }
+    },
+    {
+      "description": "test…",
+      "name": "Dell G15 Gaming Laptop",
+      "price": 1580000,
+      "productId": "679cadd26c0e92b6b651d2df",
+      "sellerId": "679aee80b80234112753aed1",
+      "quantity": 2,
+      "weight": 4,
+      "specifications": {
+        "color": "black"
+      }
+    }
+  ],
+  "pickup_addresses": {
+    "6757fc4e814b66b9f8cdc3e3": {
+      "first_name": "bolu",
+      "last_name": "ajayi",
+      "email": "bolu@auqli.com",
+      "phone": "+2349124634152",
+      "line1": "123 Pickup Street",
+      "line2": "Floor 2",
+      "city": "Ajah",
+      "state": "Lagos",
+      "country": "NG",
+      "zip": "100001"
+    },
+    "67974a2bb708ae48a32baf87": {
+      "first_name": "todi",
+      "last_name": "bamfeta",
+      "email": "todimubamtefa11@gmail.com",
+      "phone": "+2349124634153",
+      "line1": "456 Other Street",
+      "line2": "Suite 3",
+      "city": "Lekki",
+      "state": "Lagos",
+      "country": "NG",
+      "zip": "100001"
+    },
+    "679aee80b80234112753aed1": {
+      "first_name": "daniel",
+      "last_name": "fasiku",
+      "email": "daniel.fasiku@stu.cu.edu.ng",
+      "phone": "+2349124634153",
+      "line1": "456 Other Street",
+      "line2": "Suite 3",
+      "city": "Lekki",
+      "state": "Lagos",
+      "country": "NG",
+      "zip": "100001"
+    }
+  },
+  "delivery_address": {
+    "first_name": "Bolu",
+    "last_name": "Ajayi",
+    "email": "boluaj16@gmail.com",
+    "phone": "+2349124634152",
+    "line1": "456 Delivery Street",
+    "line2": "Apartment 3",
+    "city": "Ikeja",
+    "state": "Lagos",
+    "country": "NG",
+    "zip": "100001"
+  },
+  "parcel": {
+    "width": 30,
+    "height": 30,
+    "length": 30
+  },
+  "paymentMethod": "paystack"
+}

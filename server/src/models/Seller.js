@@ -163,6 +163,8 @@ const sellerSchema = new mongoose.Schema({
     email: { type: String },
     followDate: { type: Date, default: Date.now },
     totalOrders: { type: Number, default: 0 },
+    lastInteraction: { type: Date },
+    optedOut: { type: Boolean, default: false },
     mainAddress: {
       country: String,
       city: String,
@@ -180,7 +182,8 @@ const sellerSchema = new mongoose.Schema({
       orderUpdates: { type: Boolean, default: true },
       lowStock: { type: Boolean, default: true },
       newReviews: { type: Boolean, default: true },
-      promotions: { type: Boolean, default: true }
+      promotions: { type: Boolean, default: true },
+      campaignMetrics: { type: Boolean, default: true }
     }
   },
   reviews: [reviewSchema],
@@ -194,6 +197,15 @@ const sellerSchema = new mongoose.Schema({
       4: { type: Number, default: 0 },
       5: { type: Number, default: 0 }
     }
+  },
+  campaigns: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Campaign' }],
+  campaignStats: {
+    totalCampaigns: { type: Number, default: 0 },
+    totalRecipients: { type: Number, default: 0 },
+    totalOpens: { type: Number, default: 0 },
+    totalClicks: { type: Number, default: 0 },
+    dailyCampaignCount: { type: Number, default: 0 },
+    lastCampaignDate: Date
   }
 });
 
@@ -212,6 +224,17 @@ sellerSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, 10);
   }
+
+  // Reset daily campaign count at midnight
+  const lastCampaignDate = this.campaignStats.lastCampaignDate;
+  
+  if (lastCampaignDate) {
+    const isSameDay = now.toDateString() === lastCampaignDate.toDateString();
+    if (!isSameDay) {
+      this.campaignStats.dailyCampaignCount = 0;
+    }
+  }
+
   next();
 });
 
