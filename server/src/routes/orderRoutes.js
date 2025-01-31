@@ -765,44 +765,44 @@ router.get('/export', authMiddleware.verifyToken, orderController.exportOrders);
  */
 router.get('/revenue-analytics', authMiddleware.verifyToken, orderController.getRevenueAnalytics);
 
-/**
- * @swagger
- * /api/order/bulk-update:
- *   put:
- *     summary: Bulk update orders
- *     description: Updates multiple orders in bulk
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - orderIds
- *               - update
- *             properties:
- *               orderIds:
- *                 type: array
- *                 items:
- *                   type: string
- *               update:
- *                 type: object
- *     responses:
- *       200:
- *         description: Orders updated successfully
- *       400:
- *         description: Invalid request body
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.put('/bulk-update', authMiddleware.verifyToken, orderController.bulkUpdateOrders);
+// /**
+//  * @swagger
+//  * /api/order/bulk-update:
+//  *   put:
+//  *     summary: Bulk update orders
+//  *     description: Updates multiple orders in bulk
+//  *     tags: [Order]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - orderIds
+//  *               - update
+//  *             properties:
+//  *               orderIds:
+//  *                 type: array
+//  *                 items:
+//  *                   type: string
+//  *               update:
+//  *                 type: object
+//  *     responses:
+//  *       200:
+//  *         description: Orders updated successfully
+//  *       400:
+//  *         description: Invalid request body
+//  *       401:
+//  *         description: Unauthorized
+//  *       403:
+//  *         description: Forbidden
+//  *       500:
+//  *         description: Server error
+//  */
+// router.put('/bulk-update', authMiddleware.verifyToken, orderController.bulkUpdateOrders);
 
 /**
  * @swagger

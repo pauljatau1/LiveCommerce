@@ -1914,6 +1914,169 @@ router.get('/reviews/stats',
   sellerController.getReviewStats
 );
 
+/**
+ * @swagger
+ * /api/seller/campaign-metrics:
+ *   get:
+ *     summary: Get seller's campaign metrics and performance
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Campaign metrics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalCampaigns:
+ *                   type: number
+ *                 totalRecipients:
+ *                   type: number
+ *                 totalOpens:
+ *                   type: number
+ *                 totalClicks:
+ *                   type: number
+ *                 engagementRate:
+ *                   type: string
+ *                 clickThroughRate:
+ *                   type: string
+ *                 recentCampaigns:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       status:
+ *                         type: string
+ *                       metrics:
+ *                         type: object
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/campaign-metrics',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getCampaignMetrics
+);
+
+/**
+ * @swagger
+ * /api/seller/campaign-followers:
+ *   get:
+ *     summary: Get seller's followers for campaign targeting
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: audienceType
+ *         schema:
+ *           type: string
+ *           enum: [all, active, inactive]
+ *         description: Type of audience to retrieve
+ *     responses:
+ *       200:
+ *         description: Followers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalFollowers:
+ *                   type: number
+ *                 followers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       followDate:
+ *                         type: string
+ *                         format: date-time
+ *                       lastInteraction:
+ *                         type: string
+ *                         format: date-time
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/campaign-followers',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getActiveFollowers
+);
+
+/**
+ * @swagger
+ * /api/seller/campaign-preferences:
+ *   put:
+ *     summary: Update seller's campaign notification preferences
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               campaignMetrics:
+ *                 type: boolean
+ *                 description: Whether to receive campaign metrics notifications
+ *     responses:
+ *       200:
+ *         description: Campaign preferences updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 preferences:
+ *                   type: object
+ *                   properties:
+ *                     emailNotifications:
+ *                       type: boolean
+ *                     pushNotifications:
+ *                       type: boolean
+ *                     notificationTypes:
+ *                       type: object
+ *                       properties:
+ *                         orderUpdates:
+ *                           type: boolean
+ *                         lowStock:
+ *                           type: boolean
+ *                         newReviews:
+ *                           type: boolean
+ *                         promotions:
+ *                           type: boolean
+ *                         campaignMetrics:
+ *                           type: boolean
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/campaign-preferences',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.updateCampaignPreferences
+);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

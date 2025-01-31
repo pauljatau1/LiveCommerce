@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 const Buyer = require('../models/Buyer');
 const Withdrawal = require('../models/Withdrawal');
+const Campaign = require('../models/Campaign');
 
 
 const generateToken = (id) => {
@@ -2094,6 +2095,115 @@ exports.getReviewStats = async (req, res) => {
     console.error('Error in getReviewStats:', error);
     res.status(500).json({
       message: 'Failed to retrieve review statistics',
+      error: error.message
+    });
+  }
+};
+
+// Get campaign metrics
+exports.getCampaignMetrics = async (req, res) => {
+  try {
+    const seller = await Seller.findById(req.user.id)
+      .select('campaignStats')
+      .populate({
+        path: 'campaigns',
+        select: 'metrics status createdAt',
+        options: { sort: { createdAt: -1 }, limit: 5 }
+      });
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Calculate engagement rates
+    const metrics = {
+      ...seller.campaignStats,
+      recentCampaigns: seller.campaigns,
+      engagementRate: seller.campaignStats.totalRecipients > 0 
+        ? ((seller.campaignStats.totalOpens / seller.campaignStats.totalRecipients) * 100).toFixed(2)
+        : 0,
+      clickThroughRate: seller.campaignStats.totalOpens > 0
+        ? ((seller.campaignStats.totalClicks / seller.campaignStats.totalOpens) * 100).toFixed(2)
+        : 0
+    };
+
+    res.json(metrics);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to retrieve campaign metrics',
+      error: error.message
+    });
+  }
+};
+
+// Get active followers for campaigns
+exports.getActiveFollowers = async (req, res) => {
+  try {
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const { audienceType = 'all' } = req.query;
+    let followers;
+
+    switch (audienceType) {
+      case 'active':
+        followers = seller.followers.filter(f => 
+          f.lastInteraction && 
+          new Date(f.lastInteraction) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) &&
+          !f.optedOut
+        );
+        break;
+      case 'inactive':
+        followers = seller.followers.filter(f => 
+          (!f.lastInteraction || 
+          new Date(f.lastInteraction) <= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) &&
+          !f.optedOut
+        );
+        break;
+      default:
+        followers = seller.followers.filter(f => !f.optedOut);
+    }
+
+    res.json({
+      totalFollowers: followers.length,
+      followers: followers.map(f => ({
+        id: f.buyerId,
+        name: `${f.firstName} ${f.lastName}`,
+        email: f.email,
+        followDate: f.followDate,
+        lastInteraction: f.lastInteraction
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to retrieve followers',
+      error: error.message
+    });
+  }
+};
+
+// Update campaign related notification preferences
+exports.updateCampaignPreferences = async (req, res) => {
+  try {
+    const { campaignMetrics } = req.body;
+    const seller = await Seller.findById(req.user.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.notificationPreferences.notificationTypes.campaignMetrics = campaignMetrics;
+    await seller.save();
+
+    res.json({
+      message: 'Campaign preferences updated successfully',
+      preferences: seller.notificationPreferences
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to update campaign preferences',
       error: error.message
     });
   }
