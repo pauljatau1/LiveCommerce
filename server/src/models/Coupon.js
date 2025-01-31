@@ -177,11 +177,14 @@ couponSchema.methods.getCurrentDiscountedPrice = function(productId) {
   return productDiscount ? productDiscount.discountedPrice : null;
 };
 
+// Create the model first
+const CouponModel = mongoose.model('Coupon', couponSchema);
+
 // Schedule periodic cleanup of expired discounts
 const cleanupExpiredDiscounts = async () => {
   try {
     const now = new Date();
-    const expiredCoupons = await mongoose.model('Coupon').find({
+    const expiredCoupons = await CouponModel.find({
       endDate: { $lte: now },
       status: 'active'
     });
@@ -200,4 +203,4 @@ setInterval(cleanupExpiredDiscounts, 60 * 60 * 1000);
 // Run cleanup on model initialization
 cleanupExpiredDiscounts();
 
-module.exports = mongoose.model('Coupon', couponSchema); 
+module.exports = CouponModel; 
