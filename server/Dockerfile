@@ -24,4 +24,13 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
 # Expose the port
 EXPOSE 8000
 
+RUN apt-get update && apt-get install -y \
+    libx264-dev \
+    libx265-dev \
+    libvpx-dev \
+    libopus-dev \
+    libmp3lame-dev \
+    libnuma-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 CMD [ "node", "server.js" ]

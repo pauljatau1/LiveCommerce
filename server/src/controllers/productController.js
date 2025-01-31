@@ -120,9 +120,9 @@ exports.createProduct = async (req, res) => {
               .output(outputPath)
               .videoCodec('libx264')
               .outputOptions([
-                '-crf 23',
-                '-preset medium',
-                '-movflags +faststart'
+                '-crf 28', // Higher CRF for smaller files
+                '-preset superfast', // Faster encoding
+                '-movflags +faststart',
               ])
               .on('end', async () => {
                 try {
@@ -152,6 +152,18 @@ exports.createProduct = async (req, res) => {
                 } catch (error) {
                   reject(error);
                 }
+              })
+              .on('stderr', function(stderrLine) {
+                console.log('FFmpeg stderr: ' + stderrLine);
+              })
+              .on('start', function(cmdLine) {
+                console.log('Started ffmpeg with command: ' + cmdLine);
+                setTimeout(() => {
+                  if(!this.ended) {
+                    console.log('Killing long-running ffmpeg process');
+                    this.kill('SIGKILL');
+                  }
+                }, 30000); // 30s timeout
               })
               .on('error', (err) => {
                 console.error('FFmpeg error:', err);
