@@ -2001,55 +2001,55 @@ exports.getProductPerformance = async (req, res) => {
 // Review Management Controllers
 exports.addReview = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { rating, title, comment, images } = req.body;
+    const productId = req.params.id;
     const buyerId = req.user.id;
-    const { rating, title, comment, purchasedVariant } = req.body;
 
-    // Validate required fields
+    // Validate input
     if (!rating || !title || !comment) {
-      return res.status(400).json({ 
-        message: 'Rating, title and comment are required' 
-      });
+      return res.status(400).json({ message: 'Rating, title and comment are required' });
     }
 
-    const product = await Product.findById(id);
+    const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Check if user has already reviewed
-    // const existingReview = product.reviews.find(
-    //   review => review.buyer.toString() === buyerId
-    // );
-    // if (existingReview) {
-    //   return res.status(400).json({ 
-    //     message: 'You have already reviewed this product' 
-    //   });
-    // }
+    // Process images (if any)
+    const processedImages = [];
+    
+    if (images && Array.isArray(images)) {
+      // Limit number of images
+      if (images.length > 5) {
+        return res.status(400).json({ message: 'Maximum 5 images allowed' });
+      }
 
-    // Upload images to S3
-    const reviewImages = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
+      for (const image of images) {
+        // Validate base64 data
+        if (!image.base64) {
+          continue;
+        }
+
+        const buffer = Buffer.from(image.base64, 'base64');
         const params = {
           Bucket: 'auqli-uploads',
-          Key: `reviews/${uuidv4()}-${file.originalname}`,
-          Body: file.buffer,
-          ContentType: file.mimetype,
+          Key: `reviews/${productId}/${Date.now()}-${uuidv4()}.jpg`,
+          Body: buffer,
+          ContentType: image.mimeType || 'image/jpeg',
         };
         const uploadResult = await s3.upload(params).promise();
-        reviewImages.push({
+        
+        processedImages.push({
           url: uploadResult.Location,
-          contentType: file.mimetype
+          contentType: image.mimeType || 'image/jpeg'
         });
       }
     }
 
-    // Get buyer info
-    const buyer = await Buyer.findById(buyerId)
-      .select('firstName lastName');
-
-    // Create review object
+    // Get buyer details
+    const buyer = await Buyer.findById(buyerId);
+    
+    // Create the review object
     const review = {
       buyer: buyerId,
       firstName: buyer.firstName,
@@ -2057,30 +2057,24 @@ exports.addReview = async (req, res) => {
       title,
       rating,
       comment,
-      images: reviewImages,
-      purchasedVariant: purchasedVariant ? JSON.parse(purchasedVariant) : undefined,
-      createdAt: new Date()
+      images: processedImages,
+      createdAt: new Date(),
+      purchasedVariant: req.body.purchasedVariant || {}
     };
 
-    // Add review and update product stats
     product.reviews.push(review);
-    
-    // Update product stats
-    const allRatings = product.reviews.map(r => r.rating);
-    product.stats.averageRating = allRatings.reduce((a, b) => a + b, 0) / allRatings.length;
-    product.stats.reviewCount = product.reviews.length;
-
     await product.save();
 
     res.status(201).json({
       message: 'Review added successfully',
       review
     });
+
   } catch (error) {
     console.error('Error in addReview:', error);
-    res.status(500).json({ 
-      message: 'Failed to add review', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add review',
+      error: error.message
     });
   }
 };

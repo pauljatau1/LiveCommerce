@@ -29,7 +29,7 @@ exports.createCoupon = async (req, res) => {
     // Get all product IDs from the productDiscounts array
     const productIds = productDiscounts.map(pd => pd.productId);
 
-    // Validate products belong to seller and get their original prices
+    // Validate products belong to seller and check for existing discounts
     const products = await Product.find({
       _id: { $in: productIds },
       seller: sellerId
@@ -38,6 +38,23 @@ exports.createCoupon = async (req, res) => {
     if (products.length !== productIds.length) {
       return res.status(400).json({
         message: 'Some products do not belong to the seller'
+      });
+    }
+
+    // Check for existing discounts on products
+    const now = new Date();
+    const productsWithDiscounts = products.filter(product => 
+      product.discountEndDate && new Date(product.discountEndDate) > now
+    );
+
+    if (productsWithDiscounts.length > 0) {
+      return res.status(400).json({
+        message: 'Some products already have active discounts',
+        products: productsWithDiscounts.map(p => ({
+          id: p._id,
+          name: p.name,
+          discountEndDate: p.discountEndDate
+        }))
       });
     }
 
@@ -143,6 +160,31 @@ exports.updateCoupon = async (req, res) => {
       if (products.length !== updateData.applicableProducts.length) {
         return res.status(400).json({
           message: 'Some products do not belong to the seller'
+        });
+      }
+    }
+
+    // If updating products, check for existing discounts
+    if (req.body.productDiscounts) {
+      const productIds = req.body.productDiscounts.map(pd => pd.productId);
+      const products = await Product.find({
+        _id: { $in: productIds },
+        seller: req.user.id
+      });
+
+      const now = new Date();
+      const productsWithDiscounts = products.filter(product => 
+        product.discountEndDate && new Date(product.discountEndDate) > now
+      );
+
+      if (productsWithDiscounts.length > 0) {
+        return res.status(400).json({
+          message: 'Some products already have active discounts',
+          products: productsWithDiscounts.map(p => ({
+            id: p._id,
+            name: p.name,
+            discountEndDate: p.discountEndDate
+          }))
         });
       }
     }

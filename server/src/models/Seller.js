@@ -211,31 +211,58 @@ const sellerSchema = new mongoose.Schema({
 
 // Middleware to update isNew property after 3 days
 sellerSchema.pre('save', async function(next) {
-  if (this.isNew && this.createdAt) {
-    const createdAt = new Date(this.createdAt);
-    const now = new Date();
-    const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
+  console.log('Starting Seller pre-save middleware...');
+  const now = new Date();
 
-    if (daysDifference >= 3) {
-      this.isNew = false; 
+  try {
+    console.log('Checking isNew status...');
+    if (this.isNew && this.createdAt) {
+      const createdAt = new Date(this.createdAt);
+      const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
+      console.log('Days difference:', daysDifference);
+
+      if (daysDifference >= 3) {
+        this.isNew = false; 
+      }
     }
-  }
 
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
-  }
-
-  // Reset daily campaign count at midnight
-  const lastCampaignDate = this.campaignStats.lastCampaignDate;
-  
-  if (lastCampaignDate) {
-    const isSameDay = now.toDateString() === lastCampaignDate.toDateString();
-    if (!isSameDay) {
-      this.campaignStats.dailyCampaignCount = 0;
+    console.log('Checking password modification...');
+    if (this.isModified('password')) {
+      console.log('Hashing new password...');
+      this.password = await bcrypt.hash(this.password, 10);
     }
-  }
 
-  next();
+    // Reset daily campaign count at midnight
+    console.log('Checking campaign stats...');
+    if (!this.campaignStats) {
+      console.log('Initializing campaign stats...');
+      this.campaignStats = {
+        totalCampaigns: 0,
+        totalRecipients: 0,
+        dailyCampaignCount: 0,
+        lastCampaignDate: null
+      };
+    }
+
+    const lastCampaignDate = this.campaignStats.lastCampaignDate;
+    console.log('Last campaign date:', lastCampaignDate);
+    
+    if (lastCampaignDate) {
+      console.log('Checking if same day...');
+      const isSameDay = now.toDateString() === lastCampaignDate.toDateString();
+      console.log('Is same day:', isSameDay);
+      if (!isSameDay) {
+        console.log('Resetting daily campaign count...');
+        this.campaignStats.dailyCampaignCount = 0;
+      }
+    }
+
+    console.log('Pre-save middleware completed successfully');
+    next();
+  } catch (error) {
+    console.error('Error in Seller pre-save middleware:', error);
+    next(error);
+  }
 });
 
 // Compare passwords
@@ -245,15 +272,22 @@ sellerSchema.methods.comparePassword = function(password) {
 
 // Middleware to update completion status
 sellerSchema.pre('save', function(next) {
-  // Update completion status based on filled details
-  this.isProfileComplete = this.hasFilledAddress &&
+  console.log('Starting completion status middleware...');
+  try {
+    // Update completion status based on filled details
+    this.isProfileComplete = this.hasFilledAddress &&
                            this.hasFilledWarehouseAddress &&
                            this.hasFilledBankDetails &&
                            this.hasFilledCategoryDetails &&
                            this.hasFilledVerificationDocuments &&
                            this.hasFilledBusinessAddress;
 
-  next();
+    console.log('Completion status updated');
+    next();
+  } catch (error) {
+    console.error('Error in completion status middleware:', error);
+    next(error);
+  }
 });
 
 module.exports = mongoose.model('Seller', sellerSchema);

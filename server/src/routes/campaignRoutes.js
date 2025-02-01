@@ -88,4 +88,44 @@ router.get('/',
   campaignController.getCampaigns
 );
 
+/**
+ * @swagger
+ * /api/campaigns/trends:
+ *   get:
+ *     summary: Get campaign trends for the authenticated seller
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of campaign trends
+ *       500:
+ *         description: Server error
+ */
+router.get('/trends',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  campaignController.getCampaignTrends
+);
+
+/**
+ * @swagger
+ * /api/campaigns/stats:
+ *   get:
+ *     summary: Get campaign statistics for the authenticated seller
+ *     tags: [Campaigns]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Campaign statistics
+ *       500:
+ *         description: Server error
+ */
+router.get('/stats',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  campaignController.getCampaignStats
+);
+
 module.exports = router; 

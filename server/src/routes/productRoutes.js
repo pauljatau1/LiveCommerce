@@ -1265,7 +1265,7 @@ router.delete('/bulk-delete',
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -1284,24 +1284,29 @@ router.delete('/bulk-delete',
  *               images:
  *                 type: array
  *                 items:
- *                   type: string
- *                   format: binary
+ *                   type: object
+ *                   properties:
+ *                     base64:
+ *                       type: string
+ *                       description: Base64 encoded image data
+ *                     mimeType:
+ *                       type: string
+ *                       description: Image MIME type (e.g., image/jpeg, image/png)
  *               purchasedVariant:
  *                 type: object
- *                 properties:
- *                   color:
- *                     type: string
- *                   size:
- *                     type: string
- *                   material:
- *                     type: string
+ *                 description: Optional details about the purchased variant
  *     responses:
- *       200:
+ *       201:
  *         description: Review added successfully
+ *       400:
+ *         description: Invalid input or too many images
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:id/reviews',
   authMiddleware.verifyToken,
-  upload.array('images', 5), // Allow up to 5 images
   productController.addReview
 );
 
