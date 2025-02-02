@@ -49,7 +49,7 @@ const streamSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['scheduled', 'live', 'ended'],
+    enum: ['scheduled', 'live', 'ended', 'expired'],
     default: 'scheduled'
   },
   channelName: String,
@@ -80,6 +80,14 @@ const streamSchema = new mongoose.Schema({
     type: String,
     enum: ['auction', 'open_show'],
     default: 'auction'
+  },
+  cancelledStream: {
+    type: Boolean,
+    default: false
+  },
+  agoraUid: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

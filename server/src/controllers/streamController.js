@@ -4,6 +4,8 @@ const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
 const Product = require('../models/Product');
 const { s3 } = require('../config/awsConfig');
+const jwtDecode = require('jwt-decode');
+const Seller = require('../models/Seller');
 
 exports.createStream = async (req, res) => {
   try {
@@ -71,7 +73,7 @@ exports.createStream = async (req, res) => {
     const channelName = `stream_${uuidv4()}`;
 
     // Generate Agora token
-    const token = agoraService.generateToken(channelName, req.user.id);
+    const token = agoraService.generateToken(channelName, req.user.agoraUid);
 
     const stream = new Stream({
       seller: req.user.id,
@@ -113,6 +115,39 @@ exports.createStream = async (req, res) => {
 
 exports.startStream = async (req, res) => {
   try {
+    // Check for existing live streams
+    const existingStreams = await Stream.find({
+      seller: req.user.id,
+      status: 'live',
+      _id: { $ne: req.params.streamId } // Exclude current stream
+    });
+
+    let cancelledStreams = [];
+    if (existingStreams.length > 0) {
+      // Update existing streams
+      await Stream.updateMany(
+        { _id: { $in: existingStreams.map(s => s._id) } },
+        { 
+          $set: { 
+            status: 'cancelled',
+            endTime: new Date(),
+            cancelledStream: true 
+          }
+        }
+      );
+      cancelledStreams = existingStreams.map(s => s.title);
+
+      // Update seller's cancelledStreamCount and lastStreamCancellation
+      await Seller.updateOne(
+        { _id: req.user.id },
+        { 
+          $inc: { cancelledStreamCount: existingStreams.length },
+          $set: { lastStreamCancellation: new Date() }
+        }
+      );
+    }
+
+    // Proceed with starting new stream
     const stream = await Stream.findOne({
       _id: req.params.streamId,
       seller: req.user.id
@@ -121,23 +156,23 @@ exports.startStream = async (req, res) => {
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
-    
 
-    // Generate fresh Agora token
-    const freshToken = agoraService.generateToken(stream.channelName, req.user.id);
-
-    // Update stream with new token and status
+    const freshToken = agoraService.generateToken(stream.channelName, req.user.agoraUid);
     stream.status = 'live';
     stream.actualStartTime = new Date();
-    stream.agoraToken = freshToken; // Update with fresh token
+    stream.agoraUid = req.user.agoraUid;
+    stream.agoraToken = freshToken;
     await stream.save();
 
     res.json({
       message: 'Stream started successfully',
+      warning: existingStreams.length > 0 ? 
+        `Cancelled ${existingStreams.length} active stream(s): ${cancelledStreams.join(', ')}` : null,
       stream: {
-        agoraToken: freshToken // Ensure fresh token is in response
+        agoraToken: freshToken
       }
     });
+
   } catch (error) {
     console.error('Start stream error:', error);
     res.status(500).json({
@@ -296,7 +331,7 @@ exports.getActiveStreams = async (req, res) => {
 
 exports.getStreamDetails = async (req, res) => {
   try {
-    const stream = await Stream.findById(req.params.streamId)
+    let stream = await Stream.findById(req.params.streamId)
       .populate('seller', 'storeName businessName avatarUrl rating')
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
@@ -307,6 +342,17 @@ exports.getStreamDetails = async (req, res) => {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
+    // Calculate expiration times
+    const now = new Date();
+    const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+
+    if (stream.status === 'scheduled' && stream.scheduledStartTime) {
+      const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
+      if (now > expirationTime) {
+        stream.status = 'expired';
+        await stream.save();
+      }
+    }
     res.json(stream);
   } catch (error) {
     res.status(500).json({
@@ -328,7 +374,7 @@ exports.joinStream = async (req, res) => {
     }
 
     // Generate viewer token for Agora
-    const token = agoraService.generateToken(stream.channelName, req.user.id);
+    const token = agoraService.generateToken(stream.channelName, req.user.agoraUid);
 
     // Add viewer to stream if not already present
     if (!stream.viewers.includes(req.user.id)) {
@@ -380,6 +426,35 @@ exports.getSellerStreams = async (req, res) => {
       .sort({ scheduledStartTime: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
+
+    // Check and update expiration status for each stream
+    const ONE_HOUR = 60 * 60 * 1000;
+    const now = new Date();
+    
+    for (const stream of streams) {
+      let needsUpdate = false;
+      const update = { status: 'expired' };
+      
+      if (stream.status === 'scheduled' && stream.scheduledStartTime) {
+        const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
+        if (now > expirationTime) {
+          needsUpdate = true;
+        }
+      } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime ) {
+        const expirationTime = new Date(stream.actualStartTime.getTime() + ONE_HOUR);
+        if (now > expirationTime) {
+          needsUpdate = true;
+        }
+      }
+
+      if (needsUpdate) {
+        await Stream.updateOne(
+          { _id: stream._id },
+          { $set: update },
+          { runValidators: false }  // Bypass validation for status updates
+        );
+      }
+    }
 
     // Get total count for pagination
     const total = await Stream.countDocuments(query);
@@ -451,7 +526,7 @@ exports.createOpenLiveShow = async (req, res) => {
     const channelName = `openshow_${uuidv4()}`;
 
     // Generate Agora token
-    const token = agoraService.generateToken(channelName, req.user.id);
+    const token = agoraService.generateToken(channelName, req.user.agoraUid);
 
     // Get all seller's active products
     const sellerProducts = await Product.find({

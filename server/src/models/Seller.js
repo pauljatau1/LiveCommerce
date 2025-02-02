@@ -12,31 +12,31 @@ const categorySchema = new mongoose.Schema({
 });
 
 const reviewSchema = new mongoose.Schema({
-  buyer: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Buyer', 
-    required: true 
+  buyer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Buyer',
+    required: true
   },
-  rating: { 
-    type: Number, 
-    required: true, 
-    min: 1, 
-    max: 5 
+  rating: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 5
   },
-  comment: { 
-    type: String, 
-    required: true 
+  comment: {
+    type: String,
+    required: true
   },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
-  updatedAt: { 
-    type: Date 
+  updatedAt: {
+    type: Date
   },
-  isVerifiedPurchase: { 
-    type: Boolean, 
-    default: false 
+  isVerifiedPurchase: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -83,6 +83,8 @@ const sellerSchema = new mongoose.Schema({
     swiftCode: { type: String },
     bankIdentifierCode: { type: String },
   },
+  cancelledStreamCount: { type: Number, default: 0 },
+  lastStreamCancellation: {type: Date, default: null},
   categories: [categorySchema],
   shippingOptions: {
     shippingMethod: { type: String },
@@ -124,7 +126,7 @@ const sellerSchema = new mongoose.Schema({
     referenceModel: { type: String, enum: ['Post', 'Product', 'Buyer', 'Seller', 'Promotion'] },
     createdAt: { type: Date, default: Date.now }
   }],
-  
+
   messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
@@ -206,11 +208,21 @@ const sellerSchema = new mongoose.Schema({
     totalClicks: { type: Number, default: 0 },
     dailyCampaignCount: { type: Number, default: 0 },
     lastCampaignDate: Date
-  }
+  },
+  agoraUid: {
+    type: Number,
+    unique: true,
+    default: function() {
+      // Combine timestamp with random increment
+      const timestampPart = Date.now().toString().substr(0, 9); // First 9 digits
+      const randomPart = Math.floor(Math.random() * 9000) + 1000; // 4-digit random
+      return parseInt(timestampPart + randomPart, 10);
+    }
+  },
 });
 
 // Middleware to update isNew property after 3 days
-sellerSchema.pre('save', async function(next) {
+sellerSchema.pre('save', async function (next) {
   console.log('Starting Seller pre-save middleware...');
   const now = new Date();
 
@@ -222,7 +234,7 @@ sellerSchema.pre('save', async function(next) {
       console.log('Days difference:', daysDifference);
 
       if (daysDifference >= 3) {
-        this.isNew = false; 
+        this.isNew = false;
       }
     }
 
@@ -246,7 +258,7 @@ sellerSchema.pre('save', async function(next) {
 
     const lastCampaignDate = this.campaignStats.lastCampaignDate;
     console.log('Last campaign date:', lastCampaignDate);
-    
+  
     if (lastCampaignDate) {
       console.log('Checking if same day...');
       const isSameDay = now.toDateString() === lastCampaignDate.toDateString();
@@ -266,21 +278,21 @@ sellerSchema.pre('save', async function(next) {
 });
 
 // Compare passwords
-sellerSchema.methods.comparePassword = function(password) {
+sellerSchema.methods.comparePassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
 
 // Middleware to update completion status
-sellerSchema.pre('save', function(next) {
+sellerSchema.pre('save', function (next) {
   console.log('Starting completion status middleware...');
   try {
     // Update completion status based on filled details
     this.isProfileComplete = this.hasFilledAddress &&
-                           this.hasFilledWarehouseAddress &&
-                           this.hasFilledBankDetails &&
-                           this.hasFilledCategoryDetails &&
-                           this.hasFilledVerificationDocuments &&
-                           this.hasFilledBusinessAddress;
+    this.hasFilledWarehouseAddress &&
+    this.hasFilledBankDetails &&
+    this.hasFilledCategoryDetails &&
+    this.hasFilledVerificationDocuments &&
+    this.hasFilledBusinessAddress;
 
     console.log('Completion status updated');
     next();
@@ -288,6 +300,33 @@ sellerSchema.pre('save', function(next) {
     console.error('Error in completion status middleware:', error);
     next(error);
   }
+});
+
+sellerSchema.pre('save', async function(next) {
+  if (this.isNew || this.isModified('agoraUid')) {
+    let isUnique = false;
+    let attempts = 0;
+    
+    while (!isUnique && attempts < 5) {
+      const existing = await Seller.findOne({ agoraUid: this.agoraUid });
+      if (!existing) {
+        isUnique = true;
+      } else {
+        // Regenerate if collision found
+        this.agoraUid = parseInt(
+          Date.now().toString().substr(0, 9) + 
+          Math.floor(Math.random() * 9000) + 1000, 
+          10
+        );
+        attempts++;
+      }
+    }
+    
+    if (!isUnique) {
+      return next(new Error('Failed to generate unique Agora UID'));
+    }
+  }
+  next();
 });
 
 module.exports = mongoose.model('Seller', sellerSchema);
