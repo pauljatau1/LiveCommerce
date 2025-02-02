@@ -606,7 +606,15 @@ exports.getUserPosts = async (req, res) => {
         bio: post.author.userId.bio || null,
         country: post.author.userId.country,
         type: userModel
-      }
+      },
+      products: post.products?.map(product => ({
+        id: product.productId?._id,
+        name: product.productId?.name,
+        price: product.productId?.price,
+        images: product.productId?.images,
+        category: product.productId?.category,
+        brand: product.productId?.brand
+      }))
     }));
 
     const count = await Post.countDocuments({
@@ -894,9 +902,7 @@ exports.getTrendingPosts = async (req, res) => {
       { $match: { visibility: 'public' } },
       {
         $addFields: {
-          // Ensure reactions is an array even if it doesn't exist
           safeReactions: { $ifNull: ['$reactions', []] },
-          // Get counts for different types of reactions
           likeCount: {
             $size: {
               $filter: {
@@ -928,6 +934,12 @@ exports.getTrendingPosts = async (req, res) => {
       { $limit: limit }
     ]);
 
+    // Populate products data
+    await Post.populate(posts, {
+      path: 'products.productId',
+      select: 'name price images category brand'
+    });
+
     const enhancedPosts = posts.map(post => ({
       ...post,
       author: {
@@ -940,6 +952,14 @@ exports.getTrendingPosts = async (req, res) => {
         country: post.author.country,
         type: post.author.userModel
       },
+      products: post.products?.map(product => ({
+        id: product.productId?._id,
+        name: product.productId?.name,
+        price: product.productId?.price,
+        images: product.productId?.images,
+        category: product.productId?.category,
+        brand: product.productId?.brand
+      })),
       stats: {
         likeCount: post.likeCount,
         commentCount: post.commentCount,
@@ -974,7 +994,8 @@ exports.getNewPosts = async (req, res) => {
     const posts = await Post.find({ visibility: 'public' })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(limit)
+      .populate('products.productId', 'name price images category brand');
 
     const enhancedPosts = posts.map(post => ({
       ...post.toObject(),
@@ -987,7 +1008,15 @@ exports.getNewPosts = async (req, res) => {
         bio: post.author.bio || null,
         country: post.author.country,
         type: post.author.userModel
-      }
+      },
+      products: post.products?.map(product => ({
+        id: product.productId?._id,
+        name: product.productId?.name,
+        price: product.productId?.price,
+        images: product.productId?.images,
+        category: product.productId?.category,
+        brand: product.productId?.brand
+      }))
     }));
 
     const count = await Post.countDocuments({ visibility: 'public' });
