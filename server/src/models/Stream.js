@@ -84,8 +84,11 @@ const streamSchema = new mongoose.Schema({
   cancelledStream: {
     type: Boolean,
     default: false
+  },
+  agoraUid: {
+    type: Number,
+    default: 0
   }
-  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Stream', streamSchema); 

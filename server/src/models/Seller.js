@@ -208,7 +208,17 @@ const sellerSchema = new mongoose.Schema({
     totalClicks: { type: Number, default: 0 },
     dailyCampaignCount: { type: Number, default: 0 },
     lastCampaignDate: Date
-  }
+  },
+  agoraUid: {
+    type: Number,
+    unique: true,
+    default: function() {
+      // Combine timestamp with random increment
+      const timestampPart = Date.now().toString().substr(0, 9); // First 9 digits
+      const randomPart = Math.floor(Math.random() * 9000) + 1000; // 4-digit random
+      return parseInt(timestampPart + randomPart, 10);
+    }
+  },
 });
 
 // Middleware to update isNew property after 3 days
@@ -290,6 +300,33 @@ sellerSchema.pre('save', function (next) {
     console.error('Error in completion status middleware:', error);
     next(error);
   }
+});
+
+sellerSchema.pre('save', async function(next) {
+  if (this.isNew || this.isModified('agoraUid')) {
+    let isUnique = false;
+    let attempts = 0;
+    
+    while (!isUnique && attempts < 5) {
+      const existing = await Seller.findOne({ agoraUid: this.agoraUid });
+      if (!existing) {
+        isUnique = true;
+      } else {
+        // Regenerate if collision found
+        this.agoraUid = parseInt(
+          Date.now().toString().substr(0, 9) + 
+          Math.floor(Math.random() * 9000) + 1000, 
+          10
+        );
+        attempts++;
+      }
+    }
+    
+    if (!isUnique) {
+      return next(new Error('Failed to generate unique Agora UID'));
+    }
+  }
+  next();
 });
 
 module.exports = mongoose.model('Seller', sellerSchema);

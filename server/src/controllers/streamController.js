@@ -73,7 +73,7 @@ exports.createStream = async (req, res) => {
     const channelName = `stream_${uuidv4()}`;
 
     // Generate Agora token
-    const token = agoraService.generateToken(channelName, req.user.id);
+    const token = agoraService.generateToken(channelName, req.user.agoraUid);
 
     const stream = new Stream({
       seller: req.user.id,
@@ -157,9 +157,10 @@ exports.startStream = async (req, res) => {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
-    const freshToken = agoraService.generateToken(stream.channelName, req.user.id);
+    const freshToken = agoraService.generateToken(stream.channelName, req.user.agoraUid);
     stream.status = 'live';
     stream.actualStartTime = new Date();
+    stream.agoraUid = req.user.agoraUid;
     stream.agoraToken = freshToken;
     await stream.save();
 
@@ -373,7 +374,7 @@ exports.joinStream = async (req, res) => {
     }
 
     // Generate viewer token for Agora
-    const token = agoraService.generateToken(stream.channelName, req.user.id);
+    const token = agoraService.generateToken(stream.channelName, req.user.agoraUid);
 
     // Add viewer to stream if not already present
     if (!stream.viewers.includes(req.user.id)) {
@@ -525,7 +526,7 @@ exports.createOpenLiveShow = async (req, res) => {
     const channelName = `openshow_${uuidv4()}`;
 
     // Generate Agora token
-    const token = agoraService.generateToken(channelName, req.user.id);
+    const token = agoraService.generateToken(channelName, req.user.agoraUid);
 
     // Get all seller's active products
     const sellerProducts = await Product.find({
