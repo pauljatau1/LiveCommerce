@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const Product = require('../models/Product');
 const { s3 } = require('../config/awsConfig');
 const jwtDecode = require('jwt-decode');
+const Seller = require('../models/Seller');
 
 exports.createStream = async (req, res) => {
   try {
@@ -114,6 +115,39 @@ exports.createStream = async (req, res) => {
 
 exports.startStream = async (req, res) => {
   try {
+    // Check for existing live streams
+    const existingStreams = await Stream.find({
+      seller: req.user.id,
+      status: 'live',
+      _id: { $ne: req.params.streamId } // Exclude current stream
+    });
+
+    let cancelledStreams = [];
+    if (existingStreams.length > 0) {
+      // Update existing streams
+      await Stream.updateMany(
+        { _id: { $in: existingStreams.map(s => s._id) } },
+        { 
+          $set: { 
+            status: 'cancelled',
+            endTime: new Date(),
+            cancelledStream: true 
+          }
+        }
+      );
+      cancelledStreams = existingStreams.map(s => s.title);
+
+      // Update seller's cancelledStreamCount and lastStreamCancellation
+      await Seller.updateOne(
+        { _id: req.user.id },
+        { 
+          $inc: { cancelledStreamCount: existingStreams.length },
+          $set: { lastStreamCancellation: new Date() }
+        }
+      );
+    }
+
+    // Proceed with starting new stream
     const stream = await Stream.findOne({
       _id: req.params.streamId,
       seller: req.user.id
@@ -122,23 +156,22 @@ exports.startStream = async (req, res) => {
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
-    
 
-    // Generate fresh Agora token
     const freshToken = agoraService.generateToken(stream.channelName, req.user.id);
-
-    // Update stream with new token and status
     stream.status = 'live';
     stream.actualStartTime = new Date();
-    stream.agoraToken = freshToken; // Update with fresh token
+    stream.agoraToken = freshToken;
     await stream.save();
 
     res.json({
       message: 'Stream started successfully',
+      warning: existingStreams.length > 0 ? 
+        `Cancelled ${existingStreams.length} active stream(s): ${cancelledStreams.join(', ')}` : null,
       stream: {
-        agoraToken: freshToken // Ensure fresh token is in response
+        agoraToken: freshToken
       }
     });
+
   } catch (error) {
     console.error('Start stream error:', error);
     res.status(500).json({
@@ -319,14 +352,6 @@ exports.getStreamDetails = async (req, res) => {
         await stream.save();
       }
     }
-    else if (stream.status === 'live' && stream.actualStartTime) {
-      const expirationTime = new Date(stream.actualStartTime.getTime() + ONE_HOUR);
-      if (now > expirationTime) {
-        stream.status = 'expired';
-        await stream.save();
-      }
-    }
-
     res.json(stream);
   } catch (error) {
     res.status(500).json({
@@ -414,7 +439,7 @@ exports.getSellerStreams = async (req, res) => {
         if (now > expirationTime) {
           needsUpdate = true;
         }
-      } else if (stream.status === 'live' && stream.actualStartTime) {
+      } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime ) {
         const expirationTime = new Date(stream.actualStartTime.getTime() + ONE_HOUR);
         if (now > expirationTime) {
           needsUpdate = true;

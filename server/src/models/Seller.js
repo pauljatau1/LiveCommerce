@@ -12,31 +12,31 @@ const categorySchema = new mongoose.Schema({
 });
 
 const reviewSchema = new mongoose.Schema({
-  buyer: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Buyer', 
-    required: true 
+  buyer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Buyer',
+    required: true
   },
-  rating: { 
-    type: Number, 
-    required: true, 
-    min: 1, 
-    max: 5 
+  rating: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 5
   },
-  comment: { 
-    type: String, 
-    required: true 
+  comment: {
+    type: String,
+    required: true
   },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
-  updatedAt: { 
-    type: Date 
+  updatedAt: {
+    type: Date
   },
-  isVerifiedPurchase: { 
-    type: Boolean, 
-    default: false 
+  isVerifiedPurchase: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -83,6 +83,8 @@ const sellerSchema = new mongoose.Schema({
     swiftCode: { type: String },
     bankIdentifierCode: { type: String },
   },
+  cancelledStreamCount: { type: Number, default: 0 },
+  lastStreamCancellation: {type: Date, default: null},
   categories: [categorySchema],
   shippingOptions: {
     shippingMethod: { type: String },
@@ -124,7 +126,7 @@ const sellerSchema = new mongoose.Schema({
     referenceModel: { type: String, enum: ['Post', 'Product', 'Buyer', 'Seller', 'Promotion'] },
     createdAt: { type: Date, default: Date.now }
   }],
-  
+
   messages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }],
   conversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }],
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
@@ -210,14 +212,14 @@ const sellerSchema = new mongoose.Schema({
 });
 
 // Middleware to update isNew property after 3 days
-sellerSchema.pre('save', async function(next) {
+sellerSchema.pre('save', async function (next) {
   if (this.isNew && this.createdAt) {
     const createdAt = new Date(this.createdAt);
     const now = new Date();
     const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
 
     if (daysDifference >= 3) {
-      this.isNew = false; 
+      this.isNew = false;
     }
   }
 
@@ -227,7 +229,7 @@ sellerSchema.pre('save', async function(next) {
 
   // Reset daily campaign count at midnight
   const lastCampaignDate = this.campaignStats.lastCampaignDate;
-  
+
   if (lastCampaignDate) {
     const isSameDay = now.toDateString() === lastCampaignDate.toDateString();
     if (!isSameDay) {
@@ -239,19 +241,19 @@ sellerSchema.pre('save', async function(next) {
 });
 
 // Compare passwords
-sellerSchema.methods.comparePassword = function(password) {
+sellerSchema.methods.comparePassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
 
 // Middleware to update completion status
-sellerSchema.pre('save', function(next) {
+sellerSchema.pre('save', function (next) {
   // Update completion status based on filled details
   this.isProfileComplete = this.hasFilledAddress &&
-                           this.hasFilledWarehouseAddress &&
-                           this.hasFilledBankDetails &&
-                           this.hasFilledCategoryDetails &&
-                           this.hasFilledVerificationDocuments &&
-                           this.hasFilledBusinessAddress;
+    this.hasFilledWarehouseAddress &&
+    this.hasFilledBankDetails &&
+    this.hasFilledCategoryDetails &&
+    this.hasFilledVerificationDocuments &&
+    this.hasFilledBusinessAddress;
 
   next();
 });

@@ -80,7 +80,12 @@ const streamSchema = new mongoose.Schema({
     type: String,
     enum: ['auction', 'open_show'],
     default: 'auction'
+  },
+  cancelledStream: {
+    type: Boolean,
+    default: false
   }
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Stream', streamSchema); 
