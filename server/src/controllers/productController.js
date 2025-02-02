@@ -1315,46 +1315,15 @@ exports.getWishlist = async (req, res) => {
 exports.getAllBlips = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
-  const buyerId = req.user.id; // Get logged in buyer's ID
 
   try {
-    // First get all sellers and their followers
-    const sellers = await Seller.find({}, {
-      _id: 1,
-      firstName: 1,
-      lastName: 1,
-      businessName: 1,
-      storeName: 1,
-      storeAvatar: 1,
-      aboutStore: 1,
-      followers: {
-        $elemMatch: { buyerId: new mongoose.Types.ObjectId(buyerId) }
-      }
-    });
-
-    // Create a map of seller IDs to following status
-    const sellerFollowingMap = new Map(
-      sellers.map(seller => [
-        seller._id.toString(),
-        seller.followers && seller.followers.length > 0
-      ])
-    );
-
-    // Get products with blips
-    const products = await Product.aggregate([
+    console.log('Starting getAllBlips aggregation...');
+    
+    const blips = await Product.aggregate([
       // Match products that have blips
-      { $match: { 'blips.0': { $exists: true } } },
-      
-      // Unwind blips array
+      { $match: { blips: { $exists: true, $ne: [] } } },
+      // Unwind the blips array
       { $unwind: '$blips' },
-      
-      // Sort by blip creation date
-      { $sort: { 'blips.createdAt': -1 } },
-      
-      // Skip and limit for pagination
-      { $skip: (page - 1) * limit },
-      { $limit: limit },
-      
       // Lookup seller information
       {
         $lookup: {
@@ -1365,21 +1334,16 @@ exports.getAllBlips = async (req, res) => {
         }
       },
       { $unwind: '$sellerInfo' },
-      
-      // Project final shape
+      // Project needed fields
       {
         $project: {
-          _id: 1,
-          blipId: '$blips._id',
-          url: '$blips.url',
-          contentType: '$blips.contentType',
-          likes: '$blips.likes',
-          likesCount: '$blips.likesCount',
-          comments: '$blips.comments',
-          commentsCount: '$blips.commentsCount',
-          createdAt: '$blips.createdAt',
+          _id: '$_id', // This is the product ID
+          blipId: '$blips._id', // Add this line to include the blip ID
+          blipUrl: '$blips.url',
+          productId: '$_id',
           productName: '$name',
           price: '$price',
+          discountedPrice: '$discountedPrice',
           seller: {
             _id: '$sellerInfo._id',
             firstName: '$sellerInfo.firstName',
@@ -1387,142 +1351,212 @@ exports.getAllBlips = async (req, res) => {
             storeName: '$sellerInfo.storeName',
             storeAvatar: '$sellerInfo.storeAvatar',
             aboutStore: '$sellerInfo.aboutStore'
-          }
+          },
+          images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            }
+          },
+          averageRating: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $avg: '$reviews.rating' },
+              else: null
+            }
+          },
+          reviewCount: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $size: '$reviews' },
+              else: 0
+            }
+          },
+          createdAt: '$blips.createdAt'
         }
-      }
+      },
+      // Sort by newest first
+      { $sort: { createdAt: -1 } },
+      // Skip and limit for pagination
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
     ]);
 
-    // Add isFollowing to each blip
-    const blipsWithFollowing = products.map(product => ({
-      ...product,
-      seller: {
-        ...product.seller,
-        isFollowing: sellerFollowingMap.get(product.seller._id.toString()) || false
-      }
-    }));
+    console.log(`Found ${blips.length} blips`);
 
-    // Get total count for pagination
-    const total = await Product.aggregate([
-      { $match: { 'blips.0': { $exists: true } } },
-      { $unwind: '$blips' },
-      { $count: 'total' }
-    ]);
+    const total = await Product.countDocuments({
+      blips: { $exists: true, $ne: [] }
+    });
+
+    console.log(`Total blips count: ${total}`);
 
     res.json({
-      blips: blipsWithFollowing,
+      blips,
       currentPage: page,
-      totalPages: Math.ceil((total[0]?.total || 0) / limit),
-      totalBlips: total[0]?.total || 0
+      totalPages: Math.ceil(total / limit),
+      totalBlips: total
     });
-
   } catch (error) {
-    console.error('Error in getAllBlips:', error);
-    res.status(500).json({
-      message: 'Failed to retrieve blips',
-      error: error.message
-    });
+    console.error('Detailed error in getAllBlips:', error);
+    res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
   }
 };
 
-// Get seller blips
+// Get seller's blips
 exports.getSellerBlips = async (req, res) => {
   const { sellerId } = req.params;
-  const buyerId = req.user.id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
 
   try {
+    console.log(`Starting getSellerBlips for seller: ${sellerId}`);
+
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ message: 'Invalid seller ID' });
     }
 
-    // Get seller info with following status
+    // Get seller info first
     const seller = await Seller.findById(sellerId, {
       firstName: 1,
       lastName: 1,
       businessName: 1,
       storeName: 1,
       storeAvatar: 1,
-      aboutStore: 1,
-      followers: {
-        $elemMatch: { buyerId: new mongoose.Types.ObjectId(buyerId) }
-      }
+      aboutStore: 1
     });
 
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    const isFollowing = seller.followers && seller.followers.length > 0;
+    console.log('Found seller:', seller.storeName);
 
-    // Get seller's products with blips
-    const products = await Product.aggregate([
+    // Check if seller has any blips before aggregation
+    const hasBlips = await Product.exists({
+      seller: new mongoose.Types.ObjectId(sellerId),
+      blips: { $exists: true, $ne: [] }
+    });
+
+    if (!hasBlips) {
+      console.log('No blips found for seller');
+      return res.json({
+        message: 'Seller has no blips',
+        seller,
+        blips: [],
+        currentPage: page,
+        totalPages: 0,
+        totalBlips: 0
+      });
+    }
+
+    const blips = await Product.aggregate([
       // Match products from this seller that have blips
-      {
-        $match: {
+      { 
+        $match: { 
           seller: new mongoose.Types.ObjectId(sellerId),
-          'blips.0': { $exists: true }
-        }
+          blips: { $exists: true, $ne: [] }
+        } 
       },
-      
-      // Unwind blips array
+      // Unwind the blips array
       { $unwind: '$blips' },
-      
-      // Sort by blip creation date
-      { $sort: { 'blips.createdAt': -1 } },
-      
-      // Pagination
-      { $skip: (page - 1) * limit },
-      { $limit: limit },
-      
-      // Project final shape
+      // Project needed fields with safe handling of likes/comments
       {
         $project: {
-          _id: 1,
-          blipId: '$blips._id',
-          url: '$blips.url',
-          contentType: '$blips.contentType',
-          likes: '$blips.likes',
-          likesCount: '$blips.likesCount',
-          comments: '$blips.comments',
-          commentsCount: '$blips.commentsCount',
-          createdAt: '$blips.createdAt',
+          _id: '$_id',                    // Product ID
+          blipId: '$blips._id',          // Actual blip ID
+          blipUrl: '$blips.url',
+          productId: '$_id',
           productName: '$name',
-          price: '$price'
-        }
-      }
-    ]);
-
-    // Get total count for pagination
-    const total = await Product.aggregate([
-      {
-        $match: {
-          seller: new mongoose.Types.ObjectId(sellerId),
-          'blips.0': { $exists: true }
+          price: '$price',
+          discountedPrice: '$discountedPrice',
+          seller: {
+            _id: seller._id,
+            firstName: seller.firstName,
+            lastName: seller.lastName,
+            storeName: seller.storeName,
+            storeAvatar: seller.storeAvatar,
+            aboutStore: seller.aboutStore
+          },
+          images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            }
+          },
+          averageRating: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $avg: '$reviews.rating' },
+              else: null
+            }
+          },
+          reviewCount: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $size: '$reviews' },
+              else: 0
+            }
+          },
+          createdAt: '$blips.createdAt'
         }
       },
-      { $unwind: '$blips' },
-      { $count: 'total' }
+      // Sort by newest first
+      { $sort: { createdAt: -1 } },
+      // Skip and limit for pagination
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
     ]);
+
+    console.log(`Found ${blips.length} blips for seller`);
+
+    const total = await Product.countDocuments({
+      seller: sellerId,
+      blips: { $exists: true, $ne: [] }
+    });
+
+    console.log(`Total blips count for seller: ${total}`);
 
     res.json({
-      seller: {
-        ...seller.toObject(),
-        isFollowing
-      },
-      blips: products,
+      seller,
+      blips,
       currentPage: page,
-      totalPages: Math.ceil((total[0]?.total || 0) / limit),
-      totalBlips: total[0]?.total || 0
+      totalPages: Math.ceil(total / limit),
+      totalBlips: total
     });
-
   } catch (error) {
-    console.error('Error in getSellerBlips:', error);
-    res.status(500).json({
-      message: 'Failed to retrieve seller blips',
-      error: error.message
-    });
+    console.error('Detailed error in getSellerBlips:', error);
+    res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
   }
 };
 
@@ -2001,55 +2035,55 @@ exports.getProductPerformance = async (req, res) => {
 // Review Management Controllers
 exports.addReview = async (req, res) => {
   try {
-    const { rating, title, comment, images } = req.body;
-    const productId = req.params.id;
+    const { id } = req.params;
     const buyerId = req.user.id;
+    const { rating, title, comment, purchasedVariant } = req.body;
 
-    // Validate input
+    // Validate required fields
     if (!rating || !title || !comment) {
-      return res.status(400).json({ message: 'Rating, title and comment are required' });
+      return res.status(400).json({ 
+        message: 'Rating, title and comment are required' 
+      });
     }
 
-    const product = await Product.findById(productId);
+    const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Process images (if any)
-    const processedImages = [];
-    
-    if (images && Array.isArray(images)) {
-      // Limit number of images
-      if (images.length > 5) {
-        return res.status(400).json({ message: 'Maximum 5 images allowed' });
-      }
+    // Check if user has already reviewed
+    // const existingReview = product.reviews.find(
+    //   review => review.buyer.toString() === buyerId
+    // );
+    // if (existingReview) {
+    //   return res.status(400).json({ 
+    //     message: 'You have already reviewed this product' 
+    //   });
+    // }
 
-      for (const image of images) {
-        // Validate base64 data
-        if (!image.base64) {
-          continue;
-        }
-
-        const buffer = Buffer.from(image.base64, 'base64');
+    // Upload images to S3
+    const reviewImages = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
         const params = {
           Bucket: 'auqli-uploads',
-          Key: `reviews/${productId}/${Date.now()}-${uuidv4()}.jpg`,
-          Body: buffer,
-          ContentType: image.mimeType || 'image/jpeg',
+          Key: `reviews/${uuidv4()}-${file.originalname}`,
+          Body: file.buffer,
+          ContentType: file.mimetype,
         };
         const uploadResult = await s3.upload(params).promise();
-        
-        processedImages.push({
+        reviewImages.push({
           url: uploadResult.Location,
-          contentType: image.mimeType || 'image/jpeg'
+          contentType: file.mimetype
         });
       }
     }
 
-    // Get buyer details
-    const buyer = await Buyer.findById(buyerId);
-    
-    // Create the review object
+    // Get buyer info
+    const buyer = await Buyer.findById(buyerId)
+      .select('firstName lastName');
+
+    // Create review object
     const review = {
       buyer: buyerId,
       firstName: buyer.firstName,
@@ -2057,24 +2091,30 @@ exports.addReview = async (req, res) => {
       title,
       rating,
       comment,
-      images: processedImages,
-      createdAt: new Date(),
-      purchasedVariant: req.body.purchasedVariant || {}
+      images: reviewImages,
+      purchasedVariant: purchasedVariant ? JSON.parse(purchasedVariant) : undefined,
+      createdAt: new Date()
     };
 
+    // Add review and update product stats
     product.reviews.push(review);
+    
+    // Update product stats
+    const allRatings = product.reviews.map(r => r.rating);
+    product.stats.averageRating = allRatings.reduce((a, b) => a + b, 0) / allRatings.length;
+    product.stats.reviewCount = product.reviews.length;
+
     await product.save();
 
     res.status(201).json({
       message: 'Review added successfully',
       review
     });
-
   } catch (error) {
     console.error('Error in addReview:', error);
-    res.status(500).json({
-      message: 'Failed to add review',
-      error: error.message
+    res.status(500).json({ 
+      message: 'Failed to add review', 
+      error: error.message 
     });
   }
 };
