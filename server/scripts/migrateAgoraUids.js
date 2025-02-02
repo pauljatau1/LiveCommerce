@@ -3,14 +3,18 @@ const Seller = require('../src/models/Seller');
 require('dotenv').config();
 
 async function generateUniqueAgoraUid() {
-  let uid;
-  let exists;
-  
+  const min = 100000;
+  const max = 4294967295;
+  let uid, exists, attempts = 0;
+
   do {
-    const ts = Date.now().toString().substr(0, 9);
-    const rand = Math.floor(Math.random() * 9000) + 1000;
-    uid = parseInt(ts + rand, 10);
+    uid = Math.floor(min + Math.random() * (max - min));
     exists = await Seller.findOne({ agoraUid: uid }).lean();
+    attempts++;
+    
+    if (attempts > 10) {
+      throw new Error('Failed to generate unique UID after 10 attempts');
+    }
   } while (exists);
 
   return uid;
@@ -22,22 +26,37 @@ async function migrateUids() {
     process.exit(1);
   }
 
-  await mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
+  await mongoose.connect(process.env.MONGODB_URI);
 
-  const sellers = await Seller.find({ agoraUid: { $exists: false } }).lean();
-  
+  const sellers = await Seller.find({
+    $or: [
+      { agoraUid: { $exists: false } },
+      { agoraUid: { $gt: 4294967295 } }
+    ]
+  }).lean();
+
   for (const seller of sellers) {
-    const newUid = await generateUniqueAgoraUid();
+    let newUid;
+    let attempts = 0;
     
+    do {
+      newUid = Math.floor(100000 + Math.random() * (4294967295 - 100000));
+      const exists = await Seller.findOne({ agoraUid: newUid }).lean();
+      if (!exists) break;
+      attempts++;
+    } while (attempts < 5);
+
+    if (attempts >= 5) {
+      console.error(`Failed to generate unique UID for seller ${seller._id}`);
+      continue;
+    }
+
     await Seller.updateOne(
       { _id: seller._id },
       { $set: { agoraUid: newUid } }
     );
     
-    console.log(`Updated UID for seller ${seller._id}`);
+    console.log(`Updated UID for seller ${seller._id} to ${newUid}`);
   }
 
   process.exit(0);

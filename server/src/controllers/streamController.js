@@ -73,7 +73,9 @@ exports.createStream = async (req, res) => {
     const channelName = `stream_${uuidv4()}`;
 
     // Generate Agora token
-    const token = agoraService.generateToken(channelName, req.user.agoraUid);
+    const seller = await Seller.findById(req.user.id).select('agoraUid');
+    const token = agoraService.generateToken(channelName, seller.agoraUid);
+    console.log('create stream uid', seller.agoraUid);
 
     const stream = new Stream({
       seller: req.user.id,
@@ -89,6 +91,7 @@ exports.createStream = async (req, res) => {
       })),
       channelName,
       agoraToken: token,
+      agoraUid: seller.agoraUid,
       scheduledStartTime: new Date(scheduledStartTime),
       type: 'auction',
       status: 'scheduled'
@@ -157,10 +160,13 @@ exports.startStream = async (req, res) => {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
-    const freshToken = agoraService.generateToken(stream.channelName, req.user.agoraUid);
+    const seller = await Seller.findById(req.user.id).select('agoraUid');
+    const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid);
+    console.log('start stream uid', seller.agoraUid);
+
     stream.status = 'live';
     stream.actualStartTime = new Date();
-    stream.agoraUid = req.user.agoraUid;
+    stream.agoraUid = seller.agoraUid;
     stream.agoraToken = freshToken;
     await stream.save();
 

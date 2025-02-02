@@ -213,10 +213,10 @@ const sellerSchema = new mongoose.Schema({
     type: Number,
     unique: true,
     default: function() {
-      // Combine timestamp with random increment
-      const timestampPart = Date.now().toString().substr(0, 9); // First 9 digits
-      const randomPart = Math.floor(Math.random() * 9000) + 1000; // 4-digit random
-      return parseInt(timestampPart + randomPart, 10);
+      // Generate random 32-bit unsigned integer (0-4294967295)
+      const min = 100000; // Start from 100,000 to avoid low-number conflicts
+      const max = 4294967295;
+      return Math.floor(min + Math.random() * (max - min));
     }
   },
 });
@@ -303,29 +303,29 @@ sellerSchema.pre('save', function (next) {
 });
 
 sellerSchema.pre('save', async function(next) {
-  if (this.isNew || this.isModified('agoraUid')) {
-    let isUnique = false;
+  // Validate UID range
+  if (this.agoraUid < 0 || this.agoraUid > 4294967295) {
+    return next(new Error('Agora UID must be between 0 and 4294967295'));
+  }
+
+  // Check uniqueness for new documents
+  if (this.isNew) {
     let attempts = 0;
+    let exists;
     
-    while (!isUnique && attempts < 5) {
-      const existing = await Seller.findOne({ agoraUid: this.agoraUid });
-      if (!existing) {
-        isUnique = true;
-      } else {
-        // Regenerate if collision found
-        this.agoraUid = parseInt(
-          Date.now().toString().substr(0, 9) + 
-          Math.floor(Math.random() * 9000) + 1000, 
-          10
-        );
-        attempts++;
+    do {
+      exists = await Seller.findOne({ agoraUid: this.agoraUid });
+      if (exists) {
+        this.agoraUid = Math.floor(100000 + Math.random() * (4294967295 - 100000));
       }
-    }
-    
-    if (!isUnique) {
-      return next(new Error('Failed to generate unique Agora UID'));
+      attempts++;
+    } while (exists && attempts < 5);
+
+    if (exists) {
+      return next(new Error('Failed to generate unique Agora UID after 5 attempts'));
     }
   }
+  
   next();
 });
 
