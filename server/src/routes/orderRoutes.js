@@ -135,22 +135,10 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: object
  *                 required:
  *                   - weight
- *                   - width
- *                   - height
- *                   - length
  *                 properties:
  *                   weight:
  *                     type: number
  *                     description: Weight of the parcel in kg
- *                   width:
- *                     type: number
- *                     description: Width of the parcel in cm
- *                   height:
- *                     type: number
- *                     description: Height of the parcel in cm
- *                   length:
- *                     type: number
- *                     description: Length of the parcel in cm
  *               paymentMethod:
  *                 type: string
  *                 enum: [paystack, card, bank_transfer]

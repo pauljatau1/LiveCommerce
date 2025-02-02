@@ -219,6 +219,8 @@ const sellerSchema = new mongoose.Schema({
       return Math.floor(min + Math.random() * (max - min));
     }
   },
+  resetPasswordCode: String,
+  resetPasswordExpires: Date,
 });
 
 // Middleware to update isNew property after 3 days

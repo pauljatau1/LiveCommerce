@@ -68,7 +68,13 @@ const variantSchema = new mongoose.Schema({
   name: { type: String, required: true },     // e.g., "Color"
   value: { type: String, required: true },    // e.g., "red", "blue"
   price: { type: Number, required: true },
-
+  discount: {
+    isActive: { type: Boolean, default: false },
+    type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    value: { type: Number, default: 0 },
+    startDate: { type: Date },
+    endDate: { type: Date }
+  },
   totalStock: { type: Number },
   images: [{
     data: { type: String, required: true },
@@ -77,7 +83,20 @@ const variantSchema = new mongoose.Schema({
   subVariants: [subVariantSchema],
 });
 
+// Add virtual field for variant discounted price
+variantSchema.virtual('discountedPrice').get(function() {
+  if (!this.discount.isActive) return this.price;
+  
+  const now = new Date();
+  if (this.discount.startDate && this.discount.startDate > now) return this.price;
+  if (this.discount.endDate && this.discount.endDate < now) return this.price;
 
+  if (this.discount.type === 'percentage') {
+    return Math.round((this.price * (100 - this.discount.value)) / 100);
+  } else {
+    return Math.max(0, this.price - this.discount.value);
+  }
+});
 
 // Add blip comment schema
 const blipSchema = new mongoose.Schema({
@@ -98,7 +117,13 @@ const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
   price: { type: Number, required: true },
-  
+  discount: {
+    isActive: { type: Boolean, default: false },
+    type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    value: { type: Number, default: 0 },
+    startDate: { type: Date },
+    endDate: { type: Date }
+  },
   priceVariants: [{
     size: { type: String },
     price: { type: Number },
@@ -175,9 +200,7 @@ const productSchema = new mongoose.Schema({
     comment: { type: String },
     images: [{
       url: { type: String, required: true },
-      contentType: { type: String },
-      data: { type: String },
-      uploadType: { type: String, enum: ['file', 'base64'], default: 'file' }
+      contentType: { type: String }
     }],
     purchasedVariant: {
       color: { type: String },
@@ -563,25 +586,22 @@ const productSchema = new mongoose.Schema({
   wearable_Connectivity: {type: String},
   wearable_Features: {type: String},
   wearable_Material: {type: String},
-
-  // Add fields for tracking discounts
-  discountEndDate: {
-    type: Date,
-    default: null
-  },
-  discountType: {
-    type: String,
-    enum: ['none', 'sale', 'coupon'],
-    default: 'none'
-  },
-  discountId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Coupon',
-    default: null
-  }
 });
 
+// Add a virtual field for the discounted price
+productSchema.virtual('discountedPrice').get(function() {
+  if (!this.discount.isActive) return this.price;
+  
+  const now = new Date();
+  if (this.discount.startDate && this.discount.startDate > now) return this.price;
+  if (this.discount.endDate && this.discount.endDate < now) return this.price;
 
+  if (this.discount.type === 'percentage') {
+    return Math.round((this.price * (100 - this.discount.value)) / 100);
+  } else {
+    return Math.max(0, this.price - this.discount.value);
+  }
+});
 
 // Ensure virtual fields are included when converting to JSON
 productSchema.set('toJSON', { virtuals: true });
@@ -618,19 +638,30 @@ productSchema.pre('save', async function(next) {
       });
     }
 
-    // Add pre-save middleware to update discount status
-    if (this.discountEndDate && new Date(this.discountEndDate) <= new Date()) {
-      this.discountType = 'none';
-      this.discountId = null;
-      this.discountEndDate = null;
-    }
-
     next();
   } catch (error) {
     next(error);
   }
 });
 
+productSchema.methods.hasValidDiscount = function() {
+  if (!this.discount.isActive) return false;
+  
+  const now = new Date();
+  if (this.discount.startDate && this.discount.startDate > now) return false;
+  if (this.discount.endDate && this.discount.endDate < now) return false;
+  
+  return true;
+};
+
+// Add middleware to automatically deactivate expired discounts
+productSchema.pre('save', function(next) {
+  const now = new Date();
+  if (this.discount.isActive && this.discount.endDate && this.discount.endDate < now) {
+    this.discount.isActive = false;
+  }
+  next();
+});
 
 // Add this method to the schema
 productSchema.methods.updateStock = async function(quantity, operation) {
@@ -658,11 +689,6 @@ productSchema.methods.updateStock = async function(quantity, operation) {
 // Add a method to check low stock
 productSchema.methods.isLowStock = function() {
   return this.stock <= this.lowStockAlert;
-};
-
-// Add method to check if product has active discount
-productSchema.methods.hasActiveDiscount = function() {
-  return this.discountEndDate && new Date(this.discountEndDate) > new Date();
 };
 
 module.exports = mongoose.model('Product', productSchema);

@@ -1135,39 +1135,65 @@ exports.forgotPassword = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found.' });
     }
 
-    // Generate a password reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    seller.resetPasswordToken = resetToken;
-    seller.resetPasswordExpires = Date.now() + 3600000; // Token valid for 1 hour
+    // Generate a 4-digit reset code
+    const resetCode = Math.floor(1000 + Math.random() * 9000).toString();
+    seller.resetPasswordCode = resetCode;
+    seller.resetPasswordExpires = Date.now() + 3600000; // Code valid for 1 hour
     await seller.save();
 
-    // Send email with reset token
-    await sendPasswordResetEmail(seller.email, resetToken);
+    // Send email with reset code
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Reset Your Password - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Code</h1>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">You requested to reset your password. Use the code below to complete the process:</p>
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
+              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${resetCode}</span>
+            </div>
+            <p style="font-size: 14px; color: #999999;">This code will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
 
-    res.json({ message: 'Password reset email sent successfully.' });
+    await sgMail.send(msg);
+    res.json({ message: 'Password reset code sent successfully.' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to send password reset email', error: error.message });
+    res.status(500).json({ message: 'Failed to send password reset code', error: error.message });
   }
 };
 
 // Reset password
 exports.resetPassword = async (req, res) => {
-  const { email, token, newPassword } = req.body;
+  const { email, code, newPassword } = req.body;
 
-  if (!email || !token || !newPassword) {
-    return res.status(400).json({ message: 'Email, token, and new password are required.' });
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ message: 'Email, code, and new password are required.' });
   }
 
   try {
-    const seller = await Seller.findOne({ email, resetPasswordToken: token, resetPasswordExpires: { $gt: Date.now() } });
+    const seller = await Seller.findOne({ 
+      email, 
+      resetPasswordCode: code,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
     if (!seller) {
-      return res.status(404).json({ message: 'Invalid or expired token.' });
+      return res.status(404).json({ message: 'Invalid or expired reset code.' });
     }
 
-    // Update the password
-    seller.password = newPassword; // Ensure to hash the password in the pre-save middleware
-    seller.resetPasswordToken = undefined; // Clear the reset token
-    seller.resetPasswordExpires = undefined; // Clear the expiration
+    // Update password and clear reset fields
+    seller.password = newPassword;
+    seller.resetPasswordCode = undefined;
+    seller.resetPasswordExpires = undefined;
     await seller.save();
 
     res.json({ message: 'Password reset successfully.' });

@@ -1170,7 +1170,7 @@ router.put('/individual-information', authMiddleware.verifyToken, sellerControll
  * @swagger
  * /api/seller/forgot-password:
  *   post:
- *     summary: Request a password reset
+ *     summary: Request a password reset code
  *     tags: [Seller]
  *     requestBody:
  *       required: true
@@ -1183,7 +1183,7 @@ router.put('/individual-information', authMiddleware.verifyToken, sellerControll
  *                 type: string
  *     responses:
  *       200:
- *         description: Password reset email sent successfully
+ *         description: Password reset code sent successfully
  *       400:
  *         description: Bad request
  *       404:
@@ -1197,7 +1197,7 @@ router.post('/forgot-password', sellerController.forgotPassword);
  * @swagger
  * /api/seller/reset-password:
  *   post:
- *     summary: Reset the seller's password
+ *     summary: Reset the seller's password using reset code
  *     tags: [Seller]
  *     requestBody:
  *       required: true
@@ -1208,8 +1208,9 @@ router.post('/forgot-password', sellerController.forgotPassword);
  *             properties:
  *               email:
  *                 type: string
- *               token:
+ *               code:
  *                 type: string
+ *                 description: 4-digit reset code
  *               newPassword:
  *                 type: string
  *     responses:
@@ -1218,7 +1219,7 @@ router.post('/forgot-password', sellerController.forgotPassword);
  *       400:
  *         description: Bad request
  *       404:
- *         description: Seller not found
+ *         description: Invalid or expired reset code
  *       500:
  *         description: Internal server error
  */
