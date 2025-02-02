@@ -109,21 +109,13 @@ const validateAddress = (address) => {
 
 // Helper function to validate parcel data
 const validateParcel = (parcel) => {
-  const requiredFields = ['weight', 'width', 'height', 'length'];
-  const missingFields = requiredFields.filter(field => !parcel[field]);
-  
-  if (missingFields.length > 0) {
-    throw new Error(`Missing required parcel fields: ${missingFields.join(', ')}`);
+  if (!parcel.weight) {
+    throw new Error('Parcel weight is required');
   }
 
   // Validate weight is a positive number
   if (parcel.weight <= 0) {
     throw new Error('Parcel weight must be greater than 0');
-  }
-
-  // Validate dimensions are positive numbers
-  if (parcel.width <= 0 || parcel.height <= 0 || parcel.length <= 0) {
-    throw new Error('Parcel dimensions must be greater than 0');
   }
 
   return true;
@@ -287,9 +279,6 @@ exports.createOrder = async (req, res) => {
         delivery_address,
         parcel: {
           weight: totalWeight, 
-          width: parcel.width,
-          height: parcel.height,
-          length: parcel.length,
           weight_unit: 'kg',
           description: "Auqli Order Items",
           items: sellerData.items.map(item => ({
