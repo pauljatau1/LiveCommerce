@@ -66,7 +66,7 @@ const generateVideoThumbnail = async (videoBuffer) => {
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { title, body, tags, visibility } = req.body;
+    const { title, body, tags, visibility, images, videos } = req.body;
     const userId = req.user.id;
     const userModel = req.user.role;
 
@@ -78,41 +78,67 @@ exports.createPost = async (req, res) => {
     }
 
     // Process media files
-    const mediaFiles = req.files || [];
-    const images = [];
-    const videos = [];
+    const processedImages = [];
+    const processedVideos = [];
 
     // Handle images
-    const imageFiles = mediaFiles.filter(file => file.mimetype.startsWith('image/'));
-    for (let file of imageFiles) {
-      const params = {
-        Bucket: 'auqli-uploads',
-        Key: `posts/${uuidv4()}-${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      };
-      const uploadResult = await s3.upload(params).promise();
-      images.push({
-        url: uploadResult.Location,
-        public_id: uploadResult.Key
-      });
+    if (images && Array.isArray(images)) {
+      // Limit number of images
+      if (images.length > 10) {
+        return res.status(400).json({ message: 'Maximum 10 images allowed' });
+      }
+
+      for (const image of images) {
+        if (!image.base64) {
+          continue;
+        }
+
+        const buffer = Buffer.from(image.base64, 'base64');
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `posts/${uuidv4()}.jpg`,
+          Body: buffer,
+          ContentType: image.mimeType || 'image/jpeg',
+        };
+        const uploadResult = await s3.upload(params).promise();
+        
+        processedImages.push({
+          url: uploadResult.Location,
+          public_id: uploadResult.Key
+        });
+      }
     }
 
     // Handle videos
-    const videoFiles = mediaFiles.filter(file => file.mimetype.startsWith('video/'));
-    for (let file of videoFiles) {
-      const videoParams = {
-        Bucket: 'auqli-uploads',
-        Key: `posts/videos/${uuidv4()}-${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      };
-      const videoUpload = await s3.upload(videoParams).promise();
+    if (videos && Array.isArray(videos)) {
+      // Limit number of videos
+      if (videos.length > 5) {
+        return res.status(400).json({ message: 'Maximum 5 videos allowed' });
+      }
 
-      videos.push({
-        url: videoUpload.Location,
-        public_id: videoUpload.Key
-      });
+      for (const video of videos) {
+        if (!video.base64) {
+          continue;
+        }
+
+        const buffer = Buffer.from(video.base64, 'base64');
+        const videoParams = {
+          Bucket: 'auqli-uploads',
+          Key: `posts/videos/${uuidv4()}.mp4`,
+          Body: buffer,
+          ContentType: video.mimeType || 'video/mp4',
+        };
+        const videoUpload = await s3.upload(videoParams).promise();
+
+        // Generate thumbnail if it's a video
+        const thumbnailUrl = await generateVideoThumbnail(buffer);
+
+        processedVideos.push({
+          url: videoUpload.Location,
+          public_id: videoUpload.Key,
+          thumbnail: thumbnailUrl
+        });
+      }
     }
 
     // Parse product IDs (handle both arrays and comma-separated strings)
@@ -144,7 +170,7 @@ exports.createPost = async (req, res) => {
     // Parse tags
     const parsedTags = tags ? (Array.isArray(tags) ? tags : tags.split(',').map(tag => tag.trim())) : [];
 
-    // Create new post
+    // Create new post with processed media
     const newPost = new Post({
       title,
       body,
@@ -159,8 +185,8 @@ exports.createPost = async (req, res) => {
         storeName: user.storeName,
         businessName: user.businessName
       },
-      images,
-      videos,
+      images: processedImages,
+      videos: processedVideos,
       products,
       taggedSellers,
       tags: parsedTags,
