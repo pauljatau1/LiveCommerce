@@ -175,7 +175,9 @@ const productSchema = new mongoose.Schema({
     comment: { type: String },
     images: [{
       url: { type: String, required: true },
-      contentType: { type: String }
+      contentType: { type: String },
+      data: { type: String },
+      uploadType: { type: String, enum: ['file', 'base64'], default: 'file' }
     }],
     purchasedVariant: {
       color: { type: String },
@@ -561,6 +563,22 @@ const productSchema = new mongoose.Schema({
   wearable_Connectivity: {type: String},
   wearable_Features: {type: String},
   wearable_Material: {type: String},
+
+  // Add fields for tracking discounts
+  discountEndDate: {
+    type: Date,
+    default: null
+  },
+  discountType: {
+    type: String,
+    enum: ['none', 'sale', 'coupon'],
+    default: 'none'
+  },
+  discountId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coupon',
+    default: null
+  }
 });
 
 
@@ -600,6 +618,13 @@ productSchema.pre('save', async function(next) {
       });
     }
 
+    // Add pre-save middleware to update discount status
+    if (this.discountEndDate && new Date(this.discountEndDate) <= new Date()) {
+      this.discountType = 'none';
+      this.discountId = null;
+      this.discountEndDate = null;
+    }
+
     next();
   } catch (error) {
     next(error);
@@ -633,6 +658,11 @@ productSchema.methods.updateStock = async function(quantity, operation) {
 // Add a method to check low stock
 productSchema.methods.isLowStock = function() {
   return this.stock <= this.lowStockAlert;
+};
+
+// Add method to check if product has active discount
+productSchema.methods.hasActiveDiscount = function() {
+  return this.discountEndDate && new Date(this.discountEndDate) > new Date();
 };
 
 module.exports = mongoose.model('Product', productSchema);

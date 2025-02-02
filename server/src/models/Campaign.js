@@ -14,33 +14,35 @@ const campaignSchema = new mongoose.Schema({
   },
   message: {
     type: String,
-    required: true,
-    maxLength: 500
+    required: true
   },
   media: [{
     url: String,
     public_id: String,
     type: String // image/video
   }],
-  products: [{
+  selectedProducts: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product'
   }],
   audienceType: {
     type: String,
-    enum: ['all', 'active', 'inactive'],
+    enum: ['all', 'active', 'inactive', 'recent'],
     required: true
   },
-  scheduledFor: Date,
   status: {
     type: String,
     enum: ['draft', 'scheduled', 'sent', 'failed'],
     default: 'draft'
   },
-  metrics: {
-    delivered: { type: Number, default: 0 },
+  scheduledFor: {
+    type: Date
+  },
+  stats: {
+    totalRecipients: { type: Number, default: 0 },
     opened: { type: Number, default: 0 },
-    clicked: { type: Number, default: 0 }
+    clicked: { type: Number, default: 0 },
+    sales: { type: Number, default: 0 }
   },
   recipients: [{
     buyer: {
@@ -49,7 +51,7 @@ const campaignSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['pending', 'delivered', 'opened', 'clicked', 'failed'],
+      enum: ['pending', 'sent', 'delivered', 'opened', 'clicked'],
       default: 'pending'
     },
     deliveredAt: Date,
@@ -59,6 +61,11 @@ const campaignSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  emailStatus: {
+    sent: { type: Number, default: 0 },
+    failed: { type: Number, default: 0 },
+    lastSent: Date
   }
 });
 
