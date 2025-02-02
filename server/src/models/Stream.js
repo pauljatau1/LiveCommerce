@@ -49,7 +49,7 @@ const streamSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['scheduled', 'live', 'ended'],
+    enum: ['scheduled', 'live', 'ended', 'expired'],
     default: 'scheduled'
   },
   channelName: String,

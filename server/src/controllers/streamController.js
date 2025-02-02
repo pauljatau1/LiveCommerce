@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
 const Product = require('../models/Product');
 const { s3 } = require('../config/awsConfig');
+const jwtDecode = require('jwt-decode');
 
 exports.createStream = async (req, res) => {
   try {
@@ -296,7 +297,7 @@ exports.getActiveStreams = async (req, res) => {
 
 exports.getStreamDetails = async (req, res) => {
   try {
-    const stream = await Stream.findById(req.params.streamId)
+    let stream = await Stream.findById(req.params.streamId)
       .populate('seller', 'storeName businessName avatarUrl rating')
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
@@ -305,6 +306,25 @@ exports.getStreamDetails = async (req, res) => {
 
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
+    }
+
+    // Calculate expiration times
+    const now = new Date();
+    const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+
+    if (stream.status === 'scheduled' && stream.scheduledStartTime) {
+      const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
+      if (now > expirationTime) {
+        stream.status = 'expired';
+        await stream.save();
+      }
+    }
+    else if (stream.status === 'live' && stream.actualStartTime) {
+      const expirationTime = new Date(stream.actualStartTime.getTime() + ONE_HOUR);
+      if (now > expirationTime) {
+        stream.status = 'expired';
+        await stream.save();
+      }
     }
 
     res.json(stream);
@@ -380,6 +400,35 @@ exports.getSellerStreams = async (req, res) => {
       .sort({ scheduledStartTime: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
+
+    // Check and update expiration status for each stream
+    const ONE_HOUR = 60 * 60 * 1000;
+    const now = new Date();
+    
+    for (const stream of streams) {
+      let needsUpdate = false;
+      const update = { status: 'expired' };
+      
+      if (stream.status === 'scheduled' && stream.scheduledStartTime) {
+        const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
+        if (now > expirationTime) {
+          needsUpdate = true;
+        }
+      } else if (stream.status === 'live' && stream.actualStartTime) {
+        const expirationTime = new Date(stream.actualStartTime.getTime() + ONE_HOUR);
+        if (now > expirationTime) {
+          needsUpdate = true;
+        }
+      }
+
+      if (needsUpdate) {
+        await Stream.updateOne(
+          { _id: stream._id },
+          { $set: update },
+          { runValidators: false }  // Bypass validation for status updates
+        );
+      }
+    }
 
     // Get total count for pagination
     const total = await Stream.countDocuments(query);
