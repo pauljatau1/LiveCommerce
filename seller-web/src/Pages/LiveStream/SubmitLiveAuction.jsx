@@ -1,5 +1,4 @@
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
-import Header from "../../Components/ui/Header/Header";
 import LiveShowIcon from '../../assets/Background.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import LiveStreamSuccessIcon from '../../assets/Party.png';
@@ -88,7 +87,7 @@ SuccessModal.propTypes = {
 
 const SubmitLiveAuction = () => {
     const navigate = useNavigate();
-    const { livestream, scheduleLiveShow, isLoading, message } = useLivestreamContext();
+    const { livestream, scheduleLiveAuction, isLoading, message } = useLivestreamContext();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     useEffect(() => {
@@ -114,7 +113,7 @@ const SubmitLiveAuction = () => {
 
         try {
             if (streamData.title && streamData.description && streamData.coverImage && streamData.products.length > 0) {
-                await scheduleLiveShow(streamData);
+                await scheduleLiveAuction(streamData);
             } else {
                 toast.error('Please fill in all fields', {
                     style: {

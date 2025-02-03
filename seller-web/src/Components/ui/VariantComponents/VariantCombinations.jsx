@@ -42,9 +42,9 @@ const VariantCombinations = memo(() => {
         <div className="flex items-center gap-2">
             {images && images.length > 0 ? (
                 <div className="relative">
-                    <img 
-                        src={images[0].url} 
-                        alt="Variant" 
+                    <img
+                        src={images[0].url}
+                        alt="Variant"
                         className="w-10 h-10 rounded-md object-cover"
                     />
                     <button
@@ -54,7 +54,18 @@ const VariantCombinations = memo(() => {
                         }}
                         className="absolute -top-1 -right-1 flex bg-white text-white rounded-full p-0.5"
                     >
-                        <Icon icon="solar:close-circle-bold" color='#05031F' className="w-4 h-4" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            className="w-4 h-4"
+                            fill="#17171B"
+                        >
+                            <path
+                                fillRule="evenodd"
+                                d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10M8.97 8.97a.75.75 0 0 1 1.06 0L12 10.94l1.97-1.97a.75.75 0 0 1 1.06 1.06L13.06 12l1.97 1.97a.75.75 0 0 1-1.06 1.06L12 13.06l-1.97 1.97a.75.75 0 0 1-1.06-1.06L10.94 12l-1.97-1.97a.75.75 0 0 1 0-1.06"
+                                clipRule="evenodd"
+                            />
+                        </svg>
                     </button>
                 </div>
             ) : (
@@ -65,10 +76,22 @@ const VariantCombinations = memo(() => {
                         className="hidden"
                         onChange={(e) => handleImageUpload(e, variantPath)}
                     />
-                    <Icon 
-                        icon="solar:gallery-add-bold" 
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
                         className="w-6 h-6 text-gray-400 hover:text-gray-600"
-                    />
+                    >
+                        <path
+                            fill="currentColor"
+                            d="M22 12.698c-.002 1.47-.013 2.718-.096 3.743c-.097 1.19-.296 2.184-.74 3.009a4.2 4.2 0 0 1-.73.983c-.833.833-1.893 1.21-3.237 1.39C15.884 22 14.2 22 12.053 22h-.106c-2.148 0-3.83 0-5.144-.177c-1.343-.18-2.404-.557-3.236-1.39c-.738-.738-1.12-1.656-1.322-2.795c-.2-1.12-.236-2.512-.243-4.241Q1.999 12.737 2 12v-.054c0-2.148 0-3.83.177-5.144c.18-1.343.557-2.404 1.39-3.236s1.893-1.21 3.236-1.39c1.168-.157 2.67-.175 4.499-.177a.697.697 0 1 1 0 1.396c-1.855.002-3.234.018-4.313.163c-1.189.16-1.906.464-2.436.994S3.72 5.8 3.56 6.99C3.397 8.2 3.395 9.788 3.395 12v.784l.932-.814a2.14 2.14 0 0 1 2.922.097l3.99 3.99a1.86 1.86 0 0 0 2.385.207l.278-.195a2.79 2.79 0 0 1 3.471.209l2.633 2.37c.265-.557.423-1.288.507-2.32c.079-.972.09-2.152.091-3.63a.698.698 0 0 1 1.396 0"
+                        />
+                        <path
+                            fill="currentColor"
+                            fillRule="evenodd"
+                            d="M17.5 11c-2.121 0-3.182 0-3.841-.659S13 8.621 13 6.5s0-3.182.659-3.841S15.379 2 17.5 2s3.182 0 3.841.659S22 4.379 22 6.5s0 3.182-.659 3.841S19.621 11 17.5 11m.75-6.5a.75.75 0 0 0-1.5 0v1.25H15.5a.75.75 0 0 0 0 1.5h1.25V8.5a.75.75 0 0 0 1.5 0V7.25h1.25a.75.75 0 0 0 0-1.5h-1.25z"
+                            clipRule="evenodd"
+                        />
+                    </svg>
                 </label>
             )}
         </div>
@@ -92,12 +115,12 @@ const VariantCombinations = memo(() => {
     };
 
     const renderSubSubVariant = (mainVariant, subVariant, subSubVariant) => (
-        <div 
+        <div
             key={`${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`}
             className="flex items-center justify-between py-2 pl-12 border-t"
         >
             <div className="flex items-center gap-2">
-                <ImageUploadButton 
+                <ImageUploadButton
                     variantPath={`${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`}
                     images={subSubVariant.images}
                 />
@@ -132,19 +155,38 @@ const VariantCombinations = memo(() => {
 
     const renderSubVariant = (mainVariant, subVariant) => (
         <div key={`${mainVariant.value}-${subVariant.value}`}>
-            <div 
+            <div
                 className="flex items-center justify-between py-2 pl-8 border-t cursor-pointer"
                 onClick={() => toggleExpand(`${mainVariant.value}-${subVariant.value}`)}
             >
                 <div className="flex items-center gap-2">
-                    <ImageUploadButton 
+                    <ImageUploadButton
                         variantPath={`${mainVariant.value}_${subVariant.value}`}
                         images={subVariant.images}
                     />
-                    <Icon 
-                        icon={expandedVariants.has(`${mainVariant.value}-${subVariant.value}`) ? "solar:alt-arrow-down-bold" : "solar:alt-arrow-right-bold"} 
-                        className="w-4 h-4"
-                    />
+                    {expandedVariants.has(`${mainVariant.value}-${subVariant.value}`) ? (
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            className="w-4 h-4"
+                        >
+                            <path
+                                fill="currentColor"
+                                d="m12.37 15.835l6.43-6.63C19.201 8.79 18.958 8 18.43 8H5.57c-.528 0-.771.79-.37 1.205l6.43 6.63c.213.22.527.22.74 0"
+                            />
+                        </svg>
+                    ) : (
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            className="w-4 h-4"
+                        >
+                            <path
+                                fill="currentColor"
+                                d="M15.835 11.63L9.205 5.2C8.79 4.799 8 5.042 8 5.57v12.86c0 .528.79.771 1.205.37l6.63-6.43a.5.5 0 0 0 0-.74"
+                            />
+                        </svg>
+                    )}
                     <span>{subVariant.value}</span>
                 </div>
                 <div className="flex gap-4">
@@ -174,8 +216,8 @@ const VariantCombinations = memo(() => {
                     />
                 </div>
             </div>
-            {expandedVariants.has(`${mainVariant.value}-${subVariant.value}`) && 
-                subVariant.subSubVariants?.map(subSubVariant => 
+            {expandedVariants.has(`${mainVariant.value}-${subVariant.value}`) &&
+                subVariant.subSubVariants?.map(subSubVariant =>
                     renderSubSubVariant(mainVariant, subVariant, subSubVariant)
                 )
             }
@@ -194,19 +236,38 @@ const VariantCombinations = memo(() => {
             <div className="border rounded-lg overflow-auto">
                 {variantStructure.map(mainVariant => (
                     <div key={mainVariant.value}>
-                        <div 
+                        <div
                             className="flex items-center justify-between p-4 cursor-pointer"
                             onClick={() => toggleExpand(mainVariant.value)}
                         >
                             <div className="flex items-center gap-2">
-                                <ImageUploadButton 
+                                <ImageUploadButton
                                     variantPath={mainVariant.value}
                                     images={mainVariant.images}
                                 />
-                                <Icon 
-                                    icon={expandedVariants.has(mainVariant.value) ? "solar:alt-arrow-down-bold" : "solar:alt-arrow-right-bold"} 
-                                    className="w-4 h-4"
-                                />
+                                {expandedVariants.has(mainVariant.value) ? (
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        className="w-4 h-4"
+                                    >
+                                        <path
+                                            fill="currentColor"
+                                            d="m12.37 15.835l6.43-6.63C19.201 8.79 18.958 8 18.43 8H5.57c-.528 0-.771.79-.37 1.205l6.43 6.63c.213.22.527.22.74 0"
+                                        />
+                                    </svg>
+                                ) : (
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        className="w-4 h-4"
+                                    >
+                                        <path
+                                            fill="currentColor"
+                                            d="M15.835 11.63L9.205 5.2C8.79 4.799 8 5.042 8 5.57v12.86c0 .528.79.771 1.205.37l6.63-6.43a.5.5 0 0 0 0-.74"
+                                        />
+                                    </svg>
+                                )}
                                 <span>{mainVariant.value}</span>
                             </div>
                             <div className="flex gap-4">
@@ -236,8 +297,8 @@ const VariantCombinations = memo(() => {
                                 />
                             </div>
                         </div>
-                        {expandedVariants.has(mainVariant.value) && 
-                            mainVariant.subVariants?.map(subVariant => 
+                        {expandedVariants.has(mainVariant.value) &&
+                            mainVariant.subVariants?.map(subVariant =>
                                 renderSubVariant(mainVariant, subVariant)
                             )
                         }

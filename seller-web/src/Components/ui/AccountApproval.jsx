@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { Link } from 'react-router-dom';
-import { Crisp } from "crisp-sdk-web";
-
 import Icon from '../../assets/account-approval.png'
 
 const AccountApproval = () => {
     const { seller, fetchSellerDetails, logout } = useAuthContext();
     const [isAccountApproved, setIsAccountApproved] = useState(false);
-    const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1"
-
-    // Crisp will be displayed
-    Crisp.configure(WEBSITE_ID, {
-        autoLoad: false,
-    });
 
     useEffect(() => {
         const fetchDetails = async () => {
@@ -47,7 +39,7 @@ const AccountApproval = () => {
                     <p className='text-base lg:text-2xl text-center text-[#05031F] font-normal mt-2 mb-4'>We have received your application, it would be reviewed by our support team and approved shortly.</p>
                     <div className='flex items-center justify-center gap-10 mt-20 lg:mt-14 '>
                         <button onClick={logout} className='bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer '>Logout</button>
-                        <button onClick={() => Crisp.chat.open()} className='bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer '>Contact Support</button>
+                        <button className='bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer '>Contact Support</button>
                     </div>
                 </div>
             )}

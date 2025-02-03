@@ -1,13 +1,14 @@
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import { NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import Header from "../../Components/ui/Header/Header";
 import LiveShowIcon from '../../assets/Background.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import LiveStreamSuccessIcon from '../../assets/Party.png';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useOutletContext } from 'react-router-dom';
+import PropTypes from 'prop-types';
 
 const SuccessModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -75,10 +76,21 @@ const SuccessModal = ({ isOpen, onClose }) => {
   );
 };
 
+SuccessModal.propTypes = {
+    isOpen: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired
+};
+
 const SubmitLiveShow = () => {
     const { livestream, scheduleLiveShow, isLoading, message } = useLivestreamContext();
+    const { setHeaderName, setNavName } = useOutletContext();
     const { products } = useSelector(state => state.product);
-    const [showSuccessModal, setShowSuccessModal] = useState(true);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+    useEffect(() => {
+        setHeaderName('Live Streams');
+        setNavName('Submit Live Show');
+    }, []);
 
     useEffect(() => {
         if (message === 'livestream scheduled successfully') {
@@ -93,14 +105,13 @@ const SubmitLiveShow = () => {
             coverPhoto: livestream.coverPhoto,
             category: livestream.category,
             tags: livestream.tags.map(tag => tag.label),
-            products: products,
             scheduledStartTime: new Date().toISOString(),
         }
 
         console.log(streamData);
 
         try {
-            if (streamData.title && streamData.description && streamData.coverPhoto && streamData.products) {
+            if (livestream.title && livestream.description && livestream.coverPhoto && livestream.tags.length > 0) {
                 await scheduleLiveShow(streamData);
             } else {
                 toast.error('Please fill in all fields', {
@@ -117,9 +128,7 @@ const SubmitLiveShow = () => {
 
     return (
         <>
-            <div className="flex flex-col gap-6 ">
-                <Header headerTitle="OPEN LIVE SHOW SUMMARY" showHeader={true} />
-
+            <div className="flex flex-col gap-6 py-10 ">
                 <div className="max-w-7xl mx-auto w-full space-y-8">
                     {/* Preview Card Container */}
                     <div className="h-fit flex flex-col lg:flex-row items-stretch gap-10">

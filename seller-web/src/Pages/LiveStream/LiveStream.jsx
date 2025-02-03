@@ -3,7 +3,6 @@ import { useOutletContext } from 'react-router-dom';
 import { liveStreamCardData, suggestVideosData } from "../../Utilities/data";
 import LiveStreamCard from "../../Components/LiveStreamCard";
 import SuggestedVideoCard from "../../Components/SuggestedVideoCard";
-import Header from "../../Components/ui/Header/Header";
 
 
 const LiveStream = () => {

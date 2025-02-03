@@ -14,7 +14,6 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "../../Components/ui/popover";
-import { Crisp } from "crisp-sdk-web";
 //import { productPageCardData } from "../../Utilities/data";
 import { NavLink } from 'react-router-dom';
 import { useSelector, useDispatch } from "react-redux";

@@ -2,7 +2,6 @@ import { Icon } from "@iconify/react"
 import { useEffect, useState } from "react"
 import { Command, CommandGroup, CommandItem, CommandList } from "../../ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
-import { Crisp } from "crisp-sdk-web"
 import PropTypes from "prop-types"
 import { BASE_URL } from "@/Constants/Server"
 import { useNavigate } from "react-router-dom"
@@ -10,13 +9,12 @@ import { Dialog, DialogTrigger } from "../../ui/dialog"
 import NotificationsDialog from "../../NotificationsDialog"
 import { useAuthContext } from "../../../Hooks/useAuthContext"
 
-const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showBackButton }) => {
+const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showBackButton, fullScreenMode }) => {
   const [open, setOpen] = useState(false)
   const [isChatVisible, setIsChatVisible] = useState(true)
   const [seller, setSeller] = useState(null)
   const { stuffToDo, getSellerNotifications } = useAuthContext()
   const navigate = useNavigate()
-  const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1"
 
   useEffect(() => {
     const fetchSellerProfile = async () => {
@@ -43,24 +41,6 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   }, [])
 
   useEffect(() => {
-    Crisp.configure(WEBSITE_ID, {
-      autoLoad: false,
-    })
-    window.$crisp.push(["do", "chat:hide"])
-    window.$crisp.push([
-      "on",
-      "chat:closed",
-      () => {
-        setIsChatVisible(false)
-        window.$crisp.push(["do", "chat:hide"])
-      },
-    ])
-    return () => {
-      window.$crisp.push(["off", "chat:closed"])
-    }
-  }, [])
-
-  useEffect(() => {
     getSellerNotifications()
   }, [])
 
@@ -75,9 +55,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   }
 
   const handleChatOpen = () => {
-    setIsChatVisible(true)
-    window.$crisp.push(["do", "chat:show"])
-    Crisp.chat.open()
+    console.log("Chat open")
   }
 
   const getInitials = (firstName, lastName) => {
@@ -161,7 +139,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
 
 
   return (
-    <header className="bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]">
+    <header className={`${fullScreenMode ? 'hidden' : 'block bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]' }`}>
       <div className="mx-auto py-3">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">

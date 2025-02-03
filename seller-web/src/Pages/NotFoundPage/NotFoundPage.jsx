@@ -16,7 +16,7 @@ const NotFoundPage = () => {
       if (isDashboardRoute) {
         navigate('/dashboard/home', { replace: true });
       } else {
-        navigate('/temp/login', { replace: true });
+        navigate('/login', { replace: true });
       }
     };
 
