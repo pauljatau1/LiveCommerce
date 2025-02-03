@@ -55,23 +55,13 @@ import SubmitLiveAuction from './Pages/LiveStream/SubmitLiveAuction';
 import LivestreamStudio from './Pages/LiveStream/LivestreamStudio';
 import OnboardingLayout from './Components/OnboardingLayout';
 import CreateProfile from './Components/ui/CreateProfile';
-
-import TempLoginPage from './Pages/LoginPage/TempLoginPage';
 import Coupons from './Pages/MarketingPage/Coupons';
 import CouponsList from './Pages/MarketingPage/CouponsList'
 import InboxCampaigns from './Pages/MarketingPage/InboxCampaigns';
 import CreateCampaign from './Pages/MarketingPage/CreateCampaign';
 
 // Create a wrapper component that provides both Router and Auth contexts
-function AppProviders({ children }) {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        {children}
-      </AuthProvider>
-    </BrowserRouter>
-  );
-}
+
 
 // Create router configuration
 const router = createBrowserRouter([
