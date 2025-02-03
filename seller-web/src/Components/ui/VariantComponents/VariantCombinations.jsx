@@ -128,24 +128,27 @@ const VariantCombinations = memo(() => {
             </div>
             <div className="flex gap-4">
                 <input
-                    type="text"
+                    type="number"
                     value={subSubVariant.price || ''}
                     onChange={(e) => updateVariantValue(
                         `${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`,
                         'price',
                         e.target.value
                     )}
-                    placeholder="Price"
+
+                    placeholder="₦0.00"
                     className="w-24 px-3 py-1 border rounded"
                 />
                 <input
-                    type="text"
+
+                    type="number"
                     value={subSubVariant.stock || ''}
                     onChange={(e) => updateVariantValue(
                         `${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`,
                         'stock',
                         e.target.value
                     )}
+
                     placeholder="Stock"
                     className="w-24 px-3 py-1 border rounded"
                 />
@@ -284,7 +287,7 @@ const VariantCombinations = memo(() => {
                                     onClick={e => e.stopPropagation()}
                                 />
                                 <input
-                                    type="text"
+                                    type="number"
                                     value={mainVariant.stock || ''}
                                     onChange={(e) => handleInputChange(
                                         mainVariant.value,

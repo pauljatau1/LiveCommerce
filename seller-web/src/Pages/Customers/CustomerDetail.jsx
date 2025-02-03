@@ -134,7 +134,7 @@ function CustomerDetail() {
               <span className="hidden sm:block text-slate-300">•</span>
               <span className="text-slate-500">Joined {customerData.joinedDate}</span>
               <span className="hidden sm:block text-slate-300">•</span>
-              <span className="text-indigo-600 font-medium">{customerData.email}</span>
+              {/* NOT ALLOWED FOR SECURITY REASONS <span className="text-indigo-600 font-medium">{customerData.email}</span>*/}
             </div>
           </div>
           <Button 
