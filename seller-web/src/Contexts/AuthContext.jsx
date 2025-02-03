@@ -24,6 +24,8 @@ function AuthProvider({ children }) {
         unverifiedUser: null,
         onboardingStep: null,
         blockedUser: false,
+        isForgotPasswordRequestSuccessful: false,
+        passwordResetSuccessful: false
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -155,8 +157,26 @@ function AuthProvider({ children }) {
                     ...state,
                     blockedUser: true
                 }
+            case "RESET_PASSWORD_SUCCESS":
+                return {
+                    ...state,
+                    isForgotPasswordRequestSuccessful: true
+                }
+            case "RESET_PASSWORD_WITH_TOKEN_SUCCESS":
+                return {
+                    ...state,
+                    passwordResetSuccessful: true
+                }
+            case "CANCEL_RESET_PASSWORD":
+                return {
+                    ...state,
+                    isForgotPasswordRequestSuccessful: false,
+                    passwordResetSuccessful: false
+                }
             default:
                 return state;
+
+
         }
     }, initialState);
 
@@ -404,6 +424,35 @@ function AuthProvider({ children }) {
         }
     };
 
+    const resetPasswordWithOtp = async (resetData) => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const response = await axios.post(`${BASE_URL}/seller/reset-password`, {
+                email: resetData.email,
+                code: resetData.code,
+                newPassword: resetData.newPassword
+            });
+            if (response.status === 200) {
+                dispatch({ type: 'RESET_PASSWORD_WITH_TOKEN_SUCCESS', payload: response.data.message });
+                toast.success('Password reset successful');
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('Password reset failed', {
+                description: error.response?.data?.message || error.message,
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+
+
+    }
+
     const fetchSellerDetails = async () => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
@@ -520,6 +569,7 @@ function AuthProvider({ children }) {
             getTop3SellingProducts,
             getSellerNotifications,
             getOnboardingProcess,
+            resetPasswordWithOtp
         }}>
             {children}
         </AuthContext.Provider>
