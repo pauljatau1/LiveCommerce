@@ -56,6 +56,22 @@ import LivestreamStudio from './Pages/LiveStream/LivestreamStudio';
 import OnboardingLayout from './Components/OnboardingLayout';
 import CreateProfile from './Components/ui/CreateProfile';
 
+import TempLoginPage from './Pages/LoginPage/TempLoginPage';
+import Coupons from './Pages/MarketingPage/Coupons';
+import CouponsList from './Pages/MarketingPage/CouponsList'
+import InboxCampaigns from './Pages/MarketingPage/InboxCampaigns';
+import CreateCampaign from './Pages/MarketingPage/CreateCampaign';
+
+// Create a wrapper component that provides both Router and Auth contexts
+function AppProviders({ children }) {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
 
 // Create router configuration
 const router = createBrowserRouter([
@@ -261,6 +277,40 @@ const router = createBrowserRouter([
             errorElement: <NotFoundPage />
           },
           {
+        path: 'coupons',
+        children: [
+          {
+            path: '',
+            element: <Navigate to="list" replace />,
+          },
+          {
+            path: 'list',
+            element: <CouponsList />,
+          },
+          {
+            path: 'create',
+            element: <Coupons />,
+          },
+        ],
+      },
+      {
+        path: 'inbox-campaigns',
+        children: [
+          {
+            path: '',
+            element: <Navigate to="list" replace />,
+          },
+          {
+            path: 'create',
+            element: <CreateCampaign />,
+          },
+          {
+            path: 'list',
+            element: <InboxCampaigns />,
+          },
+        ],
+      },
+      {
             path: 'earnings-payouts',
             element: <Payout />,
             errorElement: <NotFoundPage />

@@ -296,7 +296,7 @@ export default function OrdersDashboard() {
                   <TableRow key={order._id} className="hover:bg-gray-50">
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium">{order._id.slice(0, 8)}...</div>
+                        <div className="font-medium">{order?.order_id}</div>
                         <div className="text-sm text-gray-500">
                           {new Date(order.createdAt).toLocaleDateString("en-US", {
                             day: "numeric",

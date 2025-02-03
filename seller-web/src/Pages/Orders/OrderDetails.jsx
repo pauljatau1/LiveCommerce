@@ -130,7 +130,7 @@ export default function OrderDetails() {
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <ShoppingBag className="h-4 w-4" />
-                  <h1 className="text-xl font-inter font-semibold">Order #{order?._id}</h1>
+                  <h1 className="text-xl font-inter font-semibold">Order #{order?.order_id}</h1>
                   <Badge variant="outline" className="bg-blue-600 mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                     {order?.channel}
                   </Badge>
@@ -258,16 +258,39 @@ export default function OrderDetails() {
                       className="h-full w-full object-cover"
                     />
                   </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <h3 className="text-sm font-medium">{item?.product?.name}</h3>
-                    <p className="text-xs text-gray-600">{item?.product?.description}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {item?.product?.variants?.map((variant) => (
-                        <Badge key={variant._id} variant="outline" className="text-xs">
-                          {variant.name}: {variant.value}
-                        </Badge>
-                      ))}
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div>
+                      <h3 className="text-sm font-medium">{item?.product?.name}</h3>
+                      <p className="text-xs text-gray-600">{item?.product?.description}</p>
                     </div>
+
+                    {/* Product Specifications */}
+                    {item?.specifications && Object.keys(item.specifications).length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-gray-700">Specifications:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(item.specifications).map(([key, value]) => (
+                            value && (
+                              <Badge key={key} variant="secondary" className="text-xs capitalize">
+                                <Tag className="h-3 w-3 mr-1" />
+                                {key}: {value}
+                              </Badge>
+                            )
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Product Variants (if any) */}
+                    {item?.product?.variants?.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {item?.product?.variants?.map((variant) => (
+                          <Badge key={variant._id} variant="outline" className="text-xs">
+                            {variant.name}: {variant.value}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="text-left md:text-right space-y-1 text-sm">
                     <p className="font-medium">₦{item?.price?.toLocaleString()}</p>
