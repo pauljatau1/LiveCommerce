@@ -24,7 +24,8 @@ export const LivestreamProvider = ({ children }) => {
         livestreaming: null,
         fetchedLiveStreams: [],
         liveStreamDetails: null,
-        hasLiveStreamStarted: false
+        hasLiveStreamStarted: false,
+        hasLiveStreamEnded: false
     };
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -64,8 +65,17 @@ export const LivestreamProvider = ({ children }) => {
                         status: 'live',
                         actualStartTime: new Date().toISOString()
                     },
-                    livestreaming: action.payload,
+                    livestreamDetails: action.payload,
+                    hasLivestreamEnded: false,
                     hasLiveStreamStarted: true,
+                    error: null
+                }
+            case 'SET_SUCCESS_LIVESTREAM_STOP':
+                return {
+                    ...state,
+                    livestreamDetails: null,
+                    hasLiveStreamStarted: false,
+                    hasLiveStreamEnded: true,
                     error: null
                 }
             case 'SET_SUCCESS_MESSAGE':
@@ -91,6 +101,21 @@ export const LivestreamProvider = ({ children }) => {
                     ...state,
                     liveStreamDetails: action.payload
                 } 
+            case 'RESET_SCHEDULE_DATA':
+                return {
+                    ...state,
+                    livestream: {
+                        title: '',
+                        description: '',
+                        category: '',
+                        coverPhoto: null,
+                        tags: [],
+                        products: [],
+                        scheduledStartTime: null
+                    }
+
+
+                }
             default:
                 return state;
         }
@@ -98,6 +123,38 @@ export const LivestreamProvider = ({ children }) => {
 
 
     const scheduleLiveShow = async (streamData) => {
+        try {
+            dispatch({ type: 'RESET_API_STATE' });
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            const response = await axios.post(`${BASE_URL}/streams/open-live-show`, streamData, {
+                headers: {
+                    Authorization: `Bearer ${tokenData.data}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log(response);
+            if (response.status === 201) {
+                dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
+                dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
+                dispatch({ type: "RESET_SCHEDULE_DATA" })
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Error scheduling livestream', {
+                description: error.response.data.message,
+                style: {
+                    background: '#05031F',
+                    color: '#fff',
+                }
+            });
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+
+    }
+    const scheduleLiveAuction = async (streamData) => {
         try {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'SET_LOADING', payload: true });
@@ -113,6 +170,7 @@ export const LivestreamProvider = ({ children }) => {
             if (response.status === 201) {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
+                dispatch({ type: "RESET_SCHEDULE_DATA" })
             }
         } catch (error) {
             console.error(error);
@@ -208,6 +266,54 @@ export const LivestreamProvider = ({ children }) => {
         }
     };
 
+    const endLiveStream = async (streamId) => {
+        try {  
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            
+            if (!tokenData?.data) {
+                throw new Error('No authentication token found');
+            }
+
+            const response = await axios.post(
+                `${BASE_URL}/streams/${streamId}/end`,
+                {},
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (response.status === 200) {
+                // Make sure the response includes fresh Agora tokens
+                console.log('stream ended', response);
+
+                dispatch({ type: 'SET_SUCCESS_LIVESTREAM_STOP' });
+                toast.success('Livestream ended successfully', {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('End livestream error:', error);
+            dispatch({ 
+                type: 'SET_ERROR', 
+                payload: error.response?.data?.message || error.message 
+            });
+            toast.error('Error ending livestream', {
+                description: error.response?.data?.message || 'Something went wrong',
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+        }
+    };
+
     const getLiveStreamFullDetails = async (streamId) => {
         try {
             dispatch({ type: 'RESET_API_STATE' });
@@ -218,7 +324,7 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_LIVE_STREAM_DETAILS', payload: response.data });
             }
         } catch (error) {
-            console.error(error);
+            console.error('Error getting live stream details', error);
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -230,9 +336,11 @@ export const LivestreamProvider = ({ children }) => {
         <LivestreamContext.Provider value={{
             ...state,
             scheduleLiveShow,
+            scheduleLiveAuction,
             getAllSellerActiveStreams,
             startLiveStream,
             getLiveStreamFullDetails,
+            endLiveStream,
             dispatch
         }}>
             {children}

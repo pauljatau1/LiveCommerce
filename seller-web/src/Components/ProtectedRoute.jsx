@@ -56,6 +56,7 @@ const ProtectedRoute = ({ children }) => {
             if (tokenData?.isVerified === false) {
               if (sellerData?.onboardingProcess) {
                 if (!isOnboardingRoute) {
+                  console.log('onboarding process', sellerData?.onboardingProcess)
                   navigate(`/onboarding/${sellerData?.onboardingProcess}`);
                   toast.success('Continue Onboarding', {
                     description: 'Continue from where you left off',

@@ -59,6 +59,7 @@ const DashboardLayout = () => {
             name={headerName}
             navName={navName}
             showBackButton={showBackButton}
+            fullScreenMode={fullScreenMode}
           />
           <div className={`${fullScreenMode ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
             <Outlet context={outletContext} />

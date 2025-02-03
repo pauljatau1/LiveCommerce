@@ -14,7 +14,6 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "../../Components/ui/popover";
-import { Crisp } from "crisp-sdk-web";
 import { NavLink } from 'react-router-dom';
 import { marketingAdsData, suggestVideosData } from "../../Utilities/data";
 import NotFound from "../../assets/not-found-icon2.png";

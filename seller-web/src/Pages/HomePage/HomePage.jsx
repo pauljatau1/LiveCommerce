@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 import { Icon } from "@iconify/react";
 import { orderTempData, toDoCardTempData, suggestVideosData } from "../../Utilities/data";
-import { Crisp } from "crisp-sdk-web";
 import { useNavigate, useNavigation } from "react-router-dom";
 import { useSidebar } from '../../Hooks/useSideBar';
 import SideBarNav from "../../Components/ui/DashboardHomepageUi/SideBarNav";

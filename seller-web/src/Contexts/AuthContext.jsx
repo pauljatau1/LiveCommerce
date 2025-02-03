@@ -1,7 +1,6 @@
 import { createContext, useEffect, useReducer } from "react";
 import { BASE_URL } from '../Constants/Server';
 import { toast } from "sonner";
-import { Crisp } from "crisp-sdk-web";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
@@ -348,13 +347,6 @@ function AuthProvider({ children }) {
                 }));
                 console.log('login response:', response.data);
                 dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
-                Crisp.setTokenId(response.data.token);
-                Crisp.user.setEmail(response.data.user.email);
-                Crisp.user.setNickname(response.data.user.firstName + " " + response.data.user.lastName);
-                Crisp.session.setData({
-                    user_id: response.data.user._id,
-                    plan: "free"
-                })
                 toast.success('Login successful', {
                     style: {
                         border: '1px solid #05031F',
@@ -387,6 +379,7 @@ function AuthProvider({ children }) {
             });
 
             if (response.status === 200) {
+                dispatch({ type: 'RESET_PASSWORD_SUCCESS', payload: response.data.message });
                 console.log(`reset password: ${response}`);
                 toast.success('Password reset request sent', {
                     description: 'We have sent a password reset link to your email',
@@ -460,10 +453,6 @@ function AuthProvider({ children }) {
             localStorage.removeItem('sellerToken');
             localStorage.removeItem('seller');
             localStorage.removeItem('onboardingProcess');
-
-            Crisp.setTokenId();
-            Crisp.session.reset();
-
             dispatch({ type: 'LOGOUT' });
             navigate('/login');
         } catch (error) {

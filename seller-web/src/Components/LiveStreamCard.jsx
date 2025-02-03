@@ -22,9 +22,11 @@ const LiveStreamCard = ({ item }) => {
 
                 <NavLink
                     to={item?.link}
-                    className="w-fit absolute bottom-6 bg-[#16783A] text-white text-[13px] font-medium font-inter py-2.5 px-4 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
+                    className={`w-fit absolute bottom-6 bg-[#16783A] text-white text-[13px] font-medium font-inter py-2.5 px-4 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center ${!item?.available ? 'cursor-not-allowed' : ''}`}
                 >
-                    Start {item?.title}
+                    <button className={`${!item?.available ? 'cursor-not-allowed' : ''}`} disabled={!item?.available} >
+                        Start {item?.title}
+                    </button>
                 </NavLink>
             </div>
         </div>
