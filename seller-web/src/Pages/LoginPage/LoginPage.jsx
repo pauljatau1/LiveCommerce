@@ -43,7 +43,6 @@ const LoginPage = () => {
       setResetEmail('');
       setEmail('');
       setPassword('');
-      dispatch({ type: 'CANCEL_RESET_PASSWORD' });
     }
   }, [passwordResetSuccessful]);
 
@@ -80,7 +79,6 @@ const LoginPage = () => {
   const handleResetPasswordSubmit = async () => {
     if (resetEmail !== "") {
       await resetPassword(resetEmail);
-      setResetEmail('');
     } else {
       toast.error("Please fill in all fields");
     }
@@ -95,7 +93,7 @@ const LoginPage = () => {
       toast.error("Passwords do not match");
     } else {
       const resetData = {
-        email: email,
+        email: resetEmail,
         code: otp,
         newPassword: newPassword,
       }
