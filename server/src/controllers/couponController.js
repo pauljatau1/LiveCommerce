@@ -15,51 +15,42 @@ exports.createCoupon = async (req, res) => {
       startDate,
       endDate,
       customerEligibility,
-      productDiscounts, // Array of { productId, discountedPrice }
+      productDiscounts,
       usageLimit
     } = req.body;
 
-    // Validate required fields
-    if (!name || !code || !discountPercentage || !startDate || !productDiscounts) {
+    // Validate required fields (remove code from required fields)
+    if (!name || !discountPercentage || !productDiscounts) {
       return res.status(400).json({
         message: 'Missing required fields'
       });
     }
 
-    // Get all product IDs from the productDiscounts array
-    const productIds = productDiscounts.map(pd => pd.productId);
-
-    // Validate products belong to seller and check for existing discounts
+    // Validate products and build applicableProducts array
     const products = await Product.find({
-      _id: { $in: productIds },
+      _id: { $in: productDiscounts.map(pd => pd.productId) },
       seller: sellerId
     });
 
-    if (products.length !== productIds.length) {
+    if (products.length !== productDiscounts.length) {
       return res.status(400).json({
-        message: 'Some products do not belong to the seller'
+        message: 'One or more products not found or do not belong to seller'
       });
     }
 
-    // Check for existing discounts on products
-    const now = new Date();
-    const productsWithDiscounts = products.filter(product => 
-      product.discountEndDate && new Date(product.discountEndDate) > now
+    // Check if any products already have active discounts
+    const productsWithActiveDiscounts = products.filter(product => 
+      product.discount.isActive && 
+      (!product.discount.endDate || product.discount.endDate > new Date())
     );
 
-    if (productsWithDiscounts.length > 0) {
+    if (productsWithActiveDiscounts.length > 0) {
       return res.status(400).json({
-        message: 'Some products already have active discounts',
-        products: productsWithDiscounts.map(p => ({
-          id: p._id,
-          name: p.name,
-          discountEndDate: p.discountEndDate
-        }))
+        message: `Products ${productsWithActiveDiscounts.map(p => p.name).join(', ')} already have active discounts`
       });
     }
 
-    // Create applicableProducts array with original and discounted prices
-    const applicableProducts = products.map(product => {
+    const applicableProducts = await Promise.all(products.map(async (product) => {
       const discountInfo = productDiscounts.find(
         pd => pd.productId.toString() === product._id.toString()
       );
@@ -69,22 +60,48 @@ exports.createCoupon = async (req, res) => {
         throw new Error(`Discounted price for ${product.name} must be less than original price`);
       }
 
+      // Calculate discount percentage
+      const discountValue = ((product.price - discountInfo.discountedPrice) / product.price) * 100;
+      
+      // Update product's discount information
+      await Product.findByIdAndUpdate(product._id, {
+        discount: {
+          isActive: true,
+          type: 'percentage',
+          value: discountValue,
+          startDate: startDate || new Date(),
+          endDate: endDate,
+          couponName: name,
+          discountedPrice: discountInfo.discountedPrice
+        },
+        'pricing.discountInfo': {
+          isActive: true,
+          type: 'percentage',
+          value: discountValue,
+          startDate: startDate || new Date(),
+          endDate: endDate,
+          couponName: name,
+          discountedPrice: discountInfo.discountedPrice
+        }
+      });
+
       return {
         product: product._id,
         originalPrice: product.price,
-        discountedPrice: discountInfo.discountedPrice
+        discountedPrice: discountInfo.discountedPrice,
+        status: 'active'
       };
-    });
+    }));
 
     // Create coupon
     const coupon = new Coupon({
       seller: sellerId,
       name,
-      code: code.toUpperCase(),
+      code: code ? code.toUpperCase() : undefined,
       discountPercentage,
       hasMinimumRequirement,
       minimumAmount: hasMinimumRequirement ? minimumAmount : 0,
-      startDate,
+      startDate: startDate || new Date(),
       endDate,
       customerEligibility,
       applicableProducts,
@@ -92,8 +109,6 @@ exports.createCoupon = async (req, res) => {
     });
 
     await coupon.save();
-
-    // Populate product details for response
     await coupon.populate('applicableProducts.product', 'name price images');
 
     res.status(201).json(coupon);
@@ -210,12 +225,56 @@ exports.deleteCoupon = async (req, res) => {
     const { id } = req.params;
     const sellerId = req.user.id;
 
-    const coupon = await Coupon.findOneAndDelete({ _id: id, seller: sellerId });
+    // Find the coupon and ensure it belongs to the seller
+    const coupon = await Coupon.findOne({ _id: id, seller: sellerId });
+    
     if (!coupon) {
-      return res.status(404).json({ message: 'Coupon not found' });
+      return res.status(404).json({
+        message: 'Coupon not found'
+      });
     }
 
-    res.json({ message: 'Coupon deleted successfully' });
+    // Get all product IDs from the coupon's applicable products
+    const productIds = coupon.applicableProducts.map(ap => ap.product);
+
+    // Update all products to remove the discount
+    await Product.updateMany(
+      {
+        _id: { $in: productIds },
+        'discount.couponName': coupon.name // Extra check to ensure we only remove this specific coupon's discount
+      },
+      {
+        $set: {
+          discount: {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          },
+          'pricing.discountInfo': {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          }
+        }
+      }
+    );
+
+    // Delete the coupon
+    await Coupon.findByIdAndDelete(id);
+
+    res.json({
+      message: 'Coupon deleted successfully and product discounts removed',
+      affectedProducts: productIds.length
+    });
+
   } catch (error) {
     res.status(500).json({
       message: 'Failed to delete coupon',

@@ -1,290 +1,561 @@
-import { Link, useNavigate, useLoaderData } from 'react-router-dom';
-import { Icon } from '@iconify/react';
-import { useAuthContext } from '../../Hooks/useAuthContext';
-import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
-import { fetchOnboardingProcess } from '../../Utilities/apiRestaurant';
-import { BASE_URL } from '../../Constants/Server';
-import Modal from '../../Components/Modal';
-import Logo from '../../assets/auqli-official-logo.png';
-import LoginImage from '../../assets/login-image.png';
-import CircularProgress from '@mui/material/CircularProgress';
-import axios from 'axios';
-import Emoji from '../../assets/Emoji -_.png'
+import { useState, useEffect } from "react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Search } from "lucide-react"
+import { BASE_URL } from "@/Constants/Server"
+import axios from "axios"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '../../Components/ui/dialog';
+} from "@/components/ui/dialog"
+import { useNavigate } from "react-router-dom"
+import { CheckCircle, AlertCircle, Calendar } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
-const LoginPage = () => {
-  const { seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login, resetPassword, token, isTokenValid } = useAuthContext();
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('');
-  const [resetEmail, setResetEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [forgotPassword, setForgotPassword] = useState(false);
-  const navigate = useNavigate();
-  const onboardingProcess = useLoaderData();
+export default function Coupons() {
+  // State management
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '', // Optional now
+    discountPercentage: '',
+    hasMinimumRequirement: false,
+    minimumAmount: 0,
+    startDate: new Date(), // Default to current date for immediate start
+    endDate: null,
+    customerEligibility: 'all',
+    usageLimit: null,
+    productDiscounts: [] // Will store {productId, discountedPrice}
+  })
+  const [selectedProducts, setSelectedProducts] = useState([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [endDateEnabled, setEndDateEnabled] = useState(false)
+  const [sellerProducts, setSellerProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false)
+  const [productErrors, setProductErrors] = useState({})
+  const navigate = useNavigate()
+  const [startTimeOption, setStartTimeOption] = useState('immediately')
 
-  // Forgot password states
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
-  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
-  const [resetCode, setResetCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
+  useEffect(() => {
+    const fetchSellerProducts = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken')
+        if (sellerToken) {
+          const tokenData = JSON.parse(sellerToken)
+          const token = tokenData.data
 
-  //function to submit the user data to login
-  const handleLogin = async (event) => {
-    event.preventDefault();
-    if (email !== "" && password !== "") {
-      await login(email, password);
+          const profileResponse = await axios.get(`${BASE_URL}/seller/profile`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+
+          const sellerId = profileResponse.data._id
+          const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`)
+
+          // Filter out products that are already on discount
+          const availableProducts = productsResponse.data.products.map(product => ({
+            ...product,
+            isOnDiscount: product.discountEndDate && new Date(product.discountEndDate) > new Date(),
+            discountEndDate: product.discountEndDate
+          }))
+
+          setSellerProducts(availableProducts)
+        }
+      } catch (error) {
+        setError("Failed to fetch products: " + error.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSellerProducts()
+  }, [])
+
+  // Update form data when start time option changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      startDate: startTimeOption === 'immediately' ? new Date() : prev.startDate
+    }))
+  }, [startTimeOption])
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      const sellerToken = localStorage.getItem('sellerToken')
+      if (!sellerToken) {
+        throw new Error("Not authenticated")
+      }
+
+      const tokenData = JSON.parse(sellerToken)
+      const token = tokenData.data
+
+      // Prepare product discounts data
+      const productDiscounts = selectedProducts.map(productId => {
+        const product = sellerProducts.find(p => p._id === productId)
+        // Calculate discounted price based on percentage
+        const discountedPrice = product.price * (1 - (formData.discountPercentage / 100))
+        return {
+          productId,
+          discountedPrice: Math.round(discountedPrice * 100) / 100 // Round to 2 decimal places
+        }
+      })
+
+      // Combine date and time
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`)
+      const endDateTime = endDateEnabled ? new Date(`${formData.endDate}T${formData.endTime}`) : null
+
+      const couponData = {
+        name: formData.name,
+        code: formData.code.toUpperCase(),
+        discountPercentage: Number(formData.discountPercentage),
+        hasMinimumRequirement: formData.hasMinimumRequirement,
+        minimumAmount: formData.hasMinimumRequirement ? Number(formData.minimumAmount) : 0,
+        startDate: startDateTime,
+        endDate: endDateTime,
+        customerEligibility: formData.customerEligibility,
+        productDiscounts,
+        usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null
+      }
+
+      await axios.post(`${BASE_URL}/coupons`, couponData, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      setSuccessDialogOpen(true)
+
+      // Reset form
+      setFormData({
+        name: "",
+        code: "",
+        discountPercentage: 0,
+        hasMinimumRequirement: false,
+        minimumAmount: 0,
+        startDate: new Date(),
+        endDate: null,
+        customerEligibility: "all",
+        usageLimit: null,
+        productDiscounts: []
+      })
+      setSelectedProducts([])
+      setEndDateEnabled(false)
+
+    } catch (error) {
+      setError(error.response?.data?.message || error.message)
+    }
+  }
+
+  // Filter products based on search query
+  const filteredProducts = sellerProducts.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Modify the product selection handler
+  const handleProductSelection = (productId, checked) => {
+    const product = sellerProducts.find(p => p._id === productId)
+
+    if (checked && product.isOnDiscount) {
+      setProductErrors({
+        ...productErrors,
+        [productId]: `This product is already on discount until ${new Date(product.discountEndDate).toLocaleDateString()}`
+      })
+      return
+    }
+
+    setProductErrors({
+      ...productErrors,
+      [productId]: null
+    })
+
+    if (checked) {
+      setSelectedProducts([...selectedProducts, productId])
     } else {
-      toast.error("Please fill in all fields");
+      setSelectedProducts(selectedProducts.filter((id) => id !== productId))
     }
   }
 
-  // Step 1: Request reset code
-  const handleRequestResetCode = async () => {
-    if (!resetEmail) {
-      return toast.error('Please enter your email');
-    }
-    
-    setResetLoading(true);
-    try {
-      await axios.post(`${BASE_URL}/api/seller/forgot-password`, { 
-        email: resetEmail 
-      });
-      toast.success('Reset code sent to your email');
-      setIsForgotPasswordOpen(false);
-      setIsResetPasswordOpen(true);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to send reset code');
-    } finally {
-      setResetLoading(false);
-    }
-  }
+  const formatDiscountInfo = (product) => {
+    if (!product.isOnDiscount) return null;
 
-  // Step 2: Reset password with code
-  const handleResetPassword = async () => {
-    if (!resetCode || resetCode.length !== 4) {
-      return toast.error('Please enter a valid 4-digit code');
-    }
-    if (!newPassword || newPassword.length < 8) {
-      return toast.error('Password must be at least 8 characters');
-    }
+    const endDate = new Date(product.discountEndDate).toLocaleDateString();
+    const discountPercentage = product.discountType === 'coupon'
+      ? `${product.discountPercentage}% off`
+      : `${Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% off`;
 
-    setResetLoading(true);
-    try {
-      await axios.post(`${BASE_URL}/api/seller/reset-password`, {
-        email: resetEmail,
-        code: resetCode,
-        newPassword
-      });
-      toast.success('Password reset successfully');
-      setIsResetPasswordOpen(false);
-      // Clear states
-      setResetEmail('');
-      setResetCode('');
-      setNewPassword('');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reset password');
-    } finally {
-      setResetLoading(false);
-    }
-  }
+    return {
+      endDate,
+      discountPercentage,
+      daysRemaining: Math.ceil((new Date(product.discountEndDate) - new Date()) / (1000 * 60 * 60 * 24))
+    };
+  };
 
   return (
-    <div className="relative xl:flex ">
-      <img src={LoginImage} alt="login2" className='xl:hidden fixed inset-0 w-full h-screen object-cover object-center' />
-      <img src={LoginImage} alt="login" className='w-[414.614px] xl:w-1/2 h-screen object-cover object-center hidden xl:block  ' />
-      <div className="hidden xl:block z-40 absolute top-1/2 left-20 -translate-y-1/2" >
-        <img src={Logo} alt="Logo" className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px] ' />
-      </div>
-      <div className=" xl:static fixed inset-0 m-auto h-full xl:inset-auto flex flex-col justify-center items-center z-10 py-5 px-5 md:px-10 xl:w-1/2 overflow-y-auto " >
-        <div className="mb-5  xl:hidden flex justify-center items-center" >
-          <img src={Logo} alt="Logo" className='w-[197.544px] 2xl:w-[300px] h-[60.779px] 2xl:h-[90px] ' />
-        </div>
-        <div className="xl:container xl:max-w-[680px] 2xl:max-w-[800px] py-5 px-10 md:py-20 md:px-28 xl:py-10 xl:px-24 rounded-lg w-full flex flex-col justify-center bg-[#F7FAFC] xl:bg-transparent " >
-          <div className='flex flex-col' >
-            <img src={Emoji} alt="Emoji" className='w-10 h-10 mb-4 xl:mb-8' />
-            <h1 className='text-xl md:text-3xl font-semibold font-inter' >Welcome Back!</h1>
-            <p className='text-sm md:text-base font-inter' >Let's build something great</p>
-          </div>
-          <form className="w-full mt-8" >
-            <div className="flex flex-col gap-2 w-full mb-4" >
-              <label htmlFor="email" className='text-sm md:text-base font-inter text-[#425466] ' >Email</label>
-              <input
-                type="text"
-                id="email"
-                name="email"
-                value={email}
-                placeholder='Enter your email'
-                onChange={(e) => setEmail(e.target.value)}
-                className='w-full h-12 rounded-md bg-[#EDF2F7]  p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm' />
-            </div>
-            <div className="flex flex-col gap-2 w-full mb-4" >
-              <label htmlFor="password" className='text-sm md:text-base font-inter text-[#425466]'>Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="password"
-                  name="password"
-                  value={password}
-                  placeholder='Enter your password'
-                  onChange={(e) => setPassword(e.target.value)}
-                  className='w-full h-12 rounded-md bg-[#EDF2F7] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm'
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  <Icon icon={showPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
-                </button>
-              </div>
-            </div>
-            <button
-              type="submit"
-              onClick={handleLogin}
-              className="w-full bg-[#0BB248] text-white font-semibold text-sm md:text-base font-inter py-3 rounded-md hover:bg-green-600 transition-colors mb-4"
-            >
-              {
-                isLoading ? <CircularProgress color="#FFFFFF" size={20} /> : "Sign In"
-              }
-            </button>
-
-            <div className="text-center xl:text-right mb-4">
-              <span className="text-sm text-gray-500">Forgot Password? </span>
-              <button 
-                onClick={() => setIsForgotPasswordOpen(true)} 
-                className="text-[#0BB248] font-inter text-sm font-bold hover:underline"
-              >
-                Reset
-              </button>
-            </div>
-            <div className="text-center mt-10 mb-4">
-              <span className="text-sm text-gray-500">Don't have an account? </span>{' '}
-              <Link to="/signup" className="text-[#0BB248] font-inter text-sm md:text-base font-bold hover:underline">
-                create
-              </Link>
-            </div>
-            <div className="flex justify-center gap-4">
-              <button
-                type="button"
-                className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
-              >
-                <img src="https://cdn.cdnlogo.com/logos/g/35/google-icon.svg" alt="Google" className="w-6 h-6" />
-              </button>
-              <button
-                type="button"
-                className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
-              >
-                <img src="https://cdn.cdnlogo.com/logos/a/12/apple.svg" alt="Apple" className="w-6 h-6" />
-              </button>
-              <button
-                type="button"
-                className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
-              >
-                <img src="https://cdn.cdnlogo.com/logos/f/91/facebook-icon.svg" alt="Facebook" className="w-6 h-6" />
-              </button>
-            </div>
-          </form>
-        </div>
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Create New Coupon</h1>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/dashboard/coupons/list')}
+        >
+          View All Coupons
+        </Button>
       </div>
 
-      {/* Step 1: Email Collection Dialog */}
-      <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>
-              Enter your email to receive a reset code
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex flex-col gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full p-2 border rounded"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Coupon Name and Code */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Coupon Details</h2>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Coupon Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="Summer Sale"
+                required
               />
-              <button
-                onClick={handleRequestResetCode}
-                disabled={resetLoading}
-                className="w-full bg-[#0BB248] text-white p-2 rounded hover:bg-green-600"
-              >
-                {resetLoading ? <CircularProgress size={20} /> : 'Send Reset Code'}
-              </button>
+            </div>
+            <div>
+              <Label htmlFor="code">Coupon Code (Optional)</Label>
+              <Input
+                id="code"
+                value={formData.code}
+                onChange={(e) => setFormData({...formData, code: e.target.value})}
+                placeholder="SUMMER2024"
+              />
+            </div>
+            <div>
+              <Label htmlFor="discountPercentage">Discount Percentage</Label>
+              <Input
+                id="discountPercentage"
+                type="number"
+                min="0"
+                max="100"
+                value={formData.discountPercentage}
+                onChange={(e) => setFormData({...formData, discountPercentage: e.target.value})}
+                required
+              />
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
 
-      {/* Step 2: Reset Code and New Password Dialog */}
-      <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Reset Your Password</DialogTitle>
-            <DialogDescription>
-              Enter the 4-digit code sent to your email and your new password
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex flex-col gap-4">
+        {/* Purchase Restrictions */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Coupon Purchase Restriction</h2>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="hasMinimum"
+              checked={formData.hasMinimumRequirement}
+              onCheckedChange={(checked) => setFormData({
+                ...formData,
+                hasMinimumRequirement: checked,
+                minimumAmount: checked ? formData.minimumAmount : 0
+              })}
+            />
+            <Label htmlFor="hasMinimum">Minimum Purchase requirement</Label>
+          </div>
+
+          {formData.hasMinimumRequirement && (
+            <Input
+              type="number"
+              value={formData.minimumAmount}
+              onChange={(e) => setFormData({...formData, minimumAmount: e.target.value})}
+              placeholder="₦ 1,000"
+              className="max-w-[200px]"
+            />
+          )}
+        </div>
+
+        {/* Active Dates */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Coupon Duration</h2>
+          <div className="space-y-4">
+            <RadioGroup
+              value={startTimeOption}
+              onValueChange={setStartTimeOption}
+              className="space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="immediately" id="immediately" />
+                <Label htmlFor="immediately">Start immediately</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="scheduled" id="scheduled" />
+                <Label htmlFor="scheduled">Schedule start time</Label>
+              </div>
+            </RadioGroup>
+
+            {startTimeOption === 'scheduled' && (
               <div>
-                <label className="text-sm text-gray-600 mb-1 block">Reset Code</label>
-                <input
-                  type="text"
-                  maxLength={4}
-                  placeholder="Enter 4-digit code"
-                  className="w-full p-2 border rounded text-center text-2xl tracking-[1em]"
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="datetime-local"
+                  value={formData.startDate ? new Date(formData.startDate).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => setFormData({...formData, startDate: new Date(e.target.value)})}
+                  required
                 />
               </div>
-              <div>
-                <label className="text-sm text-gray-600 mb-1 block">New Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter new password"
-                    className="w-full p-2 border rounded"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                  >
-                    <Icon icon={showPassword ? "mdi:eye-off" : "mdi:eye"} />
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={handleResetPassword}
-                disabled={resetLoading}
-                className="w-full bg-[#0BB248] text-white p-2 rounded hover:bg-green-600 mt-2"
-              >
-                {resetLoading ? <CircularProgress size={20} /> : 'Reset Password'}
-              </button>
+            )}
+
+            <div>
+              <Label htmlFor="endDate">End Date (Optional)</Label>
+              <Input
+                id="endDate"
+                type="datetime-local"
+                value={formData.endDate ? new Date(formData.endDate).toISOString().slice(0, 16) : ''}
+                onChange={(e) => setFormData({...formData, endDate: e.target.value ? new Date(e.target.value) : null})}
+              />
             </div>
+          </div>
+        </div>
+
+        {/* Customer Eligibility */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Customer Eligibility</h2>
+          <RadioGroup
+            value={formData.customerEligibility}
+            onValueChange={(value) => setFormData({...formData, customerEligibility: value})}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="all" id="all" />
+              <Label htmlFor="all">All customers</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="new" id="new" />
+              <Label htmlFor="new">New customers</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="followers" id="followers" />
+              <Label htmlFor="followers">Followers only</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {/* Usage Limits */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Usage Limits</h2>
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="hasUsageLimit"
+                checked={formData.usageLimit !== null}
+                onCheckedChange={(checked) => setFormData({
+                  ...formData,
+                  usageLimit: checked ? 0 : null
+                })}
+              />
+              <Label htmlFor="hasUsageLimit">Limit number of times this discount can be used</Label>
+            </div>
+            {formData.usageLimit !== null && (
+              <Input
+                type="number"
+                value={formData.usageLimit}
+                onChange={(e) => setFormData({...formData, usageLimit: e.target.value})}
+                placeholder="0"
+                className="max-w-[200px]"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Select Products */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Select Products</h2>
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Search products"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+
+          {error && (
+            <div className="text-red-500 text-sm">{error}</div>
+          )}
+
+          <div className="border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>PRODUCTS</TableHead>
+                  <TableHead>STOCK</TableHead>
+                  <TableHead>PRICE</TableHead>
+                  <TableHead>DISCOUNTED PRICE</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center">Loading products...</TableCell>
+                  </TableRow>
+                ) : filteredProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center">No products found</TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProducts.map((product) => {
+                    const isDiscounted = product.discount?.isActive;
+                    const discountInfo = isDiscounted ? {
+                      endDate: product.discount.endDate ? new Date(product.discount.endDate).toLocaleDateString() : 'No end date',
+                      discountPercentage: `${product.discount.value}% off`,
+                      daysRemaining: product.discount.endDate ? 
+                        Math.ceil((new Date(product.discount.endDate) - new Date()) / (1000 * 60 * 60 * 24)) : 
+                        'Ongoing',
+                      couponName: product.discount.couponName
+                    } : null;
+
+                    return (
+                      <TableRow
+                        key={product._id}
+                        className={isDiscounted ? "bg-gray-50" : ""}
+                      >
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="relative">
+                              <Checkbox
+                                checked={selectedProducts.includes(product._id)}
+                                onCheckedChange={(checked) => handleProductSelection(product._id, checked)}
+                                disabled={isDiscounted}
+                                className={isDiscounted ? "opacity-50 cursor-not-allowed" : ""}
+                              />
+                              {isDiscounted && (
+                                <AlertCircle className="h-4 w-4 text-amber-500 absolute -right-5 -top-1" />
+                              )}
+                            </div>
+                            {isDiscounted && (
+                              <div className="text-xs text-gray-500">
+                                <div className="font-medium">Product Already Discounted</div>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>Ends on {discountInfo.endDate}</span>
+                                  </div>
+                                  <div>Current discount: {discountInfo.discountPercentage}</div>
+                                  <div>Coupon: {discountInfo.couponName}</div>
+                                  {discountInfo.daysRemaining !== 'Ongoing' && (
+                                    <div className="text-amber-500">
+                                      {discountInfo.daysRemaining} days remaining
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <img
+                              src={product.images[0]?.url || "/placeholder.svg"}
+                              alt={product.name}
+                              className="h-10 w-10 rounded-md object-cover"
+                            />
+                            <div className="space-y-1">
+                              <div className="font-medium">{product.name}</div>
+                              {product.isOnDiscount && (
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="bg-amber-50 text-amber-700 hover:bg-amber-50">
+                                    {discountInfo.discountPercentage}
+                                  </Badge>
+                                  <span className="text-xs text-gray-500">
+                                    until {discountInfo.endDate}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div>{product.stock}</div>
+                            {product.isOnDiscount && (
+                              <div className="text-xs text-gray-500">
+                                Not available for new discounts
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className={product.isOnDiscount ? "line-through text-gray-400" : ""}>
+                              ₦ {product.price.toLocaleString()}
+                            </div>
+                            {product.isOnDiscount && (
+                              <div className="text-green-600 font-medium">
+                                ₦ {product.discountedPrice.toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {product.isOnDiscount ? (
+                            <div className="text-gray-400 italic">
+                              Currently discounted
+                            </div>
+                          ) : (
+                            <div>
+                              ₦ {(product.price * (1 - (formData.discountPercentage / 100))).toLocaleString()}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+            <div className="p-4 border-t text-sm text-gray-500">
+              Showing {filteredProducts.length} items
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-4">
+          <Button type="button" variant="outline">Cancel</Button>
+          <Button type="submit">Publish Coupon</Button>
+        </div>
+      </form>
+
+      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+              Coupon Created Successfully
+            </DialogTitle>
+            <DialogDescription>
+              Your coupon has been created and is now active. You can view and manage all your coupons in the coupons list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setSuccessDialogOpen(false)}
+            >
+              Create Another
+            </Button>
+            <Button
+              onClick={() => navigate('/dashboard/coupons/list')}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              View All Coupons
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   )
-};
-
-export async function Loader() {
-  const onboardingProcess = await fetchOnboardingProcess();
-  return onboardingProcess;
 }
-
-export default LoginPage

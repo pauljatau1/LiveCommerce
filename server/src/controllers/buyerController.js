@@ -198,33 +198,70 @@ exports.getProfile = async (req, res) => {
 
 // Update buyer profile
 exports.updateProfile = async (req, res) => {
-  const { firstName, lastName, country, phoneNumber, shippingAddresses, bio } = req.body;
-
   try {
+    const {
+      firstName,
+      lastName,
+      username,
+      country,
+      phoneNumber,
+      bio,
+      notificationPreferences,
+      preferredLanguage,
+      preferredCurrency
+    } = req.body;
+
     const buyer = await Buyer.findById(req.user.id);
     if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found.' });
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if username is being changed and verify uniqueness
+    if (username && username !== buyer.username) {
+      const existingUsername = await Buyer.findOne({ username });
+      if (existingUsername) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
     }
 
     // Update fields if provided
     if (firstName) buyer.firstName = firstName;
     if (lastName) buyer.lastName = lastName;
+    if (username) buyer.username = username;
     if (country) buyer.country = country;
     if (phoneNumber) buyer.phoneNumber = phoneNumber;
     if (bio) buyer.bio = bio;
-
-    // Update shipping addresses if provided
-    if (shippingAddresses) {
-      buyer.shippingAddresses = shippingAddresses.map(address => ({
-        ...address,
-        country: address.country || buyer.country,
-      }));
+    if (notificationPreferences) {
+      buyer.notificationPreferences = {
+        ...buyer.notificationPreferences,
+        ...notificationPreferences
+      };
     }
+    if (preferredLanguage) buyer.preferredLanguage = preferredLanguage;
+    if (preferredCurrency) buyer.preferredCurrency = preferredCurrency;
 
     const updatedBuyer = await buyer.save();
-    res.json({ message: 'Profile updated successfully', buyer: updatedBuyer });
+
+    res.json({
+      message: 'Profile updated successfully',
+      buyer: {
+        firstName: updatedBuyer.firstName,
+        lastName: updatedBuyer.lastName,
+        username: updatedBuyer.username,
+        email: updatedBuyer.email,
+        country: updatedBuyer.country,
+        phoneNumber: updatedBuyer.phoneNumber,
+        bio: updatedBuyer.bio,
+        notificationPreferences: updatedBuyer.notificationPreferences,
+        preferredLanguage: updatedBuyer.preferredLanguage,
+        preferredCurrency: updatedBuyer.preferredCurrency
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update profile', error: error.message });
+    res.status(500).json({
+      message: 'Failed to update profile',
+      error: error.message
+    });
   }
 };
 
@@ -390,7 +427,7 @@ exports.forgotPassword = async (req, res) => {
     // Generate reset token and expiry
     const resetToken = generateResetToken();
     buyer.resetPasswordToken = resetToken;
-    buyer.resetPasswordExpires = Date.now() + 3600000; // Token expires in 1 hour
+    buyer.resetPasswordExpires = Date.now() + 3600000;
     await buyer.save();
 
     // Create reset URL
@@ -1552,6 +1589,273 @@ exports.updateSellerReview = async (req, res) => {
     console.error('Error in updateSellerReview:', error);
     res.status(500).json({
       message: 'Failed to update review',
+      error: error.message
+    });
+  }
+};
+
+// Verify buyer's identity
+exports.verifyIdentity = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    const { note } = req.body;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Update verification status
+    buyer.isIdentityVerified = true;
+    buyer.identityDocument.status = 'verified';
+    if (note) {
+      buyer.identityVerificationNote = note;
+    }
+    
+    await buyer.save();
+
+    // Send email notification to buyer
+    const msg = {
+      to: buyer.email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Identity Verification Approved - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Identity Verification Approved</h1>
+            <p style="font-size: 16px; line-height: 1.5;">Great news! Your identity has been verified successfully. You now have full access to all features on Auqli.</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">What's Next?</h3>
+              <p style="font-size: 14px; color: #ffffff;">You can now enjoy all the benefits of being a verified user on our platform.</p>
+            </div>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    try {
+      await sgMail.send(msg);
+    } catch (sendError) {
+      console.error('SendGrid error:', sendError);
+      // Continue with the response even if email fails
+    }
+
+    res.json({
+      message: 'Identity verified successfully',
+      buyer: {
+        id: buyer._id,
+        isIdentityVerified: buyer.isIdentityVerified,
+        identityDocument: buyer.identityDocument,
+        verificationNote: buyer.identityVerificationNote
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to verify identity',
+      error: error.message
+    });
+  }
+};
+
+// Change password (when logged in)
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    // Validate password match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'New passwords do not match' });
+    }
+
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message: 'Password must be at least 8 characters long and contain uppercase, lowercase, number and special character'
+      });
+    }
+
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Verify current password
+    const isMatch = await buyer.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password
+    buyer.password = newPassword;
+    await buyer.save();
+
+    // Send confirmation email
+    const msg = {
+      to: buyer.email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Password Changed Successfully - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Changed Successfully</h1>
+            <p style="font-size: 16px; line-height: 1.5;">Your password has been successfully updated.</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="color: #ff9800;">If you didn't make this change, please contact our support team immediately.</p>
+            </div>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to change password',
+      error: error.message
+    });
+  }
+};
+
+// Request password reset (forgot password)
+exports.requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return res.status(404).json({ message: 'No account found with this email' });
+    }
+
+    // Generate 4-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    // Store OTP and expiry
+    buyer.resetPasswordOTP = otp;
+    buyer.resetPasswordOTPExpires = Date.now() + 600000; // 10 minutes
+    await buyer.save();
+
+    // Send email with OTP
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Password Reset Code - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Reset Your Password</h1>
+            <p style="font-size: 16px; line-height: 1.5;">You requested to reset your password. Here's your verification code:</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px; margin: 20px 0; color: #4CAF50;">${otp}</p>
+              <p style="font-size: 14px; color: #999999;">This code will expire in 10 minutes.</p>
+            </div>
+
+            <p style="color: #ff9800;">If you didn't request this reset, please ignore this email.</p>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.json({ 
+      message: 'Password reset code sent to your email',
+      validFor: '10 minutes'
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to process password reset request',
+      error: error.message
+    });
+  }
+};
+
+// Verify OTP and reset password
+exports.verifyAndResetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword, confirmPassword } = req.body;
+
+    // Validate password match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'Passwords do not match' });
+    }
+
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message: 'Password must be at least 8 characters long and contain uppercase, lowercase, number and special character'
+      });
+    }
+
+    const buyer = await Buyer.findOne({
+      email,
+      resetPasswordOTP: otp,
+      resetPasswordOTPExpires: { $gt: Date.now() }
+    });
+
+    if (!buyer) {
+      return res.status(400).json({ message: 'Invalid or expired reset code' });
+    }
+
+    // Update password and clear reset fields
+    buyer.password = newPassword;
+    buyer.resetPasswordOTP = undefined;
+    buyer.resetPasswordOTPExpires = undefined;
+    await buyer.save();
+
+    // Send confirmation email
+    const msg = {
+      to: email,
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'Password Reset Successful - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Successful!</h1>
+            <p style="font-size: 16px; line-height: 1.5;">Your password has been successfully reset.</p>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">Next Steps</h3>
+              <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 10px;">✓ Log in with your new password</li>
+                <li style="margin-bottom: 10px;">✓ Review your account security settings</li>
+                <li style="margin-bottom: 10px;">✓ Contact support if you notice any suspicious activity</li>
+              </ul>
+            </div>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to reset password',
       error: error.message
     });
   }

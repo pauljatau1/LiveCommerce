@@ -38,10 +38,9 @@ const couponSchema = new mongoose.Schema({
   },
   code: {
     type: String,
-    required: true,
-    unique: true,
     uppercase: true,
-    trim: true
+    sparse: true,
+    index: true,
   },
   discountPercentage: {
     type: Number,
@@ -109,6 +108,9 @@ const couponSchema = new mongoose.Schema({
 // Update timestamps on save
 couponSchema.pre('save', function(next) {
   this.updatedAt = new Date();
+  if (this.code === '') {
+    this.code = null;
+  }
   next();
 });
 
