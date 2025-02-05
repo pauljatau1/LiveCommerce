@@ -415,13 +415,22 @@ exports.getAllProducts = async (req, res) => {
         sortOptions = { createdAt: -1 };
     }
 
-    // Execute query with pagination
+    // Execute query with pagination and updated seller population
     const products = await Product.find(query)
       .sort(sortOptions)
       .skip((page - 1) * limit)
       .limit(limit)
-      .populate('seller', 'businessName storeName')
-      .select('-__v'); // Exclude version key if needed
+      .populate('seller', [
+        'firstName',
+        'lastName',
+        'businessName',
+        'storeName',
+        'stats.averageRating',
+        'stats.totalReviews',
+        'storeAvatar',
+        'isVerified'
+      ])
+      .select('-__v');
 
     // Get total count for pagination
     const totalProducts = await Product.countDocuments(query);
@@ -955,36 +964,28 @@ exports.deepSearchProducts = async (req, res) => {
 // Get just arrived products
 exports.getJustArrivedProducts = async (req, res) => {
   try {
-    console.log('Fetching just arrived products...');
-
-    // Get products from the last 7 days
-    const dateThreshold = new Date();
-    dateThreshold.setDate(dateThreshold.getDate() - 7);
-
-    console.log('Looking for products after:', dateThreshold);
-
-    const products = await Product.find({
-      createdAt: { $gte: dateThreshold },
-      status: 'active',
-      visibility: 'visible'
-    })
-      .select('name description price images category subCategory seller stats createdAt')
-      .populate('seller', 'name storeName avatarUrl')
+    const products = await Product.find({ status: 'active', visibility: 'visible' })
       .sort({ createdAt: -1 })
-      .lean();
-
-    console.log(`Found ${products.length} products`);
+      .limit(10)
+      .populate('seller', [
+        'firstName',
+        'lastName',
+        'businessName',
+        'storeName',
+        'stats.averageRating',
+        'stats.totalReviews',
+        'storeAvatar',
+        'isVerified'
+      ]);
 
     res.json({
       success: true,
-      products
+      data: products
     });
-
   } catch (error) {
-    console.error('Error in getJustArrivedProducts:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve just arrived products',
+      message: 'Error retrieving just arrived products',
       error: error.message
     });
   }
@@ -1062,100 +1063,28 @@ exports.getBuyerFeedProducts = async (req, res) => {
 // Get trending products based on review count and ratings
 exports.getTrendingProducts = async (req, res) => {
   try {
-    const { 
-      limit = 10, 
-      period = 'week',
-      category 
-    } = req.query;
-
-    // Calculate date threshold based on period
-    const dateThreshold = new Date();
-    switch (period) {
-      case 'day':
-        dateThreshold.setDate(dateThreshold.getDate() - 1);
-        break;
-      case 'month':
-        dateThreshold.setMonth(dateThreshold.getMonth() - 1);
-        break;
-      default: // week
-        dateThreshold.setDate(dateThreshold.getDate() - 7);
-    }
-
-    // Build base query
-    const query = {
-      status: 'active',
-      visibility: 'visible',
-      'stats.lastViewed': { $gte: dateThreshold }
-    };
-
-    // Add category filter if provided
-    if (category) {
-      query.category = category;
-    }
-
-    // Aggregate pipeline to calculate trending score
-    const trendingProducts = await Product.aggregate([
-      { $match: query },
-      {
-        $addFields: {
-          reviewCount: { $size: '$reviews' },
-          averageRating: { $avg: '$reviews.rating' },
-          // Calculate trending score based on multiple factors
-          trendingScore: {
-            $add: [
-              { $multiply: [{ $size: '$reviews' }, 2] }, // Review count weight
-              { $multiply: [{ $avg: '$reviews.rating' }, 3] }, // Rating weight
-              { $multiply: ['$stats.views', 0.5] }, // Views weight
-              { $multiply: ['$stats.sales', 4] } // Sales weight
-            ]
-          }
-        }
-      },
-      { $sort: { trendingScore: -1 } },
-      { $limit: parseInt(limit) },
-      {
-        $lookup: {
-          from: 'sellers',
-          localField: 'seller',
-          foreignField: '_id',
-          as: 'seller'
-        }
-      },
-      { $unwind: '$seller' },
-      {
-        $project: {
-          name: 1,
-          price: 1,
-          discountedPrice: 1,
-          images: 1,
-          category: 1,
-          trendingScore: 1,
-          'seller._id': 1,
-          'seller.storeName': 1,
-          stats: {
-            rating: '$averageRating',
-            reviewCount: '$reviewCount',
-            views: '$stats.views',
-            sales: '$stats.sales'
-          }
-        }
-      }
-    ]);
+    const products = await Product.find({ status: 'active', visibility: 'visible' })
+      .sort({ 'analytics.views': -1, 'analytics.likes': -1 })
+      .limit(10)
+      .populate('seller', [
+        'firstName',
+        'lastName',
+        'businessName',
+        'storeName',
+        'stats.averageRating',
+        'stats.totalReviews',
+        'storeAvatar',
+        'isVerified'
+      ]);
 
     res.json({
       success: true,
-      period,
-      products: trendingProducts.map(product => ({
-        ...product,
-        trendingScore: Math.round(product.trendingScore * 100) / 100
-      }))
+      data: products
     });
-
   } catch (error) {
-    console.error('Error fetching trending products:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch trending products',
+      message: 'Error retrieving trending products',
       error: error.message
     });
   }
