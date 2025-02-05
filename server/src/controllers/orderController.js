@@ -1855,4 +1855,76 @@ exports.testShipmentWebhook = async (req, res) => {
   }
 };
 
+// Close order (for buyer)
+exports.closeOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Verify this is the buyer's order
+    if (order.buyer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to close this order' });
+    }
+
+    // Verify order is delivered
+    if (!order.items.every(item => item.status === 'delivered')) {
+      return res.status(400).json({ message: 'Order must be delivered before it can be closed' });
+    }
+
+    order.isOpen = false;
+    order.closedAt = new Date();
+    order.closedBy = 'buyer';
+    order.closedReason = reason || 'Order confirmed and received by buyer';
+
+    await order.save();
+
+    res.json({ message: 'Order closed successfully', order });
+  } catch (error) {
+    res.status(500).json({ message: 'Error closing order', error: error.message });
+  }
+};
+
+// Admin functions to close/reopen orders
+exports.updateOrderOpenStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { isOpen, reason } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    order.isOpen = isOpen;
+    
+    if (!isOpen) {
+      order.closedAt = new Date();
+      order.closedBy = 'admin';
+      order.closedReason = reason || 'Closed by admin';
+    } else {
+      // Reset closing fields when reopening
+      order.closedAt = null;
+      order.closedBy = null;
+      order.closedReason = null;
+    }
+
+    await order.save();
+
+    res.json({ 
+      message: `Order ${isOpen ? 'reopened' : 'closed'} successfully`, 
+      order 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: `Error ${isOpen ? 'reopening' : 'closing'} order`, 
+      error: error.message 
+    });
+  }
+};
+
 

@@ -193,7 +193,17 @@ const orderSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  isOpen: {
+    type: Boolean,
+    default: true
+  },
+  closedAt: Date,
+  closedBy: {
+    type: String,
+    enum: ['admin', 'buyer', 'auto'],
+  },
+  closedReason: String,
 });
 
 // Add a pre-save middleware to ensure uniqueness of orderId
@@ -237,6 +247,22 @@ orderSchema.pre('save', async function(next) {
       });
     }
   });
+
+  // Check if order should be auto-closed
+  if (this.isOpen && 
+      this.items.every(item => item.status === 'delivered') && 
+      this.items[0].statusHistory.find(h => h.status === 'delivered')) {
+    
+    const deliveredDate = this.items[0].statusHistory.find(h => h.status === 'delivered').timestamp;
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+    if (deliveredDate <= twoDaysAgo) {
+      this.isOpen = false;
+      this.closedAt = new Date();
+      this.closedBy = 'auto';
+      this.closedReason = 'Auto-closed after 2 days of delivery with no action';
+    }
+  }
 
   next();
 });

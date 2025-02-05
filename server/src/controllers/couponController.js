@@ -63,7 +63,7 @@ exports.createCoupon = async (req, res) => {
       // Calculate discount percentage
       const discountValue = ((product.price - discountInfo.discountedPrice) / product.price) * 100;
       
-      // Update product's discount information
+      // Update product's discount information and its variants
       await Product.findByIdAndUpdate(product._id, {
         discount: {
           isActive: true,
@@ -82,8 +82,43 @@ exports.createCoupon = async (req, res) => {
           endDate: endDate,
           couponName: name,
           discountedPrice: discountInfo.discountedPrice
+        },
+        // Apply same discount to all variants
+        $set: {
+          'variants.$[].discount': {
+            isActive: true,
+            type: 'percentage',
+            value: discountValue,
+            startDate: startDate || new Date(),
+            endDate: endDate,
+            couponName: name,
+            discountedPrice: null // Will be calculated for each variant
+          }
         }
       });
+
+      // Calculate and update discounted prices for variants
+      const updatedProduct = await Product.findById(product._id);
+      if (updatedProduct.variants && updatedProduct.variants.length > 0) {
+        const variantUpdates = updatedProduct.variants.map(variant => {
+          const variantDiscountedPrice = Math.round((variant.price * (100 - discountValue)) / 100);
+          return {
+            updateOne: {
+              filter: {
+                _id: product._id,
+                'variants._id': variant._id
+              },
+              update: {
+                $set: {
+                  'variants.$.discount.discountedPrice': variantDiscountedPrice
+                }
+              }
+            }
+          };
+        });
+
+        await Product.bulkWrite(variantUpdates);
+      }
 
       return {
         product: product._id,
@@ -237,11 +272,11 @@ exports.deleteCoupon = async (req, res) => {
     // Get all product IDs from the coupon's applicable products
     const productIds = coupon.applicableProducts.map(ap => ap.product);
 
-    // Update all products to remove the discount
+    // Update all products to remove the discount, including variants
     await Product.updateMany(
       {
         _id: { $in: productIds },
-        'discount.couponName': coupon.name // Extra check to ensure we only remove this specific coupon's discount
+        'discount.couponName': coupon.name
       },
       {
         $set: {
@@ -255,6 +290,15 @@ exports.deleteCoupon = async (req, res) => {
             discountedPrice: null
           },
           'pricing.discountInfo': {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          },
+          'variants.$[].discount': {
             isActive: false,
             type: 'percentage',
             value: 0,

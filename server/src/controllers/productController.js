@@ -366,9 +366,9 @@ const sellerPopulationFields = [
   'isVerified',
   'email',
   'phoneNumber',
-  'businessAddress',      // Added business address
-  'warehouseDetails',    // Added warehouse details
-  'sellerAddress'        // Added seller's personal address
+  'businessAddress',      
+  'warehouseDetails',    
+  'sellerAddress'       
 ];
 
 // Get all products

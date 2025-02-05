@@ -937,4 +937,81 @@ router.post('/:orderId/arrange-pickup',
  */
 router.post('/test-webhook', orderController.testShipmentWebhook);
 
+/**
+ * @swagger
+ * /api/order/{orderId}/close:
+ *   post:
+ *     summary: Close an order (buyer)
+ *     description: Allows a buyer to close their order after confirming receipt
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Order closed successfully
+ *       403:
+ *         description: Not authorized to close this order
+ *       404:
+ *         description: Order not found
+ */
+router.post('/:orderId/close', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  orderController.closeOrder
+);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/open-status:
+ *   put:
+ *     summary: Update order open/closed status (admin only)
+ *     description: Allows admin to close or reopen an order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - isOpen
+ *             properties:
+ *               isOpen:
+ *                 type: boolean
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       404:
+ *         description: Order not found
+ */
+router.put('/:orderId/open-status', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  orderController.updateOrderOpenStatus
+);
+
 module.exports = router;
