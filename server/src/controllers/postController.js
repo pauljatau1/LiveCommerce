@@ -63,6 +63,25 @@ const generateVideoThumbnail = async (videoBuffer) => {
   }
 };
 
+// Helper function to enhance tagged sellers info
+const enhanceTaggedSellers = async (taggedSellers) => {
+  const enhancedSellers = await Promise.all(taggedSellers.map(async (tag) => {
+    const seller = await Seller.findById(tag.sellerId).select('firstName lastName storeName businessName stats storeAvatar');
+    return {
+      ...tag.toObject(),
+      firstName: seller?.firstName,
+      lastName: seller?.lastName,
+      storeName: seller?.storeName,
+      businessName: seller?.businessName,
+      rating: seller?.stats?.averageRating || 0,
+      totalReviews: seller?.stats?.totalReviews || 0,
+      storeAvatar: seller?.storeAvatar?.url || null,
+      fullName: seller ? `${seller.firstName} ${seller.lastName}` : null
+    };
+  }));
+  return enhancedSellers;
+};
+
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
@@ -402,20 +421,25 @@ exports.getPosts = async (req, res) => {
       .limit(limit * 1)
       .populate('products.productId', 'name price images category brand');
 
-    const enhancedPosts = posts.map(post => ({
-      ...post.toObject(),
-      author: {
-        id: post.author.userId,
-        name: post.author.storeName || 
-              post.author.username || 
-              `${post.author.firstName} ${post.author.lastName}`,
-        image: post.author.profileImage?.url || null,
-        bio: post.author.bio || null,
-        country: post.author.country,
-        type: post.author.userModel,
-        businessName: post.author.businessName || null,
-        username: post.author.username || null
-      }
+    const enhancedPosts = await Promise.all(posts.map(async post => {
+      const enhancedTaggedSellers = await enhanceTaggedSellers(post.taggedSellers);
+      
+      return {
+        ...post.toObject(),
+        author: {
+          id: post.author.userId,
+          name: post.author.storeName || 
+                post.author.username || 
+                `${post.author.firstName} ${post.author.lastName}`,
+          image: post.author.profileImage?.url || null,
+          bio: post.author.bio || null,
+          country: post.author.country,
+          type: post.author.userModel,
+          businessName: post.author.businessName || null,
+          username: post.author.username || null
+        },
+        taggedSellers: enhancedTaggedSellers
+      };
     }));
 
     const count = await Post.countDocuments({ visibility });
@@ -892,92 +916,108 @@ exports.dislikePost = async (req, res) => {
   }
 };
 
-// Get trending posts
+
 exports.getTrendingPosts = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const { page = 1, limit = 10, period = 'week' } = req.query;
 
-    const posts = await Post.aggregate([
-      { $match: { visibility: 'public' } },
-      {
-        $addFields: {
-          safeReactions: { $ifNull: ['$reactions', []] },
-          likeCount: {
-            $size: {
-              $filter: {
-                input: { $ifNull: ['$reactions', []] },
-                as: 'reaction',
-                cond: { $eq: ['$$reaction.type', 'like'] }
-              }
-            }
-          },
-          commentCount: {
-            $size: { $ifNull: ['$comments', []] }
-          }
-        }
-      },
-      {
-        $addFields: {
-          score: {
-            $add: [
-              { $multiply: ['$likeCount', 2] },
-              { $multiply: ['$commentCount', 3] },
-              { $multiply: ['$stats.viewCount', 1] },
-              { $multiply: ['$stats.shareCount', 3] }
-            ]
-          }
-        }
-      },
-      { $sort: { score: -1, createdAt: -1 } },
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
-    ]);
+    // Calculate date threshold based on period
+    const dateThreshold = new Date();
+    switch (period) {
+      case 'day':
+        dateThreshold.setDate(dateThreshold.getDate() - 1);
+        break;
+      case 'month':
+        dateThreshold.setMonth(dateThreshold.getMonth() - 1);
+        break;
+      default: // week
+        dateThreshold.setDate(dateThreshold.getDate() - 7);
+    }
 
-    // Populate products data
-    await Post.populate(posts, {
-      path: 'products.productId',
-      select: 'name price images category brand'
+    // Find trending posts with proper population
+    const posts = await Post.find({
+      visibility: 'public',
+      createdAt: { $gte: dateThreshold }
+    })
+      .sort({
+        'stats.likeCount': -1,
+        'stats.viewCount': -1,
+        'stats.shareCount': -1,
+        createdAt: -1
+      })
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate({
+        path: 'author.userId',
+        select: 'firstName lastName storeName businessName profileImage bio country',
+        refPath: 'author.userModel'
+      })
+      .populate('products.productId', 'name price images category brand')
+      .populate({
+        path: 'taggedSellers.sellerId',
+        select: 'firstName lastName storeName businessName profileImage stats storeAvatar',
+        model: 'Seller'
+      });
+
+    // Enhance posts with formatted data
+    const enhancedPosts = posts.map(post => {
+      // Safely handle tagged sellers with complete information
+      const enhancedTaggedSellers = post.taggedSellers?.map(tag => ({
+        sellerId: tag.sellerId?._id,
+        _id: tag._id,
+        taggedAt: tag.taggedAt,
+        firstName: tag.sellerId?.firstName,
+        lastName: tag.sellerId?.lastName,
+        storeName: tag.sellerId?.storeName,
+        businessName: tag.sellerId?.businessName,
+        rating: tag.sellerId?.stats?.averageRating || 0,
+        totalReviews: tag.sellerId?.stats?.totalReviews || 0,
+        storeAvatar: tag.sellerId?.storeAvatar?.url || tag.sellerId?.profileImage?.url,
+        fullName: `${tag.sellerId?.firstName} ${tag.sellerId?.lastName}`
+      })) || [];
+
+      // Safely handle products
+      const enhancedProducts = post.products?.map(product => ({
+        id: product.productId?._id || null,
+        name: product.productId?.name || null,
+        price: product.productId?.price || null,
+        images: product.productId?.images || [],
+        category: product.productId?.category || null,
+        brand: product.productId?.brand || null
+      })) || [];
+
+      return {
+        ...post.toObject(),
+        products: enhancedProducts,
+        author: {
+          id: post.author.userId?._id,
+          name: post.author.userId?.storeName || 
+                `${post.author.userId?.firstName} ${post.author.userId?.lastName}`,
+          image: post.author.userId?.profileImage?.url || null,
+          bio: post.author.userId?.bio || null,
+          country: post.author.userId?.country,
+          type: post.author.userModel,
+          businessName: post.author.userId?.businessName || null,
+          username: post.author.userId?.username || null
+        },
+        taggedSellers: enhancedTaggedSellers
+      };
     });
 
-    const enhancedPosts = posts.map(post => ({
-      ...post,
-      author: {
-        id: post.author.userId,
-        name: post.author.storeName || 
-              post.author.username || 
-              `${post.author.firstName} ${post.author.lastName}`,
-        image: post.author.profileImage?.url || null,
-        bio: post.author.bio || null,
-        country: post.author.country,
-        type: post.author.userModel
-      },
-      products: post.products?.map(product => ({
-        id: product.productId?._id,
-        name: product.productId?.name,
-        price: product.productId?.price,
-        images: product.productId?.images,
-        category: product.productId?.category,
-        brand: product.productId?.brand
-      })),
-      stats: {
-        likeCount: post.likeCount,
-        commentCount: post.commentCount,
-        viewCount: post.stats?.viewCount || 0,
-        shareCount: post.stats?.shareCount || 0
-      }
-    }));
-
-    const count = await Post.countDocuments({ visibility: 'public' });
+    const count = await Post.countDocuments({
+      visibility: 'public',
+      createdAt: { $gte: dateThreshold }
+    });
 
     res.json({
       posts: enhancedPosts,
       totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      currentPage: parseInt(page),
       totalPosts: count
     });
+
   } catch (error) {
-    console.error('Get trending posts error:', error);
+    console.error('Error in getTrendingPosts:', error);
     res.status(500).json({
       message: 'Failed to fetch trending posts',
       error: error.message
@@ -997,26 +1037,31 @@ exports.getNewPosts = async (req, res) => {
       .limit(limit)
       .populate('products.productId', 'name price images category brand');
 
-    const enhancedPosts = posts.map(post => ({
-      ...post.toObject(),
-      author: {
-        id: post.author.userId,
-        name: post.author.storeName || 
-              post.author.username || 
-              `${post.author.firstName} ${post.author.lastName}`,
-        image: post.author.profileImage?.url || null,
-        bio: post.author.bio || null,
-        country: post.author.country,
-        type: post.author.userModel
-      },
-      products: post.products?.map(product => ({
-        id: product.productId?._id,
-        name: product.productId?.name,
-        price: product.productId?.price,
-        images: product.productId?.images,
-        category: product.productId?.category,
-        brand: product.productId?.brand
-      }))
+    const enhancedPosts = await Promise.all(posts.map(async post => {
+      const enhancedTaggedSellers = await enhanceTaggedSellers(post.taggedSellers);
+      
+      return {
+        ...post.toObject(),
+        taggedSellers: enhancedTaggedSellers,
+        author: {
+          id: post.author.userId,
+          name: post.author.storeName || 
+                post.author.username || 
+                `${post.author.firstName} ${post.author.lastName}`,
+          image: post.author.profileImage?.url || null,
+          bio: post.author.bio || null,
+          country: post.author.country,
+          type: post.author.userModel
+        },
+        products: post.products?.map(product => ({
+          id: product.productId?._id,
+          name: product.productId?.name,
+          price: product.productId?.price,
+          images: product.productId?.images,
+          category: product.productId?.category,
+          brand: product.productId?.brand
+        }))
+      };
     }));
 
     const count = await Post.countDocuments({ visibility: 'public' });

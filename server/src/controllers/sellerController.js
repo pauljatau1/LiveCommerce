@@ -1466,7 +1466,8 @@ exports.getBuyerDetails = async (req, res) => {
       topPurchases,
       recentOrders: recentOrders.map(order => ({
         _id: order._id,
-        orderNumber: order.orderNumber || order._id,
+
+        orderNumber: order.order_id,
         totalAmount: order.totalAmount,
         status: order.status,
         createdAt: order.createdAt,

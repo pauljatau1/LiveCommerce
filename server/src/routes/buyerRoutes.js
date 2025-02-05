@@ -1261,4 +1261,208 @@ router.put('/seller/:sellerId/review',
   buyerController.updateSellerReview
 );
 
+/**
+ * @swagger
+ * /api/buyer/verify-identity/{buyerId}:
+ *   post:
+ *     summary: Verify buyer's identity document (Admin only)
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer to verify
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 description: Optional note about the verification
+ *     responses:
+ *       200:
+ *         description: Identity verified successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Not an admin
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/verify-identity/:buyerId', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.verifyIdentity
+);
+
+/**
+ * @swagger
+ * /api/buyer/profile/update:
+ *   put:
+ *     summary: Update buyer profile details
+ *     description: Update various profile details including personal info, preferences, and settings
+ *     tags: [Buyer Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 example: "Doe"
+ *               username:
+ *                 type: string
+ *                 example: "johndoe123"
+ *               country:
+ *                 type: string
+ *                 example: "United States"
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "+1234567890"
+ *               bio:
+ *                 type: string
+ *                 example: "Tech enthusiast and avid shopper"
+ *               notificationPreferences:
+ *                 type: object
+ *                 properties:
+ *                   email:
+ *                     type: boolean
+ *                   sms:
+ *                     type: boolean
+ *                   push:
+ *                     type: boolean
+ *               preferredLanguage:
+ *                 type: string
+ *                 enum: [en, es, fr]
+ *               preferredCurrency:
+ *                 type: string
+ *                 enum: [USD, EUR, GBP]
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ * 
+ * /api/buyer/change-password:
+ *   post:
+ *     summary: Change password while logged in
+ *     tags: [Buyer Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Passwords don't match or invalid input
+ *       401:
+ *         description: Current password is incorrect
+ *
+ * /api/buyer/forgot-password/request:
+ *   post:
+ *     summary: Request password reset OTP
+ *     tags: [Buyer Profile]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *       404:
+ *         description: Email not found
+ *
+ * /api/buyer/forgot-password/verify:
+ *   post:
+ *     summary: Verify OTP and reset password
+ *     tags: [Buyer Profile]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               otp:
+ *                 type: string
+ *                 minLength: 4
+ *                 maxLength: 4
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid OTP or passwords don't match
+ *       404:
+ *         description: Email not found
+ */
+
+// Route definitions
+router.put('/profile/update', authMiddleware.verifyToken, buyerController.updateProfile);
+router.post('/change-password', authMiddleware.verifyToken, buyerController.changePassword);
+router.post('/forgot-password/request', buyerController.requestPasswordReset);
+router.post('/forgot-password/verify', buyerController.verifyAndResetPassword);
+
 module.exports = router;

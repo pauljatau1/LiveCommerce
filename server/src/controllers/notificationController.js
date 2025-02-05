@@ -1,5 +1,6 @@
 const Notification = require('../models/Notification');
 const sgMail = require('@sendgrid/mail');
+const Order = require('../models/Order');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Helper function to get notification title
@@ -288,5 +289,362 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
   } catch (error) {
     console.error('Error in sendCampaignEmails:', error);
     throw error;
+  }
+};
+
+// Add these webhook handler functions
+const handleShipmentCreated = async (webhookData) => {
+  try {
+    const order = await Order.findOne({ 'shipping.shipment_id': webhookData.shipment_id })
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
+    if (!order) {
+      console.log('Order not found for shipment:', webhookData.shipment_id);
+      return;
+    }
+
+    // Update order shipping information
+    const shippingUpdate = {
+      $set: {
+        'shipping.tracking.number': webhookData.tracking_number,
+        'shipping.tracking.url': webhookData.carrier_tracking_url,
+        'shipping.tracking.status': 'pickup_arranged',
+        'shipping.tracking.lastUpdate': new Date(),
+        'shipping.documents.shippingLabel': webhookData.shipping_label_url,
+        'shipping.documents.commercialInvoice': webhookData.commercial_invoice_url
+      },
+      $push: {
+        'shipping.tracking.history': {
+          status: 'pickup_arranged',
+          timestamp: new Date(),
+          location: webhookData.events[0]?.location || 'Unknown',
+          description: webhookData.events[0]?.description || 'Shipment created'
+        }
+      }
+    };
+
+    await Order.findByIdAndUpdate(order._id, shippingUpdate);
+
+    // Send email to buyer
+    const buyerEmail = {
+      to: order.buyer.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Your Order Has Been Shipped - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Order is Being Prepared for Shipping!</h2>
+          <p>Dear ${order.buyer.firstName},</p>
+          <p>Great news! Your order #${order.order_id} is being prepared for shipping by ${order.seller.businessName || order.seller.firstName}.</p>
+          <p><strong>Tracking Details:</strong></p>
+          <ul>
+            <li>Tracking Number: ${webhookData.tracking_number}</li>
+            <li>Carrier: ${webhookData.carrier_name}</li>
+          </ul>
+          <p>You can track your shipment here: <a href="${webhookData.carrier_tracking_url}">Track Shipment</a></p>
+          <p>We'll keep you updated on your shipment's progress.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send email to seller
+    const sellerEmail = {
+      to: order.seller.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Shipment Created Successfully - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Shipment Created Successfully</h2>
+          <p>Dear ${order.seller.firstName},</p>
+          <p>A shipment has been created for order #${order.order_id}.</p>
+          <p><strong>Shipping Details:</strong></p>
+          <ul>
+            <li>Tracking Number: ${webhookData.tracking_number}</li>
+            <li>Carrier: ${webhookData.carrier_name}</li>
+          </ul>
+          <p><strong>Important Documents:</strong></p>
+          <ul>
+            <li><a href="${webhookData.shipping_label_url}">Download Shipping Label</a></li>
+            <li><a href="${webhookData.commercial_invoice_url}">Download Commercial Invoice</a></li>
+          </ul>
+          <p>Please ensure the package is ready for pickup.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send emails
+    await Promise.all([
+      sgMail.send(buyerEmail),
+      sgMail.send(sellerEmail)
+    ]);
+
+    // Create notification for seller
+    await exports.createNotification(order.seller, 'shipment_created', {
+      orderId: order._id,
+      order_id: order.order_id,
+      tracking_number: webhookData.tracking_number
+    });
+
+  } catch (error) {
+    console.error('Error handling shipment.created webhook:', error);
+    throw error;
+  }
+};
+
+const handleShipmentInTransit = async (webhookData) => {
+  try {
+    const order = await Order.findOne({ 'shipping.shipment_id': webhookData.shipment_id })
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
+    if (!order) {
+      console.log('Order not found for shipment:', webhookData.shipment_id);
+      return;
+    }
+
+    // Update order shipping information
+    const shippingUpdate = {
+      $set: {
+        'shipping.tracking.status': 'in-transit',
+        'shipping.tracking.lastUpdate': new Date()
+      },
+      $push: {
+        'shipping.tracking.history': {
+          status: 'in-transit',
+          timestamp: new Date(),
+          location: webhookData.events[0]?.location || 'Unknown',
+          description: webhookData.events[0]?.description || 'Shipment in transit'
+        }
+      }
+    };
+
+    await Order.findByIdAndUpdate(order._id, shippingUpdate);
+
+    // Send email to buyer
+    const buyerEmail = {
+      to: order.buyer.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Your Order is On the Way - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Order is On the Move!</h2>
+          <p>Dear ${order.buyer.firstName},</p>
+          <p>Your order #${order.order_id} from ${order.seller.businessName || order.seller.firstName} is now in transit!</p>
+          <p><strong>Latest Update:</strong></p>
+          <ul>
+            <li>Status: In Transit</li>
+            <li>Location: ${webhookData.events[0]?.location || 'Unknown'}</li>
+            <li>Tracking Number: ${webhookData.tracking_number}</li>
+          </ul>
+          <p>Track your shipment: <a href="${webhookData.carrier_tracking_url}">Click here</a></p>
+          <p>We'll notify you when your package is delivered.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send email to seller
+    const sellerEmail = {
+      to: order.seller.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Order In Transit - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Now In Transit</h2>
+          <p>Dear ${order.seller.firstName},</p>
+          <p>Order #${order.order_id} is now in transit to the customer.</p>
+          <p><strong>Shipping Update:</strong></p>
+          <ul>
+            <li>Status: In Transit</li>
+            <li>Location: ${webhookData.events[0]?.location || 'Unknown'}</li>
+            <li>Tracking Number: ${webhookData.tracking_number}</li>
+          </ul>
+          <p>Track the shipment: <a href="${webhookData.carrier_tracking_url}">Click here</a></p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send emails
+    await Promise.all([
+      sgMail.send(buyerEmail),
+      sgMail.send(sellerEmail)
+    ]);
+
+    // Create notification for seller
+    await exports.createNotification(order.seller, 'shipment_in_transit', {
+      orderId: order._id,
+      order_id: order.order_id,
+      tracking_number: webhookData.tracking_number
+    });
+
+  } catch (error) {
+    console.error('Error handling shipment.in-transit webhook:', error);
+    throw error;
+  }
+};
+
+const handleShipmentDelivered = async (webhookData) => {
+  try {
+    const order = await Order.findOne({ 'shipping.shipment_id': webhookData.shipment_id })
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
+    if (!order) {
+      console.log('Order not found for shipment:', webhookData.shipment_id);
+      return;
+    }
+
+    // Update order shipping information
+    const shippingUpdate = {
+      $set: {
+        'shipping.tracking.status': 'delivered',
+        'shipping.tracking.lastUpdate': new Date(),
+        'shipping.delivery.actualDate': new Date()
+      },
+      $push: {
+        'shipping.tracking.history': {
+          status: 'delivered',
+          timestamp: new Date(),
+          location: webhookData.events[0]?.location || 'Unknown',
+          description: webhookData.events[0]?.description || 'Shipment delivered'
+        }
+      }
+    };
+
+    await Order.findByIdAndUpdate(order._id, shippingUpdate);
+
+    // Send email to buyer
+    const buyerEmail = {
+      to: order.buyer.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Your Order Has Been Delivered - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Order Has Been Delivered!</h2>
+          <p>Dear ${order.buyer.firstName},</p>
+          <p>Great news! Your order #${order.order_id} from ${order.seller.businessName || order.seller.firstName} has been delivered.</p>
+          <p><strong>Delivery Details:</strong></p>
+          <ul>
+            <li>Delivered on: ${new Date().toLocaleDateString()}</li>
+            <li>Location: ${webhookData.events[0]?.location || 'Delivery Address'}</li>
+          </ul>
+          <p>We hope you enjoy your purchase! If you have any questions or concerns, please don't hesitate to contact us.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send email to seller
+    const sellerEmail = {
+      to: order.seller.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Order Delivered Successfully - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Delivered Successfully</h2>
+          <p>Dear ${order.seller.firstName},</p>
+          <p>Order #${order.order_id} has been successfully delivered to the customer.</p>
+          <p><strong>Delivery Details:</strong></p>
+          <ul>
+            <li>Delivered on: ${new Date().toLocaleDateString()}</li>
+            <li>Location: ${webhookData.events[0]?.location || 'Delivery Address'}</li>
+          </ul>
+          <p>Thank you for using Auqli!</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send emails
+    await Promise.all([
+      sgMail.send(buyerEmail),
+      sgMail.send(sellerEmail)
+    ]);
+
+    // Create notification for seller
+    await exports.createNotification(order.seller, 'order_delivered', {
+      orderId: order._id,
+      order_id: order.order_id,
+      tracking_number: webhookData.tracking_number
+    });
+
+  } catch (error) {
+    console.error('Error handling shipment.delivered webhook:', error);
+    throw error;
+  }
+};
+
+// Update the simulateShipmentWebhook function to use these handlers
+exports.simulateShipmentWebhook = async (req, res) => {
+  try {
+    const { shipment_id, status, tracking_number } = req.body;
+
+    console.log('Simulating shipment webhook:', {
+      shipment_id,
+      status,
+      tracking_number
+    });
+
+    // Validate required fields
+    if (!shipment_id || !status || !tracking_number) {
+      return res.status(400).json({
+        message: 'Missing required fields: shipment_id, status, and tracking_number are required'
+      });
+    }
+
+    // Validate status
+    const validStatuses = ['created', 'in-transit', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Create mock webhook data
+    const mockWebhookData = {
+      shipment_id,
+      status,
+      tracking_number,
+      carrier_name: "DHL Express",
+      carrier_tracking_url: `https://www.dhl.com/global-en/home/tracking.html?tracking-id=${tracking_number}`,
+      shipping_label_url: `https://sandbox.terminal.africa/v1/shipments/label/${shipment_id}.pdf`,
+      commercial_invoice_url: `https://sandbox.terminal.africa/v1/shipments/commercial-invoice/${shipment_id}.pdf`,
+      events: [{
+        location: "Lagos, NG",
+        description: `Shipment ${status}`,
+        created_at: new Date()
+      }]
+    };
+
+    // Handle different webhook events
+    switch (status) {
+      case 'in-transit':
+        await handleShipmentInTransit(mockWebhookData);
+        break;
+      case 'delivered':
+        await handleShipmentDelivered(mockWebhookData);
+        break;
+      case 'cancelled':
+        // Implement cancelled handler if needed
+        console.log('Shipment cancelled:', mockWebhookData);
+        break;
+      default:
+        await handleShipmentCreated(mockWebhookData);
+    }
+
+    res.json({
+      message: `Webhook event '${status}' simulated successfully`,
+      data: mockWebhookData
+    });
+
+  } catch (error) {
+    console.error('Error in simulateShipmentWebhook:', error);
+    res.status(500).json({ 
+      message: 'Failed to simulate webhook event',
+      error: error.message 
+    });
   }
 };

@@ -83,6 +83,23 @@ const buyerSchema = new mongoose.Schema({
   },
   isIdentityVerified: { type: Boolean, default: false },
   identityVerificationNote: { type: String },
+  resetPasswordOTP: String,
+  resetPasswordOTPExpires: Date,
+  notificationPreferences: {
+    email: { type: Boolean, default: true },
+    sms: { type: Boolean, default: true },
+    push: { type: Boolean, default: true }
+  },
+  preferredLanguage: {
+    type: String,
+    enum: ['en', 'es', 'fr'],
+    default: 'en'
+  },
+  preferredCurrency: {
+    type: String,
+    enum: ['USD', 'EUR', 'GBP'],
+    default: 'USD'
+  }
 });
 
 // Middleware to update isNew property after 3 days

@@ -95,4 +95,51 @@ router.put('/:id/mark-read', authMiddleware.verifyToken, notificationController.
  */
 router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.markAllAsRead);
 
+/**
+ * @swagger
+ * /api/notifications/simulate-shipment-webhook:
+ *   post:
+ *     summary: Simulate Terminal Africa shipment webhook events
+ *     description: Test endpoint to simulate different shipment status webhook events
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - shipment_id
+ *               - status
+ *               - tracking_number
+ *             properties:
+ *               shipment_id:
+ *                 type: string
+ *                 description: Terminal Africa shipment ID
+ *                 example: "SH-KT355QFI31PZY4GX"
+ *               status:
+ *                 type: string
+ *                 enum: [created, in-transit, delivered, cancelled]
+ *                 description: Shipment status to simulate
+ *               tracking_number:
+ *                 type: string
+ *                 description: Shipment tracking number
+ *                 example: "7247322121"
+ *     responses:
+ *       200:
+ *         description: Webhook event simulated successfully
+ *       400:
+ *         description: Invalid request parameters
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/simulate-shipment-webhook', 
+  authMiddleware.verifyToken, 
+  notificationController.simulateShipmentWebhook
+);
+
 module.exports = router;
