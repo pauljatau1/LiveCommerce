@@ -55,6 +55,24 @@ function initializeSocket(server) {
       }
     });
 
+    // Add new stream monitoring events
+    socket.on('join_stream_monitor', (data) => {
+      socket.join(`stream_${data.streamId}`);
+      console.log(`Monitoring stream: ${data.channelName}`);
+    });
+
+    socket.on('stream_connection_update', (data) => {
+      console.log(`Stream ${data.channelName}: ${data.prevState} → ${data.curState}`);
+      
+      // Broadcast to all clients monitoring this stream
+      io.to(`stream_${data.streamId}`).emit('connection_state', data);
+    });
+
+    socket.on('leave_stream_monitor', (data) => {
+      socket.leave(`stream_${data.streamId}`);
+      console.log(`Stopped monitoring stream: ${data.streamId}`);
+    });
+
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.user.id);
     });
