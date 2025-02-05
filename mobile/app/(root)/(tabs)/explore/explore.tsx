@@ -20,9 +20,7 @@ const Explore = () => {
 
   const renderCategories = (category: any, index: number) => {
     return (
-      <TouchableOpacity
-        key={index}
-        className="relative flex-row items-center w-full rounded-[4px] overflow-hidden mb-[24px]"
+      <Pressable
         onPress={() =>
           router.push({
             pathname: `../explore/${category._id}`,
@@ -30,21 +28,40 @@ const Explore = () => {
           })
         }
       >
-        <Image
-          source={{ uri: category?.image?.url }}
-          resizeMode="cover"
-          style={{
-            width: 70,
-            height: "100%",
-          }}
-        />
-        <View className="bg-[#f2f2f2] w-full shrink flex-row items-center justify-between p-[15px] py-[20px]">
-          <Text className="text-[#3A3A3A] text-[12px] font-LexendDecaMedium">
-            {category.name}
-          </Text>
-          <FontAwesome6 name="caret-right" size={16} color="#ccc" />
+        <View className="relative flex-row items-center w-full rounded-[4px] overflow-hidden mb-[24px] p-[1px] bg-[#f2f2f2]">
+          <Image
+            source={{ uri: category?.image?.url }}
+            resizeMode="cover"
+            style={{
+              width: 70,
+              height: "100%",
+              borderTopLeftRadius: 4,
+              borderBottomLeftRadius: 4,
+            }}
+          />
+          <View className="bg-[#f2f2f2] w-full shrink flex-row items-center justify-between p-[15px]">
+            <View className="gap-[2px]">
+              <Text className="text-[#3A3A3A] text-[12px] font-LexendDecaMedium">
+                {category.name}
+              </Text>
+              <View className="flex-row gap-[4px] items-center">
+                <Image
+                  source={require("../../../../assets/icons/explore-live-icon.png")}
+                  style={{
+                    width: 15,
+                    height: 15,
+                  }}
+                />
+                <Text className="text-[8px] text-[#3A3A3A] font-LexendDecaMedium">
+                  1.8k Products
+                </Text>
+              </View>
+            </View>
+
+            <FontAwesome6 name="caret-right" size={16} color="#ccc" />
+          </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -74,7 +91,7 @@ const Explore = () => {
         <View className="pt-[30px]">
           <HomeHeader />
 
-          <View className="p-[23px] h-full ">
+          <View className="p-[23px] pb-[50px] h-full ">
             <Text className="text-[#ccc] text-[18px] font-LexendDecaMedium mb-[14px]">
               Browse by Category
             </Text>

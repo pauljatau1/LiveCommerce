@@ -161,7 +161,6 @@ const ProductDescription = () => {
         await AsyncStorage.setItem("cart", JSON.stringify(newCart));
         setShowCartSheet(false);
         setShowAddedToCartSheet(true);
-        console.log("cart Length ===> ", newCart.length);
         setCartNumber(newCart.length);
       } else {
         await AsyncStorage.setItem("cart", JSON.stringify([cartItem]));
@@ -217,6 +216,7 @@ const ProductDescription = () => {
             }
             imageUrl={item.images}
             sellerRating={item.stats?.averageRating}
+            moreDetails={item}
           />
         ))}
       </ScrollView>
@@ -239,7 +239,7 @@ const ProductDescription = () => {
         <View
           className={`py-[30px] px-[12px] flex flex-row justify-between items-center`}
         >
-          <View className="flex flex-row items-center gap-[10px]">
+          <View className="flex flex-row items-center gap-[10px] shrink">
             <TouchableOpacity onPress={() => router.back()}>
               <Entypo
                 name="chevron-left"
@@ -272,19 +272,6 @@ const ProductDescription = () => {
           <View className="flex-row items-center gap-[12px] mr-2">
             <TouchableOpacity className=" relative ">
               <Ionicons name="heart-sharp" size={24} color="#16783A" />
-              {/* <View
-                  className="absolute top-[-15px] right-[-5px]"
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 16,
-                    backgroundColor: "#16783A",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text className="text-[#fff] text-[9px] font-bold">5</Text>
-                </View> */}
             </TouchableOpacity>
             <TouchableOpacity className=" flex justify-center items-center ">
               <AntDesign
@@ -871,25 +858,25 @@ const CartSheet = ({
             <Text className="text-white text-[22px] font-LexendDecaMedium">
               ₦
               {selectedVariant?.discount?.isActive
-                ? selectedVariant?.discount?.discountedPrice?.toLocaleString() ||
-                  0
+                ? selectedVariant?.discount?.discountedPrice?.toLocaleString()
                 : selectedVariant?.price?.toLocaleString() ||
-                    productDetails?.discount?.isActive
-                  ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
-                    0
-                  : productDetails?.price?.toLocaleString()}
+                  (productDetails?.discount?.isActive
+                    ? productDetails?.discount?.discountedPrice?.toLocaleString()
+                    : productDetails?.price?.toLocaleString())}
             </Text>
-            <View className="flex-row items-center gap-[8px]">
-              <Text className="text-white text-[11px] font-LexendDecaMedium line-through">
-                ₦
-                {productDetails?.discount?.isActive &&
-                  productDetails?.price.toLocaleString()}
-              </Text>
-              <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
-                {productDetails?.discount?.value}
-                {productDetails?.discount?.type == "percentage" && "%"} off
-              </Text>
-            </View>
+            {productDetails?.discount?.isActive && (
+              <View className="flex-row items-center gap-[8px]">
+                <Text className="text-white text-[11px] font-LexendDecaMedium line-through">
+                  ₦
+                  {productDetails?.discount?.isActive &&
+                    productDetails?.price.toLocaleString()}
+                </Text>
+                <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
+                  {productDetails?.discount?.value}
+                  {productDetails?.discount?.type == "percentage" && "%"} off
+                </Text>
+              </View>
+            )}
 
             <Text className="text-white text-[11px] font-LexendDecaMedium">
               {productDetails?.category}

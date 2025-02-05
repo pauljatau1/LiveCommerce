@@ -17,23 +17,24 @@ const AllPostsList = () => {
 
   // Update posts when data changes
   useEffect(() => {
-    if (data?.posts.length > 0) {
+    if (data?.posts?.length > 0) {
       if (page > 1) {
         // Append new posts for pagination
         setPosts((prevPosts) => [...prevPosts, ...data.posts]);
       } else {
         // Replace posts on refresh or initial load
-        setPosts(data.posts);
+        setPosts(data?.posts);
       }
     }
 
-    if (data?.posts.length < 1 && page > 1) setHasReachedEnd(true);
+    if (data?.posts?.length < 1 && page > 1) setHasReachedEnd(true);
   }, [data]);
 
   // Trigger refetch when page changes
   useEffect(() => {
     refetch();
-  }, [page]); // Refetch whenever page changes
+  }, [page]);
+  // Refetch whenever page changes
 
   // Fetch more posts for pagination
   const fetchMorePosts = () => {
@@ -82,8 +83,11 @@ const AllPostsList = () => {
       ) : (
         <FlatList
           data={posts}
-          renderItem={({ item }) => <PostItem item={item} />}
-          keyExtractor={(item, index) => item._id.toString()}
+          renderItem={({ item }) => (
+            // <Text>checking</Text>
+            <PostItem item={item} />
+          )}
+          keyExtractor={(item, index) => item?._id?.toString()}
           onEndReached={fetchMorePosts}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}

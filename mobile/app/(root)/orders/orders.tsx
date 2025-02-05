@@ -348,6 +348,7 @@ const OrderItem = ({ orderItem }: { orderItem: any }) => {
               style={{
                 width: 115,
                 height: 103,
+                borderRadius: 14,
               }}
             />
           </View>

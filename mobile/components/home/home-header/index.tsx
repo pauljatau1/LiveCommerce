@@ -105,7 +105,7 @@ const HomeHeader = () => {
             </View>
           )}
           <Text className="text-gray-200 text-[7.554px] font-LexendDeca font-[600]">
-            Cart.
+            Cart
           </Text>
         </TouchableOpacity>
         <Pressable
@@ -121,7 +121,7 @@ const HomeHeader = () => {
             }}
           />
           <Text className="text-gray-200 text-[7.554px] font-LexendDeca font-[600] ">
-            Notifications.
+            Notifications
           </Text>
         </Pressable>
       </View>

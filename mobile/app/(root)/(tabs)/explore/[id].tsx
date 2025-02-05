@@ -60,6 +60,7 @@ const SingleExplore = () => {
             sellerName={item.seller?.storeName}
             imageUrl={item.images}
             sellerRating={item.stats?.averageRating}
+            moreDetails={item}
           />
         ))}
       </View>

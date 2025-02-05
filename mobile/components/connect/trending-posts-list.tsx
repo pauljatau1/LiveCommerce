@@ -87,7 +87,7 @@ const TrendingPostsList = () => {
         <FlatList
           data={posts}
           renderItem={({ item }) => <PostItem item={item} />}
-          keyExtractor={(item, index) => item._id.toString()}
+          keyExtractor={(item, index) => item?._id?.toString()}
           onEndReached={fetchMorePosts}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}

@@ -41,6 +41,7 @@ const ForYouNewAuqliSection = () => {
                   // showNike={false}
                   title={row?.name}
                   sellerRating={row?.stats?.averageRating}
+                  moreDetails={row}
                 />
               </View>
             )}

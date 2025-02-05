@@ -11,7 +11,7 @@ import React, { useState } from "react";
 const Tags = ({ tags, setSelected, selected }: any) => {
   return (
     <View
-      style={[styles.container, { marginHorizontal: 23 }]}
+      style={[styles.container, { marginLeft: 23 }]}
       className=" mt-8 border-b-[2px] border-b-gray-200"
     >
       <FlatList

@@ -91,7 +91,7 @@ const CartItem = ({
       <View className="gap-[16px] shrink">
         <View className=" flex-row items-center justify-between">
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
-            {cartItem.seller.storeInfo.storeName}
+            {cartItem?.seller?.storeInfo?.storeName}
             {/* {includeInOrder.toString()} */}
           </Text>
           <TouchableOpacity className="rounded-[8px] px-[8px] py-[6px] bg-white flex-row items-center gap-2">
@@ -109,7 +109,7 @@ const CartItem = ({
           </View>
           <View className="gap-[6px] relative shrink">
             <Text className="text-[14px] text-white font-LexendDecaLight">
-              {cartItem.seller.storeInfo.storeName}
+              {cartItem?.seller?.storeInfo?.storeName}
             </Text>
             <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
               {cartItem.name.length > 20

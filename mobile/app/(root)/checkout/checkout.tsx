@@ -178,68 +178,47 @@ const Checkout = () => {
       setCart(filteredCart);
 
       const sellerObj = {} as any;
-      // console.log(filteredCart);
-
       filteredCart.forEach((cart: any) => {
         if (sellerObj[cart.seller._id]) {
           return;
         }
-        console.log(cart.seller);
+
+        console.log(cart);
 
         const pickup_address = {
-          first_name: cart.seller.personalInfo.firstName,
-          last_name: cart.seller.personalInfo.lastName,
-          email: cart.seller.businessInfo.businessEmail
-            ? cart.seller.businessInfo.businessEmail
+          first_name:
+            cart.seller.personalInfo?.firstName || cart.seller.firstName,
+          last_name: cart.seller.personalInfo?.lastName || cart.seller.lastName,
+          email: cart.seller.businessInfo?.businessEmail
+            ? cart.seller.email
             : "bolu@gmail.com",
-          phone:
-            // cart.seller.businessInfo.businessNumber
-            // ? cart.seller.businessInfo.businessNumber
-            // :
-            "+2348083412865",
-          line1:
-            // cart.seller.businessInfo.businessAddress?.addressLine1
-            //   ? cart.seller.businessInfo.businessAddress?.addressLine1
-            //   :
-            "ajayi crowder way",
-          line2:
-            // cart.seller.businessInfo.businessAddress?.addressLine2
-            //   ? cart.seller.businessInfo.businessAddress?.addressLine2
-            //   :
-            "boluwa street",
+          phone: cart.seller.businessInfo?.businessNumber
+            ? cart.seller.phoneNumber
+            : "+2348083412865",
+          line1: cart.seller.businessInfo?.businessAddress?.addressLine1
+            ? cart.seller.businessAddress?.addressLine1
+            : "ajayi crowder way",
+          line2: cart.seller.businessInfo?.businessAddress?.addressLine2
+            ? cart.seller?.businessAddress?.addressLine2
+            : "boluwa street",
           city: "Amuwo-Odofin",
           // || response.data.contactInformation.businessAddress.city,
-          state:
-            // cart.seller.businessInfo.businessAddress?.state
-            //   ? cart.seller.businessInfo.businessAddress?.state
-            //   :
-            "lagos",
-          country:
-            // cart.seller.businessInfo.businessAddress.country
-            //   ? cart.seller.businessInfo.businessAddress.country
-            //   :
-            "NG",
-          zip:
-            // cart.seller.businessInfo.businessAddress?.zipCode
-            //   ? cart.seller.businessInfo.businessAddress?.zipCode
-            //   :
-            "100001",
+          state: cart.seller.businessInfo?.businessAddress?.state
+            ? cart.seller.businessAddress?.state
+            : "lagos",
+          country: cart.seller.businessInfo?.businessAddress?.country
+            ? cart.seller.businessAddress?.country
+            : "NG",
+          zip: cart.seller.businessInfo?.businessAddress?.zipCode
+            ? cart.seller.businessAddress?.zipCode
+            : "100001",
         };
 
         sellerObj[cart.seller._id] = pickup_address;
       });
-      // setUniqueSellers(sellerArr);
-      // let pickupAddresses = {} as any;
-      // Promise.all(
-      //   sellerArr.map(async (id: string) => {
-      //     const vary = await getPickupAddress(id);
-      //     pickupAddresses = { ...pickupAddresses, vary };
-      //   }),
-      // );
-      // console.log("pickup addresses", sellerObj);
 
+      console.log("sellerObj", filteredCart);
       setPickupAddress(sellerObj);
-      // console.log("unique sellers ", sellerArr);
     } catch (e) {
       console.log("cannot get cart", e);
     }
@@ -265,38 +244,8 @@ const Checkout = () => {
       }),
       pickup_addresses: pickupAddress,
       delivery_address: selectedAddress,
-      // parcel: {
-      //   weight: cart.reduce((a, b) => a + b.weight * b.quantity, 0) || 0,
-      //   width:
-      //     cart.reduce(
-      //       (a, b) => a + b.shippingInfo.dimensions.width * b.quantity,
-      //       0,
-      //     ) || 0,
-      //   height:
-      //     cart.reduce(
-      //       (a, b) => a + b.shippingInfo.dimensions.height * b.quantity,
-      //       0,
-      //     ) || 0,
-      //   length:
-      //     cart.reduce(
-      //       (a, b) => a + b.shippingInfo.dimensions.length * b.quantity,
-      //       0,
-      //     ) || 0,
-      // },
       paymentMethod: "paystack",
     };
-
-    // console.log(
-    //   "cart ==",
-    //   cart.map((ct) => ({
-    //     weight: ct.weight,
-    //     width: ct.shippingInfo.dimensions.width,
-    //     height: ct.shippingInfo.dimensions.height,
-    //     length: ct.shippingInfo.dimensions.length,
-    //   })),
-    // );
-    // console.log("order parcel == ", order.parcel);
-    // return;
     console.log(order);
 
     try {

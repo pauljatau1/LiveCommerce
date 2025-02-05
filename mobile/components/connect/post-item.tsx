@@ -24,6 +24,8 @@ import moment from "moment";
 import { getUser } from "@/store/features/auth/utils";
 import BottomSheet from "../global/bottom-sheet";
 import { router } from "expo-router";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
 
 const { width } = Dimensions.get("window");
 const blurhash =
@@ -38,6 +40,7 @@ const PostItem = ({ item }: { item: any }) => {
   const [media, setMedia] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState<number>(0);
+  const [showOptionsSheet, setShowOptionsSheet] = useState<boolean>(false);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: any }) => {
@@ -116,7 +119,10 @@ const PostItem = ({ item }: { item: any }) => {
       >
         <Image
           source={{
-            uri: product?.productId?.images[0]?.url || product?.images[0]?.url,
+            uri:
+              product?.productId?.images?.[0]?.url ||
+              product?.images?.[0]?.url ||
+              "",
           }}
           contentFit="cover"
           style={{
@@ -180,7 +186,7 @@ const PostItem = ({ item }: { item: any }) => {
             </Text>
           </View>
         </View>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowOptionsSheet(true)}>
           <Entypo name="dots-three-vertical" size={12} color="#ccc" />
         </TouchableOpacity>
       </View>
@@ -266,7 +272,7 @@ const PostItem = ({ item }: { item: any }) => {
           <FlatList
             data={products}
             keyExtractor={(item, index) =>
-              item?._id?.toString() || item?.id.toString()
+              item?._id?.toString() || item?.id?.toString()
             }
             renderItem={({ item, index }) => renderProducts(item, index)}
             // style={{
@@ -365,6 +371,19 @@ const PostItem = ({ item }: { item: any }) => {
           id={item._id}
         />
       </BottomSheet>
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showOptionsSheet}
+        titleColor="!text-white"
+        onRequestClose={() => setShowOptionsSheet(false)}
+        keyboardBehavior={"interactive"}
+      >
+        <OptionsSheet />
+      </BottomSheet>
     </View>
   );
 };
@@ -457,7 +476,7 @@ const CommentsSheet = ({
                 </View>
               </View>
             )}
-            keyExtractor={(item, index) => index.toString()}
+            keyExtractor={(item, index) => index?.toString()}
             showsVerticalScrollIndicator={false}
           />
         </View>
@@ -477,6 +496,25 @@ const CommentsSheet = ({
           onSubmitEditing={handleCreateComment}
         />
       </View>
+    </View>
+  );
+};
+
+const OptionsSheet = () => {
+  return (
+    <View className="w-full">
+      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px]">
+        <AntDesign name="eyeo" size={22} color="#ccc" />
+        <Text className="text-[16px] text-[#ccc] ">Hide Post</Text>
+      </TouchableOpacity>
+      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px]">
+        <Octicons name="report" size={20} color="#ccc" />
+        <Text className="text-[16px] text-[#ccc] ">Report Post</Text>
+      </TouchableOpacity>
+      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px]">
+        <SimpleLineIcons name="user-unfollow" size={20} color="#ccc" />
+        <Text className="text-[16px] text-[#ccc] ">Report This User</Text>
+      </TouchableOpacity>
     </View>
   );
 };

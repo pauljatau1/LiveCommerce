@@ -672,7 +672,7 @@ const SellersSheet = ({
     const newSellerObject = {
       name:
         seller.storeName ||
-        seller.personalInfo.firstName + " " + seller.personalInfo.lastName,
+        seller.personalInfo?.firstName + " " + seller.personalInfo?.lastName,
       id: seller._id,
     };
     setSelectedSellers((prev) => [...prev, newSellerObject]);
