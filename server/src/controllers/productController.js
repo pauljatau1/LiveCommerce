@@ -354,6 +354,23 @@ function generateVariantSKU(...parts) {
   return `${processedParts.join('-')}-${timestamp}`;
 }
 
+// Common seller population fields array
+const sellerPopulationFields = [
+  'firstName',
+  'lastName',
+  'businessName',
+  'storeName',
+  'stats.averageRating',
+  'stats.totalReviews',
+  'storeAvatar',
+  'isVerified',
+  'email',
+  'phoneNumber',
+  'businessAddress',      // Added business address
+  'warehouseDetails',    // Added warehouse details
+  'sellerAddress'        // Added seller's personal address
+];
+
 // Get all products
 exports.getAllProducts = async (req, res) => {
   try {
@@ -420,16 +437,7 @@ exports.getAllProducts = async (req, res) => {
       .sort(sortOptions)
       .skip((page - 1) * limit)
       .limit(limit)
-      .populate('seller', [
-        'firstName',
-        'lastName',
-        'businessName',
-        'storeName',
-        'stats.averageRating',
-        'stats.totalReviews',
-        'storeAvatar',
-        'isVerified'
-      ])
+      .populate('seller', sellerPopulationFields)
       .select('-__v');
 
     // Get total count for pagination
@@ -967,16 +975,7 @@ exports.getJustArrivedProducts = async (req, res) => {
     const products = await Product.find({ status: 'active', visibility: 'visible' })
       .sort({ createdAt: -1 })
       .limit(10)
-      .populate('seller', [
-        'firstName',
-        'lastName',
-        'businessName',
-        'storeName',
-        'stats.averageRating',
-        'stats.totalReviews',
-        'storeAvatar',
-        'isVerified'
-      ]);
+      .populate('seller', sellerPopulationFields);
 
     res.json({
       success: true,
@@ -1066,16 +1065,7 @@ exports.getTrendingProducts = async (req, res) => {
     const products = await Product.find({ status: 'active', visibility: 'visible' })
       .sort({ 'analytics.views': -1, 'analytics.likes': -1 })
       .limit(10)
-      .populate('seller', [
-        'firstName',
-        'lastName',
-        'businessName',
-        'storeName',
-        'stats.averageRating',
-        'stats.totalReviews',
-        'storeAvatar',
-        'isVerified'
-      ]);
+      .populate('seller', sellerPopulationFields);
 
     res.json({
       success: true,
@@ -2331,7 +2321,7 @@ exports.getPersonalizedProducts = async (req, res) => {
       .sort({ [sortBy]: sortOptions[sortBy] })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .populate('seller', 'name avatarUrl about storeName')
+      .populate('seller', sellerPopulationFields)
       .populate('reviews.buyer', 'firstName lastName');
 
     // If no products found in preferred categories, get regular products
@@ -2341,7 +2331,7 @@ exports.getPersonalizedProducts = async (req, res) => {
         .sort({ [sortBy]: sortOptions[sortBy] })
         .skip((page - 1) * limit)
         .limit(parseInt(limit))
-        .populate('seller', 'name avatarUrl about storeName')
+        .populate('seller', sellerPopulationFields)
         .populate('reviews.buyer', 'firstName lastName');
     }
 
