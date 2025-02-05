@@ -135,7 +135,14 @@ const productSchema = new mongoose.Schema({
   subSubCategory: { type: String },
   brand: { type: String },
   modelNumber: { type: String },
-  seller: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller', required: true },
+  seller: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Seller',
+    required: true,
+    autopopulate: {
+      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions '
+    }
+  },
   images: [{
     url: { type: String },
   }],
@@ -692,5 +699,8 @@ productSchema.methods.updateStock = async function(quantity, operation) {
 productSchema.methods.isLowStock = function() {
   return this.stock <= this.lowStockAlert;
 };
+
+// Add this after the schema definition
+productSchema.plugin(require('mongoose-autopopulate'));
 
 module.exports = mongoose.model('Product', productSchema);
