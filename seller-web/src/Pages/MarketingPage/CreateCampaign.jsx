@@ -101,7 +101,7 @@ export default function CreateCampaign() {
       )
       
       toast.success("Campaign created successfully")
-      navigate("/campaigns")
+      navigate("/dashboard/inbox-campaigns/list")
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to create campaign")
     }
