@@ -403,30 +403,80 @@ const TaggedProducts = ({ products }) => {
   if (!products || products.length === 0) return null;
 
   return (
-    <div className="mt-4 border-t pt-4">
-      <h4 className="text-sm font-medium text-gray-500 mb-3">Tagged Products</h4>
-      <div className="grid grid-cols-2 gap-2">
-        {products.map((product) => (
-          <div
-            key={product.productId._id}
-            className="flex items-center gap-3 p-2 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-            onClick={() => window.open(`/dashboard/products/${product.productId._id}`, '_blank')}
-          >
-            <img
-              src={product.productId.images[0]?.url}
-              alt={product.productId.name}
-              className="w-12 h-12 object-cover rounded-md"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {product.productId.name}
-              </p>
-              <p className="text-sm text-gray-500">
-                ₦{product.productId.price.toLocaleString()}
-              </p>
+    <div className="mt-4 border-t border-gray-100 dark:border-gray-700/50 pt-4">
+      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+        <span className="inline-block w-1 h-4 bg-green-500 rounded-full"></span>
+        Tagged Products ({products.length})
+      </h4>
+      <div className="grid grid-cols-2 gap-3">
+        {products.map((productItem) => {
+          // Handle both direct product objects and nested productId structure
+          const product = productItem.productId || productItem;
+          
+          // Destructure the product properties safely
+          const {
+            _id: id,
+            name,
+            price,
+            images = [],
+            category,
+            brand,
+            discountedPrice
+          } = product;
+
+          return (
+            <div
+              key={id}
+              className="group relative flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer overflow-hidden"
+              onClick={() => window.open(`/dashboard/products/${id}`, '_blank')}
+            >
+              <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                <img
+                  src={images[0]?.url || '/placeholder-product.png'}
+                  alt={name}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                />
+                {images.length > 1 && (
+                  <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    +{images.length - 1}
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {name}
+                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
+                    ₦{(discountedPrice || price)?.toLocaleString()}
+                  </p>
+                  {discountedPrice && discountedPrice < price && (
+                    <p className="text-xs text-gray-500 line-through">
+                      ₦{price?.toLocaleString()}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  {category && (
+                    <Badge variant="secondary" className="bg-green-100/50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs">
+                      {category}
+                    </Badge>
+                  )}
+                  {brand && (
+                    <Badge variant="secondary" className="bg-blue-100/50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs">
+                      {brand}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white dark:bg-gray-800 shadow-sm">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -466,6 +516,7 @@ export default function SocialFeed() {
   const [currentConversation, setCurrentConversation] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [sellerProfile, setSellerProfile] = useState(null);
 
   useEffect(() => {
     setHeaderName('Auqli Connect')
@@ -542,6 +593,32 @@ export default function SocialFeed() {
   }, [selectedTab])
 
   useEffect(() => {
+    const fetchSellerProfile = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken');
+        if (!sellerToken) return;
+
+        const tokenData = JSON.parse(sellerToken);
+        const token = tokenData.data;
+
+        const response = await fetch(`${BASE_URL}/seller/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch seller profile');
+        const profileData = await response.json();
+        setSellerProfile(profileData);
+      } catch (error) {
+        console.error('Error fetching seller profile:', error);
+      }
+    };
+
+    fetchSellerProfile();
+  }, []);
+
+  useEffect(() => {
     const sellerToken = localStorage.getItem('sellerToken');
     if (sellerToken) {
       try {
@@ -562,18 +639,88 @@ export default function SocialFeed() {
     setActivePost(null)
   }
 
-  const handleAddComment = async (postId) => {
-    if (!newComment.trim()) return;
-
-    setIsLoading(true);
+  const handleReact = async (postId) => {
     try {
+      if (!sellerProfile) throw new Error('Seller profile not loaded');
+      
       const sellerToken = localStorage.getItem('sellerToken');
       if (!sellerToken) throw new Error('Not authenticated');
 
       const tokenData = JSON.parse(sellerToken);
       const token = tokenData.data;
 
-      // Submit the comment
+      const response = await fetch(`${BASE_URL}/posts/${postId}/like`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to react to post');
+
+      // Update the post locally
+      const updatePostInArray = (posts) =>
+        posts.map(post => {
+          if (post._id !== postId) return post;
+          
+          // Create updated post with new reaction
+          const updatedPost = { ...post };
+          const hasUserReacted = post.reactions?.some(r => r.user?.userId === currentUserId);
+          
+          if (hasUserReacted) {
+            // Remove reaction
+            updatedPost.reactions = post.reactions.filter(r => r.user?.userId !== currentUserId);
+            updatedPost.stats.likeCount = (post.stats.likeCount || 0) - 1;
+          } else {
+            // Add reaction
+            const newReaction = {
+              user: {
+                userId: currentUserId,
+                userModel: 'Seller',
+                firstName: sellerProfile.firstName,
+                lastName: sellerProfile.lastName,
+                storeName: sellerProfile.storeName
+              },
+              type: 'like',
+              _id: Date.now().toString(),
+              createdAt: new Date().toISOString()
+            };
+            updatedPost.reactions = [...(post.reactions || []), newReaction];
+            updatedPost.stats.likeCount = (post.stats.likeCount || 0) + 1;
+          }
+          
+          return updatedPost;
+        });
+
+      // Update all post lists
+      setPosts(prev => updatePostInArray(prev));
+      setTrendingPosts(prev => updatePostInArray(prev));
+      setNewPosts(prev => updatePostInArray(prev));
+      setMyPosts(prev => updatePostInArray(prev));
+
+      // If the active post is the one being reacted to, update it as well
+      if (activePost?._id === postId) {
+        setActivePost(prev => updatePostInArray([prev])[0]);
+      }
+
+      toast.success('Reaction updated successfully');
+
+    } catch (error) {
+      toast.error('Failed to react to post: ' + error.message);
+    }
+  };
+
+  const handleAddComment = async (postId, newComment) => {
+    setIsLoading(true);
+    try {
+      if (!sellerProfile) throw new Error('Seller profile not loaded');
+
+      const sellerToken = localStorage.getItem('sellerToken');
+      if (!sellerToken) throw new Error('Not authenticated');
+
+      const tokenData = JSON.parse(sellerToken);
+      const token = tokenData.data;
+
       const response = await fetch(`${BASE_URL}/posts/${postId}/comments`, {
         method: 'POST',
         headers: {
@@ -585,20 +732,41 @@ export default function SocialFeed() {
 
       if (!response.ok) throw new Error('Failed to add comment');
 
-      // Fetch updated post data
-      const updatedPost = await fetchPostData(postId);
-
-      // Update all post lists with the new data
+      // Update the post locally
       const updatePostInArray = (posts) =>
-        posts.map(post => post._id === postId ? updatedPost : post);
+        posts.map(post => {
+          if (post._id !== postId) return post;
+          
+          // Create updated post with new comment
+          const updatedPost = { ...post };
+          const newCommentObj = {
+            author: {
+              userId: currentUserId,
+              userModel: 'Seller',
+              firstName: sellerProfile.firstName,
+              lastName: sellerProfile.lastName,
+              storeName: sellerProfile.storeName
+            },
+            content: newComment,
+            createdAt: new Date().toISOString(),
+            _id: Date.now().toString(),
+            likes: []
+          };
+          
+          updatedPost.comments = [...(post.comments || []), newCommentObj];
+          return updatedPost;
+        });
 
+      // Update all post lists
       setPosts(prev => updatePostInArray(prev));
       setTrendingPosts(prev => updatePostInArray(prev));
       setNewPosts(prev => updatePostInArray(prev));
       setMyPosts(prev => updatePostInArray(prev));
 
-      // Update active post
-      setActivePost(updatedPost);
+      // Update active post if it's the one being commented on
+      if (activePost?._id === postId) {
+        setActivePost(prev => updatePostInArray([prev])[0]);
+      }
 
       // Clear comment input
       setNewComment('');
@@ -618,47 +786,6 @@ export default function SocialFeed() {
       [postId]: newIndex
     }))
   }
-
-  const handleReact = async (postId) => {
-    try {
-      const sellerToken = localStorage.getItem('sellerToken');
-      if (!sellerToken) throw new Error('Not authenticated');
-
-      const tokenData = JSON.parse(sellerToken);
-      const token = tokenData.data;
-
-      const response = await fetch(`${BASE_URL}/posts/${postId}/like`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to react to post');
-
-      // Fetch updated post data
-      const updatedPost = await fetchPostData(postId);
-      
-      // Update all post lists
-      const updatePostInArray = (posts) =>
-        posts.map(post => post._id === postId ? updatedPost : post);
-
-      setPosts(prev => updatePostInArray(prev));
-      setTrendingPosts(prev => updatePostInArray(prev));
-      setNewPosts(prev => updatePostInArray(prev));
-      setMyPosts(prev => updatePostInArray(prev));
-
-      // If the active post is the one being reacted to, update it as well
-      if (activePost?._id === postId) {
-        setActivePost(updatedPost);
-      }
-
-      toast.success('Reaction updated successfully');
-
-    } catch (error) {
-      toast.error('Failed to react to post: ' + error.message);
-    }
-  };
 
   const renderPosts = () => {
     let postsToRender = []
@@ -707,194 +834,139 @@ export default function SocialFeed() {
       const hasUserReacted = post.reactions?.some(r => r.user?.userId === currentUserId) || false;
 
       return (
-        <Card key={post._id} className="overflow-hidden hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center space-y-0 p-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Avatar className="h-10 w-10 uppercase ring-2 ring-green/10">
-                <AvatarImage src={authorImage} />
-                <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
+        <Card key={post._id} className="mb-8 bg-white dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden">
+          {/* Author Header */}
+          <CardHeader className="flex flex-row items-center space-y-0 p-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-800">
+            <div className="flex items-center gap-4 flex-1">
+              <Avatar className="h-12 w-12 ring-4 ring-white dark:ring-gray-800 shadow-sm">
+                <AvatarImage src={authorImage} className="object-cover" />
+                <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white font-semibold">
+                  {authorName.charAt(0)}
+                </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-semibold u hover:underline cursor-pointer">
-                  {authorName}
-                </p>
-                <p className="text-sm text-gray-500">{postDate}</p>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 hover:text-green-600 cursor-pointer transition-colors">
+                    {authorName}
+                  </p>
+                  <Badge variant="secondary" className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs">
+                    {post.author.type || ''}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{postDate}</p>
+                  <span className="text-gray-300 dark:text-gray-600">•</span>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{post.visibility}</p>
+                </div>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <MoreVertical className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+              <MoreVertical className="h-5 w-5 text-gray-500" />
             </Button>
           </CardHeader>
 
-          <CardContent className="p-4 pt-0 space-y-4">
-            <p className="text-base md:text-lg">{postBody}</p>
+          {/* Post Content */}
+          <CardContent className="p-6 space-y-4">
+            {post.title && (
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 leading-tight">
+                {post.title}
+              </h3>
+            )}
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+              {postBody.length > 40 ? `${postBody.slice(0, 40)}...` : postBody}
+            </p>
+            
+            {/* Tags */}
             {postTags.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 md:flex-wrap custom-scrollbar">
+              <div className="flex gap-2 flex-wrap pt-2">
                 {postTags.map((tag, index) => (
                   <Badge
                     key={`${tag}-${index}`}
                     variant="secondary"
-                    className="hover:bg-green/10 cursor-pointer"
+                    className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer transition-colors px-3 py-1 rounded-full text-sm"
                   >
-                    {tag}
+                    #{tag}
                   </Badge>
                 ))}
               </div>
             )}
-            {postImages.length > 0 && (
-              <div className="relative rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
-                <div className="flex flex-col md:flex-row gap-4 p-4">
-                  <div className="flex-1">
-                    <div className="relative aspect-[16/9] rounded-xl overflow-hidden">
-                      <img
-                        src={postImages[currentSlideIndex]?.url}
-                        alt={`Main image ${currentSlideIndex + 1}`}
-                        className="w-full h-full object-contain"
-                      />
-                      {postImages.length > 1 && (
-                        <>
-                          <button
-                            onClick={() => handleSlideChange(
-                              post._id,
-                              currentSlideIndex > 0 ? currentSlideIndex - 1 : postImages.length - 1
-                            )}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full"
-                          >
-                            <ChevronLeft className="h-6 w-6" />
-                          </button>
-                          <button
-                            onClick={() => handleSlideChange(
-                              post._id,
-                              currentSlideIndex < postImages.length - 1 ? currentSlideIndex + 1 : 0
-                            )}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full"
-                          >
-                            <ChevronRight className="h-6 w-6" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
 
-                  {postImages.length > 1 && (
-                    <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:w-32 md:max-h-[400px] custom-scrollbar">
-                      {postImages.map((img, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleSlideChange(post._id, index)}
-                          className={`
-                            relative w-full aspect-[16/9] rounded-lg overflow-hidden
-                            transition-all duration-200
-                            ${currentSlideIndex === index 
-                              ? 'ring-2 ring-green-500 scale-105' 
-                              : 'ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-green-500'
-                            }
-                          `}
-                        >
-                          <img
-                            src={img.url}
-                            alt={`Thumbnail ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className={`
-                            absolute inset-0 bg-black/20
-                            ${currentSlideIndex === index ? 'opacity-0' : 'hover:opacity-0'}
-                            transition-opacity duration-200
-                          `} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Updated analytics section */}
-                <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <IoEyeOutline className="h-5 w-5" />
-                        <span className="font-semibold">{post.stats?.viewCount || 0}</span>
-                      </div>
-                      <span className="text-gray-500 mt-1">Views</span>
-                    </div>
-                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-2 text-red-500">
-                        <AiFillHeart className="h-5 w-5" />
-                        <span className="font-semibold">{post.stats?.likeCount || 0}</span>
-                      </div>
-                      <span className="text-gray-500 mt-1">Likes</span>
-                    </div>
-                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-2 text-blue-500">
-                        <FaRegCommentDots className="h-5 w-5" />
-                        <span className="font-semibold">{post.comments?.length || 0}</span>
-                      </div>
-                      <span className="text-gray-500 mt-1">Comments</span>
-                    </div>
-                    <div className="flex flex-col items-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-2 text-purple-500">
-                        <FaShareSquare className="h-5 w-5" />
-                        <span className="font-semibold">{post.stats?.shareCount || 0}</span>
-                      </div>
-                      <span className="text-gray-500 mt-1">Shares</span>
-                    </div>
-                  </div>
-
-                  {/* Reaction and Comment Previews */}
-                  <div className="mt-4 space-y-2 text-sm">
-                    {reactionPreview && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <AiFillHeart className="h-4 w-4 text-red-500" />
-                        <span>{reactionPreview}</span>
-                      </div>
-                    )}
-                    {commentPreview && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <FaRegCommentDots className="h-4 w-4 text-blue-500" />
-                        <span>{commentPreview}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Media Gallery */}
+            {renderMediaGallery(post, slideIndices[post._id] || 0, postImages)}
             
-            {/* Add the tagged products section */}
+            {/* Tagged Products */}
             <TaggedProducts products={post.products} />
           </CardContent>
 
-          <CardFooter className="p-4 flex flex-col gap-4">
+          {/* Engagement Stats & Actions */}
+          <CardFooter className="p-6 flex flex-col gap-4 bg-gray-50/50 dark:bg-gray-800/50">
+            {/* Stats */}
+            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50 pb-4">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <IoEyeOutline className="h-5 w-5" />
+                  <span>{post.stats?.viewCount || 0} views</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  <span>{post.comments?.length || 0} comments</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AiOutlineHeart className="h-5 w-5" />
+                  <span>{post.stats?.likeCount || 0} likes</span>
+                </div>
+              </div>
+              {reactionPreview && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {reactionPreview}
+                </p>
+              )}
+            </div>
+
+            {/* Action Buttons */}
             <div className="flex justify-between items-center w-full">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6">
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="gap-2" 
+                  className={`gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${
+                    hasUserReacted ? 'text-red-500' : 'hover:text-red-500'
+                  }`}
                   onClick={() => handleReact(post._id)}
                 >
                   {hasUserReacted ? (
-                    <AiFillHeart className="h-5 w-5 text-red-500" />
+                    <AiFillHeart className="h-5 w-5" />
                   ) : (
                     <AiOutlineHeart className="h-5 w-5" />
                   )}
-                  <span>{post.stats?.likeCount || 0}</span>
+                  <span>Like</span>
                 </Button>
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="gap-2" 
+                  className="gap-2 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
                   onClick={() => handleOpenPostActivity(post)}
                 >
                   <FaRegCommentDots className="h-5 w-5" />
-                  <span>{post.comments?.length || 0}</span>
+                  <span>Comment</span>
                 </Button>
-                <Button variant="ghost" size="sm" className="gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"
+                >
                   <FaShareSquare className="h-5 w-5" />
                   <span>Share</span>
                 </Button>
               </div>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <FaBookmark className={`h-5 w-5 ${post.bookmarked ? 'fill-current' : ''}`} />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 ${
+                  post.bookmarked ? 'text-purple-500' : 'hover:text-purple-500'
+                }`}
+              >
+                <FaBookmark className="h-5 w-5" />
                 <span>Save</span>
               </Button>
             </div>
@@ -981,7 +1053,7 @@ export default function SocialFeed() {
                     className="min-h-[100px] resize-none"
                   />
                   <Button
-                    onClick={() => handleAddComment(activePost._id)}
+                    onClick={() => handleAddComment(activePost._id, newComment)}
                     disabled={!newComment.trim() || isLoading}
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
@@ -1284,6 +1356,81 @@ export default function SocialFeed() {
     fetchPosts();
   }, []);
 
+  const renderMediaGallery = (post, currentSlideIndex, postImages) => {
+    const totalMediaCount = (postImages?.length || 0) + (post.videos?.length || 0);
+    
+    if (totalMediaCount === 0) return null;
+
+    return (
+      <div className="mt-4 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50">
+        <div className="relative">
+          <div className="aspect-[16/9] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800">
+            {currentSlideIndex < postImages.length ? (
+              <img
+                src={postImages[currentSlideIndex]?.url}
+                alt={`Media ${currentSlideIndex + 1}`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <video
+                src={post.videos?.[currentSlideIndex - postImages.length]?.url}
+                className="w-full h-full object-cover"
+                controls
+                playsInline
+              />
+            )}
+            
+            {/* Media Counter */}
+            <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-medium">
+              {currentSlideIndex + 1} / {totalMediaCount}
+            </div>
+
+            {/* Navigation Dots */}
+            {totalMediaCount > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full">
+                {Array.from({ length: totalMediaCount }).map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSlideChange(post._id, index)}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${
+                      index === currentSlideIndex 
+                        ? 'bg-white w-3' 
+                        : 'bg-white/50 hover:bg-white/75'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Navigation Arrows */}
+            {totalMediaCount > 1 && (
+              <>
+                <button
+                  onClick={() => handleSlideChange(
+                    post._id,
+                    currentSlideIndex > 0 ? currentSlideIndex - 1 : totalMediaCount - 1
+                  )}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-all group"
+                >
+                  <ChevronLeft className="h-6 w-6 group-hover:scale-110 transition-transform" />
+                </button>
+                <button
+                  onClick={() => handleSlideChange(
+                    post._id,
+                    currentSlideIndex < totalMediaCount - 1 ? currentSlideIndex + 1 : 0
+                  )}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-all group"
+                >
+                  <ChevronRight className="h-6 w-6 group-hover:scale-110 transition-transform" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -1295,41 +1442,45 @@ export default function SocialFeed() {
   }
 
   return (
-    <div className='min-h-screen dark:bg-gray-900'>
-     
-      
-      <div className='py-4 px-4 md:py-8 md:px-6'>
-        <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8'>
-          <div className='flex items-center justify-between md:justify-start gap-4'>
-            <Input
-              placeholder="Search posts, people, or tags..."
-              className="flex-1 md:w-64 bg-white dark:bg-gray-800"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              prefix={<Search className="w-4 h-4 text-gray-400" />}
-            />
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="md:hidden">
-                <Bell className="w-4 h-4" />
-              </Button>
-              <Button
-                onClick={() => setIsCreatePostOpen(true)}
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white md:hidden"
+    <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
+      <div className=' mx-auto py-6 px-4 sm:px-6 lg:px-8'>
+        <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8'>
+          <div className='flex items-center justify-between md:justify-start gap-4 flex-1'>
+            <div className='relative flex-1 md:max-w-md'>
+              <Input
+                placeholder="Search posts, people, or tags..."
+                className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="relative md:hidden border-gray-200 dark:border-gray-700"
               >
-                +
+                <Bell className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  3
+                </span>
               </Button>
             </div>
           </div>
           
           <div className='hidden md:flex items-center gap-4'>
-            <Button variant="outline" className="gap-2">
-              <Bell className="w-4 h-4" />
-              <Badge variant="secondary" className="ml-1">3</Badge>
+            <Button 
+              variant="outline" 
+              className="gap-2 border-gray-200 dark:border-gray-700"
+            >
+              <Bell className="w-5 h-5" />
+              <Badge variant="secondary" className="bg-red-500 text-white">3</Badge>
             </Button>
             <Button
               onClick={() => setIsCreatePostOpen(true)}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white px-6"
             >
               Create Post
             </Button>
