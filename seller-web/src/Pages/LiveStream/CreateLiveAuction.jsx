@@ -59,19 +59,21 @@ const CreateLiveAuction = () => {
     if (message === 'Products fetched successfully') {
       livestreamDispatch({
         type: 'SET_LIVESTREAM_DATA',
-        payload: { products: products.map(product => {
-          return {
-            productId: product?._id,
-            name: product?.name,
-            category: product?.category,
-            images: product?.images,
-            sku: product?.sku,
-            quantity: product?.stock,
-            minBid: 0,
-            maxBid: 0,
-            selected: true
-          }
-        })}
+        payload: {
+          products: products.map(product => {
+            return {
+              productId: product?._id,
+              name: product?.name,
+              category: product?.category,
+              images: product?.images,
+              sku: product?.sku,
+              quantity: product?.stock,
+              minBid: 0,
+              maxBid: 0,
+              selected: true
+            }
+          })
+        }
       });
     }
   }, [message])
@@ -260,7 +262,7 @@ const CreateLiveAuction = () => {
                 <img
                   src={URL.createObjectURL(livestream?.coverPhoto)}
                   alt="Preview"
-                  className="w-[250px] object-fill md:w-full h-20 rounded-lg mb-2"
+                  className="w-[250px] object-contain md:w-full h-20 rounded-lg mb-2"
                 />
                 <p className="text-sm text-gray-600">{livestream?.coverPhoto.name}</p>
               </div>
@@ -445,7 +447,7 @@ const CreateLiveAuction = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {livestream?.products.map((product) => (
-                  <tr 
+                  <tr
                     key={product.productId}
                     className={`transition-colors ${!product.selected ? 'bg-gray-50 opacity-60' : ''}`}
                   >
@@ -459,10 +461,10 @@ const CreateLiveAuction = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <img 
-                          src={product.images[0].url} 
-                          alt={product.name} 
-                          className="w-10 h-10 rounded-lg object-cover" 
+                        <img
+                          src={product.images[0].url}
+                          alt={product.name}
+                          className="w-10 h-10 rounded-lg object-cover"
                         />
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-gray-900">{product.name}</span>
@@ -522,14 +524,14 @@ const CreateLiveAuction = () => {
               Showing {products.length} items out of {products.length} results found
             </div>
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={() => navigate(-1)}
                 className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
-              <button 
-                onClick={handleContinue} 
+              <button
+                onClick={handleContinue}
                 className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
               >
                 Continue

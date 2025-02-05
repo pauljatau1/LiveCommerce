@@ -61,19 +61,24 @@ const BusinessInformationOnboarding = () => {
 
     // Memoize data
     const countries = useMemo(() => Country.getAllCountries(), []);
+
     const states = useMemo(() =>
         countryCode ? State.getStatesOfCountry(countryCode) : []
         , [countryCode]);
+
     const cities = useMemo(() =>
         stateCode ? City.getCitiesOfState(countryCode, stateCode) : []
         , [countryCode, stateCode]);
+
     const countries2 = useMemo(() => Country.getAllCountries(), []);
+
     const states2 = useMemo(() =>
-        countryCode ? State.getStatesOfCountry(countryCode) : []
-        , [countryCode]);
+        countryCode2 ? State.getStatesOfCountry(countryCode2) : []
+        , [countryCode2]);
+
     const cities2 = useMemo(() =>
-        stateCode ? City.getCitiesOfState(countryCode, stateCode) : []
-        , [countryCode, stateCode]);
+        stateCode2 ? City.getCitiesOfState(countryCode2, stateCode2) : []
+        , [countryCode2, stateCode2]);
 
     // Handle country selection
     const handleCountrySelect = (isoCode) => {
@@ -552,7 +557,7 @@ const BusinessInformationOnboarding = () => {
                                                                 className="px-2 py-1 w-full border-b"
                                                             />
                                                             <SelectGroup>
-                                                                {stateSearchQuery
+                                                                {stateSearchQuery2
                                                                     ? filteredStates2.map((state) => (
                                                                         <SelectItem key={state.isoCode} value={state.isoCode}>
                                                                             {state.name}

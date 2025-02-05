@@ -2,7 +2,6 @@ import { Icon } from "@iconify/react"
 import { useEffect, useState } from "react"
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "../../ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
-import { Crisp } from "crisp-sdk-web"
 import PropTypes from "prop-types"
 
 const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
@@ -10,28 +9,9 @@ const SearchBar = ({ isSidebarOpen, setIsSidebarOpen }) => {
   const [isChatVisible, setIsChatVisible] = useState(true)
   const WEBSITE_ID = "1e433cca-97ba-42a7-bac7-b3ea79d648f1"
 
-  useEffect(() => {
-    Crisp.configure(WEBSITE_ID, {
-      autoLoad: false,
-    })
-    window.$crisp.push(["do", "chat:hide"])
-    window.$crisp.push([
-      "on",
-      "chat:closed",
-      () => {
-        setIsChatVisible(false)
-        window.$crisp.push(["do", "chat:hide"])
-      },
-    ])
-    return () => {
-      window.$crisp.push(["off", "chat:closed"])
-    }
-  }, [])
 
   const handleChatOpen = () => {
-    setIsChatVisible(true)
-    window.$crisp.push(["do", "chat:show"])
-    Crisp.chat.open()
+    console.log("Chat open")
   }
 
   return (

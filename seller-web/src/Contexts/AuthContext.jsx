@@ -1,7 +1,6 @@
-import { createContext, useReducer } from "react";
+import { createContext, useEffect, useReducer } from "react";
 import { BASE_URL } from '../Constants/Server';
 import { toast } from "sonner";
-import { Crisp } from "crisp-sdk-web";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
@@ -23,7 +22,10 @@ function AuthProvider({ children }) {
         top3SellingProducts: null,
         stuffToDo: null,
         unverifiedUser: null,
-        onboardingStep: null
+        onboardingStep: null,
+        blockedUser: false,
+        isForgotPasswordRequestSuccessful: false,
+        passwordResetSuccessful: false
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -150,8 +152,31 @@ function AuthProvider({ children }) {
                     ...state,
                     onboardingStep: action.payload
                 }
+            case "BLOCKED_USER":
+                return {
+                    ...state,
+                    blockedUser: true
+                }
+            case "RESET_PASSWORD_SUCCESS":
+                return {
+                    ...state,
+                    isForgotPasswordRequestSuccessful: true
+                }
+            case "RESET_PASSWORD_WITH_TOKEN_SUCCESS":
+                return {
+                    ...state,
+                    passwordResetSuccessful: true
+                }
+            case "CANCEL_RESET_PASSWORD":
+                return {
+                    ...state,
+                    isForgotPasswordRequestSuccessful: false,
+                    passwordResetSuccessful: false
+                }
             default:
                 return state;
+
+
         }
     }, initialState);
 
@@ -186,7 +211,7 @@ function AuthProvider({ children }) {
                         fontWeight: '400',
                     }
                 });
-                
+
             }
 
         } catch (AxiosError) {
@@ -342,13 +367,6 @@ function AuthProvider({ children }) {
                 }));
                 console.log('login response:', response.data);
                 dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
-                Crisp.setTokenId(response.data.token);
-                Crisp.user.setEmail(response.data.user.email);
-                Crisp.user.setNickname(response.data.user.firstName + " " + response.data.user.lastName);
-                Crisp.session.setData({
-                    user_id: response.data.user._id,
-                    plan: "free"
-                })
                 toast.success('Login successful', {
                     style: {
                         border: '1px solid #05031F',
@@ -381,6 +399,7 @@ function AuthProvider({ children }) {
             });
 
             if (response.status === 200) {
+                dispatch({ type: 'RESET_PASSWORD_SUCCESS', payload: response.data.message });
                 console.log(`reset password: ${response}`);
                 toast.success('Password reset request sent', {
                     description: 'We have sent a password reset link to your email',
@@ -405,6 +424,35 @@ function AuthProvider({ children }) {
         }
     };
 
+    const resetPasswordWithOtp = async (resetData) => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const response = await axios.post(`${BASE_URL}/seller/reset-password`, {
+                email: resetData.email,
+                code: resetData.code,
+                newPassword: resetData.newPassword
+            });
+            if (response.status === 200) {
+                dispatch({ type: 'RESET_PASSWORD_WITH_TOKEN_SUCCESS', payload: response.data.message });
+                toast.success('Password reset successful');
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error('Password reset failed', {
+                description: error.response?.data?.message || error.message,
+                style: {
+                    background: '#17171B',
+                    color: '#fff',
+                }
+            });
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+
+
+    }
+
     const fetchSellerDetails = async () => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
@@ -427,6 +475,22 @@ function AuthProvider({ children }) {
             }
         } catch (error) {
             console.log(error);
+            if (error.response?.status === 404) {
+                console.log("Seller not found, clearing auth state");
+                dispatch({ type: 'BLOCKED_USER' });
+                localStorage.removeItem('sellerToken');
+                localStorage.removeItem('seller');
+                dispatch({ type: 'LOGOUT' });
+                navigate('/login');
+                toast.error('Unauthorized Seller', {
+                    description: error.response.data.message,
+                    style: {
+                        background: '#17171B',
+                        color: '#fff',
+                    }
+                });
+            }
+            return null;
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -438,10 +502,6 @@ function AuthProvider({ children }) {
             localStorage.removeItem('sellerToken');
             localStorage.removeItem('seller');
             localStorage.removeItem('onboardingProcess');
-            
-            Crisp.setTokenId();
-            Crisp.session.reset();
-            
             dispatch({ type: 'LOGOUT' });
             navigate('/login');
         } catch (error) {
@@ -509,6 +569,7 @@ function AuthProvider({ children }) {
             getTop3SellingProducts,
             getSellerNotifications,
             getOnboardingProcess,
+            resetPasswordWithOtp
         }}>
             {children}
         </AuthContext.Provider>

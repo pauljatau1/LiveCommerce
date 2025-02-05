@@ -10,11 +10,12 @@ const ActiveLiveStreamCard = ({
     thumbnailImage,
     tags = [],
     startTime,
-    isLive = false,
+    isLiveStatus,
     category,
     businessAddress,
     livestream,
     id
+
 }) => {
     const formatDateTime = (isoString) => {
         const date = new Date(isoString);
@@ -29,6 +30,43 @@ const ActiveLiveStreamCard = ({
         }).replace(',', ' •').replace(/\s+/g, ' ');
     };
 
+    const displayLiveStatusCard = () => {
+        if (isLiveStatus === 'scheduled') {
+            return (
+                <div className="bg-green-500 px-2 py-1 rounded-md flex items-center gap-1">
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                    <span className="text-xs text-white font-medium">Scheduled</span>
+                </div>
+
+            )
+        } else if (isLiveStatus === 'live') {
+            return (
+                <div className="bg-red-500 px-2 py-1 rounded-md flex items-center gap-1">
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                    <span className="text-xs text-white font-medium">LIVE</span>
+                </div>
+            )
+        } else if (isLiveStatus === 'ended') {
+            return (
+                <div className="bg-gray-500 px-2 py-1 rounded-md flex items-center gap-1">
+                    <span className="text-xs text-white font-medium">Ended</span>
+                </div>
+            )
+        } else if (isLiveStatus === 'expired') {
+            return (
+                <div className="bg-gray-500 px-2 py-1 rounded-md flex items-center gap-1">
+                    <span className="text-xs text-white font-medium">Expired</span>
+                </div>
+            )
+        } else if (isLiveStatus === 'cancelled') {
+            return (
+                <div className="bg-red-500 px-2 py-1 rounded-md flex items-center gap-1">
+                    <span className="text-xs text-white font-medium">Cancelled</span>
+                </div>
+            )
+        }
+    }
+
     return (
         <div className="bg-[#000000] p-4 rounded-lg">
             <div className="flex items-center justify-between">
@@ -38,14 +76,10 @@ const ActiveLiveStreamCard = ({
                         className="w-5 h-5 xl:w-10 xl:h-10 text-white"
                     />}
                     <div className="flex items-center gap-2">
-                        <h3 className="text-white text-sm capitalize font-lexendDeca font-semibold">{streamerName}</h3>
+                        <h3 className="text-white text-sm capitalize truncate font-lexendDeca font-semibold">{streamerName}</h3>
                         {/* Live Badge */}
-                        {isLive && (
-                            <div className="bg-red-500 px-2 py-1 rounded-md flex items-center gap-1">
-                                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                                <span className="text-xs text-white font-medium">LIVE</span>
-                            </div>
-                        )}
+
+                        {displayLiveStatusCard()}
                     </div>
                 </div>
                 <Icon
@@ -61,18 +95,21 @@ const ActiveLiveStreamCard = ({
                 )
             }
             <div>
-                <h3 className="text-white text-sm xl:text-base mt-3 capitalize font-inter font-semibold">{streamTitle}</h3>
-                <div className="flex mt-2 flex-wrap gap-2">
-                    <span className="text-xs text-[#8492A6] px-2 py-1 bg-[#1F2937] rounded-full">
+                <h3 className="text-white text-sm xl:text-base mt-3 truncate capitalize font-inter font-semibold">{streamTitle}</h3>
+                <div className="flex mt-2 gap-2">
+                    <span className="text-xs text-[#8492A6] truncate px-2 py-1 bg-[#1F2937] rounded-full">
                         {category}
+
+
                     </span>
-                    {tags.map((tag, index) => (
+                    {tags.slice(0, 1).map((tag, index) => (
                         <span
                             key={index}
-                            className="text-xs text-[#8492A6] px-2 py-1 bg-[#1F2937] rounded-full"
+                            className="text-xs text-[#8492A6] truncate px-2 py-1 bg-[#1F2937] rounded-full"
                         >
                             #{tag}
                         </span>
+
                     ))}
                 </div>
             </div>
@@ -81,10 +118,11 @@ const ActiveLiveStreamCard = ({
             </p>
             <p className="text-[#425466] capitalize font-inter text-xs mt-2">lagos, Nigeria</p>
             <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
-                <button className="w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <button disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled'} className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     Enter Studio
                 </button>
             </NavLink>
+
 
         </div>
     );

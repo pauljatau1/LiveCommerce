@@ -185,7 +185,7 @@ const EditProduct = () => {
             toast.error('Please upload a video file', {
                 description: "upload a video file",
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -197,7 +197,7 @@ const EditProduct = () => {
             toast.error('Video must be less than 60MB', {
                 description: "upload a video less than 60MB",
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -222,7 +222,7 @@ const EditProduct = () => {
                 toast.error('Video must be less than 30 seconds', {
                     description: "Please upload a shorter video",
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -478,7 +478,7 @@ const EditProduct = () => {
                 toast.error('Please fill all required fields', {
                     description: "Please fill all required fields",
                     style: {
-                        background: '#05031F',
+                        background: '#17171B',
                         color: '#fff',
                     }
                 });
@@ -488,7 +488,7 @@ const EditProduct = () => {
             toast.error('Failed to submit product', {
                 description: error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#17171B',
                     color: '#fff',
                 }
             });
@@ -556,7 +556,7 @@ const EditProduct = () => {
     const RequiredLabel = ({ children }) => (
         <div className="flex items-center gap-1">
             <span className="font-cabin font-base">{children}</span>
-            <span className="text-[#FFFFFF] text-[8px] px-1.5 py-0.5 bg-[#05031F]/80 rounded-full backdrop-blur-sm border border-[#FFFFFF]/10">Required</span>
+            <span className="text-[#FFFFFF] text-[8px] px-1.5 py-0.5 bg-[#17171B]/80 rounded-full backdrop-blur-sm border border-[#FFFFFF]/10">Required</span>
         </div>
     );
 
@@ -616,9 +616,18 @@ const EditProduct = () => {
                             </div>
                             <Button
                                 onClick={() => setShowAddOption(true)}
-                                className="mt-4 lg:mt-12 bg-[#05031F] flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#05031F]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white w-full md:w-auto"
+                                className="mt-4 lg:mt-12 bg-[#17171B]/90 flex items-center justify-center gap-0 text-white rounded-full px-3 py-3 text-[11px] md:text-sm lg:px-3 lg:py-5 hover:bg-[#17171B]/80 hover:scale-95 transition-all duration-300 ease-in-out hover:text-white w-full md:w-auto"
                             >
-                                <Icon icon="simple-line-icons:plus" className="w-4 h-4 mr-2" />
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 1024 1024"
+                                    className="w-4 h-4 mr-2"
+                                >
+                                    <path
+                                        fill="currentColor"
+                                        d="M512 0C229.232 0 0 229.232 0 512c0 282.784 229.232 512 512 512c282.784 0 512-229.216 512-512C1024 229.232 794.784 0 512 0m0 961.008c-247.024 0-448-201.984-448-449.01c0-247.024 200.976-448 448-448s448 200.977 448 448s-200.976 449.01-448 449.01M736 480H544V288c0-17.664-14.336-32-32-32s-32 14.336-32 32v192H288c-17.664 0-32 14.336-32 32s14.336 32 32 32h192v192c0 17.664 14.336 32 32 32s32-14.336 32-32V544h192c17.664 0 32-14.336 32-32s-14.336-32-32-32"
+                                    />
+                                </svg>
                                 Add options like size or color
                             </Button>
                         </>
@@ -653,7 +662,16 @@ const EditProduct = () => {
                                     onClick={() => setShowAddOption(true)}
                                     className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 bg-[#FFFFFF]/90 border border-gray-300 text-gray-500 hover:bg-[#FFFFFF]/80 hover:border-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out"
                                 >
-                                    <Icon icon="simple-line-icons:plus" className="w-4 h-4" />
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 1024 1024"
+                                        className="w-4 h-4 mr-2"
+                                    >
+                                        <path
+                                            fill="currentColor"
+                                            d="M512 0C229.232 0 0 229.232 0 512c0 282.784 229.232 512 512 512c282.784 0 512-229.216 512-512C1024 229.232 794.784 0 512 0m0 961.008c-247.024 0-448-201.984-448-449.01c0-247.024 200.976-448 448-448s448 200.977 448 448s-200.976 449.01-448 449.01M736 480H544V288c0-17.664-14.336-32-32-32s-32 14.336-32 32v192H288c-17.664 0-32 14.336-32 32s14.336 32 32 32h192v192c0 17.664 14.336 32 32 32s32-14.336 32-32V544h192c17.664 0 32-14.336 32-32s-14.336-32-32-32"
+                                        />
+                                    </svg>
                                     Add another option
                                 </button>
                             )}
@@ -1199,8 +1217,21 @@ const EditProduct = () => {
                                                         />
                                                     ) : (
                                                         <div className="text-center py-8">
-                                                            <Icon icon="solar:widget-add-bold" className="w-12 h-12 text-gray-400 mx-auto" />
-                                                            <p className="mt-2 text-gray-500">
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                className="w-12 h-12 text-gray-400 mx-auto"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <path
+                                                                    fill="currentColor"
+                                                                    fillRule="evenodd"
+                                                                    d="M17.5 2.75a.75.75 0 0 1 .75.75v2.25h2.25a.75.75 0 0 1 0 1.5h-2.25V9.5a.75.75 0 0 1-1.5 0V7.25H14.5a.75.75 0 0 1 0-1.5h2.25V3.5a.75.75 0 0 1 .75-.75"
+                                                                />
+                                                                <path
+                                                                    fill="currentColor"
+                                                                    d="M2 6.5c0-2.121 0-3.182.659-3.841S4.379 2 6.5 2s3.182 0 3.841.659S11 4.379 11 6.5s0 3.182-.659 3.841S8.621 11 6.5 11s-3.182 0-3.841-.659S2 8.621 2 6.5m11 11c0-2.121 0-3.182.659-3.841S15.379 13 17.5 13s3.182 0 3.841.659S22 15.379 22 17.5s0 3.182-.659 3.841S19.621 22 17.5 22s-3.182 0-3.841-.659S13 19.621 13 17.5m-11 0c0-2.121 0-3.182.659-3.841S4.379 13 6.5 13s3.182 0 3.841.659S11 15.379 11 17.5s0 3.182-.659 3.841S8.621 22 6.5 22s-3.182 0-3.841-.659S2 19.621 2 17.5"
+                                                                />
+                                                            </svg>                                                            <p className="mt-2 text-gray-500">
                                                                 Select a category and subcategory to view specifications
                                                             </p>
                                                         </div>
@@ -1218,7 +1249,7 @@ const EditProduct = () => {
                                                         <div className="text-center p-6 border-2 border-dashed rounded-lg">
                                                             <div className="flex flex-col items-center justify-center gap-4 lg:gap-7 mb-7 lg:mb-14">
                                                                 <img src={UploadImage} alt="Upload Image" className="w-12 h-12 lg:w-28 lg:h-28 mx-auto mb-2" />
-                                                                <p className="text-sm lg:text-base font-cabin font-normal text-[#05031F96]">Upload Up To 5 Square Images With Dimensions Min Of 1024 X 1024, Max: 3200 X 3200</p>
+                                                                <p className="text-sm lg:text-base font-cabin font-normal text-[#17171B96]">Upload Up To 5 Square Images With Dimensions Min Of 1024 X 1024, Max: 3200 X 3200</p>
                                                             </div>
                                                             <div className="flex items-center justify-center flex-wrap gap-4 mb-4">
                                                                 {images.map((image, index) => (
@@ -1237,7 +1268,7 @@ const EditProduct = () => {
                                                                     </div>
                                                                 ))}
                                                                 {images.length < 5 && (
-                                                                    <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#05031F]/80 items-center justify-center cursor-pointer">
+                                                                    <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#17171B]/80 items-center justify-center cursor-pointer">
                                                                         <input
                                                                             type="file"
                                                                             className="hidden"
@@ -1617,7 +1648,7 @@ const EditProduct = () => {
                                         </div>*/}
 
                                         {/* Content Diagnosis */}
-                                        <div className="bg-[#05031F] text-white p-4 rounded-lg mt-6">
+                                        <div className="bg-[#17171B] text-white p-4 rounded-lg mt-6">
                                             <h3 className="text-lg font-semibold mb-4">Content Diagnosis</h3>
                                             <p>
                                                 {
@@ -1657,7 +1688,7 @@ const EditProduct = () => {
                         {/* Bottom Action Buttons */}
                         <div className="flex flex-wrap justify-end gap-4 mt-6">
                             <Button onClick={handleCancelButton} variant="outline">Cancel</Button>
-                            <Button onClick={handleSubmitProduct} className="bg-[#05031F]">
+                            <Button onClick={handleSubmitProduct} className="bg-[#17171B]">
                                 {
                                     isLoading ? 'Updating...' : 'Update Product'
                                 }

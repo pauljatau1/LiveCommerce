@@ -234,10 +234,10 @@ const BusinessCategoryOnboarding = () => {
             <div>
               <div className="flex flex-col md:flex-row items-center justify-center gap-5 lg:gap-10 mt-20 lg:mt-44">
                 <button
-                  onClick={handleProfileModalOpen}
+                  onClick={() => navigate(-1)}
                   className="bg-transparent text-[#0BB248] border border-[#0BB248] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
                 >
-                  Upload Profile Picture
+                  Back
                 </button>
                 <button
                   onClick={handleSubmit}

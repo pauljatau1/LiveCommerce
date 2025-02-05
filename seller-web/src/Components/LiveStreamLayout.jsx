@@ -20,8 +20,8 @@ const LiveStreamLayout = () => {
 
   return (
     <>
-      <ScrollToTop />
       <div className="flex h-screen w-dvh">
+        <ScrollToTop />
         {/* Main Content */}
 
         <div className={displayScreenMode()}>
