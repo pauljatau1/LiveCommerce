@@ -16,6 +16,25 @@ const Buyer = require('../models/Buyer');
 const Withdrawal = require('../models/Withdrawal');
 const Campaign = require('../models/Campaign');
 
+// Add this helper function at the top of the file
+const generateUniqueAgoraUid = async () => {
+  let attempts = 0;
+  let agoraUid;
+  let exists;
+  
+  do {
+    // Generate UID between 100000 and 4294967295
+    agoraUid = Math.floor(100000 + Math.random() * (4294967295 - 100000));
+    exists = await Seller.findOne({ agoraUid });
+    attempts++;
+  } while (exists && attempts < 5);
+
+  if (exists) {
+    throw new Error('Failed to generate unique Agora UID after 5 attempts');
+  }
+
+  return agoraUid;
+};
 
 const generateToken = (id) => {
   return jwt.sign({ id, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '2w' });
@@ -92,6 +111,9 @@ exports.register = async (req, res) => {
       }
     }
 
+    // Generate unique Agora UID before creating new seller
+    const agoraUid = await generateUniqueAgoraUid();
+
     // If email doesn't exist, proceed with new registration
     const otp = generateOTP();
     const newSeller = new Seller({
@@ -100,7 +122,8 @@ exports.register = async (req, res) => {
       email,
       password,
       phoneNumber,
-      otp
+      otp,
+      agoraUid // Add the generated UID
     });
 
     await newSeller.save();

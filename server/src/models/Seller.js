@@ -305,29 +305,10 @@ sellerSchema.pre('save', function (next) {
 });
 
 sellerSchema.pre('save', async function(next) {
-  // Validate UID range
+  // Only keep the validation check
   if (this.agoraUid < 0 || this.agoraUid > 4294967295) {
     return next(new Error('Agora UID must be between 0 and 4294967295'));
   }
-
-  // Check uniqueness for new documents
-  if (this.isNew) {
-    let attempts = 0;
-    let exists;
-    
-    do {
-      exists = await Seller.findOne({ agoraUid: this.agoraUid });
-      if (exists) {
-        this.agoraUid = Math.floor(100000 + Math.random() * (4294967295 - 100000));
-      }
-      attempts++;
-    } while (exists && attempts < 5);
-
-    if (exists) {
-      return next(new Error('Failed to generate unique Agora UID after 5 attempts'));
-    }
-  }
-  
   next();
 });
 
