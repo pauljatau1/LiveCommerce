@@ -72,7 +72,7 @@ const NewPostsList = () => {
   };
 
   return (
-    <View className="py-[10px]" style={{ gap: 10, height: "95%" }}>
+    <View className="py-[10px]" style={{ gap: 10, height: "80%" }}>
       {isLoading && page === 1 ? (
         <ActivityIndicator
           size={"small"}
@@ -101,4 +101,4 @@ const NewPostsList = () => {
   );
 };
 
-export default NewPostsList;
+export default React.memo(NewPostsList);

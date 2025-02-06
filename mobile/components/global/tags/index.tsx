@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     color: "#938F8F",
     fontWeight: "400",
+    fontFamily: "LexendDeca",
   },
   isSelected: {
     color: "#00A353",

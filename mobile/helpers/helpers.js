@@ -43,3 +43,20 @@ export function timeFromNow(timestamp) {
     return `${Math.floor(diffSeconds / 31556952)}y`;
   }
 }
+
+export function catalogSort(items, criteria) {
+  return [...items].sort((a, b) => {
+    switch (criteria) {
+      case "Price: High to Low":
+        return b.price - a.price;
+      case "Price: Low to High":
+        return a.price - b.price;
+      case "Newest to Oldest":
+        return moment(b.updatedAt) - moment(a.updatedAt);
+      case "Oldest to Newest":
+        return moment(a.updatedAt) - moment(b.updatedAt);
+      default:
+        return 0;
+    }
+  });
+}

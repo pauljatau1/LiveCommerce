@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useGetAllProductsQuery } from "@/services/products";
 import { ActivityIndicator } from "react-native-paper";
 import ProductCard from "@/components/global/product-card";
+import CatalogCard from "@/components/catalog/catalogCard";
 
 interface GeneralCategoryProps {
   name: string;
@@ -39,8 +40,8 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
 
   const renderCategoryData = (item: any) => {
     return (
-      <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-        <ProductCard
+      <View className="w-[100%] basis-[49%] h-[299px]">
+        <CatalogCard
           key={item.id}
           id={item._id}
           title={item.name}
@@ -56,8 +57,8 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   };
 
   return (
-    <View className="px-[23px]">
-      <View className="mb-[20px]">
+    <View className="w-full px-[23px]">
+      <View className="w-full mb-[20px]">
         <FlatList
           data={strippedCategory}
           renderItem={({ item }) => renderSubCategory(item)}
@@ -67,7 +68,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
         />
       </View>
 
-      <View>
+      <View className="w-full justify-between gap-[8px]">
         {isLoading ? (
           <ActivityIndicator size={"small"} color="#16783A" />
         ) : (
@@ -76,6 +77,10 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
             renderItem={({ item, index }) => renderCategoryData(item)}
             keyExtractor={(item, index) => index.toString()}
             numColumns={2}
+            columnWrapperStyle={{
+              justifyContent: "space-between", // Add space between columns
+              marginBottom: 8, // Add space between rows
+            }}
             showsVerticalScrollIndicator={false}
           />
         )}

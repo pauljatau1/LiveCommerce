@@ -72,7 +72,7 @@ const SingleExplore = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView className="h-full flex-1 bg-[#121212]">
         <View className="h-full relative">
-          <View className="mb-[12px]">
+          <View className="mb-[2px]">
             <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
               <TouchableOpacity
                 className="absolute left-[18px]"
@@ -90,7 +90,7 @@ const SingleExplore = () => {
               </Text>
             </View>
           </View>
-          <View className="flex-row items-center gap-[24px] mb-[26px] mx-[23px]">
+          <View className="flex-row items-center gap-[8px] mb-[26px] mx-[23px]">
             <TouchableOpacity
               className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
               style={{

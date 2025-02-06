@@ -12,9 +12,11 @@ import { store } from "@/store";
 import { StyleSheet } from "react-native";
 import FlashMessage from "react-native-flash-message";
 import Constants from "expo-constants";
+import * as SystemUI from "expo-system-ui";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+SystemUI.setBackgroundColorAsync("#121212");
 
 export default function RootLayout() {
   return <RootLayoutNav />;

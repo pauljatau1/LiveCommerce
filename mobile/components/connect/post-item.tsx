@@ -4,6 +4,7 @@ import {
   FlatList,
   TouchableOpacity,
   Dimensions,
+  StyleSheet,
 } from "react-native";
 import React, { memo, useEffect, useRef, useState } from "react";
 import {
@@ -80,7 +81,7 @@ const PostItem = ({ item }: { item: any }) => {
     return (
       <View
         className="flex-row items-center justify-center"
-        style={{ marginVertical: 8, gap: 2, marginLeft: 50 }}
+        style={{ marginVertical: 8, gap: 2 }}
       >
         {Array(media?.length)
           .fill(0)
@@ -162,8 +163,8 @@ const PostItem = ({ item }: { item: any }) => {
     <View
       style={{
         paddingBottom: 10,
-        borderBottomColor: "#D9D9D9",
-        borderBottomWidth: 0.5,
+        borderBottomColor: "#888787",
+        borderBottomWidth: StyleSheet.hairlineWidth,
       }}
     >
       <View className="flex-row items-center justify-between py-[10px]">
@@ -192,10 +193,10 @@ const PostItem = ({ item }: { item: any }) => {
       </View>
       <Text
         key={item._id}
-        className="text-[#ccc] font-LexendDeca text-[12px] shrink ml-[50px]"
+        className="text-[#ccc] font-LexendDeca text-[12px] shrink"
         style={{
           marginBottom: 10,
-          marginLeft: 50,
+          // marginLeft: 50,
         }}
       >
         {item.body}
@@ -203,13 +204,13 @@ const PostItem = ({ item }: { item: any }) => {
 
       <View
         style={{
-          width: width - 32 - 50,
+          width: width - 32,
           height: "auto",
           maxHeight: 300,
           position: "relative",
           backgroundColor: "#111",
           borderRadius: 4,
-          marginLeft: 50,
+          // marginLeft: 50,
         }}
       >
         <FlatList
@@ -223,7 +224,7 @@ const PostItem = ({ item }: { item: any }) => {
                 }}
                 style={{
                   height: 250,
-                  width: width - 32 - 50,
+                  width: width - 32,
                   maxHeight: 250,
                 }}
                 resizeMode={ResizeMode.CONTAIN}
@@ -241,7 +242,7 @@ const PostItem = ({ item }: { item: any }) => {
                 transition={500}
                 style={{
                   //   backgroundColor: "red",
-                  width: width - 32 - 50,
+                  width: width - 32,
                   height: 250,
                   maxHeight: 300,
                 }}

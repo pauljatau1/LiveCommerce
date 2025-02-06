@@ -1,6 +1,6 @@
 import { View, FlatList, Text } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useGetAllPostsQuery, useGetNewPostsQuery } from "@/services/posts";
 import PostItem from "./post-item";
 
@@ -73,7 +73,7 @@ const AllPostsList = () => {
   };
 
   return (
-    <View className="py-[10px]" style={{ gap: 10, height: "95%" }}>
+    <View className="py-[10px]" style={{ gap: 10, height: "80%" }}>
       {isLoading && page === 1 ? (
         <ActivityIndicator
           size={"small"}
@@ -105,4 +105,4 @@ const AllPostsList = () => {
   );
 };
 
-export default AllPostsList;
+export default React.memo(AllPostsList);

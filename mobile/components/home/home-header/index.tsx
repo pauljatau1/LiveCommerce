@@ -39,15 +39,16 @@ const HomeHeader = () => {
       //     paddingTop: top + 16,
       // }}
     >
-      <View
-        className="flex-row w-full max-w-[220px] px-[12px] items-center gap-[2px] shrink"
+      <Pressable
+        className="flex-row w-full max-w-[220px] px-[12px] items-center gap-[5px] shrink"
         style={{
-          borderRadius: 4,
+          borderRadius: 6,
           borderWidth: 1,
           borderColor: "#c6c6c6",
           maxWidth: 220,
           paddingVertical: 12,
         }}
+        onPress={() => router.push("/(root)/(modals)/search")}
       >
         <EvilIcons
           name="search"
@@ -55,7 +56,10 @@ const HomeHeader = () => {
           color="#888787"
           className={Platform.OS === "android" ? "mt-[-4px]" : ""}
         />
-        <TextInput
+        <Text className="text-[14px] text-[#888787] font-LexendDecaLight">
+          Search
+        </Text>
+        {/* <TextInput
           placeholder="Search"
           placeholderTextColor={"#888787"}
           className="text-[#c6c6c6] text-[10px] not-italic font-normal  w-[100%] shrink"
@@ -64,8 +68,8 @@ const HomeHeader = () => {
             fontSize: 14,
             padding: 0,
           }}
-        />
-      </View>
+        /> */}
+      </Pressable>
       <View className="flex-row items-center gap-[30px]">
         <TouchableOpacity
           className=" flex justify-center items-center gap-[6px]"

@@ -800,7 +800,7 @@ const CartSheet = ({
   const [selectedSpec, setSelectedSpec] = useState<any>({});
 
   const handleVariantSelect = (data: any) => {
-    console.log("selectedVariant ", selectedVariant);
+    console.log("selectedVariant ", selectedVariant.images);
 
     if (selectedVariant && selectedVariant?._id == data._id) {
       setSelectedSpec({});
@@ -827,7 +827,9 @@ const CartSheet = ({
         price: selectedVariant.price,
         images: [
           {
-            url: selectedVariant.images[0].data,
+            url:
+              selectedVariant.images?.[0]?.data ||
+              productDetails.images?.[0]?.url,
           },
         ],
       });

@@ -76,7 +76,7 @@ const TrendingPostsList = () => {
   };
 
   return (
-    <View className="py-[10px]" style={{ gap: 10, height: "95%" }}>
+    <View className="py-[10px]" style={{ gap: 10, height: "80%" }}>
       {isLoading && page === 1 ? (
         <ActivityIndicator
           size={"small"}
@@ -105,4 +105,4 @@ const TrendingPostsList = () => {
   );
 };
 
-export default TrendingPostsList;
+export default React.memo(TrendingPostsList);
