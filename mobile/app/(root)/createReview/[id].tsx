@@ -18,11 +18,8 @@ import Entypo from "@expo/vector-icons/Entypo";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { Pressable, TextInput } from "react-native-gesture-handler";
 import * as ImagePicker from "expo-image-picker";
-import axios from "axios";
 import { toast } from "@/core/toast";
 import LoadingModal from "@/components/global/loading-modal";
-import { isLoading } from "expo-font";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken } from "@/store/features/auth/utils";
 
 const { width, height } = Dimensions.get("window");
