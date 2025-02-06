@@ -233,9 +233,7 @@ export const LivestreamProvider = ({ children }) => {
             );
 
             if (response.status === 200) {
-                // Make sure the response includes fresh Agora tokens
                 const streamData = response.data.stream;
-
                 dispatch({ 
                     type: 'SET_SUCCESS_LIVESTREAM_START', 
                     payload: streamData 
@@ -247,7 +245,10 @@ export const LivestreamProvider = ({ children }) => {
                         color: '#fff',
                     }
                 });
+                
+                return streamData;
             }
+            return null;
         } catch (error) {
             console.error('Start livestream error:', error);
             dispatch({ 
@@ -261,6 +262,7 @@ export const LivestreamProvider = ({ children }) => {
                     color: '#fff',
                 }
             });
+            throw error;
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -323,6 +325,7 @@ export const LivestreamProvider = ({ children }) => {
             if (response.status === 200) {
                 dispatch({ type: 'SET_LIVE_STREAM_DETAILS', payload: response.data });
             }
+            return response.data;
         } catch (error) {
             console.error('Error getting live stream details', error);
         } finally {

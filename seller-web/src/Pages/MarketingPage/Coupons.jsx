@@ -16,22 +16,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useNavigate } from "react-router-dom"
-import { CheckCircle, AlertCircle, Calendar } from "lucide-react"
+import { CheckCircle, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { InfoIcon } from "lucide-react"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 export default function Coupons() {
   // State management
   const [formData, setFormData] = useState({
-    name: "",
-    code: "",
-    discountPercentage: 0,
+    name: '',
+    code: '', // Optional now
+    discountPercentage: '',
     hasMinimumRequirement: false,
     minimumAmount: 0,
-    startDate: "",
-    startTime: "",
-    endDate: "",
-    endTime: "",
-    customerEligibility: "all",
+    startDate: new Date(),
+    endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 7 days from now
+    customerEligibility: 'all',
     usageLimit: null,
     productDiscounts: [] // Will store {productId, discountedPrice}
   })
@@ -44,6 +52,8 @@ export default function Coupons() {
   const [successDialogOpen, setSuccessDialogOpen] = useState(false)
   const [productErrors, setProductErrors] = useState({})
   const navigate = useNavigate()
+  const [startTimeOption, setStartTimeOption] = useState('immediately')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     const fetchSellerProducts = async () => {
@@ -79,9 +89,31 @@ export default function Coupons() {
     fetchSellerProducts()
   }, [])
 
+  // Update form data when start time option changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      startDate: startTimeOption === 'immediately' ? new Date() : prev.startDate
+    }))
+  }, [startTimeOption])
+
+  // Add date validation
+  const isDateValid = () => {
+    if (!formData.endDate) return false;
+    if (startTimeOption === 'scheduled' && !formData.startDate) return false;
+    if (startTimeOption === 'scheduled' && formData.startDate >= formData.endDate) return false;
+    if (startTimeOption === 'immediately' && new Date() >= formData.endDate) return false;
+    return true;
+  }
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!isDateValid()) {
+      setError("Please set valid start and end dates");
+      return;
+    }
+    setIsSubmitting(true)
     try {
       const sellerToken = localStorage.getItem('sellerToken')
       if (!sellerToken) {
@@ -94,17 +126,19 @@ export default function Coupons() {
       // Prepare product discounts data
       const productDiscounts = selectedProducts.map(productId => {
         const product = sellerProducts.find(p => p._id === productId)
-        // Calculate discounted price based on percentage
         const discountedPrice = product.price * (1 - (formData.discountPercentage / 100))
         return {
           productId,
-          discountedPrice: Math.round(discountedPrice * 100) / 100 // Round to 2 decimal places
+          discountedPrice: Math.round(discountedPrice)
         }
       })
 
-      // Combine date and time
-      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`)
-      const endDateTime = endDateEnabled ? new Date(`${formData.endDate}T${formData.endTime}`) : null
+      // Format dates properly
+      const startDateTime = startTimeOption === 'immediately' 
+        ? new Date().toISOString()
+        : formData.startDate.toISOString();
+
+      const endDateTime = formData.endDate.toISOString();
 
       const couponData = {
         name: formData.name,
@@ -113,7 +147,7 @@ export default function Coupons() {
         hasMinimumRequirement: formData.hasMinimumRequirement,
         minimumAmount: formData.hasMinimumRequirement ? Number(formData.minimumAmount) : 0,
         startDate: startDateTime,
-        endDate: endDateTime,
+        endDate: endDateTime, // Now properly included
         customerEligibility: formData.customerEligibility,
         productDiscounts,
         usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null
@@ -132,19 +166,18 @@ export default function Coupons() {
         discountPercentage: 0,
         hasMinimumRequirement: false,
         minimumAmount: 0,
-        startDate: "",
-        startTime: "",
-        endDate: "",
-        endTime: "",
+        startDate: new Date(),
+        endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
         customerEligibility: "all",
         usageLimit: null,
         productDiscounts: []
       })
       setSelectedProducts([])
-      setEndDateEnabled(false)
 
     } catch (error) {
       setError(error.response?.data?.message || error.message)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -193,203 +226,261 @@ export default function Coupons() {
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Create New Coupon</h1>
+    <div className=" mx-auto p-6">
+      {/* Header Section with improved spacing and styling */}
+      <div className="flex justify-between items-center mb-8 border-b pb-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Create New Coupon</h1>
+          <p className="text-gray-500 mt-1">Set up discounts for your products</p>
+        </div>
         <Button
           variant="outline"
           onClick={() => navigate('/dashboard/coupons/list')}
+          className="flex items-center gap-2"
         >
+          <CalendarIcon className="h-4 w-4" />
           View All Coupons
         </Button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Coupon Name and Code */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="couponName">Coupon Name</Label>
-            <Input
-              id="couponName"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              placeholder="Summer Sale"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="couponCode">Coupon Code</Label>
-            <Input
-              id="couponCode"
-              value={formData.code}
-              onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-              placeholder="SUMMER2024"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Discount Percentage */}
-        <div className="space-y-2">
-          <Label htmlFor="discountPercentage">Discount Percentage</Label>
-          <Input
-            id="discountPercentage"
-            type="number"
-            min="0"
-            max="100"
-            value={formData.discountPercentage}
-            onChange={(e) => setFormData({...formData, discountPercentage: e.target.value})}
-            placeholder="20"
-            required
-          />
-        </div>
-
-        {/* Purchase Restrictions */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Coupon Purchase Restriction</h2>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="hasMinimum"
-              checked={formData.hasMinimumRequirement}
-              onCheckedChange={(checked) => setFormData({
-                ...formData,
-                hasMinimumRequirement: checked,
-                minimumAmount: checked ? formData.minimumAmount : 0
-              })}
-            />
-            <Label htmlFor="hasMinimum">Minimum Purchase requirement</Label>
-          </div>
-
-          {formData.hasMinimumRequirement && (
-            <Input
-              type="number"
-              value={formData.minimumAmount}
-              onChange={(e) => setFormData({...formData, minimumAmount: e.target.value})}
-              placeholder="₦ 1,000"
-              className="max-w-[200px]"
-            />
-          )}
-        </div>
-
-        {/* Active Dates */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Active Dates</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                required
-              />
-            </div>
-            <div>
-              <Label>Start Time</Label>
-              <Input
-                type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData({...formData, startTime: e.target.value})}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="endDate"
-                checked={endDateEnabled}
-                onCheckedChange={setEndDateEnabled}
-              />
-              <Label htmlFor="endDate">Set end date</Label>
-            </div>
-
-            {endDateEnabled && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>End Date</Label>
+        {/* Organize form into card-like sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Coupon Details Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-primary" />
+                </span>
+                Coupon Details
+              </h2>
+              <div className="space-y-4">
+                <div className="grid gap-3">
+                  <Label htmlFor="name">Coupon Name</Label>
                   <Input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                    required={endDateEnabled}
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g., Summer Sale 2024"
+                    className="max-w-md"
                   />
                 </div>
-                <div>
-                  <Label>End Time</Label>
+                
+                <div className="grid gap-3">
+                  <Label htmlFor="code">Coupon Code</Label>
                   <Input
-                    type="time"
-                    value={formData.endTime}
-                    onChange={(e) => setFormData({...formData, endTime: e.target.value})}
-                    required={endDateEnabled}
+                    id="code"
+                    value={formData.code}
+                    onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                    placeholder="e.g., SUMMER2024"
+                    className="max-w-md uppercase"
                   />
+                  <span className="text-sm text-gray-500">Leave empty for auto-generation</span>
+                </div>
+
+                <div className="grid gap-3">
+                  <Label htmlFor="discountPercentage">Discount Percentage</Label>
+                  <div className="relative max-w-[200px]">
+                    <Input
+                      id="discountPercentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.discountPercentage}
+                      onChange={(e) => setFormData({...formData, discountPercentage: e.target.value})}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-500">%</span>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Purchase Restrictions Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-primary" />
+                </span>
+                Purchase Restrictions
+              </h2>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="hasMinimum"
+                    checked={formData.hasMinimumRequirement}
+                    onCheckedChange={(checked) => setFormData({
+                      ...formData,
+                      hasMinimumRequirement: checked,
+                      minimumAmount: checked ? formData.minimumAmount : 0
+                    })}
+                  />
+                  <Label htmlFor="hasMinimum">Set minimum purchase amount</Label>
+                </div>
+
+                {formData.hasMinimumRequirement && (
+                  <div className="ml-6">
+                    <Label htmlFor="minimumAmount">Minimum Amount (₦)</Label>
+                    <Input
+                      id="minimumAmount"
+                      type="number"
+                      value={formData.minimumAmount}
+                      onChange={(e) => setFormData({...formData, minimumAmount: e.target.value})}
+                      placeholder="1000"
+                      className="max-w-[200px] mt-2"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Duration Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <CalendarIcon className="h-5 w-5 text-primary" />
+                </span>
+                Coupon Duration
+              </h2>
+              <div className="space-y-4">
+                <RadioGroup
+                  value={startTimeOption}
+                  onValueChange={setStartTimeOption}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="immediately" id="immediately" />
+                    <Label htmlFor="immediately">Start immediately</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="scheduled" id="scheduled" />
+                    <Label htmlFor="scheduled">Schedule start time</Label>
+                  </div>
+                </RadioGroup>
+
+                {startTimeOption === 'scheduled' && (
+                  <div className="grid gap-2">
+                    <Label>Start Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "justify-start text-left font-normal",
+                            !formData.startDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.startDate ? format(formData.startDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.startDate}
+                          onSelect={(date) => setFormData({ ...formData, startDate: date })}
+                          disabled={(date) => 
+                            date < new Date() || 
+                            (formData.endDate && date >= formData.endDate)
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  <Label>End Date <span className="text-red-500">*</span></Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !formData.endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.endDate ? format(formData.endDate, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={formData.endDate}
+                        onSelect={(date) => setFormData({ ...formData, endDate: date })}
+                        disabled={(date) => 
+                          date < new Date() || 
+                          (startTimeOption === 'scheduled' && formData.startDate && date <= formData.startDate)
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {!isDateValid() && (
+                    <p className="text-sm text-red-500">
+                      Please select a valid end date that is after the start date
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Eligibility Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-primary" />
+                </span>
+                Customer Eligibility
+              </h2>
+              <RadioGroup
+                value={formData.customerEligibility}
+                onValueChange={(value) => setFormData({...formData, customerEligibility: value})}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="all" />
+                  <Label htmlFor="all">All customers</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="new" id="new" />
+                  <Label htmlFor="new">New customers</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="followers" id="followers" />
+                  <Label htmlFor="followers">Followers only</Label>
+                </div>
+              </RadioGroup>
+            </div>
           </div>
         </div>
 
-        {/* Customer Eligibility */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Customer Eligibility</h2>
-          <RadioGroup
-            value={formData.customerEligibility}
-            onValueChange={(value) => setFormData({...formData, customerEligibility: value})}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="all" id="all" />
-              <Label htmlFor="all">All customers</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="new" id="new" />
-              <Label htmlFor="new">New customers</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="followers" id="followers" />
-              <Label htmlFor="followers">Followers only</Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        {/* Usage Limits */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Usage Limits</h2>
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="hasUsageLimit"
-                checked={formData.usageLimit !== null}
-                onCheckedChange={(checked) => setFormData({
-                  ...formData,
-                  usageLimit: checked ? 0 : null
-                })}
-              />
-              <Label htmlFor="hasUsageLimit">Limit number of times this discount can be used</Label>
-            </div>
-            {formData.usageLimit !== null && (
+        {/* Products Selection Section - Full Width */}
+        <div className="bg-white rounded-lg border p-6 shadow-sm mt-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span className="bg-primary/10 p-2 rounded-lg">
+              <Search className="h-5 w-5 text-primary" />
+            </span>
+            Select Products
+          </h2>
+          
+          {/* Improved search bar */}
+          <div className="max-w-md mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
               <Input
-                type="number"
-                value={formData.usageLimit}
-                onChange={(e) => setFormData({...formData, usageLimit: e.target.value})}
-                placeholder="0"
-                className="max-w-[200px]"
+                placeholder="Search products by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
               />
-            )}
-          </div>
-        </div>
-
-        {/* Select Products */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Select Products</h2>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              placeholder="Search products"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
-            />
+            </div>
           </div>
 
           {error && (
@@ -405,55 +496,44 @@ export default function Coupons() {
                   <TableHead>STOCK</TableHead>
                   <TableHead>PRICE</TableHead>
                   <TableHead>DISCOUNTED PRICE</TableHead>
+                  <TableHead>STATUS</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">Loading products...</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                        <span>Loading products...</span>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ) : filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">No products found</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8">No products found</TableCell>
                   </TableRow>
                 ) : (
                   filteredProducts.map((product) => {
-                    const discountInfo = formatDiscountInfo(product);
+                    const isDiscounted = product.discount?.isActive;
+                    const discountInfo = isDiscounted ? {
+                      endDate: product.discount.endDate ? new Date(product.discount.endDate).toLocaleDateString() : 'Ongoing',
+                      discountPercentage: `${product.discount.value}%`,
+                      couponName: product.discount.couponName
+                    } : null;
 
                     return (
                       <TableRow
                         key={product._id}
-                        className={product.isOnDiscount ? "bg-gray-50" : ""}
+                        className={isDiscounted ? "bg-gray-50" : ""}
                       >
                         <TableCell>
-                          <div className="space-y-1">
-                            <div className="relative">
-                              <Checkbox
-                                checked={selectedProducts.includes(product._id)}
-                                onCheckedChange={(checked) => handleProductSelection(product._id, checked)}
-                                disabled={product.isOnDiscount}
-                                className={product.isOnDiscount ? "opacity-50 cursor-not-allowed" : ""}
-                              />
-                              {product.isOnDiscount && (
-                                <AlertCircle className="h-4 w-4 text-amber-500 absolute -right-5 -top-1" />
-                              )}
-                            </div>
-                            {product.isOnDiscount && (
-                              <div className="text-xs text-gray-500">
-                                <div className="font-medium">Product Already Discounted</div>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4" />
-                                    <span>Ends on {discountInfo.endDate}</span>
-                                  </div>
-                                  <div>Current discount: {discountInfo.discountPercentage}</div>
-                                  <div className="text-amber-500">
-                                    {discountInfo.daysRemaining} days remaining
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          <Checkbox
+                            checked={selectedProducts.includes(product._id)}
+                            onCheckedChange={(checked) => handleProductSelection(product._id, checked)}
+                            disabled={isDiscounted}
+                            className={isDiscounted ? "opacity-50 cursor-not-allowed" : ""}
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-3">
@@ -462,51 +542,54 @@ export default function Coupons() {
                               alt={product.name}
                               className="h-10 w-10 rounded-md object-cover"
                             />
-                            <div className="space-y-1">
-                              <div className="font-medium">{product.name}</div>
-                              {product.isOnDiscount && (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary" className="bg-amber-50 text-amber-700 hover:bg-amber-50">
-                                    {discountInfo.discountPercentage}
-                                  </Badge>
-                                  <span className="text-xs text-gray-500">
-                                    until {discountInfo.endDate}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                            <div className="font-medium">{product.name}</div>
                           </div>
                         </TableCell>
+                        <TableCell>{product.stock}</TableCell>
                         <TableCell>
-                          <div className="space-y-1">
-                            <div>{product.stock}</div>
-                            {product.isOnDiscount && (
-                              <div className="text-xs text-gray-500">
-                                Not available for new discounts
-                              </div>
-                            )}
+                          <div className={isDiscounted ? "line-through text-gray-400" : ""}>
+                            ₦ {product.price.toLocaleString()}
                           </div>
+                          {isDiscounted && (
+                            <div className="text-green-600 font-medium">
+                              ₦ {product.discountedPrice.toLocaleString()}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-1">
-                            <div className={product.isOnDiscount ? "line-through text-gray-400" : ""}>
-                              ₦ {product.price.toLocaleString()}
-                            </div>
-                            {product.isOnDiscount && (
-                              <div className="text-green-600 font-medium">
-                                ₦ {product.discountedPrice.toLocaleString()}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {product.isOnDiscount ? (
-                            <div className="text-gray-400 italic">
-                              Currently discounted
-                            </div>
+                          {isDiscounted ? (
+                            <span className="text-gray-400">N/A</span>
                           ) : (
                             <div>
                               ₦ {(product.price * (1 - (formData.discountPercentage / 100))).toLocaleString()}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isDiscounted && (
+                            <div className="inline-flex items-center">
+                              <Badge 
+                                variant="secondary" 
+                                className="bg-amber-50 text-amber-700 hover:bg-amber-50"
+                              >
+                                <div className="flex items-center gap-1">
+                                  <AlertCircle className="h-3 w-3" />
+                                  <span>
+                                    {discountInfo.discountPercentage} off until {discountInfo.endDate}
+                                  </span>
+                                </div>
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 ml-1"
+                                onClick={() => {
+                                  // Add a tooltip or modal here to show full discount details
+                                  alert(`Current Discount Details:\nDiscount: ${discountInfo.discountPercentage} off\nEnds: ${discountInfo.endDate}\nCoupon: ${discountInfo.couponName}`)
+                                }}
+                              >
+                                <InfoIcon className="h-4 w-4 text-gray-400" />
+                              </Button>
                             </div>
                           )}
                         </TableCell>
@@ -523,9 +606,22 @@ export default function Coupons() {
         </div>
 
         {/* Form Actions */}
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end space-x-4 pt-6 border-t">
           <Button type="button" variant="outline">Cancel</Button>
-          <Button type="submit">Publish Coupon</Button>
+          <Button 
+            type="submit"
+            className="min-w-[150px]"
+            disabled={selectedProducts.length === 0 || isSubmitting || !isDateValid()}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Publishing...
+              </div>
+            ) : (
+              'Publish Coupon'
+            )}
+          </Button>
         </div>
       </form>
 
