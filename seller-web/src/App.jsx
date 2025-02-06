@@ -1,5 +1,5 @@
 import AuthProvider from './Contexts/AuthContext';
-import { createBrowserRouter, RouterProvider, Navigate, BrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { Suspense } from 'react';
 import { Toaster } from "sonner";
