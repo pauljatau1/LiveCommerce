@@ -471,7 +471,7 @@ export default function OrderDetails() {
                           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                           <rect x="6" y="14" width="12" height="8"></rect>
                         </svg>
-                        Print Shipping Label
+                         Track Shipment
                       </Button>
                     )}
                     {shipping.documents.commercialInvoice && (
@@ -497,7 +497,7 @@ export default function OrderDetails() {
                           <line x1="16" y1="17" x2="8" y2="17"></line>
                           <polyline points="10 9 9 9 8 9"></polyline>
                         </svg>
-                        Print Commercial Invoice
+                        Print Shipping Label
                       </Button>
                     )}
                   </div>
