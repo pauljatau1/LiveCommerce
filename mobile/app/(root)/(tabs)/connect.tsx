@@ -1,4 +1,12 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  useWindowDimensions,
+  Dimensions,
+} from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, { useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -10,9 +18,10 @@ import AllPostsList from "@/components/connect/all-posts-list";
 import NewPostsList from "@/components/connect/new-posts-list";
 import TrendingPostsList from "@/components/connect/trending-posts-list";
 import { router } from "expo-router";
+import { TabBar, TabBarItem, TabView } from "react-native-tab-view";
 
 const tabs = ["All", "New", "Trending"];
-
+const { width, height } = Dimensions.get("window");
 const Connect = () => {
   const {
     data: posts,
@@ -20,8 +29,31 @@ const Connect = () => {
     isFetching,
     refetch,
   } = useGetAllPostsQuery({});
+  const layout = useWindowDimensions();
+  const [index, setIndex] = useState(0);
 
   const [activeTab, setActiveTab] = useState<string>("All");
+  const [routes] = useState([
+    { key: "All", title: "All" },
+    { key: "New", title: "New" },
+    { key: "Trending", title: "Trending" },
+    // { key: "Featured", title: "Featured" },
+    // { key: "Coming", title: "Coming" },
+  ]);
+
+  const renderScene = ({ route }: { route: any }) => {
+    switch (route.key) {
+      case "All":
+        return <AllPostsList />;
+
+      case "New":
+        return <NewPostsList />;
+      case "Trending":
+        return <TrendingPostsList />;
+      default:
+        null;
+    }
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -36,8 +68,13 @@ const Connect = () => {
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="h-full pt-[30px] px-[16px]">
+      <SafeAreaView
+        className="h-full flex-1 bg-[#121212]"
+        style={{
+          minHeight: height,
+        }}
+      >
+        <View className="h-full flex-1 pt-[30px] px-[16px]">
           <View style={styles.header}>
             <Text className="text-[24px] font-LexendDecaSemiBold text-[#ccc]">
               Auqli Connect
@@ -100,7 +137,51 @@ const Connect = () => {
             </View>
           </View>
 
-          <View className="flex-row items-center justify-between border-b-[1px] border-b-[#C6C6C6]">
+          <TabView
+            lazy={true}
+            renderTabBar={(props) => (
+              <TabBar
+                key={1}
+                {...props}
+                scrollEnabled={true}
+                activeColor="#16783A"
+                inactiveColor="#ccc"
+                tabStyle={{
+                  width: (width - 32) / 3,
+                  // width: "auto",
+                  // paddingHorizontal: 10,
+                }}
+                style={{
+                  backgroundColor: "red",
+                  // marginLeft: 23,
+                  borderBottomColor: "#ccc",
+                  borderBottomWidth: 0.4,
+                  marginTop: -15,
+                }}
+                indicatorStyle={{
+                  backgroundColor: "#16783A",
+                }}
+                indicatorContainerStyle={{
+                  backgroundColor: "#121212",
+                }}
+                renderTabBarItem={(props) => (
+                  <TabBarItem
+                    {...props}
+                    labelStyle={{
+                      fontSize: 12,
+                      fontFamily: "LexendDeca",
+                    }}
+                  />
+                )}
+              />
+            )}
+            navigationState={{ index, routes }}
+            renderScene={renderScene}
+            onIndexChange={setIndex}
+            initialLayout={{ width: layout.width }}
+          />
+
+          {/* <View className="flex-row items-center justify-between border-b-[1px] border-b-[#C6C6C6]">
             {tabs?.map((tab, index) => (
               <TouchableOpacity
                 style={[styles.tab, activeTab == tab && styles.activeTab]}
@@ -119,7 +200,7 @@ const Connect = () => {
             ))}
           </View>
 
-          {renderContent()}
+          {renderContent()} */}
         </View>
       </SafeAreaView>
     </>

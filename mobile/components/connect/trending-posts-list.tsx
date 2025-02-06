@@ -76,7 +76,7 @@ const TrendingPostsList = () => {
   };
 
   return (
-    <View className="py-[10px]" style={{ gap: 10, height: "80%" }}>
+    <View className="py-[10px]" style={{ gap: 10, height: "95%" }}>
       {isLoading && page === 1 ? (
         <ActivityIndicator
           size={"small"}
