@@ -100,8 +100,9 @@ exports.createStream = async (req, res) => {
     await stream.save();
 
     const populatedStream = await Stream.findById(stream._id)
-      .populate('seller', 'storeName businessName avatarUrl rating')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price');
+
 
     res.status(201).json({
       message: 'Stream created successfully',
@@ -322,7 +323,7 @@ exports.endStream = async (req, res) => {
 exports.getActiveStreams = async (req, res) => {
   try {
     const activeStreams = await Stream.find({ status: 'live' })
-      .populate('seller', 'storeName businessName avatarUrl rating')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price')
       .sort({ actualStartTime: -1 });
 
@@ -338,7 +339,7 @@ exports.getActiveStreams = async (req, res) => {
 exports.getStreamDetails = async (req, res) => {
   try {
     let stream = await Stream.findById(req.params.streamId)
-      .populate('seller', 'storeName businessName avatarUrl rating')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
       .populate('viewers', 'firstName lastName username')
@@ -426,7 +427,7 @@ exports.getSellerStreams = async (req, res) => {
 
     // Execute query with pagination
     const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName avatarUrl rating')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
       .sort({ scheduledStartTime: -1, createdAt: -1 })
@@ -568,8 +569,9 @@ exports.createOpenLiveShow = async (req, res) => {
     await stream.save();
 
     const populatedStream = await Stream.findById(stream._id)
-      .populate('seller', 'storeName businessName avatarUrl rating')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price');
+
 
     res.status(201).json({
       message: 'Open live show created successfully',
@@ -598,11 +600,12 @@ exports.getStreamsByStatus = async (req, res) => {
     }
 
     const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName avatarUrl rating')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price')
       .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
       .sort({ scheduledStartTime: -1, createdAt: -1 })
       .skip((page - 1) * limit)
+
       .limit(parseInt(limit));
 
     const total = await Stream.countDocuments(query);
@@ -640,12 +643,13 @@ exports.getSellerStreamsByStatus = async (req, res) => {
     }
 
     const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName avatarUrl rating')
+      .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price')
       .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
       .sort({ scheduledStartTime: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
+
 
     const total = await Stream.countDocuments(query);
 
