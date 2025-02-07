@@ -45,7 +45,7 @@ const HomeHeader = () => {
           borderRadius: 6,
           borderWidth: 1,
           borderColor: "#c6c6c6",
-          maxWidth: 220,
+          maxWidth: 250,
           paddingVertical: 12,
         }}
         onPress={() => router.push("/(root)/(modals)/search")}
@@ -79,8 +79,8 @@ const HomeHeader = () => {
             source={require("../../../assets/icons/cart.png")}
             resizeMode="cover"
             style={{
-              width: 22,
-              height: 22,
+              width: 25,
+              height: 25,
             }}
           />
           {/* <AntDesign
@@ -108,9 +108,9 @@ const HomeHeader = () => {
               </Text>
             </View>
           )}
-          <Text className="text-gray-200 text-[7.554px] font-LexendDeca font-[600]">
+          {/* <Text className="text-gray-200 text-[7.554px] font-LexendDeca font-[600]">
             Cart
-          </Text>
+          </Text> */}
         </TouchableOpacity>
         <Pressable
           className="flex-column items-center justify-center relative gap-[6px]"
@@ -120,13 +120,13 @@ const HomeHeader = () => {
             source={require("../../../assets/icons/notification.png")}
             resizeMode="cover"
             style={{
-              width: 22,
-              height: 22,
+              width: 25,
+              height: 25,
             }}
           />
-          <Text className="text-gray-200 text-[7.554px] font-LexendDeca font-[600] ">
+          {/* <Text className="text-gray-200 text-[7.554px] font-LexendDeca font-[600] ">
             Notifications
-          </Text>
+          </Text> */}
         </Pressable>
       </View>
     </View>

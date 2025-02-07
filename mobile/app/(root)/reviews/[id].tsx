@@ -31,8 +31,6 @@ const ReviewsPage = () => {
   const getProductReviews = async () => {
     try {
       setIsProductReviewsLoading(true);
-      console.log("product Id ", id);
-
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/products/${id}/reviews`,
       );
@@ -108,14 +106,17 @@ const ReviewsPage = () => {
                 style={{ gap: 40 }}
               >
                 <View className="gap-2 relative w-[65%]">
-                  {[5, 4, 3, 2, 1].map((val) => {
+                  {[5, 4, 3, 2, 1].map((val, index) => {
                     let count = productReviews.filter(
                       (pr: any) => pr.rating == val,
                     );
                     let percentage =
                       (count.length / productReviews.length) * 100;
                     return (
-                      <View className="flex-row items-center gap-[8px] shrink">
+                      <View
+                        className="flex-row items-center gap-[8px] shrink"
+                        key={index}
+                      >
                         <Text className="text-[14px] text-white opacity-70">
                           {val}
                         </Text>

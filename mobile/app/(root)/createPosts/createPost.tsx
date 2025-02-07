@@ -86,7 +86,6 @@ const createPost = () => {
       }));
       const remainingSlots = 4 - selectedMedia.length;
       const imagesToAdd = newImages.slice(0, remainingSlots);
-      console.log(imagesToAdd[0].uri);
 
       setSelectedMedia((prevMedia) => [...prevMedia, ...imagesToAdd]);
     }
@@ -123,23 +122,9 @@ const createPost = () => {
         formData.append(`media`, image);
       });
       formData.append("visibility", visibility.toLowerCase());
-      console.log(formData);
 
       const result = await createPost(formData);
       router.replace("/(root)/(tabs)/connect");
-      //   const token = await getToken();
-      //   const result = await fetch(
-      //     `${process.env.EXPO_PUBLIC_API_URL}api/posts`,
-      //     {
-      //       method: "POST",
-      //       body: formData,
-      //       headers: {
-      //         "Content-Type": "multipart/form-data",
-      //         Authorization: `Bearer ${token}`,
-      //       },
-      //     },
-      //   );
-      //   const data = await result.json();
       console.log("created post", result);
     } catch (e) {
       console.log("error creating post ", e);
@@ -472,11 +457,6 @@ const ProductsSheet = ({
   };
 
   const handleFinalSubmit = () => {
-    // const result = selectedProducts.map((product: any) => product._id);
-    console.log(
-      "selected products ",
-      selectedProducts.map((product: any) => product._id),
-    );
     handleSubmitSelectedProducts(selectedProducts);
   };
 
@@ -776,10 +756,10 @@ const SellersSheet = ({
             minWidth: 100,
             flexShrink: 1,
             flexGrow: 1,
-            // backgroundColor: "yellow",
           }}
           value={searchTerm}
           onChangeText={(text) => setSearchTerm(text)}
+          autoFocus
         />
       </View>
       <View

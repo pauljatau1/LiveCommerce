@@ -94,19 +94,32 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </Text>
       </View>
       {/* Seller Information */}
-      <View className="relative flex-row gap-x-2">
+      <View className="relative flex-row gap-x-2 items-center">
+        <Image
+          source={
+            moreDetails?.seller?.storeAvatar.url
+              ? { uri: moreDetails?.seller?.storeAvatar.url }
+              : require("../../../assets/icons/user-image-empty.png")
+          }
+          resizeMode="contain"
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: 20,
+          }}
+        />
         <View>
           <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
-            {sellerName}
+            {sellerName || moreDetails?.seller?.businessName}
           </Text>
           {sellerRating > 0 && (
             <View className="flex-row items-center">
-              <Text className="text-white text-[8px] font-LexendDecaMedium">
+              {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
                 Rating:{"  "}
-              </Text>
+              </Text> */}
               <Image source={icons.starIcon} />
               <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
-                {sellerRating}
+                {sellerRating.toFixed(1)}
               </Text>
             </View>
           )}
@@ -195,8 +208,6 @@ const CartSheet = ({
   const [selectedSpec, setSelectedSpec] = useState<any>({});
 
   const handleVariantSelect = (data: any) => {
-    console.log("selectedVariant ", selectedVariant);
-
     if (selectedVariant && selectedVariant?._id == data._id) {
       setSelectedSpec({});
       return setSelectedVariant({});

@@ -94,43 +94,56 @@ const CatalogCard: React.FC<ProductCardProps> = ({
         </Text>
       </View>
       {/* Seller Information */}
-      <View className="relative flex-row gap-x-2">
+      <View className="relative flex-row gap-x-2 items-center">
+        <Image
+          source={
+            moreDetails?.seller?.storeAvatar.url
+              ? { uri: moreDetails?.seller?.storeAvatar.url }
+              : require("../../assets/icons/user-image-empty.png")
+          }
+          resizeMode="contain"
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: 20,
+          }}
+        />
         <View>
           <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
-            {sellerName}
+            {sellerName || moreDetails?.seller?.businessName}
           </Text>
           {sellerRating > 0 && (
             <View className="flex-row items-center">
-              <Text className="text-white text-[8px] font-LexendDecaMedium">
-                Rating:{"  "}
-              </Text>
+              {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
+                      Rating:{"  "}
+                    </Text> */}
               <Image source={icons.starIcon} />
               <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
-                {sellerRating}
+                {sellerRating.toFixed(1)}
               </Text>
             </View>
           )}
 
           {/* <View className="flex-row items-center gap-x-1">
-            <View className="flex-row items-center gap-x-2">
-              <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDeca font-bold">
-                Top seller
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <Image source={icons.starIcon} />
-              <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDeca font-bold">
-                4.7
-              </Text>
-            </View>
-          </View> */}
+                  <View className="flex-row items-center gap-x-2">
+                    <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDeca font-bold">
+                      Top seller
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Image source={icons.starIcon} />
+                    <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDeca font-bold">
+                      4.7
+                    </Text>
+                  </View>
+                </View> */}
         </View>
         {/* {isVerified && (
-          <Image
-            source={icons.verifyBadge}
-            className="w-[17.06px] h-[17.06px]"
-          />
-        )} */}
+                <Image
+                  source={icons.verifyBadge}
+                  className="w-[17.06px] h-[17.06px]"
+                />
+              )} */}
       </View>
       <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
         Lagos, Nigeria
@@ -195,8 +208,6 @@ const CartSheet = ({
   const [selectedSpec, setSelectedSpec] = useState<any>({});
 
   const handleVariantSelect = (data: any) => {
-    console.log("selectedVariant ", selectedVariant);
-
     if (selectedVariant && selectedVariant?._id == data._id) {
       setSelectedSpec({});
       return setSelectedVariant({});
@@ -213,7 +224,6 @@ const CartSheet = ({
 
   const handleCreateCartItem = () => {
     if (selectedVariant?._id) {
-      console.log("specs ==>", selectedSpec);
       addToCart({
         ...productDetails,
         quantity,

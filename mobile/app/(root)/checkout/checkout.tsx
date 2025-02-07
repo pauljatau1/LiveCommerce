@@ -183,8 +183,6 @@ const Checkout = () => {
           return;
         }
 
-        console.log(cart);
-
         const pickup_address = {
           first_name:
             cart.seller.personalInfo?.firstName || cart.seller.firstName,
@@ -217,7 +215,6 @@ const Checkout = () => {
         sellerObj[cart.seller._id] = pickup_address;
       });
 
-      console.log("sellerObj", filteredCart);
       setPickupAddress(sellerObj);
     } catch (e) {
       console.log("cannot get cart", e);
@@ -246,7 +243,6 @@ const Checkout = () => {
       delivery_address: selectedAddress,
       paymentMethod: "paystack",
     };
-    console.log(order);
 
     try {
       setOrderloading(true);

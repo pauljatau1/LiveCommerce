@@ -56,7 +56,6 @@ const createReview = () => {
       }));
       const remainingSlots = 4 - selectedImages.length;
       const imagesToAdd = newImages.slice(0, remainingSlots);
-      console.log(imagesToAdd[0].uri);
 
       setSelectedImages((prevMedia) => [...prevMedia, ...imagesToAdd]);
     }
@@ -85,15 +84,6 @@ const createReview = () => {
         formData.append(`images`, image);
       });
       formData.append("purchasedVariant", JSON.stringify({}));
-      console.log("selectedImages ", formData);
-
-      // const payload = {
-      //   rating,
-      //   title,
-      //   comment,
-      //   images: selectedImages,
-      //   purchasedVariant: [],
-      // };
 
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL}api/products/${id}/reviews`,
@@ -109,7 +99,6 @@ const createReview = () => {
       toast.success("Review submitted successfully");
       setLoading(false);
       router.back();
-      console.log(response.json());
     } catch (e: any) {
       toast.error(e.data.message);
       console.log(e);
@@ -180,7 +169,7 @@ const createReview = () => {
             {Array(5)
               .fill(0)
               .map((val, index) => (
-                <Pressable onPress={() => setRating(index + 1)}>
+                <Pressable onPress={() => setRating(index + 1)} key={index}>
                   <AntDesign
                     name="star"
                     size={24}

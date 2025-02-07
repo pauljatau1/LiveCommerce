@@ -46,7 +46,7 @@ const TabsLayout = () => {
         tabBarLabelStyle: {
           fontFamily: "LexendDeca",
           fontWeight: "400",
-          fontSize: Platform.OS == "android" ? 10 : 12,
+          fontSize: 10,
           marginTop: 4,
         },
         tabBarStyle: {

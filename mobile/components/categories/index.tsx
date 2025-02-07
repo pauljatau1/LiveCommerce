@@ -103,13 +103,9 @@ const Categories = () => {
 
   const handleContinue = async (data: FormData) => {
     try {
-      // console.log(selectedCategories);
-      // return;
       const registerPayload = await AsyncStorage.getItem("registerPayload");
-      console.log("selected categories :", selectedCategories);
 
       const token = await AsyncStorage.getItem("token");
-      // console.log(token);
 
       const result = await uploadCategories({ selectedCategories }).unwrap();
 
@@ -194,6 +190,7 @@ const Categories = () => {
               title="Sub Category"
               show={show}
               titleColor="!text-white"
+              keyboardBehavior="interactive"
             >
               <View className="rounded-t-3xl">
                 <FlatList

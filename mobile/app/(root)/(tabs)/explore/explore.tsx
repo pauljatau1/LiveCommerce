@@ -95,7 +95,7 @@ const Explore = () => {
             <Text className="text-[#ccc] text-[18px] font-LexendDecaMedium mb-[14px]">
               Browse by Category
             </Text>
-            <View className="flex-row items-center gap-[24px] mb-[26px]">
+            <View className="flex-row items-center gap-[8px] mb-[26px]">
               <TouchableOpacity
                 className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
                 style={{

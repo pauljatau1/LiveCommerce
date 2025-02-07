@@ -72,32 +72,30 @@ const SingleExplore = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView className="h-full flex-1 bg-[#121212]">
         <View className="h-full relative">
-          <View className="mb-[2px]">
-            <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
-              <TouchableOpacity
-                className="absolute left-[18px]"
-                onPress={() => router.back()}
-              >
-                <Entypo
-                  name="chevron-left"
-                  size={24}
-                  color="rgba(204, 204, 204, 0.8)"
-                />
-              </TouchableOpacity>
+          <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
+            <TouchableOpacity
+              className="absolute left-[18px]"
+              onPress={() => router.back()}
+            >
+              <Entypo
+                name="chevron-left"
+                size={24}
+                color="rgba(204, 204, 204, 0.8)"
+              />
+            </TouchableOpacity>
 
-              <Text className="text-white font-LexendDecaMedium text-[24px]">
-                {categoryName}
-              </Text>
-            </View>
+            <Text className="text-white font-LexendDecaMedium text-[24px]">
+              {categoryName}
+            </Text>
           </View>
-          <View className="flex-row items-center gap-[8px] mb-[26px] mx-[23px]">
+          <View className="flex-row items-center gap-[8px] mb-[17px] mx-[23px]">
             <TouchableOpacity
               className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
               style={{
                 backgroundColor: "rgba(204, 204, 204, 0.25)",
               }}
             >
-              <FontAwesome6 name="sliders" size={14} color="white" />
+              <FontAwesome6 name="sliders" size={12.5} color="white" />
             </TouchableOpacity>
             <TouchableOpacity
               className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}

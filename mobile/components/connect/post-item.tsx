@@ -504,17 +504,23 @@ const CommentsSheet = ({
 const OptionsSheet = () => {
   return (
     <View className="w-full">
-      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px]">
+      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
         <AntDesign name="eyeo" size={22} color="#ccc" />
-        <Text className="text-[16px] text-[#ccc] ">Hide Post</Text>
+        <Text className="text-[14px] text-[#ccc] font-LexendDeca">
+          Hide Post
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px]">
+      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
         <Octicons name="report" size={20} color="#ccc" />
-        <Text className="text-[16px] text-[#ccc] ">Report Post</Text>
+        <Text className="text-[14px] text-[#ccc] font-LexendDeca">
+          Report Post
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px]">
+      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
         <SimpleLineIcons name="user-unfollow" size={20} color="#ccc" />
-        <Text className="text-[16px] text-[#ccc] ">Report This User</Text>
+        <Text className="text-[14px] text-[#ccc] font-LexendDeca">
+          Report This User
+        </Text>
       </TouchableOpacity>
     </View>
   );

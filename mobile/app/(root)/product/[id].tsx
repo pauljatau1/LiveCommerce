@@ -128,7 +128,6 @@ const ProductDescription = () => {
   const getProductReviews = async () => {
     try {
       setIsProductReviewsLoading(false);
-      console.log("product Id ", id);
 
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
@@ -237,7 +236,7 @@ const ProductDescription = () => {
         style={{ minHeight: height }}
       >
         <View
-          className={`py-[30px] px-[12px] flex flex-row justify-between items-center`}
+          className={`py-[30px] px-[12px] flex flex-row justify-between items-center gap-[10px]`}
         >
           <View className="flex flex-row items-center gap-[10px] shrink">
             <TouchableOpacity onPress={() => router.back()}>
@@ -247,26 +246,31 @@ const ProductDescription = () => {
                 color="rgba(204, 204, 204, 0.8)"
               />
             </TouchableOpacity>
-            <View
-              className="flex-row w-full max-w-[220px] py-[7px] px-[12px] items-center gap-[2px] shrink"
+            <Pressable
               style={{
-                borderRadius: 4,
+                borderRadius: 6,
                 borderWidth: 1,
                 borderColor: "#c6c6c6",
+                maxWidth: 250,
+                paddingVertical: 12,
+                flexDirection: "row",
+                paddingHorizontal: 12,
+                width: "100%",
+                flexShrink: 1,
+                gap: 5,
               }}
+              onPress={() => router.push("/(root)/(modals)/search")}
             >
               <EvilIcons
                 name="search"
                 size={24}
-                color="#c6c6c6"
+                color="#888787"
                 className={Platform.OS === "android" ? "mt-[-4px]" : ""}
               />
-              <TextInput
-                placeholder="Search"
-                placeholderTextColor={"#c6c6c6"}
-                className=" py-[7px] text-[#c6c6c6] text-[10px] not-italic font-normal  w-[70%] shrink"
-              />
-            </View>
+              <Text className="text-[14px] text-[#888787] font-LexendDecaLight">
+                Search
+              </Text>
+            </Pressable>
           </View>
 
           <View className="flex-row items-center gap-[12px] mr-2">
@@ -433,28 +437,31 @@ const ProductDescription = () => {
                         Product Ratings ({productDetails?.stats?.reviewCount})
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      className="flex flex-row gap-[4px]  items-center"
-                      onPress={() =>
-                        setIsReviewDropDownShow(!isReviewDropDownShow)
-                      }
-                    >
-                      <Text className="text-[14px] text-white font-LexendDecaMedium opacity-70">
-                        View More
-                      </Text>
-                      <Entypo
-                        name={
-                          isReviewDropDownShow
-                            ? `chevron-down`
-                            : "chevron-right"
+                    {productDetails?.stats?.reviewCount ? (
+                      <TouchableOpacity
+                        className="flex flex-row gap-[4px]  items-center"
+                        onPress={() =>
+                          setIsReviewDropDownShow(!isReviewDropDownShow)
                         }
-                        size={14}
-                        color="rgba(204, 204, 204, 0.8)"
-                      />
-                    </TouchableOpacity>
+                      >
+                        <Text className="text-[14px] text-white font-LexendDecaMedium opacity-70">
+                          View More
+                        </Text>
+                        <Entypo
+                          name={
+                            isReviewDropDownShow
+                              ? `chevron-down`
+                              : "chevron-right"
+                          }
+                          size={14}
+                          color="rgba(204, 204, 204, 0.8)"
+                        />
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
 
-                  {isReviewDropDownShow && (
+                  {isReviewDropDownShow &&
+                  productDetails?.stats?.reviewCount > 0 ? (
                     <View
                       className=""
                       style={{
@@ -501,7 +508,7 @@ const ProductDescription = () => {
                         ))}
                       </ScrollView>
                     </View>
-                  )}
+                  ) : null}
 
                   <TouchableOpacity
                     className="flex flex-row justify-between px-[18px] py-[14px] items-center bg-[#000]"
@@ -800,8 +807,6 @@ const CartSheet = ({
   const [selectedSpec, setSelectedSpec] = useState<any>({});
 
   const handleVariantSelect = (data: any) => {
-    console.log("selectedVariant ", selectedVariant.images);
-
     if (selectedVariant && selectedVariant?._id == data._id) {
       setSelectedSpec({});
       return setSelectedVariant({});
@@ -818,7 +823,6 @@ const CartSheet = ({
 
   const handleCreateCartItem = () => {
     if (selectedVariant?._id) {
-      console.log("specs ==>", selectedSpec);
       addToCart({
         ...productDetails,
         quantity,

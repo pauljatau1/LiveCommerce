@@ -407,7 +407,6 @@ const CommentsSheet = ({
       comment: comment,
       createdAt: moment().toISOString(),
     };
-    // console.log("comment ", constructComment);
     setComments([...comments, constructComment]);
     setComment("");
     handleIncreaseCommentCount();

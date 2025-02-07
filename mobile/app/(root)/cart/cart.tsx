@@ -218,8 +218,6 @@ const CartScreen = () => {
 
   useEffect(() => {
     if (tab == "wishlist") {
-      setWishListLoading(true);
-
       handleGetWishList();
     }
   }, [tab]);
