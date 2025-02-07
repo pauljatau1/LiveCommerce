@@ -64,6 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <TouchableOpacity
+      activeOpacity={0.7}
       className=" bg-black rounded-lg p-[11.85px]  w-[173px] h-[299px]"
       onPress={() => router.push(`/product/${id}`)}
     >
