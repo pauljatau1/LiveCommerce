@@ -29,6 +29,9 @@ export const products = createApi({
     getNewAuqli: builder.query({
       query: (credentials) => getRequest(`/products/just-arrived`, credentials),
     }),
+    getTrending: builder.query({
+      query: (credentials) => getRequest(`/products/trending`, credentials),
+    }),
     getForYou: builder.query({
       query: (credentials) => getRequest(`/products/personalized`, credentials),
     }),
@@ -38,6 +41,7 @@ export const products = createApi({
 export const {
   useGetAllProductsQuery,
   useGetNewAuqliQuery,
+  useGetTrendingQuery,
   useGetSingleProductQuery,
   useGetForYouQuery,
   useDeepSearchProductsQuery,

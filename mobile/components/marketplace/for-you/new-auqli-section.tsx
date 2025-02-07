@@ -2,10 +2,7 @@ import LiveProductCard from "@/components/global/live-product-card";
 import ProductCard from "@/components/global/product-card";
 import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
-import {
-  useGetAllProductsQuery,
-  useGetNewAuqliQuery,
-} from "@/services/products";
+import { useGetNewAuqliQuery } from "@/services/products";
 import React from "react";
 import { FlatList, View } from "react-native";
 import { ActivityIndicator } from "react-native-paper";

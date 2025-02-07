@@ -96,7 +96,7 @@ const ProductDescription = () => {
         process.env.EXPO_PUBLIC_API_URL +
           "api/products/seller/" +
           sellerId +
-          "?page=1&limit=6",
+          "?page=1&limit=10",
       );
       setMoreProductsData(
         response.data.products.filter((item: any) => item._id !== id),
@@ -113,7 +113,7 @@ const ProductDescription = () => {
       setSimilarProductsLoading(true);
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/products/all/?category=${productDetails.category}`,
+          `api/products/all/?category=${productDetails.category}&limit=10`,
       );
       setSimilarProductsData(
         response.data.data.products.filter((item: any) => item._id !== id),
@@ -201,6 +201,7 @@ const ProductDescription = () => {
     return (
       <ScrollView
         horizontal={true}
+        showsHorizontalScrollIndicator={false}
         contentContainerClassName="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]"
       >
         {row.map((item) => (
@@ -688,10 +689,7 @@ const ProductDescription = () => {
                   </View>
 
                   <View className="w-[100%] mb-[20px]">
-                    <SectionHeader
-                      title="More From This Seller"
-                      btnText="View All"
-                    />
+                    <SectionHeader title="More From This Seller" btnText="" />
                     <View style={{ paddingLeft: 22, paddingTop: 12 }}>
                       {isMoreProductsLoading ? (
                         <ActivityIndicator color="#fff" size="small" />
@@ -702,10 +700,7 @@ const ProductDescription = () => {
                   </View>
 
                   <View className="w-[100%]">
-                    <SectionHeader
-                      title="Similar Products"
-                      btnText="View All"
-                    />
+                    <SectionHeader title="Similar Products" btnText="" />
                     <View style={{ paddingLeft: 22, paddingTop: 12 }}>
                       {similarProductsLoading ? (
                         <ActivityIndicator color="#fff" size="small" />

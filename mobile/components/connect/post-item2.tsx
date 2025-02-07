@@ -174,11 +174,7 @@ const PostItem2 = ({ item }: { item: any }) => {
             <Text style={styles.timestamp}>{timeFromNow(item?.createdAt)}</Text>
           </View>
         </View>
-        <TouchableOpacity
-          onPress={() =>
-            setState((prev) => ({ ...prev, showOptionsSheet: true }))
-          }
-        >
+        <TouchableOpacity onPress={() => setShowOptionsSheet(true)}>
           <Entypo name="dots-three-vertical" size={12} color="#ccc" />
         </TouchableOpacity>
       </View>
@@ -428,6 +424,7 @@ const CommentsSheet = ({
           style={{
             fontSize: 15,
             color: "#fff",
+            padding: 0,
           }}
           returnKeyType="send"
           value={comment}

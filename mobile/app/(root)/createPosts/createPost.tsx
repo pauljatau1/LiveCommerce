@@ -484,6 +484,7 @@ const ProductsSheet = ({
             fontSize: 15,
             color: "#fff",
             fontFamily: "LexendDeca",
+            padding: 0,
           }}
           returnKeyType="search"
           value={searchTerm == "." ? "" : searchTerm}

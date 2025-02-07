@@ -490,6 +490,7 @@ const CommentsSheet = ({
           style={{
             fontSize: 15,
             color: "#fff",
+            padding: 0,
           }}
           returnKeyType="send"
           value={comment}
