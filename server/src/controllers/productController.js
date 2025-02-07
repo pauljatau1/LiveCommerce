@@ -644,7 +644,13 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    if (product.seller.toString() !== sellerId) {
+    // Add debug logging
+    console.log('Product Seller ID:', product.seller);
+    console.log('Request User ID:', sellerId);
+
+    // Compare seller ID, handling both object and string cases
+    const productSellerId = product.seller._id || product.seller;
+    if (productSellerId.toString() !== sellerId.toString()) {
       return res.status(403).json({ message: 'Not authorized to update this product' });
     }
 
@@ -819,10 +825,11 @@ exports.updateProduct = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update product',
-      error: error.message
+    console.error('Update Product Error:', error);
+    res.status(500).json({ 
+      message: 'Failed to update product', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
