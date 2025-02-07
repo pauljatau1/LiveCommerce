@@ -60,6 +60,8 @@ import CouponsList from './Pages/MarketingPage/CouponsList'
 import InboxCampaigns from './Pages/MarketingPage/InboxCampaigns';
 import CreateCampaign from './Pages/MarketingPage/CreateCampaign';
 import { TooltipProvider } from './Components/ui/tooltip';
+import Returns from './Pages/Orders/Returns';
+import ReturnDetail from './Pages/Orders/ReturnDetail';
 
 // Create a wrapper component that provides both Router and Auth contexts
 
@@ -230,6 +232,16 @@ const router = createBrowserRouter([
           {
             path: 'order/:id',
             element: <OrderDetails />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'returns',
+            element: <Returns />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: 'return/:id',
+            element: <ReturnDetail />,
             errorElement: <NotFoundPage />
           },
           {
