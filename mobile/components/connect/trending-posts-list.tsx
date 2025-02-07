@@ -7,6 +7,7 @@ import {
   useGetTrendingPostsQuery,
 } from "@/services/posts";
 import PostItem from "./post-item";
+import PostItem2 from "./post-item2";
 
 const TrendingPostsList = () => {
   const [page, setPage] = useState<number>(1);
@@ -86,7 +87,7 @@ const TrendingPostsList = () => {
       ) : (
         <FlatList
           data={posts}
-          renderItem={({ item }) => <PostItem item={item} />}
+          renderItem={({ item }) => <PostItem2 item={item} />}
           keyExtractor={(item, index) => item?._id?.toString()}
           onEndReached={fetchMorePosts}
           onEndReachedThreshold={0.5}

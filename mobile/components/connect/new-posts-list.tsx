@@ -3,6 +3,7 @@ import { ActivityIndicator } from "react-native-paper";
 import React, { useEffect, useState } from "react";
 import { useGetAllPostsQuery, useGetNewPostsQuery } from "@/services/posts";
 import PostItem from "./post-item";
+import PostItem2 from "./post-item2";
 
 const NewPostsList = () => {
   const [page, setPage] = useState<number>(1);
@@ -82,7 +83,7 @@ const NewPostsList = () => {
       ) : (
         <FlatList
           data={posts}
-          renderItem={({ item }) => <PostItem item={item} />}
+          renderItem={({ item }) => <PostItem2 item={item} />}
           keyExtractor={(item, index) => item?._id?.toString()}
           onEndReached={fetchMorePosts}
           onEndReachedThreshold={0.5}

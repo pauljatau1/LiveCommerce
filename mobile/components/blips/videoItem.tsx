@@ -290,9 +290,16 @@ const VideoItem = ({
                 {product?.name}
               </Text>
               <Text className="text-[16px] text-[#000] font-LexendDecaMedium shrink">
-                <Text className="text-[#16783A]">
-                  N{product?.price?.toLocaleString()}
-                </Text>
+                {product?.discount?.isActive ? (
+                  <Text className="text-[#16783A]">
+                    N{product?.discount?.value}
+                    {product?.discount?.type == "percentage" && "%"} off
+                  </Text>
+                ) : (
+                  <Text className="text-[#16783A]">
+                    N{product?.price?.toLocaleString()}
+                  </Text>
+                )}
               </Text>
             </View>
             <TouchableOpacity
