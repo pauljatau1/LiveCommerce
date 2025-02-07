@@ -597,6 +597,82 @@ const productSchema = new mongoose.Schema({
   wearable_Connectivity: {type: String},
   wearable_Features: {type: String},
   wearable_Material: {type: String},
+
+  //fashion fields
+  fashion_material: {
+    type: String,
+    default: ''
+  },
+  fashion_sizes: {
+    type: [String],
+    default: []
+  },
+  fashion_style: {
+    type: String,
+    default: ''
+  },
+  fashion_colors: {
+    type: [String],
+    default: []
+  },
+  fashion_closure: {
+    type: String,
+    default: ''
+  },
+  fashion_accessoryType: {
+    type: String,
+    default: ''
+  },
+
+  // Women-specific
+  fashion_sleeveType: {
+    type: String,
+    default: ''
+  },
+  fashion_length: {
+    type: String,
+    default: ''
+  },
+  fashion_heelType: {
+    type: String,
+    default: ''
+  },
+  fashion_occasion: {
+    type: String,
+    default: ''
+  },
+  fashion_stoneType: {
+    type: String,
+    default: ''
+  },
+  fashion_bagType: {
+    type: String,
+    default: ''
+  },
+
+  // Men-specific
+  fashion_fit: {
+    type: String,
+    default: ''
+  },
+  fashion_shoeType: {
+    type: String,
+    default: ''
+  },
+  fashion_traditionalType: {
+    type: String,
+    default: ''
+  },
+
+  // Kids-specific
+  fashion_pattern: {
+    type: String,
+    default: ''
+  },
+  fashion_kidShoeType: {
+    type: String,
+    default: ''
+  },
 });
 
 // Add a virtual field for the discounted price
