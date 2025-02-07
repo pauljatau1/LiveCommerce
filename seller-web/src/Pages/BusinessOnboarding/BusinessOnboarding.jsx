@@ -4,6 +4,7 @@ import { useOnboardingContext } from '../../Hooks/useOnboardingContext';
 import { useNavigate } from 'react-router-dom';
 import Step1 from '../../assets/onboarding-setp1.png';
 import CircularProgress from '@mui/material/CircularProgress';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
 
 const BusinessOnboarding = () => {
     const navigate = useNavigate();
@@ -43,15 +44,39 @@ const BusinessOnboarding = () => {
                         <form className="w-full mt-14 lg:mt-28">
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
                                 <label htmlFor="businessName" className="text-base lg:text-2xl font-light">Business Name</label>
-                                <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} type="text" id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer " />
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder='Enter your business name' type="text" id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer" />
+                                    </TooltipTrigger>
+
+                                    <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                        <p>Registered business name</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label htmlFor="businessName" className="text-base lg:text-2xl font-light">Business Type</label>
-                                <input value={businessType} onChange={(e) => setBusinessType(e.target.value)} type="text" id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer " />
+                                <label htmlFor="businessType" className="text-base lg:text-2xl font-light">Business Type</label>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <input value={businessType} onChange={(e) => setBusinessType(e.target.value)} placeholder='Enter your business type' type="text" id="businessType" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer" />
+
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                        <p>e.g., LLC, Corporation</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label htmlFor="businessName" className="text-base lg:text-2xl font-light">Business Tax Information</label>
-                                <input value={businessTaxInformation} onChange={(e) => setBusinessTaxInformation(e.target.value)} type="text" id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 cursor-pointer " />
+                                <label htmlFor="businessTaxInfo" className="text-base lg:text-2xl font-light">Business Tax Information</label>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <input value={businessTaxInformation} onChange={(e) => setBusinessTaxInformation(e.target.value)} placeholder='Enter your business tax information' type="text" id="businessTaxInfo" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 cursor-pointer" />
+
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                        <p>Tax ID or VAT number, or use C.A.C B.N if you are in Nigeria</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                             <div className="flex items-center justify-center gap-10 mt-20 lg:mt-14 ">
                                 <button onClick={handleBack} className="bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">Back</button>

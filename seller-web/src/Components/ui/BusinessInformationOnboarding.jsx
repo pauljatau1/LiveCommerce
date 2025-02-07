@@ -477,12 +477,54 @@ const BusinessInformationOnboarding = () => {
                                             <input type="text" value={warehouseName} onChange={(e) => setWarehouseName(e.target.value)} placeholder='Enter warehouse name' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 " />
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <label htmlFor="businessName" className="text-base lg:text-2xl font-normal">Shipping Method</label>
-                                            <input type="text" value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} placeholder='Enter shipping method' id="shippingMethod" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 " />
+                                            <label htmlFor="shippingMethod" className="text-base lg:text-2xl font-normal">Shipping Method</label>
+                                            <Select onValueChange={(value) => setShippingMethod(value)}>
+                                                <SelectTrigger className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-8 lg:py-10 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                                    <SelectValue 
+                                                        placeholder={<span className="text-gray-400">Select shipping method</span>} 
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectGroup>
+                                                        <SelectItem value="Shipped by Seller">
+                                                            Shipped by Seller
+                                                        </SelectItem>
+                                                        <SelectItem value="Store Pickup">
+                                                            Store Pickup
+                                                        </SelectItem>
+                                                        <SelectItem value="Shipped by Auqli">
+                                                            Shipped by Auqli
+                                                        </SelectItem>
+                                                    </SelectGroup>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <label htmlFor="businessName" className="text-base lg:text-2xl font-normal">Return Policy</label>
-                                            <input type="text" value={returnPolicy} onChange={(e) => setReturnPolicy(e.target.value)} placeholder='Enter your return and exchange policy' id="returnPolicy" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 " />
+                                            <label htmlFor="returnPolicy" className="text-base lg:text-2xl font-normal">Return Policy</label>
+                                            <Select onValueChange={(value) => setReturnPolicy(value)}>
+                                                <SelectTrigger className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-8 lg:py-10 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                                    <SelectValue 
+
+                                                        placeholder={<span className="text-gray-400">Select return policy</span>} 
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent className="w-[calc(100vw-32px)] sm:w-[400px] max-h-[300px]">
+                                                    <SelectGroup>
+                                                        <SelectItem 
+                                                            value="Use Auqli Return Policy (Default 7-day return window for damaged items or discrepancies.)"
+                                                            className="whitespace-normal py-3 text-sm"
+                                                        >
+                                                            Use Auqli Return Policy (Default 7-day return window for damaged items or discrepancies.)
+                                                        </SelectItem>
+                                                        <SelectItem 
+                                                            value="Custom Return Policy (Options for 7, 14, or 30 days.)"
+                                                            className="whitespace-normal py-3 text-sm"
+                                                        >
+                                                            Custom Return Policy (Options for 7, 14, or 30 days.)
+                                                        </SelectItem>
+                                                    </SelectGroup>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
                                             <label htmlFor="phone" className="text-base lg:text-2xl font-normal">Warehouse Contact No</label>
