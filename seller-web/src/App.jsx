@@ -41,7 +41,7 @@ import { SocketProvider } from './Contexts/SocketContext';
 import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
 import EditProduct from './Pages/ProductsPage/EditProduct';
 import LiveStream from './Pages/LiveStream/LiveStream';
-import DashboardRoute, {Loader as DashboardLoader } from './Components/DashboardRoute';
+import DashboardRoute, { Loader as DashboardLoader } from './Components/DashboardRoute';
 import SettingsDashboard from './Pages/Settings/SettingsDashboard';
 import Analytics from './Pages/Analytics/anayltics';
 import Help from './Pages/help/help';
@@ -59,6 +59,7 @@ import Coupons from './Pages/MarketingPage/Coupons';
 import CouponsList from './Pages/MarketingPage/CouponsList'
 import InboxCampaigns from './Pages/MarketingPage/InboxCampaigns';
 import CreateCampaign from './Pages/MarketingPage/CreateCampaign';
+import { TooltipProvider } from './Components/ui/tooltip';
 
 // Create a wrapper component that provides both Router and Auth contexts
 
@@ -71,9 +72,12 @@ const router = createBrowserRouter([
         <ProtectedRoute>
           <SocketProvider>
             <OnboardingProvider>
-              <AppLayout />
+              <TooltipProvider>
+                <AppLayout />
+              </TooltipProvider>
             </OnboardingProvider>
           </SocketProvider>
+
         </ProtectedRoute>
       </AuthProvider>
     ),
@@ -121,7 +125,7 @@ const router = createBrowserRouter([
             element: <OnBoardingPage />,
             loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
             errorElement: <NotFoundPage />
-            
+
           },
           {
             path: 'business-onboarding',
@@ -267,40 +271,40 @@ const router = createBrowserRouter([
             errorElement: <NotFoundPage />
           },
           {
-        path: 'coupons',
-        children: [
-          {
-            path: '',
-            element: <Navigate to="list" replace />,
+            path: 'coupons',
+            children: [
+              {
+                path: '',
+                element: <Navigate to="list" replace />,
+              },
+              {
+                path: 'list',
+                element: <CouponsList />,
+              },
+              {
+                path: 'create',
+                element: <Coupons />,
+              },
+            ],
           },
           {
-            path: 'list',
-            element: <CouponsList />,
+            path: 'inbox-campaigns',
+            children: [
+              {
+                path: '',
+                element: <Navigate to="list" replace />,
+              },
+              {
+                path: 'create',
+                element: <CreateCampaign />,
+              },
+              {
+                path: 'list',
+                element: <InboxCampaigns />,
+              },
+            ],
           },
           {
-            path: 'create',
-            element: <Coupons />,
-          },
-        ],
-      },
-      {
-        path: 'inbox-campaigns',
-        children: [
-          {
-            path: '',
-            element: <Navigate to="list" replace />,
-          },
-          {
-            path: 'create',
-            element: <CreateCampaign />,
-          },
-          {
-            path: 'list',
-            element: <InboxCampaigns />,
-          },
-        ],
-      },
-      {
             path: 'earnings-payouts',
             element: <Payout />,
             errorElement: <NotFoundPage />

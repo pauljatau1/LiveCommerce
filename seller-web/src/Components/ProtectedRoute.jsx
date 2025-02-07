@@ -69,7 +69,7 @@ const ProtectedRoute = ({ children }) => {
               } else {
                 navigate('/onboarding/profile');
                 toast.error('Please complete the onboarding process', {
-                  description: 'All fields are required',
+                  description: 'Complete process is required',
                   style: {
                     background: '#17171B',
                     color: '#fff',

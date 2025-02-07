@@ -4,6 +4,7 @@ import Step3 from '../../assets/Step3.png'
 import { useOnboardingContext } from '../../Hooks/useOnboardingContext'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
 
 const BusinessVerificationOnboarding = () => {
     const [documents, setDocuments] = useState({
@@ -110,17 +111,24 @@ const BusinessVerificationOnboarding = () => {
                                         id="certificateUpload"
                                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                     />
-                                    <label
-                                        htmlFor="certificateUpload"
-                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
-                                    >
-                                        <span className="text-gray-500 truncate block w-[200px] overflow-hidden whitespace-nowrap">
-                                            {documents.certificate.file ? documents.certificate.file.name : 'Upload From Device'}
-                                        </span>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                        </svg>
-                                    </label>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <label
+                                                htmlFor="certificateUpload"
+                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
+                                            >
+                                                <span className="text-gray-500 truncate block w-[200px] overflow-hidden whitespace-nowrap">
+                                                    {documents.certificate.file ? documents.certificate.file.name : 'Upload CAC documents if in Nigeria'}
+                                                </span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                            </label>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                            <p>Upload company registration document</p>
+                                        </TooltipContent>
+                                    </Tooltip>
                                 </div>
                             </div>
 
@@ -134,17 +142,25 @@ const BusinessVerificationOnboarding = () => {
                                         id="taxIdUpload"
                                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                     />
-                                    <label
-                                        htmlFor="taxIdUpload"
-                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
-                                    >
-                                        <span className="text-gray-500 truncate block w-[200px] overflow-hidden whitespace-nowrap">
-                                            {documents.taxId.file ? documents.taxId.file.name : 'Upload From Device'}
-                                        </span>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                        </svg>
-                                    </label>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <label
+                                                htmlFor="taxIdUpload"
+                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
+                                            >
+                                                <span className="text-gray-500 truncate block w-[200px] overflow-hidden whitespace-nowrap">
+                                                    {documents.taxId.file ? documents.taxId.file.name : 'Upload Tax ID document'}
+                                                </span>
+
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                            </label>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                                            <p>Use Tax Identification Number (TIN) if you are in Nigeria</p>
+                                        </TooltipContent>
+                                    </Tooltip>
                                 </div>
                             </div>
 

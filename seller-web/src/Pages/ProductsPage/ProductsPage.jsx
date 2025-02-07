@@ -73,25 +73,25 @@ const ProductsPage = () => {
                                 {
                                     products.length > 0 && (
                                         <div className="flex items-center justify-between flex-wrap gap-2">
-                                            <p className="text-base font-cabin font-normal text-[#05031F]">Sort By:</p>
+                                            <p className="text-base font-cabin font-normal text-[#17171B]">Sort By:</p>
                                             <div className="flex items-center flex-wrap gap-2">
-                                                <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#05031F] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
-                                                    <Icon icon="solar:calendar-outline" width="20" height="20" color="#05031F" />
-                                                    <p className="text-sm font-cabin font-normal text-[#05031F]">Newest</p>
+                                                <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#17171B] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
+                                                    <Icon icon="solar:calendar-outline" width="20" height="20" color="#17171B" />
+                                                    <p className="text-sm font-cabin font-normal text-[#17171B]">Newest</p>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#05031F] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
-                                                    <Icon icon="iconamoon:clock-thin" width="20" height="20" color="#05031F" />
-                                                    <p className="text-sm font-cabin font-normal text-[#05031F]">Active</p>
+                                                <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#17171B] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
+                                                    <Icon icon="iconamoon:clock-thin" width="20" height="20" color="#17171B" />
+                                                    <p className="text-sm font-cabin font-normal text-[#17171B]">Active</p>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#05031F] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
-                                                    <Icon icon="solar:calendar-outline" width="20" height="20" color="#05031F" />
-                                                    <p className="text-sm font-cabin font-normal text-[#05031F]">Lowest-Highest</p>
+                                                <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#17171B] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
+                                                    <Icon icon="solar:calendar-outline" width="20" height="20" color="#17171B" />
+                                                    <p className="text-sm font-cabin font-normal text-[#17171B]">Lowest-Highest</p>
                                                 </div>
                                             </div>
                                         </div>
                                     )
                                 }
-                                <NavLink to="/dashboard/add-products" className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#05031F] rounded-[7.8px] py-3 px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                                <NavLink to="/dashboard/add-products" className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-3 px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out">
                                     <Icon icon="tabler:plus" width="20" height="20" color="#FFFFFF" />
                                     <p className="text-sm font-cabin font-normal text-[#FFFFFF]">Add Product</p>
                                 </NavLink>

@@ -547,6 +547,30 @@ const LivestreamStudio = () => {
         };
     }, [isStreaming, channelName, id, seller.agoraUid, socket]);
 
+    // Listen for token expiring event
+    useEffect(() => {
+        client.on('token-privilege-will-expire', async () => {
+            try {
+                console.log('Agora token is about to expire, requesting new token...');
+                // Call your backend to get a fresh token
+                const response = await getLiveStreamFullDetails(id);
+                if (response?.agoraToken) {
+                    // Renew the token
+                    await client.renewToken(response.agoraToken);
+                    console.log('Agora token renewed successfully');
+                }
+            } catch (error) {
+                console.error('Failed to renew Agora token:', error);
+                toast.error('Stream token expired. Please refresh the page.');
+            }
+        });
+
+        // Cleanup
+        return () => {
+            client.off('token-privilege-will-expire');
+        };
+    }, [client, id]);
+
     // Pre-stream DESKTOP UI
     if (!isStreaming) {
         return (
