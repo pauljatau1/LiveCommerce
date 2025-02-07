@@ -34,6 +34,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toast } from "@/core/toast";
 import moment from "moment";
 import { useIsFocused } from "@react-navigation/native";
+import { getProductSpecifications } from "@/helpers/helpers";
+import { ValueSetter } from "date-fns/parse/_lib/Setter";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -59,6 +61,7 @@ const ProductDescription = () => {
   const [isShippingDropDownShow, setIsShippingDropDownShow] = useState(false);
   const [isBuyerProtectionShow, setIsBuyerProtectionShow] = useState(false);
   const [isProductDetailsShow, setIsProductDetailsShow] = useState(false);
+  const [isProductSpecsShow, setIsProductSpecsShow] = useState(false);
   const [moreProductsData, setMoreProductsData] = useState<any>([]);
   const [similarProductsData, setSimilarProductsData] = useState<any>([]);
   const [similarProductsLoading, setSimilarProductsLoading] = useState<any>([]);
@@ -71,8 +74,8 @@ const ProductDescription = () => {
   const [showAddedToCartSheet, setShowAddedToCartSheet] =
     useState<boolean>(false);
   const [cartNumber, setCartNumber] = useState<number>(0);
-
   const [cartData, setCartData] = useState<any[]>([]);
+  const [productSpecifications, setProductSpecifications] = useState<{}>({});
 
   useEffect(() => {
     setProductDetails(product);
@@ -173,6 +176,14 @@ const ProductDescription = () => {
     }
   };
 
+  const constructSpecifications = () => {
+    const specs = getProductSpecifications(
+      productDetails!,
+      productDetails?.category?.toLowerCase(),
+    );
+    setProductSpecifications(specs);
+  };
+
   useEffect(() => {
     async function getCartNumber() {
       const cart = await AsyncStorage.getItem("cart");
@@ -194,6 +205,9 @@ const ProductDescription = () => {
       getMoreProductsData(productDetails.seller._id);
       getSimilarProductsData();
       getProductReviews();
+    }
+    if (productDetails) {
+      constructSpecifications();
     }
   }, [productDetails]);
 
@@ -227,6 +241,39 @@ const ProductDescription = () => {
     let rawDate = moment(date);
     const formattedDate = "Joined " + rawDate.format("MMMM YYYY");
     return formattedDate;
+  };
+
+  const renderSpecifications = () => {
+    return (
+      <View
+        style={{
+          paddingHorizontal: 61,
+          paddingVertical: 10,
+          backgroundColor: "#000",
+          borderTopWidth: 1,
+          borderTopColor: "rgba(159, 159, 159, 0.23)",
+          gap: 10,
+        }}
+      >
+        {Object.entries(productSpecifications).map(
+          ([key, value]: any, index: number) => (
+            <View key={key} className="flex-row items-center justify-between">
+              <Text className="text-[14px] text-[#fff] font-LexendDeca">
+                {key}
+              </Text>
+              <View
+                className="rounded-[50px] px-[10px] py-[2px]"
+                style={{ backgroundColor: "rgba(22, 120, 58, 0.30)" }}
+              >
+                <Text className="text-[12px] text-[#fff] font-LexendDeca">
+                  {value}
+                </Text>
+              </View>
+            </View>
+          ),
+        )}
+      </View>
+    );
   };
 
   return (
@@ -488,6 +535,7 @@ const ProductDescription = () => {
                           paddingVertical: 18,
                         }}
                         horizontal={true}
+                        showsHorizontalScrollIndicator={false}
                       >
                         {productReviews?.map((review: any, index: number) => (
                           <ReviewCard
@@ -560,7 +608,8 @@ const ProductDescription = () => {
                   {isBuyerProtectionShow && (
                     <View
                       style={{
-                        paddingHorizontal: 61,
+                        paddingHorizontal: 20,
+                        paddingLeft: 61,
                         paddingVertical: 10,
                         backgroundColor: "#000",
                         borderTopWidth: 1,
@@ -623,18 +672,75 @@ const ProductDescription = () => {
                   {isProductDetailsShow && (
                     <View
                       style={{
-                        paddingHorizontal: 61,
+                        paddingHorizontal: 20,
                         paddingVertical: 10,
+                        paddingLeft: 61,
                         backgroundColor: "#000",
                         borderTopWidth: 1,
                         borderTopColor: "rgba(159, 159, 159, 0.23)",
                       }}
                     >
-                      <Text className="text-white font-LexendDecaMedium leading-6">
+                      <Text className="text-white font-LexendDecaMedium leading-7">
                         {productDetails?.description}
                       </Text>
                     </View>
                   )}
+
+                  <TouchableOpacity
+                    className="flex flex-row justify-between px-[18px] py-[14px] items-center bg-[#000]"
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: "rgba(159, 159, 159, 0.23)",
+                      backgroundColor: isProductSpecsShow ? "#121212" : "#000",
+                    }}
+                    onPress={() => setIsProductSpecsShow(!isProductSpecsShow)}
+                  >
+                    <View className="flex flex-row gap-[10px] items-center">
+                      <View className="flex flex-row gap-[6px]  items-center">
+                        <Image
+                          source={require("../../../assets/icons/specifications.png")}
+                          style={{
+                            width: 23,
+                            height: 23,
+                            resizeMode: "contain",
+                          }}
+                        />
+                      </View>
+                      <Text className="text-[14px] text-white font-LexendDecaMedium">
+                        Specifications
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      className="flex flex-row gap-[4px]  items-center"
+                      onPress={() => setIsProductSpecsShow(!isProductSpecsShow)}
+                    >
+                      <Entypo
+                        name={
+                          isProductSpecsShow ? `chevron-down` : "chevron-right"
+                        }
+                        size={14}
+                        color="rgba(204, 204, 204, 0.8)"
+                      />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+
+                  {
+                    isProductSpecsShow && renderSpecifications()
+                    // <View
+                    //   style={{
+                    //     paddingHorizontal: 20,
+                    //     paddingVertical: 10,
+                    //     paddingLeft: 61,
+                    //     backgroundColor: "#000",
+                    //     borderTopWidth: 1,
+                    //     borderTopColor: "rgba(159, 159, 159, 0.23)",
+                    //   }}
+                    // >
+                    //   <Text className="text-white font-LexendDecaMedium leading-7">
+                    //     {productDetails?.description}
+                    //   </Text>
+                    // </View>
+                  }
 
                   <View className="px-[20px] py-[14px]">
                     <View
@@ -696,6 +802,12 @@ const ProductDescription = () => {
                       ) : (
                         renderContent(moreProductsData)
                       )}
+                      {!isMoreProductsLoading &&
+                      moreProductsData?.length < 1 ? (
+                        <Text className="font-LexendDeca text-white text-[12px] self-center">
+                          No more products found
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
 
@@ -707,6 +819,13 @@ const ProductDescription = () => {
                       ) : (
                         renderContent(similarProductsData)
                       )}
+
+                      {!similarProductsLoading &&
+                      similarProductsData?.length < 1 ? (
+                        <Text className="font-LexendDeca text-white text-[12px] self-center">
+                          No similar products found
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 </View>

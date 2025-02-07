@@ -60,3 +60,12 @@ export function catalogSort(items, criteria) {
     }
   });
 }
+
+export const getProductSpecifications = (obj, prefix) => {
+  return Object.entries(obj)
+    .filter(([key]) => key.startsWith(prefix + "_"))
+    .reduce(
+      (acc, [key, value]) => ({ ...acc, [key.split("_")[1]]: value }),
+      {},
+    );
+};

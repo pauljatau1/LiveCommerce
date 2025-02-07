@@ -94,6 +94,7 @@ const PostItem2 = ({ item }: { item: any }) => {
   const [showOptionsSheet, setShowOptionsSheet] = useState<boolean>(false);
   const [allComments, setAllComments] = useState<any[]>(item.comments);
   const [comments, setComments] = useState<number>(item.comments?.length);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
 
   const handleIncreaseCommentCount = () => {
     setComments(comments + 1);
@@ -124,7 +125,7 @@ const PostItem2 = ({ item }: { item: any }) => {
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: any }) => {
       if (viewableItems.length > 0) {
-        setState((prev) => ({ ...prev, activeIndex: viewableItems[0].index }));
+        setActiveIndex(viewableItems[0].index);
       }
     },
     [],
@@ -148,6 +149,29 @@ const PostItem2 = ({ item }: { item: any }) => {
     ),
     [],
   );
+
+  const RenderDots = () => {
+    return (
+      <View
+        className="flex-row items-center justify-center"
+        style={{ marginVertical: 8, gap: 2 }}
+      >
+        {Array(state.media?.length)
+          .fill(0)
+          .map((_, index) => (
+            <View
+              key={index}
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: 5,
+                backgroundColor: activeIndex == index ? "#16783A" : "#ccc",
+              }}
+            ></View>
+          ))}
+      </View>
+    );
+  };
 
   const mediaKeyExtractor = useCallback(
     (_: any, index: number) => `media-${index}`,
@@ -201,6 +225,8 @@ const PostItem2 = ({ item }: { item: any }) => {
           />
         </View>
       )}
+
+      {state.media?.length > 1 && RenderDots()}
 
       {/* Products Section */}
       {state.products.length > 0 && (
