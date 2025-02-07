@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 function initializeSocket(server) {
   const io = socketIO(server, {
     cors: {
-      origin: ["http://localhost:5173", "http://localhost:5173/", "https://seller.auqli.live/", "https://seller.auqli.live"],
+      origin: ["http://localhost:5173", "http://localhost:5173/", "exp://192.168.100.148:8081","https://seller.auqli.live/", "https://seller.auqli.live"],
       methods: ["GET", "POST"],
       credentials: true,
       allowedHeaders: ["Authorization", "Content-Type"]
