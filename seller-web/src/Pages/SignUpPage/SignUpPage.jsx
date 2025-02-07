@@ -11,8 +11,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PhoneInput from 'react-phone-input-2';
 import OtpInput from 'react-otp-input';
 import 'react-phone-input-2/lib/style.css';
-
-
+import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
+import { TooltipProvider } from '../../Components/ui/tooltip';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
@@ -160,42 +160,74 @@ const SignUpPage = () => {
 
             <form onSubmit={submitUserData} className="space-y-4">
               <div className="flex flex-col md:flex-row gap-4 w-full mb-4 " >
-                <div className="flex flex-col gap-2 w-full " >
-                  <label htmlFor="firstName" className='text-sm md:text-base font-inter text-[#425466] ' >First Name</label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="firstName"
-                    value={formData.firstName}
-                    placeholder='Enter your first name'
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+                <div className="flex flex-col gap-2 w-full">
+                  <label htmlFor="firstName" className='text-sm md:text-base font-inter text-[#425466]'>
+                    First Name
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <input
+                        type="text"
+                        id="firstName"
+                        name="firstName"
+                        value={formData.firstName}
+                        placeholder='Enter your first name'
+                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                        className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                      <p>Your legal first name</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                <div className="flex flex-col gap-2 w-full" >
-                  <label htmlFor="lastName" className='text-sm md:text-base font-inter text-[#425466] ' >Last Name</label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="lastName"
-                    value={formData.lastName}
-                    placeholder='Enter your last name'
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+                <div className="flex flex-col gap-2 w-full">
+                  <label htmlFor="lastName" className='text-sm md:text-base font-inter text-[#425466]'>
+                    Last Name
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <input
+                        type="text"
+                        id="lastName"
+                        name="lastName"
+                        value={formData.lastName}
+                        placeholder='Enter your last name'
+                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                        className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                      <p>Your legal last name</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 w-full mb-4" >
-                <label htmlFor="email" className='text-sm md:text-base font-inter text-[#425466] ' >Email</label>
-                <input
-                  type="text"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  placeholder='Enter your email'
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm' />
+              <div className="flex flex-col gap-2 w-full mb-4">
+                <label htmlFor="email" className='text-sm md:text-base font-inter text-[#425466]'>
+                  Email
+                </label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <input
+                      type="text"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      placeholder='Enter your email'
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                    <p>Valid email address</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
-              <div className="flex flex-col gap-2 w-full mb-4" >
-                <label htmlFor="phoneNumber" className='text-sm md:text-base font-inter text-[#425466]'>Phone Number</label>
+              <div className="flex flex-col gap-2 w-full mb-4">
+                <label htmlFor="phoneNumber" className='text-sm md:text-base font-inter text-[#425466]'>
+                  Phone Number
+                </label>
                 <PhoneInput
                   country={'ng'}
                   value={formData.phoneNumber}
@@ -214,47 +246,65 @@ const SignUpPage = () => {
                   inputClass="focus:outline-none bg-[#FFFFFF] shadow-sm shadow-[#32324714] focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#425466] placeholder:font-inter placeholder:text-sm"
                 />
               </div>
-              <div className="flex flex-col gap-2 w-full mb-4" >
-                <label htmlFor="password" className='text-sm md:text-base font-inter text-[#425466]'>Password</label>
-                <div className="relative">
-                  <input
-                    type={formData.showPassword ? "text" : "password"}
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    placeholder='Enter your password'
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, showPassword: !formData.showPassword })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    <Icon icon={formData.showPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
-                  </button>
-                </div>
+              <div className="flex flex-col gap-2 w-full mb-4">
+                <label htmlFor="password" className='text-sm md:text-base font-inter text-[#425466]'>
+                  Password
+                </label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative">
+                      <input
+                        type={formData.showPassword ? "text" : "password"}
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        placeholder='Enter your password'
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, showPassword: !formData.showPassword })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        <Icon icon={formData.showPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
+                      </button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                    <p>At least 8 characters</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
-              <div className="flex flex-col gap-2 w-full mb-4" >
-                <label htmlFor="confirmPassword" className='text-sm md:text-base font-inter text-[#425466]'>Confirm Password</label>
-                <div className="relative">
-                  <input
-                    type={formData.showConfirmPassword ? "text" : "password"}
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    placeholder='Enter your password'
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, showConfirmPassword: !formData.showConfirmPassword })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    <Icon icon={formData.showConfirmPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
-                  </button>
-                </div>
+              <div className="flex flex-col gap-2 w-full mb-4">
+                <label htmlFor="confirmPassword" className='text-sm md:text-base font-inter text-[#425466]'>
+                  Confirm Password
+                </label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative">
+                      <input
+                        type={formData.showConfirmPassword ? "text" : "password"}
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        placeholder='Enter your password'
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, showConfirmPassword: !formData.showConfirmPassword })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        <Icon icon={formData.showConfirmPassword ? "mdi:eye-off" : "mdi:eye"} width="20" height="20" />
+                      </button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                    <p>Must match password</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <div className="flex items-start gap-2 mb-6">
                 <input
@@ -332,11 +382,17 @@ const SignUpPage = () => {
                       numInputs={4}
                       shouldAutoFocus={true}
                       renderInput={(props, index) => (
-                        <input
-                          {...props}
-                          className='w-12 h-12 lg:w-20 lg:h-20 rounded-md bg-transparent border-2 border-[#0BB248] text-center text-xl lg:text-3xl text-[#FFFFFF] focus:outline-none'
-                          key={index}
-                        />
+                        <Tooltip key={index}>
+                          <TooltipTrigger asChild>
+                            <input
+                              {...props}
+                              className='w-12 h-12 lg:w-20 lg:h-20 rounded-md bg-transparent border-2 border-[#0BB248] text-center text-xl lg:text-3xl text-[#FFFFFF] focus:outline-none'
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                            <p>4-digit verification code</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
 
                       containerStyle={{

@@ -31,6 +31,16 @@ import GamingDesktopSpecs from './GamingDesktopSpecs';
 import GraphicsCardSpecs from './GraphicsCardSpecs';
 import ProcessorSpecs from './ProcessorSpecs';
 import CoolingSystemSpecs from './CoolingSystemSpecs';
+import CookwareSpecs from './CookwareSpecs';
+import BakewareSpecs from './BakewareSpecs';
+import OvenCookwareSpecs from './OvenCookwareSpecs';
+import KitchenUtensilsSpecs from './KitchenUtensilsSpecs';
+import KnivesCutlerySpecs from './KnivesCutlerySpecs';
+import TablewareSpecs from './TablewareSpecs';
+import FoodStorageSpecs from './FoodStorageSpecs';
+import WomenFashionSpecs from './WomenFashionSpecs';
+import MensWearSpecs from './MensWearSpecs';
+import KidsWearSpecs from './KidsWearSpecs';
 import PropTypes from 'prop-types';
 
 const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSpecs }) => {
@@ -320,6 +330,125 @@ const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSp
         };
         break;
 
+      case 'Cookware':
+        mappedSpecs = {
+          kitchen_material: updatedSpecs.kitchen_material || '',
+          kitchen_size: updatedSpecs.kitchen_size || '',
+          kitchen_inductioncompatible: updatedSpecs.kitchen_inductioncompatible || false,
+          kitchen_capacity: updatedSpecs.kitchen_capacity || '',
+          kitchen_lidincluded: updatedSpecs.kitchen_lidincluded || false,
+          kitchen_handletype: updatedSpecs.kitchen_handletype || '',
+          kitchen_ovensafe: updatedSpecs.kitchen_ovensafe || false
+        };
+        break;
+
+      case 'Bakeware':
+        mappedSpecs = {
+          kitchen_material: updatedSpecs.kitchen_material || '',
+          kitchen_size: updatedSpecs.kitchen_size || '',
+          kitchen_heatresistance: updatedSpecs.kitchen_heatresistance || '',
+          kitchen_numberofcups: updatedSpecs.kitchen_numberofcups || '',
+          kitchen_leakproof: updatedSpecs.kitchen_leakproof || false,
+          kitchen_shapetype: updatedSpecs.kitchen_shapetype || '',
+          kitchen_capacity: updatedSpecs.kitchen_capacity || ''
+        };
+        break;
+
+      case 'Oven Cookware':
+        mappedSpecs = {
+          kitchen_material: updatedSpecs.kitchen_material || '',
+          kitchen_size: updatedSpecs.kitchen_size || '',
+          kitchen_capacity: updatedSpecs.kitchen_capacity || '',
+          kitchen_rackincluded: updatedSpecs.kitchen_rackincluded || false,
+          kitchen_ovensafe: updatedSpecs.kitchen_ovensafe || false
+        };
+        break;
+
+      case 'Kitchen Utensils':
+        mappedSpecs = {
+          kitchen_material: updatedSpecs.kitchen_material || '',
+          kitchen_heatresistance: updatedSpecs.kitchen_heatresistance || '',
+          kitchen_dishwashersafe: updatedSpecs.kitchen_dishwashersafe || false,
+          kitchen_length: updatedSpecs.kitchen_length || '',
+          kitchen_lockingmechanism: updatedSpecs.kitchen_lockingmechanism || false,
+          kitchen_shapetype: updatedSpecs.kitchen_shapetype || '',
+          kitchen_bladetype: updatedSpecs.kitchen_bladetype || '',
+          kitchen_bladematerial: updatedSpecs.kitchen_bladematerial || ''
+        };
+        break;
+
+      case 'Knives & Cutlery':
+        mappedSpecs = {
+          kitchen_bladematerial: updatedSpecs.kitchen_bladematerial || '',
+          kitchen_handletype: updatedSpecs.kitchen_handletype || '',
+          kitchen_numberofcups: updatedSpecs.kitchen_numberofcups || '',
+          kitchen_bladetype: updatedSpecs.kitchen_bladetype || '',
+          kitchen_bladelength: updatedSpecs.kitchen_bladelength || '',
+          kitchen_dishwashersafe: updatedSpecs.kitchen_dishwashersafe || false,
+          kitchen_finish: updatedSpecs.kitchen_finish || ''
+        };
+        break;
+
+      case 'Tableware':
+        mappedSpecs = {
+          kitchen_material: updatedSpecs.kitchen_material || '',
+          kitchen_shapetype: updatedSpecs.kitchen_shapetype || '',
+          kitchen_capacity: updatedSpecs.kitchen_capacity || '',
+          kitchen_dishwashersafe: updatedSpecs.kitchen_dishwashersafe || false,
+          kitchen_features: updatedSpecs.kitchen_features || []
+        };
+        break;
+
+      case 'Food Storage':
+        mappedSpecs = {
+          kitchen_material: updatedSpecs.kitchen_material || '',
+          kitchen_features: updatedSpecs.kitchen_features || [],
+          kitchen_lockingmechanism: updatedSpecs.kitchen_lockingmechanism || '',
+          kitchen_dishwashersafe: updatedSpecs.kitchen_dishwashersafe || false
+        };
+        break;
+
+      case 'Women':
+        mappedSpecs = {
+          fashion_material: updatedSpecs.fashion_material || '',
+          fashion_sizes: updatedSpecs.fashion_sizes || [],
+          fashion_style: updatedSpecs.fashion_style || '',
+          fashion_sleeveType: updatedSpecs.fashion_sleeveType || '',
+          fashion_length: updatedSpecs.fashion_length || '',
+          fashion_heelType: updatedSpecs.fashion_heelType || '',
+          fashion_closure: updatedSpecs.fashion_closure || '',
+          fashion_occasion: updatedSpecs.fashion_occasion || '',
+          fashion_accessoryType: updatedSpecs.fashion_accessoryType || '',
+          fashion_colors: updatedSpecs.fashion_colors || [],
+          fashion_stoneType: updatedSpecs.fashion_stoneType || '',
+          fashion_bagType: updatedSpecs.fashion_bagType || ''
+        };
+        break;
+
+      case 'Mens':
+        mappedSpecs = {
+          fashion_material: updatedSpecs.fashion_material || '',
+          fashion_sizes: updatedSpecs.fashion_sizes || [],
+          fashion_style: updatedSpecs.fashion_style || '',
+          fashion_fit: updatedSpecs.fashion_fit || '',
+          fashion_closure: updatedSpecs.fashion_closure || '',
+          fashion_shoeType: updatedSpecs.fashion_shoeType || '',
+          fashion_accessoryType: updatedSpecs.fashion_accessoryType || '',
+          fashion_traditionalType: updatedSpecs.fashion_traditionalType || ''
+        };
+        break;
+
+      case "Kid's Wears":
+        mappedSpecs = {
+          fashion_material: updatedSpecs.fashion_material || '',
+          fashion_sizes: updatedSpecs.fashion_sizes || [],
+          fashion_pattern: updatedSpecs.fashion_pattern || '',
+          fashion_style: updatedSpecs.fashion_style || '',
+          fashion_shoeType: updatedSpecs.fashion_shoeType || '',
+          fashion_accessoryType: updatedSpecs.fashion_accessoryType || ''
+        };
+        break;
+
       default:
         mappedSpecs = {};
     }
@@ -466,6 +595,41 @@ const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSp
           return <GraphicsCardSpecs specs={specs} onChange={handleSpecChange} />;
         case 'Cooling Systems':
           return <CoolingSystemSpecs specs={specs} onChange={handleSpecChange} />;
+        default:
+          return null;
+      }
+    }
+
+    if (category === 'Kitchen & Dining') {
+      switch (subcategory) {
+        case 'Cookware':
+          return <CookwareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Bakeware':
+          return <BakewareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Oven Cookware':
+          return <OvenCookwareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Kitchen Utensils':
+          return <KitchenUtensilsSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Knives & Cutlery':
+          return <KnivesCutlerySpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Tableware':
+          return <TablewareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Food Storage':
+          return <FoodStorageSpecs specs={specs} onChange={handleSpecChange} />;
+        default:
+          return null;
+      }
+    }
+
+    if (category === 'Fashion') {
+      switch (subcategory) {
+        case 'Women Fashion':
+          return <WomenFashionSpecs specs={specs} onChange={handleSpecChange} />;
+
+        case "Men's Wears":
+          return <MensWearSpecs specs={specs} onChange={handleSpecChange} />;
+        case "Kid's Wears":
+          return <KidsWearSpecs specs={specs} onChange={handleSpecChange} />;
         default:
           return null;
       }

@@ -95,7 +95,7 @@ const OnboardingProvider = ({ children }) => {
                 if (accountType === 'business') {
                     navigate("/onboarding/business-onboarding")
                 } else {
-                    navigate("/individual-onboarding")
+                    navigate("/onboarding/individual-onboarding")
 
                 }
             }
@@ -472,9 +472,10 @@ const OnboardingProvider = ({ children }) => {
                     }
                 });
                 await storeOnboardingProcess({
-                    onboardingProcess: 'account-approval'
+                    onboardingProcess: 'create-profile'
                 })
-                navigate('/onboarding/account-approval');
+                navigate('/onboarding/create-profile');
+
             }
         } catch (error) {
             console.log(error);

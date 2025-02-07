@@ -5,7 +5,7 @@ import {
     CollapsibleContent,
 } from "../../Components/ui/collapsible";
 import { Button } from "../../Components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../Components/ui/card";
 import { Label } from "../../Components/ui/label";
 import { Input } from "../../Components/ui/input2";
 import { Textarea } from "../../Components/ui/textarea";
@@ -779,6 +779,7 @@ const AddProduct = () => {
                                             <Card>
                                                 <CardHeader>
                                                     <CardTitle className='text-base lg:text-lg font-cabin font-medium'>Product Specifications</CardTitle>
+                                                    <CardDescription className='text-sm lg:text-base font-cabin font-normal text-[#17171B96]'>Select specifications that apply to your product</CardDescription>
                                                 </CardHeader>
                                                 <CardContent>
                                                     {selectedCategory && selectedSubCategory ? (
