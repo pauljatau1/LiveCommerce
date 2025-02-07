@@ -320,10 +320,10 @@ const EditProduct = () => {
                     value: mainVariant.value,
                     price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
                     totalStock: mainVariant.subVariants.reduce((total, subVar) =>
-                        total + subVar.subSubVariants.reduce((subTotal, subSubVar) =>
+                        total + (parseInt(subVar.stock) || 0) +
+                        subVar.subSubVariants.reduce((subTotal, subSubVar) =>
                             subTotal + (parseInt(subSubVar.stock) || 0), 0
-                        ), 0
-                    ),
+                        ), 0),
                     images: mainVariantImages,
                     subVariants: await Promise.all(mainVariant.subVariants.map(async subVariant => {
                         const subVariantImages = await Promise.all((subVariant.images || []).map(async (img) => {
@@ -350,9 +350,7 @@ const EditProduct = () => {
                             name: subVariant.name,
                             value: subVariant.value,
                             price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                            stock: subVariant.subSubVariants.reduce((total, subSubVar) =>
-                                total + (parseInt(subSubVar.stock) || 0), 0
-                            ),
+                            stock: parseInt(subVariant.stock) || 0,
                             images: subVariantImages,
                             subSubVariants: await Promise.all(subVariant.subSubVariants.map(async subSubVariant => {
                                 const subSubVariantImages = await Promise.all((subSubVariant.images || []).map(async (img) => {

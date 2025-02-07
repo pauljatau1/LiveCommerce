@@ -286,18 +286,13 @@ const VariantCombinations = memo(() => {
                                     className="w-24 px-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 py-1 border rounded"
                                     onClick={e => e.stopPropagation()}
                                 />
-                                <input
-                                    type="number"
-                                    value={mainVariant.stock || ''}
-                                    onChange={(e) => handleInputChange(
-                                        mainVariant.value,
-                                        'stock',
-                                        e.target.value
-                                    )}
-                                    placeholder="Stock"
-                                    className="w-24 px-3 text-sm md:text-base py-1 focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 border rounded"
-                                    onClick={e => e.stopPropagation()}
-                                />
+                                <div className="w-24 px-3 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700 md:text-base py-1.5">
+                                    {mainVariant.subVariants.reduce((total, subVar) => 
+                                        total + (parseInt(subVar.stock) || 0) +
+                                        subVar.subSubVariants.reduce((subTotal, subSubVar) => 
+                                            subTotal + (parseInt(subSubVar.stock) || 0), 0
+                                        ), 0)}
+                                </div>
                             </div>
                         </div>
                         {expandedVariants.has(mainVariant.value) &&
