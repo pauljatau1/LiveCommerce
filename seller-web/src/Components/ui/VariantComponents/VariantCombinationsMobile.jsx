@@ -284,19 +284,15 @@ const VariantCombinationsMobile = memo(() => {
                                     onClick={e => e.stopPropagation()}
                                 />
 
-                                <input
-                                    type="number"
-                                    value={mainVariant.stock || ''}
-                                    onChange={(e) => updateVariantValue(
-                                        mainVariant.value,
-                                        'stock',
-                                        e.target.value
-                                    )}
+                                <div className="w-full bg-gray-100 px-3 border border-gray-300 rounded-md text-sm text-gray-700 md:text-base py-1.5">
+                                    {mainVariant.subVariants.reduce((total, subVar) =>
+                                        total + (parseInt(subVar.stock) || 0) +
+                                        subVar.subSubVariants.reduce((subTotal, subSubVar) =>
 
-                                    placeholder="Stock"
-                                    className="w-full px-3 py-1.5 border rounded"
-                                    onClick={e => e.stopPropagation()}
-                                />
+
+                                            subTotal + (parseInt(subSubVar.stock) || 0), 0
+                                        ), 0)}
+                                </div>
                             </div>
                         </div>
                         {expandedVariants.has(mainVariant.value) &&

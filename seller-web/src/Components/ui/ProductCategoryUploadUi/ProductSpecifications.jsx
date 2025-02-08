@@ -41,6 +41,25 @@ import FoodStorageSpecs from './FoodStorageSpecs';
 import WomenFashionSpecs from './WomenFashionSpecs';
 import MensWearSpecs from './MensWearSpecs';
 import KidsWearSpecs from './KidsWearSpecs';
+import BabyApparelSpecs from './BabyApparelSpecs';
+import BabyDiaperingSpecs from './BabyDiaperingSpecs';
+import BabyFeedingSpecs from './BabyFeedingSpecs';
+import BathingSkinCareSpecs from './BathingSkinCareSpecs';
+import ToysPlaySpecs from './ToysPlaySpecs';
+import MakeupSpecs from './MakeupSpecs';
+import SkinCareSpecs from './SkinCareSpecs';
+import HairCareSpecs from './HairCareSpecs';
+import FragranceSpecs from './FragranceSpecs';
+import PersonalCareSpecs from './PersonalCareSpecs';
+import VitaminsSupplementsSpecs from './VitaminsSupplementsSpecs';
+import BathBodySpecs from './BathBodySpecs';
+import SpaRelaxationSpecs from './SpaRelaxationSpecs';
+import FootCareSpecs from './FootCareSpecs';
+import ConsoleSpecs from './ConsoleSpecs';
+import GameSpecs from './GameSpecs';
+import GamingAccessorySpecs from './GamingAccessorySpecs';
+import VirtualRealitySpecs from './VirtualRealitySpecs';
+import GamingFurnitureSpecs from './GamingFurnitureSpecs';
 import PropTypes from 'prop-types';
 
 const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSpecs }) => {
@@ -449,6 +468,214 @@ const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSp
         };
         break;
 
+      case 'Apparel & Accessories':
+        mappedSpecs = {
+          baby_productType: updatedSpecs.baby_productType || [],
+          baby_size: updatedSpecs.baby_size || '',
+          baby_material: updatedSpecs.baby_material || [],
+          baby_pattern: updatedSpecs.baby_pattern || [],
+          baby_fit: updatedSpecs.baby_fit || '',
+          baby_features: updatedSpecs.baby_features || [],
+          baby_color: updatedSpecs.baby_color || '',
+          baby_closure: updatedSpecs.baby_closure || []
+        };
+        break;
+
+      case 'Diapering':
+        mappedSpecs = {
+          baby_diaperType: updatedSpecs.baby_diaperType || [],
+          baby_absorption: updatedSpecs.baby_absorption || '',
+          baby_material: updatedSpecs.baby_material || [],
+          baby_closure: updatedSpecs.baby_closure || [],
+          baby_bagType: updatedSpecs.baby_bagType || [],
+          baby_wipeType: updatedSpecs.baby_wipeType || [],
+          baby_features: updatedSpecs.baby_features || []
+        };
+        break;
+
+      case 'Feeding':
+        mappedSpecs = {
+          baby_feedingType: updatedSpecs.baby_feedingType || [],
+          baby_feedingProductType: updatedSpecs.baby_feedingProductType || [],
+          baby_material: updatedSpecs.baby_material || [],
+          baby_capacity: updatedSpecs.baby_capacity || '',
+          baby_features: updatedSpecs.baby_features || []
+        };
+        break;
+
+      case 'Bathing & Skin Care':
+        mappedSpecs = {
+          baby_bathingProductType: updatedSpecs.baby_bathingProductType || [],
+          baby_material: updatedSpecs.baby_material || [],
+          baby_ingredients: updatedSpecs.baby_ingredients || []
+        };
+        break;
+
+      case 'Toys & Play':
+        mappedSpecs = {
+          baby_toyType: updatedSpecs.baby_toyType || [],
+          baby_material: updatedSpecs.baby_material || [],
+          baby_toyFeatures: updatedSpecs.baby_toyFeatures || []
+        };
+        break;
+
+      case 'Makeup':
+        mappedSpecs = {
+          healthBeauty_makeupType: updatedSpecs.healthBeauty_makeupType || [],
+          healthBeauty_shade: updatedSpecs.healthBeauty_shade || '',
+          healthBeauty_coverage: updatedSpecs.healthBeauty_coverage || [],
+          healthBeauty_skinType: updatedSpecs.healthBeauty_skinType || [],
+          healthBeauty_finish: updatedSpecs.healthBeauty_finish || [],
+          healthBeauty_ingredients: updatedSpecs.healthBeauty_ingredients || [],
+          healthBeauty_applicatorType: updatedSpecs.healthBeauty_applicatorType || [],
+          healthBeauty_spf: updatedSpecs.healthBeauty_spf || false,
+          healthBeauty_crueltyFree: updatedSpecs.healthBeauty_crueltyFree || false,
+          healthBeauty_waterproof: updatedSpecs.healthBeauty_waterproof || false,
+          healthBeauty_longLasting: updatedSpecs.healthBeauty_longLasting || false,
+          healthBeauty_quickDry: updatedSpecs.healthBeauty_quickDry || false
+        };
+        break;
+
+      case 'Skin Care':
+        mappedSpecs = {
+          healthBeauty_skinCareType: updatedSpecs.healthBeauty_skinCareType || [],
+          healthBeauty_skinType: updatedSpecs.healthBeauty_skinType || [],
+          healthBeauty_benefits: updatedSpecs.healthBeauty_benefits || [],
+          healthBeauty_ingredients: updatedSpecs.healthBeauty_ingredients || [],
+          healthBeauty_usageTime: updatedSpecs.healthBeauty_usageTime || [],
+          healthBeauty_spfLevel: updatedSpecs.healthBeauty_spfLevel || '',
+          healthBeauty_spfType: updatedSpecs.healthBeauty_spfType || '',
+          healthBeauty_spf: updatedSpecs.healthBeauty_spf || false,
+          healthBeauty_waterResistant: updatedSpecs.healthBeauty_waterResistant || false,
+          healthBeauty_tinted: updatedSpecs.healthBeauty_tinted || false
+        };
+        break;
+
+      case 'Hair Care':
+        mappedSpecs = {
+          healthBeauty_hairProductType: updatedSpecs.healthBeauty_hairProductType || [],
+          healthBeauty_hairType: updatedSpecs.healthBeauty_hairType || [],
+          healthBeauty_benefits: updatedSpecs.healthBeauty_benefits || [],
+          healthBeauty_holdLevel: updatedSpecs.healthBeauty_holdLevel || '',
+          healthBeauty_material: updatedSpecs.healthBeauty_material || [],
+          healthBeauty_heatSettings: updatedSpecs.healthBeauty_heatSettings || '',
+          healthBeauty_voltage: updatedSpecs.healthBeauty_voltage || '',
+          healthBeauty_scented: updatedSpecs.healthBeauty_scented || false,
+          healthBeauty_crueltyFree: updatedSpecs.healthBeauty_crueltyFree || false,
+          healthBeauty_heatProtection: updatedSpecs.healthBeauty_heatProtection || false
+        };
+        break;
+
+      case 'Fragrances':
+        mappedSpecs = {
+          healthBeauty_fragranceType: updatedSpecs.healthBeauty_fragranceType || [],
+          healthBeauty_scentFamily: updatedSpecs.healthBeauty_scentFamily || [],
+          healthBeauty_longevity: updatedSpecs.healthBeauty_longevity || '',
+          healthBeauty_volume: updatedSpecs.healthBeauty_volume || ''
+        };
+        break;
+
+      case 'Personal Care':
+        mappedSpecs = {
+          healthBeauty_personalCareType: updatedSpecs.healthBeauty_personalCareType || [],
+          healthBeauty_specialty: updatedSpecs.healthBeauty_specialty || [],
+          healthBeauty_size: updatedSpecs.healthBeauty_size || '',
+          healthBeauty_absorbencyLevel: updatedSpecs.healthBeauty_absorbencyLevel || '',
+          healthBeauty_fluoride: updatedSpecs.healthBeauty_fluoride || false,
+          healthBeauty_antiperspirant: updatedSpecs.healthBeauty_antiperspirant || false,
+          healthBeauty_scentFree: updatedSpecs.healthBeauty_scentFree || false
+        };
+        break;
+
+      case 'Vitamins & Supplements':
+        mappedSpecs = {
+          healthBeauty_supplementType: updatedSpecs.healthBeauty_supplementType || [],
+          healthBeauty_supplementForm: updatedSpecs.healthBeauty_supplementForm || [],
+          healthBeauty_supplementBenefits: updatedSpecs.healthBeauty_supplementBenefits || [],
+          healthBeauty_supplementFlavor: updatedSpecs.healthBeauty_supplementFlavor || '',
+          healthBeauty_supplementIngredients: updatedSpecs.healthBeauty_supplementIngredients || []
+        };
+        break;
+
+      case 'Bath & Body':
+        mappedSpecs = {
+          healthBeauty_bathType: updatedSpecs.healthBeauty_bathType || [],
+          healthBeauty_ingredients: updatedSpecs.healthBeauty_ingredients || [],
+          healthBeauty_benefits: updatedSpecs.healthBeauty_benefits || [],
+          healthBeauty_scented: updatedSpecs.healthBeauty_scented || false,
+          healthBeauty_scentFree: updatedSpecs.healthBeauty_scentFree || false
+        };
+        break;
+
+      case 'Spa & Relaxation':
+        mappedSpecs = {
+          healthBeauty_spaType: updatedSpecs.healthBeauty_spaType || [],
+          healthBeauty_features: updatedSpecs.healthBeauty_features || [],
+          healthBeauty_material: updatedSpecs.healthBeauty_material || '',
+          healthBeauty_scentFamily: updatedSpecs.healthBeauty_scentFamily || [],
+          healthBeauty_usage: updatedSpecs.healthBeauty_usage || ''
+        };
+        break;
+
+      case 'Foot Care':
+        mappedSpecs = {
+          healthBeauty_footCareType: updatedSpecs.healthBeauty_footCareType || [],
+          healthBeauty_benefits: updatedSpecs.healthBeauty_benefits || [],
+          healthBeauty_ingredients: updatedSpecs.healthBeauty_ingredients || []
+        };
+        break;
+
+      case 'Consoles':
+        mappedSpecs = {
+          gaming_consoleModel: updatedSpecs.gaming_consoleModel || '',
+          gaming_accessories: updatedSpecs.gaming_accessories || [],
+          gaming_storageCapacity: updatedSpecs.gaming_storageCapacity || '',
+          gaming_features: updatedSpecs.gaming_features || [],
+          gaming_edition: updatedSpecs.gaming_edition || '',
+          gaming_bundled: updatedSpecs.gaming_bundled || false
+        };
+        break;
+
+      case 'Games':
+        mappedSpecs = {
+          gaming_title: updatedSpecs.gaming_title || '',
+          gaming_genre: updatedSpecs.gaming_genre || [],
+          gaming_rating: updatedSpecs.gaming_rating || '',
+          gaming_region: updatedSpecs.gaming_region || '',
+          gaming_compatibility: updatedSpecs.gaming_compatibility || [],
+          gaming_features: updatedSpecs.gaming_features || []
+        };
+        break;
+
+      case 'Accessories':
+        mappedSpecs = {
+          gaming_accessoryType: updatedSpecs.gaming_accessoryType || [],
+          gaming_compatibility: updatedSpecs.gaming_compatibility || [],
+          gaming_features: updatedSpecs.gaming_features || [],
+          gaming_storageCapacity: updatedSpecs.gaming_storageCapacity || '',
+          gaming_resolution: updatedSpecs.gaming_resolution || '',
+          gaming_connectionType: updatedSpecs.gaming_connectionType || ''
+        };
+        break;
+
+      case 'Virtual Reality':
+        mappedSpecs = {
+          gaming_vrModel: updatedSpecs.gaming_vrModel || '',
+          gaming_vrFeatures: updatedSpecs.gaming_vrFeatures || [],
+          gaming_vrGenres: updatedSpecs.gaming_vrGenres || [],
+          gaming_vrCompatibility: updatedSpecs.gaming_vrCompatibility || []
+        };
+        break;
+
+      case 'Gaming Furniture':
+        mappedSpecs = {
+          gaming_furnitureType: updatedSpecs.gaming_furnitureType || [],
+          gaming_furnitureFeatures: updatedSpecs.gaming_furnitureFeatures || [],
+          gaming_furnitureMaterial: updatedSpecs.gaming_furnitureMaterial || [],
+          gaming_weightCapacity: updatedSpecs.gaming_weightCapacity || ''
+        };
+        break;
+
       default:
         mappedSpecs = {};
     }
@@ -513,7 +740,7 @@ const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSp
       }
     }
 
-    if (category === 'Computers') {
+    if (category === 'Computing') {
       switch (subcategory) {
         case 'Laptops':
           return <LaptopSpecs specs={specs} onChange={handleSpecChange} />;
@@ -630,6 +857,65 @@ const ProductSpecifications = ({ category, subcategory, onSpecsChange, initialSp
           return <MensWearSpecs specs={specs} onChange={handleSpecChange} />;
         case "Kid's Wears":
           return <KidsWearSpecs specs={specs} onChange={handleSpecChange} />;
+        default:
+          return null;
+      }
+    }
+
+    if (category === 'Baby & Kids') {
+      switch (subcategory) {
+        case 'Apparel & Accessories':
+          return <BabyApparelSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Diapering':
+          return <BabyDiaperingSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Feeding':
+          return <BabyFeedingSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Bathing & Skin Care':
+          return <BathingSkinCareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Toys & Play':
+          return <ToysPlaySpecs specs={specs} onChange={handleSpecChange} />;
+        default:
+          return null;
+      }
+    }
+
+    if (category === 'Health & Beauty') {
+      switch (subcategory) {
+        case 'Makeup':
+          return <MakeupSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Skin Care':
+          return <SkinCareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Hair Care':
+          return <HairCareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Fragrances':
+          return <FragranceSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Personal Care':
+          return <PersonalCareSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Vitamins & Supplements':
+          return <VitaminsSupplementsSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Bath & Body':
+          return <BathBodySpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Spa & Relaxation':
+          return <SpaRelaxationSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Foot Care':
+          return <FootCareSpecs specs={specs} onChange={handleSpecChange} />;
+        default:
+          return null;
+      }
+    }
+
+    if (category === 'Gaming') {
+      switch (subcategory) {
+        case 'Consoles':
+          return <ConsoleSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Games':
+          return <GameSpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Accessories':
+          return <GamingAccessorySpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Virtual Reality':
+          return <VirtualRealitySpecs specs={specs} onChange={handleSpecChange} />;
+        case 'Gaming Furniture':
+          return <GamingFurnitureSpecs specs={specs} onChange={handleSpecChange} />;
         default:
           return null;
       }

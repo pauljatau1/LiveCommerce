@@ -12,7 +12,8 @@ const CoolingSystemSpecs = ({ specs, onChange }) => {
   const inputStyles = {
     '& .MuiOutlinedInput-root': {
       borderRadius: '0.5rem',
-      height: '48px',
+      minHeight: '48px',
+      height: 'auto',
       '& fieldset': { borderColor: '#02020238' },
       '&:hover fieldset': { borderColor: '#02020238' },
       '&.Mui-focused fieldset': { borderColor: '#02020238' }
@@ -20,7 +21,12 @@ const CoolingSystemSpecs = ({ specs, onChange }) => {
     '& .MuiInputBase-input': {
       padding: '0.75rem',
       fontSize: '0.875rem',
-      color: '#64748b'
+      color: '#64748b',
+      height: 'auto',
+      minHeight: '1.4375em'
+    },
+    '& .MuiAutocomplete-tag': {
+      margin: '3px'
     }
   };
 

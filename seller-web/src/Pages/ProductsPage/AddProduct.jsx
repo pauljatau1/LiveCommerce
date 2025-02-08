@@ -307,10 +307,10 @@ const AddProduct = () => {
                     value: mainVariant.value,
                     price: parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
                     totalStock: mainVariant.subVariants.reduce((total, subVar) =>
-                        total + subVar.subSubVariants.reduce((subTotal, subSubVar) =>
+                        total + (parseInt(subVar.stock) || 0) +
+                        subVar.subSubVariants.reduce((subTotal, subSubVar) =>
                             subTotal + (parseInt(subSubVar.stock) || 0), 0
-                        ), 0
-                    ),
+                        ), 0),
                     images: mainVariantImages,
                     subVariants: await Promise.all(mainVariant.subVariants.map(async subVariant => {
                         const subVariantImages = await Promise.all((subVariant.images || []).map(async (img) => {
@@ -328,9 +328,7 @@ const AddProduct = () => {
                             name: subVariant.name,
                             value: subVariant.value,
                             price: parseFloat(subVariant.price) || parseFloat(mainVariant.price) || parseFloat(shippingDetails.pricing),
-                            stock: subVariant.subSubVariants.reduce((total, subSubVar) =>
-                                total + (parseInt(subSubVar.stock) || 0), 0
-                            ),
+                            stock: parseInt(subVariant.stock) || 0,
                             images: subVariantImages,
                             subSubVariants: await Promise.all(subVariant.subSubVariants.map(async subSubVariant => {
                                 const subSubVariantImages = await Promise.all((subSubVariant.images || []).map(async (img) => {
@@ -423,6 +421,7 @@ const AddProduct = () => {
                 });
             }
 
+            console.log('submit product data', productData);
             // Validate and submit
             if (title && description && images.length > 0 && shippingDetails.pricing &&
                 shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
@@ -432,6 +431,7 @@ const AddProduct = () => {
             } else {
                 toast.error('Please fill all required fields');
             }
+
         } catch (error) {
             console.error('Error submitting product:', error);
             toast.error('Failed to submit product');
@@ -1178,12 +1178,13 @@ const AddProduct = () => {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <RequiredLabel>UPC</RequiredLabel>
+                                            <Label>UPC</Label>
                                             <Input
                                                 value={upcNumber}
                                                 onChange={(e) => setUpcNumber(e.target.value)}
                                                 placeholder="universal product code"
                                                 className="rounded-full"
+
                                             />
                                         </div>
 
