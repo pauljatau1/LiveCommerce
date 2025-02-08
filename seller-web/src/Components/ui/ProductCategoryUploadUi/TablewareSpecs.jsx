@@ -48,7 +48,7 @@ const TablewareSpecs = ({ specs, onChange }) => {
   return (
     <div className="space-y-6">
       {/* Material and Shape */}
-      <div className="grid grid-cols-1 xl:grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="space-y-2">
           <Label>Material</Label>
           <Autocomplete
@@ -90,7 +90,7 @@ const TablewareSpecs = ({ specs, onChange }) => {
       </div>
 
       {/* Capacity and Type */}
-      <div className="grid grid-cols-1 xl:grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="space-y-2">
           <Label>Capacity (liters)</Label>
           <Input

@@ -1074,7 +1074,7 @@ const AddProduct = () => {
                                     className="bg-[#F7F7F7]  rounded-lg shadow-sm"
                                 >
 
-                                    <CollapsibleContent className="p-4 space-y-4">
+                                    <CollapsibleContent className="p-4 mt-3 space-y-4">
                                         <div className="space-y-2">
                                             <Label>Upload Status</Label>
                                             <Select
