@@ -126,6 +126,15 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+
+      <Stack.Screen
+        name="messageRoom/[id]"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 };
