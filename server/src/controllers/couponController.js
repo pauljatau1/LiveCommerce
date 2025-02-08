@@ -1,6 +1,7 @@
 const Coupon = require('../models/Coupon');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
+const notificationController = require('../controllers/notificationController');
 
 // Create a new coupon
 exports.createCoupon = async (req, res) => {
@@ -145,6 +146,31 @@ exports.createCoupon = async (req, res) => {
 
     await coupon.save();
     await coupon.populate('applicableProducts.product', 'name price images');
+
+    // After coupon is created, notify eligible buyers
+    if (coupon.customerEligibility === 'followers') {
+      const seller = await Seller.findById(sellerId).populate('followers.buyerId');
+      const eligibleBuyers = seller.followers.map(f => f.buyerId);
+      
+      // Send notifications to all eligible buyers
+      await Promise.all(
+        eligibleBuyers.map(buyerId =>
+          notificationController.createBuyerNotification(
+            buyerId,
+            'coupon_received',
+            {
+              couponId: coupon._id,
+              couponCode: coupon.code,
+              discount: coupon.discountPercentage,
+              validUntil: coupon.endDate,
+              minimumAmount: coupon.minimumAmount,
+              sellerName: seller.businessName || 'Seller',
+              sellerLogo: seller.logo
+            }
+          )
+        )
+      );
+    }
 
     res.status(201).json(coupon);
   } catch (error) {
@@ -394,6 +420,21 @@ exports.validateCoupon = async (req, res) => {
         discount: ((ap.originalPrice - ap.discountedPrice) / ap.originalPrice * 100).toFixed(2) + '%',
         validUntil: coupon.endDate
       }));
+
+    // If coupon is valid, notify buyer
+    if (coupon.isValid()) {
+      await notificationController.createBuyerNotification(
+        buyerId,
+        'coupon_validated',
+        {
+          couponCode: coupon.code,
+          discount: coupon.discountPercentage,
+          validUntil: coupon.endDate,
+          sellerName: coupon.seller.businessName || 'Seller',
+          savings: ((cartTotal * coupon.discountPercentage) / 100).toFixed(2)
+        }
+      );
+    }
 
     res.json({
       valid: true,

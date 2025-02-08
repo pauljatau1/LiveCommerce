@@ -182,27 +182,73 @@ couponSchema.methods.getCurrentDiscountedPrice = function(productId) {
 // Create the model first
 const CouponModel = mongoose.model('Coupon', couponSchema);
 
-// Schedule periodic cleanup of expired discounts
+// Modify the cleanup function with better error handling and timeout management
 const cleanupExpiredDiscounts = async () => {
   try {
+    // Check if mongoose is connected first
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Database not connected, skipping cleanup');
+      return;
+    }
+
     const now = new Date();
+    
+    // Add timeout option and batch processing
+    const batchSize = 100;
     const expiredCoupons = await CouponModel.find({
       endDate: { $lte: now },
       status: 'active'
-    });
+    })
+    .limit(batchSize)
+    .maxTimeMS(5000); // Set maximum execution time to 5 seconds
 
+    let updatedCount = 0;
     for (const coupon of expiredCoupons) {
-      await coupon.updateDiscountStatuses();
+      try {
+        const updated = await coupon.updateDiscountStatuses();
+        if (updated) updatedCount++;
+      } catch (err) {
+        console.error(`Error updating coupon ${coupon._id}:`, err.message);
+        continue; // Continue with next coupon even if one fails
+      }
     }
+
+    console.log(`Cleanup completed: ${updatedCount} coupons updated`);
   } catch (error) {
-    console.error('Error cleaning up expired discounts:', error);
+    console.error('Error during discount cleanup:', error.message);
   }
 };
 
-// Run cleanup every hour
-setInterval(cleanupExpiredDiscounts, 60 * 60 * 1000);
+// Modify the interval setup with error handling
+let cleanupInterval;
+const startCleanupInterval = () => {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+  }
+  
+  // Run every hour
+  cleanupInterval = setInterval(() => {
+    cleanupExpiredDiscounts().catch(err => {
+      console.error('Cleanup interval error:', err.message);
+    });
+  }, 60 * 60 * 1000);
+};
 
-// Run cleanup on model initialization
-cleanupExpiredDiscounts();
+// Add connection handling
+mongoose.connection.on('connected', () => {
+  console.log('MongoDB connected, starting cleanup interval');
+  startCleanupInterval();
+  // Initial cleanup
+  cleanupExpiredDiscounts().catch(err => {
+    console.error('Initial cleanup error:', err.message);
+  });
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected, stopping cleanup interval');
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+  }
+});
 
 module.exports = CouponModel; 

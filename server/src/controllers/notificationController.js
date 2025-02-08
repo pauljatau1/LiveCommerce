@@ -26,6 +26,40 @@ const getNotificationTitle = (type) => {
       return 'New Campaign from Your Favorite Store';
     case 'campaign_scheduled':
       return 'Upcoming Campaign Alert';
+    case 'order_closed':
+      return 'Order Closed and Payment Released';
+    case 'order_status_update':
+      return 'Order Status Update';
+    case 'order_shipped':
+      return 'Order Shipped';
+    case 'coupon_received':
+      return 'New Coupon Available';
+    case 'price_drop':
+      return 'Price Drop Alert';
+    case 'back_in_stock':
+      return 'Back in Stock';
+    case 'seller_message':
+      return 'New Message from Seller';
+    case 'order_reminder':
+      return 'Order Action Required';
+    case 'review_reminder':
+      return 'Review Your Recent Purchase';
+    case 'return_created':
+      return 'Return Request Created';
+    case 'return_approved':
+      return 'Return Request Approved';
+    case 'return_rejected':
+      return 'Return Request Rejected';
+    case 'return_info_needed':
+      return 'Additional Information Needed';
+    case 'return_partial_refund':
+      return 'Partial Refund Offered';
+    case 'return_label_created':
+      return 'Return Shipping Label Created';
+    case 'return_pickup_arranged':
+      return 'Return Pickup Arranged';
+    case 'return_request':
+      return 'New Return Request';
     default:
       return 'Notification';
   }
@@ -54,6 +88,40 @@ const getNotificationMessage = (type, data) => {
       return `${data.storeName} has a new campaign: ${data.campaignTitle}. ${data.message}`;
     case 'campaign_scheduled':
       return `${data.storeName} has scheduled a campaign for ${new Date(data.scheduledFor).toLocaleDateString()}: ${data.campaignTitle}`;
+    case 'order_closed':
+      return `Order #${data.order_id} has been closed and ₦${data.amount.toLocaleString()} has been released to your wallet. New balance: ₦${data.newWalletBalance.toLocaleString()}.`;
+    case 'order_status_update':
+      return `Your order #${data.order_id} status has been updated to ${data.status}.`;
+    case 'order_shipped':
+      return `Your order #${data.order_id} has been shipped! Track your package with ${data.carrier}.`;
+    case 'coupon_received':
+      return `${data.sellerName} has sent you a ${data.discount}% discount coupon valid until ${new Date(data.validUntil).toLocaleDateString()}.`;
+    case 'price_drop':
+      return `Good news! "${data.productName}" is now ${data.discount}% off.`;
+    case 'back_in_stock':
+      return `"${data.productName}" is back in stock! Don't miss out.`;
+    case 'seller_message':
+      return `New message from ${data.sellerName} regarding order #${data.order_id}.`;
+    case 'order_reminder':
+      return `Please confirm receipt of order #${data.order_id} delivered on ${new Date(data.deliveryDate).toLocaleDateString()}.`;
+    case 'review_reminder':
+      return `How was your experience with "${data.productName}"? Share your thoughts!`;
+    case 'return_created':
+      return `Your return request for order #${data.order_id} has been submitted successfully.`;
+    case 'return_approved':
+      return `Your return request for order #${data.order_id} has been approved. ${data.message}`;
+    case 'return_rejected':
+      return `Your return request for order #${data.order_id} has been rejected. Reason: ${data.message}`;
+    case 'return_info_needed':
+      return `Additional information is needed for your return request #${data.order_id}: ${data.message}`;
+    case 'return_partial_refund':
+      return `A partial refund of ₦${data.partialRefundAmount.toLocaleString()} has been offered for your return request on order #${data.order_id}.`;
+    case 'return_label_created':
+      return `Return shipping label has been created for order #${data.order_id}. Tracking number: ${data.trackingNumber}`;
+    case 'return_pickup_arranged':
+      return `Return pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${new Date(data.pickupDate).toLocaleDateString()}.`;
+    case 'return_request':
+      return `New return request received from ${data.buyerName} for order #${data.order_id}.`;
     default:
       return 'You have a new notification.';
   }
@@ -68,6 +136,7 @@ exports.createNotification = async (sellerId, type, data) => {
 
     const notification = new Notification({
       seller: sellerId,
+      recipient: 'seller',
       type,
       title,
       message,
@@ -646,5 +715,98 @@ exports.simulateShipmentWebhook = async (req, res) => {
       message: 'Failed to simulate webhook event',
       error: error.message 
     });
+  }
+};
+
+// Create a new function for buyer notifications
+exports.createBuyerNotification = async (buyerId, type, data) => {
+  try {
+    const title = getNotificationTitle(type);
+    const message = getNotificationMessage(type, data);
+
+    const notification = new Notification({
+      buyer: buyerId,
+      recipient: 'buyer',
+      type,
+      title,
+      message,
+      data
+    });
+
+    await notification.save();
+    return notification;
+  } catch (error) {
+    console.error('Error creating buyer notification:', error);
+    throw error;
+  }
+};
+
+// Add new controller for buyer notifications
+exports.getBuyerNotifications = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const notifications = await Notification.find({ 
+      buyer: req.user.id,
+      recipient: 'buyer'
+    })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Notification.countDocuments({ 
+      buyer: req.user.id,
+      recipient: 'buyer'
+    });
+
+    res.json({
+      notifications,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalNotifications: total
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get notifications', error: error.message });
+  }
+};
+
+// Add buyer-specific mark as read function
+exports.markBuyerNotificationAsRead = async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { 
+        _id: req.params.id, 
+        buyer: req.user.id,
+        recipient: 'buyer'
+      },
+      { isRead: true },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    res.json(notification);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to mark notification as read', error: error.message });
+  }
+};
+
+// Add buyer-specific mark all as read function
+exports.markAllBuyerNotificationsAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { 
+        buyer: req.user.id,
+        recipient: 'buyer',
+        isRead: false 
+      },
+      { isRead: true }
+    );
+    res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to mark all notifications as read', error: error.message });
   }
 };

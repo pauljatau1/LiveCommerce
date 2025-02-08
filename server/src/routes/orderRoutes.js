@@ -1014,4 +1014,59 @@ router.put('/:orderId/open-status',
   orderController.updateOrderOpenStatus
 );
 
+/**
+ * @swagger
+ * /api/order/{orderId}/cancel-shipment:
+ *   post:
+ *     summary: Cancel shipment for an order
+ *     description: Cancels the shipment and updates order status. Only available before carrier pickup.
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the order to cancel shipment for
+ *     responses:
+ *       200:
+ *         description: Shipment cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 order:
+ *                   type: object
+ *                   properties:
+ *                     shipping:
+ *                       type: object
+ *                       properties:
+ *                         tracking:
+ *                           type: object
+ *                           properties:
+ *                             status:
+ *                               type: string
+ *                             history:
+ *                               type: array
+ *       400:
+ *         description: Invalid request or shipment cannot be cancelled
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User doesn't have access to this order
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/cancel-shipment', 
+  authMiddleware.verifyToken, 
+  orderController.cancelShipment
+);
+
 module.exports = router;

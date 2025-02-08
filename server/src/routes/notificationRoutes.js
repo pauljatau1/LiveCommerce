@@ -142,4 +142,78 @@ router.post('/simulate-shipment-webhook',
   notificationController.simulateShipmentWebhook
 );
 
+/**
+ * @swagger
+ * /api/notifications/buyer:
+ *   get:
+ *     summary: Get all notifications for a buyer
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of notifications
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyer', authMiddleware.verifyToken, notificationController.getBuyerNotifications);
+
+/**
+ * @swagger
+ * /api/notifications/buyer/{id}/mark-read:
+ *   put:
+ *     summary: Mark a buyer notification as read
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Notification ID
+ *     responses:
+ *       200:
+ *         description: Notification marked as read successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Notification not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/buyer/:id/mark-read', authMiddleware.verifyToken, notificationController.markBuyerNotificationAsRead);
+
+/**
+ * @swagger
+ * /api/notifications/buyer/mark-all-read:
+ *   put:
+ *     summary: Mark all buyer notifications as read
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All notifications marked as read successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.put('/buyer/mark-all-read', authMiddleware.verifyToken, notificationController.markAllBuyerNotificationsAsRead);
+
 module.exports = router;

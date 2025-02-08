@@ -370,6 +370,35 @@ exports.createOrder = async (req, res) => {
         amount: savedOrder.totalAmount,
         items: savedOrder.items.length
       });
+
+      // After order is created, notify both parties
+      await Promise.all([
+        // Existing seller notification
+        notificationController.createNotification(
+          savedOrder.seller,
+          'new_order',
+          {
+            order_id: savedOrder.order_id,
+            amount: savedOrder.totalAmount,
+            items: savedOrder.items.length
+          }
+        ),
+        // New buyer notification
+        notificationController.createBuyerNotification(
+          savedOrder.buyer,
+          'order_created',
+          {
+            orderId: savedOrder._id,
+            order_id: savedOrder.order_id,
+            totalAmount: savedOrder.totalAmount,
+            items: savedOrder.items.map(item => ({
+              name: item.productName,
+              quantity: item.quantity
+            })),
+            sellerName: savedOrder.seller.businessName || 'Seller'
+          }
+        )
+      ]);
     }
 
     // Add this code after orders are created but before final response
@@ -696,14 +725,14 @@ exports.markAsPaid = async (req, res) => {
           { new: true, session }
         );
 
-        // Update seller's wallet balance
-        await Seller.findByIdAndUpdate(
-          item.seller,
-          {
-            $inc: { 'walletBalance': item.price * item.quantity }
-          },
-          { session }
-        );
+        // // Update seller's wallet balance
+        // await Seller.findByIdAndUpdate(
+        //   item.seller,
+        //   {
+        //     $inc: { 'walletBalance': item.price * item.quantity }
+        //   },
+        //   { session }
+        // );
 
         console.log('Product after update:', {
           productId: updateResult._id,
@@ -772,6 +801,32 @@ exports.markAsPaid = async (req, res) => {
         amount: order.totalAmount,
         paymentMethod: order.paymentInfo.method
       });
+
+      // After order is marked as paid, notify both parties
+      await Promise.all([
+        // Existing seller notification
+        notificationController.createNotification(
+          order.seller,
+          'order_paid',
+          {
+            order_id: order.order_id,
+            amount: order.totalAmount,
+            paymentMethod: order.paymentInfo.method
+          }
+        ),
+        // New buyer notification
+        notificationController.createBuyerNotification(
+          order.buyer,
+          'order_paid',
+          {
+            orderId: order._id,
+            order_id: order.order_id,
+            amount: order.totalAmount,
+            paymentMethod: order.paymentInfo.method,
+            sellerName: order.seller.businessName || 'Seller'
+          }
+        )
+      ]);
     }
 
     await session.commitTransaction();
@@ -944,6 +999,32 @@ exports.updateOrder = async (req, res) => {
 
     const updatedOrder = await order.save();
     res.json(updatedOrder);
+
+    // After status update, notify both parties
+    await Promise.all([
+      // Existing seller notification
+      notificationController.createNotification(
+        order.seller,
+        'order_status_update',
+        {
+          order_id: order.order_id,
+          status: status
+        }
+      ),
+      // New buyer notification
+      notificationController.createBuyerNotification(
+        order.buyer,
+        'order_status_update',
+        {
+          orderId: order._id,
+          order_id: order.order_id,
+          status: status,
+          message: statusMessage,
+          sellerName: order.seller.businessName || 'Seller'
+        }
+      )
+    ]);
+
   } catch (error) {
     res.status(500).json({ message: 'Failed to update order', error: error.message });
   }
@@ -1032,6 +1113,32 @@ exports.updateOrderStatus = async (req, res) => {
       message: 'Order status updated successfully', 
       order 
     });
+
+    // After status update, notify both parties
+    await Promise.all([
+      // Existing seller notification
+      notificationController.createNotification(
+        order.seller,
+        'order_status_update',
+        {
+          order_id: order.order_id,
+          status: status
+        }
+      ),
+      // New buyer notification
+      notificationController.createBuyerNotification(
+        order.buyer,
+        'order_status_update',
+        {
+          orderId: order._id,
+          order_id: order.order_id,
+          status: status,
+          message: statusMessage,
+          sellerName: order.seller.businessName || 'Seller'
+        }
+      )
+    ]);
+
   } catch (error) {
     console.error('Error in updateOrderStatus:', {
       error: error.message,
@@ -1923,6 +2030,139 @@ exports.updateOrderOpenStatus = async (req, res) => {
     res.status(500).json({ 
       message: `Error ${isOpen ? 'reopening' : 'closing'} order`, 
       error: error.message 
+    });
+  }
+};
+
+// Cancel shipment for an order
+exports.cancelShipment = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Find order and check permissions
+    const order = await Order.findById(orderId)
+      .populate('seller', 'email firstName lastName storeName')
+      .populate('buyer', 'email firstName lastName');
+      
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if user is authorized (either seller or admin)
+    if (req.user.role !== 'admin' && order.seller._id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to cancel this shipment' });
+    }
+
+    // Check if shipment can be cancelled (only before pickup)
+    const allowedStatuses = ['pending', 'confirmed', 'pickup_arranged'];
+    if (!allowedStatuses.includes(order.shipping.tracking.status)) {
+      return res.status(400).json({ 
+        message: 'Shipment cannot be cancelled at this stage' 
+      });
+    }
+
+    // Cancel shipment with Terminal Africa
+    const cancelResponse = await terminalAPI.post('/shipments/cancel', {
+      shipment_id: order.shipping.shipment_id
+    });
+
+    if (!cancelResponse.data.status) {
+      throw new Error(cancelResponse.data.message || 'Failed to cancel shipment');
+    }
+
+    // Create new tracking entry
+    const newTrackingEntry = {
+      status: 'cancelled',
+      description: `Shipment cancelled by ${req.user.role === 'admin' ? 'admin' : 'seller'}`,
+      timestamp: new Date()
+    };
+
+    // Update order shipping information
+    const shippingUpdate = {
+      $set: {
+        'shipping.tracking.status': 'cancelled',
+        'shipping.tracking.lastUpdate': new Date()
+      },
+      $push: {
+        'shipping.tracking.history': newTrackingEntry
+      }
+    };
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      shippingUpdate,
+      { new: true }
+    ).populate('seller', 'email firstName lastName storeName')
+     .populate('buyer', 'email firstName lastName');
+
+    // Send cancellation emails
+    const buyerEmail = {
+      to: updatedOrder.buyer.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Shipment Cancellation Notice - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Shipment Cancellation Notice</h2>
+          <p>Dear ${updatedOrder.buyer.firstName},</p>
+          <p>The shipment for your order #${updatedOrder._id} has been cancelled.</p>
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${updatedOrder._id}</li>
+            <li>Seller: ${updatedOrder.seller.storeName}</li>
+            <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
+          </ul>
+          <p>If you have any questions, please contact our support team.</p>
+        </div>
+      `
+    };
+
+    const sellerEmail = {
+      to: updatedOrder.seller.email,
+      from: 'Auqli Shipping <joseph@auqli.com>',
+      subject: 'Shipment Cancellation Confirmation - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Shipment Cancellation Confirmation</h2>
+          <p>Dear ${updatedOrder.seller.firstName},</p>
+          <p>The shipment for order #${updatedOrder._id} has been successfully cancelled.</p>
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${updatedOrder._id}</li>
+            <li>Buyer: ${updatedOrder.buyer.firstName} ${updatedOrder.buyer.lastName}</li>
+            <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
+          </ul>
+          <p>If you need to arrange a new shipment, please do so through your seller dashboard.</p>
+        </div>
+      `
+    };
+
+    await Promise.all([
+      sgMail.send(buyerEmail),
+      sgMail.send(sellerEmail)
+    ]);
+
+    // Create notifications
+    await Promise.all([
+      createNotification(order.buyer._id, 'shipment_cancelled', {
+        orderId: order._id,
+        sellerName: order.seller.storeName
+      }),
+      createNotification(order.seller._id, 'shipment_cancelled', {
+        orderId: order._id,
+        buyerName: `${order.buyer.firstName} ${order.buyer.lastName}`
+      })
+    ]);
+
+    res.json({
+      message: 'Shipment cancelled successfully',
+      order: updatedOrder
+    });
+
+  } catch (error) {
+    console.error('Cancel shipment error:', error);
+    res.status(500).json({
+      message: 'Failed to cancel shipment',
+      error: error.message
     });
   }
 };
