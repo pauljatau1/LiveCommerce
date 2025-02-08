@@ -34,16 +34,16 @@ const DashboardLayout = () => {
 
   const displayScreenMode = () => {
     if (fullScreenMode) {
-      return "relative h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+      return "scroll-container relative h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden";
     } else {
-      return "relative bg-[#F7FAFC] h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+      return "scroll-container relative bg-[#F7FAFC] h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden";
     }
   }
 
   return (
     <>
       <ScrollToTop />
-      <div className="flex h-screen w-dvh">
+      <main className="flex h-screen w-dvh">
         {/* Sidebar */}
         <SideBarNav
           isSidebarOpen={isSidebarOpen}
@@ -65,7 +65,7 @@ const DashboardLayout = () => {
             <Outlet context={outletContext} />
           </div>
         </div>
-      </div>
+      </main>
     </>
   );
 };

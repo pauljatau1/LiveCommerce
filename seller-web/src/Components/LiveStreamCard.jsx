@@ -5,8 +5,9 @@ import ComingSoonTag from './ComingSoonTag';
 const LiveStreamCard = ({ item }) => {
     return (
         <div className="bg-white relative pt-6 px-6 pb-20 xl:pb-20 shadow-sm border rounded-lg border-gray-200 hover:shadow-md transition-all duration-300">
-            {!item?.available && <ComingSoonTag />}
+            {!item?.available && <ComingSoonTag topPosition="top-3" rightPosition="right-3" />}
             <div className="flex flex-col items-center justify-center gap-4">
+
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-12 h-12 flex items-center justify-center rounded-lg">
                         <img src={item?.icon} alt={item?.title} className=" w-[104px] " />

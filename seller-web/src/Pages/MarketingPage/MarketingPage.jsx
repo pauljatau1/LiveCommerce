@@ -15,6 +15,7 @@ import { LuMessageSquareMore } from "react-icons/lu"
 import { BsQuestionCircleFill } from "react-icons/bs"
 import SuggestedVideoCard from "@/Components/SuggestedVideoCard"
 import { marketingAdsData, suggestVideosData } from "../../Utilities/data";
+import ComingSoonTag from "@/Components/ComingSoonTag";
 
 // Marketing features data
 const marketingFeatures = [
@@ -84,23 +85,18 @@ const MarketingPage = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
         {marketingFeatures.map((feature, index) => (
           <Card
             key={index}
             className="relative hover:shadow-lg transition-all duration-300 border-2"
           >
             {feature.isComingSoon && (
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                <img
-                  src="https://res.cloudinary.com/dljgzevaj/image/upload/v1738404630/240_F_780342772_zyL7T4coiAQIiyW004vtgI1GKjvZYiUO-removebg-preview_1_ljmcw5.png"
-                  alt="Coming Soon"
-                  className="w-32"
-                />
-              </div>
+              <ComingSoonTag xAxisCenterPosition={true} topPosition="top-10" />
             )}
             <CardHeader>
               <div className="flex items-center justify-between">
+
                 <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center shadow-sm">
                   <feature.icon className="h-7 w-7 text-green-600" />
                 </div>

@@ -296,23 +296,24 @@ const EditProduct = () => {
             const processedVariants = await Promise.all(variantContextRef.current?.variantStructure?.map(async mainVariant => {
                 // Process main variant images
                 const mainVariantImages = await Promise.all((mainVariant.images || []).map(async (img) => {
-                    // If img.data exists, use it directly
-                    if (img?.url.startsWith('https://auqli-uploads.s3')) {
+                    if (img?.url && img?.url.startsWith('https://')) {
                         return {
                             data: img?.url, // Handle both base64 with prefix and without
                             contentType: img?.contentType,
                             isDefault: img?.isDefault || false
+
+                        };
+                    } else {
+                        // Otherwise, fetch from URL
+                        const base64Response = await fetch(img.url);
+                        const blob = await base64Response.blob();
+                        const base64 = await convertBlobToBase64(blob);
+                        return {
+                            data: base64,
+                            contentType: 'image/jpeg',
+                            isDefault: img.isDefault || false
                         };
                     }
-                    // Otherwise, fetch from URL
-                    const base64Response = await fetch(img.url);
-                    const blob = await base64Response.blob();
-                    const base64 = await convertBlobToBase64(blob);
-                    return {
-                        data: base64,
-                        contentType: 'image/jpeg',
-                        isDefault: img.isDefault || false
-                    };
                 }));
 
                 return {
@@ -323,27 +324,28 @@ const EditProduct = () => {
                         total + (parseInt(subVar.stock) || 0) +
                         subVar.subSubVariants.reduce((subTotal, subSubVar) =>
                             subTotal + (parseInt(subSubVar.stock) || 0), 0
-                        ), 0),
+                        ), 0) || 1,
                     images: mainVariantImages,
+
                     subVariants: await Promise.all(mainVariant.subVariants.map(async subVariant => {
                         const subVariantImages = await Promise.all((subVariant.images || []).map(async (img) => {
-                            // If img.data exists, use it directly
-                            if (img?.url.startsWith('https://auqli-uploads.s3')) {
+                            if (img?.url && img?.url.startsWith('https://')) {
                                 return {
                                     data: img?.url, // Handle both base64 with prefix and without
                                     contentType: img?.contentType,
                                     isDefault: img?.isDefault || false
                                 };
+                            } else {
+                                // Otherwise, fetch from URL
+                                const base64Response = await fetch(img.url);
+                                const blob = await base64Response.blob();
+                                const base64 = await convertBlobToBase64(blob);
+                                return {
+                                    data: base64,
+                                    contentType: 'image/jpeg',
+                                    isDefault: img?.isDefault || false
+                                };
                             }
-                            // Otherwise, fetch from URL
-                            const base64Response = await fetch(img.url);
-                            const blob = await base64Response.blob();
-                            const base64 = await convertBlobToBase64(blob);
-                            return {
-                                data: base64,
-                                contentType: 'image/jpeg',
-                                isDefault: img?.isDefault || false
-                            };
                         }));
 
                         return {
@@ -354,23 +356,23 @@ const EditProduct = () => {
                             images: subVariantImages,
                             subSubVariants: await Promise.all(subVariant.subSubVariants.map(async subSubVariant => {
                                 const subSubVariantImages = await Promise.all((subSubVariant.images || []).map(async (img) => {
-                                    // If img.data exists, use it directly
-                                    if (img?.url.startsWith('https://auqli-uploads.s3')) {
+                                    if (img?.url && img?.url.startsWith('https://')) {
                                         return {
                                             data: img?.url, // Handle both base64 with prefix and without
                                             contentType: img?.contentType,
                                             isDefault: img?.isDefault || false
                                         };
+                                    } else {
+                                        // Otherwise, fetch from URL
+                                        const base64Response = await fetch(img?.url);
+                                        const blob = await base64Response.blob();
+                                        const base64 = await convertBlobToBase64(blob);
+                                        return {
+                                            data: base64,
+                                            contentType: 'image/jpeg',
+                                            isDefault: img?.isDefault || false
+                                        };
                                     }
-                                    // Otherwise, fetch from URL
-                                    const base64Response = await fetch(img?.url);
-                                    const blob = await base64Response.blob();
-                                    const base64 = await convertBlobToBase64(blob);
-                                    return {
-                                        data: base64,
-                                        contentType: 'image/jpeg',
-                                        isDefault: img?.isDefault || false
-                                    };
                                 }));
 
                                 return {

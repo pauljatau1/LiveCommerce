@@ -81,7 +81,6 @@ const router = createBrowserRouter([
               </TooltipProvider>
             </OnboardingProvider>
           </SocketProvider>
-
         </ProtectedRoute>
       </AuthProvider>
     ),
