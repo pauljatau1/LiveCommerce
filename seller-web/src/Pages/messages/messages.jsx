@@ -222,7 +222,6 @@ export default function ChatInterface() {
         );
 
         if (existingConversation) {
-          // If conversation exists, set it as current
           setCurrentConversation(existingConversation);
         } else {
           // If no conversation exists, create one by sending first message
@@ -385,7 +384,7 @@ export default function ChatInterface() {
         },
         body: JSON.stringify({
           recipientId: currentConversation.participant.id,
-          recipientModel: currentConversation.participant.model,
+          recipientModel: currentConversation.participant.model || 'Buyer',
           content: newMessageContent
         })
       });
