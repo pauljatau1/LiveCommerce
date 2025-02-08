@@ -7,13 +7,13 @@ async function generateSKU(product) {
   const timestamp = Date.now().toString().slice(-4);
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   const sku = `${prefix}-${timestamp}-${random}`;
-  
+
   // Check if SKU already exists
   const exists = await mongoose.model('Product').findOne({ 'inventory.sku': sku });
   if (exists) {
     return generateSKU(product); // Recursively try again if SKU exists
   }
-  
+
   return sku;
 }
 
@@ -23,16 +23,16 @@ async function generateSlug(name) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '');
-  
+
   let slug = baseSlug;
   let counter = 1;
-  
+
   // Check if slug exists
   while (await mongoose.model('Product').findOne({ 'seo.slug': slug })) {
     slug = `${baseSlug}-${counter}`;
     counter++;
   }
-  
+
   return slug;
 }
 
@@ -86,9 +86,9 @@ const variantSchema = new mongoose.Schema({
 });
 
 // Add virtual field for variant discounted price
-variantSchema.virtual('discountedPrice').get(function() {
+variantSchema.virtual('discountedPrice').get(function () {
   if (!this.discount.isActive) return this.price;
-  
+
   const now = new Date();
   if (this.discount.startDate && this.discount.startDate > now) return this.price;
   if (this.discount.endDate && this.discount.endDate < now) return this.price;
@@ -137,8 +137,8 @@ const productSchema = new mongoose.Schema({
   subSubCategory: { type: String },
   brand: { type: String },
   modelNumber: { type: String },
-  seller: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  seller: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller',
     required: true,
     autopopulate: {
@@ -154,7 +154,7 @@ const productSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
- 
+
   shippingInfo: {
     weight: {
       value: Number,
@@ -186,7 +186,7 @@ const productSchema = new mongoose.Schema({
   lowStockAlert: { type: Number, default: 5 },
   sku: { type: String, required: true },
   upc: { type: String },
-  condition: {type: String},
+  condition: { type: String },
   tags: [{ type: String }],
   colors: { type: [String], required: false },
   size: { type: String, required: false },
@@ -251,8 +251,8 @@ const productSchema = new mongoose.Schema({
       height: { type: Number, required: false }
     },
     freeShipping: { type: Boolean, default: false },
-    shippingClass: { 
-      type: String, 
+    shippingClass: {
+      type: String,
       enum: ['standard', 'express', 'economy'],
       default: 'standard'
     },
@@ -265,8 +265,8 @@ const productSchema = new mongoose.Schema({
     metaKeywords: [{ type: String }],
     slug: { type: String, unique: true },
   },
-  status: { 
-    type: String, 
+  status: {
+    type: String,
     enum: ['draft', 'active', 'archived', 'out_of_stock'],
     default: 'draft'
   },
@@ -388,35 +388,6 @@ const productSchema = new mongoose.Schema({
   sports_shoetype: { type: String },
   sports_size: { type: String },
   sports_features: [{ type: String }],
-
-  // Health & Beauty fields
-  healthbeauty_producttype: { type: String },
-  healthbeauty_shade: { type: String },
-  healthbeauty_coverage: { type: String },
-  healthbeauty_skintype: { type: String },
-  healthbeauty_finish: { type: String },
-  healthbeauty_keyingredients: [{ type: String }],
-  healthbeauty_spf: { type: Number },
-  healthbeauty_crueltyfree: { type: Boolean },
-  healthbeauty_eyeshadowtype: { type: String },
-  healthbeauty_shadecount: { type: Number },
-  healthbeauty_waterproof: { type: Boolean },
-  healthbeauty_eyeliner: { type: String },
-  healthbeauty_applicatortype: { type: String },
-  healthbeauty_longlasting: { type: Boolean },
-  healthbeauty_tint: { type: String },
-  healthbeauty_nailpolishtype: { type: String },
-  healthbeauty_quickdry: { type: Boolean },
-  healthbeauty_cleansetype: { type: String },
-  healthbeauty_keybenefits: [{ type: String }],
-  healthbeauty_keybenefit: { type: String },
-  healthbeauty_size: { type: String },
-  healthbeauty_absorbencylevel: { type: String },
-  healthbeauty_form: { type: String },
-  healthbeauty_flavor: { type: String },
-  healthbeauty_ingredients: [{ type: String }],
-  healthbeauty_features: [{ type: String }],
-  healthbeauty_usage: { type: String },
 
   // Home & Living fields
   home_producttype: { type: String },
@@ -574,29 +545,29 @@ const productSchema = new mongoose.Schema({
   phones_warranty: { type: String },
 
   // Tablets fields
-  tablets_models: {type: String},
-  tablets_storageCapacity: {type: String},
-  tablets_Connectivity: {type: String},
-  tablets_batteryLife: {type: String},
-  tablets_Durability: {type: String},
-  tablets_ParentalControls: {type: Boolean},
-  tablets_PreinstalledApps: {type: Boolean},
+  tablets_models: { type: String },
+  tablets_storageCapacity: { type: String },
+  tablets_Connectivity: { type: String },
+  tablets_batteryLife: { type: String },
+  tablets_Durability: { type: String },
+  tablets_ParentalControls: { type: Boolean },
+  tablets_PreinstalledApps: { type: Boolean },
 
   // Mobile Accessories fields
-  mobileAccessories_Type: {type: String},
-  mobileAccessories_Output: {type: String},
-  mobileAccessories_Connector: {type: String},
-  mobileAccessories_Features: {type: String},
-  mobileAccessories_Capacity: {type: String},
-  mobileAccessories_Input: {type: String},
-  mobileAccessories_Material: {type: String},
-  mobileAccessories_Adjustable: {type: Boolean},
+  mobileAccessories_Type: { type: String },
+  mobileAccessories_Output: { type: String },
+  mobileAccessories_Connector: { type: String },
+  mobileAccessories_Features: { type: String },
+  mobileAccessories_Capacity: { type: String },
+  mobileAccessories_Input: { type: String },
+  mobileAccessories_Material: { type: String },
+  mobileAccessories_Adjustable: { type: Boolean },
 
   //wearable fields
-  wearable_Type: {type: String},
-  wearable_Connectivity: {type: String},
-  wearable_Features: {type: String},
-  wearable_Material: {type: String},
+  wearable_Type: { type: String },
+  wearable_Connectivity: { type: String },
+  wearable_Features: { type: String },
+  wearable_Material: { type: String },
 
   //fashion fields
   fashion_material: {
@@ -673,12 +644,405 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+
+  // Baby & Kids Category Backend Props
+
+  // Apparel & Accessories
+  baby_productType: {
+    type: [String],
+    default: []
+  },
+  baby_size: {
+    type: String,
+    default: ''
+  },
+  baby_material: {
+    type: [String],
+    default: []
+  },
+  baby_pattern: {
+    type: [String],
+    default: []
+  },
+  baby_fit: {
+    type: String,
+    default: ''
+  },
+  baby_features: {
+    type: [String],
+    default: []
+  },
+  baby_color: {
+    type: String,
+    default: ''
+  },
+  baby_closure: {
+    type: [String],
+    default: []
+  },
+
+  // Diapering
+  baby_diaperType: {
+    type: [String],
+    default: []
+  },
+  baby_absorption: {
+    type: String,
+    default: ''
+  },
+  baby_bagType: {
+    type: [String],
+    default: []
+  },
+  baby_wipeType: {
+    type: [String],
+    default: []
+  },
+
+  // Feeding
+  baby_feedingType: {
+    type: [String],
+    default: []
+  },
+  baby_feedingProductType: {
+    type: [String],
+    default: []
+  },
+  baby_capacity: {
+    type: String,
+    default: ''
+  },
+
+  // Bathing & Skin Care
+  baby_bathingProductType: {
+    type: [String],
+    default: []
+  },
+  baby_ingredients: {
+    type: [String],
+    default: []
+  },
+
+  // Toys & Play
+  baby_toyType: {
+    type: [String],
+    default: []
+  },
+  baby_toyFeatures: {
+    type: [String],
+    default: []
+  },
+
+  // Health & healthBeauty Backend Schema Props
+
+  // Makeup
+  healthBeauty_makeupType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_finish: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_skinType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_coverage: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_applicator: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_ingredients: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_crueltyFree: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_waterproof: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_longLasting: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_quickDry: {
+    type: Boolean,
+    default: false
+  },
+
+  // Skin Care
+  healthBeauty_skinCareType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_benefits: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_usageTime: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_spfLevel: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_spfType: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_spf: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_waterResistant: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_tinted: {
+    type: Boolean,
+    default: false
+  },
+
+  // Hair Care
+  healthBeauty_hairProductType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_hairType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_holdLevel: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_material: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_heatSettings: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_voltage: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_scented: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_heatProtection: {
+    type: Boolean,
+    default: false
+  },
+
+  // Fragrances
+  healthBeauty_fragranceType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_scentFamily: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_longevity: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_volume: {
+    type: String,
+    default: ''
+  },
+
+  // Personal Care
+  healthBeauty_personalCareType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_specialty: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_size: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_absorbencyLevel: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_fluoride: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_antiperspirant: {
+    type: Boolean,
+    default: false
+  },
+  healthBeauty_scentFree: {
+    type: Boolean,
+    default: false
+  },
+
+  // Vitamins & Supplements
+  healthBeauty_supplementType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_supplementForm: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_supplementBenefits: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_supplementFlavor: {
+    type: String,
+    default: ''
+  },
+  healthBeauty_supplementIngredients: {
+    type: [String],
+    default: []
+  },
+
+  // Bath & Body
+  healthBeauty_bathType: {
+    type: [String],
+    default: []
+  },
+
+  // Spa & Relaxation
+  healthBeauty_spaType: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_features: {
+    type: [String],
+    default: []
+  },
+  healthBeauty_usage: {
+    type: String,
+    default: ''
+  },
+
+  // Foot Care
+  healthBeauty_footCareType: {
+    type: [String],
+    default: []
+  },
+  // Consoles
+  gaming_consoleModel: {
+    type: String,
+    default: ''
+  },
+  gaming_accessories: {
+    type: [String],
+    default: []
+  },
+  gaming_storageCapacity: {
+    type: String,
+    default: ''
+  },
+  gaming_features: {
+    type: [String],
+    default: []
+  },
+  gaming_edition: {
+    type: String,
+    default: ''
+  },
+  gaming_bundled: {
+    type: Boolean,
+    default: false
+  },
+
+  // Games
+  gaming_title: {
+    type: String,
+    default: ''
+  },
+  gaming_genre: {
+    type: [String],
+    default: []
+  },
+  gaming_rating: {
+    type: String,
+    default: ''
+  },
+  gaming_region: {
+    type: String,
+    default: ''
+  },
+  gaming_compatibility: {
+    type: [String],
+    default: []
+  },
+
+  // Accessories
+  gaming_accessoryType: {
+    type: [String],
+    default: []
+  },
+  gaming_resolution: {
+    type: String,
+    default: ''
+  },
+  gaming_connectionType: {
+    type: String,
+    default: ''
+  },
+
+  // Virtual Reality
+  gaming_vrModel: {
+    type: String,
+    default: ''
+  },
+  gaming_vrFeatures: {
+    type: [String],
+    default: []
+  },
+  gaming_vrGenres: {
+    type: [String],
+    default: []
+  },
+  gaming_vrCompatibility: {
+    type: [String],
+    default: []
+  },
+
+  // Gaming Furniture
+  gaming_furnitureType: {
+    type: [String],
+    default: []
+  },
+  gaming_furnitureFeatures: {
+    type: [String],
+    default: []
+  },
+  gaming_furnitureMaterial: {
+    type: [String],
+    default: []
+  },
+  gaming_weightCapacity: {
+    type: String,
+    default: ''
+  }
 });
 
 // Add a virtual field for the discounted price
-productSchema.virtual('discountedPrice').get(function() {
+productSchema.virtual('discountedPrice').get(function () {
   if (!this.discount.isActive) return this.price;
-  
+
   const now = new Date();
   if (this.discount.startDate && this.discount.startDate > now) return this.price;
   if (this.discount.endDate && this.discount.endDate < now) return this.price;
@@ -694,7 +1058,7 @@ productSchema.virtual('discountedPrice').get(function() {
 productSchema.set('toJSON', { virtuals: true });
 productSchema.set('toObject', { virtuals: true });
 
-productSchema.pre('save', async function(next) {
+productSchema.pre('save', async function (next) {
   try {
     if (!this.inventory.sku) {
       this.inventory.sku = await generateSKU(this);
@@ -731,18 +1095,18 @@ productSchema.pre('save', async function(next) {
   }
 });
 
-productSchema.methods.hasValidDiscount = function() {
+productSchema.methods.hasValidDiscount = function () {
   if (!this.discount.isActive) return false;
-  
+
   const now = new Date();
   if (this.discount.startDate && this.discount.startDate > now) return false;
   if (this.discount.endDate && this.discount.endDate < now) return false;
-  
+
   return true;
 };
 
 // Add middleware to automatically deactivate expired discounts
-productSchema.pre('save', function(next) {
+productSchema.pre('save', function (next) {
   const now = new Date();
   if (this.discount.isActive && this.discount.endDate && this.discount.endDate < now) {
     this.discount.isActive = false;
@@ -751,7 +1115,7 @@ productSchema.pre('save', function(next) {
 });
 
 // Add this method to the schema
-productSchema.methods.updateStock = async function(quantity, operation) {
+productSchema.methods.updateStock = async function (quantity, operation) {
   if (operation === 'add') {
     this.stock += parseInt(quantity);
   } else if (operation === 'subtract') {
@@ -774,7 +1138,7 @@ productSchema.methods.updateStock = async function(quantity, operation) {
 };
 
 // Add a method to check low stock
-productSchema.methods.isLowStock = function() {
+productSchema.methods.isLowStock = function () {
   return this.stock <= this.lowStockAlert;
 };
 

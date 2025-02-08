@@ -1,10 +1,11 @@
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
+const Conversation = require('../models/Conversation');
 
 function initializeSocket(server) {
   const io = socketIO(server, {
     cors: {
-      origin: ["http://localhost:5173", "http://localhost:5173/", "exp://192.168.100.148:8081","https://seller.auqli.live/", "https://seller.auqli.live"],
+      origin: ["*","http://localhost:5173", "http://localhost:5173/","https://seller.auqli.live/", "https://seller.auqli.live"],
       methods: ["GET", "POST"],
       credentials: true,
       allowedHeaders: ["Authorization", "Content-Type"]
@@ -46,8 +47,10 @@ function initializeSocket(server) {
 
         // Emit to all participants except sender
         conversation.participants.forEach(participant => {
-          if (participant.id.toString() !== socket.user.id) {
-            io.to(participant.id.toString()).emit('receive_message', message);
+          if (participant.id._id.toString() !== socket.user.id) {
+          console.log(socket.user.id+" sent message "+message.content+" to "+participant.id._id);
+
+            io.to(participant.id._id.toString()).emit('receive_message', message);
           }
         });
       } catch (error) {
