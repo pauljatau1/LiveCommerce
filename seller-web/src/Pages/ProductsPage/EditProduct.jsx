@@ -1603,7 +1603,7 @@ const EditProduct = () => {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <RequiredLabel>UPC</RequiredLabel>
+                                            <Label>UPC</Label>
                                             <Input
                                                 value={upcNumber}
                                                 onChange={(e) => setUpcNumber(e.target.value)}

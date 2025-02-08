@@ -1178,12 +1178,13 @@ const AddProduct = () => {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <RequiredLabel>UPC</RequiredLabel>
+                                            <Label>UPC</Label>
                                             <Input
                                                 value={upcNumber}
                                                 onChange={(e) => setUpcNumber(e.target.value)}
                                                 placeholder="universal product code"
                                                 className="rounded-full"
+
                                             />
                                         </div>
 

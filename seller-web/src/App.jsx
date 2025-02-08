@@ -62,6 +62,8 @@ import CreateCampaign from './Pages/MarketingPage/CreateCampaign';
 import { TooltipProvider } from './Components/ui/tooltip';
 import Returns from './Pages/Orders/Returns';
 import ReturnDetail from './Pages/Orders/ReturnDetail';
+import { ThemeProvider } from '@mui/material/styles';
+import theme from './lib/theme';
 
 // Create a wrapper component that provides both Router and Auth contexts
 
@@ -411,15 +413,17 @@ function App() {
   };
 
   return (
-    <Suspense fallback={<Loader />}>
-      <RouterProvider router={router} fallbackElement={<Loader />} />
-      <Toaster />
-      <ToastContainer />
-      <CookieConsent
-        onAccept={handleConsentAccept}
-        onDecline={() => console.log('Analytics declined')}
-      />
-    </Suspense>
+    <ThemeProvider theme={theme}>
+      <Suspense fallback={<Loader />}>
+        <RouterProvider router={router} fallbackElement={<Loader />} />
+        <Toaster />
+        <ToastContainer />
+        <CookieConsent
+          onAccept={handleConsentAccept}
+          onDecline={() => console.log('Analytics declined')}
+        />
+      </Suspense>
+    </ThemeProvider>
   );
 }
 
