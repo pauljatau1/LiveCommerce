@@ -11,16 +11,17 @@ export function SocketProvider({ children }) {
     const token = JSON.parse(localStorage.getItem('sellerToken'))?.data;
     if (!token) return;
 
-    const socketInstance = io(BASE_URL, {
+    const socketInstance = io(BASE_URL.split("/api")[0], {
+      transports: ["websocket"],
       auth: {
         token
       }
     });
 
     socketInstance.on('connect', () => {
-      console.log('Socket connected');
+      console.log('Socket connected -----');
       // Join personal room using seller ID
-      const sellerId = JSON.parse(localStorage.getItem('sellerToken')).id;
+      const sellerId = JSON.parse(localStorage.getItem('seller'))._id;
       socketInstance.emit('join', sellerId);
     });
 
