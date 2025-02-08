@@ -665,25 +665,31 @@ exports.updateProduct = async (req, res) => {
       updates.variants = await Promise.all(updates.variants.map(async (variant) => {
         // Process main variant images
         let variantImages = [];
-        console.log('raw variant images', variant?.images)
-        if (variant?.images?.length > 0 && Array.isArray(variant?.images)) {
-          for (let image of variant?.images) {
-            // Check if image is already on S3
-            if (image?.data?.startsWith('https://')) {
+        if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
+          for (let image of variant.images) {
+            if (!image?.data) {
+              console.log('Skipping variant image processing - no image data');
+              continue;
+            }
 
-              variantImages.push(image); // Keep existing S3 image as is
+            if (image.data.startsWith('https://')) {
+              variantImages.push(image);
             } else {
-              // Process new base64 image
-         
+              // Handle base64 data with or without prefix
+              const base64Data = image.data.split(',')[1] || image.data;
+              if (!base64Data) {
+                console.error('Invalid base64 data for variant image:', image);
+                continue;
+              }
 
-              const buffer = Buffer.from(image?.data?.split(',')[1], 'base64');
+              const buffer = Buffer.from(base64Data, 'base64');
               const params = {
                 Bucket: 'auqli-uploads',
                 Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
                 Body: buffer,
-                ContentType: image?.contentType,
+                ContentType: image.contentType,
               };
-
+              
               const data = await s3.upload(params).promise();
               variantImages.push({
                 data: data.Location,
@@ -692,28 +698,35 @@ exports.updateProduct = async (req, res) => {
               });
             }
           }
-        } else {
-          variantImages = []; // Explicitly set empty array if no images
         }
-
 
         // Process subvariants
         const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
           const subVariantImages = [];
-          if (subVariant?.images?.length > 0 && Array.isArray(subVariant?.images)) {
-            for (let image of subVariant?.images) {
-              if (image?.data?.startsWith('https://')) {
-                subVariantImages.push(image);
+          if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
+            for (let image of subVariant.images) {
+              if (!image?.data) {
+                console.log('Skipping subvariant image processing - no image data');
+                continue;
+              }
 
+              if (image.data.startsWith('https://')) {
+                subVariantImages.push(image);
               } else {
-                const buffer = Buffer.from(image?.data?.split(',')[1], 'base64');
+                const base64Data = image.data.split(',')[1] || image.data;
+                if (!base64Data) {
+                  console.error('Invalid base64 data for subvariant image:', image);
+                  continue;
+                }
+
+                const buffer = Buffer.from(base64Data, 'base64');
                 const params = {
                   Bucket: 'auqli-uploads',
                   Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
                   Body: buffer,
-                  ContentType: image?.contentType,
-
+                  ContentType: image.contentType,
                 };
+                
                 const data = await s3.upload(params).promise();
                 subVariantImages.push({
                   data: data.Location,
@@ -727,20 +740,30 @@ exports.updateProduct = async (req, res) => {
           // Process subsubvariants
           const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
             const subSubVariantImages = [];
-            if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant?.images)) {
-              for (let image of subSubVariant?.images) {
-                if (image?.data?.startsWith('https://')) {
-                  subSubVariantImages.push(image);
+            if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
+              for (let image of subSubVariant.images) {
+                if (!image?.data) {
+                  console.log('Skipping subsubvariant image processing - no image data');
+                  continue;
+                }
 
+                if (image.data.startsWith('https://')) {
+                  subSubVariantImages.push(image);
                 } else {
-                  const buffer = Buffer.from(image?.data?.split(',')[1], 'base64');
+                  const base64Data = image.data.split(',')[1] || image.data;
+                  if (!base64Data) {
+                    console.error('Invalid base64 data for subsubvariant image:', image);
+                    continue;
+                  }
+
+                  const buffer = Buffer.from(base64Data, 'base64');
                   const params = {
                     Bucket: 'auqli-uploads',
-
                     Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
                     Body: buffer,
                     ContentType: image.contentType,
                   };
+                  
                   const data = await s3.upload(params).promise();
                   subSubVariantImages.push({
                     data: data.Location,
@@ -753,20 +776,20 @@ exports.updateProduct = async (req, res) => {
 
             return {
               ...subSubVariant,
-              images: subSubVariantImages.length > 0 ? subSubVariantImages : subSubVariant.images
+              images: subSubVariantImages.length > 0 ? subSubVariantImages : []
             };
           }));
 
           return {
             ...subVariant,
-            images: subVariantImages.length > 0 ? subVariantImages : variant.images,
+            images: subVariantImages.length > 0 ? subVariantImages : [],
             subSubVariants: processedSubSubVariants
           };
         }));
 
         return {
           ...variant,
-          images: variantImages.length > 0 ? variantImages : variant.images,
+          images: variantImages.length > 0 ? variantImages : [],
           subVariants: processedSubVariants
         };
       }));
