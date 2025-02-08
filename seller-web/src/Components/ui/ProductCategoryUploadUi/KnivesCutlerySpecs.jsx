@@ -51,7 +51,7 @@ const KnivesCutlerySpecs = ({ specs, onChange }) => {
   return (
     <div className="space-y-6">
       {/* Material and Basic Info */}
-      <div className="grid grid-cols-1 xl:grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="space-y-2">
           <Label>Blade Material</Label>
           <Autocomplete
@@ -92,7 +92,7 @@ const KnivesCutlerySpecs = ({ specs, onChange }) => {
       </div>
 
       {/* Type and Features */}
-      <div className="grid grid-cols-1 xl:grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="space-y-2">
           <Label>Knife Type</Label>
           <Autocomplete
@@ -125,7 +125,7 @@ const KnivesCutlerySpecs = ({ specs, onChange }) => {
       </div>
 
       {/* Quantity and Finish */}
-      <div className="grid grid-cols-1 xl:grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="space-y-2">
           <Label>Number of Pieces</Label>
           <Input
