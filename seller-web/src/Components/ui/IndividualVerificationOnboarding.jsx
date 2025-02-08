@@ -162,9 +162,12 @@ const IndividualVerificationOnboarding = () => {
                                         type="file"
                                         onChange={handleGovernmentIdUpload}
                                         className="hidden"
+                                        placeholder="NIN, passport, driver's license, etc."
                                         id="governmentIdUpload"
                                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                     />
+
+
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <label
@@ -180,10 +183,11 @@ const IndividualVerificationOnboarding = () => {
                                             </label>
                                         </TooltipTrigger>
                                         <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
-                                            <p>National ID card or passport</p>
+                                            <p>Or National ID, voter's card, etc.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </div>
+
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
                                 <label className="text-base lg:text-2xl font-light">Proof of Address</label>

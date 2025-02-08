@@ -103,16 +103,35 @@ const LivestreamStudio = () => {
 
     const checkDevicePermissions = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
+            // Request persistent permission first
+            const videoPermission = await navigator.permissions.query({ name: 'camera' });
+            const audioPermission = await navigator.permissions.query({ name: 'microphone' });
+            
+            if (videoPermission.state === 'denied' || audioPermission.state === 'denied') {
+                setDeviceError('Camera/microphone access is blocked. Please update browser permissions.');
+                return false;
+            }
+
+            // Keep stream alive for preview before formal track creation
+            const previewStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
             });
-            // Immediately stop the stream to release devices
-            stream.getTracks().forEach(track => track.stop());
-            return true;
+
+            // Return stream instead of closing immediately
+            return previewStream;
+
         } catch (error) {
-            setDeviceError(`Device error: ${error.message}. Please refresh and allow permissions.`);
-            return false;
+            setDeviceError(`Device error: ${error.message}. Please check connections and refresh.`);
+            return null;
         }
     };
 
@@ -177,9 +196,9 @@ const LivestreamStudio = () => {
             console.log('freshStreamData', freshStreamData)
             const details = await getLiveStreamFullDetails(id);
 
-            // 1. First check permissions
-            const hasPermissions = await checkDevicePermissions();
-            if (!hasPermissions) return;
+            // 1. Check permissions and keep preview stream alive
+            const previewStream = await checkDevicePermissions();
+            if (!previewStream) return;
 
             // 2. Use fresh stream data if provided, otherwise fetch
             let streamCredentials;
@@ -237,8 +256,12 @@ const LivestreamStudio = () => {
                         optimizationMode: 'detail'
                     },
                     facingMode: "user",
+                    mediaStreamTrack: previewStream.getVideoTracks()[0] // Reuse existing track
                 },
-                { timeout: 15000 } // 15s timeout
+                { 
+                    timeout: 30000, // Increase timeout to 30s
+                    retry: 3 // Add retry attempts
+                }
             );
 
             // 8. Wait for video container to be ready
@@ -268,6 +291,13 @@ const LivestreamStudio = () => {
             startTimer();
 
         } catch (error) {
+            if (error.code === 'DEVICE_NOT_FOUND') {
+                setDeviceError('Camera/microphone not found. Check physical connections.');
+            } else if (error.code === 'PERMISSION_DENIED') {
+                setDeviceError('Permissions denied. Please allow access in browser settings.');
+            } else if (error.code === 'TIMEOUT') {
+                setDeviceError('Device startup timeout. Close other video apps and try again.');
+            }
             console.error("Stream init error:", error);
             handleAgoraError(error);
             await cleanupAgoraResources();

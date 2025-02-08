@@ -310,8 +310,9 @@ const AddProduct = () => {
                         total + (parseInt(subVar.stock) || 0) +
                         subVar.subSubVariants.reduce((subTotal, subSubVar) =>
                             subTotal + (parseInt(subSubVar.stock) || 0), 0
-                        ), 0),
+                        ), 0) || 1,
                     images: mainVariantImages,
+
                     subVariants: await Promise.all(mainVariant.subVariants.map(async subVariant => {
                         const subVariantImages = await Promise.all((subVariant.images || []).map(async (img) => {
                             const base64Response = await fetch(img.url);

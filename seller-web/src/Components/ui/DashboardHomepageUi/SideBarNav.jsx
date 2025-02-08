@@ -51,7 +51,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
             <div className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] py-8">
               <div className="flex flex-col gap-4">
                 {sideBarNavData.map((item) => (
-                  <>
+                  <div key={item.id}>
                     <NavLink
                       to={item.path}
                       key={item.id}
@@ -108,7 +108,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
                         </div>
                       )
                     }
-                  </>
+                  </div>
                 ))}
               </div>
             </div>
@@ -162,7 +162,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
               <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                 <div className="flex flex-col gap-4 py-4">
                   {sideBarNavData.map((item) => (
-                    <>
+                    <div key={item.id}>
                       <NavLink
                         to={item.path}
                         key={item.id}
@@ -204,7 +204,7 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
                           </div>
                         )
                       }
-                    </>
+                    </div>
                   ))}
                 </div>
               </div>

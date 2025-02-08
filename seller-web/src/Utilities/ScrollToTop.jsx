@@ -5,15 +5,26 @@ const ScrollToTop = () => {
   const { pathname, hash } = useLocation();
 
   useEffect(() => {
+    // Handle hash links first
     if (hash) {
-        const element = document.getElementById(hash.substring(1));
-        if (element) {
-            element.scrollIntoView({behavior: "smooth"});
-        }
-    } else {
-        window.scrollTo(0,0);
+      const element = document.getElementById(hash.substring(1));
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
+      return;
     }
-  },[pathname, hash])
+
+    // Handle regular scroll-to-top
+    window.scrollTo(0, 0);
+    
+    // Handle scroll containers within layouts
+    const scrollContainers = document.querySelectorAll('.scroll-container');
+    scrollContainers.forEach(container => {
+      container.scrollTo(0, 0);
+    });
+  }, [pathname, hash]);
+
+  return null;
 }
 
 export default ScrollToTop

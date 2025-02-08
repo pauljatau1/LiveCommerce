@@ -27,6 +27,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
 import NotificationsDialog from "../../Components/NotificationsDialog";
 import { useOutletContext } from "react-router-dom";
+import NoOrderFound from "../../assets/no-order-found.png"
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
 // Example: formatNumber(1500, "view") returns "1.5K views"
@@ -404,8 +405,9 @@ const HomePage = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full min-h-[364px] text-gray-500">
-                    <Icon icon="line-md:bell-loop" className="text-gray-400 w-16 h-16  " />
+                    <Icon icon="line-md:bell-loop" className="text-gray-400 w-20 h-20  " />
                     <p className="text-base font-medium text-[#425466] font-inter">No notifications</p>
+
                     <p className="text-sm text-[#425466] font-inter">You're all caught up!</p>
                   </div>
                 )}
@@ -447,9 +449,10 @@ const HomePage = () => {
                         ))
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full min-h-[364px] text-gray-500">
-                          <Icon icon="line-md:bell-loop" className="text-gray-400 w-16 h-16  " />
+                          <img src={NoOrderFound} alt="No Products Sold Yet" className="h-48 " />
                           <p className="text-base font-medium text-[#425466] font-inter">No Products Sold Yet</p>
                         </div>
+
                       )
                     }
                   </div>
