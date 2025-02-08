@@ -44,12 +44,13 @@ function initializeSocket(server) {
       try {
         const conversation = await Conversation.findById(conversationId)
           .populate('participants.id');
-          console.log(socket.user.id+"sent message "+message)
 
         // Emit to all participants except sender
         conversation.participants.forEach(participant => {
-          if (participant.id.toString() !== socket.user.id) {
-            io.to(participant.id.toString()).emit('receive_message', message);
+          if (participant.id._id.toString() !== socket.user.id) {
+          console.log(socket.user.id+" sent message "+message.content+" to "+participant.id._id);
+
+            io.to(participant.id._id.toString()).emit('receive_message', message);
           }
         });
       } catch (error) {
