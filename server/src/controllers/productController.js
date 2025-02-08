@@ -100,89 +100,14 @@ exports.createProduct = async (req, res) => {
     if (req.body.blips && Array.isArray(req.body.blips)) {
       for (let blip of req.body.blips) {
         const buffer = Buffer.from(blip.data, 'base64');
-        
-        // Log original size
-        const originalSize = buffer.byteLength;
-        console.log(`Original video size: ${(originalSize / 1024 / 1024).toFixed(2)} MB`);
-
-        try {
-          // Create temporary files
-          const tempDir = os.tmpdir();
-          const inputPath = path.join(tempDir, `${uuidv4()}.mp4`);
-          const outputPath = path.join(tempDir, `${uuidv4()}_compressed.mp4`);
-
-          // Write buffer to temp file
-          await fs.writeFile(inputPath, buffer);
-
-          // Compress using fluent-ffmpeg
-          await new Promise((resolve, reject) => {
-            ffmpeg(inputPath)
-              .output(outputPath)
-              .videoCodec('libx264')
-              .outputOptions([
-                '-crf 28', // Higher CRF for smaller files
-                '-preset superfast', // Faster encoding
-                '-movflags +faststart',
-              ])
-              .on('end', async () => {
-                try {
-                  const compressedBuffer = await fs.readFile(outputPath);
-                  
-                  // Log compressed size
-                  const compressedSize = compressedBuffer.byteLength;
-                  console.log(`Compressed video size: ${(compressedSize / 1024 / 1024).toFixed(2)} MB`);
-                  console.log(`Compression ratio: ${((compressedSize / originalSize) * 100).toFixed(2)}%`);
-
-                  // Upload to S3
-                  const params = {
-                    Bucket: 'auqli-uploads',
-                    Key: `${uuidv4()}.mp4`,
-                    Body: compressedBuffer,
-                    ContentType: blip.contentType,
-                  };
-                  const data = await s3.upload(params).promise();
-                  blipsLinks.push({ url: data.Location });
-
-                  // Cleanup
-                  await Promise.all([
-                    fs.unlink(inputPath),
-                    fs.unlink(outputPath)
-                  ]);
-                  resolve();
-                } catch (error) {
-                  reject(error);
-                }
-              })
-              .on('stderr', function(stderrLine) {
-                console.log('FFmpeg stderr: ' + stderrLine);
-              })
-              .on('start', function(cmdLine) {
-                console.log('Started ffmpeg with command: ' + cmdLine);
-                setTimeout(() => {
-                  if(!this.ended) {
-                    console.log('Killing long-running ffmpeg process');
-                    this.kill('SIGKILL');
-                  }
-                }, 30000); // 30s timeout
-              })
-              .on('error', (err) => {
-                console.error('FFmpeg error:', err);
-                reject(err);
-              })
-              .run();
-          });
-        } catch (error) {
-          console.error('Video compression error:', error);
-          // Fallback to original video
-          const params = {
-            Bucket: 'auqli-uploads',
-            Key: `${uuidv4()}.mp4`,
-            Body: buffer,
-            ContentType: blip.contentType,
-          };
-          const data = await s3.upload(params).promise();
-          blipsLinks.push({ url: data.Location });
-        }
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: `${uuidv4()}.mp4`,
+          Body: buffer,
+          ContentType: blip.contentType,
+        };
+        const data = await s3.upload(params).promise();
+        blipsLinks.push({ url: data.Location });
       }
     }
 
@@ -190,16 +115,29 @@ exports.createProduct = async (req, res) => {
     if (req.body.variants && Array.isArray(req.body.variants)) {
       parsedBody.variants = await Promise.all(req.body.variants.map(async (variant) => {
         // Process main variant images
-        const variantImages = [];
-        if (variant.images && Array.isArray(variant.images)) {
+        let variantImages = [];
+        if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
           for (let image of variant.images) {
-            const buffer = Buffer.from(image.data, 'base64');
+            if (!image?.data) {
+              console.log('Skipping variant image processing - no image data');
+              continue;
+            }
+
+            // Handle base64 data with optional prefix
+            const base64Data = image.data.split(',')[1] || image.data;
+            if (!base64Data) {
+              console.error('Invalid base64 data for variant image:', image);
+              continue;
+            }
+
+            const buffer = Buffer.from(base64Data, 'base64');
             const params = {
               Bucket: 'auqli-uploads',
               Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
               Body: buffer,
               ContentType: image.contentType,
             };
+            
             const data = await s3.upload(params).promise();
             variantImages.push({
               data: data.Location,
@@ -212,15 +150,27 @@ exports.createProduct = async (req, res) => {
         // Process subvariants
         const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
           const subVariantImages = [];
-          if (subVariant.images && Array.isArray(subVariant.images)) {
+          if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
             for (let image of subVariant.images) {
-              const buffer = Buffer.from(image.data, 'base64');
+              if (!image?.data) {
+                console.log('Skipping subvariant image processing - no image data');
+                continue;
+              }
+
+              const base64Data = image.data.split(',')[1] || image.data;
+              if (!base64Data) {
+                console.error('Invalid base64 data for subvariant image:', image);
+                continue;
+              }
+
+              const buffer = Buffer.from(base64Data, 'base64');
               const params = {
                 Bucket: 'auqli-uploads',
                 Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
                 Body: buffer,
                 ContentType: image.contentType,
               };
+              
               const data = await s3.upload(params).promise();
               subVariantImages.push({
                 data: data.Location,
@@ -233,15 +183,27 @@ exports.createProduct = async (req, res) => {
           // Process subsubvariants
           const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
             const subSubVariantImages = [];
-            if (subSubVariant.images && Array.isArray(subSubVariant.images)) {
+            if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
               for (let image of subSubVariant.images) {
-                const buffer = Buffer.from(image.data, 'base64');
+                if (!image?.data) {
+                  console.log('Skipping subsubvariant image processing - no image data');
+                  continue;
+                }
+
+                const base64Data = image.data.split(',')[1] || image.data;
+                if (!base64Data) {
+                  console.error('Invalid base64 data for subsubvariant image:', image);
+                  continue;
+                }
+
+                const buffer = Buffer.from(base64Data, 'base64');
                 const params = {
                   Bucket: 'auqli-uploads',
                   Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
                   Body: buffer,
                   ContentType: image.contentType,
                 };
+                
                 const data = await s3.upload(params).promise();
                 subSubVariantImages.push({
                   data: data.Location,
@@ -253,20 +215,20 @@ exports.createProduct = async (req, res) => {
 
             return {
               ...subSubVariant,
-              images: subSubVariantImages.length > 0 ? subSubVariantImages : subSubVariant.images
+              images: subSubVariantImages
             };
           }));
 
           return {
             ...subVariant,
-            images: subVariantImages.length > 0 ? subVariantImages : variant.images,
+            images: subVariantImages,
             subSubVariants: processedSubSubVariants
           };
         }));
 
         return {
           ...variant,
-          images: variantImages.length > 0 ? variantImages : variant.images,
+          images: variantImages,
           subVariants: processedSubVariants
         };
       }));
@@ -680,7 +642,7 @@ exports.updateProduct = async (req, res) => {
     if (updates.blips && Array.isArray(updates.blips)) {
       const blipsLinks = [];
       for (let blip of updates.blips) {
-        if (blip.data.startsWith('https://auqli-uploads.s3')) {
+        if (blip.data.startsWith('https://')) {
           blipsLinks.push({ url: blip.data }); // Keep existing S3 video
         } else {
           // Process new base64 video
@@ -702,21 +664,26 @@ exports.updateProduct = async (req, res) => {
     if (updates.variants && Array.isArray(updates.variants)) {
       updates.variants = await Promise.all(updates.variants.map(async (variant) => {
         // Process main variant images
-        const variantImages = [];
-        if (variant.images && Array.isArray(variant.images)) {
-          for (let image of variant.images) {
+        let variantImages = [];
+        console.log('raw variant images', variant?.images)
+        if (variant?.images?.length > 0 && Array.isArray(variant?.images)) {
+          for (let image of variant?.images) {
             // Check if image is already on S3
-            if (image.data.startsWith('https://auqli-uploads.s3')) {
+            if (image?.data?.startsWith('https://')) {
+
               variantImages.push(image); // Keep existing S3 image as is
             } else {
               // Process new base64 image
-              const buffer = Buffer.from(image.data.split(',')[1], 'base64');
+         
+
+              const buffer = Buffer.from(image?.data?.split(',')[1], 'base64');
               const params = {
                 Bucket: 'auqli-uploads',
                 Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
                 Body: buffer,
-                ContentType: image.contentType,
+                ContentType: image?.contentType,
               };
+
               const data = await s3.upload(params).promise();
               variantImages.push({
                 data: data.Location,
@@ -725,22 +692,27 @@ exports.updateProduct = async (req, res) => {
               });
             }
           }
+        } else {
+          variantImages = []; // Explicitly set empty array if no images
         }
+
 
         // Process subvariants
         const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
           const subVariantImages = [];
-          if (subVariant.images && Array.isArray(subVariant.images)) {
-            for (let image of subVariant.images) {
-              if (image.data.startsWith('https://auqli-uploads.s3')) {
+          if (subVariant?.images?.length > 0 && Array.isArray(subVariant?.images)) {
+            for (let image of subVariant?.images) {
+              if (image?.data?.startsWith('https://')) {
                 subVariantImages.push(image);
+
               } else {
-                const buffer = Buffer.from(image.data.split(',')[1], 'base64');
+                const buffer = Buffer.from(image?.data?.split(',')[1], 'base64');
                 const params = {
                   Bucket: 'auqli-uploads',
                   Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
                   Body: buffer,
-                  ContentType: image.contentType,
+                  ContentType: image?.contentType,
+
                 };
                 const data = await s3.upload(params).promise();
                 subVariantImages.push({
@@ -755,14 +727,16 @@ exports.updateProduct = async (req, res) => {
           // Process subsubvariants
           const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
             const subSubVariantImages = [];
-            if (subSubVariant.images && Array.isArray(subSubVariant.images)) {
-              for (let image of subSubVariant.images) {
-                if (image.data.startsWith('https://auqli-uploads.s3')) {
+            if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant?.images)) {
+              for (let image of subSubVariant?.images) {
+                if (image?.data?.startsWith('https://')) {
                   subSubVariantImages.push(image);
+
                 } else {
-                  const buffer = Buffer.from(image.data.split(',')[1], 'base64');
+                  const buffer = Buffer.from(image?.data?.split(',')[1], 'base64');
                   const params = {
                     Bucket: 'auqli-uploads',
+
                     Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
                     Body: buffer,
                     ContentType: image.contentType,
