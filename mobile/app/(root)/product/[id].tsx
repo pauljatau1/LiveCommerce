@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Image,
   Platform,
-  FlatList,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, { useEffect, useRef, useState } from "react";
@@ -18,7 +17,6 @@ import Entypo from "@expo/vector-icons/Entypo";
 import EvilIcons from "@expo/vector-icons/EvilIcons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Pressable, TextInput } from "react-native-gesture-handler";
 import axios from "axios";
 import SectionHeader from "@/components/global/section-header";
@@ -35,7 +33,7 @@ import { toast } from "@/core/toast";
 import moment from "moment";
 import { useIsFocused } from "@react-navigation/native";
 import { getProductSpecifications } from "@/helpers/helpers";
-import { ValueSetter } from "date-fns/parse/_lib/Setter";
+import { getToken, getUser } from "@/store/features/auth/utils";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -76,10 +74,19 @@ const ProductDescription = () => {
   const [cartNumber, setCartNumber] = useState<number>(0);
   const [cartData, setCartData] = useState<any[]>([]);
   const [productSpecifications, setProductSpecifications] = useState<{}>({});
+  const [user, setUser] = useState<any>(null);
+  const [userToken, setUserToken] = useState<string>("");
 
   useEffect(() => {
     setProductDetails(product);
   }, [id, product]);
+
+  const getUserInfo = async () => {
+    const user = await getUser();
+    const token = await getToken();
+    setUser(user);
+    setUserToken(token);
+  };
 
   const getSellerInfo = async (sellerId: string) => {
     try {
@@ -210,6 +217,10 @@ const ProductDescription = () => {
       constructSpecifications();
     }
   }, [productDetails]);
+
+  useEffect(() => {
+    getUserInfo();
+  }, []);
 
   const renderContent = (row: any[]) => {
     return (
@@ -780,7 +791,28 @@ const ProductDescription = () => {
                         </View>
                       </View>
                       <View className="flex-row gap-[8px] items-center">
-                        <TouchableOpacity className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]">
+                        <TouchableOpacity
+                          className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
+                          onPress={() =>
+                            router.push({
+                              pathname: `/(root)/messageRoom/${sellerInfo._id}`,
+                              params: {
+                                name:
+                                  sellerInfo?.storeName ||
+                                  sellerInfo?.personalInfo.firstName +
+                                    " " +
+                                    sellerInfo?.personalInfo.lastName ||
+                                  "Default",
+                                avatar:
+                                  sellerInfo?.storePresence?.storeAvatar?.url,
+                                conversationId: "",
+                                userId: user?._id,
+                                token: userToken,
+                                model: "Seller",
+                              },
+                            })
+                          }
+                        >
                           <Text className="font-LexendDecaMedium text-[#FFD700] text-[8px]">
                             Chat Seller
                           </Text>

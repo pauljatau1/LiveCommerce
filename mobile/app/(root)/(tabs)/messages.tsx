@@ -18,9 +18,12 @@ import { RootState } from "@/store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator } from "react-native-paper";
 import { router } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
 
 const Message = () => {
+  const isFocused = useIsFocused();
   const [conversations, setConversations] = useState<any[]>([]);
+  const [unreadConvos, setUnreadConvos] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [user, setUser] = useState<any>({});
   const [filter, setFilter] = useState<string>("all");
@@ -47,6 +50,7 @@ const Message = () => {
         },
       );
       setConversations(response.data.conversations);
+      sortUnreadMessages(response.data.conversations);
       setToken(token);
     } catch (e) {
       console.log("unable to get conversations ", e);
@@ -55,11 +59,16 @@ const Message = () => {
     }
   };
 
+  const sortUnreadMessages = (conversations: any) => {
+    const unread = conversations.filter((convo: any) => convo.unreadCount > 0);
+    setUnreadConvos(unread);
+  };
+
   const renderConversations = (item: any) => {
     return (
       <TouchableOpacity
         activeOpacity={0.7}
-        className=" mx-[17px] py-[16px] flex-row gap-[12px] items-center relative border-b-[0.5px] border-b-[#888787]"
+        className=" mx-[17px] py-[16px] flex-row gap-[12px] items-end justify-between relative border-b-[0.5px] border-b-[#888787]"
         onPress={() =>
           router.push({
             pathname: `../../messageRoom/${item.participant.id}`,
@@ -74,30 +83,51 @@ const Message = () => {
           })
         }
       >
-        <View>
-          <Image
-            source={{ uri: item.participant.avatar }}
-            contentFit="cover"
-            style={{ width: 40, height: 40, borderRadius: 40 }}
-          />
-        </View>
-        <View className="gap-[5px]">
-          <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
-            {item.participant.name}
-          </Text>
-          <Text className="text-[13px] text-[#ccc] font-LexendDecaLight">
-            {item.lastMessage.messageType == "text"
-              ? item.lastMessage.content
-              : ""}
-          </Text>
+        <View className="flex-row items-center gap-[12px] shrink">
+          <View>
+            <Image
+              source={{ uri: item.participant.avatar }}
+              contentFit="cover"
+              style={{ width: 40, height: 40, borderRadius: 40 }}
+            />
+          </View>
+          <View className="gap-[5px] shrink">
+            <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
+              {item.participant.name}
+            </Text>
+            <Text className="text-[13px] text-[#ccc] font-LexendDecaLight shrink">
+              {item.lastMessage.messageType == "text"
+                ? item.lastMessage.content.length > 20
+                  ? item.lastMessage.content.slice(0, 40) + "..."
+                  : item.lastMessage.content
+                : item.lastMessage.messageType}
+            </Text>
+          </View>
         </View>
 
-        <Text className="text-[8px] text-[#ccc] font-LexendDecaLight absolute top-[18px] right-0">
-          {formatDate(item.createdAt, "DD MMM")}
+        {item.unreadCount > 0 && (
+          <View className="w-[20px] h-[20px] bg-[#16783A] rounded-full items-center justify-center">
+            <Text className="text-white text-[8px] font-LexendDeca">
+              {item.unreadCount}
+            </Text>
+          </View>
+        )}
+
+        <Text
+          className="text-[8px] text-[#16783A] font-LexendDecaLight absolute right-0"
+          style={{
+            top: 10,
+          }}
+        >
+          {formatDate(item.lastMessage?.createdAt, "DD MMM YYYY HH:mm")}
         </Text>
       </TouchableOpacity>
     );
   };
+
+  useEffect(() => {
+    handleGetConversations();
+  }, [isFocused]);
 
   useEffect(() => {
     getUserInfo();
@@ -157,13 +187,13 @@ const Message = () => {
                 <Text
                   className={`${filter == "unread" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
                 >
-                  Unread Messages (6)
+                  Unread Messages ({unreadConvos?.length || 0})
                 </Text>
               </TouchableOpacity>
             </View>
-            <View>
+            <View style={{ flex: 1 }}>
               <FlatList
-                data={conversations}
+                data={filter == "all" ? conversations : unreadConvos}
                 renderItem={({ item }) => renderConversations(item)}
                 keyExtractor={(item) => item._id}
                 showsVerticalScrollIndicator={false}
