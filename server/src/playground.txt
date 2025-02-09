@@ -232,7 +232,12 @@ product
       "productId": "678c1bcbdb92f522edacd425",
       "sellerId": "6757fc4e814b66b9f8cdc3e3",
       "quantity": 2,
-      "weight": 2
+      "weight": 2,
+       "specifications": {
+        "color": "Space Gray",
+        "size": "6.7 inches",
+        "material": "Aluminum"
+      }
     },
     {
       "description": "Addidas shoes",
@@ -284,13 +289,3 @@ product
   },
   "paymentMethod": "paystack"
 }
-
-
-
-
-
-
-
-
-
-

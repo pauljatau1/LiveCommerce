@@ -20,7 +20,12 @@ const {
   handleShipmentInTransit, 
   handleShipmentDelivered 
 } = require('../webhooks/terminalWebhook');
-const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
+const { 
+  createNotification, 
+  createBuyerNotification 
+} = require('../controllers/notificationController');
+
+
 
 // Initialize Paystack
 const paystackSecretKey = "sk_test_REDACTED";
@@ -363,18 +368,20 @@ exports.createOrder = async (req, res) => {
       orders.push(savedOrder);
 
       // Create notification for seller
-      await createNotification(sellerId, 'new_order', {
-        orderId: savedOrder._id,
-        order_id: savedOrder.order_id,
-        buyerName: `${savedOrder.buyer.firstName} ${savedOrder.buyer.lastName}`,
-        amount: savedOrder.totalAmount,
-        items: savedOrder.items.length
-      });
+      await createNotification(
+        savedOrder.seller,
+        'new_order',
+        {
+          order_id: savedOrder.order_id,
+          amount: savedOrder.totalAmount,
+          items: savedOrder.items.length
+        }
+      );
 
       // After order is created, notify both parties
       await Promise.all([
         // Existing seller notification
-        notificationController.createNotification(
+        createNotification(
           savedOrder.seller,
           'new_order',
           {
@@ -384,7 +391,7 @@ exports.createOrder = async (req, res) => {
           }
         ),
         // New buyer notification
-        notificationController.createBuyerNotification(
+        createBuyerNotification(
           savedOrder.buyer,
           'order_created',
           {
@@ -805,7 +812,7 @@ exports.markAsPaid = async (req, res) => {
       // After order is marked as paid, notify both parties
       await Promise.all([
         // Existing seller notification
-        notificationController.createNotification(
+        createNotification(
           order.seller,
           'order_paid',
           {
@@ -815,7 +822,7 @@ exports.markAsPaid = async (req, res) => {
           }
         ),
         // New buyer notification
-        notificationController.createBuyerNotification(
+        createBuyerNotification(
           order.buyer,
           'order_paid',
           {
@@ -1003,7 +1010,7 @@ exports.updateOrder = async (req, res) => {
     // After status update, notify both parties
     await Promise.all([
       // Existing seller notification
-      notificationController.createNotification(
+      createNotification(
         order.seller,
         'order_status_update',
         {
@@ -1012,7 +1019,7 @@ exports.updateOrder = async (req, res) => {
         }
       ),
       // New buyer notification
-      notificationController.createBuyerNotification(
+      createBuyerNotification(
         order.buyer,
         'order_status_update',
         {
@@ -1117,7 +1124,7 @@ exports.updateOrderStatus = async (req, res) => {
     // After status update, notify both parties
     await Promise.all([
       // Existing seller notification
-      notificationController.createNotification(
+      createNotification(
         order.seller,
         'order_status_update',
         {
@@ -1126,7 +1133,7 @@ exports.updateOrderStatus = async (req, res) => {
         }
       ),
       // New buyer notification
-      notificationController.createBuyerNotification(
+      createBuyerNotification(
         order.buyer,
         'order_status_update',
         {
@@ -1268,7 +1275,7 @@ exports.updateTracking = async (req, res) => {
     await order.save();
 
     // Notify buyer
-    await notificationController.createNotification({
+    await createNotification({
       recipient: order.buyer,
       type: 'TRACKING_UPDATED',
       order_id: order.order_id,
@@ -1304,7 +1311,7 @@ exports.addOrderNote = async (req, res) => {
     } else {
       order.notes.customerNote = note;
       // Notify buyer of new note
-      await notificationController.createNotification({
+      await createNotification({
         recipient: order.buyer,
         type: 'ORDER_NOTE',
         order_id: order.order_id,
@@ -1439,14 +1446,14 @@ exports.createDispute = async (req, res) => {
 
     // Notify seller and admin
     await Promise.all([
-      notificationController.createNotification(
+      createNotification(
         order.items[0].seller, // Assuming single seller order
         'dispute_opened',
         'New Dispute Opened',
         `A dispute has been opened for order #${order._id}`,
         { orderId: order._id, order_id: order.order_id, order_id: order.order_id }
       ),
-      notificationController.createNotification(
+      createNotification(
         'admin', // Special handling in notification controller for admin
         'dispute_opened',
         'New Dispute Opened',
@@ -1494,7 +1501,7 @@ exports.updateDispute = async (req, res) => {
     await order.save();
 
     // Notify parties of update
-    await notificationController.createNotification({
+    await createNotification({
       recipient: order.buyer,
       type: 'DISPUTE_UPDATED',
       title: 'Dispute Updated',

@@ -2,34 +2,33 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useParams, useNavigate } from "react-router-dom"
-import { MessageCircle, Phone, Printer, Plus, ShoppingBag, ArrowLeft } from "lucide-react"
+import { MessageCircle, Phone, Printer, Plus, ShoppingBag, ArrowLeft, CheckCircle } from "lucide-react"
 import { useState, useEffect } from "react"
 import { BASE_URL } from "@/Constants/Server"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import { toast } from "sonner"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/Components/ui/dialog"
+import { toast } from "sonner";
 
 export default function ReturnDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [returnData, setReturnData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [shippingRates, setShippingRates] = useState([])
-  const [selectedRate, setSelectedRate] = useState(null)
-  const [showPickupSuccess, setShowPickupSuccess] = useState(false)
-  const [showRatesDialog, setShowRatesDialog] = useState(false)
-  const [showPickupDialog, setShowPickupDialog] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
+  const [shippingRates, setShippingRates] = useState([]);
+  const [selectedRate, setSelectedRate] = useState(null);
+  const [showRatesModal, setShowRatesModal] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
   useEffect(() => {
     fetchReturnDetails()
   }, [id])
+
+  // Fetch shipping rates when component mounts if status is appropriate
+  useEffect(() => {
+    if (returnData?.status === "APPROVED" && !returnData?.returnShipment?.rate_id) {
+      fetchShippingRates(id);
+    }
+  }, [returnData?.status, id]);
 
   const fetchReturnDetails = async () => {
     try {
@@ -71,46 +70,34 @@ export default function ReturnDetail() {
     }
   }
 
-  const handleCreateShippingLabel = async () => {
+  const fetchShippingRates = async (returnId) => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/create-label`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        },
-        body: JSON.stringify({
-          pickup_address: returnData.order.delivery_address // Buyer's address
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to create shipping label')
-      
-      // Fetch shipping rates after label creation
-      const ratesResponse = await fetch(`${BASE_URL}/returns/${id}/shipping-rates`, {
+      setIsLoading(true);
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data;
+      const response = await fetch(`${BASE_URL}/returns/${returnId}/shipping-rates`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`
         }
-      })
+      });
+      const data = await response.json();
       
-      const ratesData = await ratesResponse.json()
-      setShippingRates(ratesData.rates)
-      fetchReturnDetails() // Refresh return data
-      
-      toast.success("Shipping label created", {
-        description: "Please select a shipping rate to continue"
-      })
+      if (response.ok) {
+        setShippingRates(data.rates);
+      } else {
+        throw new Error(data.message);
+      }
     } catch (error) {
-      console.error('Error creating shipping label:', error)
-      toast.error("Failed to create shipping label")
+      toast.error('Failed to fetch shipping rates');
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleSelectRate = async () => {
+  const createShippingLabel = async (returnId) => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/select-rate`, {
+      setIsLoading(true);
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data;
+      const response = await fetch(`${BASE_URL}/returns/${returnId}/create-label`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,55 +107,53 @@ export default function ReturnDetail() {
           rate_id: selectedRate.rate_id,
           carrier_name: selectedRate.carrier_name,
           amount: selectedRate.amount
-        })
-      })
+        }),
+      });
 
-      if (!response.ok) throw new Error('Failed to select rate')
+      const data = await response.json();
       
-      fetchReturnDetails() // Refresh return data
-      setSelectedRate(null)
-      
-      toast.success("Rate selected", {
-        description: "You can now arrange pickup for the return"
-      })
+      if (response.ok) {
+        toast.success('Shipping label created successfully');
+        fetchReturnDetails(); // Refresh the return data
+      } else {
+        throw new Error(data.message);
+      }
     } catch (error) {
-      console.error('Error selecting rate:', error)
-      toast.error("Failed to select shipping rate")
+      toast.error('Failed to create shipping label');
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleArrangePickup = async () => {
+  const arrangePickup = async (returnId) => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/arrange-pickup`, {
+      setIsLoading(true);
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data;
+      const response = await fetch(`${BASE_URL}/returns/${returnId}/arrange-pickup`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${sellerToken}`
         }
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to arrange pickup')
+      const data = await response.json();
       
-      fetchReturnDetails() // Refresh return data
-      setShowPickupSuccess(true)
+      if (response.ok) {
+        toast.success('Shipment pickup arranged successfully');
+        fetchReturnDetails(); // Refresh the return data
+      } else {
+        throw new Error(data.message);
+      }
     } catch (error) {
-      console.error('Error arranging pickup:', error)
-      toast.error("Failed to arrange pickup")
+      toast.error('Failed to arrange pickup');
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return <div>Loading...</div>
   }
-
-  const PickupSuccessAlert = showPickupSuccess && (
-    <Alert className="mt-4">
-      <AlertTitle>Pickup Arranged Successfully!</AlertTitle>
-      <AlertDescription>
-        The pickup has been arranged for your return shipment. The carrier will collect the package from the specified address.
-      </AlertDescription>
-    </Alert>
-  )
 
   return (
     <div className="pt-10 px-6">
@@ -209,24 +194,23 @@ export default function ReturnDetail() {
             <h2 className="text-xl font-semibold mb-4">Product</h2>
             <div className="flex gap-4">
               <img
-                src={returnData?.items[0]?.product?.images[0]?.url}
+                src={returnData?.items[0]?.product?.images[0] || "/placeholder.svg"}
                 alt={returnData?.items[0]?.product?.name}
                 width={100}
                 height={100}
                 className="rounded-lg object-cover"
               />
               <div className="flex-1">
-                <h3 className="font-semibold">{returnData?.items[0]?.product?.name}</h3>
-                <p className="text-sm text-muted-foreground">Quantity: {returnData?.items[0]?.quantity}</p>
+                <h3 className="font-semibold">{returnData?.items[0]?.product?.name || "Luxury Turtle Neck Polo"}</h3>
+                <p className="text-sm text-muted-foreground">Quantity: {returnData?.items[0]?.quantity || 1}</p>
                 <div className="flex justify-between mt-2">
-                  <p className="text-green-600">Unit Price: ₦{returnData?.items[0]?.product?.price?.toLocaleString()}</p>
-                  <p className="text-green-600">Total: ₦{(returnData?.items[0]?.product?.price * returnData?.items[0]?.quantity).toLocaleString()}</p>
+                  <p className="text-green-600">Unit Price: ₦{returnData?.items[0]?.product?.price?.toLocaleString() || "1,000,000"}</p>
+                  <p className="text-green-600">Total: ₦{((returnData?.items[0]?.product?.price || 1000000) * (returnData?.items[0]?.quantity || 1)).toLocaleString()}</p>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">Return Reason: {returnData?.items[0]?.reason}</p>
               </div>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              Description: {returnData?.description}
+              Comment: {returnData?.description || "The item is not what I ordered, it was supposed to be a white T-shirt and not Black."}
             </p>
             {returnData?.status === "PENDING_SELLER_REVIEW" && (
               <div className="flex gap-4 mt-4">
@@ -245,39 +229,77 @@ export default function ReturnDetail() {
                 </Button>
               </div>
             )}
-          </Card>
 
-          {/* Proof Files - Moved and Enhanced */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Return Evidence</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {returnData?.evidence?.length > 0 ? (
-                returnData.evidence.map((file, index) => (
-                  <div key={index} className="space-y-2">
-                    <a 
-                      href={file.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="block"
+            {/* Add new shipping rates section when status is appropriate */}
+            {returnData?.status === "APPROVED" && !returnData?.returnShipment?.rate_id && (
+              <div className="mt-6 border-t pt-4">
+                <h3 className="text-lg font-semibold mb-4">Select Shipping Rate</h3>
+                <div className="space-y-4">
+                  {shippingRates.map((rate) => (
+                    <div 
+                      key={rate.id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                        selectedRate?.id === rate.id 
+                          ? 'border-green-500 bg-green-50' 
+                          : 'border-gray-200 hover:border-green-300'
+                      }`}
+                      onClick={() => setSelectedRate(rate)}
                     >
-                      <img 
-                        src={file.url} 
-                        alt={`Return Evidence ${index + 1}`} 
-                        className="w-full h-[200px] object-cover rounded-lg border hover:opacity-90 transition-opacity"
-                      />
-                    </a>
-                    <p className="text-sm text-muted-foreground">
-                      Uploaded on: {new Date(file.uploadedAt).toLocaleDateString()}
-                    </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={rate.carrier_logo} 
+                            alt={rate.carrier_name}
+                            className="h-8 w-8 object-contain"
+                          />
+                          <div>
+                            <h3 className="font-medium">{rate.carrier_name}</h3>
+                            <p className="text-sm text-gray-600">{rate.carrier_rate_description}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">₦{rate.amount.toLocaleString()}</p>
+                          <p className="text-sm text-gray-600">{rate.delivery_time}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex justify-end gap-4 mt-4">
+                    <Button
+                      onClick={() => createShippingLabel(id)}
+                      disabled={!selectedRate || isLoading}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {isLoading ? 'Creating Label...' : 'Create Shipping Label'}
+                    </Button>
                   </div>
-                ))
-              ) : (
-                <div className="col-span-2 py-8 text-center text-muted-foreground">
-                  <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No evidence files uploaded</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Add pickup arrangement section when label is created */}
+            {returnData?.status === "RETURN_LABEL_CREATED" && !returnData?.returnShipment?.status !== "PICKUP_ARRANGED" && (
+              <div className="mt-6 border-t pt-4">
+                <div className="bg-green-50 p-4 rounded-lg mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="text-green-600 w-5 h-5" />
+                    <h3 className="font-medium">Shipping Label Created</h3>
+                  </div>
+                  <p className="text-sm text-gray-600">Your shipping label has been created successfully with {returnData?.returnShipment?.carrier?.name}</p>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => arrangePickup(id)}
+                    disabled={isLoading}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isLoading ? 'Arranging Pickup...' : 'Arrange Pickup Now'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Activity Timeline */}
@@ -309,19 +331,26 @@ export default function ReturnDetail() {
             <h2 className="text-xl font-semibold mb-4">Customer Details</h2>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                  {returnData?.buyer?.firstName?.[0]}{returnData?.buyer?.lastName?.[0]}
-                </div>
+                <img 
+                  src={returnData?.buyer?.profileImage?.url || "/placeholder.svg"} 
+                  alt="Customer Avatar" 
+                  width={40} 
+                  height={40} 
+                  className="rounded-full"
+                />
                 <div>
                   <p className="font-medium">
-                    {`${returnData?.buyer?.firstName} ${returnData?.buyer?.lastName}`}
+                    {`${returnData?.buyer?.firstName} ${returnData?.buyer?.lastName}` || "Odera Joseph"}
                   </p>
-                  <p className="text-sm text-muted-foreground">{returnData?.buyer?.email}</p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>10 Orders</span>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="w-4 h-4" />
-                <span>{returnData?.order?.delivery_address?.phone}</span>
+                <span>{returnData?.buyer?.phoneNumber || "+234123456789"}</span>
               </div>
             </div>
           </Card>
@@ -329,234 +358,33 @@ export default function ReturnDetail() {
           {/* Shipping Information */}
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Shipping Information</h2>
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-medium mb-2">Delivery Address</h3>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">
-                    {returnData?.order?.delivery_address?.first_name} {returnData?.order?.delivery_address?.last_name}
-                  </p>
-                  <p>{returnData?.order?.delivery_address?.line1}</p>
-                  {returnData?.order?.delivery_address?.line2 && (
-                    <p>{returnData?.order?.delivery_address?.line2}</p>
-                  )}
-                  <p>
-                    {returnData?.order?.delivery_address?.city}, {returnData?.order?.delivery_address?.state}
-                  </p>
-                  <p>{returnData?.order?.delivery_address?.zip}</p>
-                  <p>{returnData?.order?.delivery_address?.country}</p>
-                  <p className="mt-2">📞 {returnData?.order?.delivery_address?.phone}</p>
-                  <p>✉️ {returnData?.order?.delivery_address?.email}</p>
-                </div>
-              </div>
-
-              {returnData?.order?.shipping?.carrier && (
-                <div>
-                  <h3 className="font-medium mb-2">Shipping Details</h3>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>Carrier: {returnData?.order?.shipping?.carrier?.name}</p>
-                    <p>Reference: {returnData?.order?.shipping?.carrier?.reference}</p>
-                    <p>Tracking Number: {returnData?.order?.shipping?.tracking?.number}</p>
-                    <p>Status: {returnData?.order?.shipping?.tracking?.status}</p>
-                    <p>Shipping Fee: ₦{returnData?.order?.shipping?.fee?.amount?.toLocaleString()}</p>
-                    {returnData?.order?.shipping?.tracking?.url && (
-                      <a 
-                        href={returnData?.order?.shipping?.tracking?.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        Track Shipment
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              
+            <div className="space-y-2">
+              <p className="font-medium">Return Address:</p>
+              <p className="text-sm text-muted-foreground">
+                {returnData?.buyer?.shippingAddresses?.[0]?.addressLine1 || "Block 6, Vila Cecillia"},
+                {returnData?.buyer?.shippingAddresses?.[0]?.city || "Lagos"} State.
+                {returnData?.buyer?.shippingAddresses?.[0]?.zipCode || "12345"},
+                {returnData?.buyer?.shippingAddresses?.[0]?.country || "Nigeria"}
+              </p>
             </div>
           </Card>
 
+          {/* Proof Files */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Proof Files</h2>
+            <div className="space-y-4">
+              {returnData?.evidence?.map((file, index) => (
+                <img 
+                  key={index}
+                  src={file.url || "/placeholder.svg"} 
+                  alt={`Return Evidence ${index + 1}`} 
+                  className="w-full rounded-lg"
+                />
+              ))}
+            </div>
+          </Card>
         </div>
       </div>
-
-      {returnData?.status === "APPROVED" && (
-        <div className="mt-4">
-          <Card className="p-6">
-            <div className="flex flex-col space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Return Shipping</h3>
-                {!returnData.returnShipment?.shipment_id && (
-                  <Button 
-                    onClick={handleCreateShippingLabel}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    Create Return Shipping Label
-                  </Button>
-                )}
-              </div>
-
-              {returnData.returnShipment?.shipment_id && (
-                <div className="space-y-4">
-                  <div className="p-4 bg-primary/5 rounded-lg">
-                    <h3 className="font-medium mb-2">Return Shipping Details</h3>
-                    <div className="space-y-1 text-sm">
-                      {returnData.returnShipment.tracking?.number && (
-                        <p>Tracking Number: {returnData.returnShipment.tracking.number}</p>
-                      )}
-                      {returnData.returnShipment.status && (
-                        <p>Status: {returnData.returnShipment.status}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    {returnData.returnShipment.documents?.shippingLabel && (
-                      <Button 
-                        variant="outline"
-                        onClick={() => window.open(returnData.returnShipment.documents.shippingLabel, '_blank')}
-                        className="flex-1"
-                      >
-                        <Printer className="w-4 h-4 mr-2" />
-                        Print Shipping Label
-                      </Button>
-                    )}
-                    
-                    {!returnData.returnShipment.rate_id && (
-                      <Button 
-                        onClick={() => setShowRatesDialog(true)}
-                        className="flex-1 bg-primary hover:bg-primary/90"
-                      >
-                        Select Shipping Rate
-                      </Button>
-                    )}
-
-                    {returnData.returnShipment.rate_id && !returnData.returnShipment.status?.includes("PICKUP") && (
-                      <Button 
-                        onClick={() => setShowPickupDialog(true)}
-                        className="flex-1 bg-primary hover:bg-primary/90"
-                      >
-                        Arrange Pickup Now
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Shipping Rates Dialog */}
-          <Dialog open={showRatesDialog} onOpenChange={setShowRatesDialog}>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Select Shipping Rate</DialogTitle>
-                <DialogDescription>
-                  Choose a shipping rate for your return shipment
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-                {shippingRates?.map((rate) => (
-                  <div 
-                    key={rate.rate_id}
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                      selectedRate?.rate_id === rate.rate_id ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
-                    }`}
-                    onClick={() => setSelectedRate(rate)}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      {rate.carrier_logo && (
-                        <img 
-                          src={rate.carrier_logo} 
-                          alt={rate.carrier_name}
-                          className="h-8 w-auto object-contain"
-                        />
-                      )}
-                      <div>
-                        <h3 className="font-semibold">{rate.carrier_name}</h3>
-                        {rate.carrier_rate_description && (
-                          <p className="text-sm text-muted-foreground">{rate.carrier_rate_description}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-green-600 font-medium">₦{rate.amount.toLocaleString()}</p>
-                      <p className="text-sm">Delivery Time: {rate.delivery_time}</p>
-                      {rate.includes_insurance && (
-                        <Badge variant="secondary">Includes Insurance</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowRatesDialog(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => {
-                    handleSelectRate();
-                    setShowRatesDialog(false);
-                  }}
-                  disabled={!selectedRate}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  Select Rate & Continue
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Pickup Confirmation Dialog */}
-          <Dialog open={showPickupDialog} onOpenChange={setShowPickupDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Arrange Pickup</DialogTitle>
-                <DialogDescription>
-                  Confirm pickup arrangement for your return shipment
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="p-4 bg-primary/5 rounded-lg my-4">
-                <h3 className="font-medium mb-2">Selected Shipping Details</h3>
-                <div className="space-y-1 text-sm">
-                  <p>Carrier: {returnData.returnShipment.carrier?.name}</p>
-                  <p>Shipping Fee: ₦{returnData.returnShipment.fee?.amount?.toLocaleString()}</p>
-                  {returnData.returnShipment.tracking?.number && (
-                    <p>Tracking Number: {returnData.returnShipment.tracking.number}</p>
-                  )}
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowPickupDialog(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => {
-                    handleArrangePickup();
-                    setShowPickupDialog(false);
-                  }}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  Confirm Pickup
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Success Alert */}
-          {showPickupSuccess && (
-            <Alert className="mt-4">
-              <AlertTitle>Pickup Arranged Successfully!</AlertTitle>
-              <AlertDescription>
-                The pickup has been arranged for your return shipment. The carrier will collect the package from the specified address.
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-      )}
 
       <div className="mt-6">
         <Button 
