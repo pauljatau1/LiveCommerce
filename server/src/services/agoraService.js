@@ -6,17 +6,23 @@ class AgoraService {
     this.appCertificate = process.env.AGORA_APP_CERTIFICATE;
   }
 
-  generateToken(channelName, uid) {
-    const expirationTimeInSeconds = 3600;
+  generateToken(channelName, uid, role = RtcRole.PUBLISHER) {
+    // Set different expiration times based on role
+    const expirationTimes = {
+      [RtcRole.PUBLISHER]: 3600, // 1 hour
+      [RtcRole.SUBSCRIBER]: 14400 // 4 hours
+    };
+
+
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+    const privilegeExpiredTs = currentTimestamp + expirationTimes[role];
 
     return RtcTokenBuilder.buildTokenWithUid(
       this.appId,
       this.appCertificate,
       channelName,
       uid,
-      RtcRole.PUBLISHER,
+      role,
       privilegeExpiredTs
     );
   }

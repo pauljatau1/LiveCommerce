@@ -563,4 +563,38 @@ router.get('/', streamController.getStreamsByStatus);
  */
 router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStatus);
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/refresh-token:
+ *   get:
+ *     summary: Refresh viewer token and get stream details
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Stream details with refreshed token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/StreamWithToken'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Seller cannot use viewer token
+ *       404:
+ *         description: Stream not found
+ */
+router.get('/:streamId/refresh-token',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.getStreamWithRefreshedToken
+);
+
 module.exports = router; 

@@ -6,6 +6,7 @@ const Product = require('../models/Product');
 const { s3 } = require('../config/awsConfig');
 const jwtDecode = require('jwt-decode');
 const Seller = require('../models/Seller');
+const { RtcRole } = require('agora-access-token');
 
 exports.createStream = async (req, res) => {
   try {
@@ -131,11 +132,11 @@ exports.startStream = async (req, res) => {
       // Update existing streams
       await Stream.updateMany(
         { _id: { $in: existingStreams.map(s => s._id) } },
-        { 
-          $set: { 
+        {
+          $set: {
             status: 'cancelled',
             endTime: new Date(),
-            cancelledStream: true 
+            cancelledStream: true
           }
         }
       );
@@ -144,7 +145,7 @@ exports.startStream = async (req, res) => {
       // Update seller's cancelledStreamCount and lastStreamCancellation
       await Seller.updateOne(
         { _id: req.user.id },
-        { 
+        {
           $inc: { cancelledStreamCount: existingStreams.length },
           $set: { lastStreamCancellation: new Date() }
         }
@@ -173,7 +174,7 @@ exports.startStream = async (req, res) => {
 
     res.json({
       message: 'Stream started successfully',
-      warning: existingStreams.length > 0 ? 
+      warning: existingStreams.length > 0 ?
         `Cancelled ${existingStreams.length} active stream(s): ${cancelledStreams.join(', ')}` : null,
       stream: {
         agoraToken: freshToken
@@ -380,25 +381,41 @@ exports.joinStream = async (req, res) => {
       return res.status(404).json({ message: 'Active stream not found' });
     }
 
-    // Generate viewer token for Agora
-    const token = agoraService.generateToken(stream.channelName, req.user.agoraUid);
+    // Determine user role based on stream ownership
+    const isSeller = stream.seller.toString() === req.user.id;
+    const role = isSeller ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
 
-    // Add viewer to stream if not already present
-    if (!stream.viewers.includes(req.user.id)) {
+    // Generate appropriate token
+    const token = agoraService.generateToken(
+      stream.channelName,
+      req.user.agoraUid,
+      role
+    );
+
+    // Update viewer list only for non-sellers
+    if (!isSeller && !stream.viewers.includes(req.user.id)) {
       stream.viewers.push(req.user.id);
       await stream.save();
     }
 
-    // Notify others that a new viewer has joined
-    req.io.to(stream.channelName).emit('viewerJoined', {
-      streamId: stream._id,
-      viewer: req.user.id
-    });
+    // Notify stream participants
+    if (!isSeller) {
+      req.io.to(stream.channelName).emit('viewerJoined', {
+        streamId: stream._id,
+        viewer: req.user.id
+      });
+    }
 
     res.json({
       message: 'Successfully joined stream',
       channelName: stream.channelName,
       token,
+      role,
+      tokenExpiration: Date.now() + (isSeller ? 
+        (3600) * 1000 :
+        (14400) * 1000
+      ),
+
       stream: {
         id: stream._id,
         title: stream.title,
@@ -437,17 +454,17 @@ exports.getSellerStreams = async (req, res) => {
     // Check and update expiration status for each stream
     const ONE_HOUR = 60 * 60 * 1000;
     const now = new Date();
-    
+
     for (const stream of streams) {
       let needsUpdate = false;
       const update = { status: 'expired' };
-      
+
       if (stream.status === 'scheduled' && stream.scheduledStartTime) {
         const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
         if (now > expirationTime) {
           needsUpdate = true;
         }
-      } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime ) {
+      } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime) {
         const expirationTime = new Date(stream.actualStartTime.getTime() + ONE_HOUR);
         if (now > expirationTime) {
           needsUpdate = true;
@@ -665,6 +682,61 @@ exports.getSellerStreamsByStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch seller streams',
+      error: error.message
+    });
+  }
+};
+
+exports.getStreamWithRefreshedToken = async (req, res) => {
+  try {
+    const stream = await Stream.findOne({
+      _id: req.params.streamId,
+      status: 'live'
+    })
+    .populate('seller', 'storeName businessName storeAvatar rating')
+    .populate('products.product', 'name description images price stock sku variants')
+    .populate('products.currentBidder', 'firstName lastName username email')
+    .populate('viewers', 'firstName lastName username avatarUrl')
+    .populate('bids.buyer', 'firstName lastName username')
+    .populate('bids.product', 'name price')
+    .lean(); // Convert to plain JavaScript object
+
+    if (!stream) {
+      return res.status(404).json({ message: 'Active stream not found' });
+    }
+
+    // Remove sensitive fields
+    const { __v, ...streamData } = stream;
+    
+    // Generate new token
+    const token = agoraService.generateToken(
+      stream.channelName,
+      req.user.agoraUid,
+      RtcRole.SUBSCRIBER
+    );
+
+    res.json({
+      message: 'Stream details with refreshed token',
+      channelName: stream.channelName,
+      token,
+      tokenExpiration: Date.now() + 3600 * 1000,
+      stream: {
+        ...streamData,
+        viewerCount: stream.viewers.length,
+        isLive: stream.status === 'live',
+        products: stream.products.map(product => ({
+          ...product,
+          currentBid: product.currentBid,
+          minBid: product.minBid,
+          maxBid: product.maxBid
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Refresh stream token error:', error);
+    res.status(500).json({
+      message: 'Failed to refresh stream token',
       error: error.message
     });
   }
