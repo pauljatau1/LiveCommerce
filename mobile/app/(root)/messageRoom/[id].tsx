@@ -853,7 +853,7 @@ const ProductsSheet = ({
                   height: 30,
                   borderRadius: 10,
                 }}
-                resizeMode="cover"
+                contentFit="cover"
               />
               <Pressable
                 className="absolute right-[-4px] top-[-4px] bg-[#000] w-[15px] h-[15px] rounded-full items-center justify-center"
