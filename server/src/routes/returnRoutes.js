@@ -373,4 +373,462 @@ router.get('/admin/statistics',
   returnController.getReturnStatistics
 );
 
+/**
+ * @swagger
+ * /api/returns/{returnId}/create-label:
+ *   post:
+ *     summary: Create shipping label for return
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - pickup_address
+ *             properties:
+ *               pickup_address:
+ *                 type: object
+ *                 required:
+ *                   - first_name
+ *                   - last_name
+ *                   - email
+ *                   - phone
+ *                   - line1
+ *                   - city
+ *                   - state
+ *                   - country
+ *                   - zip
+ *                 properties:
+ *                   first_name:
+ *                     type: string
+ *                   last_name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *                   line1:
+ *                     type: string
+ *                   line2:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   country:
+ *                     type: string
+ *                   zip:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Return shipping label created successfully
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Return request not found
+ */
+router.post('/:returnId/create-label',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.createReturnShippingLabel
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/shipping-rates:
+ *   get:
+ *     summary: Get shipping rates for a return
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Shipping rates retrieved successfully
+ */
+router.get('/:returnId/shipping-rates',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.getReturnShippingRates
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/select-rate:
+ *   post:
+ *     summary: Select shipping rate for return
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rate_id
+ *               - carrier_name
+ *               - amount
+ *             properties:
+ *               rate_id:
+ *                 type: string
+ *               carrier_name:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Shipping rate selected successfully
+ */
+router.post('/:returnId/select-rate',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.selectReturnShippingRate
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/arrange-pickup:
+ *   post:
+ *     summary: Arrange pickup for return shipment
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Return pickup arranged successfully
+ *       400:
+ *         description: Missing shipment_id or rate_id
+ *       404:
+ *         description: Return request not found
+ *       500:
+ *         description: Failed to arrange pickup
+ */
+router.post('/:returnId/arrange-pickup',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.arrangeReturnPickup
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/replacement/shipping-rates:
+ *   get:
+ *     summary: Get shipping rates for replacement product
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Shipping rates retrieved successfully
+ *       404:
+ *         description: Return request not found
+ */
+router.get('/:returnId/replacement/shipping-rates',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.getReplacementShippingRates
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/replacement/create-labels:
+ *   post:
+ *     summary: Create shipping labels for replacement (return pickup and replacement delivery)
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - returnRateId
+ *               - replacementRateId
+ *               - replacementProductId
+ *             properties:
+ *               returnRateId:
+ *                 type: string
+ *               replacementRateId:
+ *                 type: string
+ *               replacementProductId:
+ *                 type: string
+ *               variant:
+ *                 type: object
+ *               specifications:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Shipping labels created successfully
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Return request or product not found
+ */
+router.post('/:returnId/replacement/create-labels',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.createReplacementShippingLabels
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/replacement/arrange-pickup:
+ *   post:
+ *     summary: Arrange pickup for both return and replacement shipments
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               purchase_insurance:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Pickups arranged successfully
+ *       404:
+ *         description: Return request not found
+ */
+router.post('/:returnId/replacement/arrange-pickup',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.arrangeReplacementPickup
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/reject:
+ *   post:
+ *     summary: Reject a return request and create a dispute
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *               - description
+ *               - evidence
+ *             properties:
+ *               reason:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               evidence:
+ *                 type: array
+ *                 items:
+ *                   type: file
+ *     responses:
+ *       200:
+ *         description: Return request rejected and dispute created
+ *       400:
+ *         description: Invalid request data
+ *       404:
+ *         description: Return request not found
+ */
+router.post('/:returnId/reject',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  upload.array('evidence', 5),
+  returnController.rejectReturnRequest
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/admin/resolve-dispute:
+ *   post:
+ *     summary: Resolve a return dispute (Admin only)
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - resolution
+ *               - action
+ *               - note
+ *             properties:
+ *               resolution:
+ *                 type: string
+ *                 enum: [BUYER_FAVORED, SELLER_FAVORED, COMPROMISE]
+ *               action:
+ *                 type: string
+ *                 enum: [FULL_REFUND, PARTIAL_REFUND, NO_REFUND, REPLACEMENT_APPROVED, RETURN_APPROVED]
+ *               refundAmount:
+ *                 type: number
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Dispute resolved successfully
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Not an admin
+ */
+router.post('/:returnId/admin/resolve-dispute',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  returnController.resolveDispute
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/admin/update-status:
+ *   put:
+ *     summary: Update return request status (Admin only)
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *               - note
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, APPROVED, REJECTED, CANCELLED, COMPLETED, REFUNDED]
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Return status updated successfully
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Not an admin
+ */
+router.put('/:returnId/admin/update-status',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  returnController.adminUpdateStatus
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/admin/add-note:
+ *   post:
+ *     summary: Add admin note to return request
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - note
+ *             properties:
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Note added successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Not an admin
+ */
+router.post('/:returnId/admin/add-note',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  returnController.addAdminNote
+);
+
 module.exports = router; 

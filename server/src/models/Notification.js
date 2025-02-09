@@ -3,7 +3,15 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   seller: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Seller',
+    ref: 'Seller'
+  },
+  buyer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Buyer'
+  },
+  recipient: {
+    type: String,
+    enum: ['buyer', 'seller'],
     required: true
   },
   type: {
@@ -40,5 +48,9 @@ const notificationSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
+// Add index for better query performance
+notificationSchema.index({ seller: 1, createdAt: -1 });
+notificationSchema.index({ buyer: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

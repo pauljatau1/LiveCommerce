@@ -184,6 +184,18 @@ const handleShipmentCreated = async (data) => {
         'Shipment Created',
         `Shipment created for order #${order._id}. Tracking number: ${data.tracking_number}`,
         { orderId: order._id }
+      ),
+      notificationController.createBuyerNotification(
+        order.buyer._id,
+        'shipment_created',
+        {
+          orderId: order._id,
+          order_id: order.order_id,
+          trackingNumber: data.tracking_number,
+          trackingUrl: data.carrier_tracking_url,
+          carrier: data.carrier_name,
+          sellerName: order.seller.businessName || 'Seller'
+        }
       )
     ]);
 
@@ -269,6 +281,20 @@ const handleShipmentInTransit = async (data) => {
         buyerEmail: order.buyer.email
       });
     }
+
+    // Add buyer notification
+    await notificationController.createBuyerNotification(
+      order.buyer._id,
+      'shipment_in_transit',
+      {
+        orderId: order._id,
+        order_id: order.order_id,
+        trackingNumber: data.tracking_number,
+        location: data.events[0]?.location || 'Unknown',
+        description: data.events[0]?.description || 'Shipment in transit',
+        sellerName: order.seller.businessName || 'Seller'
+      }
+    );
 
   } catch (error) {
     console.error('Error in handleShipmentInTransit:', error);
@@ -364,6 +390,29 @@ const handleShipmentDelivered = async (data) => {
         sellerEmail: order.seller.email
       });
     }
+
+    // Add buyer notification while keeping existing notifications
+    await Promise.all([
+      notificationController.createNotification(
+        order.seller._id,
+        'shipment_delivered',
+        'Shipment Delivered',
+        `Order #${order._id} has been delivered`,
+        { orderId: order._id }
+      ),
+      notificationController.createBuyerNotification(
+        order.buyer._id,
+        'shipment_delivered',
+        {
+          orderId: order._id,
+          order_id: order.order_id,
+          trackingNumber: data.tracking_number,
+          deliveryLocation: data.events[0]?.location || 'Unknown',
+          signedBy: data.events[0]?.description?.match(/signed by (.*)/i)?.[1] || 'Unknown',
+          sellerName: order.seller.businessName || 'Seller'
+        }
+      )
+    ]);
 
   } catch (error) {
     console.error('Error in handleShipmentDelivered:', error);

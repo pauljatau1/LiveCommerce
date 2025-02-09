@@ -65,8 +65,16 @@ const returnSchema = new mongoose.Schema({
   evidence: [evidenceSchema],
   preferredResolution: {
     type: String,
-    enum: ['refund', 'replacement', 'partial_refund'],
+    enum: ['refund', 'replacement'],
     required: true
+  },
+  replacementProduct: {
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product'
+    },
+    variant: Object,
+    specifications: Object
   },
   requestDate: {
     type: Date,
@@ -125,36 +133,172 @@ const returnSchema = new mongoose.Schema({
     type: String,
     enum: ['buyer', 'seller', 'admin', 'system']
   },
-  dispute: {
-    initiatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: 'dispute.initiatorType'
-    },
-    initiatorType: {
-      type: String,
-      enum: ['Buyer', 'Seller']
-    },
+  rejectionDetails: {
     reason: String,
     description: String,
-    evidence: [String],
-    status: {
-      type: String,
-      enum: ['PENDING', 'IN_REVIEW', 'RESOLVED'],
-      default: 'PENDING'
-    },
-    createdAt: Date,
-    resolvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Admin'
-    },
-    resolvedAt: Date,
-    resolution: {
+    evidence: [{
       type: {
         type: String,
-        enum: ['approve_return', 'reject_return', 'partial_refund']
+        enum: ['image', 'video'],
+        required: true
       },
+      url: { type: String, required: true },
+      public_id: { type: String, required: true },
+      uploadedAt: { type: Date, default: Date.now }
+    }],
+    rejectedAt: Date,
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Seller'
+    }
+  },
+  dispute: {
+    status: {
+      type: String,
+      enum: ['PENDING', 'UNDER_REVIEW', 'RESOLVED'],
+      default: 'PENDING'
+    },
+    resolution: {
+      type: String,
+      enum: ['BUYER_FAVORED', 'SELLER_FAVORED', 'COMPROMISE'],
+    },
+    resolutionDetails: {
+      decidedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin'
+      },
+      decidedAt: Date,
+      action: {
+        type: String,
+        enum: ['FULL_REFUND', 'PARTIAL_REFUND', 'NO_REFUND', 'REPLACEMENT_APPROVED', 'RETURN_APPROVED']
+      },
+      refundAmount: Number,
       note: String,
-      refundAmount: Number
+      evidence: [{
+        type: { type: String, enum: ['image', 'document', 'video'] },
+        url: String,
+        public_id: String,
+        uploadedAt: Date
+      }]
+    },
+    adminNotes: [{
+      note: String,
+      addedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin'
+      },
+      addedAt: { type: Date, default: Date.now }
+    }]
+  },
+  returnShipment: {
+    shipment_id: String,
+    rate_id: String,
+    status: {
+      type: String,
+      enum: ['PENDING', 'RATE_SELECTED', 'PICKUP_ARRANGED', 'IN_TRANSIT', 'DELIVERED'],
+      default: 'PENDING'
+    },
+    tracking: {
+      number: String,
+      url: String,
+      package_number: String,
+      package_url: String,
+      status: String,
+      lastUpdate: Date,
+      history: [{
+        status: String,
+        timestamp: Date,
+        location: String,
+        description: String
+      }]
+    },
+    documents: {
+      shippingLabel: String,
+      commercialInvoice: String
+    },
+    carrier: {
+      name: String,
+      reference: String
+    },
+    fee: {
+      amount: Number,
+      currency: String
+    },
+    pickup_address: {
+      first_name: String,
+      last_name: String,
+      email: String,
+      phone: String,
+      line1: String,
+      line2: String,
+      city: String,
+      state: String,
+      country: String,
+      zip: String
+    },
+    delivery_address: {
+      first_name: String,
+      last_name: String,
+      email: String,
+      phone: String,
+      line1: String,
+      line2: String,
+      city: String,
+      state: String,
+      country: String,
+      zip: String
+    },
+    created_at: Date,
+    metadata: {
+      return_id: String,
+      order_id: String
+    },
+    shipment_reference: String,
+    planned_shipping_date: Date,
+    pickup_details: {
+      instructions: [String],
+      contact: {
+        email: String,
+        phone: String,
+        company: String,
+        name: String
+      }
+    },
+    delivery_details: {
+      contact: {
+        company: String,
+        name: String
+      },
+      address: {
+        postal_code: String,
+        city: String,
+        country_code: String,
+        line1: String,
+        line2: String
+      }
+    }
+  },
+  replacementShipment: {
+    shipment_id: String,
+    rate_id: String,
+    status: {
+      type: String,
+      enum: ['PENDING', 'RATE_SELECTED', 'PICKUP_ARRANGED', 'IN_TRANSIT', 'DELIVERED'],
+      default: 'PENDING'
+    },
+    tracking: {
+      number: String,
+      url: String,
+      package_number: String,
+      package_url: String,
+      status: String,
+      lastUpdate: Date,
+      history: [{
+        status: String,
+        date: Date,
+        location: String,
+        description: String
+      }]
     }
   }
 });

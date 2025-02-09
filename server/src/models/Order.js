@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { createNotification, sendEmailNotification } = require('../controllers/notificationController');
 
 // Define the address schema to match Terminal Africa's format
 const addressSchema = new mongoose.Schema({
@@ -149,7 +150,6 @@ const orderSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      // enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'paid', 'shipment_in_transit'],
       default: 'pending'
     },
     transactionId: String,
@@ -206,7 +206,66 @@ const orderSchema = new mongoose.Schema({
   closedReason: String,
 });
 
-// Add a pre-save middleware to ensure uniqueness of orderId
+// Add a pre-save middleware to handle seller wallet updates
+orderSchema.pre('save', async function(next) {
+  // Only proceed if the order's isOpen status is changing from true to false
+  if (this.isModified('isOpen') && !this.isOpen) {
+    try {
+      const Seller = mongoose.model('Seller');
+      
+      // Calculate total amount for seller (excluding shipping fees)
+      const sellerAmount = this.items.reduce((total, item) => {
+        return total + (item.price * item.quantity);
+      }, 0);
+
+      // Update seller's wallet balance
+      const updatedSeller = await Seller.findByIdAndUpdate(
+        this.seller,
+        { $inc: { walletBalance: sellerAmount } },
+        { new: true }
+      ).populate('email firstName lastName businessName');
+
+      // Create notification for order closure and wallet update
+      await createNotification(this.seller, 'order_closed', {
+        orderId: this._id,
+        order_id: this.order_id,
+        amount: sellerAmount,
+        closedBy: this.closedBy,
+        closedReason: this.closedReason,
+        newWalletBalance: updatedSeller.walletBalance
+      });
+
+      // Send email notification to seller
+      const sellerEmail = {
+        to: updatedSeller.email,
+        from: 'Auqli Payments <joseph@auqli.com>',
+        subject: 'Order Closed and Payment Released - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Closed and Payment Released</h2>
+            <p>Dear ${updatedSeller.firstName},</p>
+            <p>Order #${this.order_id} has been closed and the payment has been released to your wallet.</p>
+            <p><strong>Payment Details:</strong></p>
+            <ul>
+              <li>Amount Released: ₦${sellerAmount.toLocaleString()}</li>
+              <li>New Wallet Balance: ₦${updatedSeller.walletBalance.toLocaleString()}</li>
+            </ul>
+            <p>The shipping fee has been deducted from the total amount.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      await sendEmailNotification(updatedSeller, sellerEmail);
+
+    } catch (error) {
+      return next(error);
+    }
+  }
+  next();
+});
+
+// Update the existing auto-close middleware
 orderSchema.pre('save', async function(next) {
   if (this.isNew) {
     const Order = this.constructor;
@@ -261,6 +320,7 @@ orderSchema.pre('save', async function(next) {
       this.closedAt = new Date();
       this.closedBy = 'auto';
       this.closedReason = 'Auto-closed after 2 days of delivery with no action';
+      // The wallet update will be triggered by the isOpen change in the middleware above
     }
   }
 
