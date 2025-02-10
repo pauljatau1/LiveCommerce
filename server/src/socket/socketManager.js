@@ -91,4 +91,4 @@ function getIO() {
   return io;
 }
 
-module.exports = initializeSocket, { getIO }; 
+module.exports =  {initializeSocket, getIO }; 
