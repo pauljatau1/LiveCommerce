@@ -7,7 +7,6 @@ const { s3 } = require('../config/awsConfig');
 const jwtDecode = require('jwt-decode');
 const Seller = require('../models/Seller');
 const { RtcRole } = require('agora-access-token');
-const { getIO } = require('../socket/socketManager');
 
 exports.createStream = async (req, res) => {
   try {
