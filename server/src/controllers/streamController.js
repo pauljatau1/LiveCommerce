@@ -7,6 +7,7 @@ const { s3 } = require('../config/awsConfig');
 const jwtDecode = require('jwt-decode');
 const Seller = require('../models/Seller');
 const { RtcRole } = require('agora-access-token');
+const { getIO } = require('../socket/socketManager');
 
 exports.createStream = async (req, res) => {
   try {
@@ -400,7 +401,7 @@ exports.joinStream = async (req, res) => {
 
     // Notify stream participants
     if (!isSeller) {
-      req.io.to(stream.channelName).emit('viewerJoined', {
+      getIO().to(stream.channelName).emit('viewerJoined', {
         streamId: stream._id,
         viewer: req.user.id
       });
