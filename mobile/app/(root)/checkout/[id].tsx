@@ -222,7 +222,7 @@ const CheckoutSummary = () => {
           className="bg-[#121212]"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
-            paddingBottom: 100,
+            paddingBottom: 50,
           }}
         >
           {loading ? (
@@ -299,25 +299,32 @@ const CheckoutSummary = () => {
                       shippingInfo[0]?.map((provider: any, index: number) => (
                         <Pressable
                           key={index}
-                          className={`flex-row items-center gap-[16px] mb-[16px] p-[5px] px-[12px] ${selectedProviderName == provider.carrier_name ? "bg-[#16783A]" : "bg-[#121212]"} rounded-[8px]`}
+                          className={`flex-row items-center justify-between gap-[16px] mb-[16px] p-[5px] px-[12px] ${selectedProviderName == provider.carrier_name ? "bg-[#16783A]" : "bg-[#121212]"} rounded-[8px]`}
                           onPress={() =>
                             setSelectedProviderName(provider.carrier_name)
                           }
                         >
-                          <Image
-                            source={{ uri: provider.carrier_logo }}
-                            style={{ width: 30, height: 30, borderRadius: 30 }}
-                            resizeMode="cover"
-                          />
-                          <View>
-                            <Text className="text-white mb-[4px] font-LexendDeca">
-                              {provider.carrier_name}
-                            </Text>
-                            <Text className="text-white font-LexendDeca text-[10px]">
-                              Delivery Time: {provider.delivery_time}
-                            </Text>
+                          <View className="flex-row items-center gap-[16px]">
+                            <Image
+                              source={{ uri: provider.carrier_logo }}
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 30,
+                              }}
+                              resizeMode="cover"
+                            />
+                            <View>
+                              <Text className="text-white mb-[4px] font-LexendDeca">
+                                {provider.carrier_name}
+                              </Text>
+                              <Text className="text-white font-LexendDeca text-[10px]">
+                                Delivery Time: {provider.delivery_time}
+                              </Text>
+                            </View>
                           </View>
-                          <View className="ml-[auto]">
+
+                          <View className="">
                             <Text className="font-LexendDeca text-[12px] text-[#f2f2f2]">
                               ₦{provider.amount.toLocaleString()}
                             </Text>

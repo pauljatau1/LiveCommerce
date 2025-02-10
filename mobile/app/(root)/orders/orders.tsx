@@ -22,7 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
-const tabs = ["All", "Processing", "In Transit", "Delivered"];
+const tabs = ["All", "Processing", "In Transit", "Delivered", "My Returns"];
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
   pickup_arranged: { name: "In Transit", color: "rgb(219 234 254)" },
@@ -106,10 +106,6 @@ const Orders = () => {
     handleGetConversations();
   }, [isFocused]);
 
-  // useEffect(() => {
-  //   console.log(orders);
-  // }, [selectedTab]);
-
   useEffect(() => {
     scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
   }, [selectedTab]);
@@ -139,7 +135,7 @@ const Orders = () => {
             </Text>
           </View>
           <View
-            className="flex-row items-center justify-between px-[40px] pb-[12px]"
+            className="flex-row items-center justify-between px-[23px]"
             style={{
               borderBottomColor: "rgba(204, 204, 204, 0.25)",
               borderBottomWidth: 0.5,
@@ -148,7 +144,7 @@ const Orders = () => {
             {tabs.map((tab, index) => (
               <TouchableOpacity
                 onPress={() => handleTabSelection(tab)}
-                className={`py-[4px] ${selectedTab == tab ? "border-b-[1px] border-b-white" : ""}`}
+                className={`py-[4px] pb-[16px] ${selectedTab == tab ? "border-b-[1px] border-b-white" : ""}`}
                 key={index}
               >
                 <Text

@@ -1,12 +1,23 @@
-import { View, Text } from 'react-native'
-import React from 'react'
+import { View, Text, SafeAreaView, Dimensions } from "react-native";
+import React from "react";
+import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
+
+const { height } = Dimensions.get("window");
 
 const profile = () => {
   return (
-    <View>
-      <Text>profile</Text>
-    </View>
-  )
-}
+    <SafeAreaView
+      className="h-full flex-1 bg-[#121212] "
+      style={{ minHeight: height }}
+    >
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <View>
+        <Text className="text-white self-center my-[50px] font-LexendDeca">
+          Profile coming soon
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+};
 
-export default profile
+export default profile;
