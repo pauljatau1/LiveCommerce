@@ -18,6 +18,7 @@ import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
 import { formatDate } from "@/helpers/helpers";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -412,7 +413,14 @@ const OrderItem = ({
             <Pressable
               className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
               style={{ width: "30%" }}
-              onPress={() => router.push(`/checkout/${orderItem._id}`)}
+              onPress={async () => {
+                console.log(orderItem._id);
+                await AsyncStorage.setItem(
+                  "orders",
+                  JSON.stringify([{ ...orderItem, orderId: orderItem._id }]),
+                );
+                router.push(`/checkout/${orderItem._id}`);
+              }}
             >
               <Text className="text-white text-[10px]">Pay</Text>
             </Pressable>
