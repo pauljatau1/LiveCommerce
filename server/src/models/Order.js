@@ -159,28 +159,19 @@ const orderSchema = new mongoose.Schema({
     code: String,
     amount: Number
   },
-  dispute: {
-    status: {
-      type: String,
-      // enum: ['none', 'opened', 'under_review', 'resolved', 'closed'],
-      default: 'none'
+  orderStatus: {
+    hasReturn: {
+      type: Boolean,
+      default: false
     },
-    reason: String,
-    description: String,
-    openedAt: Date,
-    resolvedAt: Date,
-    resolution: String
-  },
-  refund: {
-    status: {
-      type: String,
-      // enum: ['none', 'requested', 'approved', 'processed', 'rejected'],
-      default: 'none'
+    hasDispute: {
+      type: Boolean,
+      default: false
     },
-    amount: Number,
-    reason: String,
-    requestedAt: Date,
-    processedAt: Date
+    hasRefund: {
+      type: Boolean,
+      default: false
+    }
   },
   notes: [{
     type: {
@@ -322,6 +313,24 @@ orderSchema.pre('save', async function(next) {
       this.closedReason = 'Auto-closed after 2 days of delivery with no action';
       // The wallet update will be triggered by the isOpen change in the middleware above
     }
+  }
+
+  try {
+    // Check if there's any return request for this order
+    const Return = mongoose.model('Return');
+    const returnRequest = await Return.findOne({ order: this._id });
+
+    if (returnRequest) {
+      this.orderStatus.hasReturn = true;
+      this.orderStatus.hasDispute = returnRequest.status === 'DISPUTED';
+      this.orderStatus.hasRefund = returnRequest.status === 'REFUNDED';
+    } else {
+      this.orderStatus.hasReturn = false;
+      this.orderStatus.hasDispute = false;
+      this.orderStatus.hasRefund = false;
+    }
+  } catch (error) {
+    console.error('Error checking return status:', error);
   }
 
   next();

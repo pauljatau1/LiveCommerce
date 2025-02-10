@@ -134,11 +134,7 @@ exports.createReturnRequest = async (req, res) => {
       description,
       preferredResolution,
       evidence,
-      timeline: [{
-        status: 'PENDING_SELLER_REVIEW',
-        note: 'Return request created',
-        updatedBy: 'buyer'
-      }]
+      status: 'PENDING_SELLER_REVIEW'
     });
 
     console.log('Return Request Object:', {
@@ -150,7 +146,11 @@ exports.createReturnRequest = async (req, res) => {
     });
 
     await returnRequest.save();
-    console.log('Return Request Saved Successfully');
+
+    // Update the order's return status
+    await Order.findByIdAndUpdate(orderId, {
+      'orderStatus.hasReturn': true
+    });
 
     // After successfully creating return request
     await createBuyerNotification(buyerId, 'return_created', {
@@ -177,8 +177,7 @@ exports.createReturnRequest = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error in createReturnRequest:', error);
-    console.error('Error Stack:', error.stack);
+    console.error('Create return request error:', error);
     res.status(500).json({
       message: 'Failed to create return request',
       error: error.message
@@ -1243,7 +1242,7 @@ exports.arrangeReturnPickup = async (req, res) => {
       });
     }
 
-    // Arrange pickup with Terminal Africa using the correct endpoint
+    // Arrange pickup with Terminal Africa
     const pickupResponse = await terminalAPI.post('/shipments/pickup', {
       shipment_id: returnRequest.returnShipment.shipment_id,
       rate_id: returnRequest.returnShipment.rate_id,
@@ -1254,13 +1253,25 @@ exports.arrangeReturnPickup = async (req, res) => {
       throw new Error(pickupResponse.data.message || 'Failed to arrange pickup');
     }
 
-    // Log the pickup response
-    console.log('Pickup arrangement response:', JSON.stringify(pickupResponse.data, null, 2));
-
     // Extract important data from response
     const responseData = pickupResponse.data.data;
     const shipmentPayload = responseData.metadata.shipment_payload;
     const carrierShipment = responseData.metadata.carrier_shipment;
+
+    // Safely parse the planned shipping date
+    let plannedShippingDate = null;
+    try {
+      if (carrierShipment?.plannedShippingDateAndTime) {
+        plannedShippingDate = new Date(carrierShipment.plannedShippingDateAndTime);
+        // Validate the parsed date
+        if (isNaN(plannedShippingDate.getTime())) {
+          plannedShippingDate = null;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to parse planned shipping date:', error);
+      plannedShippingDate = null;
+    }
 
     // Prepare the update object
     const pickupUpdate = {
@@ -1272,9 +1283,8 @@ exports.arrangeReturnPickup = async (req, res) => {
       'returnShipment.tracking.status': 'pickup_arranged',
       'returnShipment.tracking.lastUpdate': new Date(),
       'returnShipment.documents.shippingLabel': shipmentPayload.documents.find(d => d.typeCode === 'label')?.url,
-      'returnShipment.planned_shipping_date': new Date(carrierShipment.plannedShippingDateAndTime),
       'returnShipment.pickup_details': {
-        instructions: carrierShipment.pickup.specialInstructions?.map(i => i.value),
+        instructions: carrierShipment.pickup.specialInstructions?.map(i => i.value) || [],
         contact: {
           email: carrierShipment.pickup.pickupDetails.contactInformation.email,
           phone: carrierShipment.pickup.pickupDetails.contactInformation.phone,
@@ -1297,21 +1307,29 @@ exports.arrangeReturnPickup = async (req, res) => {
       }
     };
 
-    // Add to tracking history
-    pickupUpdate.$push = {
-      'returnShipment.tracking.history': {
-        status: 'pickup_arranged',
-        timestamp: new Date(),
-        description: 'Return pickup has been arranged',
-        location: shipmentPayload.shipmentDetails[0]?.customerDetails.shipperDetails.postalAddress.cityName
+    // Only add planned shipping date if it's valid
+    if (plannedShippingDate) {
+      pickupUpdate['returnShipment.planned_shipping_date'] = plannedShippingDate;
+    }
+
+    // Add tracking history
+    const timelineUpdate = {
+      $push: {
+        'returnShipment.tracking.history': {
+          status: 'pickup_arranged',
+          timestamp: new Date(),
+          description: 'Return pickup has been arranged',
+          location: shipmentPayload.shipmentDetails[0]?.customerDetails.shipperDetails.postalAddress.cityName
+        }
       }
     };
 
-    console.log('Updating return with pickup details:', JSON.stringify(pickupUpdate, null, 2));
-
     const updatedReturn = await Return.findByIdAndUpdate(
       returnId,
-      pickupUpdate,
+      { 
+        $set: pickupUpdate,
+        ...timelineUpdate
+      },
       { new: true }
     );
 
@@ -1320,8 +1338,8 @@ exports.arrangeReturnPickup = async (req, res) => {
       returnId: returnRequest._id,
       orderId: returnRequest.order,
       order_id: returnRequest.order.order_id,
-      tracking_number: returnRequest.returnShipment.tracking.number,
-      pickupDate: carrierShipment.pickup.pickupDetails.pickupDate,
+      tracking_number: shipmentPayload.shipmentTrackingNumber,
+      pickupDate: plannedShippingDate,
       carrier: returnRequest.returnShipment.carrier.name
     });
 
@@ -1331,7 +1349,7 @@ exports.arrangeReturnPickup = async (req, res) => {
         tracking_number: shipmentPayload.shipmentTrackingNumber,
         tracking_url: shipmentPayload.trackingUrl,
         shipping_label: pickupUpdate['returnShipment.documents.shippingLabel'],
-        planned_shipping_date: pickupUpdate['returnShipment.planned_shipping_date']
+        planned_shipping_date: plannedShippingDate
       }
     });
 

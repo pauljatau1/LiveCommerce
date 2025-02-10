@@ -1566,7 +1566,7 @@ exports.getOrderDetails = async (req, res) => {
       timeline.push({ status: 'paid', timestamp: order.paymentInfo.paidAt });
     }
 
-    if (order.shipping.tracking.history && order.shipping.tracking.history.length > 0) {
+    if (order.shipping?.tracking?.history && order.shipping.tracking.history.length > 0) {
       timeline.push(...order.shipping.tracking.history.map(status => ({
         status: status.status,
         location: status.location,
@@ -1632,20 +1632,10 @@ exports.getOrderDetails = async (req, res) => {
         code: order.discount.code,
         amount: order.discount.amount
       } : null,
-      dispute: {
-        status: order.dispute.status,
-        reason: order.dispute.reason,
-        description: order.dispute.description,
-        openedAt: order.dispute.openedAt,
-        resolvedAt: order.dispute.resolvedAt,
-        resolution: order.dispute.resolution
-      },
-      refund: {
-        status: order.refund.status,
-        amount: order.refund.amount,
-        reason: order.refund.reason,
-        requestedAt: order.refund.requestedAt,
-        processedAt: order.refund.processedAt
+      orderStatus: {
+        hasReturn: order.orderStatus?.hasReturn || false,
+        hasDispute: order.orderStatus?.hasDispute || false,
+        hasRefund: order.orderStatus?.hasRefund || false
       },
       notes: order.notes,
       timeline: timeline.sort((a, b) => b.timestamp - a.timestamp)
