@@ -12,7 +12,7 @@ import { getToken, getUser, setUser } from "@/store/features/auth/utils";
 import axios from "axios";
 
 import { Image } from "expo-image";
-import { formatDate } from "@/helpers/helpers";
+import { formatDate, formatMessageDate } from "@/helpers/helpers";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -100,7 +100,7 @@ const Message = () => {
                 ? item.lastMessage.content.length > 20
                   ? item.lastMessage.content.slice(0, 40) + "..."
                   : item.lastMessage.content
-                : item.lastMessage.messageType}
+                : "Shared " + item.lastMessage.messageType}
             </Text>
           </View>
         </View>
@@ -114,12 +114,12 @@ const Message = () => {
         )}
 
         <Text
-          className="text-[8px] text-[#16783A] font-LexendDecaLight absolute right-0"
+          className="text-[12px] text-[#16783A] font-LexendDecaMedium absolute right-0"
           style={{
             top: 10,
           }}
         >
-          {formatDate(item.lastMessage?.createdAt, "DD MMM YYYY HH:mm")}
+          {formatMessageDate(item.lastMessage?.createdAt)}
         </Text>
       </TouchableOpacity>
     );

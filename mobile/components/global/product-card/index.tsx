@@ -234,7 +234,9 @@ const CartSheet = ({
         price: selectedVariant.price,
         images: [
           {
-            url: selectedVariant.images[0].data,
+            url:
+              selectedVariant?.images?.[0]?.data ||
+              productDetails?.images?.[0]?.url,
           },
         ],
       });

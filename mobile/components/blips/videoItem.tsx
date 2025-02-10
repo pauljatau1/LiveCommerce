@@ -480,7 +480,7 @@ const CommentsSheet = ({
           />
         </View>
       )}
-      <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-0 left-2 ">
+      <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 left-2 ">
         <BottomSheetTextInput
           placeholder="Add comment..."
           placeholderTextColor={"#ccc"}

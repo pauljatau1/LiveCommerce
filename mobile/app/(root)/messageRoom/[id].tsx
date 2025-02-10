@@ -8,13 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  Keyboard,
 } from "react-native";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { formatDate } from "@/helpers/helpers";
+import { formatDate, formatMessageDate } from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
 import { Image } from "expo-image";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -380,7 +381,10 @@ const MessageRoom = () => {
     ),
     [],
   );
-  const keyExtractor = useCallback((item: any) => item._id, []);
+  const keyExtractor = useCallback(
+    (item: any, index: number) => item._id || index.toString(),
+    [],
+  );
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -411,9 +415,9 @@ const MessageRoom = () => {
               <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
                 {name}
               </Text>
-              <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
+              {/* <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
                 Online
-              </Text>
+              </Text> */}
             </View>
           </View>
           <View className="flex-row items-center gap-[24px]">
@@ -561,7 +565,10 @@ const MessageRoom = () => {
 
                   <TouchableOpacity
                     className="flex-col items-center gap-[5px]"
-                    onPress={() => setShowProducts(true)}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowProducts(true);
+                    }}
                   >
                     <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
                       <SimpleLineIcons name="chart" size={15} color="#94A3B1" />
@@ -680,32 +687,34 @@ const MessageItem = memo(
       }
     };
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          isMyMessage
-            ? styles.myMessageContainer
-            : styles.otherMessageContainer,
-        ]}
-      >
+      <View>
         <View
           style={[
-            // styles.messageContainer,
-            isMyMessage ? styles.myMessage : styles.otherMessage,
+            styles.messageContainer,
+            isMyMessage
+              ? styles.myMessageContainer
+              : styles.otherMessageContainer,
           ]}
         >
-          {RenderMessageType(messageType)}
+          <View
+            style={[
+              // styles.messageContainer,
+              isMyMessage ? styles.myMessage : styles.otherMessage,
+            ]}
+          >
+            {RenderMessageType(messageType)}
 
-          <Text style={styles.timestamp}>
-            {formatDate(message.createdAt, "DD MMM HH:mm")}
-          </Text>
+            <Text style={styles.timestamp}>
+              {formatMessageDate(message.createdAt)}
+            </Text>
+          </View>
+          {isMyMessage && message.error && (
+            <Text className="text-[#F24822] text-[8px] font-LexendDeca ml-[4px]">
+              <AntDesign name="exclamationcircle" size={18} color="#F24822" />{" "}
+              {message.error}
+            </Text>
+          )}
         </View>
-        {isMyMessage && message.error && (
-          <Text className="text-[#F24822] text-[8px] font-LexendDeca ml-[4px]">
-            <AntDesign name="exclamationcircle" size={18} color="#F24822" />{" "}
-            {message.error}
-          </Text>
-        )}
       </View>
     );
   },
@@ -921,10 +930,12 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     fontFamily: "LexendDeca",
+    marginRight: 6,
   },
   otherMessageText: {
     fontSize: 15,
     color: "#fff",
+    marginRight: 6,
     fontFamily: "LexendDeca",
   },
   timestamp: {

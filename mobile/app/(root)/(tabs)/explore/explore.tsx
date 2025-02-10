@@ -1,4 +1,11 @@
-import { View, Text, TouchableOpacity, ScrollView, Image } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  Platform,
+} from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,7 +35,7 @@ const Explore = () => {
           })
         }
       >
-        <View className="relative flex-row items-center w-full rounded-[4px] overflow-hidden mb-[24px] p-[1px] bg-[#f2f2f2]">
+        <View className="relative flex-row items-center w-full rounded-[4px] overflow-hidden p-[1px] bg-[#f2f2f2]">
           <Image
             source={{ uri: category?.image?.url }}
             resizeMode="cover"
@@ -139,7 +146,10 @@ const Explore = () => {
                 renderItem={({ item, index }) => renderCategories(item, index)}
                 style={{
                   gap: 24,
-                  paddingBottom: 100,
+                }}
+                contentContainerStyle={{
+                  paddingBottom: Platform.OS == "android" ? 50 : 20,
+                  gap: 12,
                 }}
                 showsVerticalScrollIndicator={false}
               />

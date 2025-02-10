@@ -13,9 +13,10 @@ import Denim from "./denim";
 import HomeHeader from "../home/home-header";
 import { useGetAllProductsQuery } from "@/services/products";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { getUser } from "@/store/features/auth/utils";
+import { getToken, getUser } from "@/store/features/auth/utils";
 import { useGetAllCategoriesQuery } from "@/services/categories";
 import GeneralCategory from "./general";
+import axios from "axios";
 
 const Marketplace = () => {
   const tabBarHeight = useBottomTabBarHeight();
@@ -33,7 +34,19 @@ const Marketplace = () => {
   const getSelectedCategories = async () => {
     try {
       const user = await getUser();
-      const cat = user.selectedCategories;
+      const token = await getToken();
+      let cat = user.selectedCategories;
+      if (cat?.length < 1) {
+        const response = await axios.get(
+          process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
+          {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          },
+        );
+        cat = response.data.categories;
+      }
       setCategories(["For You", ...cat.map((ct: any) => ct.name)]);
     } catch (e) {
       console.log(e);

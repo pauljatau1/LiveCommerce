@@ -9,7 +9,7 @@ import {
   Dimensions,
   Image,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
 import LoadingModal from "@/components/global/loading-modal";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -32,7 +32,7 @@ const CheckoutSummary = () => {
   const [addresses, setAddresses] = useState<any>({});
   const [order, setOrder] = useState<any>(null);
   const [subtotal, setSubtotal] = useState<number>(0);
-  const [total, setTotal] = useState<number>(0);
+  // const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [payLoading, setPayLoading] = useState<boolean>(false);
   const [shippingInfo, setShippingInfo] = useState<any[]>([]);
@@ -51,12 +51,6 @@ const CheckoutSummary = () => {
           },
         },
       );
-
-      // console.log(
-      //   `amount for order ${orderId}`,
-      //   response.data.order.totalAmount,
-      // );
-
       setSubtotal((prevState) => prevState + response.data.order.totalAmount);
       setAddresses(response.data.addresses);
       setOrder(response.data.order);
@@ -95,6 +89,9 @@ const CheckoutSummary = () => {
 
   const handlePayOrder = async () => {
     if (payLoading) return;
+    if (total < 1) {
+      return toast.info("select shipping provider");
+    }
     if (selectedProviders) {
       setPayLoading(true);
       setShowPaystack(true);
@@ -155,8 +152,6 @@ const CheckoutSummary = () => {
     toast.info("Payment Cancelled");
   };
 
-  const calculateShipping = () => {};
-
   useEffect(() => {
     async function getUserInfo() {
       const user = await getUser();
@@ -175,23 +170,16 @@ const CheckoutSummary = () => {
     }
   }, [orders]);
 
-  // useEffect(() => {
-  //   if (shippingInfo.length == 1)
-  //     setSelectedProviderName(shippingInfo[0][0].carrier_name);
-  // }, [shippingInfo]);
-  // useEffect(() => {
-  //   if (order) getShippingInfo();
-  // }, [order]);
-
-  useEffect(() => {
+  const total = useMemo(() => {
     if (selectedProviders?.length > 0) {
       const totalShipping = selectedProviders.reduce(
         (a: any, b: any) => a + b.amount,
         0,
       );
       setShippingFee(totalShipping);
-      setTotal(subtotal + totalShipping);
+      return subtotal + totalShipping;
     }
+    return subtotal;
   }, [selectedProviders]);
 
   useEffect(() => {
@@ -216,7 +204,7 @@ const CheckoutSummary = () => {
         <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
           <TouchableOpacity
             className="absolute left-[18px]"
-            onPress={() => router.replace("/")}
+            onPress={() => router.back()}
           >
             <Entypo
               name="chevron-left"
@@ -233,6 +221,9 @@ const CheckoutSummary = () => {
         <ScrollView
           className="bg-[#121212]"
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingBottom: 100,
+          }}
         >
           {loading ? (
             <ActivityIndicator
@@ -268,7 +259,7 @@ const CheckoutSummary = () => {
                       Total:
                     </Text>
                     <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                      ₦{total?.toLocaleString()}
+                      {total <= subtotal ? "-" : "₦" + total?.toLocaleString()}
                     </Text>
                   </View>
                 </View>
@@ -308,19 +299,29 @@ const CheckoutSummary = () => {
                       shippingInfo[0]?.map((provider: any, index: number) => (
                         <Pressable
                           key={index}
-                          className={`flex-row items-center gap-[16px] mb-[16px] p-[5px] ${selectedProviderName == provider.carrier_name ? "bg-[#16783A]" : "bg-[#121212]"} rounded-[8px]`}
+                          className={`flex-row items-center gap-[16px] mb-[16px] p-[5px] px-[12px] ${selectedProviderName == provider.carrier_name ? "bg-[#16783A]" : "bg-[#121212]"} rounded-[8px]`}
                           onPress={() =>
                             setSelectedProviderName(provider.carrier_name)
                           }
                         >
                           <Image
                             source={{ uri: provider.carrier_logo }}
-                            style={{ width: 40, height: 40, borderRadius: 40 }}
+                            style={{ width: 30, height: 30, borderRadius: 30 }}
                             resizeMode="cover"
                           />
-                          <Text className="text-white">
-                            {provider.carrier_name}
-                          </Text>
+                          <View>
+                            <Text className="text-white mb-[4px] font-LexendDeca">
+                              {provider.carrier_name}
+                            </Text>
+                            <Text className="text-white font-LexendDeca text-[10px]">
+                              Delivery Time: {provider.delivery_time}
+                            </Text>
+                          </View>
+                          <View className="ml-[auto]">
+                            <Text className="font-LexendDeca text-[12px] text-[#f2f2f2]">
+                              ₦{provider.amount.toLocaleString()}
+                            </Text>
+                          </View>
                         </Pressable>
                       ))}
                   </View>
@@ -349,7 +350,9 @@ const CheckoutSummary = () => {
         {/* <LoadingModal isVisible={loading} /> */}
       </SafeAreaView>
       {loading ? null : (
-        <View className="absolute w-full bottom-0 left-0 p-[16px] bg-[#121212]">
+        <View
+          className={`absolute w-full bottom-0 left-0 p-[16px] bg-[#121212] ${total <= subtotal ? "opacity-50" : " "}`}
+        >
           <TouchableOpacity
             className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A] "
             onPress={handlePayOrder}
@@ -358,7 +361,9 @@ const CheckoutSummary = () => {
               <ActivityIndicator size={"small"} color="white" />
             ) : (
               <Text className="text-white text-[16px] font-LexendDecaMedium">
-                Pay ₦{total?.toLocaleString()}
+                {total <= subtotal
+                  ? "Select Shipping Provider"
+                  : `Pay ₦${total?.toLocaleString()}`}
               </Text>
             )}
           </TouchableOpacity>

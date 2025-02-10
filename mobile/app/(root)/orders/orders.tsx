@@ -35,6 +35,8 @@ const Orders = () => {
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
   const [orders, setOrders] = useState<any[]>([]);
   const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [token, setToken] = useState<string>("");
 
   const handleTabSelection = (selection: string) => {
     const actualSelection = {
@@ -78,9 +80,30 @@ const Orders = () => {
     }
   };
 
+  const handleGetConversations = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/conversations",
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setConversations(response.data.conversations);
+      setToken(token);
+    } catch (e) {
+      console.log("unable to get conversations in product details page", e);
+    }
+  };
   useEffect(() => {
     handleGetOrders();
   }, []);
+
+  useEffect(() => {
+    handleGetConversations();
+  }, [isFocused]);
 
   // useEffect(() => {
   //   console.log(orders);
@@ -195,7 +218,12 @@ const Orders = () => {
                         </View>
                       )}
 
-                      <OrderItem key={index} orderItem={orderItem} />
+                      <OrderItem
+                        key={index}
+                        orderItem={orderItem}
+                        conversations={conversations}
+                        token={token}
+                      />
                     </View>
                   ))
                 ) : (
@@ -229,97 +257,34 @@ const Orders = () => {
   );
 };
 
-// const OrderItem = ({ orderItem }: { orderItem: any }) => {
-//   return (
-//     <TouchableOpacity
-//       className="border-b-[1px] p-[14px] pb-[25px] flex-row justify-center"
-//       style={{
-//         borderColor: "rgba(242, 242, 242, 0.50)",
-//       }}
-//       onPress={() => router.push(`/(root)/orders/${orderItem._id}`)}
-//     >
-//       <View className="w-[100%] gap-[16px] shrink relative">
-//         <View className=" flex-row items-center justify-between">
-//           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
-//             {orderItem?.seller?.storeName ||
-//               orderItem?.seller?.businessName ||
-//               "Kicks Store"}
-//           </Text>
-//           <View
-//             className="rounded-[3px] px-[6px] py-[4px] w-[60px] justify-center items-center"
-//             style={{
-//               backgroundColor:
-//                 statusColor[orderItem?.shipping?.tracking?.status]?.color,
-//             }}
-//           >
-//             <Text className=" text-[8px] font-LexendDecaMedium">
-//               {statusColor[orderItem.shipping.tracking.status]?.name}
-//             </Text>
-//           </View>
-//         </View>
-//         <View className="flex-row gap-[16px]">
-//           <View>
-//             <Image
-//               source={{ uri: orderItem?.items[0]?.product?.images[0].url }}
-//               resizeMode="cover"
-//               className="w-[115px] h-[136px]"
-//             />
-//           </View>
-//           <View className="gap-[6px] relative shrink">
-//             <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-//               {orderItem?.items[0]?.productName?.length > 20
-//                 ? orderItem?.items[0]?.productName?.slice(0, 20) + "..."
-//                 : orderItem?.items[0]?.productName}
-//             </Text>
-//             <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
-//               N{orderItem?.totalAmount.toLocaleString()}
-//             </Text>
-//             <View className="flex-row items-center gap-[11px] shrink">
-//               <Text className="text-white text-[12px] font-LexendDecaMedium shrink">
-//                 Price:{" "}
-//                 <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">
-//                   N{orderItem?.totalAmount.toLocaleString()}
-//                 </Text>
-//               </Text>
-//               <Text className="text-white text-[11px] font-LexendDecaMedium">
-//                 Qty: {orderItem?.items[0].quantity}
-//               </Text>
-//             </View>
-//           </View>
-//         </View>
-//         <View className="flex-row justify-between items-center flex-wrap relative">
-//           <Pressable
-//             className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-//             style={{ width: "30%" }}
-//           >
-//             <Text className="text-white text-[10px]">Chat Seller</Text>
-//           </Pressable>
-//           <Pressable
-//             className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-//             style={{ width: "30%" }}
-//           >
-//             <Text className="text-white text-[10px]">Return/Refund</Text>
-//           </Pressable>
-//           <Pressable
-//             className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-//             style={{ width: "30%" }}
-//           >
-//             <Text className="text-white text-[10px]">Cancel Order</Text>
-//           </Pressable>
-//         </View>
-//       </View>
-//     </TouchableOpacity>
-//   );
-// };
-
-const OrderItem = ({ orderItem }: { orderItem: any }) => {
+const OrderItem = ({
+  orderItem,
+  conversations,
+  token,
+}: {
+  orderItem: any;
+  conversations: any;
+  token: string;
+}) => {
   return (
     <TouchableOpacity
       className="border-b-[1px] p-[14px] pb-[25px] flex-row justify-center"
       style={{
         borderColor: "rgba(242, 242, 242, 0.50)",
       }}
-      onPress={() => router.push(`/(root)/orders/${orderItem._id}`)}
+      onPress={() => {
+        if (!orderItem.paid) return;
+        router.push({
+          pathname: `../../(root)/orders/${orderItem._id}`,
+          params: {
+            token,
+            conversationId:
+              conversations?.find(
+                (convo: any) => convo.participant.id == orderItem.seller,
+              )?._id || "",
+          },
+        });
+      }}
     >
       <View className="w-[100%] gap-[16px] shrink relative">
         <View className=" flex-row items-center justify-between">
@@ -329,14 +294,19 @@ const OrderItem = ({ orderItem }: { orderItem: any }) => {
               "Kicks Store"}
           </Text>
           <View
-            className="rounded-[3px] px-[6px] py-[4px] w-[60px] justify-center items-center"
+            className="rounded-[3px] px-[6px] py-[4px] justify-center items-center"
             style={{
-              backgroundColor:
-                statusColor[orderItem?.shipping?.tracking?.status]?.color,
+              backgroundColor: orderItem.paid
+                ? statusColor[orderItem?.shipping?.tracking?.status]?.color
+                : "red",
             }}
           >
-            <Text className=" text-[8px] font-LexendDecaMedium">
-              {statusColor[orderItem.shipping.tracking.status]?.name}
+            <Text
+              className={`text-[8px] font-LexendDeca ${orderItem.paid ? null : "text-white"}`}
+            >
+              {orderItem.paid
+                ? statusColor[orderItem.shipping.tracking.status]?.name
+                : "Pending Payment"}
             </Text>
           </View>
         </View>
@@ -387,21 +357,66 @@ const OrderItem = ({ orderItem }: { orderItem: any }) => {
           <Pressable
             className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
             style={{ width: "30%" }}
+            onPress={() =>
+              router.push({
+                pathname: `../../(root)/messageRoom/${orderItem.seller}`,
+                params: {
+                  name:
+                    orderItem.items?.[0]?.product?.seller?.storeName ||
+                    orderItem.items?.[0]?.product?.seller?.firstName +
+                      " " +
+                      orderItem.items?.[0]?.product?.seller?.lastName ||
+                    "Default",
+                  avatar:
+                    orderItem.items?.[0]?.product?.seller?.storeAvatar?.url,
+                  conversationId:
+                    conversations?.find(
+                      (convo: any) => convo.participant.id == orderItem.seller,
+                    )?._id || "",
+                  userId: orderItem?.buyer,
+                  token: token,
+                  model: "Seller",
+                },
+              })
+            }
           >
             <Text className="text-white text-[10px]">Chat Seller</Text>
           </Pressable>
-          <Pressable
-            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-            style={{ width: "30%" }}
-          >
-            <Text className="text-white text-[10px]">Return/Refund</Text>
-          </Pressable>
-          <Pressable
-            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-            style={{ width: "30%" }}
-          >
-            <Text className="text-white text-[10px]">Track Order</Text>
-          </Pressable>
+          {orderItem.shipping.tracking.status == "pending" && orderItem.paid ? (
+            <Pressable
+              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
+              style={{ width: "30%" }}
+            >
+              <Text className="text-white text-[10px]">Cancel Order</Text>
+            </Pressable>
+          ) : null}
+          {orderItem.shipping.tracking.status == "delivered" && (
+            <Pressable
+              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
+              style={{ width: "30%" }}
+            >
+              <Text className="text-white text-[10px]">Return/Refund</Text>
+            </Pressable>
+          )}
+
+          {["pickup_arranged"].includes(orderItem.shipping.tracking.status) && (
+            <Pressable
+              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
+              style={{ width: "30%" }}
+            >
+              <Text className="text-white text-[10px]">Track Order</Text>
+            </Pressable>
+          )}
+
+          {!orderItem.paid && (
+            <Pressable
+              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
+              style={{ width: "30%" }}
+              onPress={() => router.push(`/checkout/${orderItem._id}`)}
+            >
+              <Text className="text-white text-[10px]">Pay</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </TouchableOpacity>

@@ -127,8 +127,8 @@ const SingleExplore = () => {
                   style={{ marginTop: 20 }}
                 />
               ) : products?.length < 1 ? (
-                <Text className="text-white text-[18px] self-center m-[20px] font-LexendDecaBold">
-                  No Products Found!
+                <Text className="text-white text-[14px] self-center m-[20px] font-LexendDecaBold">
+                  No Products Found
                 </Text>
               ) : (
                 <FlatList

@@ -8,7 +8,7 @@ import {
   Pressable,
   Image,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -36,6 +36,7 @@ const CartScreen = () => {
   const [tab, setTab] = useState<string>("cart");
   const [wishList, setWishList] = useState<any[]>([]);
   const [wishListLoading, setWishListLoading] = useState<boolean>(true);
+  const [conversations, setConversations] = useState<any[]>([]);
 
   const handleIncludeAllinCart = (isChecked: boolean) => {
     handleModifyCart("includeAll", {
@@ -70,6 +71,23 @@ const CartScreen = () => {
     handleCalculateTotal();
   }, [cart]);
 
+  const handleGetConversations = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/conversations",
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setConversations(response.data.conversations);
+    } catch (e) {
+      console.log("unable to get conversations in product details page", e);
+    }
+  };
+
   const handleGetCart = async () => {
     setLoading(true);
     try {
@@ -82,59 +100,62 @@ const CartScreen = () => {
     }
   };
 
-  const handleModifyCart = async (action: string, data: any) => {
-    try {
-      switch (action) {
-        case "remove":
-          const cartData = await AsyncStorage.getItem("cart");
-          const cartArray = JSON.parse(cartData!);
-          const newCart = cartArray.filter(
-            (item: any) => item._id !== data._id,
-          );
-          await AsyncStorage.setItem("cart", JSON.stringify(newCart));
-          setCart(newCart);
-          break;
-        case "changeQuantity":
-          const cartData2 = await AsyncStorage.getItem("cart");
-          const cartArray2 = JSON.parse(cartData2!);
-          const newCart2 = cartArray2.map((item: any) => {
-            if (item._id == data._id) {
-              return { ...item, quantity: data.quantity };
-            }
-            return item;
-          });
-          await AsyncStorage.setItem("cart", JSON.stringify(newCart2));
-          setCart(newCart2);
-          break;
-        case "includeInOrder":
-          const cartData3 = await AsyncStorage.getItem("cart");
-          const cartArray3 = JSON.parse(cartData3!);
-          const newCart3 = cartArray3.map((item: any) => {
-            if (item._id == data._id) {
+  const handleModifyCart = useCallback(
+    async (action: string, data: any) => {
+      try {
+        switch (action) {
+          case "remove":
+            const cartData = await AsyncStorage.getItem("cart");
+            const cartArray = JSON.parse(cartData!);
+            const newCart = cartArray.filter(
+              (item: any) => item._id !== data._id,
+            );
+            await AsyncStorage.setItem("cart", JSON.stringify(newCart));
+            setCart(newCart);
+            break;
+          case "changeQuantity":
+            const cartData2 = await AsyncStorage.getItem("cart");
+            const cartArray2 = JSON.parse(cartData2!);
+            const newCart2 = cartArray2.map((item: any) => {
+              if (item._id == data._id) {
+                return { ...item, quantity: data.quantity };
+              }
+              return item;
+            });
+            await AsyncStorage.setItem("cart", JSON.stringify(newCart2));
+            setCart(newCart2);
+            break;
+          case "includeInOrder":
+            const cartData3 = await AsyncStorage.getItem("cart");
+            const cartArray3 = JSON.parse(cartData3!);
+            const newCart3 = cartArray3.map((item: any) => {
+              if (item._id == data._id) {
+                return { ...item, includeInOrder: data.includeInOrder };
+              }
+              return item;
+            });
+            await AsyncStorage.setItem("cart", JSON.stringify(newCart3));
+            setCart(newCart3);
+            break;
+          case "includeAll":
+            const cartData4 = await AsyncStorage.getItem("cart");
+            const cartArray4 = JSON.parse(cartData4!);
+            const newCart4 = cartArray4.map((item: any) => {
               return { ...item, includeInOrder: data.includeInOrder };
-            }
-            return item;
-          });
-          await AsyncStorage.setItem("cart", JSON.stringify(newCart3));
-          setCart(newCart3);
-          break;
-        case "includeAll":
-          const cartData4 = await AsyncStorage.getItem("cart");
-          const cartArray4 = JSON.parse(cartData4!);
-          const newCart4 = cartArray4.map((item: any) => {
-            return { ...item, includeInOrder: data.includeInOrder };
-          });
-          await AsyncStorage.setItem("cart", JSON.stringify(newCart4));
-          setCart(newCart4);
-          break;
-        case "moveToWishList":
-          handleModifyCart("remove", data);
-          handleModifyWishList("add", data._id);
+            });
+            await AsyncStorage.setItem("cart", JSON.stringify(newCart4));
+            setCart(newCart4);
+            break;
+          case "moveToWishList":
+            handleModifyCart("remove", data);
+            handleModifyWishList("add", data._id);
+        }
+      } catch (e) {
+        console.log(e);
       }
-    } catch (e) {
-      console.log(e);
-    }
-  };
+    },
+    [cart],
+  );
 
   const handleCreateWishList = async (id: string) => {
     try {
@@ -192,28 +213,32 @@ const CartScreen = () => {
     }
   };
 
-  const handleModifyWishList = async (action: string, data: any) => {
-    switch (action) {
-      case "add":
-        console.log("action delete", data);
-        handleCreateWishList(data);
-        break;
-      case "delete":
-        console.log("action delete", data);
+  const handleModifyWishList = useCallback(
+    async (action: string, data: any) => {
+      switch (action) {
+        case "add":
+          console.log("action delete", data);
+          handleCreateWishList(data);
+          break;
+        case "delete":
+          console.log("action delete", data);
 
-        setWishList(wishList.filter((item) => item.product._id !== data));
-        handleRemoveWishtList(data);
-        break;
-      default:
-        console.log(data);
-    }
-  };
+          setWishList(wishList.filter((item) => item.product._id !== data));
+          handleRemoveWishtList(data);
+          break;
+        default:
+          console.log(data);
+      }
+    },
+    [wishList],
+  );
 
   // useEffect(() => {},[wishList])
 
   useEffect(() => {
     handleGetCart();
     handleGetWishList();
+    handleGetConversations();
   }, [isFocused]);
 
   useEffect(() => {
@@ -273,7 +298,11 @@ const CartScreen = () => {
         {tab == "cart" && (
           <View className=" pb-[80px] relative">
             {cart?.length > 0 ? (
-              <CartList cart={cart} handleModifyCart={handleModifyCart} />
+              <CartList
+                cart={cart}
+                handleModifyCart={handleModifyCart}
+                conversations={conversations}
+              />
             ) : loading ? (
               <ActivityIndicator size="small" color={"#16783A"} />
             ) : (

@@ -28,7 +28,7 @@ const statusColor = {
 const { width, height } = Dimensions.get("window");
 
 const SingleOrder = () => {
-  const { id } = useGlobalSearchParams();
+  const { id, token: userToken, conversationId } = useGlobalSearchParams();
   const [order, setOrder] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -236,9 +236,62 @@ const SingleOrder = () => {
                     orderItem={item}
                     key={item._id}
                     orderStatus={order?.shipping?.tracking?.status}
+                    seller={order.seller}
+                    buyer={order.buyer}
+                    token={userToken.toString()}
+                    conversationId={conversationId.toString()}
                   />
                 );
               })}
+
+              <View className="flex-row justify-between items-center flex-wrap relative mb-[20px]">
+                <Pressable
+                  className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
+                  style={{ width: "30%" }}
+                  onPress={() =>
+                    router.push({
+                      pathname: `../../(root)/messageRoom/${order.seller}`,
+                      params: {
+                        name:
+                          order.items[0].product?.seller?.storeName ||
+                          order.items[0].product?.seller?.firstName +
+                            " " +
+                            order.items[0].product?.seller?.lastName ||
+                          "Default",
+                        avatar:
+                          order.items[0].product?.seller?.storeAvatar?.url,
+                        conversationId,
+                        userId: order.buyer,
+                        token: userToken,
+                        model: "Seller",
+                      },
+                    })
+                  }
+                >
+                  <Text className="text-white text-[10px]">Chat Seller</Text>
+                </Pressable>
+                {order.shipping.tracking.status == "delivered" && (
+                  <Pressable
+                    className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
+                    style={{ width: "30%" }}
+                  >
+                    <Text className="text-white text-[10px]">
+                      Return/Refund
+                    </Text>
+                  </Pressable>
+                )}
+
+                {["pickup_arranged"].includes(
+                  order.shipping.tracking.status,
+                ) && (
+                  <Pressable
+                    className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
+                    style={{ width: "30%" }}
+                  >
+                    <Text className="text-white text-[10px]">Track Order</Text>
+                  </Pressable>
+                )}
+              </View>
 
               <View
                 className="flex-row items-center"
@@ -586,9 +639,17 @@ const SingleOrder = () => {
 const OrderItem = ({
   orderItem,
   orderStatus,
+  seller,
+  buyer,
+  token,
+  conversationId,
 }: {
   orderItem: any;
   orderStatus: string;
+  seller: string;
+  buyer: string;
+  token: string;
+  conversationId: string;
 }) => {
   return (
     <View
@@ -659,10 +720,28 @@ const OrderItem = ({
             </View>
           </View>
         </View>
-        <View className="flex-row justify-between items-center flex-wrap relative">
+        {/* <View className="flex-row justify-between items-center flex-wrap relative">
           <Pressable
             className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
             style={{ width: "30%" }}
+            onPress={() =>
+              router.push({
+                pathname: `../../(root)/messageRoom/${seller}`,
+                params: {
+                  name:
+                    orderItem.product?.seller?.storeName ||
+                    orderItem.product?.seller?.firstName +
+                      " " +
+                      orderItem.product?.seller?.lastName ||
+                    "Default",
+                  avatar: orderItem.product?.seller?.storeAvatar?.url,
+                  conversationId,
+                  userId: buyer,
+                  token: token,
+                  model: "Seller",
+                },
+              })
+            }
           >
             <Text className="text-white text-[10px]">Chat Seller</Text>
           </Pressable>
@@ -678,7 +757,7 @@ const OrderItem = ({
           >
             <Text className="text-white text-[10px]">Track Order</Text>
           </Pressable>
-        </View>
+        </View> */}
       </View>
     </View>
   );

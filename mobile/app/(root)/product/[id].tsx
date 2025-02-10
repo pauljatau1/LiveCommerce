@@ -76,6 +76,7 @@ const ProductDescription = () => {
   const [productSpecifications, setProductSpecifications] = useState<{}>({});
   const [user, setUser] = useState<any>(null);
   const [userToken, setUserToken] = useState<string>("");
+  const [conversations, setConversations] = useState<any[]>([]);
 
   useEffect(() => {
     setProductDetails(product);
@@ -96,6 +97,23 @@ const ProductDescription = () => {
       setSellerInfo(response.data);
     } catch (e) {
       console.log(e);
+    }
+  };
+
+  const handleGetConversations = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/conversations",
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setConversations(response.data.conversations);
+    } catch (e) {
+      console.log("unable to get conversations in product details page", e);
     }
   };
 
@@ -157,6 +175,8 @@ const ProductDescription = () => {
   };
 
   const handleAddToCart = async (cartItem: any) => {
+    console.log("got here");
+
     try {
       const cartItems = await AsyncStorage.getItem("cart");
 
@@ -201,6 +221,8 @@ const ProductDescription = () => {
       return setCartNumber(0);
     }
     getCartNumber();
+    handleGetConversations();
+
     // refetch();
   }, [isFocused]);
 
@@ -805,7 +827,11 @@ const ProductDescription = () => {
                                   "Default",
                                 avatar:
                                   sellerInfo?.storePresence?.storeAvatar?.url,
-                                conversationId: "",
+                                conversationId:
+                                  conversations?.find(
+                                    (convo) =>
+                                      convo.participant.id == sellerInfo._id,
+                                  )?._id || "",
                                 userId: user?._id,
                                 token: userToken,
                                 model: "Seller",
@@ -928,7 +954,7 @@ const ProductDescription = () => {
             }}
             onPress={async () => {
               // await AsyncStorage.removeItem("cart");
-              router.push(`/checkout/679f7e47e34cfbffb2b9b707`);
+              router.push(`/checkout/67a921b5197723b9f4d08f34`);
             }}
           >
             <Text className="text-[10px] text-white">BUY NOW</Text>
@@ -978,8 +1004,9 @@ const CartSheet = ({
         images: [
           {
             url:
-              selectedVariant.images?.[0]?.data ||
-              productDetails.images?.[0]?.url,
+              selectedVariant.images?.length > 0
+                ? selectedVariant.images?.[0]?.data
+                : productDetails.images?.[0]?.url,
           },
         ],
       });
@@ -1000,7 +1027,8 @@ const CartSheet = ({
           <Image
             source={{
               uri:
-                (selectedVariant?.images && selectedVariant?.images[0]?.data) ||
+                (selectedVariant?.images?.length > 0 &&
+                  selectedVariant?.images[0]?.data) ||
                 productDetails?.images[0]?.url,
             }}
             resizeMode="cover"
