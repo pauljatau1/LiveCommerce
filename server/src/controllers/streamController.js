@@ -401,9 +401,10 @@ exports.joinStream = async (req, res) => {
 
     // Notify stream participants
     if (!isSeller) {
-      getIO().to(stream.channelName).emit('viewerJoined', {
+      req.io.to(stream.channelName).emit('viewerJoined', {
         streamId: stream._id,
-        viewer: req.user.id
+        viewer: req.user.id,
+        viewerName: req.user.firstName + " " + req.user.lastName
       });
     }
 
