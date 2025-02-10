@@ -5,8 +5,9 @@ const passport = require('passport');
 const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
 const http = require('http');
-const { initializeSocket } = require('./socket/socketManager');
+const initializeSocket = require('./socket/socketManager');
 const compression = require('compression');
+
 
 
 
