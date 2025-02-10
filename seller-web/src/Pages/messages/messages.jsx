@@ -491,7 +491,7 @@ export default function ChatInterface() {
 
     const formData = new FormData();
     formData.append('recipientId', currentConversation.participant.id);
-    formData.append('recipientModel', currentConversation.participant.model);
+    formData.append('recipientModel', currentConversation.participant.model || 'Buyer');
     formData.append('messageType', 'image');
     formData.append('content', 'Image message');
     formData.append('media', file);
@@ -624,7 +624,7 @@ export default function ChatInterface() {
         },
         body: JSON.stringify({
           recipientId: currentConversation.participant.id,
-          recipientModel: currentConversation.participant.model,
+          recipientModel: currentConversation.participant.model || 'Buyer',
           productId: product._id,
           content: `Check out this product: ${product.name}`
         })
@@ -918,7 +918,7 @@ export default function ChatInterface() {
       md:flex
       flex-col
     `}>
-      <div className="px-4 py-3 border-b flex justify-between items-center">
+      {/* <div className="px-4 py-3 border-b flex justify-between items-center">
         <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2>
         <Button 
           variant="ghost" 
@@ -928,7 +928,7 @@ export default function ChatInterface() {
         >
           <X className="h-4 w-4" />
         </Button>
-      </div>
+      </div> */}
       <Tabs defaultValue="products" className="flex-1 flex flex-col">
         <TabsList className="w-full border-b p-0">
           <TabsTrigger value="products" className="flex-1 rounded-none text-sm">
@@ -1249,6 +1249,7 @@ export default function ChatInterface() {
           md:right-auto md:top-auto md:bottom-auto
           w-[280px]
           border-l bg-white
+          block sm:hidden
           z-50
           md:flex
           flex-col

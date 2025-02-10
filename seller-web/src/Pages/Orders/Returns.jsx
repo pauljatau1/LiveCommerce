@@ -164,13 +164,18 @@ export default function ReturnsDashboard() {
 
             {/* Status Tabs */}
             <Tabs value={currentStatus} onValueChange={handleStatusChange} className="w-full">
-                <TabsList>
+                <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-6 gap-2">
                     <TabsTrigger value="all-status">All Status</TabsTrigger>
-                    <TabsTrigger value="pending">Pending</TabsTrigger>
+                    <TabsTrigger value="pending_seller_review">Pending Review</TabsTrigger>
+                    <TabsTrigger value="need_more_info">Need Info</TabsTrigger>
                     <TabsTrigger value="approved">Approved</TabsTrigger>
                     <TabsTrigger value="rejected">Rejected</TabsTrigger>
-                    <TabsTrigger value="in-transit">In Transit</TabsTrigger>
-                    <TabsTrigger value="completed">Completed</TabsTrigger>
+                    <TabsTrigger value="in_transit">In Transit</TabsTrigger>
+                    <TabsTrigger value="received">Received</TabsTrigger>
+                    <TabsTrigger value="refunded">Refunded</TabsTrigger>
+                    <TabsTrigger value="closed">Closed</TabsTrigger>
+                    <TabsTrigger value="disputed">Disputed</TabsTrigger>
+                    <TabsTrigger value="resolved">Resolved</TabsTrigger>
                 </TabsList>
             </Tabs>
 
@@ -212,14 +217,28 @@ export default function ReturnsDashboard() {
                                 <TableCell>
                                     <Badge
                                         className={
-                                            item.status === "PENDING"
-                                                ? "bg-yellow-50 text-yellow-600 border-yellow-600"
+                                            item.status === "PENDING_SELLER_REVIEW"
+                                                ? "bg-blue-50 text-blue-600 border-blue-600"
+                                                : item.status === "NEED_MORE_INFO"
+                                                ? "bg-purple-50 text-purple-600 border-purple-600"
                                                 : item.status === "APPROVED"
-                                                    ? "bg-green-50 text-green-600 border-green-600"
-                                                    : "bg-orange-50 text-orange-600 border-orange-600"
+                                                ? "bg-green-50 text-green-600 border-green-600"
+                                                : item.status === "REJECTED"
+                                                ? "bg-red-50 text-red-600 border-red-600"
+                                                : item.status === "IN_TRANSIT"
+                                                ? "bg-yellow-50 text-yellow-600 border-yellow-600"
+                                                : item.status === "RECEIVED"
+                                                ? "bg-cyan-50 text-cyan-600 border-cyan-600"
+                                                : item.status === "REFUNDED"
+                                                ? "bg-emerald-50 text-emerald-600 border-emerald-600"
+                                                : item.status === "CLOSED"
+                                                ? "bg-gray-50 text-gray-600 border-gray-600"
+                                                : item.status === "DISPUTED"
+                                                ? "bg-orange-50 text-orange-600 border-orange-600"
+                                                : "bg-teal-50 text-teal-600 border-teal-600" // for RESOLVED
                                         }
                                     >
-                                        {item.status}
+                                        {item.status.replace(/_/g, ' ')}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>

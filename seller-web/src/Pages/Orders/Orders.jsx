@@ -290,10 +290,11 @@ export default function OrdersDashboard() {
                     <TableHead className="font-semibold">Order Details</TableHead>
                     <TableHead className="font-semibold">Customer</TableHead>
                     <TableHead className="font-semibold">Items</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="font-semibold">Shipping</TableHead>
                     <TableHead className="font-semibold">Payment</TableHead>
                     <TableHead className="font-semibold">Amount</TableHead>
                     <TableHead className="font-semibold">Channel</TableHead>
+                    <TableHead className="font-semibold">Order Status</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -349,6 +350,28 @@ export default function OrdersDashboard() {
                       </TableCell>
                       <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
                       <TableCell>{order.channel}</TableCell>
+                      <TableCell>
+                        <div className="space-y-2">
+                          <Badge
+                            className={
+                              order.isOpen
+                                ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
+                                : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
+                            }
+                          >
+                            {order.isOpen ? "Open" : "Closed"}
+                          </Badge>
+                          {!order.orderStatus?.hasReturn ? (
+                            <Badge className="bg-green-100 ml-4 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
+                              No Issues
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-orange-100 ml-4 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
+                              Order Issues
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Link to={`/dashboard/order/${order._id}`}>
                           <Button variant="secondary" className="bg-green-600 font-inter px-2 lg:px-3 text-white hover:bg-green-700">
