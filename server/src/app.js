@@ -73,6 +73,12 @@ app.use(passport.session());
 // Add compression middleware
 app.use(compression());
 
+// After initializing io
+app.use((req, res, next) => {
+  req.io = app.get('io');
+  next();
+});
+
 // Basic route
 app.get('/', (req, res) => {
    res.json({ message: 'Hello Auqli' });
