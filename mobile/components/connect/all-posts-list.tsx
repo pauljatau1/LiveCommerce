@@ -1,6 +1,6 @@
-import { View, FlatList, Text } from "react-native";
+import { View, FlatList, Text, Platform } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useGetAllPostsQuery, useGetNewPostsQuery } from "@/services/posts";
 import PostItem from "./post-item";
 import PostItem2 from "./post-item2";
@@ -74,10 +74,7 @@ const AllPostsList = () => {
   };
 
   return (
-    <View
-      className="py-[10px]"
-      style={{ gap: 10, height: "80%", paddingBottom: 70 }}
-    >
+    <View className="" style={{ flex: 1, gap: 10 }}>
       {isLoading && page === 1 ? (
         <ActivityIndicator
           size={"small"}
@@ -87,21 +84,21 @@ const AllPostsList = () => {
       ) : (
         <FlatList
           data={posts}
-          renderItem={({ item }) => (
-            // <Text>checking</Text>
-            <PostItem2 item={item} />
-          )}
+          renderItem={({ item, index }) => <PostItem2 item={item} />}
           keyExtractor={(item, index) => item?._id?.toString()}
           onEndReached={fetchMorePosts}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}
           onRefresh={refreshPosts}
           maxToRenderPerBatch={5}
+          contentContainerStyle={{
+            paddingBottom: Platform.OS == "android" ? 70 : 50,
+          }}
           windowSize={5}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={renderFooter}
           initialNumToRender={10}
-          removeClippedSubviews={true}
+          // removeClippedSubviews={true}
           updateCellsBatchingPeriod={100}
         />
       )}

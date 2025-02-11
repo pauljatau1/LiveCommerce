@@ -5,10 +5,19 @@ import {
   TouchableOpacity,
   Dimensions,
   StyleSheet,
+  Pressable,
+  Platform,
 } from "react-native";
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Image } from "expo-image";
-import { ResizeMode, Video } from "expo-av";
+import { AVPlaybackStatusSuccess, ResizeMode, Video } from "expo-av";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Entypo from "@expo/vector-icons/Entypo";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -21,26 +30,92 @@ import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
 import { getUser } from "@/store/features/auth/utils";
 import moment from "moment";
 import { useCommentPostMutation, useReactPostMutation } from "@/services/posts";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import MultipleMediaItem from "./multipleMediaItem";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ActivityIndicator } from "react-native-paper";
 
 const { width } = Dimensions.get("window");
 
 const blurhash =
   "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
 
-// Memoized Media Item Component
 const MediaItem = memo(({ item }: { item: any }) => {
-  const isVideo = item?.public_id?.split("/")[1] === "videos";
+  const videoRef = useRef<Video>(null);
+  const [aspectRatio, setAspectRatio] = useState(1);
+  const [playing, setPlaying] = useState<boolean>(false);
+  const [muted, setMuted] = useState<boolean>(false);
+
+  const isVideo = useMemo(
+    () => item?.public_id?.split("/")[1] === "videos",
+    [item],
+  );
+
+  const playPauseVideo = () => {
+    if (videoRef.current) {
+      if (playing) {
+        videoRef.current.pauseAsync();
+        setPlaying(false);
+      } else {
+        videoRef.current?.playAsync();
+        setPlaying(true);
+      }
+    }
+  };
+
+  const muteUnmuteVideo = () => {
+    if (videoRef.current) {
+      if (muted) {
+        videoRef.current.setIsMutedAsync(false);
+        setMuted(false);
+      } else {
+        videoRef.current?.setIsMutedAsync(true);
+        setMuted(true);
+      }
+    }
+  };
+
+  const handlePlaybackStatusUpdate = useCallback(
+    (status: any) => {
+      if (status.didJustFinish) {
+        setPlaying(false);
+      }
+    },
+    [playing],
+  );
 
   if (isVideo) {
     return (
-      <Video
-        source={{ uri: item.url }}
-        style={styles.mediaItem}
-        resizeMode={ResizeMode.CONTAIN}
-        useNativeControls
-        isLooping
-        shouldPlay={false}
-      />
+      <Pressable onPress={() => playPauseVideo()}>
+        <Video
+          ref={videoRef}
+          source={{ uri: item.url }}
+          style={[styles.mediaItem, { aspectRatio }]}
+          resizeMode={ResizeMode.COVER}
+          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+          isLooping
+          shouldPlay={playing}
+        />
+
+        <Pressable style={styles.playVideo} onPress={() => playPauseVideo()}>
+          {playing ? (
+            <AntDesign name="pause" size={12} color="white" />
+          ) : (
+            <FontAwesome6 name="play" size={12} color="white" />
+          )}
+        </Pressable>
+
+        <Pressable
+          style={[styles.playVideo, { right: 8, left: "auto" }]}
+          onPress={() => muteUnmuteVideo()}
+        >
+          {muted ? (
+            <Octicons name="mute" size={12} color="white" />
+          ) : (
+            <Octicons name="unmute" size={12} color="white" />
+          )}
+        </Pressable>
+      </Pressable>
     );
   }
 
@@ -48,15 +123,130 @@ const MediaItem = memo(({ item }: { item: any }) => {
     <Image
       source={{ uri: item?.url }}
       placeholder={blurhash}
-      contentFit="contain"
-      transition={500}
-      style={styles.mediaItem}
+      contentFit="cover"
+      // transition={300}
+      style={[styles.mediaItem, { aspectRatio: 1, height: 250 }]}
       cachePolicy="memory-disk"
     />
   );
 });
 
-// Memoized Product Item Component
+const SingleMediaItem = memo(({ item }: { item: any }) => {
+  const videoRef = useRef<Video>(null);
+  const [aspectRatio, setAspectRatio] = useState(1);
+  const [playing, setPlaying] = useState<boolean>(false);
+  const [muted, setMuted] = useState<boolean>(false);
+  const [isBuffering, setIsBuffering] = useState<boolean>(true);
+
+  const isVideo = useMemo(
+    () => item?.public_id?.split("/")[1] === "videos",
+    [item],
+  );
+
+  const playPauseVideo = () => {
+    if (videoRef.current) {
+      if (playing) {
+        videoRef.current.pauseAsync();
+        setPlaying(false);
+      } else {
+        videoRef.current?.playAsync();
+        setPlaying(true);
+      }
+    }
+  };
+
+  const muteUnmuteVideo = () => {
+    if (videoRef.current) {
+      if (muted) {
+        videoRef.current.setIsMutedAsync(false);
+        setMuted(false);
+      } else {
+        videoRef.current?.setIsMutedAsync(true);
+        setMuted(true);
+      }
+    }
+  };
+
+  const handlePlaybackStatusUpdate = useCallback(
+    (status: any) => {
+      if (status.didJustFinish) {
+        setPlaying(false);
+      }
+      if (!status.isLoaded) return;
+      setIsBuffering(
+        (!status.isPlaying && status.shouldPlay) || status.isBuffering,
+      );
+    },
+    [playing],
+  );
+
+  if (isVideo) {
+    return (
+      <Pressable onPress={() => playPauseVideo()}>
+        <Video
+          ref={videoRef}
+          source={{ uri: item.url }}
+          style={[styles.mediaItem, { aspectRatio }]}
+          resizeMode={ResizeMode.COVER}
+          onReadyForDisplay={(event) => {
+            const { width, height } = event.naturalSize; // Get dimensions
+            if (width && height) {
+              setAspectRatio(width / height); // Dynamically set aspect ratio
+            }
+          }}
+          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+          isLooping
+          shouldPlay={playing}
+        />
+
+        {isBuffering && (
+          <View
+            style={[
+              StyleSheet.absoluteFillObject,
+              { justifyContent: "center", alignItems: "center" },
+            ]}
+          >
+            <ActivityIndicator size={"small"} color="#fff" />
+          </View>
+        )}
+
+        <Pressable style={styles.playVideo} onPress={() => playPauseVideo()}>
+          {playing ? (
+            <AntDesign name="pause" size={12} color="white" />
+          ) : (
+            <FontAwesome6 name="play" size={12} color="white" />
+          )}
+        </Pressable>
+
+        <Pressable
+          style={[styles.playVideo, { right: 8, left: "auto" }]}
+          onPress={() => muteUnmuteVideo()}
+        >
+          {muted ? (
+            <Octicons name="mute" size={12} color="white" />
+          ) : (
+            <Octicons name="unmute" size={12} color="white" />
+          )}
+        </Pressable>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: item?.url }}
+      placeholder={blurhash}
+      contentFit="cover"
+      // transition={300}
+      style={[styles.mediaItem, { aspectRatio }]}
+      onLoad={({ source }) => {
+        setAspectRatio(source.width / source.height);
+      }}
+      cachePolicy="memory-disk"
+    />
+  );
+});
+
 const ProductItem = memo(
   ({ product, onPress }: { product: any; onPress: () => void }) => (
     <TouchableOpacity style={styles.productContainer} onPress={onPress}>
@@ -81,6 +271,40 @@ const ProductItem = memo(
   ),
 );
 
+const ProductItemSingle = memo(
+  ({ product, onPress }: { product: any; onPress: () => void }) => (
+    <TouchableOpacity
+      style={styles.productContainerSingle}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Image
+        source={{
+          uri:
+            product?.productId?.images?.[0]?.url ||
+            product?.images?.[0]?.url ||
+            "",
+        }}
+        contentFit="cover"
+        style={styles.productImageSingle}
+        cachePolicy="memory-disk"
+      />
+      <View style={styles.productInfoSingle}>
+        <Text style={styles.productNameSingle}>
+          {product?.productId?.name?.slice(0, 50) ||
+            product?.name?.slice(0, 50)}
+        </Text>
+        <Text style={styles.productCategory}>
+          #{product?.productId?.category || product?.category}
+        </Text>
+        <Text style={styles.productPrice}>
+          N{(product?.productId?.price || product?.price)?.toLocaleString()}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  ),
+);
+
 const PostItem2 = ({ item }: { item: any }) => {
   const [reactPost, { isLoading }] = useReactPostMutation({});
   const [state, setState] = useState({
@@ -96,16 +320,21 @@ const PostItem2 = ({ item }: { item: any }) => {
   const [comments, setComments] = useState<number>(item.comments?.length);
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
-  const handleIncreaseCommentCount = () => {
+  const handleIncreaseCommentCount = useCallback(() => {
     setComments(comments + 1);
-  };
+  }, []);
 
-  const handleAddComment = (comment: any) => {
+  const handleAddComment = useCallback((comment: any) => {
     setAllComments([...allComments, comment]);
-  };
+  }, []);
 
   const handleReact = async () => {
+    if (isReacted) {
+      setReactions(reactions - 1);
+      return setIsReacted(false);
+    }
     setReactions(reactions + 1);
+    setIsReacted(true);
     try {
       const result = await reactPost({
         id: item._id,
@@ -118,21 +347,29 @@ const PostItem2 = ({ item }: { item: any }) => {
     }
   };
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 60,
-  }).current;
-
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: any }) => {
-      if (viewableItems.length > 0) {
-        setActiveIndex(viewableItems[0].index);
+  const body = useMemo(() => {
+    const newBody = item.body.split(" ").map((word: any) => {
+      if (word.includes("#")) {
+        return (
+          <Text key={word} style={{ color: "#16783A" }}>
+            {word}
+          </Text>
+        );
       }
-    },
-    [],
-  );
+      return word + " ";
+    });
+    return newBody;
+  }, [item]);
 
   const renderMedia = useCallback(
     ({ item: mediaItem }: { item: any }) => <MediaItem item={mediaItem} />,
+    [],
+  );
+
+  const renderSingleMedia = useCallback(
+    ({ item: mediaItem }: { item: any }) => (
+      <SingleMediaItem item={mediaItem} />
+    ),
     [],
   );
 
@@ -150,41 +387,18 @@ const PostItem2 = ({ item }: { item: any }) => {
     [],
   );
 
-  const RenderDots = () => {
-    return (
-      <View
-        className="flex-row items-center justify-center"
-        style={{ marginVertical: 8, gap: 2 }}
-      >
-        {Array(state.media?.length)
-          .fill(0)
-          .map((_, index) => (
-            <View
-              key={index}
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: 5,
-                backgroundColor: activeIndex == index ? "#16783A" : "#ccc",
-              }}
-            ></View>
-          ))}
-      </View>
-    );
-  };
+  const showMorePost = useCallback(async () => {
+    await AsyncStorage.setItem("selectedPost", JSON.stringify(item));
+    router.push("/(root)/connectMore/MorePostInfo");
+  }, []);
 
-  const mediaKeyExtractor = useCallback(
-    (_: any, index: number) => `media-${index}`,
-    [],
-  );
   const productKeyExtractor = useCallback(
     (item: any) => item?._id?.toString() || item?.id?.toString(),
     [],
   );
 
   return (
-    <View style={styles.container}>
-      {/* Header Section */}
+    <Pressable style={styles.container} onPress={showMorePost}>
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <Image
@@ -203,51 +417,48 @@ const PostItem2 = ({ item }: { item: any }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Post Content */}
-      <Text style={styles.postBody}>{item.body}</Text>
+      <Text style={styles.postBody}>{body.map((bd: any) => bd)}</Text>
 
-      {/* Media Section */}
       {state.media.length > 0 && (
         <View style={styles.mediaContainer}>
-          <FlatList
-            data={state.media}
-            renderItem={renderMedia}
-            keyExtractor={mediaKeyExtractor}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            removeClippedSubviews={true}
-            initialNumToRender={1}
-            maxToRenderPerBatch={2}
-            windowSize={3}
-          />
+          {state.media?.length == 1 ? (
+            renderSingleMedia({ item: state.media[0] })
+          ) : (
+            <MultipleMediaItem items={state.media} />
+          )}
         </View>
       )}
 
-      {state.media?.length > 1 && RenderDots()}
-
-      {/* Products Section */}
-      {state.products.length > 0 && (
-        <FlatList
-          data={state.products}
-          renderItem={renderProduct}
-          keyExtractor={productKeyExtractor}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          removeClippedSubviews={true}
-          initialNumToRender={2}
-          maxToRenderPerBatch={3}
-          windowSize={3}
-        />
-      )}
+      {state.products.length > 0 &&
+        (state.products.length == 1 ? (
+          <ProductItemSingle
+            product={state.products[0]}
+            onPress={() =>
+              router.push({
+                pathname: `/product/${state.products[0]?.productId?._id || state.products[0]?.id}`,
+              })
+            }
+          />
+        ) : (
+          <FlatList
+            data={state.products}
+            renderItem={renderProduct}
+            keyExtractor={productKeyExtractor}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            removeClippedSubviews={true}
+            initialNumToRender={2}
+            maxToRenderPerBatch={3}
+            windowSize={3}
+          />
+        ))}
 
       <View
         style={{
           marginTop: 12,
           flexDirection: "row",
-          justifyContent: "space-between",
+          justifyContent: "center",
+          gap: 30,
         }}
       >
         <TouchableOpacity
@@ -262,7 +473,7 @@ const PostItem2 = ({ item }: { item: any }) => {
           <Text
             style={{
               color: "#ccc",
-              fontSize: 10,
+              fontSize: 12,
               fontFamily: "LexendDeca",
             }}
           >
@@ -277,12 +488,12 @@ const PostItem2 = ({ item }: { item: any }) => {
           }}
           onPress={() => setShowComments(true)}
         >
-          <Octicons name="comment" size={12} color="#ccc" />
+          <Octicons name="comment" size={14} color="#ccc" />
 
           <Text
             style={{
               color: "#ccc",
-              fontSize: 10,
+              fontSize: 12,
               fontFamily: "LexendDeca",
             }}
           >
@@ -296,12 +507,12 @@ const PostItem2 = ({ item }: { item: any }) => {
             gap: 4,
           }}
         >
-          <Ionicons name="arrow-redo-sharp" size={12} color="#ccc" />
+          <Ionicons name="arrow-redo-sharp" size={14} color="#ccc" />
 
           <Text
             style={{
               color: "#ccc",
-              fontSize: 10,
+              fontSize: 12,
               fontFamily: "LexendDeca",
             }}
           >
@@ -343,126 +554,129 @@ const PostItem2 = ({ item }: { item: any }) => {
       >
         <OptionsSheet />
       </BottomSheet>
-
-      {/* Rest of your component... */}
-    </View>
+    </Pressable>
   );
 };
 
-const CommentsSheet = ({
-  handleIncreaseCommentCount,
-  allComments,
-  commentsCount,
-  handleAddComment,
-  id,
-}: {
-  handleIncreaseCommentCount: () => void;
-  allComments: any;
-  commentsCount: number;
-  handleAddComment: any;
-  id: string;
-}) => {
-  const [commentPost, { isLoading }] = useCommentPostMutation({});
-  const [comments, setComments] = useState<any[]>(allComments);
-  const [comment, setComment] = useState<string>("");
-  const [page, setPage] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(true);
+const CommentsSheet = memo(
+  ({
+    handleIncreaseCommentCount,
+    allComments,
+    commentsCount,
+    handleAddComment,
+    id,
+  }: {
+    handleIncreaseCommentCount: () => void;
+    allComments: any;
+    commentsCount: number;
+    handleAddComment: any;
+    id: string;
+  }) => {
+    const [commentPost, { isLoading }] = useCommentPostMutation({});
+    const [comments, setComments] = useState<any[]>(allComments);
+    const [comment, setComment] = useState<string>("");
+    const [page, setPage] = useState<number>(1);
+    const [loading, setLoading] = useState<boolean>(true);
 
-  const handleCreateComment = async () => {
-    const user = await getUser();
+    const handleCreateComment = async () => {
+      const user = await getUser();
 
-    const constructComment = {
-      author: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
-      content: comment,
-      createdAt: moment().toISOString(),
-    };
-    setComments([...comments, constructComment]);
-    setComment("");
-    handleIncreaseCommentCount();
-    handleAddComment(constructComment);
-    try {
-      const result = await commentPost({
-        id,
+      const constructComment = {
+        author: {
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
         content: comment,
-      }).unwrap();
-      // setComments(response.data.comments);
-      setPage(1);
-      setLoading(false);
-    } catch (e: any) {
-      console.log("error creating comment ", e.response.data);
-    }
-  };
+        createdAt: moment().toISOString(),
+      };
+      setComments([...comments, constructComment]);
+      setComment("");
+      handleIncreaseCommentCount();
+      handleAddComment(constructComment);
+      try {
+        const result = await commentPost({
+          id,
+          content: comment,
+        }).unwrap();
+        // setComments(response.data.comments);
+        setPage(1);
+        setLoading(false);
+      } catch (e: any) {
+        console.log("error creating comment ", e.response.data);
+      }
+    };
 
-  //   useEffect(() => {
-  //     setComments(data);
-  //   }, [data]);
+    //   useEffect(() => {
+    //     setComments(data);
+    //   }, [data]);
 
-  return (
-    <View className="px-[10px] w-full h-full items-center">
-      {/* {isLoading ? (
+    const renderComments = useCallback(({ item }: { item: any }) => {
+      return (
+        <View className="flex-row gap-2 mb-[16px]">
+          <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
+            <Text className="text-white text-[10px]">
+              {item.author.firstName.charAt(0).toUpperCase() +
+                item.author.lastName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View className="shrink">
+            <Text className="text-[#ccc] mb-[4px]">
+              {item.author.firstName + " " + item.author.lastName}
+            </Text>
+            <Text className="text-white leading-20 font-[400] mb-[12px]">
+              {item?.content}
+            </Text>
+            <Text className="text-[#f2f2f2] text-[12px] opacity-50">
+              {timeFromNow(item.createdAt)}
+            </Text>
+          </View>
+        </View>
+      );
+    }, []);
+    return (
+      <View className="px-[10px] w-full h-full items-center">
+        {/* {isLoading ? (
         <ActivityIndicator size={"small"} color={"white"} />
       ) : ( */}
-      <View className="h-full pb-[50px] w-full">
-        <Text className="text-white text-center mb-[30px]">
-          {commentsCount || "No"} {commentsCount > 1 ? "comments" : "comment"}
-        </Text>
-        <View
-          style={{
-            paddingBottom: 60,
-          }}
-        >
-          <FlatList
-            data={comments.slice().reverse()}
-            renderItem={({ item, index }) => (
-              <View key={index} className="flex-row gap-2 mb-[16px]">
-                <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
-                  <Text className="text-white text-[10px]">
-                    {item.author.firstName.charAt(0).toUpperCase() +
-                      item.author.lastName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View className="shrink">
-                  <Text className="text-[#ccc] mb-[4px]">
-                    {item.author.firstName + " " + item.author.lastName}
-                  </Text>
-                  <Text className="text-white leading-20 font-[400] mb-[12px]">
-                    {item?.content}
-                  </Text>
-                  <Text className="text-[#f2f2f2] text-[12px] opacity-50">
-                    {timeFromNow(item.createdAt)}
-                  </Text>
-                </View>
-              </View>
-            )}
-            keyExtractor={(item, index) => index?.toString()}
-            showsVerticalScrollIndicator={false}
+        <View className="h-full pb-[50px] w-full">
+          <Text className="text-white text-center mb-[30px]">
+            {commentsCount || "No"} {commentsCount > 1 ? "comments" : "comment"}
+          </Text>
+          <View
+            style={{
+              paddingBottom: 60,
+            }}
+          >
+            <FlatList
+              data={comments.slice().reverse()}
+              renderItem={renderComments}
+              keyExtractor={(item, index) => index?.toString()}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+        {/* )} */}
+        <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 mx-auto">
+          <BottomSheetTextInput
+            placeholder="Add comment..."
+            placeholderTextColor={"#ccc"}
+            style={{
+              fontSize: 15,
+              color: "#fff",
+              padding: 0,
+            }}
+            returnKeyType="send"
+            value={comment}
+            onChangeText={(text) => setComment(text)}
+            onSubmitEditing={handleCreateComment}
           />
         </View>
       </View>
-      {/* )} */}
-      <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 mx-auto">
-        <BottomSheetTextInput
-          placeholder="Add comment..."
-          placeholderTextColor={"#ccc"}
-          style={{
-            fontSize: 15,
-            color: "#fff",
-            padding: 0,
-          }}
-          returnKeyType="send"
-          value={comment}
-          onChangeText={(text) => setComment(text)}
-          onSubmitEditing={handleCreateComment}
-        />
-      </View>
-    </View>
-  );
-};
+    );
+  },
+);
 
-const OptionsSheet = () => {
+const OptionsSheet = memo(() => {
   return (
     <View className="w-full">
       <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
@@ -485,7 +699,7 @@ const OptionsSheet = () => {
       </TouchableOpacity>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -525,21 +739,22 @@ const styles = StyleSheet.create({
   postBody: {
     color: "#ccc",
     fontFamily: "LexendDeca",
-    fontSize: 12,
+    fontSize: 14,
     marginBottom: 10,
   },
   mediaContainer: {
     width: width - 32,
-    height: "auto",
-    maxHeight: 300,
+    height: undefined,
+    // maxHeight: 300,
     position: "relative",
     backgroundColor: "#111",
     borderRadius: 4,
   },
   mediaItem: {
     width: width - 32,
-    height: 250,
-    maxHeight: 250,
+    height: undefined,
+    // aspectRatio: 16 / 9,
+    // maxHeight: 600,
   },
   productContainer: {
     flexDirection: "row",
@@ -553,10 +768,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
     backgroundColor: "#f2f2f2",
   },
+  productContainerSingle: {
+    flexDirection: "row",
+    width: "100%",
+    flexShrink: 1,
+    borderRadius: 8,
+    overflow: "hidden",
+    marginVertical: 10,
+    padding: 12,
+    backgroundColor: "#f9f9f9",
+    // opacity: 0.8,
+    gap: 5,
+  },
   productImage: {
     width: 25,
     height: 25,
     borderRadius: 4,
+  },
+  productImageSingle: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
   },
   productInfo: {
     backgroundColor: "#f2f2f2",
@@ -567,11 +799,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     height: 30,
   },
+  productInfoSingle: {
+    // backgroundColor: "#f2f2f2",
+    flex: 1,
+    padding: 5,
+    gap: 5,
+  },
   productName: {
     color: "#3A3A3A",
     fontSize: 10,
     fontFamily: "LexendDeca-Medium",
   },
+  productCategory: {
+    color: "#027CEC",
+    fontSize: 12,
+    fontFamily: "LexendDeca-Medium",
+  },
+  productPrice: {
+    color: "#3A3A3A",
+    fontSize: 16,
+    fontFamily: "LexendDeca-Medium",
+  },
+  productNameSingle: {
+    color: "#3A3A3A",
+    fontSize: 16,
+    fontFamily: "LexendDeca-Medium",
+  },
+  playVideo: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 30,
+    backgroundColor: "#121212",
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  // pauseVideo:{}
 });
 
 export default memo(PostItem2);

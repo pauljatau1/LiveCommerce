@@ -1,4 +1,4 @@
-import { View, FlatList, Text } from "react-native";
+import { View, FlatList, Text, Platform } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, { useEffect, useState } from "react";
 import { useGetAllPostsQuery, useGetNewPostsQuery } from "@/services/posts";
@@ -73,10 +73,7 @@ const NewPostsList = () => {
   };
 
   return (
-    <View
-      className="py-[10px]"
-      style={{ gap: 10, height: "80%", paddingBottom: 70 }}
-    >
+    <View className="" style={{ flex: 1, gap: 10 }}>
       {isLoading && page === 1 ? (
         <ActivityIndicator
           size={"small"}
@@ -93,11 +90,14 @@ const NewPostsList = () => {
           refreshing={refreshing}
           onRefresh={refreshPosts}
           maxToRenderPerBatch={5}
+          contentContainerStyle={{
+            paddingBottom: Platform.OS == "android" ? 70 : 50,
+          }}
           windowSize={5}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={renderFooter}
           initialNumToRender={10}
-          removeClippedSubviews={true}
+          // removeClippedSubviews={true}
           updateCellsBatchingPeriod={100}
         />
       )}

@@ -54,7 +54,7 @@ const Connect = () => {
             minHeight: height,
           }}
         >
-          <View className="h-full flex-1 pt-[30px] px-[16px]">
+          <View className="h-full flex-1 pt-[20px] px-[16px]">
             <View style={styles.header}>
               <Text className="text-[24px] font-LexendDecaSemiBold text-[#ccc]">
                 Auqli Connect
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     width: "100%",
     // backgroundColor: "red",
     position: "relative",
-    marginBottom: 25,
+    marginBottom: 15,
   },
   search: {
     gap: 4,
