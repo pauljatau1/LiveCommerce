@@ -1,6 +1,12 @@
 import { View, FlatList, Text, Platform } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useGetAllPostsQuery, useGetNewPostsQuery } from "@/services/posts";
 import PostItem from "./post-item";
 import PostItem2 from "./post-item2";
@@ -38,14 +44,14 @@ const AllPostsList = () => {
   // Refetch whenever page changes
 
   // Fetch more posts for pagination
-  const fetchMorePosts = () => {
+  const fetchMorePosts = useCallback(() => {
     if (!isFetching && !hasReachedEnd) {
       setPage((prev) => prev + 1);
     }
-  };
+  }, [isFetching, hasReachedEnd]);
 
   // Refresh posts
-  const refreshPosts = async () => {
+  const refreshPosts = useCallback(async () => {
     setRefreshing(true); // Show refresh indicator
     try {
       setHasReachedEnd(false);
@@ -55,10 +61,10 @@ const AllPostsList = () => {
     } finally {
       setRefreshing(false); // Hide refresh indicator
     }
-  };
+  }, [refreshing]);
 
   // Render footer with loading spinner
-  const renderFooter = () => {
+  const renderFooter = useCallback(() => {
     if (hasReachedEnd)
       return (
         <Text className="self-center my-[10px] text-white font-LexendDeca text-[12px]">
@@ -71,7 +77,11 @@ const AllPostsList = () => {
         <ActivityIndicator size="small" color="#16783A" />
       </View>
     );
-  };
+  }, [hasReachedEnd]);
+
+  const renderPosts = useCallback(({ item }: { item: any }) => {
+    return <PostItem2 item={item} />;
+  }, []);
 
   return (
     <View className="" style={{ flex: 1, gap: 10 }}>
@@ -84,8 +94,8 @@ const AllPostsList = () => {
       ) : (
         <FlatList
           data={posts}
-          renderItem={({ item, index }) => <PostItem2 item={item} />}
-          keyExtractor={(item, index) => item?._id?.toString()}
+          renderItem={renderPosts}
+          keyExtractor={(item, index) => item?._id}
           onEndReached={fetchMorePosts}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}
@@ -99,7 +109,7 @@ const AllPostsList = () => {
           ListFooterComponent={renderFooter}
           initialNumToRender={10}
           // removeClippedSubviews={true}
-          updateCellsBatchingPeriod={100}
+          // updateCellsBatchingPeriod={100}
         />
       )}
     </View>

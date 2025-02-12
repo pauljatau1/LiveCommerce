@@ -22,7 +22,7 @@ import { getToken } from "@/store/features/auth/utils";
 const { height } = Dimensions.get("window");
 const Blips = () => {
   const insets = useSafeAreaInsets();
-
+  const statusBarHeight = insets.top;
   const tabBarHeight = insets.bottom;
   const flatListRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -113,9 +113,35 @@ const Blips = () => {
         id: item._id,
         name: item.productName,
         price: item.price,
+        image: item.images,
       }}
     />
   );
+
+  const renderFooter = useCallback(() => {
+    if (refreshing && Platform.OS == "ios") {
+      return (
+        <View
+          className="justify-between items-center"
+          style={{
+            marginTop: statusBarHeight,
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 40,
+              height: 40,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [refreshing]);
 
   return (
     <>
@@ -123,7 +149,7 @@ const Blips = () => {
       <View
         className="w-full relative bg-[#000]"
         style={{
-          height: height - 0,
+          height: height,
         }}
       >
         {videos?.length < 1 ? (
@@ -166,6 +192,7 @@ const Blips = () => {
             refreshing={refreshing}
             onRefresh={refreshBlips}
             progressViewOffset={Platform.OS == "ios" ? 120 : 0}
+            ListHeaderComponent={renderFooter}
           />
         )}
       </View>

@@ -6,7 +6,14 @@ import {
   Platform,
   Dimensions,
 } from "react-native";
-import React, { memo, useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Image } from "expo-image";
 import { ResizeMode, Video } from "expo-av";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -14,8 +21,6 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Octicons from "@expo/vector-icons/Octicons";
 
 const { width, height } = Dimensions.get("window");
-const blurhash =
-  "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
 
 const multipleMediaItem = ({ items }: { items: any }) => {
   return (
@@ -49,7 +54,7 @@ const MediaItem = memo(({ item }: { item: any }) => {
 
   const isVideo = useMemo(
     () => item?.public_id?.split("/")[1] === "videos",
-    [item],
+    [],
   );
 
   const playPauseVideo = () => {
@@ -84,6 +89,15 @@ const MediaItem = memo(({ item }: { item: any }) => {
     },
     [playing],
   );
+
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pauseAsync();
+        videoRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   if (isVideo) {
     return (
@@ -123,7 +137,6 @@ const MediaItem = memo(({ item }: { item: any }) => {
   return (
     <Image
       source={{ uri: item?.url }}
-      placeholder={blurhash}
       contentFit="cover"
       style={[styles.mediaItem]}
       cachePolicy="memory-disk"

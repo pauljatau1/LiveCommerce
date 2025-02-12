@@ -34,102 +34,26 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MultipleMediaItem from "./multipleMediaItem";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator } from "react-native-paper";
+import ReactionPicker from "./reactionPicker";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { black } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
 
 const { width } = Dimensions.get("window");
 
-const blurhash =
-  "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
-
-const MediaItem = memo(({ item }: { item: any }) => {
-  const videoRef = useRef<Video>(null);
-  const [aspectRatio, setAspectRatio] = useState(1);
-  const [playing, setPlaying] = useState<boolean>(false);
-  const [muted, setMuted] = useState<boolean>(false);
-
-  const isVideo = useMemo(
-    () => item?.public_id?.split("/")[1] === "videos",
-    [item],
-  );
-
-  const playPauseVideo = () => {
-    if (videoRef.current) {
-      if (playing) {
-        videoRef.current.pauseAsync();
-        setPlaying(false);
-      } else {
-        videoRef.current?.playAsync();
-        setPlaying(true);
-      }
-    }
-  };
-
-  const muteUnmuteVideo = () => {
-    if (videoRef.current) {
-      if (muted) {
-        videoRef.current.setIsMutedAsync(false);
-        setMuted(false);
-      } else {
-        videoRef.current?.setIsMutedAsync(true);
-        setMuted(true);
-      }
-    }
-  };
-
-  const handlePlaybackStatusUpdate = useCallback(
-    (status: any) => {
-      if (status.didJustFinish) {
-        setPlaying(false);
-      }
-    },
-    [playing],
-  );
-
-  if (isVideo) {
-    return (
-      <Pressable onPress={() => playPauseVideo()}>
-        <Video
-          ref={videoRef}
-          source={{ uri: item.url }}
-          style={[styles.mediaItem, { aspectRatio }]}
-          resizeMode={ResizeMode.COVER}
-          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          isLooping
-          shouldPlay={playing}
-        />
-
-        <Pressable style={styles.playVideo} onPress={() => playPauseVideo()}>
-          {playing ? (
-            <AntDesign name="pause" size={12} color="white" />
-          ) : (
-            <FontAwesome6 name="play" size={12} color="white" />
-          )}
-        </Pressable>
-
-        <Pressable
-          style={[styles.playVideo, { right: 8, left: "auto" }]}
-          onPress={() => muteUnmuteVideo()}
-        >
-          {muted ? (
-            <Octicons name="mute" size={12} color="white" />
-          ) : (
-            <Octicons name="unmute" size={12} color="white" />
-          )}
-        </Pressable>
-      </Pressable>
-    );
-  }
-
-  return (
-    <Image
-      source={{ uri: item?.url }}
-      placeholder={blurhash}
-      contentFit="cover"
-      // transition={300}
-      style={[styles.mediaItem, { aspectRatio: 1, height: 250 }]}
-      cachePolicy="memory-disk"
-    />
-  );
-});
+const reactionsList = [
+  { id: "like", emoji: "👍", label: "like" },
+  { id: "love", emoji: "❤️", label: "love" },
+  { id: "haha", emoji: "😂", label: "Haha" },
+  { id: "wow", emoji: "😮", label: "Wow" },
+  { id: "sad", emoji: "😢", label: "Sad" },
+  { id: "angry", emoji: "😡", label: "Angry" },
+];
 
 const SingleMediaItem = memo(({ item }: { item: any }) => {
   const videoRef = useRef<Video>(null);
@@ -140,7 +64,7 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
 
   const isVideo = useMemo(
     () => item?.public_id?.split("/")[1] === "videos",
-    [item],
+    [],
   );
 
   const playPauseVideo = () => {
@@ -180,6 +104,26 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
     [playing],
   );
 
+  const videoReadyForDisplay = useCallback((event: any) => {
+    const { width, height } = event.naturalSize;
+    if (width && height) {
+      setAspectRatio(width / height);
+    }
+  }, []);
+
+  const imageReadyForDisplay = useCallback((source: any) => {
+    setAspectRatio(source.width / source.height);
+  }, []);
+
+  // useEffect(() => {
+  //   return () => {
+  //     if (videoRef.current) {
+  //       videoRef.current.pauseAsync();
+  //       videoRef.current.unloadAsync();
+  //     }
+  //   };
+  // }, []);
+
   if (isVideo) {
     return (
       <Pressable onPress={() => playPauseVideo()}>
@@ -188,18 +132,13 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
           source={{ uri: item.url }}
           style={[styles.mediaItem, { aspectRatio }]}
           resizeMode={ResizeMode.COVER}
-          onReadyForDisplay={(event) => {
-            const { width, height } = event.naturalSize; // Get dimensions
-            if (width && height) {
-              setAspectRatio(width / height); // Dynamically set aspect ratio
-            }
-          }}
+          onReadyForDisplay={videoReadyForDisplay}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           isLooping
           shouldPlay={playing}
         />
 
-        {isBuffering && (
+        {/* {isBuffering && (
           <View
             style={[
               StyleSheet.absoluteFillObject,
@@ -208,7 +147,7 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
           >
             <ActivityIndicator size={"small"} color="#fff" />
           </View>
-        )}
+        )} */}
 
         <Pressable style={styles.playVideo} onPress={() => playPauseVideo()}>
           {playing ? (
@@ -235,13 +174,9 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
   return (
     <Image
       source={{ uri: item?.url }}
-      placeholder={blurhash}
       contentFit="cover"
-      // transition={300}
       style={[styles.mediaItem, { aspectRatio }]}
-      onLoad={({ source }) => {
-        setAspectRatio(source.width / source.height);
-      }}
+      onLoad={imageReadyForDisplay}
       cachePolicy="memory-disk"
     />
   );
@@ -320,6 +255,22 @@ const PostItem2 = ({ item }: { item: any }) => {
   const [comments, setComments] = useState<number>(item.comments?.length);
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
+  const [selectedReaction, setSelectedReaction] = useState(null);
+  const bubbleVisible = useSharedValue(false);
+  const bubblePosition = useSharedValue(-100); // Start offscreen
+
+  // Animated styles for the bubble
+  const bubbleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: bubblePosition.value - 30 }],
+    opacity: bubbleVisible.value ? withTiming(1) : withTiming(0),
+  }));
+
+  // Handle long press to show the bubble
+  const longPressGesture = Gesture.LongPress().onStart(() => {
+    bubbleVisible.value = true;
+    bubblePosition.value = withSpring(-120, { damping: 10, stiffness: 100 }); // Slide up
+  });
+
   const handleIncreaseCommentCount = useCallback(() => {
     setComments(comments + 1);
   }, []);
@@ -328,23 +279,34 @@ const PostItem2 = ({ item }: { item: any }) => {
     setAllComments([...allComments, comment]);
   }, []);
 
-  const handleReact = async () => {
-    if (isReacted) {
-      setReactions(reactions - 1);
-      return setIsReacted(false);
-    }
-    setReactions(reactions + 1);
-    setIsReacted(true);
-    try {
-      const result = await reactPost({
-        id: item._id,
-        type: "like",
-      });
+  const handleReact = useCallback(
+    async (reaction: any) => {
+      bubbleVisible.value = false;
+      bubblePosition.value = withTiming(-100);
+      if (isReacted) {
+        setReactions(reactions - 1);
+        return setIsReacted(false);
+      }
+      setReactions(reactions + 1);
+      setIsReacted(true);
 
-      console.log("successfully added reaction ", result.data);
-    } catch (e: any) {
-      console.log("cannot like post", e.message);
-    }
+      try {
+        const result = await reactPost({
+          id: item._id,
+          type: reaction.label,
+        });
+
+        console.log("successfully added reaction ", result);
+      } catch (e: any) {
+        console.log("cannot like post", e.message);
+      }
+    },
+    [reactions],
+  );
+
+  const handleReactionClose = (reaction: any) => {
+    bubbleVisible.value = false;
+    bubblePosition.value = withTiming(-100); // Slide down
   };
 
   const body = useMemo(() => {
@@ -360,11 +322,6 @@ const PostItem2 = ({ item }: { item: any }) => {
     });
     return newBody;
   }, [item]);
-
-  const renderMedia = useCallback(
-    ({ item: mediaItem }: { item: any }) => <MediaItem item={mediaItem} />,
-    [],
-  );
 
   const renderSingleMedia = useCallback(
     ({ item: mediaItem }: { item: any }) => (
@@ -392,10 +349,7 @@ const PostItem2 = ({ item }: { item: any }) => {
     router.push("/(root)/connectMore/MorePostInfo");
   }, []);
 
-  const productKeyExtractor = useCallback(
-    (item: any) => item?._id?.toString() || item?.id?.toString(),
-    [],
-  );
+  const productKeyExtractor = useCallback((item: any) => item?._id, [item]);
 
   return (
     <Pressable style={styles.container} onPress={showMorePost}>
@@ -461,25 +415,42 @@ const PostItem2 = ({ item }: { item: any }) => {
           gap: 30,
         }}
       >
-        <TouchableOpacity
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 4,
-          }}
-          onPress={handleReact}
-        >
-          <Text>❤️</Text>
-          <Text
+        {/* Reaction Button */}
+        <GestureDetector gesture={longPressGesture}>
+          <TouchableOpacity
             style={{
-              color: "#ccc",
-              fontSize: 12,
-              fontFamily: "LexendDeca",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
             }}
+            onPress={handleReactionClose}
           >
-            {reactions} Reactions
-          </Text>
-        </TouchableOpacity>
+            <Text>❤️</Text>
+            <Text
+              style={{
+                color: "#ccc",
+                fontSize: 12,
+                fontFamily: "LexendDeca",
+              }}
+            >
+              {reactions} Reactions
+            </Text>
+          </TouchableOpacity>
+        </GestureDetector>
+
+        {/* Reaction Bubble */}
+        <Animated.View style={[styles.bubble, bubbleStyle]}>
+          {reactionsList.map((reaction) => (
+            <TouchableOpacity
+              key={reaction.id}
+              onPress={() => handleReact(reaction)}
+              style={styles.reactionItem}
+            >
+              <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+            </TouchableOpacity>
+          ))}
+        </Animated.View>
+
         <TouchableOpacity
           style={{
             flexDirection: "row",
@@ -650,7 +621,7 @@ const CommentsSheet = memo(
             <FlatList
               data={comments.slice().reverse()}
               renderItem={renderComments}
-              keyExtractor={(item, index) => index?.toString()}
+              keyExtractor={(item, index) => item?._id}
               showsVerticalScrollIndicator={false}
             />
           </View>
@@ -745,14 +716,15 @@ const styles = StyleSheet.create({
   mediaContainer: {
     width: width - 32,
     height: undefined,
-    // maxHeight: 300,
+    maxHeight: 500,
     position: "relative",
     backgroundColor: "#111",
     borderRadius: 4,
   },
   mediaItem: {
     width: width - 32,
-    height: undefined,
+    alignSelf: "center",
+    height: "100%",
     // aspectRatio: 16 / 9,
     // maxHeight: 600,
   },
@@ -846,6 +818,34 @@ const styles = StyleSheet.create({
         elevation: 5,
       },
     }),
+  },
+  reactionButton: {
+    padding: 10,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 20,
+  },
+  reactionButtonText: {
+    fontSize: 16,
+  },
+  bubble: {
+    position: "absolute",
+    flexDirection: "row",
+    backgroundColor: "#121212",
+    flexGrow: 1,
+    borderRadius: 25,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    bottom: -120, // Start below the button
+  },
+  reactionItem: {
+    marginHorizontal: 5,
+  },
+  reactionEmoji: {
+    fontSize: 24,
   },
   // pauseVideo:{}
 });

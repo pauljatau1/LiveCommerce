@@ -9,8 +9,8 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";

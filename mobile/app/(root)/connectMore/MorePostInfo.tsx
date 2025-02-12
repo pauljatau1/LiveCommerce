@@ -32,8 +32,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 
 const { width } = Dimensions.get("window");
 const offset = 20;
-const blurhash =
-  "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
 
 const MorePostInfo = () => {
   const [commentPost, { isLoading }] = useCommentPostMutation({});
@@ -295,7 +293,7 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
 
   const isVideo = useMemo(
     () => item?.public_id?.split("/")[1] === "videos",
-    [item],
+    [],
   );
 
   const playPauseVideo = () => {
@@ -334,14 +332,14 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
         <Video
           ref={videoRef}
           source={{ uri: item.url }}
-          style={[styles.mediaItem]}
+          style={[styles.mediaItem, { aspectRatio }]}
           resizeMode={ResizeMode.COVER}
-          //   onReadyForDisplay={(event) => {
-          //     const { width, height } = event.naturalSize; // Get dimensions
-          //     if (width && height) {
-          //       setAspectRatio(width / height); // Dynamically set aspect ratio
-          //     }
-          //   }}
+          onReadyForDisplay={(event) => {
+            const { width, height } = event.naturalSize; // Get dimensions
+            if (width && height) {
+              setAspectRatio(width / height); // Dynamically set aspect ratio
+            }
+          }}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           isLooping
           shouldPlay={playing}
@@ -372,13 +370,12 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
   return (
     <Image
       source={{ uri: item?.url }}
-      placeholder={blurhash}
       contentFit="cover"
       // transition={300}
-      style={[styles.mediaItem]}
-      //   onLoad={({ source }) => {
-      //     setAspectRatio(source.width / source.height);
-      //   }}
+      style={[styles.mediaItem, { aspectRatio }]}
+      onLoad={({ source }) => {
+        setAspectRatio(source.width / source.height);
+      }}
       cachePolicy="memory-disk"
     />
   );
@@ -458,7 +455,7 @@ const styles = StyleSheet.create({
   mediaContainer: {
     width: width,
     height: undefined,
-    // maxHeight: 200,
+    // maxHeight: 600,
     position: "relative",
     backgroundColor: "#111",
     borderRadius: 4,
@@ -467,8 +464,9 @@ const styles = StyleSheet.create({
   mediaItem: {
     width: width,
     height: undefined,
-    maxHeight: 500,
-    aspectRatio: 1,
+    maxHeight: "100%",
+    alignSelf: "center",
+    // aspectRatio: 1,
   },
   contentContainer: {
     paddingVertical: 10,

@@ -1,6 +1,7 @@
 import { View, Text, SafeAreaView, Dimensions } from "react-native";
 import React from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
+import ReactionPicker from "@/components/connect/reactionPicker";
 
 const { height } = Dimensions.get("window");
 
@@ -15,6 +16,7 @@ const profile = () => {
         <Text className="text-white self-center my-[50px] font-LexendDeca">
           Profile coming soon
         </Text>
+        {/* <ReactionPicker /> */}
       </View>
     </SafeAreaView>
   );

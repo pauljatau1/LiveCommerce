@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   View,
   Dimensions,
@@ -32,6 +32,7 @@ import { timeFromNow } from "@/helpers/helpers";
 import { TextInput } from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import moment from "moment";
+import CheckoutNow from "./checkoutNow";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -61,6 +62,7 @@ const VideoItem = ({
   const [liked, setLiked] = useState<boolean>(false);
   const [comments, setComments] = useState<number>(engagement.comments);
   const [showComments, setShowComments] = useState<boolean>(false);
+  const [showCheckout, setShowCheckout] = useState<boolean>(false);
 
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
@@ -112,38 +114,61 @@ const VideoItem = ({
 
   //   cacheVideo();
   // }, [videoUrl]);
-
-  useEffect(() => {
-    if (isFocused && videoRef.current) {
-      if (isVisible) {
-        setPaused(false);
-      } else {
-        setPaused(true);
-      }
-    }
-  }, [isFocused, isVisible]);
-
-  useEffect(() => {
-    if (!paused && videoRef.current) {
+  const PauseVideo = useCallback(() => {
+    if (paused && videoRef.current) {
       videoRef.current.playAsync?.();
     } else {
       videoRef.current.pauseAsync?.();
     }
+    setPaused(!paused);
   }, [paused]);
 
   useEffect(() => {
+    if (isFocused && videoRef.current) {
+      if (isVisible) {
+        videoRef.current.playAsync?.();
+      } else {
+        if (paused) setPaused(false);
+        videoRef.current.pauseAsync?.();
+        videoRef.current?.setPositionAsync(0);
+      }
+    }
+  }, [isFocused, isVisible]);
+
+  // useEffect(() => {
+  //   if (!paused && videoRef.current) {
+  //     videoRef.current.playAsync?.();
+  //   } else {
+  //     videoRef.current.pauseAsync?.();
+  //   }
+  // }, [paused]);
+
+  useEffect(() => {
     if (!isFocused || !isVisible) {
-      setPaused(true);
+      videoRef.current.pauseAsync?.();
     }
   }, [isFocused]);
 
+  // useEffect(() => {
+  //   return () => {
+  //     if (videoRef.current) {
+  //       videoRef.current.unloadAsync();
+  //     }
+  //   };
+  // }, []);
+
   const tabBarHeight = useBottomTabBarHeight();
+
+  const handleBuyNow = useCallback(() => {
+    setShowCheckout(true);
+  }, []);
 
   return (
     <TouchableWithoutFeedback
       onPress={() => {
-        setPaused(!paused);
-        setPauseTriggered(!pausedTriggered);
+        PauseVideo();
+        // setPaused(!paused);
+        // setPauseTriggered(!pausedTriggered);
       }}
       style={{
         justifyContent: "center",
@@ -280,31 +305,43 @@ const VideoItem = ({
             </View>
           </View>
           <View>
-            <View
-              className="px-[18px] py-[4px] gap-[4px] bg-[#f2f2f2] mb-[8px] rounded-[5px]"
+            <Pressable
+              className="px-[10px] py-[4px] gap-[12px] bg-[#f2f2f2] mb-[8px] rounded-[5px] flex-row items-center"
               style={{
                 backgroundColor: "rgba(255,255,255,0.6)",
               }}
+              onPress={() => router.push(`/product/${product.id}`)}
             >
-              <Text className="text-[16px] text-[#000] font-LexendDecaSemiBold shrink">
-                {product?.name}
-              </Text>
-              <Text className="text-[16px] text-[#000] font-LexendDecaMedium shrink">
-                {product?.discount?.isActive ? (
-                  <Text className="text-[#16783A]">
-                    N{product?.discount?.value}
-                    {product?.discount?.type == "percentage" && "%"} off
-                  </Text>
-                ) : (
-                  <Text className="text-[#16783A]">
-                    N{product?.price?.toLocaleString()}
-                  </Text>
-                )}
-              </Text>
-            </View>
+              <Image
+                source={{ uri: product?.image }}
+                resizeMode="contain"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 4,
+                }}
+              />
+              <View className="shrink">
+                <Text className="text-[12px] text-[#000] font-LexendDecaSemiBold shrink">
+                  {product?.name}
+                </Text>
+                <Text className="text-[18px] text-[#000] font-LexendDecaMedium shrink">
+                  {product?.discount?.isActive ? (
+                    <Text className="text-[#16783A]">
+                      ₦{product?.discount?.value}
+                      {product?.discount?.type == "percentage" && "%"} off
+                    </Text>
+                  ) : (
+                    <Text className="text-[#16783A]">
+                      ₦{product?.price?.toLocaleString()}
+                    </Text>
+                  )}
+                </Text>
+              </View>
+            </Pressable>
             <TouchableOpacity
               className="p-[12px] rounded-[6px] bg-[#16783A] items-center justify-center"
-              onPress={() => router.push(`/(root)/product/${product.id}`)}
+              onPress={handleBuyNow}
               style={styles.buttonShadow}
             >
               <Text className="text-white tex-[12px] font-[600]">Buy now</Text>
@@ -327,7 +364,7 @@ const VideoItem = ({
             </View>
           </View>
         )}
-        {paused && pausedTriggered && (
+        {paused && (
           <View style={styles.loaderContainer}>
             <Entypo
               name="controller-play"
@@ -357,6 +394,24 @@ const VideoItem = ({
             product={product}
             id={id}
             commentCount={comments}
+          />
+        </BottomSheet>
+
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showCheckout}
+          snapPoints={["70%"]}
+          titleColor="!text-white"
+          onRequestClose={() => setShowCheckout(false)}
+          keyboardBehavior={"interactive"}
+        >
+          <CheckoutNow
+            productId={product.id}
+            closeSheet={() => setShowCheckout(false)}
+            sellerId={seller._id}
           />
         </BottomSheet>
       </View>

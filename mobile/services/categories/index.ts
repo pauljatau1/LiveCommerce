@@ -15,8 +15,6 @@ export const category = createApi({
       var registerPayload = await AsyncStorage.getItem("registerPayload");
       if (registerPayload)
         var tokenFromSignup = JSON.parse(registerPayload!).token;
-      console.log("token", typeof token);
-      console.log("token value", token);
       if (token || tokenFromSignup) {
         headers.set("authorization", `Bearer ${token || tokenFromSignup}`);
       }
