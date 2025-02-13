@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "auqli-app",
-    "slug": "auqli-mobile",
+    "slug": "auqli-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/auqli-logo.png",
@@ -45,18 +45,18 @@
     },
     "extra": {
       "eas": {
-        "projectId": "b4e72cb0-2e30-4412-8b16-5bea3fd4a5eb"
+        "projectId": "847d35fd-12b4-42e3-a854-3065fe2e14cb"
       },
       "router": {
         "origin": false
       }
     },
-    "owner": "todimu",
+    "owner": "auqli_limited",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/b4e72cb0-2e30-4412-8b16-5bea3fd4a5eb"
+      "url": "https://u.expo.dev/847d35fd-12b4-42e3-a854-3065fe2e14cb"
     }
   }
 }

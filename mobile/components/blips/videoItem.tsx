@@ -145,6 +145,7 @@ const VideoItem = ({
 
   useEffect(() => {
     if (!isFocused || !isVisible) {
+      setPaused(false);
       videoRef.current.pauseAsync?.();
     }
   }, [isFocused]);
