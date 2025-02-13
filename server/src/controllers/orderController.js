@@ -1524,6 +1524,7 @@ exports.getOrderDetails = async (req, res) => {
   try {
     const { orderId } = req.params;
     const userId = req.user.id;
+    const isAdmin = req.user.role === 'admin';
 
     // Find order and populate all relevant fields
     const order = await Order.findById(orderId)
@@ -1549,12 +1550,14 @@ exports.getOrderDetails = async (req, res) => {
     }
 
     // Check if user has permission to view this order
-    const isBuyer = order.buyer._id.toString() === userId;
-    const isSeller = order.items.some(item => item.seller._id.toString() === userId);
-    const isAdmin = req.user.role === 'admin';
-
-    if (!isBuyer && !isSeller && !isAdmin) {
-      return res.status(403).json({ message: 'You do not have permission to view this order' });
+    // Admins can view any order, otherwise check if user is buyer or seller
+    if (!isAdmin) {
+      const isBuyer = order.buyer._id.toString() === userId;
+      const isSeller = order.items.some(item => item.seller._id.toString() === userId);
+      
+      if (!isBuyer && !isSeller) {
+        return res.status(403).json({ message: 'You do not have permission to view this order' });
+      }
     }
 
     // Create a timeline of order events
@@ -1588,6 +1591,12 @@ exports.getOrderDetails = async (req, res) => {
           status: order.paymentInfo.status,
           transactionId: order.paymentInfo.transactionId,
           paidAt: order.paymentInfo.paidAt
+        },
+        orderStatus: {
+          isOpen: order.isOpen,
+          closedAt: order.closedAt,
+          closedBy: order.closedBy,
+          closedReason: order.closedReason
         }
       },
       buyer: order.buyer,
@@ -1632,11 +1641,6 @@ exports.getOrderDetails = async (req, res) => {
         code: order.discount.code,
         amount: order.discount.amount
       } : null,
-      orderStatus: {
-        hasReturn: order.orderStatus?.hasReturn || false,
-        hasDispute: order.orderStatus?.hasDispute || false,
-        hasRefund: order.orderStatus?.hasRefund || false
-      },
       notes: order.notes,
       timeline: timeline.sort((a, b) => b.timestamp - a.timestamp)
     };
@@ -1999,33 +2003,154 @@ exports.updateOrderOpenStatus = async (req, res) => {
     const { orderId } = req.params;
     const { isOpen, reason } = req.body;
 
-    const order = await Order.findById(orderId);
+    // Validate isOpen is provided
+    if (typeof isOpen !== 'boolean') {
+      return res.status(400).json({ 
+        message: 'isOpen must be a boolean value'
+      });
+    }
+
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // Update order fields
     order.isOpen = isOpen;
     
     if (!isOpen) {
       order.closedAt = new Date();
       order.closedBy = 'admin';
       order.closedReason = reason || 'Closed by admin';
+
+      // Send email to buyer
+      const buyerEmail = {
+        to: order.buyer.email,
+        from: 'Auqli Orders <joseph@auqli.com>',
+        subject: 'Order Status Update - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Status Update</h2>
+            <p>Dear ${order.buyer.firstName},</p>
+            <p>Your order #${order.order_id} has been closed.</p>
+            <p><strong>Reason:</strong> ${order.closedReason}</p>
+            <p>If you have any questions, please contact our support team.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      // Send email to seller
+      const sellerEmail = {
+        to: order.seller.email,
+        from: 'Auqli Orders <joseph@auqli.com>',
+        subject: 'Order Status Update - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Status Update</h2>
+            <p>Dear ${order.seller.firstName},</p>
+            <p>Order #${order.order_id} has been closed by admin.</p>
+            <p><strong>Reason:</strong> ${order.closedReason}</p>
+            <p>If you have any questions, please contact our support team.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      // Send emails
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+
+      // Create notifications for both parties
+      await Promise.all([
+        createNotification(order.seller._id, 'order_status_update', {
+          order_id: order.order_id,
+          status: 'closed',
+          reason: order.closedReason
+        }),
+        createBuyerNotification(order.buyer._id, 'order_status_update', {
+          order_id: order.order_id,
+          status: 'closed',
+          reason: order.closedReason
+        })
+      ]);
     } else {
       // Reset closing fields when reopening
       order.closedAt = null;
       order.closedBy = null;
       order.closedReason = null;
+
+      // Send email notifications for reopening
+      const buyerEmail = {
+        to: order.buyer.email,
+        from: 'Auqli Orders <joseph@auqli.com>',
+        subject: 'Order Reopened - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Reopened</h2>
+            <p>Dear ${order.buyer.firstName},</p>
+            <p>Your order #${order.order_id} has been reopened.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      const sellerEmail = {
+        to: order.seller.email,
+        from: 'Auqli Orders <joseph@auqli.com>',
+        subject: 'Order Reopened - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order Reopened</h2>
+            <p>Dear ${order.seller.firstName},</p>
+            <p>Order #${order.order_id} has been reopened by admin.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      // Send emails
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+
+      // Create notifications for both parties
+      await Promise.all([
+        createNotification(order.seller._id, 'order_status_update', {
+          order_id: order.order_id,
+          status: 'reopened'
+        }),
+        createBuyerNotification(order.buyer._id, 'order_status_update', {
+          order_id: order.order_id,
+          status: 'reopened'
+        })
+      ]);
     }
 
     await order.save();
 
     res.json({ 
       message: `Order ${isOpen ? 'reopened' : 'closed'} successfully`, 
-      order 
+      order: {
+        _id: order._id,
+        order_id: order.order_id,
+        isOpen: order.isOpen,
+        closedAt: order.closedAt,
+        closedBy: order.closedBy,
+        closedReason: order.closedReason
+      }
     });
+
   } catch (error) {
+    console.error('Error updating order open status:', error);
     res.status(500).json({ 
-      message: `Error ${isOpen ? 'reopening' : 'closing'} order`, 
+      message: 'Error updating order status', 
       error: error.message 
     });
   }

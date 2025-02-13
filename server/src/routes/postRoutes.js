@@ -341,6 +341,122 @@ router.get('/buyer-feed',
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of posts per page
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [public, private, draft]
+ *           default: public
+ *         description: Post visibility filter
+ *     responses:
+ *       200:
+ *         description: List of user's posts retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 posts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       author:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           image:
+ *                             type: string
+ *                           bio:
+ *                             type: string
+ *                           country:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                             public_id:
+ *                               type: string
+ *                       products:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                             name:
+ *                               type: string
+ *                             price:
+ *                               type: number
+ *                             images:
+ *                               type: array
+ *                               items:
+ *                                 type: string
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           likeCount:
+ *                             type: number
+ *                           dislikeCount:
+ *                             type: number
+ *                           viewCount:
+ *                             type: number
+ *                           shareCount:
+ *                             type: number
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 totalPages:
+ *                   type: number
+ *                 currentPage:
+ *                   type: number
+ *                 totalPosts:
+ *                   type: number
+ *                 authorInfo:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     image:
+ *                       type: string
+ *                     bio:
+ *                       type: string
+ *                     country:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 router.get('/user/:userType/:userId', postController.getUserPosts);
 

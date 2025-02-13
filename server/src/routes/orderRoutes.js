@@ -865,7 +865,23 @@ router.post('/:orderId/note', authMiddleware.verifyToken, orderController.addNot
  *       500:
  *         description: Server error
  */
-router.get('/:orderId', authMiddleware.verifyToken, orderController.getOrderDetails);
+router.get('/:orderId', 
+  authMiddleware.verifyToken, 
+  async (req, res, next) => {
+    // Check if user is admin before proceeding
+    const Admin = require('../models/Admin');
+    try {
+      const admin = await Admin.findById(req.user.id);
+      if (admin) {
+        req.user.role = 'admin';
+      }
+      next();
+    } catch (error) {
+      next();
+    }
+  },
+  orderController.getOrderDetails
+);
 
 /**
  * @swagger
