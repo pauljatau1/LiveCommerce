@@ -13,7 +13,8 @@ import {
   Image,
   DollarSign,
   Video,
-  FileText
+  FileText,
+  PackageOpen
 } from 'lucide-react';
 
 const mainLinks = [
@@ -23,6 +24,7 @@ const mainLinks = [
   { icon: Users, label: 'Sellers', path: '/dashboard/sellers' },
   { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
   { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
+  { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
   { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals' },
   { icon: Video, label: 'Streams', path: '/dashboard/streams' },
   { icon: Image, label: 'Banners', path: '/dashboard/banners' },

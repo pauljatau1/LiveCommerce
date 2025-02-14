@@ -14,6 +14,9 @@ import Withdrawals from '@/pages/withdrawals';
 import Announcements from '@/pages/announcements';
 import Resources from '@/pages/resources';
 import Banners from '@/pages/banners';
+import OrderDetail from '@/pages/orderDetail';
+import Returns from '@/pages/returns';
+import ReturnDetail from '@/pages/returnDetail';
 
 function App() {
   return (
@@ -40,6 +43,9 @@ function App() {
             <Route path="/dashboard/announcements" element={<Announcements />} />
             <Route path="/dashboard/resources" element={<Resources />} />
             <Route path="/dashboard/banners" element={<Banners />} />
+            <Route path="/dashboard/order-detail/:id" element={<OrderDetail />} />
+            <Route path="/dashboard/returns" element={<Returns />} />
+            <Route path="/dashboard/return-detail/:id" element={<ReturnDetail />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

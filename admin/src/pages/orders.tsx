@@ -17,10 +17,12 @@ import {
 } from "@/components/ui/table"
 import { useEffect, useState, useMemo } from "react"
 import { api } from "@/api/axios"
+import { Link } from "react-router-dom"
 
 // Define TypeScript interfaces
 interface Order {
   _id: string
+  order_id: string
   buyer: {
     firstName: string
     lastName: string
@@ -43,6 +45,7 @@ interface Order {
   paymentInfo: {
     status: string
   }
+  isOpen: boolean
 }
 
 interface OrdersResponse {
@@ -150,10 +153,8 @@ function Orders() {
             <TableRow>
               <TableHead>Order ID</TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Shipping</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Total</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -166,33 +167,33 @@ function Orders() {
             ) : ordersData?.orders && ordersData.orders.length > 0 ? (
               ordersData.orders.map((order) => (
                 <TableRow key={order._id}>
-                  <TableCell>{order._id}</TableCell>
+                  <TableCell className="font-medium">{order.order_id}</TableCell>
                   <TableCell>
-                    {order.buyer ? `${order?.buyer?.firstName} ${order?.buyer?.lastName}` : 'N/A'}
+                    {order.buyer.firstName} {order.buyer.lastName}
                   </TableCell>
                   <TableCell>
-                    {order.items ? order.items.reduce((acc, item) => acc + item.quantity, 0) : 0}
+                    <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium
+                      ${order.isOpen 
+                        ? "bg-green-100 text-green-700" 
+                        : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      <div className={`h-1.5 w-1.5 rounded-full
+                        ${order.isOpen ? "bg-green-600" : "bg-gray-600"}`} 
+                      />
+                      {order.isOpen ? "Open" : "Closed"}
+                    </div>
                   </TableCell>
-                  <TableCell>₦{order.totalAmount?.toLocaleString() || '0'}</TableCell>
-                  <TableCell>{order.shipping?.method || 'N/A'}</TableCell>
+                  <TableCell>₦{order.totalAmount.toLocaleString()}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      order.paymentInfo?.status === 'paid' 
-                        ? 'bg-green-100 text-green-800' 
-                        : order.paymentInfo?.status === 'processing'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {order.paymentInfo?.status || 'pending'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                    {new Date(order.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
+                    <Link to={`/dashboard/order-detail/${order._id}`}>
                     <Button variant="ghost" size="icon">
                       <Eye className="h-4 w-4" />
                     </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))

@@ -72,7 +72,7 @@ export default function AddCategoryModal({
       image: initialData?.image.url || "",
       subCategories: initialData?.subCategories.map(sub => ({
         name: sub.name,
-        subSubCategories: sub.subSubCategories || []
+        subSubCategories: []
       })) || [],
     },
   })
