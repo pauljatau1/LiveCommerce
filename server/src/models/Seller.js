@@ -166,7 +166,7 @@ const sellerSchema = new mongoose.Schema({
     email: { type: String },
     followDate: { type: Date, default: Date.now },
     totalOrders: { type: Number, default: 0 },
-    lastInteraction: { type: Date },
+    lastInteraction: { type: Date }, 
     optedOut: { type: Boolean, default: false },
     mainAddress: {
       country: String,
@@ -314,3 +314,4 @@ sellerSchema.pre('save', async function(next) {
 });
 
 module.exports = mongoose.model('Seller', sellerSchema);
+

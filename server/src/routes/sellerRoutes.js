@@ -2078,6 +2078,143 @@ router.put('/campaign-preferences',
   sellerController.updateCampaignPreferences
 );
 
+/**
+ * @swagger
+ * /api/seller/{sellerId}/all-reviews:
+ *   get:
+ *     summary: Get all reviews and comments associated with a seller
+ *     description: Retrieves product reviews, blip comments, post comments, and store reviews for a seller
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of reviews per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [all, product, blip, post, store]
+ *         description: Filter reviews by type
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest, rating]
+ *         description: Sort reviews by date or rating
+ *     responses:
+ *       200:
+ *         description: Reviews retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reviews:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [product, blip, post, store]
+ *                       author:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           profileImage:
+ *                             type: string
+ *                       content:
+ *                         type: string
+ *                       rating:
+ *                         type: number
+ *                       title:
+ *                         type: string
+ *                       media:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                             type:
+ *                               type: string
+ *                               enum: [image, video]
+ *                       source:
+ *                         type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             enum: [product, blip, post, store]
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           image:
+ *                             type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalReviews:
+ *                       type: integer
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     averageRating:
+ *                       type: number
+ *                     totalReviews:
+ *                       type: number
+ *                     reviewsByType:
+ *                       type: object
+ *                       properties:
+ *                         product:
+ *                           type: number
+ *                         blip:
+ *                           type: number
+ *                         post:
+ *                           type: number
+ *                         store:
+ *                           type: number
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:sellerId/all-reviews', sellerController.getAllReviews);
+
 // /**
 //  * @swagger
 //  * /api/seller/profile/{sellerId}:

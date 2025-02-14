@@ -15,6 +15,8 @@ const { sendPasswordResetEmail } = require('../utils/emailService');
 const Buyer = require('../models/Buyer');
 const Withdrawal = require('../models/Withdrawal');
 const Campaign = require('../models/Campaign');
+const Stream = require('../models/Stream');
+const Post = require('../models/Post');
 
 // Add this helper function at the top of the file
 const generateUniqueAgoraUid = async () => {
@@ -306,19 +308,82 @@ exports.checkToken = async (req, res) => {
 // Get seller profile
 exports.getProfile = async (req, res) => {
   try {
-    const seller = await Seller.findById(req.user.id).select('-password');
+    // Get only necessary fields using projection
+    const seller = await Seller.findById(req.user.id)
+      .select({
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        phoneNumber: 1,
+        isVerified: 1,
+        emailVerified: 1,
+        isFeatured: 1,
+        isDisabled: 1,
+        walletBalance: 1,
+        storeVisits: 1,
+        createdAt: 1,
+        accountType: 1,
+        businessName: 1,
+        businessType: 1,
+        isProfileComplete: 1,
+        businessEmail: 1,
+        businessNumber: 1,
+        businessAddress: 1,      // Added businessAddress
+        sellerAddress: 1,        // Added sellerAddress
+        warehouseDetails: 1,     // Added warehouseDetails
+        bankDetails: 1,
+        shippingOptions: 1,
+        storeAvatar: 1,
+        storeBanner: 1,
+        hasFilledAddress: 1,
+        hasFilledBankDetails: 1,
+        hasFilledBusinessAddress: 1,
+        hasFilledCategoryDetails: 1,
+        hasFilledVerificationDocuments: 1,
+        hasFilledWarehouseAddress: 1,
+        isNew: 1,
+        onboardingProcess: 1,
+        notificationPreferences: 1,
+        aboutStore: 1,
+        storeName: 1,
+        stats: 1,
+        campaignStats: 1,
+        cancelledStreamCount: 1,
+        lastStreamCancellation: 1,
+        agoraUid: 1,
+        followers: 1,
+        following: 1
+      })
+      .lean();
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    const profile = {
-      ...seller.toObject(),
-      role: 'Seller'
+    // Get counts
+    const [orderCount, streamCount, categoriesCount] = await Promise.all([
+      Order.countDocuments({ seller: req.user.id }),
+      Stream.countDocuments({ seller: req.user.id }),
+      Seller.findById(req.user.id).select('categories').then(s => s.categories.length)
+    ]);
+
+    // Add the count fields to the response
+    const sellerProfile = {
+      ...seller,
+      followersCount: seller.followers?.length || 0,
+      followingCount: seller.following?.length || 0,
+      totalOrders: orderCount,
+      streamCount: streamCount,
+      categoriesCount: categoriesCount
     };
 
-    res.json(profile);
+    // Remove the full arrays from the response
+    delete sellerProfile.followers;
+    delete sellerProfile.following;
+
+    res.json(sellerProfile);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve profile', error: error.message });
+    res.status(500).json({ message: 'Error fetching seller profile', error: error.message });
   }
 };
 
@@ -2289,3 +2354,167 @@ exports.updateCampaignPreferences = async (req, res) => {
     });
   }
 };
+
+exports.getAllReviews = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { 
+      page = 1, 
+      limit = 20, 
+      type = 'all',
+      sortBy = 'newest' 
+    } = req.query;
+
+    // Validate seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Build aggregation pipeline
+    const matchSeller = { $match: { seller: new mongoose.Types.ObjectId(sellerId) } };
+    
+    // Get reviews from different sources based on type
+    const [productReviews, postComments, storeReviews] = await Promise.all([
+      type === 'all' || type === 'product' ? 
+        Product.aggregate([
+          matchSeller,
+          { $unwind: '$reviews' },
+          { $replaceRoot: { newRoot: {
+            $mergeObjects: [
+              '$reviews',
+              { 
+                type: 'product',
+                source: {
+                  type: 'product',
+                  id: '$_id',
+                  name: '$name',
+                  image: { $arrayElemAt: ['$images.url', 0] }
+                }
+              }
+            ]
+          }}}
+        ]) : [],
+
+      type === 'all' || type === 'post' ?
+        Post.aggregate([
+          { $match: { 'author.userId': new mongoose.Types.ObjectId(sellerId) } },
+          { $unwind: '$comments' },
+          { $replaceRoot: { newRoot: {
+            $mergeObjects: [
+              '$comments',
+              {
+                type: 'post',
+                source: {
+                  type: 'post',
+                  id: '$_id',
+                  name: '$title',
+                  image: { $arrayElemAt: ['$media.url', 0] }
+                }
+              }
+            ]
+          }}}
+        ]) : [],
+
+      type === 'all' || type === 'store' ?
+        Seller.aggregate([
+          { $match: { _id: new mongoose.Types.ObjectId(sellerId) } },
+          { $unwind: '$reviews' },
+          { $replaceRoot: { newRoot: {
+            $mergeObjects: [
+              '$reviews',
+              { type: 'store' }
+            ]
+          }}}
+        ]) : []
+    ]);
+
+    // Get blip comments (separate query due to nested structure)
+    let blipComments = [];
+    if (type === 'all' || type === 'blip') {
+      const products = await Product.find({ seller: sellerId });
+      for (const product of products) {
+        if (product.blips && product.blips.length > 0) {
+          for (const blip of product.blips) {
+            if (blip.comments && blip.comments.length > 0) {
+              const formattedComments = blip.comments.map(comment => ({
+                ...comment.toObject(),
+                type: 'blip',
+                source: {
+                  type: 'blip',
+                  id: blip._id,
+                  name: `${product.name} - Blip`,
+                  image: blip.thumbnail || blip.url
+                }
+              }));
+              blipComments.push(...formattedComments);
+            }
+          }
+        }
+      }
+    }
+
+    // Combine all reviews
+    let allReviews = [
+      ...productReviews,
+      ...blipComments,
+      ...postComments,
+      ...storeReviews
+    ];
+
+    // Sort reviews
+    switch (sortBy) {
+      case 'oldest':
+        allReviews.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        break;
+      case 'rating':
+        allReviews.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      default: // newest
+        allReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // Calculate stats
+    const stats = {
+      averageRating: calculateAverageRating(allReviews),
+      totalReviews: allReviews.length,
+      reviewsByType: {
+        product: productReviews.length,
+        blip: blipComments.length,
+        post: postComments.length,
+        store: storeReviews.length
+      }
+    };
+
+    // Paginate results
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedReviews = allReviews.slice(startIndex, endIndex);
+
+    res.json({
+      reviews: paginatedReviews,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(allReviews.length / limit),
+        totalReviews: allReviews.length
+      },
+      stats
+    });
+
+  } catch (error) {
+    console.error('Error in getAllReviews:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve reviews',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to calculate average rating
+function calculateAverageRating(reviews) {
+  const ratedReviews = reviews.filter(review => review.rating);
+  if (ratedReviews.length === 0) return 0;
+  
+  const sum = ratedReviews.reduce((acc, review) => acc + review.rating, 0);
+  return (sum / ratedReviews.length).toFixed(1);
+}
