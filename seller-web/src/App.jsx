@@ -62,6 +62,7 @@ import CreateCampaign from './Pages/MarketingPage/CreateCampaign';
 import { TooltipProvider } from './Components/ui/tooltip';
 import Returns from './Pages/Orders/Returns';
 import ReturnDetail from './Pages/Orders/ReturnDetail';
+import Account from './Pages/Account/account';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from './lib/theme';
 
@@ -387,6 +388,11 @@ const router = createBrowserRouter([
           {
             path: '/dashboard/settings',
             element: <SettingsDashboard />,
+            errorElement: <NotFoundPage />
+          },
+          {
+            path: '/dashboard/account',
+            element: <Account />,
             errorElement: <NotFoundPage />
           },
           {
