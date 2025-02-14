@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { createNotification, sendEmailNotification } = require('../controllers/notificationController');
+const notificationController = require('../controllers/notificationController');
 
 // Define the address schema to match Terminal Africa's format
 const addressSchema = new mongoose.Schema({
@@ -214,15 +214,13 @@ orderSchema.pre('save', async function(next) {
         this.seller,
         { $inc: { walletBalance: sellerAmount } },
         { new: true }
-      ).populate('email firstName lastName businessName');
+      );
 
       // Create notification for order closure and wallet update
-      await createNotification(this.seller, 'order_closed', {
+      await notificationController.createNotification(this.seller, 'order_closed', {
         orderId: this._id,
         order_id: this.order_id,
         amount: sellerAmount,
-        closedBy: this.closedBy,
-        closedReason: this.closedReason,
         newWalletBalance: updatedSeller.walletBalance
       });
 
@@ -247,7 +245,7 @@ orderSchema.pre('save', async function(next) {
         `
       };
 
-      await sendEmailNotification(updatedSeller, sellerEmail);
+      await notificationController.sendEmailNotification(updatedSeller, sellerEmail);
 
     } catch (error) {
       return next(error);

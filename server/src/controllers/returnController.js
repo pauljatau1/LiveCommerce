@@ -189,6 +189,7 @@ exports.getReturnDetails = async (req, res) => {
   try {
     const { returnId } = req.params;
     const userId = req.user.id;
+    const isAdmin = req.user.role === 'admin';
 
     const returnRequest = await Return.findById(returnId)
       .populate('order')
@@ -200,8 +201,8 @@ exports.getReturnDetails = async (req, res) => {
       return res.status(404).json({ message: 'Return request not found' });
     }
 
-    // Check authorization
-    if (![returnRequest.buyer._id.toString(), returnRequest.seller._id.toString()].includes(userId)) {
+    // Check authorization - allow admin access
+    if (!isAdmin && ![returnRequest.buyer._id.toString(), returnRequest.seller._id.toString()].includes(userId)) {
       return res.status(403).json({ message: 'Not authorized to view this return request' });
     }
 

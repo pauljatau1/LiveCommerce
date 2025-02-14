@@ -1545,6 +1545,126 @@ exports.deleteResource = async (req, res) => {
   }
 };
 
+exports.rejectBusinessAccount = async (req, res) => {
+  const { sellerId } = req.params;
+  const { reason, details } = req.body;
+
+  try {
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Reset verification status and onboarding process
+    seller.isVerified = false;
+    seller.hasFilledVerificationDocuments = false;
+    seller.onboardingProcess = 'rejected';
+    
+    // Reset all onboarding progress flags
+    seller.hasFilledAddress = false;
+    seller.hasFilledWarehouseAddress = false;
+    seller.hasFilledBankDetails = false;
+    seller.hasFilledCategoryDetails = false;
+    seller.hasFilledVerificationDocuments = false;
+    seller.hasFilledBusinessAddress = false;
+    
+    // Clear existing verification documents
+    if (seller.verificationDocuments && seller.verificationDocuments.documents) {
+      seller.verificationDocuments.documents = [];
+    }
+
+    await seller.save();
+
+    // Send rejection email to personal email
+    const personalEmailMsg = {
+      to: seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: 'Important: Your Auqli Business Account Application Status',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Account Verification Update</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>We have reviewed your business account application for Auqli. Unfortunately, we are unable to verify your account at this time.</p>
+          
+          <div style="background-color: #f8f8f8; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3>Reason for Rejection:</h3>
+            <p>${reason}</p>
+            ${details ? `<p><strong>Additional Details:</strong> ${details}</p>` : ''}
+          </div>
+
+          <h3>Next Steps:</h3>
+          <ul>
+            <li>Review the rejection reason carefully</li>
+            <li>Update your verification documents addressing the issues mentioned</li>
+            <li>Resubmit your application through your seller dashboard</li>
+          </ul>
+
+          <p>If you need assistance or have any questions, please don't hesitate to contact our support team.</p>
+          
+          <p><a href="${process.env.FRONTEND_URL}/seller/login" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login to Your Account</a></p>
+          
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send to business email if it exists
+    if (seller.businessEmail) {
+      const businessEmailMsg = {
+        to: seller.businessEmail,
+        from: 'Auqli Admin <joseph@auqli.com>',
+        subject: 'Business Account Verification Status - Action Required',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Business Account Verification Update</h2>
+            <p>Dear ${seller.businessName || seller.firstName},</p>
+            <p>Your business account verification for Auqli requires additional attention.</p>
+            
+            <div style="background-color: #f8f8f8; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3>Application Status: Not Verified</h3>
+              <p><strong>Reason:</strong> ${reason}</p>
+              ${details ? `<p><strong>Additional Information:</strong> ${details}</p>` : ''}
+            </div>
+
+            <h3>Required Actions:</h3>
+            <ul>
+              <li>Review and update your business documentation</li>
+              <li>Ensure all submitted documents meet our verification requirements</li>
+              <li>Resubmit your verification documents through the seller dashboard</li>
+            </ul>
+
+            <p>Business Details:</p>
+            <ul>
+              <li>Business Name: ${seller.businessName}</li>
+              <li>Account Type: ${seller.accountType}</li>
+              <li>Verification Status: Pending Resubmission</li>
+            </ul>
+
+            <p>For assistance with the verification process, please contact our business support team.</p>
+            <p>Best regards,<br>Auqli Business Team</p>
+          </div>
+        `
+      };
+      await sgMail.send(businessEmailMsg);
+    }
+
+    await sgMail.send(personalEmailMsg);
+
+    res.json({
+      success: true,
+      message: 'Account verification rejected successfully',
+      seller
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject account verification',
+      error: error.message
+    });
+  }
+};
+
 
 
 

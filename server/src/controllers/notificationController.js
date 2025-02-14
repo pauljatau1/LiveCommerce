@@ -89,7 +89,9 @@ const getNotificationMessage = (type, data) => {
     case 'campaign_scheduled':
       return `${data.storeName} has scheduled a campaign for ${new Date(data.scheduledFor).toLocaleDateString()}: ${data.campaignTitle}`;
     case 'order_closed':
-      return `Order #${data.order_id} has been closed and ₦${data.amount.toLocaleString()} has been released to your wallet. New balance: ₦${data.newWalletBalance.toLocaleString()}.`;
+      const amount = typeof data.amount === 'number' ? data.amount.toLocaleString() : '0';
+      const newBalance = typeof data.newWalletBalance === 'number' ? data.newWalletBalance.toLocaleString() : '0';
+      return `Order #${data.order_id} has been closed and ₦${amount} has been released to your wallet. New balance: ₦${newBalance}.`;
     case 'order_status_update':
       return `Your order #${data.order_id} status has been updated to ${data.status}.`;
     case 'order_shipped':
@@ -131,11 +133,13 @@ const getNotificationMessage = (type, data) => {
 exports.createNotification = async (sellerId, type, data) => {
   console.log('Creating notification:', { sellerId, type, data });
   try {
+    const actualSellerId = sellerId._id || sellerId;
+    
     const title = getNotificationTitle(type);
     const message = getNotificationMessage(type, data);
 
     const notification = new Notification({
-      seller: sellerId,
+      seller: actualSellerId,
       recipient: 'seller',
       type,
       title,

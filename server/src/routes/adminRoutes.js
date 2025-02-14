@@ -1193,4 +1193,42 @@ router.delete('/resources/:id',
   adminController.deleteResource
 );
 
+/**
+ * @swagger
+ * /api/admin/sellers/{sellerId}/reject:
+ *   put:
+ *     summary: Reject a seller's business account
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Seller ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 required: true
+ *               details:
+ *                 type: string
+ *                 description: Additional details about rejection
+ *     responses:
+ *       200:
+ *         description: Business account rejected successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/sellers/:sellerId/reject', authMiddleware.verifyToken, adminController.rejectBusinessAccount);
+
 module.exports = router;

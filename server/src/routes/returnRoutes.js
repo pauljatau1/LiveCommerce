@@ -158,8 +158,21 @@ router.get('/seller',
  *       404:
  *         description: Return request not found
  */
-router.get('/:returnId',
+router.get('/:returnId', 
   authMiddleware.verifyToken,
+  async (req, res, next) => {
+    // Check if user is admin before proceeding
+    const Admin = require('../models/Admin');
+    try {
+      const admin = await Admin.findById(req.user.id);
+      if (admin) {
+        req.user.role = 'admin';
+      }
+      next();
+    } catch (error) {
+      next();
+    }
+  },
   returnController.getReturnDetails
 );
 

@@ -166,6 +166,37 @@ exports.register = async (req, res) => {
 
     await sgMail.send(msg);
 
+    // After successful seller creation and welcome email
+    const adminMsg = {
+      to: ['bolu@auqli.com', 'joseph@auqli.com', 'dan@auqli.com'],
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: 'New Seller Registration - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">New Seller Registration</h1>
+            <p style="font-size: 16px; line-height: 1.5;">A new seller has registered on Auqli:</p>
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+              <p style="margin: 5px 0;">Name: ${firstName} ${lastName}</p>
+              <p style="margin: 5px 0;">Email: ${email}</p>
+              <p style="margin: 5px 0;">Phone: ${phoneNumber}</p>
+            </div>
+            <p style="font-size: 14px;">Please check the admin dashboard for more details.</p>
+            <a href="https://admin.auqli.live/" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Login</a>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    // Send both welcome email to seller and notification to admins
+    await Promise.all([
+      sgMail.send(msg),
+      sgMail.send(adminMsg)
+    ]);
+
     res.status(201).json({ 
       message: 'Registration successful. Please verify your email.',
       user: newSeller, 

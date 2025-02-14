@@ -156,6 +156,7 @@ const sellerSchema = new mongoose.Schema({
   hasFilledBusinessAddress: { type: Boolean, default: false },
   onboardingProcess: {
     type: String,
+    enum: ['', 'pending', 'rejected', 'completed'],
     default: ''
   },
   followers: [{
