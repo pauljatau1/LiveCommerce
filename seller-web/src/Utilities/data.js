@@ -91,6 +91,29 @@ export const sideBarNavData = [
     },
     {
         id: ObjectID().toHexString(),
+        name: 'Returns Center',
+        icon: 'heroicons:arrow-path',
+        path: '/dashboard/returns',
+        // subNav: [
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Pending Returns',
+        //         path: 'pending'
+        //     },
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Approved Returns',
+        //         path: 'approved'
+        //     },
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Rejected Returns',
+        //         path: 'rejected'
+        //     }
+        // ]
+    },
+    {
+        id: ObjectID().toHexString(),
         name: 'Products',
         icon: 'iconoir:box-iso',
         path: '/dashboard/products',
@@ -609,7 +632,7 @@ export const utilityNavData = [
         id: ObjectID().toHexString(),
         name: 'Help & Support',
         icon: MdHelpOutline,
-        path: '/dashboard/help'
+        path: 'https://help.auqli.live/en/'
     },
     {
         id: ObjectID().toHexString(),

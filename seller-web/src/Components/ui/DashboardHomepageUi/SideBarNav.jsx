@@ -116,10 +116,10 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
             {/* Bottom Section - Fixed at bottom */}
             <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#17171B]">
               <div className="flex flex-col gap-4 p-4">
-                <NavLink to='/dashboard/help' className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                <a href='https://help.auqli.live/en/' target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                   <Icon icon="fluent:person-support-28-regular" width="24" height="24" />
                   <p>Help & Support</p>
-                </NavLink>
+                </a>
                 <NavLink to='/dashboard/settings' className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                   <Icon icon="fluent:settings-28-regular" width="24" height="24" />
                   <p>Settings</p>
