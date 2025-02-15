@@ -29,6 +29,7 @@ import NotificationsDialog from "../../Components/NotificationsDialog";
 import { useOutletContext } from "react-router-dom";
 import NoOrderFound from "../../assets/no-order-found.png"
 
+
 // Helper function: Formats numbers with K/M suffix and handles pluralization
 // Example: formatNumber(1500, "view") returns "1.5K views"
 const formatNumber = (number, label) => {
@@ -45,6 +46,7 @@ const formatMetricValue = (value) => {
   if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
   return value.toString();
 };
+
 
 // Add this new API call function
 const getSellerAnalytics = async () => {

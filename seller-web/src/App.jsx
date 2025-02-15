@@ -1,7 +1,7 @@
 import AuthProvider from './Contexts/AuthContext';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
 import LoginPage, { Loader as loginLoader } from './Pages/LoginPage/LoginPage';
@@ -64,6 +64,7 @@ import Returns from './Pages/Orders/Returns';
 import ReturnDetail from './Pages/Orders/ReturnDetail';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from './lib/theme';
+import mixpanel from "mixpanel-browser";
 
 // Create a wrapper component that provides both Router and Auth contexts
 
@@ -406,9 +407,44 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
+  useEffect(() => {
+    // Initialize Mixpanel based on existing consent
+      mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
+        debug: true,
+        track_pageview: true,
+        persistence: "localStorage",
+        autocapture: true,
+      });
+  }, []);
+
   const handleConsentAccept = () => {
-    // Initialize Clarity when user accepts
-    window.initClarity?.();
+    // Initialize Customer.io analytics
+    window.cioanalytics.load("403c9b971fd0501b68ee");
+    // Track initial pageview
+    window.cioanalytics.page();
+    // Near entry of your product, init Mixpanel
+    mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
+      debug: true,
+      track_pageview: true,
+      persistence: "localStorage",
+      autocapture: true,
+      
+    });
+
+  };
+
+  const handleConsentDecline = () => {
+    // Initialize Customer.io analytics
+    window.cioanalytics.load("403c9b971fd0501b68ee");
+    // Track initial pageview
+    window.cioanalytics.page();
+    // Near entry of your product, init Mixpanel
+    mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
+      debug: true,
+      track_pageview: true,
+      persistence: "localStorage",
+      autocapture: true,
+    });
   };
 
   return (
@@ -419,7 +455,7 @@ function App() {
         <ToastContainer />
         <CookieConsent
           onAccept={handleConsentAccept}
-          onDecline={() => console.log('Analytics declined')}
+          onDecline={handleConsentDecline}
         />
       </Suspense>
     </ThemeProvider>
