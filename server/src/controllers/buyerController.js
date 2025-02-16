@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller')
 const Product = require('../models/Product');
+const Post = require('../models/Post');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 sgMail.setApiKey('SG.REDACTED');
@@ -181,18 +182,65 @@ exports.checkToken = async (req, res) => {
 // Get buyer profile
 exports.getProfile = async (req, res) => {
   try {
-    const buyer = await Buyer.findById(req.user.id).select('-password');
-    if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
+    // First get the buyer with basic info
+    const buyer = await Buyer.findById(req.user.id)
+      .select({
+        firstName: 1,
+        lastName: 1,
+        username: 1,
+        email: 1,
+        country: 1,
+        phoneNumber: 1,
+        profileImage: 1,
+        shippingAddresses: 1,
+        emailVerified: 1,
+        phoneVerified: 1,
+        isDisabled: 1,
+        isNew: 1,
+        createdAt: 1,
+        isIdentityVerified: 1,
+        preferredCurrency: 1,
+        preferredLanguage: 1,
+        role: 1,
+        notificationPreferences: {
+          email: 1,
+          push: 1,
+          sms: 1
+        }
+      })
+      .lean();
 
-    // Add role information
-    const profile = {
-      ...buyer.toObject(),
-      role: 'Buyer'
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Get counts in parallel using the activityFeed to count following
+    const [followersCount, followingCount, postsCount] = await Promise.all([
+      Buyer.findById(req.user.id).select('followers').then(b => b.followers?.length || 0),
+      Buyer.findById(req.user.id)
+        .select('activityFeed')
+        .then(b => b.activityFeed?.filter(activity => 
+          activity.type === 'follow' && 
+          activity.referenceModel === 'Seller'
+        ).length || 0),
+      Post.countDocuments({ 'author.userId': req.user.id, 'author.userModel': 'Buyer' })
+    ]);
+
+    // Add the counts and profile picture URL to the response
+    const enhancedBuyer = {
+      ...buyer,
+      followersCount,
+      followingCount,
+      postsCount,
+      profilePictureUrl: buyer.profileImage?.url || null
     };
 
-    res.json(profile);
+    res.json(enhancedBuyer);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve profile', error: error.message });
+    res.status(500).json({ 
+      message: 'Error fetching buyer profile', 
+      error: error.message 
+    });
   }
 };
 
@@ -913,31 +961,7 @@ exports.unfollowSeller = async (req, res) => {
   }
 };
 
-// Get list of sellers that the buyer follows
-exports.getFollowedSellers = async (req, res) => {
-  try {
-    const buyerId = req.user.id;
 
-    const sellers = await Seller.find({
-      'followers.buyerId': buyerId
-    }).select('storeName businessName aboutStore followers');
-
-    const followedSellers = sellers.map(seller => ({
-      sellerId: seller._id,
-      storeName: seller.storeName,
-      businessName: seller.businessName,
-      aboutStore: seller.aboutStore,
-      followDate: seller.followers.find(f => f.buyerId.toString() === buyerId).followDate
-    }));
-
-    res.json(followedSellers);
-  } catch (error) {
-    res.status(500).json({
-      message: 'Failed to get followed sellers',
-      error: error.message
-    });
-  }
-};
 
 // Add product to wishlist
 exports.addToWishlist = async (req, res) => {
@@ -1857,6 +1881,123 @@ exports.verifyAndResetPassword = async (req, res) => {
     res.status(500).json({
       message: 'Failed to reset password',
       error: error.message
+    });
+  }
+};
+
+// Get buyer's followers
+exports.getFollowers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const buyer = await Buyer.findById(req.user.id)
+      .populate({
+        path: 'followers.sellerId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar'
+      });
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Calculate pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const total = buyer.followers.length;
+
+    // Get paginated followers
+    const followers = buyer.followers.slice(startIndex, endIndex);
+
+    // Format followers data
+    const formattedFollowers = followers.map(follower => ({
+      id: follower.sellerId._id,
+      type: 'seller',
+      name: `${follower.sellerId.firstName} ${follower.sellerId.lastName}`,
+      storeName: follower.sellerId.storeName || follower.sellerId.businessName,
+      profileImage: follower.sellerId.storeAvatar?.url || follower.sellerId.profileImage?.url,
+      followDate: follower.followDate
+    }));
+
+    res.json({
+      followers: formattedFollowers,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        current: parseInt(page),
+        hasMore: endIndex < total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve followers', 
+      error: error.message 
+    });
+  }
+};
+
+// Get users the buyer follows
+exports.getFollowing = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const buyerId = req.user.id;
+
+    // Find sellers that this buyer follows
+    const sellers = await Seller.find({
+      'followers.buyerId': buyerId
+    }).select('_id firstName lastName storeName businessName storeAvatar profileImage followers');
+
+    // Find buyers that this buyer follows
+    const buyers = await Buyer.find({
+      'followers.buyerId': buyerId
+    }).select('_id firstName lastName profileImage followers');
+
+    // Combine and format following data
+    let following = [
+      ...sellers.map(seller => {
+        const followerData = seller.followers.find(f => f.buyerId?.toString() === buyerId);
+        return {
+          id: seller._id,
+          type: 'seller',
+          name: `${seller.firstName} ${seller.lastName}`,
+          storeName: seller.storeName || seller.businessName,
+          profileImage: seller.storeAvatar?.url || seller.profileImage?.url,
+          followDate: followerData?.followDate
+        };
+      }).filter(f => f.followDate), // Filter out any undefined followDates
+      ...buyers.map(buyer => {
+        const followerData = buyer.followers.find(f => f.buyerId?.toString() === buyerId);
+        return {
+          id: buyer._id,
+          type: 'buyer',
+          name: `${buyer.firstName} ${buyer.lastName}`,
+          storeName: null,
+          profileImage: buyer.profileImage?.url,
+          followDate: followerData?.followDate
+        };
+      }).filter(f => f.followDate) // Filter out any undefined followDates
+    ];
+
+    // Sort by follow date
+    following.sort((a, b) => new Date(b.followDate) - new Date(a.followDate));
+
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const total = following.length;
+    following = following.slice(startIndex, endIndex);
+
+    res.json({
+      following,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        current: parseInt(page),
+        hasMore: endIndex < total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve following list', 
+      error: error.message 
     });
   }
 };

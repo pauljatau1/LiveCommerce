@@ -784,39 +784,7 @@ router.post('/follow/:sellerId', authMiddleware.verifyToken, authMiddleware.isBu
  */
 router.delete('/follow/:sellerId', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.unfollowSeller);
 
-/**
- * @swagger
- * /api/buyer/following:
- *   get:
- *     summary: Get list of sellers that the buyer follows
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of followed sellers retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   sellerId:
- *                     type: string
- *                   storeName:
- *                     type: string
- *                   businessName:
- *                     type: string
- *                   aboutStore:
- *                     type: string
- *                   followDate:
- *                     type: string
- *                     format: date-time
- *       500:
- *         description: Server error
- */
-router.get('/following', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.getFollowedSellers);
+
 
 // Wishlist routes
 /**
@@ -1464,5 +1432,141 @@ router.put('/profile/update', authMiddleware.verifyToken, buyerController.update
 router.post('/change-password', authMiddleware.verifyToken, buyerController.changePassword);
 router.post('/forgot-password/request', buyerController.requestPasswordReset);
 router.post('/forgot-password/verify', buyerController.verifyAndResetPassword);
+
+/**
+ * @swagger
+ * /api/buyer/followers:
+ *   get:
+ *     summary: Get list of followers (buyers and sellers who follow this buyer)
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of followers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 followers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [buyer, seller]
+ *                       name:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                       followDate:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     current:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/followers', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getFollowers
+);
+
+/**
+ * @swagger
+ * /api/buyer/following:
+ *   get:
+ *     summary: Get list of users the buyer follows (both buyers and sellers)
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of following retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 following:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [buyer, seller]
+ *                       name:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                       followDate:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     current:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/following', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getFollowing
+);
 
 module.exports = router;
