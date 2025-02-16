@@ -156,7 +156,7 @@ const sellerSchema = new mongoose.Schema({
   hasFilledBusinessAddress: { type: Boolean, default: false },
   onboardingProcess: {
     type: String,
-    enum: ['', 'pending', 'rejected', 'completed'],
+
     default: ''
   },
   followers: [{
@@ -222,6 +222,28 @@ const sellerSchema = new mongoose.Schema({
   },
   resetPasswordCode: String,
   resetPasswordExpires: Date,
+  monthlyStats: {
+    storeVisits: {
+      type: Map,
+      of: Number,
+      default: new Map()
+    },
+    orders: {
+      type: Map,
+      of: Number,
+      default: new Map()
+    },
+    customers: {
+      type: Map,
+      of: Number,
+      default: new Map()
+    },
+    walletTransactions: {
+      type: Map,
+      of: Number,
+      default: new Map()
+    }
+  }
 });
 
 // Middleware to update isNew property after 3 days
@@ -312,6 +334,12 @@ sellerSchema.pre('save', async function(next) {
   }
   next();
 });
+
+// Add method to calculate month-over-month change
+sellerSchema.methods.calculateMonthlyChange = function(currentValue, lastMonthValue) {
+  if (!lastMonthValue || lastMonthValue === 0) return 0;
+  return ((currentValue - lastMonthValue) / lastMonthValue) * 100;
+};
 
 module.exports = mongoose.model('Seller', sellerSchema);
 

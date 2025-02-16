@@ -17,6 +17,8 @@ const Withdrawal = require('../models/Withdrawal');
 const Campaign = require('../models/Campaign');
 const Stream = require('../models/Stream');
 const Post = require('../models/Post');
+const Notification = require('../models/Notification');
+const notificationController = require('./notificationController');
 
 // Add this helper function at the top of the file
 const generateUniqueAgoraUid = async () => {
@@ -328,9 +330,9 @@ exports.getProfile = async (req, res) => {
         isProfileComplete: 1,
         businessEmail: 1,
         businessNumber: 1,
-        businessAddress: 1,      // Added businessAddress
-        sellerAddress: 1,        // Added sellerAddress
-        warehouseDetails: 1,     // Added warehouseDetails
+        businessAddress: 1,
+        sellerAddress: 1,
+        warehouseDetails: 1,
         bankDetails: 1,
         shippingOptions: 1,
         storeAvatar: 1,
@@ -361,17 +363,18 @@ exports.getProfile = async (req, res) => {
     }
 
     // Get counts
-    const [orderCount, streamCount, categoriesCount] = await Promise.all([
+    const [orderCount, streamCount, categoriesCount, followingCount] = await Promise.all([
       Order.countDocuments({ seller: req.user.id }),
       Stream.countDocuments({ seller: req.user.id }),
-      Seller.findById(req.user.id).select('categories').then(s => s.categories.length)
+      Seller.findById(req.user.id).select('categories').then(s => s.categories.length),
+      Buyer.countDocuments({ 'followers.sellerId': req.user.id })
     ]);
 
     // Add the count fields to the response
     const sellerProfile = {
       ...seller,
       followersCount: seller.followers?.length || 0,
-      followingCount: seller.following?.length || 0,
+      followingCount: followingCount,
       totalOrders: orderCount,
       streamCount: streamCount,
       categoriesCount: categoriesCount
@@ -1007,46 +1010,108 @@ exports.getTopProducts = async (req, res) => {
 // Get seller's statistics
 exports.getStatistics = async (req, res) => {
   try {
-    const sellerId = req.user.id;
-    const seller = await Seller.findById(sellerId);
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
 
-    // Get all orders for this seller
-    const orders = await Order.find({ seller: sellerId });
+    const currentDate = new Date();
+    const currentWeekStart = new Date(currentDate);
+    currentWeekStart.setDate(currentDate.getDate() - currentDate.getDay()); // Start of current week (Sunday)
+    const lastWeekStart = new Date(currentWeekStart);
+    lastWeekStart.setDate(currentWeekStart.getDate() - 7); // Start of last week
 
-    // Calculate statistics
-    const totalOrders = orders.length;
-    const totalSales = orders.reduce((sum, order) => sum + order.totalPrice, 0);
-    const uniqueCustomers = seller.customers.length;
-    const storeVisits = seller.storeVisits;
+    // Get current week statistics
+    const currentWeekVisits = seller.weeklyStats?.storeVisits || 0;
+    const lastWeekVisits = seller.lastWeekStats?.storeVisits || 0;
+
+    // Get total orders from Order model
+    const totalOrders = await Order.countDocuments({ 'items.seller': seller._id });
+    const currentWeekOrders = await Order.countDocuments({
+      'items.seller': seller._id,
+      createdAt: {
+        $gte: currentWeekStart,
+        $lt: currentDate
+      }
+    });
+    const lastWeekOrders = await Order.countDocuments({
+      'items.seller': seller._id,
+      createdAt: {
+        $gte: lastWeekStart,
+        $lt: currentWeekStart
+      }
+    });
+
+    // Get total followers directly from seller.followers array
+    const totalCustomers = seller.followers.length;
+
+    // Get current week's new followers
+    const currentWeekCustomers = seller.followers.filter(follower => {
+      const followDate = new Date(follower.followDate);
+      return followDate >= currentWeekStart && followDate <= currentDate;
+    }).length;
+
+    // Get last week's new followers
+    const lastWeekCustomers = seller.followers.filter(follower => {
+      const followDate = new Date(follower.followDate);
+      return followDate >= lastWeekStart && followDate < currentWeekStart;
+    }).length;
+
+    // Calculate conversion rates
+    const storeVisits = seller.storeVisits || 0;
+    const currentConversionRate = storeVisits > 0 ? 
+      (totalOrders / storeVisits) * 100 : 0;
     
-    // Calculate conversion rate (orders / store visits)
-    const conversionRate = storeVisits ? (totalOrders / storeVisits * 100).toFixed(2) : 0;
+    const lastWeekConversionRate = lastWeekVisits > 0 ? 
+      (lastWeekOrders / lastWeekVisits) * 100 : 0;
 
-    // Get current month's data
-    const currentMonth = new Date().getMonth();
-    const currentMonthOrders = orders.filter(order => 
-      order.createdAt.getMonth() === currentMonth
+    // Calculate percentage changes
+    const calculatePositiveChange = (current, last) => {
+      if (!last || last === 0) return 0;
+      const change = ((current - last) / last) * 100;
+      return Math.max(0, change);
+    };
+
+    const visitsChange = calculatePositiveChange(currentWeekVisits, lastWeekVisits);
+    const ordersChange = calculatePositiveChange(currentWeekOrders, lastWeekOrders);
+    const customersChange = calculatePositiveChange(currentWeekCustomers, lastWeekCustomers);
+    const walletChange = calculatePositiveChange(
+      seller.walletBalance, 
+      seller.lastWeekStats?.walletBalance || 0
     );
-    const currentMonthSales = currentMonthOrders.reduce((sum, order) => 
-      sum + order.totalPrice, 0
-    );
+    const conversionChange = calculatePositiveChange(currentConversionRate, lastWeekConversionRate);
 
     const statistics = {
-      totalStoreVisits: storeVisits,
-      totalSales,
-      totalOrders,
-      uniqueCustomers,
-      conversionRate: `${conversionRate}%`,
-      walletBalance: seller.walletBalance,
-      currentMonth: {
-        orders: currentMonthOrders.length,
-        sales: currentMonthSales
+      walletBalance: {
+        amount: seller.walletBalance,
+        currency: "NGN",
+        changePercentage: parseFloat(walletChange.toFixed(2))
+      },
+      storeVisits: {
+        count: storeVisits,
+        changePercentage: parseFloat(visitsChange.toFixed(2))
+      },
+      totalOrders: {
+        count: totalOrders,
+        changePercentage: parseFloat(ordersChange.toFixed(2))
+      },
+      conversionRate: {
+        percentage: parseFloat(currentConversionRate.toFixed(2)),
+        changePercentage: parseFloat(conversionChange.toFixed(2))
+      },
+      newCustomers: {
+        count: totalCustomers,
+        changePercentage: parseFloat(customersChange.toFixed(2))
       }
     };
 
     res.json(statistics);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve statistics', error: error.message });
+    console.error('Error in getStatistics:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve statistics',
+      error: error.message
+    });
   }
 };
 
@@ -2518,3 +2583,124 @@ function calculateAverageRating(reviews) {
   const sum = ratedReviews.reduce((acc, review) => acc + review.rating, 0);
   return (sum / ratedReviews.length).toFixed(1);
 }
+
+// Follow a buyer
+exports.followBuyer = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { buyerId } = req.params;
+
+    const [buyer, seller] = await Promise.all([
+      Buyer.findById(buyerId),
+      Seller.findById(sellerId)
+    ]);
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Initialize followers array if it doesn't exist
+    if (!buyer.followers) {
+      buyer.followers = [];
+    }
+
+    // Check if already following
+    const isAlreadyFollowing = buyer.followers.some(
+      follower => follower.sellerId && follower.sellerId.toString() === sellerId
+    );
+
+    if (isAlreadyFollowing) {
+      return res.status(400).json({ message: 'Already following this buyer' });
+    }
+
+    // Add to buyer's followers list
+    buyer.followers.push({
+      sellerId: seller._id,
+      storeName: seller.storeName,
+      businessName: seller.businessName,
+      followDate: new Date(),
+      lastInteraction: new Date()
+    });
+
+    await buyer.save();
+
+    // Create notification for buyer using createBuyerNotification
+    await notificationController.createBuyerNotification(
+      buyerId,
+      'new_follower',
+      {
+        sellerId: seller._id,
+        sellerName: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
+        followDate: new Date()
+      }
+    );
+
+    res.json({
+      message: 'Successfully followed buyer',
+      followData: buyer.followers[buyer.followers.length - 1]
+    });
+  } catch (error) {
+    console.error('Follow buyer error:', error);
+    res.status(500).json({
+      message: 'Failed to follow buyer',
+      error: error.message
+    });
+  }
+};
+
+// Unfollow a buyer
+exports.unfollowBuyer = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { buyerId } = req.params;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Remove from followers list
+    buyer.followers = buyer.followers.filter(
+      follower => follower.sellerId.toString() !== sellerId
+    );
+
+    await buyer.save();
+
+    res.json({ message: 'Successfully unfollowed buyer' });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to unfollow buyer',
+      error: error.message
+    });
+  }
+};
+
+// Get list of buyers that the seller follows
+exports.getFollowedBuyers = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+
+    const buyers = await Buyer.find({
+      'followers.sellerId': sellerId
+    }).select('firstName lastName email followers');
+
+    const followedBuyers = buyers.map(buyer => {
+      const followerData = buyer.followers.find(f => f.sellerId.toString() === sellerId);
+      return {
+        buyerId: buyer._id,
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        followDate: followerData.followDate,
+        lastInteraction: followerData.lastInteraction
+      };
+    });
+
+    res.json(followedBuyers);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get followed buyers',
+      error: error.message
+    });
+  }
+};

@@ -939,36 +939,47 @@ router.get('/top-products', authMiddleware.verifyToken, sellerController.getTopP
  *             schema:
  *               type: object
  *               properties:
- *                 totalStoreVisits:
- *                   type: number
- *                 totalSales:
- *                   type: number
- *                 totalOrders:
- *                   type: number
- *                 uniqueCustomers:
- *                   type: number
- *                 conversionRate:
- *                   type: string
  *                 walletBalance:
- *                   type: number
- *                 currentMonth:
  *                   type: object
  *                   properties:
- *                     orders:
+ *                     amount:
  *                       type: number
- *                     sales:
+ *                     currency:
+ *                       type: string
+ *                     changePercentage:
  *                       type: number
+ *                 storeVisits:
+ *                   type: object
+ *                   properties:
+ *                     count:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *                 totalOrders:
+ *                   type: object
+ *                   properties:
+ *                     count:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *                 conversionRate:
+ *                   type: object
+ *                   properties:
+ *                     percentage:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *                 newCustomers:
+ *                   type: object
+ *                   properties:
+ *                     count:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *       404:
+ *         description: Seller not found
  *       500:
  *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 error:
- *                   type: string
  */
 router.get('/statistics', authMiddleware.verifyToken, sellerController.getStatistics);
 
@@ -2252,5 +2263,97 @@ router.get('/:sellerId/all-reviews', sellerController.getAllReviews);
 //  *         description: Internal server error
 //  */
 // router.get('/profile/:sellerId', storeVisitMiddleware.trackStoreVisit, sellerController.getSellerProfile);
+
+/**
+ * @swagger
+ * /api/seller/follow/{buyerId}:
+ *   post:
+ *     summary: Follow a buyer
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer to follow
+ *     responses:
+ *       200:
+ *         description: Successfully followed buyer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Successfully followed buyer
+ *       400:
+ *         description: Already following this buyer
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/follow/:buyerId', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.followBuyer);
+
+/**
+ * @swagger
+ * /api/seller/unfollow/{buyerId}:
+ *   delete:
+ *     summary: Unfollow a buyer
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer to unfollow
+ *     responses:
+ *       200:
+ *         description: Successfully unfollowed buyer
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/unfollow/:buyerId', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.unfollowBuyer);
+
+/**
+ * @swagger
+ * /api/seller/following/buyers:
+ *   get:
+ *     summary: Get list of buyers that the seller follows
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of followed buyers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   buyerId:
+ *                     type: string
+ *                   firstName:
+ *                     type: string
+ *                   lastName:
+ *                     type: string
+ *                   followDate:
+ *                     type: string
+ *                     format: date-time
+ *       500:
+ *         description: Server error
+ */
+router.get('/following/buyers', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.getFollowedBuyers);
 
 module.exports = router;

@@ -23,7 +23,7 @@ const getNotificationTitle = (type) => {
     case 'review_received':
       return 'New Review';
     case 'new_campaign':
-      return 'New Campaign from Your Favorite Store';
+      return 'New Campaign';
     case 'campaign_scheduled':
       return 'Upcoming Campaign Alert';
     case 'order_closed':

@@ -443,6 +443,8 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
+
+
 // Get a single product
 exports.getProduct = async (req, res) => {
   try {
@@ -513,7 +515,7 @@ exports.getProduct = async (req, res) => {
             averageRating: {
               $cond: {
                 if: { $isArray: '$reviews' },
-                then: { 
+                then: {
                   $cond: {
                     if: { $gt: [{ $size: '$reviews' }, 0] },
                     then: { $avg: '$reviews.rating' },
@@ -582,13 +584,29 @@ exports.getProduct = async (req, res) => {
       $set: { 'stats.lastViewed': new Date() }
     });
 
+    const seller = await Seller.findById(product[0].seller._id);
+    if (seller) {
+      // Increment total store visits
+      seller.storeVisits = (seller.storeVisits || 0) + 1;
+
+      // Update monthly stats for store visits
+      const currentDate = new Date();
+      const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+
+      // Get current month's visits or initialize to 0
+      const currentMonthVisits = seller.monthlyStats.storeVisits.get(monthKey) || 0;
+      seller.monthlyStats.storeVisits.set(monthKey, currentMonthVisits + 1);
+
+      await seller.save();
+    }
+
     console.log('Product retrieved successfully');
     res.json(product[0]);
   } catch (error) {
     console.error('Error in getProduct:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve product', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve product',
+      error: error.message
     });
   }
 };
