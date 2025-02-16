@@ -235,12 +235,19 @@ exports.addReaction = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Get user information
+    // Get user information with profile image
     const UserModel = mongoose.model(userModel);
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(userId)
+      .select('firstName lastName storeName businessName profileImage storeAvatar username');
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // Get the appropriate profile image based on user type
+    const profileImageUrl = userModel === 'Seller' 
+      ? user.storeAvatar?.url || user.profileImage?.url
+      : user.profileImage?.url;
 
     // Create the user reaction object
     const userReactionData = {
@@ -248,7 +255,7 @@ exports.addReaction = async (req, res) => {
       userModel,
       firstName: user.firstName,
       lastName: user.lastName,
-      profileImage: user.profileImage,
+      profileImage: { url: profileImageUrl },
       storeName: userModel === 'Seller' ? user.storeName : undefined,
       username: userModel === 'Buyer' ? user.username : undefined
     };
@@ -317,14 +324,21 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Get user information
+    // Get user information with profile image
     const UserModel = mongoose.model(userModel);
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(userId)
+      .select('firstName lastName storeName businessName profileImage storeAvatar username');
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Add comment with user details
+    // Get the appropriate profile image based on user type
+    const profileImageUrl = userModel === 'Seller' 
+      ? user.storeAvatar?.url || user.profileImage?.url
+      : user.profileImage?.url;
+
+    // Add comment with user details including profile image
     const newComment = {
       content,
       author: {
@@ -332,7 +346,7 @@ exports.addComment = async (req, res) => {
         userModel,
         firstName: user.firstName,
         lastName: user.lastName,
-        profileImage: user.profileImage,
+        profileImage: { url: profileImageUrl },
         storeName: userModel === 'Seller' ? user.storeName : undefined,
         username: userModel === 'Buyer' ? user.username : undefined
       },
@@ -344,7 +358,16 @@ exports.addComment = async (req, res) => {
 
     res.json({
       message: 'Comment added successfully',
-      comment: newComment
+      comment: {
+        ...newComment,
+        author: {
+          id: userId,
+          name: userModel === 'Seller' ? user.storeName : 
+                `${user.firstName} ${user.lastName}`,
+          image: profileImageUrl || null,
+          type: userModel
+        }
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -360,7 +383,13 @@ exports.getComments = async (req, res) => {
     const { postId } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId)
+      .populate({
+        path: 'comments.author.userId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar username',
+        refPath: 'comments.author.userModel'
+      });
+
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
@@ -369,20 +398,27 @@ exports.getComments = async (req, res) => {
     const endIndex = page * limit;
     const comments = post.comments.slice(startIndex, endIndex);
 
-    const enhancedComments = comments.map(comment => ({
-      id: comment._id,
-      content: comment.content,
-      createdAt: comment.createdAt,
-      author: {
-        id: comment.author.userId,
-        name: comment.author.storeName || 
-              comment.author.username || 
-              `${comment.author.firstName} ${comment.author.lastName}`,
-        image: comment.author.profileImage?.url || null,
-        type: comment.author.userModel
-      },
-      likes: comment.likes?.length || 0
-    }));
+    const enhancedComments = comments.map(comment => {
+      // Get the appropriate profile image based on user type
+      const profileImageUrl = comment.author.userModel === 'Seller' 
+        ? comment.author.userId?.storeAvatar?.url || comment.author.userId?.profileImage?.url
+        : comment.author.userId?.profileImage?.url;
+
+      return {
+        id: comment._id,
+        content: comment.content,
+        createdAt: comment.createdAt,
+        author: {
+          id: comment.author.userId._id,
+          name: comment.author.userId?.storeName || 
+                comment.author.userId?.username || 
+                `${comment.author.userId?.firstName} ${comment.author.userId?.lastName}`,
+          image: profileImageUrl || null,
+          type: comment.author.userModel
+        },
+        likes: comment.likes?.length || 0
+      };
+    });
 
     res.json({
       comments: enhancedComments,
@@ -404,7 +440,13 @@ exports.getReactions = async (req, res) => {
     const { postId } = req.params;
     const { page = 1, limit = 10, type } = req.query;
 
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId)
+      .populate({
+        path: 'reactions.user.userId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar username',
+        refPath: 'reactions.user.userModel'
+      });
+
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
@@ -418,21 +460,28 @@ exports.getReactions = async (req, res) => {
     const endIndex = page * limit;
     const paginatedReactions = reactions.slice(startIndex, endIndex);
 
-    const enhancedReactions = paginatedReactions.map(reaction => ({
-      id: reaction._id,
-      type: reaction.type,
-      emoji: reaction.emoji,
-      label: REACTION_TYPES[reaction.type].label,
-      createdAt: reaction.createdAt,
-      user: {
-        id: reaction.user.userId,
-        name: reaction.user.storeName || 
-              reaction.user.username || 
-              `${reaction.user.firstName} ${reaction.user.lastName}`,
-        image: reaction.user.profileImage?.url || null,
-        type: reaction.user.userModel
-      }
-    }));
+    const enhancedReactions = paginatedReactions.map(reaction => {
+      // Get the appropriate profile image based on user type
+      const profileImageUrl = reaction.user.userModel === 'Seller' 
+        ? reaction.user.userId?.storeAvatar?.url || reaction.user.userId?.profileImage?.url
+        : reaction.user.userId?.profileImage?.url;
+
+      return {
+        id: reaction._id,
+        type: reaction.type,
+        emoji: reaction.emoji,
+        label: REACTION_TYPES[reaction.type].label,
+        createdAt: reaction.createdAt,
+        user: {
+          id: reaction.user.userId._id,
+          name: reaction.user.storeName || 
+                reaction.user.username || 
+                `${reaction.user.firstName} ${reaction.user.lastName}`,
+          image: profileImageUrl || null,
+          type: reaction.user.userModel
+        }
+      };
+    });
 
     res.json({
       reactions: enhancedReactions,
@@ -458,46 +507,36 @@ exports.getPosts = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit * 1)
-      .populate('products.productId', 'name price images category brand');
+      .populate('products.productId', 'name price images category brand')
+      .populate({
+        path: 'author.userId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar bio country',
+        refPath: 'author.userModel'
+      });
 
     const enhancedPosts = await Promise.all(posts.map(async post => {
       const enhancedTaggedSellers = await enhanceTaggedSellers(post.taggedSellers);
       
+      // Get the appropriate profile image based on user type
+      const profileImageUrl = post.author.userModel === 'Seller' 
+        ? post.author.userId?.storeAvatar?.url || post.author.userId?.profileImage?.url
+        : post.author.userId?.profileImage?.url;
+      
       return {
         ...post.toObject(),
         author: {
-          id: post.author.userId,
-          name: post.author.storeName || 
-                post.author.username || 
-                `${post.author.firstName} ${post.author.lastName}`,
-          image: post.author.profileImage?.url || null,
-          bio: post.author.bio || null,
-          country: post.author.country,
+          id: post.author.userId?._id,
+          name: post.author.userId?.storeName || 
+                post.author.userId?.username || 
+                `${post.author.userId?.firstName} ${post.author.userId?.lastName}`,
+          image: profileImageUrl || null,
+          bio: post.author.userId?.bio || null,
+          country: post.author.userId?.country,
           type: post.author.userModel,
-          businessName: post.author.businessName || null,
-          username: post.author.username || null
+          businessName: post.author.userId?.businessName || null,
+          username: post.author.userId?.username || null
         },
-        taggedSellers: enhancedTaggedSellers,
-        reactions: post.reactions.map(reaction => ({
-          user: {
-            userId: reaction.user.userId,
-            userModel: reaction.user.userModel,
-            firstName: reaction.user.firstName,
-            lastName: reaction.user.lastName,
-            username: reaction.user.username,
-            storeName: reaction.user.storeName
-          },
-          type: reaction.type,
-          emoji: reaction.emoji,
-          _id: reaction._id,
-          createdAt: reaction.createdAt
-        })),
-        stats: {
-          likeCount: post.stats.reactions.like || 0,
-          dislikeCount: 0,
-          viewCount: post.stats.viewCount || 0,
-          shareCount: post.stats.shareCount || 0
-        }
+        taggedSellers: enhancedTaggedSellers
       };
     }));
 
