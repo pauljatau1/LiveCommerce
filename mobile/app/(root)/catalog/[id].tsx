@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
   StyleSheet,
 } from "react-native";
-import React, { useState } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router, useGlobalSearchParams } from "expo-router";
 import HomeHeader from "@/components/home/home-header";
@@ -27,7 +27,7 @@ const CatalogPage = () => {
     { key: "Products", title: "Products" },
   ]);
 
-  const renderScene = ({ route }: { route: any }) => {
+  const renderScene = useCallback(({ route }: { route: any }) => {
     switch (route.key) {
       case "Auqli Live":
         return (
@@ -43,7 +43,7 @@ const CatalogPage = () => {
       default:
         return null;
     }
-  };
+  },[]);
   return (
     <SafeAreaView className="h-full flex-1 bg-[#121212]">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -55,7 +55,6 @@ const CatalogPage = () => {
         animationEnabled
         renderTabBar={(props) => (
           <TabBar
-            key={1}
             {...props}
             scrollEnabled={true}
             activeColor="#16783A"
@@ -83,6 +82,7 @@ const CatalogPage = () => {
             renderTabBarItem={(props) => (
               <TabBarItem
                 {...props}
+                key={props.key}
                 labelStyle={{
                   fontSize: 15,
                   fontFamily: "LexendDeca-Medium",
@@ -100,7 +100,7 @@ const CatalogPage = () => {
   );
 };
 
-const CatalogHeader = ({ searchQuery }: { searchQuery: string | string[] }) => {
+const CatalogHeader = memo(({ searchQuery }: { searchQuery: string | string[] }) => {
   return (
     <View className="flex-row items-center justify-between w-full px-[23px] gap-[10px]">
       <Pressable onPress={() => router.back()} style={{ marginLeft: -8 }}>
@@ -132,6 +132,6 @@ const CatalogHeader = ({ searchQuery }: { searchQuery: string | string[] }) => {
       </Pressable>
     </View>
   );
-};
+});
 
 export default CatalogPage;

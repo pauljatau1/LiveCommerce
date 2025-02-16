@@ -20,6 +20,9 @@ import NewPostsList from "@/components/connect/new-posts-list";
 import TrendingPostsList from "@/components/connect/trending-posts-list";
 import { router } from "expo-router";
 import { TabBar, TabBarItem, TabView, SceneMap } from "react-native-tab-view";
+import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
+
+const Tab = createMaterialTopTabNavigator();
 
 const { width, height } = Dimensions.get("window");
 const tabs = ["All", "New", "Trending"];
@@ -54,7 +57,7 @@ const Connect = () => {
             minHeight: height,
           }}
         >
-          <View className="h-full flex-1 pt-[20px] px-[16px]">
+          <View className="h-full flex-1 pt-[20px]">
             <View style={styles.header}>
               <Text className="text-[24px] font-LexendDecaSemiBold text-[#ccc]">
                 Auqli Connect
@@ -117,7 +120,7 @@ const Connect = () => {
               </View>
             </View>
 
-            <View className="flex-row items-center justify-between border-b-[1px] border-b-[#888787]">
+            <View className="flex-row items-center justify-between border-b-[1px] border-b-[#888787 px-[16px]">
               {tabs?.map((tab, index) => (
                 <TouchableOpacity
                   style={[styles.tab, activeTab == tab && styles.activeTab]}
@@ -135,7 +138,13 @@ const Connect = () => {
                 </TouchableOpacity>
               ))}
             </View>
+
             {renderContent()}
+            {/* <Tab.Navigator>
+              <Tab.Screen name="All" component={AllPostsList} />
+              <Tab.Screen name="New" component={NewPostsList} />
+              <Tab.Screen name="Trending" component={TrendingPostsList} />
+            </Tab.Navigator> */}
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -150,6 +159,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     overflow: "hidden",
+    paddingHorizontal:16
   },
   headerBtn: {
     gap: 6,
@@ -179,6 +189,7 @@ const styles = StyleSheet.create({
     // backgroundColor: "red",
     position: "relative",
     marginBottom: 15,
+    paddingHorizontal:16
   },
   search: {
     gap: 4,

@@ -7,7 +7,7 @@ import {
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { FlatList, Pressable } from "react-native-gesture-handler";
@@ -33,7 +33,11 @@ const Explore = () => {
             pathname: `../explore/${category._id}`,
             params: { name: category.name },
           })
+          
         }
+        style={{
+          marginBottom:12
+        }}
       >
         <View className="relative flex-row items-center w-full rounded-[4px] overflow-hidden p-[1px] bg-[#f2f2f2]">
           <Image
@@ -91,15 +95,10 @@ const Explore = () => {
     setCategoriesData(tempData);
   }, [data, filter]);
 
-  return (
-    <>
-      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="pt-[30px]">
-          <HomeHeader />
-
-          <View className="p-[23px] pb-[50px] h-full ">
-            <Text className="text-[#ccc] text-[18px] font-LexendDecaMedium mb-[14px]">
+  const exploreHeader = useCallback(() => {
+    return (
+      <>
+      <Text className="text-[#ccc] text-[18px] font-LexendDecaMedium mb-[14px]">
               Browse by Category
             </Text>
             <View className="flex-row items-center gap-[8px] mb-[26px]">
@@ -132,6 +131,19 @@ const Explore = () => {
                 </Text>
               </TouchableOpacity>
             </View>
+      </>
+     )
+  },[filter])
+
+  return (
+    <>
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <SafeAreaView className="h-full flex-1 bg-[#121212]">
+        <View className="pt-[30px]">
+          <HomeHeader />
+
+          <View className="p-[23px] pb-[50px] h-full ">
+            
 
             {isLoading ? (
               <ActivityIndicator
@@ -144,14 +156,12 @@ const Explore = () => {
                 data={categoriesData}
                 keyExtractor={(_, index) => index.toString()}
                 renderItem={({ item, index }) => renderCategories(item, index)}
-                style={{
-                  gap: 24,
-                }}
                 contentContainerStyle={{
                   paddingBottom: Platform.OS == "android" ? 50 : 20,
-                  gap: 12,
+                  // gap: 12,
                 }}
                 showsVerticalScrollIndicator={false}
+                ListHeaderComponent={exploreHeader}
               />
             )}
           </View>

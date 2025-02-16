@@ -115,14 +115,14 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
     setAspectRatio(source.width / source.height);
   }, []);
 
-  // useEffect(() => {
-  //   return () => {
-  //     if (videoRef.current) {
-  //       videoRef.current.pauseAsync();
-  //       videoRef.current.unloadAsync();
-  //     }
-  //   };
-  // }, []);
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pauseAsync();
+        videoRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   if (isVideo) {
     return (
@@ -404,6 +404,7 @@ const PostItem2 = ({ item }: { item: any }) => {
             initialNumToRender={2}
             maxToRenderPerBatch={3}
             windowSize={3}
+            nestedScrollEnabled={true}
           />
         ))}
 
@@ -677,6 +678,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomColor: "#888787",
     borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal:16
   },
   header: {
     flexDirection: "row",
@@ -789,12 +791,12 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     color: "#3A3A3A",
-    fontSize: 16,
+    fontSize: 20,
     fontFamily: "LexendDeca-Medium",
   },
   productNameSingle: {
     color: "#3A3A3A",
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "LexendDeca-Medium",
   },
   playVideo: {

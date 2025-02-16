@@ -104,7 +104,7 @@ const MessageRoom = () => {
           },
         },
       );
-      setMessages(response.data);
+      setMessages(response.data.messages);
     } catch (e) {
       console.log("error getting message history ", e);
     } finally {
@@ -317,11 +317,14 @@ const MessageRoom = () => {
         setTimeout(() => {
           listRef.current?.scrollToEnd({ animated: false });
           isInitialLoad.current = false;
+
         }, 100);
         setLoading(false);
+        
       } else {
         // For new messages, scroll with animation
         listRef.current?.scrollToEnd({ animated: true });
+        setLoading(false)
       }
     }
   }, [messages]);
@@ -374,15 +377,15 @@ const MessageRoom = () => {
       <MessageItem
         message={item}
         userId={userId.toString()}
-        senderId={item.sender?.id}
-        messageType={item.messageType || "text"}
-        media={item.media || null}
+        senderId={item?.sender?.id}
+        messageType={item?.messageType || "text"}
+        media={item?.media || null}
       />
     ),
     [],
   );
   const keyExtractor = useCallback(
-    (item: any, index: number) => item._id || index.toString(),
+    (item: any, index: number) => item?._id || index.toString(),
     [],
   );
   return (
@@ -634,22 +637,22 @@ const ProductItem = memo(({ item }: { item: any }) => {
         flexShrink: 1,
         maxWidth: 250,
       }}
-      onPress={() => router.push(`/(root)/product/${item.id._id}`)}
+      onPress={() => router.push(`/(root)/product/${item?.id._id}`)}
     >
       <View>
         <Image
-          source={{ uri: item.id?.images?.[0]?.url }}
+          source={{ uri: item?.image }}
           contentFit="contain"
           style={{ width: 100, height: 100, borderRadius: 10 }}
         />
       </View>
       <View className="gap-[2px] shrink">
         <Text className="text-[14px] text-[#111] font-LexendDecaMedium">
-          {item.id.name}
+          {item?.name}
         </Text>
-        {<DeterminePrice productDetails={item.id} />}
+        {<DeterminePrice productDetails={item} />}
         <Text className="text-[10px] text-[#111] font-LexendDecaLight">
-          {item.id.description?.slice(0, 40)}
+          {item?.description?.slice(0, 40)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -726,7 +729,7 @@ const DeterminePrice = memo(({ productDetails }: { productDetails: any }) => {
       <Text className="text-[12px] font-LexendDecaMedium leading-[18px]">
         ₦
         {productDetails?.discount?.isActive
-          ? productDetails?.discount?.discountedPrice?.toLocaleString() || 0
+          ? productDetails?.discount?.discountedPrice?.toLocaleString()
           : productDetails?.price?.toLocaleString()}
       </Text>
       {productDetails?.discount?.isActive && (
@@ -759,10 +762,10 @@ const ProductsSheet = ({
 
   const handleSelectItem = (item: any) => {
     if (isFetching) return;
-    const existingItem = selectedProducts.find((prod) => prod._id == item._id);
+    const existingItem = selectedProducts.find((prod) => prod._id == item?._id);
     if (existingItem) {
       return setSelectedProducts(
-        selectedProducts.filter((prod) => prod._id != item._id),
+        selectedProducts.filter((prod) => prod._id != item?._id),
       );
     }
     // if (selectedProducts.length >= 1) {
@@ -799,10 +802,10 @@ const ProductsSheet = ({
                 onPress={() => handleSelectItem(item)}
               >
                 <ConnectProductCard
-                  name={item.name}
-                  price={item.price}
-                  category={item.category}
-                  seller={item.seller}
+                  name={item?.name}
+                  price={item?.price}
+                  category={item?.category}
+                  seller={item?.seller}
                   image_url={item?.images[0]?.url}
                   rating={item?.stats?.averageRating}
                 />
@@ -812,19 +815,19 @@ const ProductsSheet = ({
                     borderWidth: 2,
                     borderColor: "#16783A",
                     backgroundColor: selectedProducts.find(
-                      (prod) => prod._id == item._id,
+                      (prod) => prod._id == item?._id,
                     )
                       ? "#16783A"
                       : "#f2f2f2",
                   }}
                 >
-                  {selectedProducts.find((prod) => prod._id == item._id) && (
+                  {selectedProducts.find((prod) => prod._id == item?._id) && (
                     <AntDesign name="check" size={14} color="white" />
                   )}
                 </View>
               </TouchableOpacity>
             )}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item?.id.toString()}
             numColumns={2}
             columnWrapperStyle={{
               // columnGap: ,

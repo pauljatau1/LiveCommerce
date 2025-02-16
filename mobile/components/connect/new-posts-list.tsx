@@ -13,7 +13,7 @@ const NewPostsList = () => {
 
   const { data, isLoading, isFetching, refetch } = useGetNewPostsQuery({
     page: page,
-    limit: 10,
+    limit: 6,
   });
 
   // Update posts when data changes
@@ -93,14 +93,14 @@ const NewPostsList = () => {
           onEndReachedThreshold={0.5}
           refreshing={refreshing}
           onRefresh={refreshPosts}
-          maxToRenderPerBatch={5}
+          maxToRenderPerBatch={3}
           contentContainerStyle={{
             paddingBottom: Platform.OS == "android" ? 70 : 50,
           }}
-          windowSize={5}
+          windowSize={3}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={renderFooter}
-          initialNumToRender={10}
+          initialNumToRender={6}
           // removeClippedSubviews={true}
           // updateCellsBatchingPeriod={100}
         />

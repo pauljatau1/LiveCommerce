@@ -45,15 +45,15 @@ const TabsLayout = () => {
         tabBarInactiveTintColor: "#94A3B1",
         tabBarLabelStyle: {
           fontFamily: "LexendDeca",
-          fontWeight: "400",
-          fontSize: 10,
-          marginTop: 4,
+          marginTop:2,
+          fontSize: 9,
         },
         tabBarStyle: {
-          height: Platform.OS == "android" ? 60 : 80,
+          // height: Platform.OS == "android" ? 60 : 80,
           backgroundColor: "#121212",
+          alignItems:'center',
           borderTopWidth: 0,
-          paddingVertical: 10,
+          paddingVertical: 20,
         },
       }}
       // tabBar={(props) => <TabBar {...props} />}
@@ -71,8 +71,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/home-icon-fill.png")}
                 resizeMode="cover"
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                 }}
               />
             ) : (
@@ -80,8 +80,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/home.png")}
                 resizeMode="cover"
                 style={{
-                  width: 24,
-                  height: 24,
+                  width: 26,
+                  height: 26,
                 }}
               />
             ),
@@ -92,7 +92,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="explore"
         options={{
-          tabBarLabel: "Explore",
+          // tabBarLabel: "Explore",
 
           title: "Explore",
           headerShown: false,
@@ -102,8 +102,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/explore-fill.png")}
                 resizeMode="cover"
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                 }}
               />
             ) : (
@@ -111,8 +111,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/explore.png")}
                 resizeMode="cover"
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                 }}
               />
             ),
@@ -121,7 +121,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="blips"
         options={{
-          tabBarLabel: "Blips",
+          // tabBarLabel: "Blips",
 
           title: "Blips",
           headerShown: false,
@@ -131,8 +131,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/blips-fill.png")}
                 resizeMode="cover"
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                 }}
               />
             ) : (
@@ -140,8 +140,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/blips.png")}
                 resizeMode="cover"
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                 }}
               />
             ),
@@ -150,7 +150,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="connect"
         options={{
-          tabBarLabel: "Connect",
+          // tabBarLabel: "Connect",
 
           title: "Connect",
           headerShown: false,
@@ -160,8 +160,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/connect-fill.png")}
                 resizeMode="cover"
                 style={{
-                  width: 24,
-                  height: 24,
+                  width: 26,
+                  height: 26,
                 }}
               />
             ) : (
@@ -169,8 +169,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/connect.png")}
                 resizeMode="cover"
                 style={{
-                  width: 24,
-                  height: 24,
+                  width: 26,
+                  height: 26,
                 }}
               />
             ),
@@ -179,7 +179,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="messages"
         options={{
-          tabBarLabel: "Messages",
+          // tabBarLabel: "Messages",
 
           title: "Messages",
           headerShown: false,
@@ -189,8 +189,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/messages-fill.png")}
                 resizeMode="cover"
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                 }}
               />
             ) : (
@@ -198,8 +198,8 @@ const TabsLayout = () => {
                 source={require("../../../assets/icons/messages.png")}
                 resizeMode="cover"
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                 }}
               />
             ),
@@ -208,7 +208,7 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarLabel: "Profile",
+          // tabBarLabel: "Profile",
 
           title: "Profile",
           headerShown: false,
@@ -216,8 +216,8 @@ const TabsLayout = () => {
             <Image
               source={require("@/assets/icons/animoji.png")}
               style={{
-                width: 20,
-                height: 20,
+                width: 22,
+                height: 22,
               }}
               resizeMode="cover"
             />
