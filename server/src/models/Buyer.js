@@ -97,8 +97,7 @@ const buyerSchema = new mongoose.Schema({
   },
   preferredCurrency: {
     type: String,
-    enum: ['USD', 'EUR', 'GBP'],
-    default: 'USD'
+    default: 'NGN'
   },
   followers: [{
     sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },

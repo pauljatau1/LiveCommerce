@@ -130,7 +130,7 @@ router.get('/check-token', buyerController.checkToken);
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
@@ -138,36 +138,31 @@ router.get('/check-token', buyerController.checkToken);
  *                 type: string
  *               lastName:
  *                 type: string
+ *               username:
+ *                 type: string
+ *                 description: Must be unique
  *               country:
  *                 type: string
  *               phoneNumber:
  *                 type: string
- *               shippingAddresses:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     country:
- *                       type: string
- *                     city:
- *                       type: string
- *                     address1:
- *                       type: string
- *                     address2:
- *                       type: string
- *                     zipCode:
- *                       type: string
- *                     addressType:
- *                       type: string
  *               bio:
  *                 type: string
+ *                 description: User biography or about text
+ *               preferredLanguage:
+ *                 type: string
+ *                 enum: [en, es, fr]
+ *               preferredCurrency:
+ *                 type: string
+ *                 enum: [USD, EUR, GBP]
  *     responses:
  *       200:
  *         description: Profile updated successfully
+ *       400:
+ *         description: Username already taken or invalid input
  *       404:
  *         description: Buyer not found
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
 router.put('/profile', authMiddleware.verifyToken, buyerController.updateProfile);
 

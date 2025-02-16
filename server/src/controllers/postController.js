@@ -82,6 +82,16 @@ const enhanceTaggedSellers = async (taggedSellers) => {
   return enhancedSellers;
 };
 
+// Define reaction types constant
+const REACTION_TYPES = {
+  like: { emoji: "👍", label: "Like" },
+  love: { emoji: "❤️", label: "Love" },
+  haha: { emoji: "😂", label: "Haha" },
+  wow: { emoji: "😮", label: "Wow" },
+  sad: { emoji: "😢", label: "Sad" },
+  angry: { emoji: "😡", label: "Angry" }
+};
+
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
@@ -215,6 +225,11 @@ exports.addReaction = async (req, res) => {
     const userId = req.user.id;
     const userModel = req.user.role;
 
+    // Validate reaction type
+    if (!REACTION_TYPES[type]) {
+      return res.status(400).json({ message: 'Invalid reaction type' });
+    }
+
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
@@ -227,35 +242,63 @@ exports.addReaction = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Remove existing reaction from same user if exists
-    post.reactions = post.reactions.filter(
-      reaction => !(reaction.user.userId.equals(userId) && 
-                   reaction.user.userModel === userModel)
+    // Create the user reaction object
+    const userReactionData = {
+      userId,
+      userModel,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileImage: user.profileImage,
+      storeName: userModel === 'Seller' ? user.storeName : undefined,
+      username: userModel === 'Buyer' ? user.username : undefined
+    };
+
+    // Check if user already reacted
+    const existingReactionIndex = post.reactions.findIndex(
+      reaction => 
+        reaction.user.userId.toString() === userId.toString() && 
+        reaction.user.userModel === userModel
     );
 
-    // Add new reaction with user details
-    post.reactions.push({
-      type,
-      user: {
-        userId,
-        userModel,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profileImage: user.profileImage,
-        storeName: userModel === 'Seller' ? user.storeName : undefined,
-        username: userModel === 'Buyer' ? user.username : undefined
+    if (existingReactionIndex > -1) {
+      const existingReaction = post.reactions[existingReactionIndex];
+      
+      // If same reaction type, remove it (toggle off)
+      if (existingReaction.type === type) {
+        post.reactions.splice(existingReactionIndex, 1);
+      } else {
+        // If different reaction type, update it
+        post.reactions[existingReactionIndex] = {
+          type,
+          emoji: REACTION_TYPES[type].emoji,
+          user: userReactionData,
+          createdAt: new Date()
+        };
       }
-    });
+    } else {
+      // Add new reaction with emoji
+      post.reactions.push({
+        type,
+        emoji: REACTION_TYPES[type].emoji,
+        user: userReactionData,
+        createdAt: new Date()
+      });
+    }
 
     await post.save();
 
+    // Return updated reaction counts
     res.json({
-      message: 'Reaction added successfully',
-      reactions: post.reactions
+      message: 'Reaction updated successfully',
+      reactionCounts: post.stats.reactions,
+      userReaction: existingReactionIndex > -1 && post.reactions[existingReactionIndex]?.type === type 
+        ? null 
+        : type
     });
   } catch (error) {
+    console.error('Add reaction error:', error);
     res.status(500).json({
-      message: 'Failed to add reaction',
+      message: 'Failed to update reaction',
       error: error.message
     });
   }
@@ -378,6 +421,8 @@ exports.getReactions = async (req, res) => {
     const enhancedReactions = paginatedReactions.map(reaction => ({
       id: reaction._id,
       type: reaction.type,
+      emoji: reaction.emoji,
+      label: REACTION_TYPES[reaction.type].label,
       createdAt: reaction.createdAt,
       user: {
         id: reaction.user.userId,
@@ -394,13 +439,7 @@ exports.getReactions = async (req, res) => {
       totalReactions: reactions.length,
       currentPage: parseInt(page),
       totalPages: Math.ceil(reactions.length / limit),
-      reactionCounts: {
-        like: reactions.filter(r => r.type === 'like').length,
-        love: reactions.filter(r => r.type === 'love').length,
-        laugh: reactions.filter(r => r.type === 'laugh').length,
-        sad: reactions.filter(r => r.type === 'sad').length,
-        angry: reactions.filter(r => r.type === 'angry').length
-      }
+      reactionCounts: post.stats.reactions
     });
   } catch (error) {
     res.status(500).json({
@@ -438,7 +477,27 @@ exports.getPosts = async (req, res) => {
           businessName: post.author.businessName || null,
           username: post.author.username || null
         },
-        taggedSellers: enhancedTaggedSellers
+        taggedSellers: enhancedTaggedSellers,
+        reactions: post.reactions.map(reaction => ({
+          user: {
+            userId: reaction.user.userId,
+            userModel: reaction.user.userModel,
+            firstName: reaction.user.firstName,
+            lastName: reaction.user.lastName,
+            username: reaction.user.username,
+            storeName: reaction.user.storeName
+          },
+          type: reaction.type,
+          emoji: reaction.emoji,
+          _id: reaction._id,
+          createdAt: reaction.createdAt
+        })),
+        stats: {
+          likeCount: post.stats.reactions.like || 0,
+          dislikeCount: 0,
+          viewCount: post.stats.viewCount || 0,
+          shareCount: post.stats.shareCount || 0
+        }
       };
     }));
 
@@ -843,6 +902,7 @@ exports.likePost = async (req, res) => {
       // Add new reaction
       post.reactions.push({
         type: 'like',
+        emoji: REACTION_TYPES['like'].emoji,
         user: {
           userId,
           userModel,
@@ -851,7 +911,8 @@ exports.likePost = async (req, res) => {
           profileImage: user.profileImage,
           storeName: userModel === 'Seller' ? user.storeName : undefined,
           username: userModel === 'Buyer' ? user.username : undefined
-        }
+        },
+        createdAt: new Date()
       });
     }
 

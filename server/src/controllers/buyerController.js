@@ -202,6 +202,7 @@ exports.getProfile = async (req, res) => {
         preferredCurrency: 1,
         preferredLanguage: 1,
         role: 1,
+        bio: 1,
         notificationPreferences: {
           email: 1,
           push: 1,
@@ -232,7 +233,8 @@ exports.getProfile = async (req, res) => {
       followersCount,
       followingCount,
       postsCount,
-      profilePictureUrl: buyer.profileImage?.url || null
+      profilePictureUrl: buyer.profileImage?.url || null,
+      bio: buyer.bio || null  // Explicitly include bio in the response
     };
 
     res.json(enhancedBuyer);
@@ -270,15 +272,15 @@ exports.updateProfile = async (req, res) => {
       if (existingUsername) {
         return res.status(400).json({ message: 'Username already taken' });
       }
+      buyer.username = username;
     }
 
     // Update fields if provided
     if (firstName) buyer.firstName = firstName;
     if (lastName) buyer.lastName = lastName;
-    if (username) buyer.username = username;
     if (country) buyer.country = country;
     if (phoneNumber) buyer.phoneNumber = phoneNumber;
-    if (bio) buyer.bio = bio;
+    if (bio !== undefined) buyer.bio = bio; // Changed to handle empty string case
     if (notificationPreferences) {
       buyer.notificationPreferences = {
         ...buyer.notificationPreferences,

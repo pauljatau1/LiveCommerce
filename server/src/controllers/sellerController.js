@@ -1520,6 +1520,9 @@ exports.getFollowers = async (req, res) => {
           'items.seller': seller._id
         });
 
+        // Get buyer details including profile image
+        const buyer = await Buyer.findById(follower.buyerId);
+
         // Calculate total amount spent
         const totalSpent = orders.reduce((sum, order) => {
           // Sum up only the items from this seller in each order
@@ -1536,7 +1539,8 @@ exports.getFollowers = async (req, res) => {
           totalOrders: orders.length,
           totalSpent: totalSpent,
           name: `${follower.firstName} ${follower.lastName}`,
-          followedAt: follower.followDate // For consistency in naming
+          followedAt: follower.followDate,
+          profileImageUrl: buyer?.profileImage?.url || null // Add profile image URL
         };
       })
     );
@@ -1637,14 +1641,30 @@ exports.getBuyerDetails = async (req, res) => {
       .sort((a, b) => b.totalSpent - a.totalSpent)
       .slice(0, 5);
 
-    res.json({
+    const response = {
       buyerInfo: {
         firstName: buyer.firstName,
         lastName: buyer.lastName,
         email: buyer.email,
-        joinDate: buyer.createdAt
+        joinDate: buyer.createdAt,
+        profileImageUrl: buyer.profileImage?.url || null
       },
-      orderStats,
+      orderStats: {
+        general: {
+          totalOrders: orders.length,
+          totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+          averageOrderValue: orders.length > 0 
+            ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+            : 0
+        },
+        withSeller: {
+          totalOrders: orders.length,
+          totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+          averageOrderValue: orders.length > 0 
+            ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+            : 0
+        }
+      },
       shippingAddresses: buyer.shippingAddresses,
       activityFeed: buyer.activityFeed,
       topPurchases,
@@ -1669,7 +1689,9 @@ exports.getBuyerDetails = async (req, res) => {
         }))
       })),
       hasOrderedFromSeller: true
-    });
+    };
+
+    res.json(response);
 
   } catch (error) {
     console.error('Error getting buyer details:', error);
