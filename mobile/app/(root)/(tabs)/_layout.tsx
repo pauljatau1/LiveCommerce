@@ -13,6 +13,8 @@ import { getUser } from "@/store/features/auth/utils";
 
 const TabsLayout = () => {
   const status = useSelector((state: RootState) => state.authState.status);
+  const user = useSelector((state: RootState) => state.authState.user);
+
   // const [user,setUser] = useState<any>()
 
   const hideSplash = useCallback(async () => {
@@ -45,13 +47,13 @@ const TabsLayout = () => {
         tabBarInactiveTintColor: "#94A3B1",
         tabBarLabelStyle: {
           fontFamily: "LexendDeca",
-          marginTop:2,
+          marginTop: 2,
           fontSize: 9,
         },
         tabBarStyle: {
           // height: Platform.OS == "android" ? 60 : 80,
           backgroundColor: "#121212",
-          alignItems:'center',
+          alignItems: "center",
           borderTopWidth: 0,
           paddingVertical: 20,
         },
@@ -214,10 +216,15 @@ const TabsLayout = () => {
           headerShown: false,
           tabBarIcon: ({ color }) => (
             <Image
-              source={require("@/assets/icons/animoji.png")}
+              source={
+                user?.profileImage?.url
+                  ? { uri: user?.profileImage?.url }
+                  : require("../../../assets/icons/animoji.png")
+              }
               style={{
                 width: 22,
                 height: 22,
+                borderRadius: 22,
               }}
               resizeMode="cover"
             />

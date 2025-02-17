@@ -152,6 +152,14 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="profileStats/stats"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 };

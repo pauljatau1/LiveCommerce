@@ -54,11 +54,6 @@ const EditProfile = () => {
     useState<boolean>(false);
 
   const pickImage = async () => {
-    // if (selectedMedia.length >= 1) {
-    //   alert("You can only upload up to 1 immage.");
-    //   return;
-    // }
-
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
@@ -76,7 +71,6 @@ const EditProfile = () => {
       const imagesToAdd = newImages.slice(0, remainingSlots);
 
       setSelectedMedia(imagesToAdd);
-      console.log(imagesToAdd);
     }
   };
 
@@ -99,7 +93,6 @@ const EditProfile = () => {
           },
         },
       );
-      console.log(response.data);
     } catch (e) {
       console.log("error updating avatar", e);
     }
@@ -109,6 +102,7 @@ const EditProfile = () => {
     try {
       const token = await getToken();
       const payload = {
+        username: editUsernameVal,
         phoneNumber: editPhoneVal,
         bio: editBioVal,
       };
@@ -197,7 +191,7 @@ const EditProfile = () => {
               source={
                 selectedMedia?.length > 0
                   ? { uri: selectedMedia?.[0]?.uri }
-                  : require("../../../assets/icons/animoji.png")
+                  : require("../../../assets/icons/profile.jpg")
               }
               style={styles.avatar}
               contentFit="cover"
@@ -228,6 +222,9 @@ const EditProfile = () => {
                 placeholder="Bio"
                 value={editBioVal}
                 onChangeText={(text) => setEditBioVal(text)}
+                multiline
+                maxLength={150}
+                numberOfLines={4}
               />
             </View>
             <View style={styles.editSingleSection}>
@@ -259,7 +256,7 @@ const EditProfile = () => {
             <Text style={styles.updateBtnText}>Update</Text>
           </Pressable>
         </ScrollView>
-        <LoadingModal isVisible={loading} />
+        {/* <LoadingModal isVisible={loading} /> */}
 
         <BottomSheet
           bgColor="#121212"
@@ -335,7 +332,7 @@ const styles = StyleSheet.create({
   editBtn: {
     position: "absolute",
     right: 10,
-    bottom: 0,
+    bottom: 30,
   },
   editSingleSection: {
     width: "100%",
@@ -375,7 +372,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "LexendDeca",
     textAlign: "center",
-    marginTop: 10,
+    marginTop: 20,
     opacity: 0.6,
   },
 });

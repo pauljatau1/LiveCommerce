@@ -151,7 +151,11 @@ const MorePostInfo = () => {
               />
             </TouchableOpacity>
             <Image
-              source={require("../../../assets/icons/animoji.png")}
+              source={
+                post?.author?.image
+                  ? { uri: post?.author?.image }
+                  : require("../../../assets/icons/animoji.png")
+              }
               contentFit="cover"
               style={{
                 width: 40,

@@ -1,4 +1,11 @@
-import { View, FlatList, Text, Platform, Animated, Pressable } from "react-native";
+import {
+  View,
+  FlatList,
+  Text,
+  Platform,
+  Animated,
+  Pressable,
+} from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, {
   memo,
@@ -8,17 +15,21 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useGetAllPostsQuery, useGetNewPostsQuery, useGetUserPostsQuery } from "@/services/posts";
+import {
+  useGetAllPostsQuery,
+  useGetNewPostsQuery,
+  useGetUserPostsQuery,
+} from "@/services/posts";
 import PostItem2 from "../connect/post-item2";
 import { StyleSheet } from "nativewind";
 
 interface Props {
-  scrollY:any;
-  headerHeight:number;
-  userId:string
+  scrollY: any;
+  headerHeight: number;
+  userId: string;
 }
 
-const AllPostsList = ({scrollY,headerHeight,userId}: Props) => {
+const AllPostsList = ({ scrollY, headerHeight, userId }: Props) => {
   const [page, setPage] = useState<number>(1);
   const [posts, setPosts] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -27,7 +38,7 @@ const AllPostsList = ({scrollY,headerHeight,userId}: Props) => {
   const { data, isLoading, isFetching, refetch } = useGetUserPostsQuery({
     page: page,
     id: userId,
-    type:"Buyer",
+    type: "Buyer",
     limit: 10,
   });
 
@@ -75,17 +86,17 @@ const AllPostsList = ({scrollY,headerHeight,userId}: Props) => {
   // Render footer with loading spinner
   const renderFooter = useCallback(() => {
     if (hasReachedEnd)
-      return (
+      return posts?.length > 0 ? (
         <Text className="self-center my-[10px] text-white font-LexendDeca text-[12px]">
           Sorry , you've reached the end 😔
         </Text>
-      );
+      ) : null;
     if (!isFetching) return null;
-    return (
+    return posts?.length > 0 ? (
       <View style={{ paddingVertical: 20 }}>
         <ActivityIndicator size="small" color="#16783A" />
       </View>
-    );
+    ) : null;
   }, [hasReachedEnd]);
 
   const renderPosts = useCallback(({ item }: { item: any }) => {
@@ -93,28 +104,33 @@ const AllPostsList = ({scrollY,headerHeight,userId}: Props) => {
   }, []);
 
   return (
-    <View className="" style={{ flex: 1, gap: 10}}>
-      {
-        posts.length < 1 && !isLoading && !isFetching ? 
-            <View className="items-center gap-[24px] "  style={{marginTop:300}}>
-              <Text className="text-[#ccc] text-[22px] font-LexendDecaBold opacity-70">Your wall is empty</Text>
-              <Pressable className="bg-[#16783A]" style={{
-                paddingVertical:15,
-                paddingHorizontal:30,
-                borderRadius:30
-              }}>
-                <Text className="text-[#ccc] text-[16px] font-LexendDeca">Make First Post</Text>
-              </Pressable>
-            </View> : null
-        
-      }
+    <View className="" style={{ flex: 1, gap: 10 }}>
+      {posts.length < 1 && !isLoading && !isFetching ? (
+        <View className="items-center gap-[24px] " style={{ marginTop: 300 }}>
+          <Text className="text-[#ccc] text-[22px] font-LexendDecaBold opacity-70">
+            Your wall is empty
+          </Text>
+          <Pressable
+            className="bg-[#16783A]"
+            style={{
+              paddingVertical: 15,
+              paddingHorizontal: 30,
+              borderRadius: 30,
+            }}
+          >
+            <Text className="text-[#ccc] text-[16px] font-LexendDeca">
+              Make First Post
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
       {isLoading && page === 1 ? (
         <ActivityIndicator
           size={"small"}
           color="#16783A"
           className="my-[20px]"
         />
-      ) : (
+      ) : posts?.length > 0 ? (
         <Animated.FlatList
           data={posts}
           renderItem={renderPosts}
@@ -125,7 +141,7 @@ const AllPostsList = ({scrollY,headerHeight,userId}: Props) => {
           onRefresh={refreshPosts}
           maxToRenderPerBatch={5}
           contentContainerStyle={{
-            paddingTop:headerHeight 
+            paddingTop: headerHeight,
           }}
           windowSize={5}
           showsVerticalScrollIndicator={false}
@@ -133,15 +149,11 @@ const AllPostsList = ({scrollY,headerHeight,userId}: Props) => {
           initialNumToRender={10}
           nestedScrollEnabled={true}
           onScroll={Animated.event(
-                  [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                  { useNativeDriver: true }
-                )}
-          // removeClippedSubviews={true}
-          // updateCellsBatchingPeriod={100}
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true },
+          )}
         />
-      )}
-
-      
+      ) : null}
     </View>
   );
 };

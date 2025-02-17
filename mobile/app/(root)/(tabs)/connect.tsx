@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Pressable, TextInput } from "react-native-gesture-handler";
@@ -21,6 +21,7 @@ import TrendingPostsList from "@/components/connect/trending-posts-list";
 import { router } from "expo-router";
 import { TabBar, TabBarItem, TabView, SceneMap } from "react-native-tab-view";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
+import { getUser } from "@/store/features/auth/utils";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -29,8 +30,9 @@ const tabs = ["All", "New", "Trending"];
 
 const Connect = () => {
   const [activeTab, setActiveTab] = useState<string>("All");
+  const [user, setUser] = useState<any>({});
 
-  const renderContent = () => {
+  const renderContent = useCallback(() => {
     switch (activeTab) {
       case "All":
         return <AllPostsList />;
@@ -39,7 +41,20 @@ const Connect = () => {
       case "Trending":
         return <TrendingPostsList />;
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    const getUserInfo = async () => {
+      try {
+        const user = await getUser();
+        setUser(user);
+      } catch (e) {
+        console.log("error getting user info");
+      }
+    };
+
+    getUserInfo();
+  }, []);
 
   return (
     <>
@@ -86,10 +101,15 @@ const Connect = () => {
                 </Pressable>
                 <Pressable style={styles.headerBtn}>
                   <Image
-                    source={require("../../../assets/icons/animoji.png")}
+                    source={
+                      user?.profileImage?.url
+                        ? { uri: user?.profileImage?.url }
+                        : require("../../../assets/icons/animoji.png")
+                    }
                     style={{
                       width: 33,
                       height: 33,
+                      borderRadius: 33,
                     }}
                     resizeMode="cover"
                   />
@@ -159,7 +179,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     overflow: "hidden",
-    paddingHorizontal:16
+    paddingHorizontal: 16,
   },
   headerBtn: {
     gap: 6,
@@ -189,7 +209,7 @@ const styles = StyleSheet.create({
     // backgroundColor: "red",
     position: "relative",
     marginBottom: 15,
-    paddingHorizontal:16
+    paddingHorizontal: 16,
   },
   search: {
     gap: 4,

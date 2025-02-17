@@ -30,7 +30,7 @@ const AnimatedScrollView = Animated.createAnimatedComponent(
 );
 
 const CollapsibleHeader = memo(
-  ({ scrollY, info }: { scrollY: any; info: any }) => {
+  ({ scrollY, info, user }: { scrollY: any; info: any; user: any }) => {
     const headerTranslateY = scrollY.interpolate({
       inputRange: [0, HEADER_HEIGHT],
       outputRange: [0, -HEADER_HEIGHT],
@@ -50,16 +50,23 @@ const CollapsibleHeader = memo(
           zIndex: 1,
         }}
       >
-        <View style={{ flex: 1, paddingTop: 10, paddingHorizontal: 16 }}>
+        <View style={{ flex: 1, paddingTop: 0, paddingHorizontal: 16 }}>
           <View className="flex-row gap=[30px]">
             <View className="gap-[8px]">
               <Image
                 source={
                   info?.profilePictureUrl
                     ? { uri: `${info.profilePictureUrl}` }
-                    : require("../../../assets/icons/animoji.png")
+                    : user?.profileImage?.url
+                      ? { uri: user?.profileImage?.url }
+                      : require("../../../assets/icons/profile.jpg")
                 }
-                style={{ width: 90, height: 90, borderRadius: 90 }}
+                style={{
+                  width: 90,
+                  height: 90,
+                  borderRadius: 90,
+                  backgroundColor: "#fff",
+                }}
                 contentFit="cover"
               />
               <Text
@@ -75,36 +82,58 @@ const CollapsibleHeader = memo(
             >
               <View className="flex-row items-center justify-between w-full shrink">
                 <View className="gap-[4px] items-center">
-                  <Text className="text-[16px] text-[#ccc] font-LexendDeca">
+                  <Text className="text-[18px] text-[#ccc] font-LexendDeca">
                     {info?.postsCount}
                   </Text>
-                  <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
+                  <Text className="text-[12px] text-[#ccc] font-LexendDeca">
                     Posts
                   </Text>
                 </View>
-                <View className="gap-[4px] items-center">
-                  <Text className="text-[16px] text-[#ccc] font-LexendDeca">
+                <Pressable
+                  className="gap-[4px] items-center"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/profileStats/stats",
+                      params: {
+                        username: user?.username,
+                        activeTab: "following",
+                      },
+                    })
+                  }
+                >
+                  <Text className="text-[18px] text-[#ccc] font-LexendDeca">
                     {info?.followingCount}
                   </Text>
-                  <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
+                  <Text className="text-[12px] text-[#ccc] font-LexendDeca">
                     Following
                   </Text>
-                </View>
-                <View className="gap-[4px] items-center">
-                  <Text className="text-[16px] text-[#ccc] font-LexendDeca">
+                </Pressable>
+                <Pressable
+                  className="gap-[4px] items-center"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/profileStats/stats",
+                      params: {
+                        username: user?.username,
+                        activeTab: "followers",
+                      },
+                    })
+                  }
+                >
+                  <Text className="text-[18px] text-[#ccc] font-LexendDeca">
                     {info?.followersCount}
                   </Text>
-                  <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
+                  <Text className="text-[12px] text-[#ccc] font-LexendDeca">
                     Followers
                   </Text>
-                </View>
+                </Pressable>
               </View>
               <View className="flex-row items-center gap-[20px] shrink">
                 <Pressable
                   className="w-[100px] items-center justify-center rounded-[6px] border-[#16783A] border-[1px]"
                   style={{ paddingVertical: 7.5, width: 100 }}
                 >
-                  <Text className="text-white font-LexendDeca text-[8.5px]">
+                  <Text className="text-white font-LexendDeca text-[10px]">
                     Share Profile
                   </Text>
                 </Pressable>
@@ -124,7 +153,7 @@ const CollapsibleHeader = memo(
                     })
                   }
                 >
-                  <Text className="text-white font-LexendDeca text-[8.5px]">
+                  <Text className="text-white font-LexendDeca text-[10px]">
                     Edit Profile
                   </Text>
                 </Pressable>
@@ -132,11 +161,8 @@ const CollapsibleHeader = memo(
             </View>
           </View>
           <View>
-            <Text className="text-[8px] font-LexendDeca text-[#ccc]">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut
-              enim ad minim veniam, quis nostrud exercitation ullamco laboris
-              nisi ut aliquip ex ea commodo consequat.
+            <Text className="text-[12px] font-LexendDeca text-[#ccc]">
+              {info?.bio?.split("\n")?.slice(0, 4)?.join("\n")}
             </Text>
           </View>
           <Pressable className="mt-[16px] py-[8px] px-[16px] rounded-[6px] border-[1px] border-[#16783A] flex-row items-center justify-between">
@@ -311,14 +337,16 @@ const Profile = () => {
         }}
       >
         <View className="flex-row items-center gap-[8px]">
-          <TouchableOpacity className="" onPress={() => router.back()}>
+          {/* <TouchableOpacity className="" onPress={() => router.back()}>
             <Entypo
               name="chevron-left"
               size={24}
               color="rgba(204, 204, 204, 0.8)"
             />
-          </TouchableOpacity>
-          <Text style={styles.userName}>{user?.username}</Text>
+          </TouchableOpacity> */}
+          <Text style={styles.userName}>
+            {profile?.username || user?.username}
+          </Text>
         </View>
         <View
           style={{
@@ -359,7 +387,7 @@ const Profile = () => {
 
       <View style={{ flex: 1 }}>
         {/* Collapsible Header */}
-        <CollapsibleHeader scrollY={scrollY} info={profile} />
+        <CollapsibleHeader scrollY={scrollY} info={profile} user={user} />
 
         {/* Tab View */}
         <TabView

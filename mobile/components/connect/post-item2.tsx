@@ -49,10 +49,10 @@ const { width } = Dimensions.get("window");
 const reactionsList = [
   { id: "like", emoji: "👍", label: "like" },
   { id: "love", emoji: "❤️", label: "love" },
-  { id: "haha", emoji: "😂", label: "Haha" },
-  { id: "wow", emoji: "😮", label: "Wow" },
-  { id: "sad", emoji: "😢", label: "Sad" },
-  { id: "angry", emoji: "😡", label: "Angry" },
+  { id: "haha", emoji: "😂", label: "haha" },
+  { id: "wow", emoji: "😮", label: "wow" },
+  { id: "sad", emoji: "😢", label: "sad" },
+  { id: "angry", emoji: "😡", label: "angry" },
 ];
 
 const SingleMediaItem = memo(({ item }: { item: any }) => {
@@ -350,19 +350,26 @@ const PostItem2 = ({ item }: { item: any }) => {
   }, []);
 
   const productKeyExtractor = useCallback((item: any) => item?._id, [item]);
+  console.log(item.author);
 
   return (
     <Pressable style={styles.container} onPress={showMorePost}>
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <Image
-            source={require("../../assets/icons/animoji.png")}
-            contentFit="contain"
+            source={
+              item?.author?.image
+                ? { uri: item?.author?.image }
+                : require("../../assets/icons/animoji.png")
+            }
+            contentFit="cover"
             style={styles.avatar}
             cachePolicy="memory-disk"
           />
           <View style={styles.userMetadata}>
-            <Text style={styles.userName}>{item?.author?.name}</Text>
+            <Text style={styles.userName}>
+              {item?.author?.username || item?.author?.name}
+            </Text>
             <Text style={styles.timestamp}>{timeFromNow(item?.createdAt)}</Text>
           </View>
         </View>
@@ -678,7 +685,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomColor: "#888787",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal:16
+    paddingHorizontal: 16,
   },
   header: {
     flexDirection: "row",
