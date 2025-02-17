@@ -291,10 +291,11 @@ const VariantCombinations = memo(() => {
                                         total + (parseInt(subVar.stock) || 0) +
                                         subVar.subSubVariants.reduce((subTotal, subSubVar) => 
                                             subTotal + (parseInt(subSubVar.stock) || 0), 0
-                                        ), 0)}
+                                        ), 0) || 1}
                                 </div>
                             </div>
                         </div>
+
                         {expandedVariants.has(mainVariant.value) &&
                             mainVariant.subVariants?.map(subVariant =>
                                 renderSubVariant(mainVariant, subVariant)

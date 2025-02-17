@@ -3,6 +3,7 @@ import { BASE_URL } from "../Constants/Server";
 import { toast } from 'sonner';
 import PropTypes from 'prop-types';
 import axios from "axios";
+import mixpanel from "mixpanel-browser";
 
 
 const LivestreamContext = createContext();
@@ -100,7 +101,7 @@ export const LivestreamProvider = ({ children }) => {
                 return {
                     ...state,
                     liveStreamDetails: action.payload
-                } 
+                }
             case 'RESET_SCHEDULE_DATA':
                 return {
                     ...state,
@@ -213,10 +214,10 @@ export const LivestreamProvider = ({ children }) => {
     const startLiveStream = async (streamId) => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
-            
+
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
-            
+
             if (!tokenData?.data) {
                 throw new Error('No authentication token found');
             }
@@ -234,9 +235,25 @@ export const LivestreamProvider = ({ children }) => {
 
             if (response.status === 200) {
                 const streamData = response.data.stream;
-                dispatch({ 
-                    type: 'SET_SUCCESS_LIVESTREAM_START', 
-                    payload: streamData 
+
+                // Track livestream start
+                {/*try {
+                    const seller = JSON.parse(localStorage.getItem('seller'));
+                    {mixpanel.track("Live Session Started", {
+                        "Seller ID": seller?._id || 'unknown',
+                        "Live ID": streamData._id,
+                        "Start Time": new Date().toISOString(),
+                        "Stream Type": streamData.type, // 'auction' or 'show'
+                        "Scheduled Start": streamData.scheduledStartTime,
+                        "Products Featured": streamData.products?.length || 0
+                    });}
+                } catch (e) {
+                    console.error('Mixpanel tracking error:', e);
+                }}*/}
+
+                dispatch({
+                    type: 'SET_SUCCESS_LIVESTREAM_START',
+                    payload: streamData
                 });
 
                 toast.success('Livestream started successfully', {
@@ -245,15 +262,15 @@ export const LivestreamProvider = ({ children }) => {
                         color: '#fff',
                     }
                 });
-                
+
                 return streamData;
             }
             return null;
         } catch (error) {
             console.error('Start livestream error:', error);
-            dispatch({ 
-                type: 'SET_ERROR', 
-                payload: error.response?.data?.message || error.message 
+            dispatch({
+                type: 'SET_ERROR',
+                payload: error.response?.data?.message || error.message
             });
             toast.error('Error starting livestream', {
                 description: error.response?.data?.message || 'Something went wrong',
@@ -269,10 +286,10 @@ export const LivestreamProvider = ({ children }) => {
     };
 
     const endLiveStream = async (streamId) => {
-        try {  
+        try {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
-            
+
             if (!tokenData?.data) {
                 throw new Error('No authentication token found');
             }
@@ -302,9 +319,9 @@ export const LivestreamProvider = ({ children }) => {
             }
         } catch (error) {
             console.error('End livestream error:', error);
-            dispatch({ 
-                type: 'SET_ERROR', 
-                payload: error.response?.data?.message || error.message 
+            dispatch({
+                type: 'SET_ERROR',
+                payload: error.response?.data?.message || error.message
             });
             toast.error('Error ending livestream', {
                 description: error.response?.data?.message || 'Something went wrong',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
 import { useOnboardingContext } from "../../Hooks/useOnboardingContext"
@@ -8,11 +8,20 @@ import AppleStore from '../../assets/app-store.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import Background from '../../assets/signup.png';
 import Logo from '../../assets/auqli-official-logo.png';
+import { useIntercomChat } from '../../Hooks/useIntercom';
 
 const OnBoardingPage = () => {
+  const { initUser } = useIntercomChat();
   const { registerAccountType, isLoading } = useOnboardingContext();
   const navigate = useNavigate();
   const [accountType, setAccountType] = useState('business');
+
+  useEffect(() => {
+    const storedSeller = JSON.parse(localStorage.getItem('seller'))
+    if (storedSeller) {
+      initUser(storedSeller)
+    }
+  }, [])
 
 
   const handleNextButton = async () => {

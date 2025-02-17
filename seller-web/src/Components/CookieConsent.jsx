@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 
 const CookieConsent = ({ onAccept, onDecline }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -50,6 +51,11 @@ const CookieConsent = ({ onAccept, onDecline }) => {
       </div>
     </div>
   );
+};
+
+CookieConsent.propTypes = {
+  onAccept: PropTypes.func,
+  onDecline: PropTypes.func,
 };
 
 export default CookieConsent;

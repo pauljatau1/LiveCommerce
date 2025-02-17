@@ -87,7 +87,7 @@ const ScheduleShows = () => {
         ) : (
           <div className="h-[70dvh] flex mt-10 flex-col absolute inset-0 items-center justify-center gap-4">
             <img src={NotFoundIcon} alt="No active streams" className="w-[180px] md:w-[220px] h-[180px] md:h-[220px] xl:w-[386px] xl:h-[386px]" />
-            <h1 className="text-lg font-medium text-center text-[#000000]">You have no scheduled shows yet</h1>
+            <h1 className="text-base lg:text-lg font-medium text-center text-[#000000]">You have no scheduled shows yet</h1>
             <NavLink to="/dashboard/live-streams/live-stream" className="text-sm font-medium text-white bg-green-600 hover:bg-green-700 px-4 py-2 transition-all duration-300 rounded-lg">
               Schedule a show
             </NavLink>

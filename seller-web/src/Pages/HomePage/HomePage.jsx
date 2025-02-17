@@ -27,7 +27,9 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
 import NotificationsDialog from "../../Components/NotificationsDialog";
 import { useOutletContext } from "react-router-dom";
-import NoOrderFound from "../../assets/no-order-found.png"
+import NoOrderFound from "../../assets/no-order-found.png";
+import { useIntercomChat } from "../../Hooks/useIntercom";
+
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
 // Example: formatNumber(1500, "view") returns "1.5K views"
@@ -68,6 +70,7 @@ const getSellerAnalytics = async () => {
 const HomePage = () => {
   // Core hooks initialization
   const navigate = useNavigate();
+  const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext()
   const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications } = useAuthContext();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
@@ -91,6 +94,13 @@ const HomePage = () => {
       setShowBackButton(true)
     }
     
+  }, [])
+
+  useEffect(() => {
+    const storedSeller = JSON.parse(localStorage.getItem('seller'))
+    if (storedSeller) {
+      initUser(storedSeller)
+    }
   }, [])
 
   // Fetch seller details and wallet balance

@@ -435,7 +435,6 @@ const LivestreamStudio = () => {
 
     useEffect(() => {
         const handleConnectionStateChange = async (curState, prevState) => {
-            
             console.log("Connection state:", prevState, "→", curState);
 
             // Handle disconnection or initial page load
@@ -447,8 +446,12 @@ const LivestreamStudio = () => {
                 (prevState === null && isConnected)) {
                 try {
                     setIsLiveStreamStarting(true);
-                    // Get fresh stream details first
-                    const { status: livestreamStatus } = await getLiveStreamFullDetails(id);
+                    // Get fresh details including LATEST token
+                    const { 
+                        status: livestreamStatus,
+                        agoraToken, // Backend ensures this is always fresh
+                        channelName: currentChannel 
+                    } = await getLiveStreamFullDetails(id);
 
                     console.log('livestreamStatus', livestreamStatus)
 
@@ -467,8 +470,8 @@ const LivestreamStudio = () => {
 
                     await client.join(
                         "6170309cbdb94a6dbdda39aa8a4143d1",
-                        channelName,
-                        agoraToken,
+                        currentChannel,
+                        agoraToken, // Now using backend-managed fresh token
                         seller.agoraUid
                     );
 

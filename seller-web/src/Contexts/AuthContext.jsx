@@ -4,11 +4,15 @@ import { toast } from "sonner";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import mixpanel from "mixpanel-browser";
+import { getClientIP } from '../Utilities/networkUtils';
+import { useIntercomChat } from '../Hooks/useIntercom';
 
 const AuthContext = createContext();
 
 function AuthProvider({ children }) {
     const navigate = useNavigate();
+    const { initUser, shutdown } = useIntercomChat();
     const initialState = {
         seller: null,
         signUpSellerDetails: null,
@@ -25,7 +29,8 @@ function AuthProvider({ children }) {
         onboardingStep: null,
         blockedUser: false,
         isForgotPasswordRequestSuccessful: false,
-        passwordResetSuccessful: false
+        passwordResetSuccessful: false,
+        isDataReady: false
     }
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -173,18 +178,17 @@ function AuthProvider({ children }) {
                     isForgotPasswordRequestSuccessful: false,
                     passwordResetSuccessful: false
                 }
+            case 'SET_DATA_READY':
+                return { ...state, isDataReady: action.payload };
             default:
                 return state;
-
-
         }
     }, initialState);
-
-
 
     //function to create a new seller and signup
     const createSeller = async (firstName, lastName, email, password, phoneNumber) => {
         try {
+            shutdown()
             dispatch({ type: 'SET_LOADING', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/register`, {
                 firstName,
@@ -212,6 +216,19 @@ function AuthProvider({ children }) {
                     }
                 });
 
+                // Track signup event
+                try {
+                    mixpanel.identify(response.data.user._id);
+                    mixpanel.track("User Signed Up", {
+                        "Signup Method": "Email", // or "Google"/"Phone" if implementing social logins
+                        "Referral Used": response.data.referralUsed ? "Yes" : "No",
+                        "Referrer ID": response.data.referrerId || "None",
+                        "User Type": "Seller",
+                        "IP Address": await getClientIP().catch(() => 'unknown')
+                    });
+                } catch (e) {
+                    console.error('Mixpanel tracking error:', e);
+                }
             }
 
         } catch (AxiosError) {
@@ -244,6 +261,15 @@ function AuthProvider({ children }) {
                 if (response.status === 200) {
                     console.log(response);
                     dispatch({ type: 'FETCH_ONBOARDING_PROCESS', payload: response.onboardingProcess });
+
+                    // Update the tracking call in getOnboardingProcess
+                    mixpanel.track("Onboarding Completed", {
+                        "Time to Complete": formatOnboardingTime(
+                            Math.round((Date.now() - new Date(response.data.user.createdAt)) / 1000 / 60)
+                        ),
+                        "Total Minutes": Math.round((Date.now() - new Date(response.data.user.createdAt)) / 1000 / 60),
+                        "Current Onboarding Step": response.onboardingProcess
+                    });
                 } else {
                     navigate('/signup');
                 }
@@ -251,8 +277,6 @@ function AuthProvider({ children }) {
         } catch (error) {
             console.error("Error fetching onboarding process:", error);
             console.log("Error status:", error.response.status);
-
-
 
         }
     }
@@ -294,6 +318,7 @@ function AuthProvider({ children }) {
     //function to verify otp after sign up
     const verifyOtp = async (email, otp) => {
         try {
+            shutdown()
             dispatch({ type: 'SET_LOADING', payload: true });
             dispatch({ type: 'RESET' });
             const response = await axios.post(`${BASE_URL}/seller/verify-otp`, {
@@ -353,26 +378,70 @@ function AuthProvider({ children }) {
     //function to login a seller
     const login = async (email, password) => {
         try {
+            shutdown()
             dispatch({ type: "RESET" })
             dispatch({ type: 'SET_LOADING', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/login`, {
                 email,
                 password
             });
+            dispatch({ type: 'SET_DATA_READY', payload: false });
             if (response.status === 200) {
+                dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
                 localStorage.setItem('seller', JSON.stringify(response.data.user));
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
                     isVerified: response.data.user.isVerified
                 }));
+
+                // Mixpanel User Identification
+                mixpanel.identify(response.data.user?._id);
+
+                // Get IP address (only with consent)
+                let clientIP = 'unknown';
+
+                try {
+                    clientIP = await getClientIP();
+                } catch (e) {
+                    console.error('IP tracking failed:', e);
+                }
+
+                // Set user properties
+                mixpanel.people.set({
+                    "$email": response.data.user?.email,
+                    "$name": `${response.data.user?.firstName} ${response.data.user?.lastName}`,
+                    "Store Name": response.data.user?.storeName,
+                    "User Type": "Seller",
+                    "Seller Account Type": response.data.user?.accountType,
+                    "Signup Date": new Date(response.data.user?.createdAt).toISOString().split('T')[0],
+                    "Verification Status": response.data.user?.isVerified ? "Verified" : "Not Verified",
+                    "Primary Payment Account Number": response.data.user?.bankDetails?.accountNumber || "None",
+                    "Primary Payment Account Name": response.data.user?.bankDetails?.accountName || "None",
+                    "Primary Payment Account Bank": response.data.user?.bankDetails?.bankName || "None",
+                    "Primary Payment Account Currency": response.data.user?.bankDetails?.accountCurrency || "None",
+                    "Location": `${response.data.user?.businessAddress?.country || ''}, ${response.data.user?.businessAddress?.city || ''}, ${response.data.user?.businessAddress?.state || ''}, ${response.data.user?.businessAddress?.addressLine1 || ''}`,
+                    "Total Wallet Balance": response.data.user?.walletBalance || 0,
+                    "IP Address": clientIP,
+                });
+
+                // Track login event with device context and IP
+                mixpanel.track("Login", {
+                    "Verification Status": response.data.user?.isVerified ? "Verified" : "Not Verified",
+                    "Device Type": getDeviceType(),
+                    "IP Address": clientIP,
+                    "Approximate Location": clientIP !== 'unknown' ? 'Derived from IP' : 'Not available'
+                });
+
                 console.log('login response:', response.data);
-                dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
+
                 toast.success('Login successful', {
                     style: {
                         border: '1px solid #05031F',
                     }
                 });
                 navigate('/dashboard/home');
+                dispatch({ type: 'SET_DATA_READY', payload: true });
+                window.dispatchEvent(new Event('appLoginComplete'));
             }
         } catch (error) {
             console.log(error);
@@ -465,13 +534,34 @@ function AuthProvider({ children }) {
                 }
             });
             if (response.status === 200) {
-                console.log("seller details:", response.data);
                 dispatch({ type: 'FETCH_SELLER_DETAILS', payload: response.data });
+                console.log("seller details:", response.data);
                 localStorage.setItem('sellerToken', JSON.stringify({
                     ...tokenData,
                     isVerified: response.data.isVerified
                 }));
                 localStorage.setItem('seller', JSON.stringify(response.data));
+                const profileComplete = Boolean(
+                    response.data.storeName &&
+                    response.data.businessAddress &&
+                    response.data.bankDetails &&
+                    response.data.isProfileComplete
+                );
+
+                mixpanel.track("Profile Completed", {
+                    "Completion %": profileComplete ? 100 : calculateProfileCompletion(response.data),
+                    "User Type": "Seller"
+                });
+
+                if (!response.data.isVerified) {
+                    mixpanel.track("Onboarding Completed", {
+                        "Time to Complete Onboarding": formatOnboardingTime(
+                            Math.round((Date.now() - new Date(response.data.createdAt)) / 1000 / 60)
+                        ),
+                        "Total Minutes": Math.round((Date.now() - new Date(response.data.createdAt)) / 1000 / 60),
+                        "Current Onboarding Step": response.data.onboardingProcess
+                    });
+                }
             }
         } catch (error) {
             console.log(error);
@@ -499,10 +589,21 @@ function AuthProvider({ children }) {
     //function to log user out
     const logout = async () => {
         try {
+            shutdown();
+            dispatch({ type: 'LOGOUT' });
+            // Clear Intercom storage tracks
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('intercom')) {
+                    localStorage.removeItem(key);
+                }
+            });
+
+            // Clear app-specific storage
             localStorage.removeItem('sellerToken');
             localStorage.removeItem('seller');
             localStorage.removeItem('onboardingProcess');
-            dispatch({ type: 'LOGOUT' });
+            localStorage.removeItem('visitorId')
+            dispatch({ type: 'SET_DATA_READY', payload: false });
             navigate('/login');
         } catch (error) {
             console.error('Logout error:', error);
@@ -553,6 +654,38 @@ function AuthProvider({ children }) {
         }
     }
 
+    // Add helper function outside the login function
+    const getDeviceType = () => {
+        const userAgent = navigator.userAgent;
+        if (/android/i.test(userAgent)) return "Android";
+        if (/iPad|iPhone|iPod/.test(userAgent)) return "iOS";
+        return "Desktop";
+    };
+
+    // Add helper function
+    const calculateProfileCompletion = (sellerData) => {
+        const requiredFields = ['storeName', 'businessAddress', 'bankDetails', 'isProfileComplete', 'storeAvatar', 'storeBanner'];
+        const completedFields = requiredFields.filter(field => sellerData[field]);
+        return Math.round((completedFields.length / requiredFields.length) * 100);
+    };
+
+    // Add this helper function in your AuthProvider component
+    const formatOnboardingTime = (minutes) => {
+        if (isNaN(minutes) || minutes <= 0) return 'N/A';
+
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+
+        let timeString = '';
+        if (hours > 0) {
+            timeString += `${hours}h `;
+        }
+        if (remainingMinutes > 0) {
+            timeString += `${remainingMinutes}m`;
+        }
+
+        return timeString.trim() || '0m';
+    };
 
     return (
         <AuthContext.Provider value={{
