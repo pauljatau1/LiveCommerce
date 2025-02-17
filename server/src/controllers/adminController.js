@@ -10,6 +10,7 @@ const Order = require('../models/Order');
 const Announcement = require('../models/Annoucement');
 const Withdrawal = require('../models/Withdrawal');
 const Resource = require('../models/Resource');
+const Transaction = require('../models/Transaction');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
@@ -1190,6 +1191,16 @@ exports.updateWithdrawalStatus = async (req, res) => {
     if (status === 'completed') {
       withdrawal.processedDate = new Date();
       
+      // Create withdrawal transaction record
+      await Transaction.create({
+        seller: withdrawal.seller._id,
+        type: 'withdrawal',
+        amount: withdrawal.amount,
+        status: 'completed',
+        bankDetails: withdrawal.bankDetails,
+        description: `Withdrawal to bank account ${withdrawal.bankDetails.accountNumber}`
+      });
+
       // Update seller's wallet balance
       const seller = withdrawal.seller;
       seller.walletBalance -= withdrawal.amount;

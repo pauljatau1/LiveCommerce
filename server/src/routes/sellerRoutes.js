@@ -2226,43 +2226,112 @@ router.put('/campaign-preferences',
  */
 router.get('/:sellerId/all-reviews', sellerController.getAllReviews);
 
-// /**
-//  * @swagger
-//  * /api/seller/profile/{sellerId}:
-//  *   get:
-//  *     summary: Get a seller's public profile
-//  *     tags: [Seller]
-//  *     parameters:
-//  *       - in: path
-//  *         name: sellerId
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  *         description: ID of the seller
-//  *     responses:
-//  *       200:
-//  *         description: Seller profile retrieved successfully
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 storeName:
-//  *                   type: string
-//  *                 aboutStore:
-//  *                   type: string
-//  *                 storeAvatar:
-//  *                   type: object
-//  *                 storeBanner:
-//  *                   type: object
-//  *                 categories:
-//  *                   type: array
-//  *       404:
-//  *         description: Seller not found
-//  *       500:
-//  *         description: Internal server error
-//  */
-// router.get('/profile/:sellerId', storeVisitMiddleware.trackStoreVisit, sellerController.getSellerProfile);
+/**
+ * @swagger
+ * /api/seller/transactions:
+ *   get:
+ *     summary: Get seller's wallet transactions history
+ *     description: Retrieves detailed transaction history including order payments, platform fees, and withdrawals
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions until this date
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [order_payment, withdrawal, platform_fee]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of transactions per page
+ *     responses:
+ *       200:
+ *         description: List of transactions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 transactions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [order_payment, withdrawal, platform_fee]
+ *                       amount:
+ *                         type: number
+ *                       platformFee:
+ *                         type: number
+ *                       netAmount:
+ *                         type: number
+ *                       orderId:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     totalEarnings:
+ *                       type: number
+ *                     totalPlatformFees:
+ *                       type: number
+ *                     totalWithdrawals:
+ *                       type: number
+ *                     currentBalance:
+ *                       type: number
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalTransactions:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/transactions', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getTransactions
+);
 
 /**
  * @swagger
@@ -2355,5 +2424,30 @@ router.delete('/unfollow/:buyerId', authMiddleware.verifyToken, authMiddleware.i
  *         description: Server error
  */
 router.get('/following/buyers', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.getFollowedBuyers);
+
+/**
+ * @swagger
+ * /api/seller/advanced-analytics:
+ *   get:
+ *     summary: Get comprehensive seller analytics and insights
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: timeframe
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, 90d, 1y, all]
+ *           default: 30d
+ *     responses:
+ *       200:
+ *         description: Detailed analytics retrieved successfully
+ */
+router.get('/advanced-analytics',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getAdvancedAnalytics
+);
 
 module.exports = router;
