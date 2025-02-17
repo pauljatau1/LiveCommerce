@@ -27,7 +27,8 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
 import NotificationsDialog from "../../Components/NotificationsDialog";
 import { useOutletContext } from "react-router-dom";
-import NoOrderFound from "../../assets/no-order-found.png"
+import NoOrderFound from "../../assets/no-order-found.png";
+import { useIntercomChat } from "../../Hooks/useIntercom";
 
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
@@ -70,6 +71,7 @@ const getSellerAnalytics = async () => {
 const HomePage = () => {
   // Core hooks initialization
   const navigate = useNavigate();
+  const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext()
   const { seller, fetchSellerDetails, getTop3SellingProducts, top3SellingProducts, isLoading, stuffToDo, getSellerNotifications } = useAuthContext();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
@@ -93,6 +95,13 @@ const HomePage = () => {
       setShowBackButton(true)
     }
     
+  }, [])
+
+  useEffect(() => {
+    const storedSeller = JSON.parse(localStorage.getItem('seller'))
+    if (storedSeller) {
+      initUser(storedSeller)
+    }
   }, [])
 
   // Fetch seller details and wallet balance
@@ -303,7 +312,7 @@ const HomePage = () => {
         title: 'Conversion Rate',
         icon: FiBarChart2,
         current: `${conversionRate}%`,
-        percentage: analytics?.insights?.find(i => i.metric === "Store Conversion")?.percentageChange + '%' || '0%',
+        percentage: analytics?.insights?.find(i => i.metric === "Store Conversion")?.percentageChange.toFixed(1) + '%' || '0%',
         trend: analytics?.insights?.find(i => i.metric === "Store Conversion")?.trend || 'neutral',
         iconColor: 'text-green-600',
         iconBackground: 'bg-green-50'

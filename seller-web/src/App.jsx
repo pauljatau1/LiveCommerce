@@ -65,6 +65,8 @@ import ReturnDetail from './Pages/Orders/ReturnDetail';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from './lib/theme';
 import mixpanel from "mixpanel-browser";
+import IntercomWrapper from './Components/IntercomProvider';
+import IntercomInitializer from './Components/IntercomInitializer';
 
 // Create a wrapper component that provides both Router and Auth contexts
 
@@ -409,12 +411,12 @@ const router = createBrowserRouter([
 function App() {
   useEffect(() => {
     // Initialize Mixpanel based on existing consent
-      mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
-        debug: true,
-        track_pageview: true,
-        persistence: "localStorage",
-        autocapture: true,
-      });
+    mixpanel.init("94b0cfbe14bc101f450403071cb7169d", {
+      debug: true,
+      track_pageview: true,
+      persistence: "localStorage",
+      autocapture: true,
+    });
   }, []);
 
   const handleConsentAccept = () => {
@@ -428,7 +430,7 @@ function App() {
       track_pageview: true,
       persistence: "localStorage",
       autocapture: true,
-      
+
     });
 
   };
@@ -449,15 +451,17 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Suspense fallback={<Loader />}>
-        <RouterProvider router={router} fallbackElement={<Loader />} />
-        <Toaster />
-        <ToastContainer />
-        <CookieConsent
-          onAccept={handleConsentAccept}
-          onDecline={handleConsentDecline}
-        />
-      </Suspense>
+      <IntercomWrapper>
+        <Suspense fallback={<Loader />}>
+          <RouterProvider router={router} fallbackElement={<Loader />} />
+          <Toaster />
+          <ToastContainer />
+          <CookieConsent
+            onAccept={handleConsentAccept}
+            onDecline={handleConsentDecline}
+          />
+        </Suspense>
+      </IntercomWrapper>
     </ThemeProvider>
   );
 }
