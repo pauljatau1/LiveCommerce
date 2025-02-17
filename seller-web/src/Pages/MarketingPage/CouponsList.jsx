@@ -173,7 +173,7 @@ export default function CouponsList() {
                 <TableHead className="font-semibold">Code</TableHead>
                 <TableHead className="font-semibold">Discount</TableHead>
                 <TableHead className="font-semibold">Validity</TableHead>
-                <TableHead className="font-semibold">Usage</TableHead>
+                {/* <TableHead className="font-semibold">Usage</TableHead> */}
                 <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold text-right">Actions</TableHead>
               </TableRow>
@@ -202,30 +202,48 @@ export default function CouponsList() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  {/* <TableCell>
                     <div className="flex items-center">
                       
                       <span className="ml-2 text-sm text-gray-600">
                         {coupon.usageCount} / {coupon.usageLimit || '∞'}
                       </span>
                     </div>
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell>
                     <Badge
-                      variant={coupon.status === 'active' ? 'success' : 'secondary'}
+                      variant={
+                        new Date(coupon.startDate) > new Date() 
+                          ? 'warning' 
+                          : coupon.status === 'active' 
+                            ? 'success' 
+                            : 'secondary'
+                      }
                       className={`
-                        ${coupon.status === 'active' 
-                          ? 'bg-green-100 text-green-800 border-green-200' 
-                          : 'bg-gray-100 text-gray-800 border-gray-200'}
+                        ${new Date(coupon.startDate) > new Date()
+                          ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                          : coupon.status === 'active' 
+                            ? 'bg-green-100 text-green-800 border-green-200' 
+                            : 'bg-gray-100 text-gray-800 border-gray-200'}
                         px-3 py-1 rounded-full text-xs font-medium
                       `}
                     >
-                      {coupon.status === 'active' ? (
-                        <CheckCircle className="h-3 w-3 inline mr-1" />
+                      {new Date(coupon.startDate) > new Date() ? (
+                        <>
+                          <CalendarIcon className="h-3 w-3 inline mr-1" />
+                          scheduled
+                        </>
+                      ) : coupon.status === 'active' ? (
+                        <>
+                          <CheckCircle className="h-3 w-3 inline mr-1" />
+                          {coupon.status}
+                        </>
                       ) : (
-                        <XCircle className="h-3 w-3 inline mr-1" />
+                        <>
+                          <XCircle className="h-3 w-3 inline mr-1" />
+                          {coupon.status}
+                        </>
                       )}
-                      {coupon.status}
                     </Badge>
                   </TableCell>
                   <TableCell>

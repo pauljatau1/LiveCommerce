@@ -116,14 +116,18 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
             {/* Bottom Section - Fixed at bottom */}
             <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#17171B]">
               <div className="flex flex-col gap-4 p-4">
-                <NavLink to='/dashboard/help' className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                <a href='https://help.auqli.live/en/' target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
                   <Icon icon="fluent:person-support-28-regular" width="24" height="24" />
                   <p>Help & Support</p>
+                </a>
+                <NavLink to='/dashboard/account' className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                  <Icon icon="mingcute:user-4-line" width="24" height="24" />
+                  <p>Account</p>
                 </NavLink>
-                <NavLink to='/dashboard/settings' className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
-                  <Icon icon="fluent:settings-28-regular" width="24" height="24" />
-                  <p>Settings</p>
-                </NavLink>
+                {/* <NavLink to='/dashboard/university' className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                  <Icon icon="carbon:education" width="24" height="24" />
+                  <p>Auqli University</p>
+                </NavLink> */}
                 <button
                   className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md text-left"
                   onClick={handleLogout}
@@ -216,10 +220,14 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
                     <Icon icon="fluent:person-support-28-regular" width="24" height="24" />
                     Help & Support
                   </NavLink>
-                  <NavLink to="/dashboard/settings" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
-                    <Icon icon="fluent:settings-28-regular" width="24" height="24" />
-                    Settings
+                  <NavLink to="/dashboard/account" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                    <Icon icon="mingcute:user-4-line" width="24" height="24" />
+                    Account
                   </NavLink>
+                  {/* <NavLink to="/dashboard/university" className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md">
+                    <Icon icon="carbon:education" width="24" height="24" />
+                    Auqli University
+                  </NavLink> */}
                   <button
                     className="flex items-center gap-2 px-5 py-2 text-white text-sm hover:bg-white/10 rounded-md text-left"
                     onClick={handleLogout}

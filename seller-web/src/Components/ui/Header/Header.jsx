@@ -14,6 +14,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   const [isChatVisible, setIsChatVisible] = useState(true)
   const [seller, setSeller] = useState(null)
   const { stuffToDo, getSellerNotifications } = useAuthContext()
+  const [unreadMessages, setUnreadMessages] = useState(0)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -42,6 +43,31 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
 
   useEffect(() => {
     getSellerNotifications()
+  }, [])
+
+  useEffect(() => {
+    const calculateUnreadMessages = async () => {
+      try {
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
+        if (!sellerToken) return
+
+        const response = await fetch(`${BASE_URL}/conversations`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        })
+        const data = await response.json()
+        
+        const totalUnread = data.conversations?.reduce((total, conv) => 
+          total + (conv.unreadCount || 0), 0) || 0
+        
+        setUnreadMessages(totalUnread)
+      } catch (error) {
+        console.error('Error fetching unread messages:', error)
+      }
+    }
+
+    calculateUnreadMessages()
   }, [])
 
   const calculateNewNotifications = () => {
@@ -136,7 +162,56 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     )
   }
 
+  const desktopMenuItems = (
+    <div className="hidden md:flex md:items-center md:gap-2">
+      {desktopGoLiveButton}
+      <button
+        onClick={() => navigate('/dashboard/messages')}
+        className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out"
+      >
+        <Icon icon="icon-park-outline:message" className="h-6 w-6" />
+        {unreadMessages > 0 && (
+          <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs">
+            {unreadMessages}
+          </span>
+        )}
+      </button>
+      {desktopNotificationsButton}
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          {renderAvatar()}
+        </div>
+        <div className="ml-3">
+          <p className="text-sm font-semibold font-inter capitalize text-[#16192C]">
+            {seller?.firstName} {seller?.lastName}
+          </p>
+          {seller?.storeName && (
+            <p className="text-xs text-gray-500">
+              {seller.storeName}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 
+  const mobileMessagesItem = (
+    <CommandItem
+      onSelect={() => {
+        navigate('/dashboard/messages')
+        setOpen(false)
+      }}
+      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
+    >
+      <Icon icon="solar:chat-line-bold" className="mr-2 h-5 w-5 text-gray-400" />
+      <span>Messages</span>
+      {unreadMessages > 0 && (
+        <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs">
+          {unreadMessages}
+        </span>
+      )}
+    </CommandItem>
+  )
 
   return (
     <header className={`${fullScreenMode ? 'hidden' : 'block bg-white pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] border-b border-[#EDF2F7]' }`}>
@@ -187,16 +262,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
                       <Icon icon="fluent:live-20-filled" className="mr-2 h-5 w-5 text-gray-400" />
                       <span>Go Live</span>
                     </CommandItem>
-                    <CommandItem
-                      onSelect={() => {
-                        handleChatOpen()
-                        setOpen(false)
-                      }}
-                      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
-                    >
-                      <Icon icon="solar:chat-line-bold" className="mr-2 h-5 w-5 text-gray-400" />
-                      <span>Live Chat</span>
-                    </CommandItem>
+                    {mobileMessagesItem}
                     {mobileNotificationsItem}
                   </CommandGroup>
                 </CommandList>
@@ -205,33 +271,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           </Popover>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex md:items-center md:gap-2">
-            {desktopGoLiveButton}
-            <button
-              onClick={handleChatOpen}
-              className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out"
-            >
-              <Icon icon="icon-park-outline:message" className="h-6 w-6" />
-            </button>
-            {/* Notifications */}
-            {desktopNotificationsButton}
-
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                {renderAvatar()}
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-semibold font-inter capitalize text-[#16192C]">
-                  {seller?.firstName} {seller?.lastName}
-                </p>
-                {seller?.storeName && (
-                  <p className="text-xs text-gray-500">
-                    {seller.storeName}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
+          {desktopMenuItems}
         </div>
       </div>
     </header>

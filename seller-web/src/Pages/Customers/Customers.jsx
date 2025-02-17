@@ -53,7 +53,7 @@ function Customers() {
           const tokenData = JSON.parse(sellerToken)
           const token = tokenData.data
           console.log('Token:', token)
-          const response = await fetch(`${BASE_URL}/seller/followers?page=1&limit=20`, {
+          const response = await fetch(`${BASE_URL}/seller/followers?page=1&limit=100`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -277,9 +277,17 @@ function Customers() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="bg-green-50 border-2 border-green-100">
-                            <AvatarFallback className="text-green-600 font-medium">
-                              {follower.firstName ? follower.firstName[0] : follower.name[0]}
-                            </AvatarFallback>
+                            {follower.profileImageUrl ? (
+                              <img 
+                                src={follower.profileImageUrl} 
+                                alt={follower.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <AvatarFallback className="text-green-600 font-medium">
+                                {follower.firstName ? follower.firstName[0] : follower.name[0]}
+                              </AvatarFallback>
+                            )}
                           </Avatar>
                           <div>
                             <p className="font-semibold font-inter text-[#27272E]">

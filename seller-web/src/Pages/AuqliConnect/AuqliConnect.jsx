@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, MoreVertical, X, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { MessageCircle, MoreVertical, X, ChevronLeft, ChevronRight, MessageSquare, Heart } from 'lucide-react';
 import { Search } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Bell } from 'lucide-react';
@@ -36,6 +36,17 @@ import {
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
+import { PenSquare, Type, AlignLeft, Image, Info, Tags, Hash, Eye, Globe, Lock, Send, Loader2 } from "lucide-react";
+
+// Add these reaction options at the top level
+const REACTION_OPTIONS = [
+  { type: 'like', emoji: '👍', label: 'Like' },
+  { type: 'love', emoji: '❤️', label: 'Love' },
+  { type: 'haha', emoji: '😄', label: 'Haha' },
+  { type: 'wow', emoji: '😮', label: 'Wow' },
+  { type: 'sad', emoji: '😢', label: 'Sad' },
+  { type: 'angry', emoji: '😡', label: 'Angry' }
+];
 
 // Helper function to format message timestamps
 const formatMessageTime = (timestamp) => {
@@ -96,41 +107,35 @@ const formatCommentPreview = (comments) => {
 
 // Create a new separate component for the create post modal
 const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, setPostForm }) => {
-  const { setHeaderName, setNavName } = useOutletContext();
-  const [previews, setPreviews] = useState([])
-  const [sellerProducts, setSellerProducts] = useState([])
-  const [open, setOpen] = useState(false)
-  const [selectedProducts, setSelectedProducts] = useState([])
+  const [previews, setPreviews] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [sellerProducts, setSellerProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
 
   const handleMediaChange = (e) => {
-    const files = Array.from(e.target.files)
+    const files = Array.from(e.target.files);
     setPostForm(prev => ({
       ...prev,
       media: files
-    }))
+    }));
 
     // Generate previews
     const newPreviews = files.map(file => ({
       url: URL.createObjectURL(file),
       type: file.type.startsWith('image/') ? 'image' : 'video'
-    }))
+    }));
     
     // Clean up previous preview URLs
-    previews.forEach(preview => URL.revokeObjectURL(preview.url))
-    setPreviews(newPreviews)
-  }
+    previews.forEach(preview => URL.revokeObjectURL(preview.url));
+    setPreviews(newPreviews);
+  };
 
   // Cleanup preview URLs when modal closes
   useEffect(() => {
     return () => {
-      previews.forEach(preview => URL.revokeObjectURL(preview.url))
-    }
-  }, [])
- 
-  useEffect(() => {
-    setHeaderName('Auqli Connect');
-    setNavName('');
-  }, [])
+      previews.forEach(preview => URL.revokeObjectURL(preview.url));
+    };
+  }, []);
 
   // Fetch seller products when modal opens
   useEffect(() => {
@@ -162,228 +167,284 @@ const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, se
     }
   }, [isOpen]);
 
-  // Update postForm when products are selected
-  useEffect(() => {
-    setPostForm(prev => ({
-      ...prev,
-      productIds: selectedProducts.map(p => p._id).filter(Boolean)
-    }));
-  }, [selectedProducts, setPostForm]);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create New Post</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              value={postForm.title}
-              onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="Enter post title"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="body">Content</Label>
-            <Textarea
-              id="body"
-              value={postForm.body}
-              onChange={(e) => setPostForm(prev => ({ ...prev, body: e.target.value }))}
-              placeholder="What's on your mind?"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="media">Media</Label>
-            <Input
-              id="media"
-              type="file"
-              multiple
-              accept="image/*,video/*"
-              onChange={handleMediaChange}
-              className="cursor-pointer"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              You can select multiple images and videos
+      <DialogContent className="max-w-3xl p-0 bg-white dark:bg-gray-900 rounded-xl overflow-hidden">
+        <div className="flex flex-col h-[85vh]">
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <PenSquare className="w-6 h-6 text-green-600" />
+              Create New Post
+            </DialogTitle>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Share your products, thoughts, and updates with your audience
             </p>
           </div>
 
-          {/* Media Previews */}
-          {previews.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-              {previews.map((preview, index) => (
-                <div key={index} className="relative group">
-                  <div className="aspect-[16/9] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-                    {preview.type === 'image' ? (
-                      <img
-                        src={preview.url}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <video
-                        src={preview.url}
-                        className="w-full h-full object-cover"
-                        controls
-                      />
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      URL.revokeObjectURL(preview.url)
-                      setPreviews(prev => prev.filter((_, i) => i !== index))
-                      setPostForm(prev => ({
-                        ...prev,
-                        media: prev.media.filter((_, i) => i !== index)
-                      }))
-                    }}
-                    className="absolute top-2 right-2 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/50 text-white text-xs">
-                    {preview.type === 'image' ? 'Image' : 'Video'} {index + 1}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Add product selection before the tags field */}
-          <div className="space-y-2">
-            <Label>Tag Products</Label>
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={open}
-                  className="w-full justify-between"
-                >
-                  {selectedProducts.length > 0
-                    ? `${selectedProducts.length} products selected`
-                    : "Select products..."}
-                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0">
-                <Command>
-                  <CommandInput placeholder="Search products..." />
-                  <CommandEmpty>No products found.</CommandEmpty>
-                  <CommandGroup className="max-h-64 overflow-auto">
-                    {sellerProducts.map((product) => (
-                      <CommandItem
-                        key={product._id}
-                        onSelect={() => {
-                          setSelectedProducts(prev => {
-                            const isSelected = prev.some(p => p._id === product._id);
-                            if (isSelected) {
-                              return prev.filter(p => p._id !== product._id);
-                            }
-                            return [...prev, product];
-                          });
-                        }}
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          <img
-                            src={product.images[0]?.url}
-                            alt={product.name}
-                            className="w-8 h-8 object-cover rounded"
-                          />
-                          <span>{product.name}</span>
-                          <Check
-                            className={cn(
-                              "ml-auto h-4 w-4",
-                              selectedProducts.some(p => p._id === product._id)
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            
-            {/* Display selected products */}
-            {selectedProducts.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedProducts.map((product) => (
-                  <div
-                    key={product._id}
-                    className="flex items-center gap-2 bg-gray-100 rounded-md p-2"
-                  >
-                    <img
-                      src={product.images[0]?.url}
-                      alt={product.name}
-                      className="w-6 h-6 object-cover rounded"
-                    />
-                    <span className="text-sm">{product.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-1"
-                      onClick={() => setSelectedProducts(prev => 
-                        prev.filter(p => p._id !== product._id)
-                      )}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <form onSubmit={onSubmit} className="space-y-6">
+              {/* Title */}
+              <div className="space-y-2">
+                <Label htmlFor="title" className="text-base font-medium flex items-center gap-2">
+                  <Type className="w-4 h-4 text-green-600" />
+                  Title
+                </Label>
+                <Input
+                  id="title"
+                  value={postForm.title}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Give your post a catchy title"
+                  className="h-12"
+                  required
+                />
               </div>
-            )}
+
+              {/* Content */}
+              <div className="space-y-2">
+                <Label htmlFor="body" className="text-base font-medium flex items-center gap-2">
+                  <AlignLeft className="w-4 h-4 text-green-600" />
+                  Content
+                </Label>
+                <Textarea
+                  id="body"
+                  value={postForm.body}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, body: e.target.value }))}
+                  placeholder="Share your story, updates, or product information..."
+                  className="min-h-[120px] resize-y"
+                  required
+                />
+              </div>
+
+              {/* Media Upload */}
+              <div className="space-y-2">
+                <Label htmlFor="media" className="text-base font-medium flex items-center gap-2">
+                  <Image className="w-4 h-4 text-green-600" />
+                  Media
+                </Label>
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 hover:border-green-500 transition-colors">
+                  <Input
+                    id="media"
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={handleMediaChange}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    You can select multiple images and videos
+                  </p>
+                </div>
+              </div>
+
+              {/* Media Previews */}
+              {previews.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {previews.map((preview, index) => (
+                    <div key={index} className="relative group">
+                      <div className="aspect-[16/9] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                        {preview.type === 'image' ? (
+                          <img
+                            src={preview.url}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={preview.url}
+                            className="w-full h-full object-cover"
+                            controls
+                          />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          URL.revokeObjectURL(preview.url);
+                          setPreviews(prev => prev.filter((_, i) => i !== index));
+                          setPostForm(prev => ({
+                            ...prev,
+                            media: prev.media.filter((_, i) => i !== index)
+                          }));
+                        }}
+                        className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/50 text-white text-xs">
+                        {preview.type === 'image' ? 'Image' : 'Video'} {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Product Tagging */}
+              <div className="space-y-2">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <Tags className="w-4 h-4 text-green-600" />
+                  Tag Products
+                </Label>
+                <Popover open={open} onOpenChange={setOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={open}
+                      className="w-full justify-between h-12"
+                    >
+                      {selectedProducts.length > 0
+                        ? `${selectedProducts.length} products selected`
+                        : "Select products to tag"}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search your products..." />
+                      <CommandEmpty>No products found.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {sellerProducts.map((product) => (
+                          <CommandItem
+                            key={product._id}
+                            onSelect={() => {
+                              setSelectedProducts(prev => {
+                                const isSelected = prev.some(p => p._id === product._id);
+                                if (isSelected) {
+                                  return prev.filter(p => p._id !== product._id);
+                                }
+                                return [...prev, product];
+                              });
+                            }}
+                          >
+                            <div className="flex items-center gap-2 w-full">
+                              <img
+                                src={product.images[0]?.url}
+                                alt={product.name}
+                                className="w-8 h-8 object-cover rounded"
+                              />
+                              <span>{product.name}</span>
+                              <Check
+                                className={cn(
+                                  "ml-auto h-4 w-4",
+                                  selectedProducts.some(p => p._id === product._id)
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Selected Products */}
+              {selectedProducts.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedProducts.map((product) => (
+                    <div
+                      key={product._id}
+                      className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-2"
+                    >
+                      <img
+                        src={product.images[0]?.url}
+                        alt={product.name}
+                        className="w-6 h-6 object-cover rounded"
+                      />
+                      <span className="text-sm">{product.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-1"
+                        onClick={() => setSelectedProducts(prev => 
+                          prev.filter(p => p._id !== product._id)
+                        )}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label htmlFor="tags" className="text-base font-medium flex items-center gap-2">
+                  <Hash className="w-4 h-4 text-green-600" />
+                  Tags
+                </Label>
+                <Input
+                  id="tags"
+                  value={postForm.tags}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="Add tags separated by commas (e.g., fashion, summer, sale)"
+                  className="h-12"
+                />
+              </div>
+
+              {/* Visibility */}
+              <div className="space-y-2">
+                <Label htmlFor="visibility" className="text-base font-medium flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-green-600" />
+                  Visibility
+                </Label>
+                <Select
+                  value={postForm.visibility}
+                  onValueChange={(value) => setPostForm(prev => ({ ...prev, visibility: value }))}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Select visibility" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public" className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      Public
+                    </SelectItem>
+                    <SelectItem value="private" className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Private
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </form>
           </div>
 
-          <div>
-            <Label htmlFor="tags">Tags</Label>
-            <Input
-              id="tags"
-              value={postForm.tags}
-              onChange={(e) => setPostForm(prev => ({ ...prev, tags: e.target.value }))}
-              placeholder="Enter tags separated by commas"
-            />
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex justify-between items-center">
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={onSubmit}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 text-white px-8"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Send className="h-4 w-4" />
+                    Create Post
+                  </div>
+                )}
+              </Button>
+            </div>
           </div>
-
-          <div>
-            <Label htmlFor="visibility">Visibility</Label>
-            <Select
-              value={postForm.visibility}
-              onValueChange={(value) => setPostForm(prev => ({ ...prev, visibility: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select visibility" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {isSubmitting ? 'Creating...' : 'Create Post'}
-            </Button>
-          </DialogFooter>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
 // Add a function to fetch a single post's updated data
 const fetchPostData = async (postId) => {
@@ -482,6 +543,32 @@ const TaggedProducts = ({ products }) => {
   );
 };
 
+// Helper function to get reaction emoji
+const getReactionEmoji = (type) => {
+  const emojiMap = {
+    like: '👍',
+    love: '💖',
+    haha: '😄',
+    wow: '😮',
+    sad: '😢',
+    angry: '😡'
+  };
+  return emojiMap[type] || '';
+};
+
+// Helper function to format reaction counts
+const formatReactions = (stats) => {
+  if (!stats?.reactions) return [];
+  
+  return Object.entries(stats.reactions)
+    .filter(([_, count]) => count > 0)
+    .map(([type, count]) => ({
+      type,
+      count,
+      emoji: getReactionEmoji(type)
+    }));
+};
+
 export default function SocialFeed() {
   const { setHeaderName, setNavName } = useOutletContext()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -517,6 +604,9 @@ export default function SocialFeed() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState(null);
   const [sellerProfile, setSellerProfile] = useState(null);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [activeGalleryPost, setActiveGalleryPost] = useState(null);
 
   useEffect(() => {
     setHeaderName('Auqli Connect')
@@ -639,7 +729,7 @@ export default function SocialFeed() {
     setActivePost(null)
   }
 
-  const handleReact = async (postId) => {
+  const handleReact = async (postId, reactionType) => {
     try {
       if (!sellerProfile) throw new Error('Seller profile not loaded');
       
@@ -649,59 +739,38 @@ export default function SocialFeed() {
       const tokenData = JSON.parse(sellerToken);
       const token = tokenData.data;
 
-      const response = await fetch(`${BASE_URL}/posts/${postId}/like`, {
+      const response = await fetch(`${BASE_URL}/posts/${postId}/reactions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type: reactionType })
       });
 
       if (!response.ok) throw new Error('Failed to react to post');
+      
+      const data = await response.json();
 
-      // Update the post locally
+      // Update the post locally with new reaction counts
       const updatePostInArray = (posts) =>
         posts.map(post => {
           if (post._id !== postId) return post;
           
-          // Create updated post with new reaction
-          const updatedPost = { ...post };
-          const hasUserReacted = post.reactions?.some(r => r.user?.userId === currentUserId);
-          
-          if (hasUserReacted) {
-            // Remove reaction
-            updatedPost.reactions = post.reactions.filter(r => r.user?.userId !== currentUserId);
-            updatedPost.stats.likeCount = (post.stats.likeCount || 0) - 1;
-          } else {
-            // Add reaction
-            const newReaction = {
-              user: {
-                userId: currentUserId,
-                userModel: 'Seller',
-                firstName: sellerProfile.firstName,
-                lastName: sellerProfile.lastName,
-                storeName: sellerProfile.storeName
-              },
-              type: 'like',
-              _id: Date.now().toString(),
-              createdAt: new Date().toISOString()
-            };
-            updatedPost.reactions = [...(post.reactions || []), newReaction];
-            updatedPost.stats.likeCount = (post.stats.likeCount || 0) + 1;
-          }
-          
-          return updatedPost;
+          return {
+            ...post,
+            stats: {
+              ...post.stats,
+              reactions: data.reactionCounts
+            },
+            reactions: post.reactions.filter(r => r.user?.userId !== currentUserId)
+          };
         });
 
-      // Update all post lists
       setPosts(prev => updatePostInArray(prev));
       setTrendingPosts(prev => updatePostInArray(prev));
       setNewPosts(prev => updatePostInArray(prev));
       setMyPosts(prev => updatePostInArray(prev));
-
-      // If the active post is the one being reacted to, update it as well
-      if (activePost?._id === postId) {
-        setActivePost(prev => updatePostInArray([prev])[0]);
-      }
 
       toast.success('Reaction updated successfully');
 
@@ -902,45 +971,37 @@ export default function SocialFeed() {
           <CardFooter className="p-6 flex flex-col gap-4 bg-gray-50/50 dark:bg-gray-800/50">
             {/* Stats */}
             <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50 pb-4">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <IoEyeOutline className="h-5 w-5" />
-                  <span>{post.stats?.viewCount || 0} views</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  <span>{post.comments?.length || 0} comments</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <AiOutlineHeart className="h-5 w-5" />
-                  <span>{post.stats?.likeCount || 0} likes</span>
-                </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {formatReactions(post.stats).map(({ type, count, emoji }) => (
+                  <Badge
+                    key={type}
+                    variant="secondary"
+                    className="bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 flex items-center gap-1.5 px-3 py-1 rounded-full"
+                  >
+                    <span>{emoji}</span>
+                    <span>{count}</span>
+                  </Badge>
+                ))}
+                {/* {post.reactions?.length > 0 && (
+                  <span className="text-sm text-gray-500">
+                    {post.reactions.length}
+                  </span>
+                )} */}
               </div>
-              {reactionPreview && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {reactionPreview}
-                </p>
-              )}
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                <span>{post.comments?.length || 0} comments</span>
+              </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex justify-between items-center w-full">
               <div className="flex items-center gap-6">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={`gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${
-                    hasUserReacted ? 'text-red-500' : 'hover:text-red-500'
-                  }`}
-                  onClick={() => handleReact(post._id)}
-                >
-                  {hasUserReacted ? (
-                    <AiFillHeart className="h-5 w-5" />
-                  ) : (
-                    <AiOutlineHeart className="h-5 w-5" />
-                  )}
-                  <span>Like</span>
-                </Button>
+                <ReactionPopover
+                  postId={post._id}
+                  hasUserReacted={hasUserReacted}
+                  onReact={handleReact}
+                />
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -993,56 +1054,85 @@ export default function SocialFeed() {
           <div className="space-y-6">
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Reactions</h3>
-              <div className="flex gap-2 flex-wrap">
-                {activePost.reactions?.map((reaction, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-full px-3 py-1">
-                    <AiFillHeart className="h-4 w-4 text-red-500" />
-                    <span className="text-sm">{getAuthorName(reaction.user)}</span>
+              {activePost.reactions?.length > 0 ? (
+                <div className="flex gap-2 flex-wrap">
+                  {activePost.reactions?.map((reaction, index) => (
+                    <div key={index} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-full px-3 py-1">
+                      <span className="text-xl">{getReactionEmoji(reaction.type)}</span>
+                      <span className="text-sm">{getAuthorName(reaction.user)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-6 text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                  <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center">
+                    <Heart className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                   </div>
-                ))}
-              </div>
+                  <p className="text-gray-500 dark:text-gray-400">No reactions yet</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    Be the first to react to this post
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Comments</h3>
               <ScrollArea className="h-[400px] pr-4">
-                {activePost.comments?.map((comment, index) => (
-                  <div
-                    key={comment._id || index}
-                    className="flex items-start gap-3 mb-6"
-                  >
-                    <Avatar>
-                      <AvatarImage
-                        src={comment.author?.image}
-                        alt={getAuthorName(comment.author)}
-                      />
-                      <AvatarFallback className="bg-green-500 text-white">
-                        {comment.author?.firstName?.[0]}
-                        {comment.author?.lastName?.[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                        <p className="font-semibold">
-                          {getAuthorName(comment.author)}
-                        </p>
-                        <p className="text-sm mt-1">{comment.content}</p>
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                        <span>{formatMessageTime(comment.createdAt)}</span>
-                        <button className="hover:text-gray-700">Like</button>
-                        <button className="hover:text-gray-700">Reply</button>
+                {activePost.comments?.length > 0 ? (
+                  activePost.comments?.map((comment, index) => (
+                    <div
+                      key={comment._id || index}
+                      className="flex items-start gap-3 mb-6"
+                    >
+                      <Avatar>
+                        <AvatarImage
+                          src={comment.author?.image}
+                          alt={getAuthorName(comment.author)}
+                        />
+                        <AvatarFallback className="bg-green-500 text-white">
+                          {comment.author?.firstName?.[0]}
+                          {comment.author?.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                          <p className="font-semibold">
+                            {getAuthorName(comment.author)}
+                          </p>
+                          <p className="text-sm mt-1">{comment.content}</p>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          <span>{formatMessageTime(comment.createdAt)}</span>
+                          <button className="hover:text-gray-700">Like</button>
+                          <button className="hover:text-gray-700">Reply</button>
+                        </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                    <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center">
+                      <MessageSquare className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                    </div>
+                    <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      No comments yet
+                    </h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+                      Start the conversation! Be the first to share your thoughts on this post.
+                    </p>
                   </div>
-                ))}
+                )}
               </ScrollArea>
 
               <div className="flex items-start gap-3 mt-4 pt-4 border-t">
                 <Avatar>
+                  <AvatarImage
+                    src={sellerProfile?.image}
+                    alt={sellerProfile?.firstName}
+                  />
                   <AvatarFallback className="bg-green-500 text-white">
-                    {localStorage.getItem('sellerToken') ? 
-                      JSON.parse(localStorage.getItem('sellerToken')).user?.firstName?.[0] : 'U'}
+                    {sellerProfile?.firstName?.[0]}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-3">
@@ -1057,7 +1147,17 @@ export default function SocialFeed() {
                     disabled={!newComment.trim() || isLoading}
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
-                    {isLoading ? 'Posting...' : 'Post Comment'}
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Posting...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Send className="h-4 w-4" />
+                        Post Comment
+                      </div>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -1357,77 +1457,272 @@ export default function SocialFeed() {
   }, []);
 
   const renderMediaGallery = (post, currentSlideIndex, postImages) => {
-    const totalMediaCount = (postImages?.length || 0) + (post.videos?.length || 0);
+    const postVideos = post.videos || [];
+    const allMedia = [
+      ...(postImages || []).map(img => ({ type: 'image', url: img.url })),
+      ...(postVideos || []).map(vid => ({ type: 'video', url: vid.url }))
+    ];
+    const totalMediaCount = allMedia.length;
     
     if (totalMediaCount === 0) return null;
 
-    return (
-      <div className="mt-4 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50">
-        <div className="relative">
-          <div className="aspect-[16/9] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800">
-            {currentSlideIndex < postImages.length ? (
-              <img
-                src={postImages[currentSlideIndex]?.url}
-                alt={`Media ${currentSlideIndex + 1}`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <video
-                src={post.videos?.[currentSlideIndex - postImages.length]?.url}
-                className="w-full h-full object-cover"
-                controls
-                playsInline
-              />
-            )}
-            
-            {/* Media Counter */}
-            <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-medium">
-              {currentSlideIndex + 1} / {totalMediaCount}
-            </div>
+    const MediaItem = ({ item, className, onClick }) => (
+      <div
+        className={`relative overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-800 ${className}`}
+        onClick={onClick}
+      >
+        {item.type === 'image' ? (
+          <img
+            src={item.url}
+            alt="Post media"
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <video
+            src={item.url}
+            className="w-full h-full object-cover"
+            controls
+            playsInline
+          />
+        )}
+      </div>
+    );
 
-            {/* Navigation Dots */}
-            {totalMediaCount > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full">
-                {Array.from({ length: totalMediaCount }).map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSlideChange(post._id, index)}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${
-                      index === currentSlideIndex 
-                        ? 'bg-white w-3' 
-                        : 'bg-white/50 hover:bg-white/75'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Navigation Arrows */}
-            {totalMediaCount > 1 && (
-              <>
-                <button
-                  onClick={() => handleSlideChange(
-                    post._id,
-                    currentSlideIndex > 0 ? currentSlideIndex - 1 : totalMediaCount - 1
-                  )}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-all group"
-                >
-                  <ChevronLeft className="h-6 w-6 group-hover:scale-110 transition-transform" />
-                </button>
-                <button
-                  onClick={() => handleSlideChange(
-                    post._id,
-                    currentSlideIndex < totalMediaCount - 1 ? currentSlideIndex + 1 : 0
-                  )}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-all group"
-                >
-                  <ChevronRight className="h-6 w-6 group-hover:scale-110 transition-transform" />
-                </button>
-              </>
-            )}
+    if (totalMediaCount === 1) {
+      return (
+        <div className="mt-4 relative rounded-xl overflow-hidden px-4 max-h-[450px]">
+          <div className="aspect-[16/10]">
+            <MediaItem item={allMedia[0]} className="h-full" />
           </div>
         </div>
-      </div>
+      );
+    }
+
+    if (totalMediaCount === 2) {
+      return (
+        <div className="mt-4 grid grid-cols-2 gap-1 px-4 max-h-[450px]">
+          {allMedia.map((item, index) => (
+            <div key={index} className="aspect-[4/3]">
+              <MediaItem item={item} className="h-full" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (totalMediaCount >= 3) {
+      return (
+        <div className="mt-4 px-4 max-h-[450px]">
+          <div className="grid grid-cols-12 gap-1 h-full">
+            <div className="col-span-7 h-[450px]">
+              <MediaItem 
+                item={allMedia[0]} 
+                className="h-full"
+                onClick={() => {
+                  setActiveGalleryPost(post);
+                  setActiveMediaIndex(0);
+                  setIsGalleryOpen(true);
+                }}
+              />
+            </div>
+            <div className="col-span-5 grid grid-rows-2 gap-1 h-[450px]">
+              <div className="h-[224px]">
+                <MediaItem 
+                  item={allMedia[1]} 
+                  className="h-full"
+                  onClick={() => {
+                    setActiveGalleryPost(post);
+                    setActiveMediaIndex(1);
+                    setIsGalleryOpen(true);
+                  }}
+                />
+              </div>
+              <div className="relative h-[224px] cursor-pointer" onClick={() => {
+                setActiveGalleryPost(post);
+                setActiveMediaIndex(2);
+                setIsGalleryOpen(true);
+              }}>
+                <MediaItem item={allMedia[2]} className="h-full" />
+                {totalMediaCount > 3 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center hover:bg-black/70 transition-colors">
+                    <span className="text-white text-lg font-medium">
+                      +{totalMediaCount - 3}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const MediaGalleryModal = ({ post, isOpen, onClose, initialIndex = 0 }) => {
+    const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    const allMedia = [
+      ...(post?.images || []).map(img => ({ type: 'image', url: img.url })),
+      ...(post?.videos || []).map(vid => ({ type: 'video', url: vid.url }))
+    ];
+
+    const handlePrevious = () => {
+      setCurrentIndex((prev) => (prev === 0 ? allMedia.length - 1 : prev - 1));
+    };
+
+    const handleNext = () => {
+      setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
+    };
+
+    if (!post) return null;
+
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none overflow-hidden sm:max-w-[85vw] sm:max-h-[85vh]">
+          <div className="relative flex flex-col h-[calc(100vh-40px)] sm:h-[80vh]">
+            {/* Header */}
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
+              <div className="flex items-center gap-4 text-white">
+                <span className="text-sm">
+                  {currentIndex + 1} / {allMedia.length}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                onClick={onClose}
+              >
+                <X className="h-6 w-6" />
+              </Button>
+            </div>
+
+            {/* Main Content */}
+            <div className="relative flex-1 flex items-center justify-center p-4 overflow-hidden">
+              {/* Navigation Buttons */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute left-4 z-10 rounded-full bg-black/50 text-white hover:bg-black/70"
+                onClick={handlePrevious}
+              >
+                <ChevronLeft className="h-8 w-8" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-4 z-10 rounded-full bg-black/50 text-white hover:bg-black/70"
+                onClick={handleNext}
+              >
+                <ChevronRight className="h-8 w-8" />
+              </Button>
+
+              {/* Media Display */}
+              <div className="relative w-full h-full flex items-center justify-center">
+                {allMedia[currentIndex]?.type === 'image' ? (
+                  <img
+                    src={allMedia[currentIndex].url}
+                    alt={`Media ${currentIndex + 1}`}
+                    className="max-w-full max-h-full w-auto h-auto object-contain"
+                    style={{
+                      maxHeight: 'calc(100vh - 200px)',
+                      maxWidth: 'calc(100vw - 100px)'
+                    }}
+                  />
+                ) : (
+                  <video
+                    src={allMedia[currentIndex].url}
+                    controls
+                    playsInline
+                    className="max-w-full max-h-full w-auto h-auto object-contain"
+                    style={{
+                      maxHeight: 'calc(100vh - 200px)',
+                      maxWidth: 'calc(100vw - 100px)'
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Thumbnails */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="flex justify-center gap-2 p-4 overflow-x-auto">
+                {allMedia.map((media, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentIndex(index)}
+                    className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all ${
+                      currentIndex === index ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : 'opacity-50'
+                    }`}
+                  >
+                    {media.type === 'image' ? (
+                      <img
+                        src={media.url}
+                        alt={`Thumbnail ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                        <video
+                          src={media.url}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  // Add a new ReactionPopover component
+  const ReactionPopover = ({ postId, hasUserReacted, onReact }) => {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${
+              hasUserReacted ? 'text-red-500' : 'hover:text-red-500'
+            }`}
+          >
+            {hasUserReacted ? (
+              <AiFillHeart className="h-5 w-5" />
+            ) : (
+              <AiOutlineHeart className="h-5 w-5" />
+            )}
+            <span>React</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent 
+          className="w-auto p-2 bg-white dark:bg-gray-800 rounded-full border-none shadow-xl"
+          sideOffset={5}
+        >
+          <div className="flex items-center gap-1">
+            {REACTION_OPTIONS.map(({ type, emoji, label }) => (
+              <button
+                key={type}
+                onClick={() => onReact(postId, type)}
+                className="group relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-200 transform hover:scale-125"
+              >
+                <span className="text-2xl transition-transform duration-200 group-hover:scale-110">
+                  {emoji}
+                </span>
+                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   };
 
@@ -1456,7 +1751,7 @@ export default function SocialFeed() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
             
-            <div className="flex items-center gap-3">
+            {/* <div className="flex items-center gap-3">
               <Button 
                 variant="outline" 
                 size="icon" 
@@ -1467,17 +1762,17 @@ export default function SocialFeed() {
                   3
                 </span>
               </Button>
-            </div>
+            </div> */}
           </div>
           
           <div className='hidden md:flex items-center gap-4'>
-            <Button 
+            {/* <Button 
               variant="outline" 
               className="gap-2 border-gray-200 dark:border-gray-700"
             >
               <Bell className="w-5 h-5" />
               <Badge variant="secondary" className="bg-red-500 text-white">3</Badge>
-            </Button>
+            </Button> */}
             <Button
               onClick={() => setIsCreatePostOpen(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-6"
@@ -1552,6 +1847,17 @@ export default function SocialFeed() {
         isSubmitting={isSubmitting}
         postForm={postForm}
         setPostForm={setPostForm}
+      />
+
+      <MediaGalleryModal
+        post={activeGalleryPost}
+        isOpen={isGalleryOpen}
+        onClose={() => {
+          setIsGalleryOpen(false);
+          setActiveGalleryPost(null);
+          setActiveMediaIndex(0);
+        }}
+        initialIndex={activeMediaIndex}
       />
     </div>
   )

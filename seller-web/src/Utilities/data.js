@@ -91,6 +91,29 @@ export const sideBarNavData = [
     },
     {
         id: ObjectID().toHexString(),
+        name: 'Returns Center',
+        icon: 'heroicons:arrow-path',
+        path: '/dashboard/returns',
+        // subNav: [
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Pending Returns',
+        //         path: 'pending'
+        //     },
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Approved Returns',
+        //         path: 'approved'
+        //     },
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Rejected Returns',
+        //         path: 'rejected'
+        //     }
+        // ]
+    },
+    {
+        id: ObjectID().toHexString(),
         name: 'Products',
         icon: 'iconoir:box-iso',
         path: '/dashboard/products',
@@ -181,6 +204,18 @@ export const sideBarNavData = [
         icon: 'system-uicons:chain',
         path: '/dashboard/auqli-connect'
     },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Auqli University',
+        icon: 'carbon:education',
+        path: 'https://www.youtube.com/@auqli',
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Settings',
+        icon: 'carbon:settings',
+        path: '/dashboard/settings'
+    }
     // {
     //     id: ObjectID().toHexString(),
     //     name: 'Shop Manager',
@@ -602,25 +637,25 @@ export const utilityNavData = [
     {
         id: ObjectID().toHexString(),
         name: 'Auqli University',
-        icon: MdSchool,
+        icon: 'carbon:education',
         path: '/dashboard/university'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Help & Support',
-        icon: MdHelpOutline,
-        path: '/dashboard/help'
+        icon: 'fluent:person-support-28-regular',
+        path: 'https://help.auqli.live/en/'
     },
     {
         id: ObjectID().toHexString(),
-        name: 'Settings',
-        icon: MdSettings,
-        path: '/dashboard/settings'
+        name: 'Account',
+        icon: 'mingcute:user-4-line',
+        path: '/dashboard/account'
     },
     {
         id: ObjectID().toHexString(),
         name: 'Log Out',
-        icon: MdLogout,
+        icon: 'simple-line-icons:logout',
         path: '/logout'
     }
 ];

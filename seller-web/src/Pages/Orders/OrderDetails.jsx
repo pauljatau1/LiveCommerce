@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag } from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +24,8 @@ export default function OrderDetails() {
   const [orderData, setOrderData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [arrangePickupLoading, setArrangePickupLoading] = useState(false)
+  const [orderStatus, setOrderStatus] = useState(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     setHeaderName('Order')
@@ -44,6 +46,7 @@ export default function OrderDetails() {
           })
           const data = await response.json()
           setOrderData(data)
+          setOrderStatus(data.orderStatus)
         }
       } catch (error) {
         console.error('Error fetching order details:', error)
@@ -87,6 +90,7 @@ export default function OrderDetails() {
           })
           const data = await response.json()
           setOrderData(data)
+          setOrderStatus(data.orderStatus)
         } catch (error) {
           console.error('Error fetching order details:', error)
           toast.error('Failed to refresh order details')
@@ -134,6 +138,14 @@ export default function OrderDetails() {
                   <Badge variant="outline" className="bg-blue-600 mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                     {order?.channel}
                   </Badge>
+                  {/* <Badge variant="outline" className={`${shipping?.tracking?.status === 'delivered' ? 'bg-gray-600' : 'bg-blue-600'} mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
+                    {shipping?.tracking?.status === 'delivered' ? 'Closed' : 'Open'}
+                  </Badge> */}
+                  {orderStatus?.hasReturn && (
+                    <Badge variant="outline" className="bg-orange-600 mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
+                      Return Issues
+                    </Badge>
+                  )}
                 </div>
                 <p className="flex items-center gap-2 text-gray-900 text-xs">
                   <Clock className="h-3 w-3" />
@@ -141,17 +153,30 @@ export default function OrderDetails() {
                 </p>
               </div>
 
-              {shipping?.tracking?.status === 'pending' && shipping?.rate_id && (
-                <Button
-                  onClick={arrangePickup}
-                  disabled={arrangePickupLoading}
-                  size="lg"
-                  className="bg-green-600 hover:bg-green-600 capitalize transition-all duration-300 text-white text-sm h-10"
-                >
-                  <Truck className="mr-2 h-3 w-3" />
-                  {arrangePickupLoading ? 'Arranging...' : 'Arrange Pickup'}
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {orderStatus?.hasReturn && (
+                  <Button
+                    onClick={() => navigate('/dashboard/returns')}
+                    size="lg"
+                    className="bg-orange-600 hover:bg-orange-700 capitalize transition-all duration-300 text-white text-sm h-10"
+                  >
+                    <ArrowUpRight className="mr-2 h-3 w-3" />
+                    View Return
+                  </Button>
+                )}
+
+                {shipping?.tracking?.status === 'pending' && shipping?.rate_id && (
+                  <Button
+                    onClick={arrangePickup}
+                    disabled={arrangePickupLoading}
+                    size="lg"
+                    className="bg-green-600 hover:bg-green-600 capitalize transition-all duration-300 text-white text-sm h-10"
+                  >
+                    <Truck className="mr-2 h-3 w-3" />
+                    {arrangePickupLoading ? 'Arranging...' : 'Arrange Pickup'}
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2 mt-1">

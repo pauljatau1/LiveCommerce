@@ -18,8 +18,12 @@ import {
   Search,
   MoreVertical,
   ArrowLeft,
- 
-  X
+  X,
+  MapPin,
+  Star,
+  ShoppingBag,
+  Banknote,
+  Loader2,
 } from 'lucide-react';
 import { toast } from "sonner";
 import { BASE_URL } from "@/Constants/Server";
@@ -40,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select";
+import { EmojiPicker } from "@/Components/ui/emoji-picker";
 
 
 // Helper function to format message timestamps
@@ -98,6 +103,10 @@ export default function ChatInterface() {
   const [initialMessage, setInitialMessage] = useState("");
   const [showChatList, setShowChatList] = useState(true);
   const [showQuickTools, setShowQuickTools] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [buyerDetails, setBuyerDetails] = useState(null);
 
   useEffect(() => {
     setHeaderName('Messages')
@@ -107,6 +116,7 @@ export default function ChatInterface() {
   // Fetch conversations
   useEffect(() => {
     const fetchConversations = async () => {
+      setIsLoadingConversations(true);
       try {
         const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
         const response = await fetch(`${BASE_URL}/conversations`, {
@@ -118,6 +128,9 @@ export default function ChatInterface() {
         setConversations(data.conversations);
       } catch (error) {
         console.error('Error fetching conversations:', error);
+        toast.error('Failed to load conversations');
+      } finally {
+        setIsLoadingConversations(false);
       }
     };
     fetchConversations();
@@ -127,18 +140,22 @@ export default function ChatInterface() {
   useEffect(() => {
     const fetchMessages = async () => {
       if (!currentConversation) return;
+      setIsLoadingMessages(true);
       try {
         const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        const response = await fetch(`${BASE_URL}/messages/${currentConversation._id}`, {
+        const response = await fetch(`${BASE_URL}/messages/${currentConversation._id}?limit=10000`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
         });
         const data = await response.json();
         console.log('Fetched messages:', data);
-        setMessages(data);
+        setMessages(data.messages || []);
       } catch (error) {
         console.error('Error fetching messages:', error);
+        toast.error('Failed to load messages');
+      } finally {
+        setIsLoadingMessages(false);
       }
     };
     fetchMessages();
@@ -491,7 +508,7 @@ export default function ChatInterface() {
 
     const formData = new FormData();
     formData.append('recipientId', currentConversation.participant.id);
-    formData.append('recipientModel', currentConversation.participant.model);
+    formData.append('recipientModel', currentConversation.participant.model || 'Buyer');
     formData.append('messageType', 'image');
     formData.append('content', 'Image message');
     formData.append('media', file);
@@ -624,7 +641,7 @@ export default function ChatInterface() {
         },
         body: JSON.stringify({
           recipientId: currentConversation.participant.id,
-          recipientModel: currentConversation.participant.model,
+          recipientModel: currentConversation.participant.model || 'Buyer',
           productId: product._id,
           content: `Check out this product: ${product.name}`
         })
@@ -685,18 +702,22 @@ export default function ChatInterface() {
     }
   };
 
-  // Update chat list rendering with improved styling
+  // Update chat list rendering with new styling
   const renderChatList = () => (
     <ScrollArea className="h-full">
-      {conversations && conversations.length > 0 ? (
+      {isLoadingConversations ? (
+        <div className="flex flex-col items-center justify-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
+          <p className="text-sm text-gray-500">Loading conversations...</p>
+        </div>
+      ) : conversations && conversations.length > 0 ? (
         conversations.map((conv) => (
           <div
             key={conv._id}
-            className={`p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-100 ${
+            className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b ${
               currentConversation?._id === conv._id ? 'bg-green-50' : ''
             }`}
             onClick={() => {
-              // Navigate to messages with conversation context
               navigate('/dashboard/messages', {
                 state: {
                   conversationId: conv._id,
@@ -706,32 +727,23 @@ export default function ChatInterface() {
               });
             }}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-start gap-3">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
                 <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-0.5">
-                  <h3 className="text-sm font-medium text-gray-900 truncate">
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="text-sm font-semibold text-gray-900">
                     {conv.participant.name}
                   </h3>
                   <span className="text-xs text-gray-500">
                     {formatMessageTime(conv.lastMessage.createdAt)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-gray-600 truncate max-w-[180px]">
-                    {conv.lastMessage.content.length > 50 
-                      ? `${conv.lastMessage.content.substring(0, 50)}...` 
-                      : conv.lastMessage.content}
-                  </p>
-                  {conv.unreadCount > 0 && (
-                    <span className="inline-flex items-center justify-center bg-green-600 text-white text-xs rounded-full h-4 min-w-[16px] px-1">
-                      {conv.unreadCount}
-                    </span>
-                  )}
-                </div>
+                <p className="text-sm text-gray-600 truncate">
+                  {conv.lastMessage.content}
+                </p>
               </div>
             </div>
           </div>
@@ -780,126 +792,88 @@ export default function ChatInterface() {
     </Button>
   );
 
-  // Update ChatHeader with mobile controls
-  const ChatHeader = () => {
-    const participant = currentConversation?.participant || {};
-    
-    return (
-      <div className="px-4 py-3 border-b bg-white">
-        <div className="flex items-center gap-3">
-          <BackButton />
-          <Avatar className="h-9 w-9">
-            {participant.avatar ? (
-              <AvatarImage src={participant.avatar} alt={participant.name || 'User'} />
-            ) : (
-              <AvatarFallback>
-                {participant.name ? participant.name[0].toUpperCase() : 'U'}
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div className="flex-1">
-            <h3 className="text-sm font-medium text-gray-900">
-              {participant.name || 'Unknown User'}
-            </h3>
-            <p className="text-xs text-gray-500">
-              {participant.isOnline ? 'Online' : 'Offline'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0 md:hidden"
-              onClick={() => setShowQuickTools(!showQuickTools)}
-            >
-              <Menu className="h-4 w-4 text-gray-500" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8 hidden md:block w-8 p-0">
-              <Search className="h-4 w-4 text-gray-500" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8  hidden md:block w-8 p-0">
-              <MoreVertical className="h-4 w-4 text-gray-500" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Update messages rendering with improved styling
+  // Update messages rendering with new styling
   const renderMessages = () => (
     <ScrollArea className="flex-1 p-4">
-      <div className="space-y-3">
-        {messages && messages.length > 0 ? (
-          messages.map((message) => {
-            if (!message || !message.sender) return null;
-            const isSeller = message.sender?.model === 'Seller';
+      {isLoadingMessages ? (
+        <div className="flex flex-col items-center justify-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
+          <p className="text-sm text-gray-500">Loading messages...</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {messages && messages.length > 0 ? (
+            messages.map((message) => {
+              if (!message || !message.sender) return null;
+              const isSeller = message.sender?.model === 'Seller';
 
-            return (
-              <div
-                key={message._id}
-                className={`flex ${isSeller ? 'justify-end' : 'justify-start'}`}
-              >
+              return (
                 <div
-                  className={`max-w-[75%] rounded-lg p-3 ${
-                    isSeller
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}
+                  key={message._id}
+                  className={`flex ${isSeller ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.messageType === 'image' && message.media?.length > 0 && (
-                    <img
-                      src={message.media[0].url}
-                      alt="Message attachment"
-                      className="max-w-full rounded-md mb-2"
-                    />
+                  {!isSeller && (
+                    <Avatar className="h-8 w-8 mr-2 mt-1">
+                      <AvatarImage src={currentConversation?.participant?.avatar || "/placeholder.svg"} />
+                      <AvatarFallback>{currentConversation?.participant?.name?.[0]}</AvatarFallback>
+                    </Avatar>
                   )}
-
-                  {message.messageType === 'product' && message.product && (
-                    <div className="bg-white rounded-md p-2 mb-2">
+                  <div
+                    className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                      isSeller
+                        ? 'bg-green-100 text-gray-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {message.messageType === 'image' && message.media?.length > 0 && (
                       <img
-                        src={message.product.image}
-                        alt={message.product.name}
-                        className="w-full h-24 object-cover rounded-md"
+                        src={message.media[0].url}
+                        alt="Message attachment"
+                        className="max-w-full rounded-lg mb-2"
                       />
-                      <h4 className="text-sm font-medium mt-1.5 text-gray-900">{message.product.name}</h4>
-                      <p className="text-xs text-gray-700">
-                        {new Intl.NumberFormat('en-NG', {
-                          style: 'currency',
-                          currency: 'NGN'
-                        }).format(message.product.price)}
-                      </p>
-                    </div>
-                  )}
-
-                  <p className="text-sm">{message.content}</p>
-
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className={`text-[10px] ${
-                      isSeller ? 'text-green-100' : 'text-gray-500'
-                    }`}>
-                      {formatMessageTime(message.createdAt)}
-                    </span>
-                    {isSeller && (
-                      <span className="text-green-100">
-                        {message.isRead ? 
-                          <CheckCheck className="h-3 w-3" /> : 
-                          <Check className="h-3 w-3" />
-                        }
-                      </span>
                     )}
+
+                    {message.messageType === 'product' && message.product && (
+                      <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
+                        <img
+                          src={message.product.image}
+                          alt={message.product.name}
+                          className="w-full h-24 object-cover rounded-md"
+                        />
+                        <h4 className="text-sm font-medium mt-2">{message.product.name}</h4>
+                        <p className="text-sm font-medium text-green-600 mt-1">
+                          ₦ {message.product.price.toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+
+                    <p className="text-sm">{message.content}</p>
+
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[10px] text-gray-500">
+                        {formatMessageTime(message.createdAt)}
+                      </span>
+                      {isSeller && (
+                        <span className="text-gray-400">
+                          {message.isRead ? 
+                            <CheckCheck className="h-3 w-3" /> : 
+                            <Check className="h-3 w-3" />
+                          }
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="flex items-center justify-center h-full text-sm text-gray-500">
-            No messages yet. Start the conversation!
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+              );
+            })
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-gray-500">
+              Start the conversation!
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      )}
     </ScrollArea>
   );
 
@@ -918,17 +892,6 @@ export default function ChatInterface() {
       md:flex
       flex-col
     `}>
-      <div className="px-4 py-3 border-b flex justify-between items-center">
-        <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="md:hidden"
-          onClick={() => setShowQuickTools(false)}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
       <Tabs defaultValue="products" className="flex-1 flex flex-col">
         <TabsList className="w-full border-b p-0">
           <TabsTrigger value="products" className="flex-1 rounded-none text-sm">
@@ -958,14 +921,6 @@ export default function ChatInterface() {
                         }).format(product.price)}
                       </p>
                       <div className="flex gap-1 mt-1">
-                        {/* <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => navigate(`/products/${product._id}`)}
-                        >
-                          View
-                        </Button> */}
                         <Button
                           size="sm"
                           className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
@@ -1031,15 +986,6 @@ export default function ChatInterface() {
   // Memoize the dialog component to prevent unnecessary re-renders
   const NewMessageDialog = () => (
     <Dialog open={newMessageOpen} onOpenChange={setNewMessageOpen}>
-      {/* <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
-          className="w-full mb-3 flex items-center gap-2 bg-white hover:bg-gray-50"
-        >
-          <MessageSquarePlus className="h-4 w-4" />
-          New Message
-        </Button>
-      </DialogTrigger> */}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Start New Conversation</DialogTitle>
@@ -1166,8 +1112,161 @@ export default function ChatInterface() {
     }
   };
 
+  // Add effect to fetch buyer details when conversation changes
+  useEffect(() => {
+    const fetchBuyerDetails = async () => {
+      if (!currentConversation?.participant?.id) return;
+      
+      try {
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const response = await fetch(`${BASE_URL}/seller/buyer/${currentConversation.participant.id}`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch buyer details');
+        
+        const data = await response.json();
+        setBuyerDetails(data);
+      } catch (error) {
+        console.error('Error fetching buyer details:', error);
+        toast.error('Failed to load buyer details');
+      }
+    };
+
+    fetchBuyerDetails();
+  }, [currentConversation?.participant?.id]);
+
+  // Update UserDetailsHeader component
+  const UserDetailsHeader = () => {
+    if (!currentConversation?.participant) return null;
+    
+    // Format total spent
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('en-NG', {
+        style: 'currency',
+        currency: 'NGN'
+      }).format(amount);
+    };
+
+    // Get primary address
+    const primaryAddress = buyerDetails?.shippingAddresses?.[0];
+    
+    return (
+      <div className="bg-white border-b p-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16">
+            <AvatarImage 
+              src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
+              alt={currentConversation.participant.name}
+            />
+            <AvatarFallback>
+              {buyerDetails?.buyerInfo?.firstName?.[0] || currentConversation.participant.name[0]}
+            </AvatarFallback>
+          </Avatar>
+          
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold">
+              {buyerDetails ? 
+                `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` :
+                currentConversation.participant.name
+              }
+            </h2>
+            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+              {primaryAddress && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  <span>{primaryAddress.state}, {primaryAddress.country}</span>
+                </div>
+              )}
+              {buyerDetails?.orderStats?.withSeller && (
+                <>
+                  <div className="flex items-center gap-1">
+                    <ShoppingBag className="h-4 w-4" />
+                    <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Banknote className="h-4 w-4" />
+                    <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Add emoji handler
+  const handleEmojiSelect = (emoji) => {
+    setMessageInput(prev => prev + emoji.native);
+    setShowEmojiPicker(false);
+  };
+
+  // Update the message input area
+  const renderMessageInput = () => (
+    <div className="px-4 py-3 border-t bg-white relative">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 relative">
+          <Input
+            value={messageInput}
+            onChange={(e) => setMessageInput(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 text-sm rounded-full bg-gray-50 pr-24"
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            >
+              <SmileIcon className="h-5 w-5 text-gray-500" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => document.getElementById('file-upload').click()}
+            >
+              <PaperclipIcon className="h-5 w-5 text-gray-500" />
+            </Button>
+          </div>
+        </div>
+        
+        <input
+          type="file"
+          id="file-upload"
+          className="hidden"
+          accept="image/*"
+          onChange={(e) => handleFileUpload(e.target.files[0])}
+        />
+        
+        <Button
+          size="icon"
+          className="h-10 w-10 rounded-full bg-green-600 hover:bg-green-700"
+          onClick={handleSendMessage}
+          disabled={isSending}
+        >
+          {isSending ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <SendHorizontal className="h-5 w-5" />
+          )}
+        </Button>
+      </div>
+
+      {showEmojiPicker && (
+        <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+      )}
+    </div>
+  );
+
   return (
-    <div className="h-[calc(100vh-4rem)] mt-10 flex flex-col bg-gray-100">
+    <div className="h-[calc(100vh-4rem)] flex flex-col ">
 
       <div className="flex-1 flex overflow-hidden">
         {/* Chat list - hidden on mobile when conversation is open */}
@@ -1198,41 +1297,9 @@ export default function ChatInterface() {
         `}>
           {currentConversation ? (
             <>
-              <ChatHeader />
+              <UserDetailsHeader />
               {renderMessages()}
-              <div className="px-4 py-3 border-t bg-white">
-                <div className="flex gap-2">
-                  <Input
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-1 text-sm h-9"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  />
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => handleFileUpload(e.target.files[0])}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-3"
-                    onClick={() => document.getElementById('file-upload').click()}
-                  >
-                    <PaperclipIcon className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-9 px-3 bg-green-600 hover:bg-green-700"
-                    onClick={handleSendMessage}
-                  >
-                    <SendHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              {renderMessageInput()}
             </>
           ) : (
             <EmptyState />
@@ -1249,12 +1316,13 @@ export default function ChatInterface() {
           md:right-auto md:top-auto md:bottom-auto
           w-[280px]
           border-l bg-white
+          block sm:hidden
           z-50
           md:flex
           flex-col
         `}>
-          <div className="px-4 py-3 border-b flex justify-between items-center">
-            <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2>
+          <div className="px-4 border-b flex justify-between items-center">
+            {/* <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2> */}
             <Button 
               variant="ghost" 
               size="sm" 
