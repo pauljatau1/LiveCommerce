@@ -46,14 +46,14 @@ const formatMetricValue = (value) => {
   return value.toString();
 };
 
-// Add this new API call function
+// Update the getSellerAnalytics function
 const getSellerAnalytics = async () => {
   try {
     const token = localStorage.getItem('sellerToken');
     const { data: authToken } = JSON.parse(token);
 
     const response = await axios.get(
-      `${BASE_URL}/seller/analytics/metrics`,
+      `${BASE_URL}/seller/statistics`,
       {
         headers: { Authorization: `Bearer ${authToken}` }
       }
@@ -139,8 +139,6 @@ const HomePage = () => {
         // Update critical data immediately
         const initialAnalyticsData = prepareAnalyticsData(
           newOrders,
-          analyticsResponse?.storeMetrics?.visits || 0,
-          0, // temporary customers count
           analyticsResponse,
           seller // Pass the entire seller object
         );
@@ -160,8 +158,6 @@ const HomePage = () => {
         // Update analytics with complete data
         const finalAnalyticsData = prepareAnalyticsData(
           newOrders,
-          analyticsResponse?.storeMetrics?.visits || 0,
-          customersResponse,
           analyticsResponse,
           seller
         );
@@ -252,27 +248,17 @@ const HomePage = () => {
 
   // Prepares data for analytics dashboard cards
   // Includes: Store Visits, Total Sales, Orders, Conversions, Customers
-  const prepareAnalyticsData = (orders, storeVisits, totalCustomers, analytics, seller) => {
-    const conversionRate = calculateConversionRate(analytics);
+  const prepareAnalyticsData = (orders, analytics, seller) => {
+    if (!analytics) return [];
 
     return [
-      // {
-      //     id: ObjectID().toHexString(),
-      //     title: 'Store Visits',
-      //     icon: FiUsers,
-      //     current: formatMetricValue(storeVisits),
-      //     percentage: '+13%',
-      //     trend: 'up',
-      //     iconColor: 'text-blue-600',
-      //     iconBackground: 'bg-blue-50'
-      // },
       {
         id: ObjectID().toHexString(),
         title: 'Wallet Balance',
         icon: BiWallet,
-        current: `₦${formatMetricValue(seller?.walletBalance || 0)}`,
-        percentage: '+8%',
-        trend: 'up',
+        current: `₦${formatMetricValue(analytics.walletBalance.amount)}`,
+        percentage: `${analytics.walletBalance.changePercentage}%`,
+        trend: analytics.walletBalance.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-green-600',
         iconBackground: 'bg-green-50'
       },
@@ -280,9 +266,9 @@ const HomePage = () => {
         id: ObjectID().toHexString(),
         title: 'Store Visits',
         icon: FaStoreAlt,
-        current: formatMetricValue(storeVisits),
-        percentage: '+13%',
-        trend: 'up',
+        current: formatMetricValue(analytics.storeVisits.count),
+        percentage: `${analytics.storeVisits.changePercentage}%`,
+        trend: analytics.storeVisits.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-blue-600',
         iconBackground: 'bg-blue-50'
       },
@@ -290,9 +276,9 @@ const HomePage = () => {
         id: ObjectID().toHexString(),
         title: 'Total Orders',
         icon: FiShoppingBag,
-        current: formatMetricValue(analytics?.orders?.total || 0),
-        percentage: '+2%',
-        trend: 'up',
+        current: formatMetricValue(analytics.totalOrders.count),
+        percentage: `${analytics.totalOrders.changePercentage}%`,
+        trend: analytics.totalOrders.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-purple-600',
         iconBackground: 'bg-purple-50'
       },
@@ -300,9 +286,9 @@ const HomePage = () => {
         id: ObjectID().toHexString(),
         title: 'Conversion Rate',
         icon: FiBarChart2,
-        current: `${conversionRate}%`,
-        percentage: analytics?.insights?.find(i => i.metric === "Store Conversion")?.percentageChange + '%' || '0%',
-        trend: analytics?.insights?.find(i => i.metric === "Store Conversion")?.trend || 'neutral',
+        current: `${analytics.conversionRate.percentage}%`,
+        percentage: `${analytics.conversionRate.changePercentage}%`,
+        trend: analytics.conversionRate.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-green-600',
         iconBackground: 'bg-green-50'
       },
@@ -310,9 +296,9 @@ const HomePage = () => {
         id: ObjectID().toHexString(),
         title: 'New Customers',
         icon: FiUserPlus,
-        current: formatMetricValue(analytics?.customers?.total || 0),
-        percentage: analytics?.insights?.find(i => i.metric === "Customer Retention")?.percentageChange + '%' || '0%',
-        trend: analytics?.insights?.find(i => i.metric === "Customer Retention")?.trend || 'neutral',
+        current: formatMetricValue(analytics.newCustomers.count),
+        percentage: `${analytics.newCustomers.changePercentage}%`,
+        trend: analytics.newCustomers.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-orange-600',
         iconBackground: 'bg-orange-50'
       }

@@ -24,8 +24,9 @@ function CustomerDetail() {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
   const [customerData, setCustomerData] = useState(null);
   const [notification, setNotification] = useState(true);
-  const [loading, setLoading] = useState(true)
-  const { id } = useParams()
+  const [loading, setLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const { id } = useParams();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,16 +43,29 @@ function CustomerDetail() {
           return
         }
         const tokenData = JSON.parse(sellerToken)
+        
+        // Fetch customer data
         const response = await fetch(`${BASE_URL}/seller/buyer/${id}`, {
           headers: {
             'Authorization': `Bearer ${tokenData.data}`
           }
-        })
-        const data = await response.json()
+        });
+        const data = await response.json();
+        
+        // Check if the seller is following this buyer
+        const followingResponse = await fetch(`${BASE_URL}/seller/following/buyers`, {
+          headers: {
+            'Authorization': `Bearer ${tokenData.data}`
+          }
+        });
+        const followingData = await followingResponse.json();
+        const isCurrentlyFollowing = followingData.some(buyer => buyer.buyerId === id);
+        setIsFollowing(isCurrentlyFollowing);
+
         setCustomerData({
           name: `${data.buyerInfo.firstName} ${data.buyerInfo.lastName}`,
           email: data.buyerInfo.email,
-          avatar: "/placeholder.svg?height=48&width=48",
+          avatar: data.buyerInfo.profileImageUrl || "https://media.istockphoto.com/id/1223671392/vector/default-profile-picture-avatar-photo-placeholder-vector-illustration.jpg?s=612x612&w=0&k=20&c=s0aTdmT5aU6b8ot7VKm11DeID6NctRCpB755rA1BIP0=",
           verified: data.hasOrderedFromSeller,
           customerSince: new Date(data.buyerInfo.joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           joinedDate: new Date(data.buyerInfo.joinDate).getFullYear(),
@@ -94,6 +108,35 @@ function CustomerDetail() {
     });
   };
 
+  const handleFollowClick = async () => {
+    try {
+      const sellerToken = localStorage.getItem('sellerToken');
+      if (!sellerToken) {
+        console.error('Seller token not found');
+        return;
+      }
+      const tokenData = JSON.parse(sellerToken);
+
+      const endpoint = isFollowing ? 'unfollow' : 'follow';
+      const method = isFollowing ? 'DELETE' : 'POST';
+
+      const response = await fetch(`${BASE_URL}/seller/${endpoint}/${id}`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${tokenData.data}`
+        }
+      });
+
+      if (response.ok) {
+        setIsFollowing(!isFollowing);
+      } else {
+        console.error('Failed to update follow status');
+      }
+    } catch (error) {
+      console.error('Error updating follow status:', error);
+    }
+  };
+
   if (loading) {
     return <div className="flex flex-col justify-center items-center h-[80dvh]">
       <div className="w-1/4">
@@ -114,10 +157,17 @@ function CustomerDetail() {
         {/* Customer Header - More compact and refined */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 my-6 p-5 bg-white rounded-lg border border-slate-200">
           <Avatar className="h-14 w-14 ring-2 ring-indigo-500/10">
-            <AvatarImage src={customerData.avatar} alt={customerData.name} />
-            <AvatarFallback className="bg-gray-200">
-              {customerData.name[0]}
-            </AvatarFallback>
+            {customerData.avatar ? (
+              <AvatarImage 
+                src={customerData.avatar} 
+                alt={customerData.name}
+                className="object-cover"
+              />
+            ) : (
+              <AvatarFallback className="bg-gray-200">
+                {customerData.name[0]}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-3">
@@ -137,13 +187,26 @@ function CustomerDetail() {
               {/* NOT ALLOWED FOR SECURITY REASONS <span className="text-indigo-600 font-medium">{customerData.email}</span>*/}
             </div>
           </div>
-          <Button 
-            variant="primary" 
-            className="lg:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
-            onClick={handleMessageClick}
-          >
-            Message Customer
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="primary" 
+              className="lg:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
+              onClick={handleMessageClick}
+            >
+              Message Customer
+            </Button>
+            <Button
+              variant={isFollowing ? "outline" : "primary"}
+              className={`lg:ml-4 transition-all duration-300 ${
+                isFollowing 
+                  ? 'border-red-500 text-red-500 hover:bg-red-50' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+              onClick={handleFollowClick}
+            >
+              {isFollowing ? 'Unfollow Customer' : 'Follow Customer'}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards - Multi-color scheme */}

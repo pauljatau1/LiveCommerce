@@ -208,7 +208,7 @@ export const sideBarNavData = [
         id: ObjectID().toHexString(),
         name: 'Auqli University',
         icon: 'carbon:education',
-        path: '/dashboard/university'
+        path: 'https://www.youtube.com/@auqli',
     },
     {
         id: ObjectID().toHexString(),

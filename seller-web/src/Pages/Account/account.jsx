@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mail, MapPin, MoreVertical, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio} from "lucide-react"
+import { Mail, MapPin, MoreVertical, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera } from "lucide-react"
 import { UserSquareIcon } from "lucide-react"
 import LinearProgress from "@mui/material/LinearProgress"
 import { BASE_URL } from "@/Constants/Server"
@@ -14,11 +14,20 @@ import ShopTab from "./components/ShopTab"
 import BlipsTab from "./components/BlipsTab"
 import ShowsTab from "./components/ShowsTab"
 import ReviewsTab from "./components/ReviewsTab"
+import { useOutletContext } from "react-router-dom"
+import { toast } from "sonner"
+
 
 export default function AccountPage() {
+  const { setHeaderName, setNavName } = useOutletContext();
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    setHeaderName("Account");
+   
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -51,6 +60,80 @@ export default function AccountPage() {
     fetchProfile()
   }, [])
 
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Show loading toast
+    const loadingToast = toast.loading('Uploading profile picture...');
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
+      const response = await fetch(`${BASE_URL}/seller/profile/avatar`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to upload avatar');
+      
+      const data = await response.json();
+      setProfile(prev => ({
+        ...prev,
+        storeAvatar: data.storeAvatar
+      }));
+      
+      toast.dismiss(loadingToast);
+      toast.success('Profile picture updated successfully!');
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error('Failed to update profile picture');
+      console.error('Error uploading avatar:', error);
+    }
+  };
+
+  const handleBannerUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Show loading toast
+    const loadingToast = toast.loading('Uploading cover image...');
+
+    const formData = new FormData();
+    formData.append('banner', file);
+
+    try {
+      const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
+      const response = await fetch(`${BASE_URL}/seller/profile/banner`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to upload banner');
+      
+      const data = await response.json();
+      setProfile(prev => ({
+        ...prev,
+        storeBanner: data.storeBanner
+      }));
+      
+      toast.dismiss(loadingToast);
+      toast.success('Cover image updated successfully!');
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error('Failed to update cover image');
+      console.error('Error uploading banner:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -79,22 +162,46 @@ export default function AccountPage() {
     <div className="min-h-screen bg-background">
       {/* Cover Image Section */}
       <div className="relative h-36 w-full overflow-hidden md:h-36 mt-6 rounded-lg">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background z-10" />
-        <img
-          src={profile?.storeBanner?.url || "https://a.storyblok.com/f/191576/768x432/ba499c40d2/nice-backgrounds-cover.webp"}
-          alt="Cover"
-          className="h-full w-full object-cover"
+        <input
+          type="file"
+          id="banner-upload"
+          accept="image/*"
+          onChange={handleBannerUpload}
+          className="hidden"
         />
+        <label htmlFor="banner-upload" className="absolute inset-0 z-10 cursor-pointer group">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
+          <img
+            src={profile?.storeBanner?.url || "https://a.storyblok.com/f/191576/768x432/ba499c40d2/nice-backgrounds-cover.webp"}
+            alt="Cover"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute right-4 top-4 p-2 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <Camera className="h-5 w-5 text-white" />
+          </div>
+        </label>
       </div>
 
       {/* Profile Content */}
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative -mt-16 mb-8">
-          <div className="relative mb-8">
-            <Avatar className="h-28 w-28 border-4 border-background rounded-full ring-4 ring-green-600/20">
-              <AvatarImage src={profile?.storeAvatar?.url || "/placeholder.svg"} />
-              <AvatarFallback>{`${profile?.firstName?.[0]}${profile?.lastName?.[0]}`}</AvatarFallback>
-            </Avatar>
+          <div className="relative mb-8 z-20">
+            <input
+              type="file"
+              id="avatar-upload"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+            <label htmlFor="avatar-upload" className="cursor-pointer block relative group">
+              <Avatar className="h-28 w-28 border-4 border-background rounded-full ring-4 ring-green-600/20">
+                <AvatarImage src={profile?.storeAvatar?.url || "/placeholder.svg"} />
+                <AvatarFallback>{`${profile?.firstName?.[0]}${profile?.lastName?.[0]}`}</AvatarFallback>
+              </Avatar>
+              <div className="absolute right-0 bottom-0 p-2 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="h-4 w-4 text-white" />
+              </div>
+            </label>
           </div>
 
           {/* Rest of the content */}

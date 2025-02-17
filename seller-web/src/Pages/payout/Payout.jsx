@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, CreditCard, Info, ArrowRight, ArrowLeft, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText } from 'lucide-react'
+import { Building2, CreditCard, Info, ArrowRight, ArrowLeft, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText, ArrowUpDown, CircleDollarSign, ArrowDownUp, ArrowUpRight } from 'lucide-react'
 import { Card } from "@/Components/ui/card"
 import { Button } from "@/Components/ui/button"
 import Header from '@/Components/ui/Header/Header';
@@ -23,6 +23,7 @@ import { Toaster } from "@/Components/ui/sonner";
 import { BASE_URL } from "@/Constants/Server";
 import { useOutletContext } from 'react-router-dom';
 import jsPDF from 'jspdf';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-NG', {
@@ -59,6 +60,18 @@ export default function Payout() {
     bankIdentifierCode: ''
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [transactionSummary, setTransactionSummary] = useState({
+    totalEarnings: 0,
+    totalPlatformFees: 0,
+    totalWithdrawals: 0,
+    currentBalance: 0
+  });
+  const [transactionPagination, setTransactionPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalTransactions: 0
+  });
 
   useEffect(() => {
     setHeaderName('Earnings & Payouts')
@@ -129,6 +142,33 @@ export default function Payout() {
       bankIdentifierCode: bankDetails.bankIdentifierCode || ''
     });
   }, [bankDetails]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken');
+        if (sellerToken) {
+          const tokenData = JSON.parse(sellerToken);
+          const token = tokenData.data;
+
+          // Fetch transactions
+          const transactionsResponse = await fetch(`${BASE_URL}/seller/transactions?page=1&limit=10`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const transactionsData = await transactionsResponse.json();
+          setTransactions(transactionsData.transactions);
+          setTransactionSummary(transactionsData.summary);
+          setTransactionPagination(transactionsData.pagination);
+        }
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleWithdrawalRequest = async () => {
     if (withdrawalAmount < 1000) {
@@ -234,49 +274,159 @@ export default function Payout() {
     }
   };
 
+  const getTransactionStatusColor = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-700';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'failed':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getTransactionTypeIcon = (type) => {
+    switch (type) {
+      case 'order_payment':
+        return <CircleDollarSign className="h-4 w-4 text-green-600" />;
+      case 'platform_fee':
+        return <ArrowUpDown className="h-4 w-4 text-orange-600" />;
+      case 'withdrawal':
+        return <ArrowDownUp className="h-4 w-4 text-blue-600" />;
+      default:
+        return <CircleDollarSign className="h-4 w-4" />;
+    }
+  };
+
   return (
     <>
       <div className="min-h-screen bg-gray-50/30">
         <div className="container mx-auto px-4 py-6 space-y-4">
-          {/* Financial Cards - Updated for better mobile responsiveness */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="p-4 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-blue-50">
-                  <Wallet className="h-5 w-5 text-blue-600" />
+          {/* Financial Cards - Enhanced Design */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100">
+                  <CircleDollarSign className="h-6 w-6 text-blue-600" />
                 </div>
-                <h3 className="text-sm font-medium text-gray-600">Total Withdrawal</h3>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Earnings</p>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(transactionSummary.totalEarnings)}
+                  </h3>
+                </div>
               </div>
-              <p className="text-2xl font-semibold text-gray-800">
-                {formatCurrency(financialData.totalRevenue)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">+2.5% from last month</p>
+              <div className="flex items-center text-sm text-green-600">
+                <ArrowUpRight className="h-4 w-4 mr-1" />
+                <span className="font-medium">+12.5%</span>
+                <span className="text-gray-500 ml-1">from last month</span>
+              </div>
             </Card>
 
-            <Card className="p-4 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-yellow-50">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+            {/* Replaced Platform Fees with Pending Payouts */}
+            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100">
+                  <Clock className="h-6 w-6 text-yellow-600" />
                 </div>
-                <h3 className="text-sm font-medium text-gray-600">Amount On Hold</h3>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Pending Payouts</p>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(financialData.amountOnHold)}
+                  </h3>
+                </div>
               </div>
-              <p className="text-2xl font-semibold text-gray-800">
-                {formatCurrency(financialData.amountOnHold)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">Pending clearance</p>
+              <div className="flex items-center text-sm text-gray-600">
+                <BanknoteIcon className="h-4 w-4 mr-1" />
+                <span className="text-gray-500">
+                  {withdrawals.filter(w => w.status === 'pending').length} pending requests
+                </span>
+              </div>
             </Card>
 
-            <Card className="p-4 bg-gradient-to-br from-gray-800 to-gray-900 text-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-white/10">
-                  <BanknoteIcon className="h-5 w-5 text-white" />
+            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100">
+                  <ArrowDownToLine className="h-6 w-6 text-purple-600" />
                 </div>
-                <h3 className="text-sm font-medium">Available For Withdrawal</h3>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Withdrawals</p>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(transactionSummary.totalWithdrawals)}
+                  </h3>
+                </div>
               </div>
-              <p className="text-2xl font-semibold">
-                {formatCurrency(financialData.availableForWithdrawal)}
-              </p>
-              <p className="text-xs text-gray-300 mt-1">Ready to withdraw</p>
+              <div className="flex items-center text-sm text-gray-600">
+                <Clock className="h-4 w-4 mr-1" />
+                <span className="text-gray-500">Last withdrawal 2 days ago</span>
+              </div>
+            </Card>
+
+            <Card className="p-6 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="relative z-10">
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="p-3 rounded-xl bg-white/10 backdrop-blur-sm">
+                    <Wallet className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">Available Balance</p>
+                    <h3 className="text-2xl font-bold text-white">
+                      {formatCurrency(transactionSummary.currentBalance)}
+                    </h3>
+                  </div>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="w-full mt-3 bg-white hover:bg-gray-100 text-gray-900 border-0">
+                      <ArrowDownToLine className="h-4 w-4 mr-2" />
+                      Withdraw Funds
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogTitle>Create Withdrawal Request</DialogTitle>
+                    <DialogDescription className="py-4">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Available Balance: {formatCurrency(financialData.availableForWithdrawal)}
+                          </label>
+                          <input
+                            type="number"
+                            value={withdrawalAmount}
+                            onChange={(e) => setWithdrawalAmount(Number(e.target.value))}
+                            className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                            placeholder="Enter amount"
+                            min="1000"
+                            max={financialData.availableForWithdrawal}
+                          />
+                        </div>
+                        {error && (
+                          <p className="text-red-500 text-sm">{error}</p>
+                        )}
+                        <div className="text-sm text-gray-500">
+                          <Info className="h-4 w-4 inline mr-1" />
+                          Minimum withdrawal amount is ₦1,000
+                        </div>
+                      </div>
+                    </DialogDescription>
+                    <DialogFooter>
+                      <Button
+                        onClick={handleWithdrawalRequest}
+                        disabled={loading || !withdrawalAmount}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {loading ? 'Processing...' : 'Withdraw'}
+                      </Button>
+                      <DialogClose asChild>
+                        <Button variant="outline">Cancel</Button>
+                      </DialogClose>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.07] to-transparent" />
             </Card>
           </div>
 
@@ -413,120 +563,226 @@ export default function Payout() {
             </div>
           </Card>
 
-          {/* Withdrawal History - Updated for mobile */}
+          {/* Replace the Withdrawal History section with Tabs */}
           <Card className="p-4 bg-white shadow-sm">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-50">
-                  <Receipt className="h-5 w-5 text-purple-600" />
+            <Tabs defaultValue="transactions" className="w-full">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-50">
+                    <Receipt className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">Financial History</h3>
+                    <p className="text-sm text-gray-500">Track all your financial activities</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Withdrawal History</h3>
-                  <p className="text-sm text-gray-500">Track all your withdrawal transactions</p>
+                <TabsList className="grid w-full sm:w-[400px] grid-cols-2">
+                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                  <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="transactions" className="mt-4">
+                <div className="bg-white rounded-lg shadow-sm border">
+                  <div className="p-4 border-b">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-lg bg-blue-50">
+                          <ArrowDownUp className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-800">Transaction History</h3>
+                          <p className="text-sm text-gray-500">View all your financial transactions</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select defaultValue="all">
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Filter by type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Transactions</SelectItem>
+                            <SelectItem value="order_payment">Order Payments</SelectItem>
+                            <SelectItem value="platform_fee">Platform Fees</SelectItem>
+                            <SelectItem value="withdrawal">Withdrawals</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" className="gap-2">
+                          <Calendar className="h-4 w-4" />
+                          Date Range
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/60">
+                          <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Type</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Description</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Amount</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Platform Fee</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Net Amount</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.map((transaction) => (
+                          <TableRow key={transaction._id} className="hover:bg-gray-50/50">
+                            <TableCell className="whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-700">
+                                {new Date(transaction.createdAt).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(transaction.createdAt).toLocaleTimeString()}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-md bg-gray-50">
+                                  {getTransactionTypeIcon(transaction.type)}
+                                </div>
+                                <span className="capitalize font-medium">
+                                  {transaction.type.replace('_', ' ')}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="max-w-xs truncate font-medium text-gray-700">
+                                {transaction.description}
+                              </div>
+                              {transaction.orderDetails && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {transaction.orderDetails.items.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-1">
+                                      <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                                        {item.quantity}
+                                      </span>
+                                      {item.productName}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">{formatCurrency(transaction.amount)}</TableCell>
+                            <TableCell className="text-orange-600 font-medium">{formatCurrency(transaction.platformFee)}</TableCell>
+                            <TableCell className="font-medium text-green-600">{formatCurrency(transaction.netAmount)}</TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTransactionStatusColor(transaction.status)}`}>
+                                {transaction.status}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                <Select defaultValue="30" className="w-full sm:w-[130px]">
-                  <SelectTrigger className="w-[130px] text-sm">
-                    <SelectValue placeholder="Time period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="7">Last 7 days</SelectItem>
-                    <SelectItem value="30">Last 30 days</SelectItem>
-                    <SelectItem value="90">Last 90 days</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" className="border shadow-sm w-full sm:w-auto">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
-              </div>
-            </div>
+              </TabsContent>
 
-            {/* Table with horizontal scroll for mobile */}
-            <div className="overflow-x-auto -mx-4 sm:mx-0">
-              <div className="min-w-[800px] sm:min-w-full p-4 sm:p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="font-semibold text-gray-600">Date</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Transaction Type</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Amount</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Account</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Status</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Time</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {withdrawals.map((withdrawal) => (
-                      <TableRow key={withdrawal._id} className="hover:bg-gray-50">
-                        <TableCell>{new Date(withdrawal.requestDate).toLocaleDateString()}</TableCell>
-                        <TableCell>Bank Withdrawal</TableCell>
-                        <TableCell>{formatCurrency(withdrawal.amount)}</TableCell>
-                        <TableCell className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full" />
-                          {withdrawal.bankDetails.bankName}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
-                            withdrawal.status === 'completed'
-                              ? 'bg-green-100 text-green-700'
-                              : withdrawal.status === 'processing'
-                              ? 'bg-blue-100 text-blue-700'
-                              : withdrawal.status === 'rejected'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          } font-medium`}>
-                            {withdrawal.status}
-                          </span>
-                        </TableCell>
-                        <TableCell>{new Date(withdrawal.requestDate).toLocaleTimeString()}</TableCell>
-                        <TableCell>
-                          {withdrawal.status === 'completed' && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="bg-[#0a0a29] text-white hover:bg-[#1a1a4a] flex items-center gap-2"
-                              onClick={() => handleViewReceipt(withdrawal)}
-                            >
-                              <FileText className="h-4 w-4" />
-                              Receipt
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-
-            {/* Pagination - Made responsive */}
-            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
-              <Select defaultValue="20" className="w-full sm:w-[180px]">
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Rows per page" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 PER PAGE</SelectItem>
-                  <SelectItem value="20">20 PER PAGE</SelectItem>
-                  <SelectItem value="30">30 PER PAGE</SelectItem>
-                  <SelectItem value="40">40 PER PAGE</SelectItem>
-                  <SelectItem value="50">50 PER PAGE</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button variant="outline" className="flex-1 sm:flex-none flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button variant="outline" className="flex-1 sm:flex-none flex items-center gap-2">
-                  Next
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+              <TabsContent value="withdrawals" className="mt-4">
+                <div className="bg-white rounded-lg shadow-sm border">
+                  <div className="p-4 border-b">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-lg bg-green-50">
+                          <ArrowDownToLine className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-800">Withdrawal History</h3>
+                          <p className="text-sm text-gray-500">Track all your withdrawal requests</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select defaultValue="all">
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Filter by status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Withdrawals</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" className="gap-2">
+                          <Calendar className="h-4 w-4" />
+                          Date Range
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/60">
+                          <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Reference</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Amount</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Bank Details</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Status</TableHead>
+                          <TableHead className="font-semibold text-gray-600">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {withdrawals.map((withdrawal) => (
+                          <TableRow key={withdrawal._id} className="hover:bg-gray-50/50">
+                            <TableCell className="whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-700">
+                                {new Date(withdrawal.requestDate).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(withdrawal.requestDate).toLocaleTimeString()}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium text-gray-700">{withdrawal.reference}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium text-green-600">{formatCurrency(withdrawal.amount)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-md bg-gray-50">
+                                  <Building2 className="h-4 w-4 text-gray-600" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-700">
+                                    {withdrawal.bankDetails.bankName}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {withdrawal.bankDetails.accountNumber}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTransactionStatusColor(withdrawal.status)}`}>
+                                {withdrawal.status}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {withdrawal.status === 'completed' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewReceipt(withdrawal)}
+                                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                  Download Receipt
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </Card>
 
           {/* Success Dialog */}

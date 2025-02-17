@@ -1,4 +1,4 @@
-import { Outlet, useNavigation } from 'react-router-dom';
+import { Outlet, useNavigation, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import SideBarNav from '../Components/ui/DashboardHomepageUi/SideBarNav';
 import ScrollToTop from '../Utilities/ScrollToTop';
@@ -40,6 +40,10 @@ const DashboardLayout = () => {
     }
   }
 
+  // Get current location to check if we're on messages page
+  const location = useLocation();
+  const isMessagesPage = location.pathname.includes('/messages');
+
   return (
     <>
       <ScrollToTop />
@@ -61,7 +65,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={`${fullScreenMode ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
+          <div className={`${fullScreenMode || isMessagesPage ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
             <Outlet context={outletContext} />
           </div>
         </div>
