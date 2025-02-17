@@ -1,12 +1,12 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import NotificationsSettings from "@/components/settings/NotificationsSettings"
-import StoreSettings from "@/components/settings/StoreSettings"
-import WarehouseSettings from "@/components/settings/WarehouseSettings"
-import PaymentSettings from "@/components/settings/PaymentSettings"
-import DelegationSettings from "@/components/settings/DelegationSettings"
-import VacationSettings from "@/components/settings/VacationSettings"
-import SecuritySettings from "@/components/settings/SecuritySettings"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
+import NotificationsSettings from "@/Components/settings/NotificationsSettings"
+import StoreSettings from "@/Components/settings/StoreSettings"
+import WarehouseSettings from "@/Components/settings/WarehouseSettings"
+import PaymentSettings from "@/Components/settings/PaymentSettings"
+import DelegationSettings from "@/Components/settings/DelegationSettings"
+import VacationSettings from "@/Components/settings/VacationSettings"
+import SecuritySettings from "@/Components/settings/SecuritySettings"
 import { useOutletContext } from "react-router-dom";
 import { useEffect } from "react";
 
