@@ -939,36 +939,47 @@ router.get('/top-products', authMiddleware.verifyToken, sellerController.getTopP
  *             schema:
  *               type: object
  *               properties:
- *                 totalStoreVisits:
- *                   type: number
- *                 totalSales:
- *                   type: number
- *                 totalOrders:
- *                   type: number
- *                 uniqueCustomers:
- *                   type: number
- *                 conversionRate:
- *                   type: string
  *                 walletBalance:
- *                   type: number
- *                 currentMonth:
  *                   type: object
  *                   properties:
- *                     orders:
+ *                     amount:
  *                       type: number
- *                     sales:
+ *                     currency:
+ *                       type: string
+ *                     changePercentage:
  *                       type: number
+ *                 storeVisits:
+ *                   type: object
+ *                   properties:
+ *                     count:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *                 totalOrders:
+ *                   type: object
+ *                   properties:
+ *                     count:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *                 conversionRate:
+ *                   type: object
+ *                   properties:
+ *                     percentage:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *                 newCustomers:
+ *                   type: object
+ *                   properties:
+ *                     count:
+ *                       type: number
+ *                     changePercentage:
+ *                       type: number
+ *       404:
+ *         description: Seller not found
  *       500:
  *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 error:
- *                   type: string
  */
 router.get('/statistics', authMiddleware.verifyToken, sellerController.getStatistics);
 
@@ -2078,42 +2089,365 @@ router.put('/campaign-preferences',
   sellerController.updateCampaignPreferences
 );
 
-// /**
-//  * @swagger
-//  * /api/seller/profile/{sellerId}:
-//  *   get:
-//  *     summary: Get a seller's public profile
-//  *     tags: [Seller]
-//  *     parameters:
-//  *       - in: path
-//  *         name: sellerId
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  *         description: ID of the seller
-//  *     responses:
-//  *       200:
-//  *         description: Seller profile retrieved successfully
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 storeName:
-//  *                   type: string
-//  *                 aboutStore:
-//  *                   type: string
-//  *                 storeAvatar:
-//  *                   type: object
-//  *                 storeBanner:
-//  *                   type: object
-//  *                 categories:
-//  *                   type: array
-//  *       404:
-//  *         description: Seller not found
-//  *       500:
-//  *         description: Internal server error
-//  */
-// router.get('/profile/:sellerId', storeVisitMiddleware.trackStoreVisit, sellerController.getSellerProfile);
+/**
+ * @swagger
+ * /api/seller/{sellerId}/all-reviews:
+ *   get:
+ *     summary: Get all reviews and comments associated with a seller
+ *     description: Retrieves product reviews, blip comments, post comments, and store reviews for a seller
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of reviews per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [all, product, blip, post, store]
+ *         description: Filter reviews by type
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest, rating]
+ *         description: Sort reviews by date or rating
+ *     responses:
+ *       200:
+ *         description: Reviews retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reviews:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [product, blip, post, store]
+ *                       author:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           profileImage:
+ *                             type: string
+ *                       content:
+ *                         type: string
+ *                       rating:
+ *                         type: number
+ *                       title:
+ *                         type: string
+ *                       media:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                             type:
+ *                               type: string
+ *                               enum: [image, video]
+ *                       source:
+ *                         type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             enum: [product, blip, post, store]
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           image:
+ *                             type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalReviews:
+ *                       type: integer
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     averageRating:
+ *                       type: number
+ *                     totalReviews:
+ *                       type: number
+ *                     reviewsByType:
+ *                       type: object
+ *                       properties:
+ *                         product:
+ *                           type: number
+ *                         blip:
+ *                           type: number
+ *                         post:
+ *                           type: number
+ *                         store:
+ *                           type: number
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:sellerId/all-reviews', sellerController.getAllReviews);
+
+/**
+ * @swagger
+ * /api/seller/transactions:
+ *   get:
+ *     summary: Get seller's wallet transactions history
+ *     description: Retrieves detailed transaction history including order payments, platform fees, and withdrawals
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions until this date
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [order_payment, withdrawal, platform_fee]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of transactions per page
+ *     responses:
+ *       200:
+ *         description: List of transactions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 transactions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [order_payment, withdrawal, platform_fee]
+ *                       amount:
+ *                         type: number
+ *                       platformFee:
+ *                         type: number
+ *                       netAmount:
+ *                         type: number
+ *                       orderId:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     totalEarnings:
+ *                       type: number
+ *                     totalPlatformFees:
+ *                       type: number
+ *                     totalWithdrawals:
+ *                       type: number
+ *                     currentBalance:
+ *                       type: number
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalTransactions:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/transactions', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.getTransactions
+);
+
+/**
+ * @swagger
+ * /api/seller/follow/{buyerId}:
+ *   post:
+ *     summary: Follow a buyer
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer to follow
+ *     responses:
+ *       200:
+ *         description: Successfully followed buyer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Successfully followed buyer
+ *       400:
+ *         description: Already following this buyer
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/follow/:buyerId', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.followBuyer);
+
+/**
+ * @swagger
+ * /api/seller/unfollow/{buyerId}:
+ *   delete:
+ *     summary: Unfollow a buyer
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer to unfollow
+ *     responses:
+ *       200:
+ *         description: Successfully unfollowed buyer
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/unfollow/:buyerId', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.unfollowBuyer);
+
+/**
+ * @swagger
+ * /api/seller/following/buyers:
+ *   get:
+ *     summary: Get list of buyers that the seller follows
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of followed buyers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   buyerId:
+ *                     type: string
+ *                   firstName:
+ *                     type: string
+ *                   lastName:
+ *                     type: string
+ *                   followDate:
+ *                     type: string
+ *                     format: date-time
+ *       500:
+ *         description: Server error
+ */
+router.get('/following/buyers', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.getFollowedBuyers);
+
+/**
+ * @swagger
+ * /api/seller/advanced-analytics:
+ *   get:
+ *     summary: Get comprehensive seller analytics and insights
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: timeframe
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, 90d, 1y, all]
+ *           default: 30d
+ *     responses:
+ *       200:
+ *         description: Detailed analytics retrieved successfully
+ */
+router.get('/advanced-analytics',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  sellerController.getAdvancedAnalytics
+);
 
 module.exports = router;

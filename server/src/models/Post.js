@@ -31,9 +31,10 @@ const authorSchema = new mongoose.Schema({
 const reactionSchema = new mongoose.Schema({
   type: { 
     type: String, 
-    enum: ['like', 'dislike', 'love', 'laugh', 'sad', 'angry'],
+    enum: ['like', 'love', 'haha', 'wow', 'sad', 'angry'],
     required: true 
   },
+  emoji: { type: String},
   user: {
     userId: { 
       type: mongoose.Schema.Types.ObjectId,
@@ -128,8 +129,14 @@ const postSchema = new mongoose.Schema({
   reactions: [reactionSchema],
   comments: [commentSchema],
   stats: {
-    likeCount: { type: Number, default: 0 },
-    dislikeCount: { type: Number, default: 0 },
+    reactions: {
+      like: { type: Number, default: 0 },
+      love: { type: Number, default: 0 },
+      haha: { type: Number, default: 0 },
+      wow: { type: Number, default: 0 },
+      sad: { type: Number, default: 0 },
+      angry: { type: Number, default: 0 }
+    },
     viewCount: { type: Number, default: 0 },
     shareCount: { type: Number, default: 0 }
   },
@@ -140,10 +147,10 @@ const postSchema = new mongoose.Schema({
 // Update stats when reactions change
 postSchema.pre('save', function(next) {
   if (this.isModified('reactions')) {
-    const likes = this.reactions.filter(r => r.type === 'like').length;
-    const dislikes = this.reactions.filter(r => r.type === 'dislike').length;
-    this.stats.likeCount = likes;
-    this.stats.dislikeCount = dislikes;
+    // Reset all reaction counts
+    Object.keys(this.stats.reactions).forEach(type => {
+      this.stats.reactions[type] = this.reactions.filter(r => r.type === type).length;
+    });
   }
   next();
 });

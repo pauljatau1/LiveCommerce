@@ -178,7 +178,7 @@ router.post('/',
  * @swagger
  * /api/posts/{postId}/reactions:
  *   post:
- *     summary: Add a reaction to a post
+ *     summary: Add or update a reaction to a post
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -188,21 +188,91 @@ router.post('/',
  *         required: true
  *         schema:
  *           type: string
+ *         description: ID of the post to react to
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - type
  *             properties:
  *               type:
  *                 type: string
- *                 enum: [like, dislike, love, laugh, sad, angry]
+ *                 enum: [like, love, haha, wow, sad, angry]
+ *                 description: Type of reaction to add
+ *                 example: love
+ *           examples:
+ *             like:
+ *               value:
+ *                 type: "like"
+ *               summary: Like reaction (👍)
+ *             love:
+ *               value:
+ *                 type: "love"
+ *               summary: Love reaction (❤️)
+ *             haha:
+ *               value:
+ *                 type: "haha"
+ *               summary: Haha reaction (😂)
+ *             wow:
+ *               value:
+ *                 type: "wow"
+ *               summary: Wow reaction (😮)
+ *             sad:
+ *               value:
+ *                 type: "sad"
+ *               summary: Sad reaction (😢)
+ *             angry:
+ *               value:
+ *                 type: "angry"
+ *               summary: Angry reaction (😡)
  *     responses:
  *       200:
- *         description: Reaction added successfully
+ *         description: Reaction added or updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Reaction updated successfully
+ *                 reactionCounts:
+ *                   type: object
+ *                   properties:
+ *                     like:
+ *                       type: number
+ *                       example: 5
+ *                     love:
+ *                       type: number
+ *                       example: 3
+ *                     haha:
+ *                       type: number
+ *                       example: 2
+ *                     wow:
+ *                       type: number
+ *                       example: 1
+ *                     sad:
+ *                       type: number
+ *                       example: 0
+ *                     angry:
+ *                       type: number
+ *                       example: 1
+ *                 userReaction:
+ *                   type: string
+ *                   nullable: true
+ *                   example: love
+ *                   description: The user's current reaction after the update, null if removed
+ *       400:
+ *         description: Invalid reaction type
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
  *       404:
- *         description: Post not found
+ *         description: Post or user not found
+ *       500:
+ *         description: Server error
  */
 router.post('/:postId/reactions',
   authMiddleware.verifyToken,
@@ -341,6 +411,122 @@ router.get('/buyer-feed',
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of posts per page
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [public, private, draft]
+ *           default: public
+ *         description: Post visibility filter
+ *     responses:
+ *       200:
+ *         description: List of user's posts retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 posts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       author:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           image:
+ *                             type: string
+ *                           bio:
+ *                             type: string
+ *                           country:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                             public_id:
+ *                               type: string
+ *                       products:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                             name:
+ *                               type: string
+ *                             price:
+ *                               type: number
+ *                             images:
+ *                               type: array
+ *                               items:
+ *                                 type: string
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           likeCount:
+ *                             type: number
+ *                           dislikeCount:
+ *                             type: number
+ *                           viewCount:
+ *                             type: number
+ *                           shareCount:
+ *                             type: number
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 totalPages:
+ *                   type: number
+ *                 currentPage:
+ *                   type: number
+ *                 totalPosts:
+ *                   type: number
+ *                 authorInfo:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     image:
+ *                       type: string
+ *                     bio:
+ *                       type: string
+ *                     country:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 router.get('/user/:userType/:userId', postController.getUserPosts);
 

@@ -1,402 +1,375 @@
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { useParams, useNavigate } from "react-router-dom"
-import { MessageCircle, Phone, Printer, Plus, ShoppingBag, ArrowLeft, CheckCircle } from "lucide-react"
+import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
 import { useState, useEffect } from "react"
-import { BASE_URL } from "@/Constants/Server"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/Components/ui/dialog"
-import { toast } from "sonner";
+import { Badge } from "@/Components/ui/badge"
+import { Card } from "@/Components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
+import { Button } from "@/Components/ui/button"
+import { CheckCircle2, Star } from 'lucide-react'
+import { useParams, useNavigate } from "react-router-dom"
+import { BASE_URL } from "@/Constants/Server";
+import { useSidebar } from "@/Hooks/useSideBar";
+import { Icon } from "@iconify/react";
+import { StarRating } from "star-product-rating";
+import { customerLatestOrdersTempData } from "@/Utilities/data";
+import Loader from "@/Components/Loader";
+import AlertNotification from "@/Components/ui/AlertNotification";
+import CustomerOrdersCard from "@/Components/CustomerOrdersCard";
+import NotFoundIcon from '@/assets/not-found-icon.png';
+import LinearProgress from '@mui/material/LinearProgress';
+import Header from "@/Components/ui/Header/Header"
+import { useOutletContext } from "react-router-dom"
 
-export default function ReturnDetail() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [returnData, setReturnData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [isLoading, setIsLoading] = useState(false);
-  const [shippingRates, setShippingRates] = useState([]);
-  const [selectedRate, setSelectedRate] = useState(null);
-  const [showRatesModal, setShowRatesModal] = useState(false);
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+function CustomerDetail() {
+  const { setHeaderName, setNavName } = useOutletContext()
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
+  const [customerData, setCustomerData] = useState(null);
+  const [notification, setNotification] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const { id } = useParams();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchReturnDetails()
+    setHeaderName('Customer');
+    setNavName('Customer Detail');
+  }, [])
+
+  useEffect(() => {
+    const fetchCustomerData = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken')
+        if (!sellerToken) {
+          console.error('Seller token not found')
+          return
+        }
+        const tokenData = JSON.parse(sellerToken)
+        
+        // Fetch customer data
+        const response = await fetch(`${BASE_URL}/seller/buyer/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${tokenData.data}`
+          }
+        });
+        const data = await response.json();
+        
+        // Check if the seller is following this buyer
+        const followingResponse = await fetch(`${BASE_URL}/seller/following/buyers`, {
+          headers: {
+            'Authorization': `Bearer ${tokenData.data}`
+          }
+        });
+        const followingData = await followingResponse.json();
+        const isCurrentlyFollowing = followingData.some(buyer => buyer.buyerId === id);
+        setIsFollowing(isCurrentlyFollowing);
+
+        setCustomerData({
+          name: `${data.buyerInfo.firstName} ${data.buyerInfo.lastName}`,
+          email: data.buyerInfo.email,
+          avatar: "/placeholder.svg?height=48&width=48",
+          verified: data.hasOrderedFromSeller,
+          customerSince: new Date(data.buyerInfo.joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          joinedDate: new Date(data.buyerInfo.joinDate).getFullYear(),
+          rating: 0,
+          amountSpent: {
+            total: data.orderStats.general.totalSpent,
+            withSeller: data.orderStats.withSeller.totalSpent
+          },
+          orderStats: {
+            total: data.orderStats.general.totalOrders,
+            withSeller: data.orderStats.withSeller.totalOrders,
+            averageValue: data.orderStats.withSeller.averageOrderValue
+          },
+          addresses: data.shippingAddresses,
+          activities: data.activityFeed,
+          recentOrders: data.recentOrders,
+          topPurchases: data.topPurchases
+        })
+      } catch (error) {
+        console.error('Error fetching customer data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCustomerData()
   }, [id])
 
-  // Fetch shipping rates when component mounts if status is appropriate
-  useEffect(() => {
-    if (returnData?.status === "APPROVED" && !returnData?.returnShipment?.rate_id) {
-      fetchShippingRates(id);
-    }
-  }, [returnData?.status, id]);
+  console.log('customerData', customerData)
 
-  const fetchReturnDetails = async () => {
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}`, {
-        headers: {
-          Authorization: `Bearer ${sellerToken}`
-        }
-      })
-      const data = await response.json()
-      setReturnData(data)
-      setLoading(false)
-    } catch (error) {
-      console.error("Error fetching return details:", error)
-      setLoading(false)
-    }
-  }
-
-  const handleReturnAction = async (action) => {
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/respond`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        },
-        body: JSON.stringify({
-          action,
-          message: action === 'reject' ? 'Return request denied' : 'Return request approved'
-        })
-      })
-      
-      if (response.ok) {
-        fetchReturnDetails()
+  const handleMessageClick = () => {
+    if (!customerData) return;
+    
+    navigate('/dashboard/messages', {
+      state: {
+        customerId: id,
+        customerName: customerData.name,
+        customerEmail: customerData.email,
       }
-    } catch (error) {
-      console.error("Error handling return action:", error)
-    }
-  }
-
-  const fetchShippingRates = async (returnId) => {
-    try {
-      setIsLoading(true);
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data;
-      const response = await fetch(`${BASE_URL}/returns/${returnId}/shipping-rates`, {
-        headers: {
-          Authorization: `Bearer ${sellerToken}`
-        }
-      });
-      const data = await response.json();
-      
-      if (response.ok) {
-        setShippingRates(data.rates);
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      toast.error('Failed to fetch shipping rates');
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
-  const createShippingLabel = async (returnId) => {
+  const handleFollowClick = async () => {
     try {
-      setIsLoading(true);
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data;
-      const response = await fetch(`${BASE_URL}/returns/${returnId}/create-label`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        },
-        body: JSON.stringify({
-          rate_id: selectedRate.rate_id,
-          carrier_name: selectedRate.carrier_name,
-          amount: selectedRate.amount
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        toast.success('Shipping label created successfully');
-        fetchReturnDetails(); // Refresh the return data
-      } else {
-        throw new Error(data.message);
+      const sellerToken = localStorage.getItem('sellerToken');
+      if (!sellerToken) {
+        console.error('Seller token not found');
+        return;
       }
-    } catch (error) {
-      toast.error('Failed to create shipping label');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const tokenData = JSON.parse(sellerToken);
 
-  const arrangePickup = async (returnId) => {
-    try {
-      setIsLoading(true);
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data;
-      const response = await fetch(`${BASE_URL}/returns/${returnId}/arrange-pickup`, {
-        method: 'POST',
+      const endpoint = isFollowing ? 'unfollow' : 'follow';
+      const method = isFollowing ? 'DELETE' : 'POST';
+
+      const response = await fetch(`${BASE_URL}/seller/${endpoint}/${id}`, {
+        method,
         headers: {
-          Authorization: `Bearer ${sellerToken}`
+          'Authorization': `Bearer ${tokenData.data}`
         }
       });
 
-      const data = await response.json();
-      
       if (response.ok) {
-        toast.success('Shipment pickup arranged successfully');
-        fetchReturnDetails(); // Refresh the return data
+        setIsFollowing(!isFollowing);
       } else {
-        throw new Error(data.message);
+        console.error('Failed to update follow status');
       }
     } catch (error) {
-      toast.error('Failed to arrange pickup');
-    } finally {
-      setIsLoading(false);
+      console.error('Error updating follow status:', error);
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>
+    return <div className="flex flex-col justify-center items-center h-[80dvh]">
+      <div className="w-1/4">
+        <LinearProgress color="success" />
+      </div>
+    </div>
+  }
+
+  if (!customerData) {
+    return <div className="flex justify-center items-center h-screen">Customer not found</div>
   }
 
   return (
-    <div className="pt-10 px-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div className="space-y-2">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold">Return ID: #{id}</h1>
-            <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-600">
-              {returnData?.status || "PENDING SELLER APPROVAL"}
-            </Badge>
-          </div>
-          <div className="flex gap-4 text-muted-foreground">
-            <p>Return Reason: {returnData?.items[0]?.reason || "Wrong Item"}</p>
-            <p>Order ID: #{returnData?.order?.order_id || "098765"}</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Printer className="w-4 h-4 mr-2" />
-            Print
-          </Button>
-          <Button variant="outline" size="sm">
-            <Plus className="w-4 h-4 mr-2" />
-            Follow
-          </Button>
-          <Button variant="outline" size="sm">
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Chat Buyer
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          {/* Product Section */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Product</h2>
-            <div className="flex gap-4">
-              <img
-                src={returnData?.items[0]?.product?.images[0] || "/placeholder.svg"}
-                alt={returnData?.items[0]?.product?.name}
-                width={100}
-                height={100}
-                className="rounded-lg object-cover"
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold">{returnData?.items[0]?.product?.name || "Luxury Turtle Neck Polo"}</h3>
-                <p className="text-sm text-muted-foreground">Quantity: {returnData?.items[0]?.quantity || 1}</p>
-                <div className="flex justify-between mt-2">
-                  <p className="text-green-600">Unit Price: ₦{returnData?.items[0]?.product?.price?.toLocaleString() || "1,000,000"}</p>
-                  <p className="text-green-600">Total: ₦{((returnData?.items[0]?.product?.price || 1000000) * (returnData?.items[0]?.quantity || 1)).toLocaleString()}</p>
+    <>
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+       
+        {/* Customer Header - More compact and refined */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 my-6 p-5 bg-white rounded-lg border border-slate-200">
+          <Avatar className="h-14 w-14 ring-2 ring-indigo-500/10">
+            <AvatarImage src={customerData.avatar} alt={customerData.name} />
+            <AvatarFallback className="bg-gray-200">
+              {customerData.name[0]}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-inter font-bold text-slate-900">{customerData.name}</h1>
+              {customerData.verified && (
+                <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs border border-blue-200">
+                  <Icon icon="fluent-mdl2:verified-brand-solid" width="12" height="12" />
+                  <span className="font-medium">Verified</span>
                 </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+              <span className="font-medium">Since {customerData.customerSince}</span>
+              <span className="hidden sm:block text-slate-300">•</span>
+              <span className="text-slate-500">Joined {customerData.joinedDate}</span>
+              <span className="hidden sm:block text-slate-300">•</span>
+              {/* NOT ALLOWED FOR SECURITY REASONS <span className="text-indigo-600 font-medium">{customerData.email}</span>*/}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="primary" 
+              className="lg:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
+              onClick={handleMessageClick}
+            >
+              Message Customer
+            </Button>
+            <Button
+              variant={isFollowing ? "outline" : "primary"}
+              className={`lg:ml-4 transition-all duration-300 ${
+                isFollowing 
+                  ? 'border-red-500 text-red-500 hover:bg-red-50' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+              onClick={handleFollowClick}
+            >
+              {isFollowing ? 'Unfollow Customer' : 'Follow Customer'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Cards - Multi-color scheme */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="p-4 bg-gradient-to-br from-violet-700 to-violet-600 text-white border border-violet-400">
+            <div className="flex items-center gap-3">
+              <Icon icon="hugeicons:cash-02" className="w-8 h-8 opacity-80" />
+              <div>
+                <p className="text-xs font-medium font-inter text-white/80">Total Spent</p>
+                <p className="text-lg font-bold font-inter mt-0.5">₦{customerData.amountSpent.total.toLocaleString()}</p>
+                <p className="text-xs text-white/70 mt-0.5">With you: ₦{customerData.amountSpent.withSeller.toLocaleString()}</p>
               </div>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Comment: {returnData?.description || "The item is not what I ordered, it was supposed to be a white T-shirt and not Black."}
-            </p>
-            {returnData?.status === "PENDING_SELLER_REVIEW" && (
-              <div className="flex gap-4 mt-4">
-                <Button 
-                  variant="outline" 
-                  className="text-red-600 hover:text-red-700"
-                  onClick={() => handleReturnAction('reject')}
-                >
-                  Deny/Escalate
-                </Button>
-                <Button 
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => handleReturnAction('approve')}
-                >
-                  Accept Request
-                </Button>
+          </Card>
+          <Card className="p-4 bg-gradient-to-br from-blue-600 to-blue-500 text-white border border-blue-400">
+            <div className="flex items-center gap-3">
+              <Icon icon="heroicons:shopping-bag" className="w-8 h-8 opacity-80" />
+              <div>
+                <p className="text-xs font-medium text-white/80">Total Orders</p>
+                <p className="text-lg font-bold mt-0.5">{customerData.orderStats.total}</p>
+                <p className="text-xs text-white/70 mt-0.5">With you: {customerData.orderStats.withSeller}</p>
               </div>
-            )}
+            </div>
+          </Card>
+          <Card className="p-4 bg-gradient-to-br from-emerald-600 to-emerald-500 text-white border border-emerald-400">
+            <div className="flex items-center gap-3">
+              <Icon icon="heroicons:chart-bar" className="w-8 h-8 opacity-80" />
+              <div>
+                <p className="text-xs font-medium text-white/80">Average Order</p>
+                <p className="text-lg font-bold mt-0.5">₦{Math.round(customerData.orderStats.averageValue).toLocaleString()}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
 
-            {/* Add new shipping rates section when status is appropriate */}
-            {returnData?.status === "APPROVED" && !returnData?.returnShipment?.rate_id && (
-              <div className="mt-6 border-t pt-4">
-                <h3 className="text-lg font-semibold mb-4">Select Shipping Rate</h3>
-                <div className="space-y-4">
-                  {shippingRates.map((rate) => (
-                    <div 
-                      key={rate.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedRate?.id === rate.id 
-                          ? 'border-green-500 bg-green-50' 
-                          : 'border-gray-200 hover:border-green-300'
-                      }`}
-                      onClick={() => setSelectedRate(rate)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <img 
-                            src={rate.carrier_logo} 
-                            alt={rate.carrier_name}
-                            className="h-8 w-8 object-contain"
-                          />
-                          <div>
-                            <h3 className="font-medium">{rate.carrier_name}</h3>
-                            <p className="text-sm text-gray-600">{rate.carrier_rate_description}</p>
-                          </div>
+        <div className="grid xl:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Recent Orders */}
+            <Card className="border border-slate-200">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold font-inter text-slate-900">Recent Orders</h2>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="border-blue-200 font-inter text-blue-700 hover:bg-blue-50"
+                    onClick={() => navigate('/dashboard/orders')}
+                  >
+                    View All
+                  </Button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {customerData.recentOrders.map((order) => (
+                    <div key={order._id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <div className="flex xl:items-center flex-col xl:flex-row justify-between sm:justify-start gap-3">
+                          <p className="font-medium font-inter text-slate-900">#{order.orderNumber}</p>
+                          <p className="text-xs text-slate-500">
+                            {new Date(order.createdAt).toLocaleDateString('en-US', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold">₦{rate.amount.toLocaleString()}</p>
-                          <p className="text-sm text-gray-600">{rate.delivery_time}</p>
+                        <div className="mt-1.5">
+                          {order.items.map((item, idx) => (
+                            <p key={idx} className="text-xs text-slate-600">
+                              {item.quantity}x {item.product.name}
+                            </p>
+                          ))}
                         </div>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <p className="font-medium text-emerald-600">₦{order.totalAmount.toLocaleString()}</p>
                       </div>
                     </div>
                   ))}
-
-                  <div className="flex justify-end gap-4 mt-4">
-                    <Button
-                      onClick={() => createShippingLabel(id)}
-                      disabled={!selectedRate || isLoading}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {isLoading ? 'Creating Label...' : 'Create Shipping Label'}
-                    </Button>
-                  </div>
                 </div>
               </div>
-            )}
+            </Card>
 
-            {/* Add pickup arrangement section when label is created */}
-            {returnData?.status === "RETURN_LABEL_CREATED" && !returnData?.returnShipment?.status !== "PICKUP_ARRANGED" && (
-              <div className="mt-6 border-t pt-4">
-                <div className="bg-green-50 p-4 rounded-lg mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="text-green-600 w-5 h-5" />
-                    <h3 className="font-medium">Shipping Label Created</h3>
-                  </div>
-                  <p className="text-sm text-gray-600">Your shipping label has been created successfully with {returnData?.returnShipment?.carrier?.name}</p>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button
-                    onClick={() => arrangePickup(id)}
-                    disabled={isLoading}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {isLoading ? 'Arranging Pickup...' : 'Arrange Pickup Now'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Activity Timeline */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Activity</h2>
-            <div className="space-y-6">
-              {returnData?.timeline?.map((activity, index) => (
-                <div key={index} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className="w-2 h-2 rounded-full bg-green-600" />
-                    {index !== (returnData?.timeline?.length - 1) && <div className="w-0.5 h-full bg-gray-200" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(activity.date).toLocaleString()}
+            {/* Activity Feed */}
+            <Card className="border border-slate-200">
+              <div className="p-5">
+                <h2 className="text-lg font-semibold font-inter text-slate-900 mb-4">Activity Feed</h2>
+                <div className="space-y-4">
+                  {customerData.activities.map((activity, index) => (
+                    <div key={index} className="flex gap-3">
+                      <div className="flex-shrink-0 w-14 text-xs text-slate-500">
+                        <p className="font-medium">
+                          {new Date(activity.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-slate-400">
+                          {new Date(activity.createdAt).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex-1 pb-4 border-l border-slate-200 pl-4 relative">
+                        <div className="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-100 border-2 border-indigo-500"></div>
+                        <p className="text-sm font-medium text-slate-900">{activity.content}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{activity.type}</p>
+                      </div>
                     </div>
-                    <div className="font-medium text-green-600">{activity.status}</div>
-                    <div className="text-sm text-muted-foreground">{activity.note}</div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </Card>
-        </div>
+              </div>
+            </Card>
+          </div>
 
-        <div className="space-y-6">
-          {/* Customer Details */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Customer Details</h2>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <img 
-                  src={returnData?.buyer?.profileImage?.url || "/placeholder.svg"} 
-                  alt="Customer Avatar" 
-                  width={40} 
-                  height={40} 
-                  className="rounded-full"
-                />
-                <div>
-                  <p className="font-medium">
-                    {`${returnData?.buyer?.firstName} ${returnData?.buyer?.lastName}` || "Odera Joseph"}
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>10 Orders</span>
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Shipping Addresses */}
+            <Card className="border border-slate-200">
+              <div className="p-5">
+                <h2 className="text-lg font-semibold font-inter text-slate-900 mb-4">Shipping Addresses</h2>
+                <div className="space-y-4">
+                  {customerData.addresses.map((address, index) => (
+                    <div key={index} className="p-3 bg-slate-50 rounded-md border border-slate-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 capitalize">
+                          {address.addressType}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-slate-900">{address.addressLine1}</p>
+                      {address.addressLine2 && (
+                        <p className="text-sm text-slate-600">{address.addressLine2}</p>
+                      )}
+                      <p className="text-sm text-slate-600 mt-1">
+                        {address.city}, {address.state}, {address.country}
+                      </p>
+                      <p className="text-sm text-slate-500">{address.zipCode}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            {/* Customer Stats */}
+            <Card className="border border-slate-200">
+              <div className="p-5">
+                <h2 className="text-lg font-inter font-semibold text-slate-900 mb-4">Customer Statistics</h2>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded-md">
+                    <span className="text-sm text-slate-600">Average Order Value</span>
+                    <span className="font-medium text-indigo-600">₦{Math.round(customerData.orderStats.averageValue).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded-md">
+                    <span className="text-sm text-slate-600">Total Orders</span>
+                    <span className="font-medium text-blue-600">{customerData.orderStats.total}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded-md">
+                    <span className="text-sm text-slate-600">Orders with You</span>
+                    <span className="font-medium text-violet-600">{customerData.orderStats.withSeller}</span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="w-4 h-4" />
-                <span>{returnData?.buyer?.phoneNumber || "+234123456789"}</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Shipping Information */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Shipping Information</h2>
-            <div className="space-y-2">
-              <p className="font-medium">Return Address:</p>
-              <p className="text-sm text-muted-foreground">
-                {returnData?.buyer?.shippingAddresses?.[0]?.addressLine1 || "Block 6, Vila Cecillia"},
-                {returnData?.buyer?.shippingAddresses?.[0]?.city || "Lagos"} State.
-                {returnData?.buyer?.shippingAddresses?.[0]?.zipCode || "12345"},
-                {returnData?.buyer?.shippingAddresses?.[0]?.country || "Nigeria"}
-              </p>
-            </div>
-          </Card>
-
-          {/* Proof Files */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Proof Files</h2>
-            <div className="space-y-4">
-              {returnData?.evidence?.map((file, index) => (
-                <img 
-                  key={index}
-                  src={file.url || "/placeholder.svg"} 
-                  alt={`Return Evidence ${index + 1}`} 
-                  className="w-full rounded-lg"
-                />
-              ))}
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
-
-      <div className="mt-6">
-        <Button 
-          variant="outline" 
-          className="text-muted-foreground"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Go Back
-        </Button>
-      </div>
-    </div>
+    </>
   )
 }
+
+export default CustomerDetail
 

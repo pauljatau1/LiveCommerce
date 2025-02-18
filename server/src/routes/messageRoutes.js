@@ -108,9 +108,59 @@ router.post('/media',
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Page number (defaults to last page if not specified)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of messages per page
  *     responses:
  *       200:
- *         description: List of messages
+ *         description: List of messages with pagination
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 messages:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       content:
+ *                         type: string
+ *                       messageType:
+ *                         type: string
+ *                       sender:
+ *                         type: object
+ *                       recipient:
+ *                         type: object
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalMessages:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *                     hasPrevious:
+ *                       type: boolean
  *       500:
  *         description: Server error
  */

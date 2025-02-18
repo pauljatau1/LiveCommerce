@@ -8,8 +8,11 @@ const crypto = require('crypto');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller')
 const Product = require('../models/Product');
+const Post = require('../models/Post');
+const Stream = require('../models/Stream');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
+const mongoose = require('mongoose');
 sgMail.setApiKey('SG.REDACTED');
 // Load environment variables from a .env file
 require('dotenv').config();
@@ -181,18 +184,67 @@ exports.checkToken = async (req, res) => {
 // Get buyer profile
 exports.getProfile = async (req, res) => {
   try {
-    const buyer = await Buyer.findById(req.user.id).select('-password');
-    if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
+    // First get the buyer with basic info
+    const buyer = await Buyer.findById(req.user.id)
+      .select({
+        firstName: 1,
+        lastName: 1,
+        username: 1,
+        email: 1,
+        country: 1,
+        phoneNumber: 1,
+        profileImage: 1,
+        shippingAddresses: 1,
+        emailVerified: 1,
+        phoneVerified: 1,
+        isDisabled: 1,
+        isNew: 1,
+        createdAt: 1,
+        isIdentityVerified: 1,
+        preferredCurrency: 1,
+        preferredLanguage: 1,
+        role: 1,
+        bio: 1,
+        notificationPreferences: {
+          email: 1,
+          push: 1,
+          sms: 1
+        }
+      })
+      .lean();
 
-    // Add role information
-    const profile = {
-      ...buyer.toObject(),
-      role: 'Buyer'
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Get counts in parallel using the activityFeed to count following
+    const [followersCount, followingCount, postsCount] = await Promise.all([
+      Buyer.findById(req.user.id).select('followers').then(b => b.followers?.length || 0),
+      Buyer.findById(req.user.id)
+        .select('activityFeed')
+        .then(b => b.activityFeed?.filter(activity => 
+          activity.type === 'follow' && 
+          activity.referenceModel === 'Seller'
+        ).length || 0),
+      Post.countDocuments({ 'author.userId': req.user.id, 'author.userModel': 'Buyer' })
+    ]);
+
+    // Add the counts and profile picture URL to the response
+    const enhancedBuyer = {
+      ...buyer,
+      followersCount,
+      followingCount,
+      postsCount,
+      profilePictureUrl: buyer.profileImage?.url || null,
+      bio: buyer.bio || null  // Explicitly include bio in the response
     };
 
-    res.json(profile);
+    res.json(enhancedBuyer);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve profile', error: error.message });
+    res.status(500).json({ 
+      message: 'Error fetching buyer profile', 
+      error: error.message 
+    });
   }
 };
 
@@ -222,15 +274,15 @@ exports.updateProfile = async (req, res) => {
       if (existingUsername) {
         return res.status(400).json({ message: 'Username already taken' });
       }
+      buyer.username = username;
     }
 
     // Update fields if provided
     if (firstName) buyer.firstName = firstName;
     if (lastName) buyer.lastName = lastName;
-    if (username) buyer.username = username;
     if (country) buyer.country = country;
     if (phoneNumber) buyer.phoneNumber = phoneNumber;
-    if (bio) buyer.bio = bio;
+    if (bio !== undefined) buyer.bio = bio; // Changed to handle empty string case
     if (notificationPreferences) {
       buyer.notificationPreferences = {
         ...buyer.notificationPreferences,
@@ -913,31 +965,7 @@ exports.unfollowSeller = async (req, res) => {
   }
 };
 
-// Get list of sellers that the buyer follows
-exports.getFollowedSellers = async (req, res) => {
-  try {
-    const buyerId = req.user.id;
 
-    const sellers = await Seller.find({
-      'followers.buyerId': buyerId
-    }).select('storeName businessName aboutStore followers');
-
-    const followedSellers = sellers.map(seller => ({
-      sellerId: seller._id,
-      storeName: seller.storeName,
-      businessName: seller.businessName,
-      aboutStore: seller.aboutStore,
-      followDate: seller.followers.find(f => f.buyerId.toString() === buyerId).followDate
-    }));
-
-    res.json(followedSellers);
-  } catch (error) {
-    res.status(500).json({
-      message: 'Failed to get followed sellers',
-      error: error.message
-    });
-  }
-};
 
 // Add product to wishlist
 exports.addToWishlist = async (req, res) => {
@@ -1381,32 +1409,65 @@ exports.getSellerProfile = async (req, res) => {
   try {
     const { sellerId } = req.params;
     
-    // Get seller details excluding sensitive information
     const seller = await Seller.findById(sellerId)
       .select('-password -bankDetails -otp -emailVerified -walletBalance -phoneNumber')
-      .populate('posts');
+      .populate('reviews')
+      .lean();
 
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    // Get seller's products
-    const recentProducts = await Product.find({ seller: sellerId })
-      .sort({ createdAt: -1 })
-      .limit(3)
-      .select('name price images createdAt');
+    // Get counts using Promise.all for better performance
+    const [orders, streamCount, followingCount, reviews] = await Promise.all([
+      Order.find({ seller: sellerId }),
+      Stream.countDocuments({ seller: sellerId }),
+      Buyer.countDocuments({ 'followers.sellerId': sellerId }),
+      Order.aggregate([
+        { $match: { seller: new mongoose.Types.ObjectId(sellerId) } },
+        { $unwind: '$items' },
+        {
+          $lookup: {
+            from: 'reviews',
+            localField: 'items.product',
+            foreignField: 'product',
+            as: 'productReviews'
+          }
+        },
+        { $unwind: '$productReviews' },
+        {
+          $group: {
+            _id: null,
+            totalReviews: { $sum: 1 },
+            averageRating: { $avg: '$productReviews.rating' }
+          }
+        }
+      ])
+    ]);
 
-    // Get metrics
-    const totalProducts = await Product.countDocuments({ seller: sellerId });
-    const totalFollowers = seller.followers ? seller.followers.length : 0;
+    // Calculate delivered orders count
+    const soldItemsCount = orders.reduce((count, order) => {
+      const deliveredItems = order.items.filter(item => 
+        order.shipping?.tracking?.status === 'delivered'
+      ).length;
+      return count + deliveredItems;
+    }, 0);
+
+    // Calculate review statistics
+    const reviewStats = {
+      averageRating: seller.stats?.averageRating || 0,
+      totalReviews: seller.stats?.totalReviews || 0,
+      ratingDistribution: seller.stats?.ratingDistribution || {
+        1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+      },
+      verifiedPurchaseCount: seller.reviews?.filter(r => r.isVerifiedPurchase)?.length || 0
+    };
     
-    // Get orders for completion rate calculation
-    const allOrders = await Order.find({ seller: sellerId });
-    const completedOrders = allOrders.filter(order => order.status === 'delivered');
-    const orderCompletion = allOrders.length > 0 ? 
-      (completedOrders.length / allOrders.length) * 100 : 0;
-
     const sellerProfile = {
+      personalInfo: {
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+      },
       storeInfo: {
         storeName: seller.storeName,
         aboutStore: seller.aboutStore,
@@ -1414,21 +1475,36 @@ exports.getSellerProfile = async (req, res) => {
         storeBanner: seller.storeBanner,
         isVerified: seller.isVerified,
         isFeatured: seller.isFeatured,
-        joinedDate: seller.createdAt
+        joinedDate: seller.createdAt,
+        bio: seller.aboutStore,
+        isFollowing: seller.followers?.some(
+          follower => follower.buyerId?.toString() === req.user.id
+        ) || false
       },
       businessInfo: {
         businessName: seller.businessName,
         businessType: seller.businessType,
-        categories: seller.categories
+        categories: seller.categories,
+        addresses: {
+          business: seller.businessAddress,
+          warehouse: seller.warehouseDetails,
+          seller: seller.sellerAddress
+        }
       },
-      metrics: {
-        totalProducts,
-        totalFollowers,
-        orderCompletion: parseFloat(orderCompletion.toFixed(2)),
-        responseRate: 95, 
-        averageRating: 4.5 
+      stats: {
+        followersCount: seller.followers?.length || 0,
+        followingCount: followingCount,
+        totalOrders: orders.length,
+        totalStreams: streamCount,
+        soldItems: soldItemsCount,
       },
-      recentProducts
+      reviews: {
+        averageRating: parseFloat(reviewStats.averageRating),
+        totalReviews: reviewStats.totalReviews,
+        ratingDistribution: reviewStats.ratingDistribution,
+      
+       
+      }
     };
 
     // Increment store visits
@@ -1475,124 +1551,6 @@ exports.getSelectedCategories = async (req, res) => {
   }
 };
 
-// Add a review for a seller
-exports.addSellerReview = async (req, res) => {
-  try {
-    const { sellerId } = req.params;
-    const { rating, comment } = req.body;
-    const buyerId = req.user.id;
-
-    // Validate input
-    if (!rating || !comment) {
-      return res.status(400).json({ message: 'Rating and comment are required' });
-    }
-
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
-    }
-
-    const seller = await Seller.findById(sellerId);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // Check if buyer has already reviewed this seller
-    const existingReview = seller.reviews.find(
-      review => review.buyer.toString() === buyerId
-    );
-
-    if (existingReview) {
-      return res.status(400).json({ message: 'You have already reviewed this seller' });
-    }
-
-    // Check if buyer has made a purchase from this seller
-    const hasPurchased = await Order.findOne({
-      buyer: buyerId,
-      seller: sellerId,
-      status: 'delivered'
-    });
-
-    // Add the review
-    seller.reviews.push({
-      buyer: buyerId,
-      rating,
-      comment,
-      isVerifiedPurchase: !!hasPurchased
-    });
-
-    // Update seller stats
-    seller.stats.totalReviews++;
-    seller.stats.ratingDistribution[rating]++;
-    
-    // Calculate new average rating
-    const totalRating = seller.reviews.reduce((sum, review) => sum + review.rating, 0);
-    seller.stats.averageRating = totalRating / seller.reviews.length;
-
-    await seller.save();
-
-    res.status(201).json({
-      message: 'Review added successfully',
-      review: seller.reviews[seller.reviews.length - 1]
-    });
-
-  } catch (error) {
-    console.error('Error in addSellerReview:', error);
-    res.status(500).json({
-      message: 'Failed to add review',
-      error: error.message
-    });
-  }
-};
-
-// Update an existing review
-exports.updateSellerReview = async (req, res) => {
-  try {
-    const { sellerId } = req.params;
-    const { rating, comment } = req.body;
-    const buyerId = req.user.id;
-
-    const seller = await Seller.findById(sellerId);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // Find the existing review
-    const review = seller.reviews.find(
-      review => review.buyer.toString() === buyerId
-    );
-
-    if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
-    }
-
-    // Update rating distribution
-    seller.stats.ratingDistribution[review.rating]--;
-    seller.stats.ratingDistribution[rating]++;
-
-    // Update the review
-    review.rating = rating || review.rating;
-    review.comment = comment || review.comment;
-    review.updatedAt = Date.now();
-
-    // Recalculate average rating
-    const totalRating = seller.reviews.reduce((sum, review) => sum + review.rating, 0);
-    seller.stats.averageRating = totalRating / seller.reviews.length;
-
-    await seller.save();
-
-    res.json({
-      message: 'Review updated successfully',
-      review
-    });
-
-  } catch (error) {
-    console.error('Error in updateSellerReview:', error);
-    res.status(500).json({
-      message: 'Failed to update review',
-      error: error.message
-    });
-  }
-};
 
 // Verify buyer's identity
 exports.verifyIdentity = async (req, res) => {
@@ -1860,4 +1818,296 @@ exports.verifyAndResetPassword = async (req, res) => {
     });
   }
 };
+
+// Get buyer's followers
+exports.getFollowers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const buyer = await Buyer.findById(req.user.id)
+      .populate({
+        path: 'followers.sellerId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar'
+      });
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Calculate pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const total = buyer.followers.length;
+
+    // Get paginated followers
+    const followers = buyer.followers.slice(startIndex, endIndex);
+
+    // Format followers data
+    const formattedFollowers = followers.map(follower => ({
+      id: follower.sellerId._id,
+      type: 'seller',
+      name: `${follower.sellerId.firstName} ${follower.sellerId.lastName}`,
+      storeName: follower.sellerId.storeName || follower.sellerId.businessName,
+      profileImage: follower.sellerId.storeAvatar?.url || follower.sellerId.profileImage?.url,
+      followDate: follower.followDate
+    }));
+
+    res.json({
+      followers: formattedFollowers,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        current: parseInt(page),
+        hasMore: endIndex < total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve followers', 
+      error: error.message 
+    });
+  }
+};
+
+// Get users the buyer follows
+exports.getFollowing = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const buyerId = req.user.id;
+
+    // Find sellers that this buyer follows
+    const sellers = await Seller.find({
+      'followers.buyerId': buyerId
+    }).select('_id firstName lastName storeName businessName storeAvatar profileImage followers');
+
+    // Find buyers that this buyer follows
+    const buyers = await Buyer.find({
+      'followers.buyerId': buyerId
+    }).select('_id firstName lastName profileImage followers');
+
+    // Combine and format following data
+    let following = [
+      ...sellers.map(seller => {
+        const followerData = seller.followers.find(f => f.buyerId?.toString() === buyerId);
+        return {
+          id: seller._id,
+          type: 'seller',
+          name: `${seller.firstName} ${seller.lastName}`,
+          storeName: seller.storeName || seller.businessName,
+          profileImage: seller.storeAvatar?.url || seller.profileImage?.url,
+          followDate: followerData?.followDate
+        };
+      }).filter(f => f.followDate), // Filter out any undefined followDates
+      ...buyers.map(buyer => {
+        const followerData = buyer.followers.find(f => f.buyerId?.toString() === buyerId);
+        return {
+          id: buyer._id,
+          type: 'buyer',
+          name: `${buyer.firstName} ${buyer.lastName}`,
+          storeName: null,
+          profileImage: buyer.profileImage?.url,
+          followDate: followerData?.followDate
+        };
+      }).filter(f => f.followDate) // Filter out any undefined followDates
+    ];
+
+    // Sort by follow date
+    following.sort((a, b) => new Date(b.followDate) - new Date(a.followDate));
+
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const total = following.length;
+    following = following.slice(startIndex, endIndex);
+
+    res.json({
+      following,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        current: parseInt(page),
+        hasMore: endIndex < total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to retrieve following list', 
+      error: error.message 
+    });
+  }
+};
+
+// Review a seller's store
+exports.reviewSeller = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    const { sellerId } = req.params;
+    const { rating, comment } = req.body;
+
+    // Validate rating
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+    }
+
+    // Find seller
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Check if buyer has already reviewed this seller
+    const existingReview = seller.reviews.find(
+      review => review.buyer.toString() === buyerId
+    );
+
+    // if (existingReview) {
+    //   return res.status(400).json({ message: 'You have already reviewed this seller' });
+    // }
+
+    // Get buyer details
+    const buyer = await Buyer.findById(buyerId);
+
+    // Create new review
+    const review = {
+      buyer: buyerId,
+      rating,
+      comment,
+      buyerName: `${buyer.firstName} ${buyer.lastName}`,
+      buyerImage: buyer.profileImage?.url,
+      createdAt: new Date(),
+      isVerifiedPurchase: await hasVerifiedPurchase(buyerId, sellerId)
+    };
+
+    // Add review to seller's reviews array
+    seller.reviews.push(review);
+
+    // Update seller's rating statistics
+    updateSellerRatingStats(seller);
+
+    await seller.save();
+
+    // // Create notification for seller
+    // await notificationController.createSellerNotification(
+    //   sellerId,
+    //   'new_review',
+    //   {
+    //     buyerId,
+    //     buyerName: `${buyer.firstName} ${buyer.lastName}`,
+    //     rating,
+    //     reviewId: review._id
+    //   }
+    // );
+
+    res.status(201).json({
+      message: 'Review submitted successfully',
+      review
+    });
+  } catch (error) {
+    console.error('Error in reviewSeller:', error);
+    res.status(500).json({
+      message: 'Failed to submit review',
+      error: error.message
+    });
+  }
+};
+
+// Get all reviews for a seller
+exports.getSellerReviews = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { page = 1, limit = 10, sort = 'recent' } = req.query;
+
+    const seller = await Seller.findById(sellerId)
+      .select('reviews stats.averageRating stats.totalReviews stats.ratingDistribution');
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Sort reviews based on query parameter
+    let sortedReviews = [...seller.reviews];
+    switch (sort) {
+      case 'rating-high':
+        sortedReviews.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'rating-low':
+        sortedReviews.sort((a, b) => a.rating - b.rating);
+        break;
+      default: // recent
+        sortedReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // Paginate results
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedReviews = sortedReviews.slice(startIndex, endIndex);
+
+    // Populate buyer details for paginated reviews
+    const populatedReviews = await Promise.all(
+      paginatedReviews.map(async (review) => {
+        const buyer = await Buyer.findById(review.buyer)
+          .select('firstName lastName profileImage');
+        return {
+          ...review.toObject(),
+          buyer: {
+            id: buyer._id,
+            name: `${buyer.firstName} ${buyer.lastName}`,
+            image: buyer.profileImage?.url
+          }
+        };
+      })
+    );
+
+    res.json({
+      reviews: populatedReviews,
+      stats: {
+        averageRating: seller.stats.averageRating,
+        totalReviews: seller.stats.totalReviews,
+        ratingDistribution: seller.stats.ratingDistribution,
+        verifiedPurchaseCount: seller.reviews.filter(r => r.isVerifiedPurchase).length
+      },
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(seller.reviews.length / limit),
+        totalReviews: seller.reviews.length
+      }
+    });
+  } catch (error) {
+    console.error('Error in getSellerReviews:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve seller reviews',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to check if buyer has made a verified purchase from seller
+async function hasVerifiedPurchase(buyerId, sellerId) {
+  const completedOrder = await Order.findOne({
+    buyer: buyerId,
+    seller: sellerId,
+    'paymentInfo.status': 'completed',
+    'shipping.status': 'delivered'
+  });
+  return !!completedOrder;
+}
+
+// Helper function to update seller rating statistics
+function updateSellerRatingStats(seller) {
+  const ratings = seller.reviews.map(review => review.rating);
+  const totalRatings = ratings.length;
+
+  // Calculate average rating
+  const sum = ratings.reduce((acc, rating) => acc + rating, 0);
+  seller.stats.averageRating = totalRatings > 0 ? (sum / totalRatings).toFixed(1) : 0;
+  seller.stats.totalReviews = totalRatings;
+
+  // Update rating distribution
+  seller.stats.ratingDistribution = {
+    1: ratings.filter(r => r === 1).length,
+    2: ratings.filter(r => r === 2).length,
+    3: ratings.filter(r => r === 3).length,
+    4: ratings.filter(r => r === 4).length,
+    5: ratings.filter(r => r === 5).length
+  };
+}
 

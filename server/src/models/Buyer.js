@@ -97,9 +97,16 @@ const buyerSchema = new mongoose.Schema({
   },
   preferredCurrency: {
     type: String,
-    enum: ['USD', 'EUR', 'GBP'],
-    default: 'USD'
-  }
+    default: 'NGN'
+  },
+  followers: [{
+    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },
+    storeName: { type: String },
+    businessName: { type: String },
+    followDate: { type: Date, default: Date.now },
+    lastInteraction: { type: Date },
+    optedOut: { type: Boolean, default: false }
+  }]
 });
 
 // Middleware to update isNew property after 3 days

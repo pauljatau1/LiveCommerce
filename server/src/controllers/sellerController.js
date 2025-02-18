@@ -15,6 +15,13 @@ const { sendPasswordResetEmail } = require('../utils/emailService');
 const Buyer = require('../models/Buyer');
 const Withdrawal = require('../models/Withdrawal');
 const Campaign = require('../models/Campaign');
+const Stream = require('../models/Stream');
+const Post = require('../models/Post');
+const Notification = require('../models/Notification');
+const notificationController = require('./notificationController');
+const Transaction = require('../models/Transaction');
+const Return = require('../models/Return');
+
 
 // Add this helper function at the top of the file
 const generateUniqueAgoraUid = async () => {
@@ -166,6 +173,37 @@ exports.register = async (req, res) => {
 
     await sgMail.send(msg);
 
+    // After successful seller creation and welcome email
+    const adminMsg = {
+      to: ['bolu@auqli.com', 'joseph@auqli.com', 'dan@auqli.com'],
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: 'New Seller Registration - Auqli',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #4CAF50; margin-bottom: 20px;">New Seller Registration</h1>
+            <p style="font-size: 16px; line-height: 1.5;">A new seller has registered on Auqli:</p>
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
+              <p style="margin: 5px 0;">Name: ${firstName} ${lastName}</p>
+              <p style="margin: 5px 0;">Email: ${email}</p>
+              <p style="margin: 5px 0;">Phone: ${phoneNumber}</p>
+            </div>
+            <p style="font-size: 14px;">Please check the admin dashboard for more details.</p>
+            <a href="https://admin.auqli.live/" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Login</a>
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    // Send both welcome email to seller and notification to admins
+    await Promise.all([
+      sgMail.send(msg),
+      sgMail.send(adminMsg)
+    ]);
+
     res.status(201).json({ 
       message: 'Registration successful. Please verify your email.',
       user: newSeller, 
@@ -275,19 +313,83 @@ exports.checkToken = async (req, res) => {
 // Get seller profile
 exports.getProfile = async (req, res) => {
   try {
-    const seller = await Seller.findById(req.user.id).select('-password');
+    // Get only necessary fields using projection
+    const seller = await Seller.findById(req.user.id)
+      .select({
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        phoneNumber: 1,
+        isVerified: 1,
+        emailVerified: 1,
+        isFeatured: 1,
+        isDisabled: 1,
+        walletBalance: 1,
+        storeVisits: 1,
+        createdAt: 1,
+        accountType: 1,
+        businessName: 1,
+        businessType: 1,
+        isProfileComplete: 1,
+        businessEmail: 1,
+        businessNumber: 1,
+        businessAddress: 1,
+        sellerAddress: 1,
+        warehouseDetails: 1,
+        bankDetails: 1,
+        shippingOptions: 1,
+        storeAvatar: 1,
+        storeBanner: 1,
+        hasFilledAddress: 1,
+        hasFilledBankDetails: 1,
+        hasFilledBusinessAddress: 1,
+        hasFilledCategoryDetails: 1,
+        hasFilledVerificationDocuments: 1,
+        hasFilledWarehouseAddress: 1,
+        isNew: 1,
+        onboardingProcess: 1,
+        notificationPreferences: 1,
+        aboutStore: 1,
+        storeName: 1,
+        stats: 1,
+        campaignStats: 1,
+        cancelledStreamCount: 1,
+        lastStreamCancellation: 1,
+        agoraUid: 1,
+        followers: 1,
+        following: 1
+      })
+      .lean();
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    const profile = {
-      ...seller.toObject(),
-      role: 'Seller'
+    // Get counts
+    const [orderCount, streamCount, categoriesCount, followingCount] = await Promise.all([
+      Order.countDocuments({ seller: req.user.id }),
+      Stream.countDocuments({ seller: req.user.id }),
+      Seller.findById(req.user.id).select('categories').then(s => s.categories.length),
+      Buyer.countDocuments({ 'followers.sellerId': req.user.id })
+    ]);
+
+    // Add the count fields to the response
+    const sellerProfile = {
+      ...seller,
+      followersCount: seller.followers?.length || 0,
+      followingCount: followingCount,
+      totalOrders: orderCount,
+      streamCount: streamCount,
+      categoriesCount: categoriesCount
     };
 
-    res.json(profile);
+    // Remove the full arrays from the response
+    delete sellerProfile.followers;
+    delete sellerProfile.following;
+
+    res.json(sellerProfile);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve profile', error: error.message });
+    res.status(500).json({ message: 'Error fetching seller profile', error: error.message });
   }
 };
 
@@ -911,46 +1013,108 @@ exports.getTopProducts = async (req, res) => {
 // Get seller's statistics
 exports.getStatistics = async (req, res) => {
   try {
-    const sellerId = req.user.id;
-    const seller = await Seller.findById(sellerId);
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
 
-    // Get all orders for this seller
-    const orders = await Order.find({ seller: sellerId });
+    const currentDate = new Date();
+    const currentWeekStart = new Date(currentDate);
+    currentWeekStart.setDate(currentDate.getDate() - currentDate.getDay()); // Start of current week (Sunday)
+    const lastWeekStart = new Date(currentWeekStart);
+    lastWeekStart.setDate(currentWeekStart.getDate() - 7); // Start of last week
 
-    // Calculate statistics
-    const totalOrders = orders.length;
-    const totalSales = orders.reduce((sum, order) => sum + order.totalPrice, 0);
-    const uniqueCustomers = seller.customers.length;
-    const storeVisits = seller.storeVisits;
+    // Get current week statistics
+    const currentWeekVisits = seller.weeklyStats?.storeVisits || 0;
+    const lastWeekVisits = seller.lastWeekStats?.storeVisits || 0;
+
+    // Get total orders from Order model
+    const totalOrders = await Order.countDocuments({ 'items.seller': seller._id });
+    const currentWeekOrders = await Order.countDocuments({
+      'items.seller': seller._id,
+      createdAt: {
+        $gte: currentWeekStart,
+        $lt: currentDate
+      }
+    });
+    const lastWeekOrders = await Order.countDocuments({
+      'items.seller': seller._id,
+      createdAt: {
+        $gte: lastWeekStart,
+        $lt: currentWeekStart
+      }
+    });
+
+    // Get total followers directly from seller.followers array
+    const totalCustomers = seller.followers.length;
+
+    // Get current week's new followers
+    const currentWeekCustomers = seller.followers.filter(follower => {
+      const followDate = new Date(follower.followDate);
+      return followDate >= currentWeekStart && followDate <= currentDate;
+    }).length;
+
+    // Get last week's new followers
+    const lastWeekCustomers = seller.followers.filter(follower => {
+      const followDate = new Date(follower.followDate);
+      return followDate >= lastWeekStart && followDate < currentWeekStart;
+    }).length;
+
+    // Calculate conversion rates
+    const storeVisits = seller.storeVisits || 0;
+    const currentConversionRate = storeVisits > 0 ? 
+      (totalOrders / storeVisits) * 100 : 0;
     
-    // Calculate conversion rate (orders / store visits)
-    const conversionRate = storeVisits ? (totalOrders / storeVisits * 100).toFixed(2) : 0;
+    const lastWeekConversionRate = lastWeekVisits > 0 ? 
+      (lastWeekOrders / lastWeekVisits) * 100 : 0;
 
-    // Get current month's data
-    const currentMonth = new Date().getMonth();
-    const currentMonthOrders = orders.filter(order => 
-      order.createdAt.getMonth() === currentMonth
+    // Calculate percentage changes
+    const calculatePositiveChange = (current, last) => {
+      if (!last || last === 0) return 0;
+      const change = ((current - last) / last) * 100;
+      return Math.max(0, change);
+    };
+
+    const visitsChange = calculatePositiveChange(currentWeekVisits, lastWeekVisits);
+    const ordersChange = calculatePositiveChange(currentWeekOrders, lastWeekOrders);
+    const customersChange = calculatePositiveChange(currentWeekCustomers, lastWeekCustomers);
+    const walletChange = calculatePositiveChange(
+      seller.walletBalance, 
+      seller.lastWeekStats?.walletBalance || 0
     );
-    const currentMonthSales = currentMonthOrders.reduce((sum, order) => 
-      sum + order.totalPrice, 0
-    );
+    const conversionChange = calculatePositiveChange(currentConversionRate, lastWeekConversionRate);
 
     const statistics = {
-      totalStoreVisits: storeVisits,
-      totalSales,
-      totalOrders,
-      uniqueCustomers,
-      conversionRate: `${conversionRate}%`,
-      walletBalance: seller.walletBalance,
-      currentMonth: {
-        orders: currentMonthOrders.length,
-        sales: currentMonthSales
+      walletBalance: {
+        amount: seller.walletBalance,
+        currency: "NGN",
+        changePercentage: parseFloat(walletChange.toFixed(2))
+      },
+      storeVisits: {
+        count: storeVisits,
+        changePercentage: parseFloat(visitsChange.toFixed(2))
+      },
+      totalOrders: {
+        count: totalOrders,
+        changePercentage: parseFloat(ordersChange.toFixed(2))
+      },
+      conversionRate: {
+        percentage: parseFloat(currentConversionRate.toFixed(2)),
+        changePercentage: parseFloat(conversionChange.toFixed(2))
+      },
+      newCustomers: {
+        count: totalCustomers,
+        changePercentage: parseFloat(customersChange.toFixed(2))
       }
     };
 
     res.json(statistics);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve statistics', error: error.message });
+    console.error('Error in getStatistics:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve statistics',
+      error: error.message
+    });
   }
 };
 
@@ -1359,6 +1523,9 @@ exports.getFollowers = async (req, res) => {
           'items.seller': seller._id
         });
 
+        // Get buyer details including profile image
+        const buyer = await Buyer.findById(follower.buyerId);
+
         // Calculate total amount spent
         const totalSpent = orders.reduce((sum, order) => {
           // Sum up only the items from this seller in each order
@@ -1375,7 +1542,8 @@ exports.getFollowers = async (req, res) => {
           totalOrders: orders.length,
           totalSpent: totalSpent,
           name: `${follower.firstName} ${follower.lastName}`,
-          followedAt: follower.followDate // For consistency in naming
+          followedAt: follower.followDate,
+          profileImageUrl: buyer?.profileImage?.url || null // Add profile image URL
         };
       })
     );
@@ -1476,14 +1644,30 @@ exports.getBuyerDetails = async (req, res) => {
       .sort((a, b) => b.totalSpent - a.totalSpent)
       .slice(0, 5);
 
-    res.json({
+    const response = {
       buyerInfo: {
         firstName: buyer.firstName,
         lastName: buyer.lastName,
         email: buyer.email,
-        joinDate: buyer.createdAt
+        joinDate: buyer.createdAt,
+        profileImageUrl: buyer.profileImage?.url || null
       },
-      orderStats,
+      orderStats: {
+        general: {
+          totalOrders: orders.length,
+          totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+          averageOrderValue: orders.length > 0 
+            ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+            : 0
+        },
+        withSeller: {
+          totalOrders: orders.length,
+          totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+          averageOrderValue: orders.length > 0 
+            ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+            : 0
+        }
+      },
       shippingAddresses: buyer.shippingAddresses,
       activityFeed: buyer.activityFeed,
       topPurchases,
@@ -1508,7 +1692,9 @@ exports.getBuyerDetails = async (req, res) => {
         }))
       })),
       hasOrderedFromSeller: true
-    });
+    };
+
+    res.json(response);
 
   } catch (error) {
     console.error('Error getting buyer details:', error);
@@ -2258,3 +2444,1026 @@ exports.updateCampaignPreferences = async (req, res) => {
     });
   }
 };
+
+exports.getAllReviews = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { 
+      page = 1, 
+      limit = 20, 
+      type = 'all',
+      sortBy = 'newest' 
+    } = req.query;
+
+    // Validate seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Build aggregation pipeline
+    const matchSeller = { $match: { seller: new mongoose.Types.ObjectId(sellerId) } };
+    
+    // Get reviews from different sources based on type
+    const [productReviews, postComments, storeReviews] = await Promise.all([
+      type === 'all' || type === 'product' ? 
+        Product.aggregate([
+          matchSeller,
+          { $unwind: '$reviews' },
+          { $replaceRoot: { newRoot: {
+            $mergeObjects: [
+              '$reviews',
+              { 
+                type: 'product',
+                source: {
+                  type: 'product',
+                  id: '$_id',
+                  name: '$name',
+                  image: { $arrayElemAt: ['$images.url', 0] }
+                }
+              }
+            ]
+          }}}
+        ]) : [],
+
+      type === 'all' || type === 'post' ?
+        Post.aggregate([
+          { $match: { 'author.userId': new mongoose.Types.ObjectId(sellerId) } },
+          { $unwind: '$comments' },
+          { $replaceRoot: { newRoot: {
+            $mergeObjects: [
+              '$comments',
+              {
+                type: 'post',
+                source: {
+                  type: 'post',
+                  id: '$_id',
+                  name: '$title',
+                  image: { $arrayElemAt: ['$media.url', 0] }
+                }
+              }
+            ]
+          }}}
+        ]) : [],
+
+      type === 'all' || type === 'store' ?
+        Seller.aggregate([
+          { $match: { _id: new mongoose.Types.ObjectId(sellerId) } },
+          { $unwind: '$reviews' },
+          { $replaceRoot: { newRoot: {
+            $mergeObjects: [
+              '$reviews',
+              { type: 'store' }
+            ]
+          }}}
+        ]) : []
+    ]);
+
+    // Get blip comments (separate query due to nested structure)
+    let blipComments = [];
+    if (type === 'all' || type === 'blip') {
+      const products = await Product.find({ seller: sellerId });
+      for (const product of products) {
+        if (product.blips && product.blips.length > 0) {
+          for (const blip of product.blips) {
+            if (blip.comments && blip.comments.length > 0) {
+              const formattedComments = blip.comments.map(comment => ({
+                ...comment.toObject(),
+                type: 'blip',
+                source: {
+                  type: 'blip',
+                  id: blip._id,
+                  name: `${product.name} - Blip`,
+                  image: blip.thumbnail || blip.url
+                }
+              }));
+              blipComments.push(...formattedComments);
+            }
+          }
+        }
+      }
+    }
+
+    // Combine all reviews
+    let allReviews = [
+      ...productReviews,
+      ...blipComments,
+      ...postComments,
+      ...storeReviews
+    ];
+
+    // Sort reviews
+    switch (sortBy) {
+      case 'oldest':
+        allReviews.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        break;
+      case 'rating':
+        allReviews.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      default: // newest
+        allReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // Calculate stats
+    const stats = {
+      averageRating: calculateAverageRating(allReviews),
+      totalReviews: allReviews.length,
+      reviewsByType: {
+        product: productReviews.length,
+        blip: blipComments.length,
+        post: postComments.length,
+        store: storeReviews.length
+      }
+    };
+
+    // Paginate results
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedReviews = allReviews.slice(startIndex, endIndex);
+
+    res.json({
+      reviews: paginatedReviews,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(allReviews.length / limit),
+        totalReviews: allReviews.length
+      },
+      stats
+    });
+
+  } catch (error) {
+    console.error('Error in getAllReviews:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve reviews',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to calculate average rating
+function calculateAverageRating(reviews) {
+  const ratedReviews = reviews.filter(review => review.rating);
+  if (ratedReviews.length === 0) return 0;
+  
+  const sum = ratedReviews.reduce((acc, review) => acc + review.rating, 0);
+  return (sum / ratedReviews.length).toFixed(1);
+}
+
+// Follow a buyer
+exports.followBuyer = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { buyerId } = req.params;
+
+    const [buyer, seller] = await Promise.all([
+      Buyer.findById(buyerId),
+      Seller.findById(sellerId)
+    ]);
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Initialize followers array if it doesn't exist
+    if (!buyer.followers) {
+      buyer.followers = [];
+    }
+
+    // Check if already following
+    const isAlreadyFollowing = buyer.followers.some(
+      follower => follower.sellerId && follower.sellerId.toString() === sellerId
+    );
+
+    if (isAlreadyFollowing) {
+      return res.status(400).json({ message: 'Already following this buyer' });
+    }
+
+    // Add to buyer's followers list
+    buyer.followers.push({
+      sellerId: seller._id,
+      storeName: seller.storeName,
+      businessName: seller.businessName,
+      followDate: new Date(),
+      lastInteraction: new Date()
+    });
+
+    await buyer.save();
+
+    // Create notification for buyer using createBuyerNotification
+    await notificationController.createBuyerNotification(
+      buyerId,
+      'new_follower',
+      {
+        sellerId: seller._id,
+        sellerName: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
+        followDate: new Date()
+      }
+    );
+
+    res.json({
+      message: 'Successfully followed buyer',
+      followData: buyer.followers[buyer.followers.length - 1]
+    });
+  } catch (error) {
+    console.error('Follow buyer error:', error);
+    res.status(500).json({
+      message: 'Failed to follow buyer',
+      error: error.message
+    });
+  }
+};
+
+// Unfollow a buyer
+exports.unfollowBuyer = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { buyerId } = req.params;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Remove from followers list
+    buyer.followers = buyer.followers.filter(
+      follower => follower.sellerId.toString() !== sellerId
+    );
+
+    await buyer.save();
+
+    res.json({ message: 'Successfully unfollowed buyer' });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to unfollow buyer',
+      error: error.message
+    });
+  }
+};
+
+// Get list of buyers that the seller follows
+exports.getFollowedBuyers = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+
+    const buyers = await Buyer.find({
+      'followers.sellerId': sellerId
+    }).select('firstName lastName email followers');
+
+    const followedBuyers = buyers.map(buyer => {
+      const followerData = buyer.followers.find(f => f.sellerId.toString() === sellerId);
+      return {
+        buyerId: buyer._id,
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        followDate: followerData.followDate,
+        lastInteraction: followerData.lastInteraction
+      };
+    });
+
+    res.json(followedBuyers);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get followed buyers',
+      error: error.message
+    });
+  }
+};
+
+// Get seller's transactions
+exports.getTransactions = async (req, res) => {
+  try {
+    const { 
+      startDate, 
+      endDate, 
+      type, 
+      page = 1, 
+      limit = 10 
+    } = req.query;
+    
+    // Get the seller's current wallet balance
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    const query = { seller: new mongoose.Types.ObjectId(req.user.id) };
+
+    // Apply date filters
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    // Apply type filter
+    if (type) {
+      query.type = type;
+    }
+
+    // Get transactions with pagination
+    const transactions = await Transaction.find(query)
+      .populate({
+        path: 'orderId',
+        select: 'order_id items totalAmount',
+        populate: {
+          path: 'items.product',
+          select: 'name'
+        }
+      })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Get total count for pagination
+    const totalTransactions = await Transaction.countDocuments(query);
+
+    // Calculate summary statistics
+    const summary = await Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(req.user.id) } },
+      { $group: {
+        _id: null,
+        totalEarnings: {
+          $sum: {
+            $cond: [{ $eq: ["$type", "order_payment"] }, "$amount", 0]
+          }
+        },
+        totalPlatformFees: {
+          $sum: {
+            $cond: [{ $eq: ["$type", "platform_fee"] }, "$amount", 0]
+          }
+        },
+        totalWithdrawals: {
+          $sum: {
+            $cond: [{ $eq: ["$type", "withdrawal"] }, "$amount", 0]
+          }
+        }
+      }}
+    ]);
+
+    // Format transaction data
+    const formattedTransactions = transactions.map(t => ({
+      _id: t._id,
+      type: t.type,
+      amount: t.amount,
+      platformFee: t.type === 'order_payment' ? t.amount * 0.08 : 0,
+      netAmount: t.type === 'order_payment' ? t.amount * 0.92 : t.amount,
+      orderId: t.orderId?.order_id,
+      description: getTransactionDescription(t),
+      status: t.status,
+      createdAt: t.createdAt,
+      orderDetails: t.orderId ? {
+        items: t.orderId.items.map(item => ({
+          productName: item.product?.name || 'Product Unavailable',
+          quantity: item.quantity,
+          price: item.price
+        })),
+        totalAmount: t.orderId.totalAmount
+      } : null
+    }));
+
+    res.json({
+      transactions: formattedTransactions,
+      summary: {
+        totalEarnings: summary[0]?.totalEarnings || 0,
+        totalPlatformFees: summary[0]?.totalPlatformFees || 0,
+        totalWithdrawals: summary[0]?.totalWithdrawals || 0,
+        currentBalance: seller.walletBalance // Use actual wallet balance from seller
+      },
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalTransactions / limit),
+        totalTransactions
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch transactions', 
+      error: error.message 
+    });
+  }
+};
+
+// Helper function to generate transaction descriptions
+function getTransactionDescription(transaction) {
+  switch (transaction.type) {
+    case 'order_payment':
+      return `Payment received for order #${transaction.orderId?.order_id} (92% of ${transaction.amount})`;
+    case 'platform_fee':
+      return `Platform fee for order #${transaction.orderId?.order_id} (8% of ${transaction.amount})`;
+    case 'withdrawal':
+      return `Withdrawal to bank account ${transaction.bankDetails?.accountNumber}`;
+    default:
+      return 'Transaction';
+  }
+}
+
+exports.getAdvancedAnalytics = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { timeframe = '30d' } = req.query;
+
+    // Calculate date ranges
+    const now = new Date();
+    const dateRanges = {
+      current: {
+        start: getDateRange(timeframe, now),
+        end: now
+      },
+      previous: {
+        start: getDateRange(timeframe, getDateRange(timeframe, now)),
+        end: getDateRange(timeframe, now)
+      }
+    };
+
+    // Parallel fetch all required data
+    const [
+      currentOrders,
+      previousOrders,
+      products,
+      customerData,
+      returns
+    ] = await Promise.all([
+      Order.find({
+        seller: sellerId,
+        createdAt: { $gte: dateRanges.current.start, $lte: dateRanges.current.end }
+      }).populate('buyer items.product'),
+      Order.find({
+        seller: sellerId,
+        createdAt: { $gte: dateRanges.previous.start, $lte: dateRanges.previous.end }
+      }),
+      Product.find({ seller: sellerId }),
+      Buyer.find({ 'orders.seller': sellerId }),
+      Order.find({ 
+        seller: sellerId,
+        'orderStatus.hasReturn': true,
+        createdAt: { $gte: dateRanges.current.start }
+      })
+    ]);
+
+    // Calculate comprehensive analytics
+    const analytics = {
+      revenue: calculateRevenueMetrics(currentOrders, previousOrders),
+      orders: calculateOrderMetrics(currentOrders, previousOrders),
+      products: calculateProductMetrics(products, currentOrders),
+      inventory: calculateInventoryMetrics(products),
+      customers: calculateCustomerMetrics(customerData, currentOrders, previousOrders),
+      performance: calculatePerformanceMetrics(currentOrders, products),
+      categoryAnalysis: calculateCategoryAnalysis(products, currentOrders),
+      profitability: calculateProfitabilityMetrics(currentOrders),
+      marketingEffectiveness: calculateMarketingMetrics(currentOrders, products),
+      operationalMetrics: calculateOperationalMetrics(currentOrders, returns),
+      trends: calculateTrends(currentOrders, previousOrders, products),
+      recommendations: generateRecommendations({
+        orders: currentOrders,
+        products,
+        returns,
+        customerData
+      })
+    };
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error in getAdvancedAnalytics:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve analytics',
+      error: error.message
+    });
+  }
+};
+
+// Helper functions
+
+function calculateRevenueMetrics(currentOrders, previousOrders) {
+  const currentRevenue = currentOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const previousRevenue = previousOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const revenueGrowth = previousRevenue ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 100;
+
+  return {
+    total: currentRevenue,
+    previousPeriod: previousRevenue,
+    growth: revenueGrowth,
+    dailyAverage: currentRevenue / Math.max(1, currentOrders.length),
+    byPaymentMethod: calculateRevenueByPaymentMethod(currentOrders),
+    byCategory: calculateRevenueByCategory(currentOrders)
+  };
+}
+
+function calculateOrderMetrics(currentOrders, previousOrders) {
+  const orderStatuses = currentOrders.reduce((acc, order) => {
+    acc[order.status] = (acc[order.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    total: currentOrders.length,
+    previousPeriod: previousOrders.length,
+    growth: previousOrders.length ? ((currentOrders.length - previousOrders.length) / previousOrders.length) * 100 : 100,
+    byStatus: orderStatuses,
+    averageOrderValue: currentOrders.length ? currentOrders.reduce((sum, order) => sum + order.totalAmount, 0) / currentOrders.length : 0,
+    fulfillmentTime: calculateAverageFulfillmentTime(currentOrders)
+  };
+}
+
+function calculateProductMetrics(products, currentOrders) {
+  const soldProducts = new Map();
+  
+  // Safely track sold products
+  currentOrders.forEach(order => {
+    if (!order.items) return;
+    
+    order.items.forEach(item => {
+      if (!item.product) return;
+      const productId = item.product._id || item.product;
+      if (!productId) return;
+      
+      const count = soldProducts.get(productId.toString()) || 0;
+      soldProducts.set(productId.toString(), count + (item.quantity || 0));
+    });
+  });
+
+  // Safely map product metrics
+  const productMetrics = products
+    .filter(product => product) // Filter out null products
+    .map(product => ({
+      id: product._id,
+      name: product.name || 'Unknown Product',
+      category: product.category || 'Uncategorized',
+      currentStock: product.inventory?.quantity || 0,
+      soldCount: soldProducts.get(product._id.toString()) || 0,
+      turnoverRate: calculateTurnoverRate(product, soldProducts.get(product._id.toString()) || 0)
+    }));
+
+  return {
+    total: products.length,
+    active: products.filter(p => p && p.status === 'active').length,
+    lowStock: products.filter(p => p && p.inventory && p.inventory.quantity <= (p.inventory.lowStockThreshold || 0)).length,
+    topSelling: productMetrics
+      .sort((a, b) => b.soldCount - a.soldCount)
+      .slice(0, 5),
+    turnoverRate: calculateAverageTurnoverRate(productMetrics)
+  };
+}
+
+// Add the missing calculateAverageTurnoverRate function
+function calculateAverageTurnoverRate(productMetrics) {
+  if (!productMetrics.length) return 0;
+  const totalTurnover = productMetrics.reduce((sum, product) => sum + (product.turnoverRate || 0), 0);
+  return totalTurnover / productMetrics.length;
+}
+
+// Update calculateTurnoverRate to handle null values
+function calculateTurnoverRate(product, soldCount) {
+  if (!product || !product.inventory) return 0;
+  const quantity = product.inventory.quantity || 0;
+  const averageInventory = (quantity + (quantity + (soldCount || 0))) / 2;
+  return averageInventory > 0 ? ((soldCount || 0) / averageInventory) * 100 : 0;
+}
+
+function calculateInventoryMetrics(products) {
+  const totalValue = products.reduce((sum, product) => 
+    sum + (product.price * product.inventory.quantity), 0);
+
+  return {
+    totalProducts: products.length,
+    totalValue,
+    lowStockItems: products.filter(p => p.inventory.quantity <= p.inventory.lowStockThreshold),
+    outOfStockItems: products.filter(p => p.inventory.quantity === 0),
+    averageStockLevel: products.reduce((sum, p) => sum + p.inventory.quantity, 0) / products.length,
+    stockDistribution: calculateStockDistribution(products)
+  };
+}
+
+function calculateCustomerMetrics(customerData, currentOrders, previousOrders) {
+  const currentCustomers = new Set(currentOrders.map(order => order.buyer._id.toString()));
+  const previousCustomers = new Set(previousOrders.map(order => order.buyer._id.toString()));
+  const returningCustomers = new Set([...currentCustomers].filter(x => previousCustomers.has(x)));
+
+  return {
+    total: currentCustomers.size,
+    new: currentCustomers.size - returningCustomers.size,
+    returning: returningCustomers.size,
+    retentionRate: previousCustomers.size ? (returningCustomers.size / previousCustomers.size) * 100 : 0,
+    averageOrdersPerCustomer: currentOrders.length / Math.max(1, currentCustomers.size),
+    customerLifetimeValue: calculateCustomerLifetimeValue(customerData, currentOrders)
+  };
+}
+
+// Additional helper functions for specific calculations
+function calculateAverageFulfillmentTime(orders) {
+  const fulfillmentTimes = orders
+    .filter(order => order.status === 'delivered')
+    .map(order => {
+      const created = new Date(order.createdAt);
+      const delivered = new Date(order.deliveredAt);
+      return (delivered - created) / (1000 * 60 * 60); // Convert to hours
+    });
+
+  return fulfillmentTimes.length ? 
+    fulfillmentTimes.reduce((sum, time) => sum + time, 0) / fulfillmentTimes.length : 
+    0;
+}
+
+function calculateStockDistribution(products) {
+  return {
+    healthy: products.filter(p => p.inventory.quantity > p.inventory.lowStockThreshold).length,
+    low: products.filter(p => p.inventory.quantity <= p.inventory.lowStockThreshold && p.inventory.quantity > 0).length,
+    outOfStock: products.filter(p => p.inventory.quantity === 0).length
+  };
+}
+
+function calculateCustomerLifetimeValue(customerData, orders) {
+  const customerOrders = new Map();
+  orders.forEach(order => {
+    const customerId = order.buyer._id.toString();
+    const currentTotal = customerOrders.get(customerId) || 0;
+    customerOrders.set(customerId, currentTotal + order.totalAmount);
+  });
+
+  const values = Array.from(customerOrders.values());
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function getDateRange(timeframe, date) {
+  const result = new Date(date);
+  switch (timeframe) {
+    case '7d':
+      result.setDate(result.getDate() - 7);
+      break;
+    case '90d':
+      result.setDate(result.getDate() - 90);
+      break;
+    case '1y':
+      result.setFullYear(result.getFullYear() - 1);
+      break;
+    case 'all':
+      result.setFullYear(2000);
+      break;
+    default: // 30d
+      result.setDate(result.getDate() - 30);
+  }
+  return result;
+}
+
+function calculateRevenueByPaymentMethod(orders) {
+  return orders.reduce((acc, order) => {
+    const method = order.paymentMethod || 'unknown';
+    acc[method] = (acc[method] || 0) + order.totalAmount;
+    return acc;
+  }, {});
+}
+
+function calculateRevenueByCategory(orders) {
+  const categoryRevenue = {};
+  
+  orders.forEach(order => {
+    order.items.forEach(item => {
+      if (item.product && item.product.category) {
+        const category = item.product.category;
+        const revenue = item.price * item.quantity;
+        categoryRevenue[category] = (categoryRevenue[category] || 0) + revenue;
+      }
+    });
+  });
+
+  return categoryRevenue;
+}
+
+function calculatePerformanceMetrics(orders, products) {
+  const totalProducts = products.length;
+  const activeProducts = products.filter(p => p.status === 'active').length;
+  const totalOrders = orders.length;
+  
+  return {
+    productUtilization: totalProducts ? (activeProducts / totalProducts) * 100 : 0,
+    averageOrderProcessingTime: calculateAverageProcessingTime(orders),
+    orderCompletionRate: calculateOrderCompletionRate(orders),
+    stockEfficiency: calculateStockEfficiency(products)
+  };
+}
+
+function calculateCategoryAnalysis(products, orders) {
+  const categories = {};
+  
+  // Aggregate product data by category
+  products.forEach(product => {
+    if (!product.category) return;
+    
+    if (!categories[product.category]) {
+      categories[product.category] = {
+        totalProducts: 0,
+        activeProducts: 0,
+        totalRevenue: 0,
+        totalOrders: 0,
+        averagePrice: 0
+      };
+    }
+    
+    categories[product.category].totalProducts++;
+    if (product.status === 'active') {
+      categories[product.category].activeProducts++;
+    }
+  });
+
+  // Add order data to categories
+  orders.forEach(order => {
+    order.items.forEach(item => {
+      if (item.product && item.product.category) {
+        const category = item.product.category;
+        if (categories[category]) {
+          categories[category].totalRevenue += item.price * item.quantity;
+          categories[category].totalOrders++;
+        }
+      }
+    });
+  });
+
+  // Calculate averages and percentages
+  Object.keys(categories).forEach(category => {
+    const cat = categories[category];
+    cat.averagePrice = cat.totalProducts ? cat.totalRevenue / cat.totalProducts : 0;
+    cat.utilizationRate = cat.totalProducts ? (cat.activeProducts / cat.totalProducts) * 100 : 0;
+  });
+
+  return categories;
+}
+
+function calculateProfitabilityMetrics(orders) {
+  const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const platformFees = totalRevenue * 0.08; // 8% platform fee
+  
+  return {
+    totalRevenue,
+    platformFees,
+    netRevenue: totalRevenue - platformFees,
+    profitMargin: totalRevenue ? ((totalRevenue - platformFees) / totalRevenue) * 100 : 0
+  };
+}
+
+function calculateMarketingMetrics(orders, products) {
+  const productViews = products.reduce((sum, product) => sum + (product.views || 0), 0);
+  const totalOrders = orders.length;
+  
+  return {
+    conversionRate: productViews ? (totalOrders / productViews) * 100 : 0,
+    averageOrderValue: totalOrders ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / totalOrders : 0,
+    productViews,
+    totalOrders
+  };
+}
+
+function calculateOperationalMetrics(orders, returns) {
+  const totalOrders = orders.length;
+  const returnRate = totalOrders ? (returns.length / totalOrders) * 100 : 0;
+  
+  return {
+    orderFulfillmentRate: calculateOrderFulfillmentRate(orders),
+    returnRate,
+    averageProcessingTime: calculateAverageProcessingTime(orders),
+    deliveryPerformance: calculateDeliveryPerformance(orders)
+  };
+}
+
+function calculateTrends(currentOrders, previousOrders, products) {
+  return {
+    orderGrowth: calculateGrowthRate(currentOrders.length, previousOrders.length),
+    revenueGrowth: calculateGrowthRate(
+      currentOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+      previousOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+    ),
+    productGrowth: calculateProductGrowthTrends(products)
+  };
+}
+
+// Additional helper functions
+function calculateGrowthRate(current, previous) {
+  return previous ? ((current - previous) / previous) * 100 : 100;
+}
+
+function calculateAverageProcessingTime(orders) {
+  const processingTimes = orders
+    .filter(order => order.status !== 'pending')
+    .map(order => {
+      const created = new Date(order.createdAt);
+      const processed = new Date(order.updatedAt);
+      return (processed - created) / (1000 * 60 * 60); // Convert to hours
+    });
+
+  return processingTimes.length ? 
+    processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length : 
+    0;
+}
+
+function calculateOrderCompletionRate(orders) {
+  const completedOrders = orders.filter(order => order.status === 'delivered').length;
+  return orders.length ? (completedOrders / orders.length) * 100 : 0;
+}
+
+function calculateStockEfficiency(products) {
+  const efficiency = products.map(product => {
+    const turnoverRate = product.inventory.quantity > 0 ? 
+      (product.soldCount || 0) / product.inventory.quantity : 0;
+    return turnoverRate;
+  });
+
+  return efficiency.length ? 
+    efficiency.reduce((sum, rate) => sum + rate, 0) / efficiency.length : 
+    0;
+}
+
+function calculateOrderFulfillmentRate(orders) {
+  const fulfilledOrders = orders.filter(order => 
+    order.status === 'delivered' || order.status === 'completed'
+  ).length;
+  return orders.length ? (fulfilledOrders / orders.length) * 100 : 0;
+}
+
+function calculateDeliveryPerformance(orders) {
+  const deliveredOrders = orders.filter(order => order.status === 'delivered');
+  const onTimeDeliveries = deliveredOrders.filter(order => {
+    const deliveryDate = new Date(order.deliveredAt);
+    const expectedDate = new Date(order.expectedDeliveryDate);
+    return deliveryDate <= expectedDate;
+  }).length;
+
+  return deliveredOrders.length ? 
+    (onTimeDeliveries / deliveredOrders.length) * 100 : 
+    0;
+}
+
+function calculateProductGrowthTrends(products) {
+  const activeProducts = products.filter(p => p.status === 'active').length;
+  const newProducts = products.filter(p => {
+    const createdDate = new Date(p.createdAt);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return createdDate >= thirtyDaysAgo;
+  }).length;
+
+  return {
+    activeProducts,
+    newProducts,
+    growthRate: activeProducts ? (newProducts / activeProducts) * 100 : 0
+  };
+}
+
+function generateRecommendations({ orders, products, returns, customerData }) {
+  const recommendations = [];
+
+  // Inventory recommendations
+  const lowStockProducts = products.filter(p => 
+    p.inventory && p.inventory.quantity <= (p.inventory.lowStockThreshold || 5)
+  );
+  if (lowStockProducts.length > 0) {
+    recommendations.push({
+      type: 'inventory',
+      priority: 'high',
+      message: `${lowStockProducts.length} products are running low on stock. Consider restocking soon.`,
+      affectedProducts: lowStockProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        currentStock: p.inventory.quantity
+      }))
+    });
+  }
+
+  // Sales performance recommendations
+  const salesData = calculateSalesPerformance(orders);
+  if (salesData.trend === 'decreasing') {
+    recommendations.push({
+      type: 'sales',
+      priority: 'medium',
+      message: 'Sales have decreased compared to the previous period. Consider running promotions or reviewing pricing strategy.',
+      data: salesData
+    });
+  }
+
+  // Return rate recommendations
+  const returnRate = calculateReturnRate(orders, returns);
+  if (returnRate > 10) { // If return rate is above 10%
+    recommendations.push({
+      type: 'returns',
+      priority: 'high',
+      message: `Your return rate of ${returnRate.toFixed(1)}% is above average. Review product descriptions and quality control.`,
+      data: { returnRate }
+    });
+  }
+
+  // Product performance recommendations
+  const productPerformance = analyzeProductPerformance(products, orders);
+  recommendations.push(...productPerformance);
+
+  // Customer engagement recommendations
+  const customerEngagement = analyzeCustomerEngagement(customerData, orders);
+  if (customerEngagement.recommendations.length > 0) {
+    recommendations.push(...customerEngagement.recommendations);
+  }
+
+  return recommendations;
+}
+
+// Helper functions for recommendations
+
+function calculateSalesPerformance(orders) {
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+  const sixtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+
+  const recentOrders = orders.filter(order => 
+    new Date(order.createdAt) >= thirtyDaysAgo
+  );
+  const previousOrders = orders.filter(order => 
+    new Date(order.createdAt) >= sixtyDaysAgo && 
+    new Date(order.createdAt) < thirtyDaysAgo
+  );
+
+  const recentSales = recentOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const previousSales = previousOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+
+  return {
+    trend: recentSales < previousSales ? 'decreasing' : 'increasing',
+    percentageChange: previousSales ? ((recentSales - previousSales) / previousSales) * 100 : 0,
+    recentSales,
+    previousSales
+  };
+}
+
+function calculateReturnRate(orders, returns) {
+  if (!orders.length) return 0;
+  return (returns.length / orders.length) * 100;
+}
+
+function analyzeProductPerformance(products, orders) {
+  const recommendations = [];
+  
+  // Create a map of product sales
+  const productSales = new Map();
+  orders.forEach(order => {
+    order.items.forEach(item => {
+      if (!item.product) return;
+      const productId = item.product._id.toString();
+      const currentSales = productSales.get(productId) || 0;
+      productSales.set(productId, currentSales + (item.quantity || 0));
+    });
+  });
+
+  // Find non-performing products
+  const nonPerformingProducts = products.filter(product => {
+    const sales = productSales.get(product._id.toString()) || 0;
+    return sales === 0 && product.status === 'active';
+  });
+
+  if (nonPerformingProducts.length > 0) {
+    recommendations.push({
+      type: 'product_performance',
+      priority: 'medium',
+      message: `${nonPerformingProducts.length} active products have no sales. Consider updating listings or running promotions.`,
+      affectedProducts: nonPerformingProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        daysListed: Math.floor((new Date() - new Date(p.createdAt)) / (1000 * 60 * 60 * 24))
+      }))
+    });
+  }
+
+  return recommendations;
+}
+
+function analyzeCustomerEngagement(customerData, orders) {
+  const recommendations = [];
+  
+  // Analyze customer repeat purchase rate
+  const customerOrders = new Map();
+  orders.forEach(order => {
+    const buyerId = order.buyer._id.toString();
+    const orderCount = customerOrders.get(buyerId) || 0;
+    customerOrders.set(buyerId, orderCount + 1);
+  });
+
+  const repeatCustomers = Array.from(customerOrders.values()).filter(count => count > 1).length;
+  const repeatRate = (repeatCustomers / customerOrders.size) * 100;
+
+  if (repeatRate < 20) { // If repeat customer rate is below 20%
+    recommendations.push({
+      type: 'customer_engagement',
+      priority: 'medium',
+      message: 'Low repeat customer rate. Consider implementing a customer loyalty program or follow-up communications.',
+      data: {
+        repeatRate,
+        totalCustomers: customerOrders.size,
+        repeatCustomers
+      }
+    });
+  }
+
+  return {
+    recommendations,
+    metrics: {
+      repeatRate,
+      totalCustomers: customerOrders.size,
+      repeatCustomers
+    }
+  };
+}

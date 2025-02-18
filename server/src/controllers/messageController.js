@@ -178,7 +178,18 @@ exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
-
+    
+    // Get pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    
+    // If no page is specified, get the last 20 messages
+    const totalMessages = await Message.countDocuments({ conversation: conversationId });
+    const totalPages = Math.ceil(totalMessages / limit);
+    
+    // If no page specified, calculate the last page
+    const effectivePage = !req.query.page ? totalPages : page;
+    
     const messages = await Message.find({ conversation: conversationId })
       .populate({
         path: 'sender.id',
@@ -195,7 +206,13 @@ exports.getMessages = async (req, res) => {
         model: 'Product',
         select: 'name price images description inventory.sku category'
       })
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .skip((effectivePage - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    // Reverse the messages to show oldest first
+    messages.reverse();
 
     // Transform messages to include formatted participant info
     const formattedMessages = messages.map(message => {
@@ -236,13 +253,22 @@ exports.getMessages = async (req, res) => {
       } : message.recipient;
 
       return {
-        ...message.toObject(),
+        ...message,
         sender: senderInfo,
         recipient: recipientInfo
       };
     });
 
-    res.json(formattedMessages);
+    res.json({
+      messages: formattedMessages,
+      pagination: {
+        currentPage: effectivePage,
+        totalPages,
+        totalMessages,
+        hasMore: effectivePage < totalPages,
+        hasPrevious: effectivePage > 1
+      }
+    });
   } catch (error) {
     console.error('Get messages error:', error);
     res.status(500).json({ 

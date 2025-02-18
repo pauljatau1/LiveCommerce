@@ -443,6 +443,8 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
+
+
 // Get a single product
 exports.getProduct = async (req, res) => {
   try {
@@ -513,7 +515,7 @@ exports.getProduct = async (req, res) => {
             averageRating: {
               $cond: {
                 if: { $isArray: '$reviews' },
-                then: { 
+                then: {
                   $cond: {
                     if: { $gt: [{ $size: '$reviews' }, 0] },
                     then: { $avg: '$reviews.rating' },
@@ -582,13 +584,29 @@ exports.getProduct = async (req, res) => {
       $set: { 'stats.lastViewed': new Date() }
     });
 
+    const seller = await Seller.findById(product[0].seller._id);
+    if (seller) {
+      // Increment total store visits
+      seller.storeVisits = (seller.storeVisits || 0) + 1;
+
+      // Update monthly stats for store visits
+      const currentDate = new Date();
+      const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+
+      // Get current month's visits or initialize to 0
+      const currentMonthVisits = seller.monthlyStats.storeVisits.get(monthKey) || 0;
+      seller.monthlyStats.storeVisits.set(monthKey, currentMonthVisits + 1);
+
+      await seller.save();
+    }
+
     console.log('Product retrieved successfully');
     res.json(product[0]);
   } catch (error) {
     console.error('Error in getProduct:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve product', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve product',
+      error: error.message
     });
   }
 };
@@ -843,7 +861,9 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    if (product.seller.toString() !== sellerId) {
+    // Compare seller ID, handling both object and string cases
+    const productSellerId = product.seller._id || product.seller;
+    if (productSellerId.toString() !== sellerId.toString()) {
       return res.status(403).json({ message: 'Not authorized to delete this product' });
     }
 
@@ -936,17 +956,27 @@ exports.updateProductStock = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Compare seller ID, handling both object and string cases
+    const productSellerId = product.seller._id || product.seller;
+    if (productSellerId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this product' });
+    }
+
     product.stock = stock || product.stock;
     product.updatedAt = Date.now();
 
     const updatedProduct = await product.save();
 
     // Populate the seller field with seller details after updating the product
-    const populatedProduct = await Product.findById(updatedProduct._id).populate('seller', 'name avatarUrl about');
+    const populatedProduct = await Product.findById(updatedProduct._id)
+      .populate('seller', 'name avatarUrl about');
 
     res.json(populatedProduct);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update product stock', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to update product stock', 
+      error: error.message 
+    });
   }
 };
 
@@ -1608,19 +1638,39 @@ exports.updateInventory = async (req, res) => {
   try {
     const { productId } = req.params;
     const { quantity, operation = 'set' } = req.body;
+    
+    console.log('Update Inventory Debug:', {
+      productId,
+      requestUserId: req.user.id,
+      userRole: req.user.role,
+      quantity,
+      operation
+    });
 
     if (!quantity || isNaN(parseInt(quantity))) {
       throw new Error('Valid quantity is required');
     }
 
     const product = await Product.findById(productId).session(session);
+    console.log('Found Product:', {
+      productId: product?._id,
+      sellerId: product?.seller,
+      sellerIdType: typeof product?.seller
+    });
 
     if (!product) {
       throw new Error('Product not found');
     }
 
-    // Verify seller ownership
-    if (product.seller.toString() !== req.user.id) {
+    // Verify seller ownership with detailed logging
+    const productSellerId = product.seller._id || product.seller;
+    console.log('Seller ID Comparison:', {
+      productSellerId: productSellerId?.toString(),
+      requestUserId: req.user.id?.toString(),
+      isMatch: productSellerId?.toString() === req.user.id?.toString()
+    });
+
+    if (productSellerId?.toString() !== req.user.id?.toString()) {
       throw new Error('Not authorized to update this product');
     }
 
@@ -1653,6 +1703,7 @@ exports.updateInventory = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Update Inventory Error:', error);
     await session.abortTransaction();
     res.status(400).json({ 
       message: 'Failed to update inventory', 

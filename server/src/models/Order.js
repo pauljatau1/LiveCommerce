@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const { createNotification, sendEmailNotification } = require('../controllers/notificationController');
+const notificationController = require('../controllers/notificationController');
+const Transaction = require('./Transaction');
 
 // Define the address schema to match Terminal Africa's format
 const addressSchema = new mongoose.Schema({
@@ -205,28 +206,54 @@ orderSchema.pre('save', async function(next) {
       const Seller = mongoose.model('Seller');
       
       // Calculate total amount for seller (excluding shipping fees)
-      const sellerAmount = this.items.reduce((total, item) => {
+      const totalAmount = this.items.reduce((total, item) => {
         return total + (item.price * item.quantity);
       }, 0);
 
-      // Update seller's wallet balance
+      // Calculate platform fee (8%) and seller amount (92%)
+      const platformFee = totalAmount * 0.08;
+      const sellerAmount = totalAmount * 0.92;
+
+      // Create transaction records
+      await Promise.all([
+        // Create order payment transaction
+        Transaction.create({
+          seller: this.seller,
+          type: 'order_payment',
+          amount: totalAmount,
+          orderId: this._id,
+          description: `Payment for order #${this.order_id}`,
+          status: 'completed'
+        }),
+        
+        // Create platform fee transaction
+        Transaction.create({
+          seller: this.seller,
+          type: 'platform_fee',
+          amount: platformFee,
+          orderId: this._id,
+          description: `Platform fee for order #${this.order_id} (8%)`,
+          status: 'completed'
+        })
+      ]);
+
+      // Update seller's wallet balance with 92% of the total
       const updatedSeller = await Seller.findByIdAndUpdate(
         this.seller,
         { $inc: { walletBalance: sellerAmount } },
         { new: true }
-      ).populate('email firstName lastName businessName');
+      );
 
       // Create notification for order closure and wallet update
-      await createNotification(this.seller, 'order_closed', {
+      await notificationController.createNotification(this.seller, 'order_closed', {
         orderId: this._id,
         order_id: this.order_id,
         amount: sellerAmount,
-        closedBy: this.closedBy,
-        closedReason: this.closedReason,
+        platformFee: platformFee,
         newWalletBalance: updatedSeller.walletBalance
       });
 
-      // Send email notification to seller
+      // Send email notification
       const sellerEmail = {
         to: updatedSeller.email,
         from: 'Auqli Payments <joseph@auqli.com>',
@@ -238,16 +265,18 @@ orderSchema.pre('save', async function(next) {
             <p>Order #${this.order_id} has been closed and the payment has been released to your wallet.</p>
             <p><strong>Payment Details:</strong></p>
             <ul>
+              <li>Total Order Amount: ₦${totalAmount.toLocaleString()}</li>
+              <li>Platform Fee (8%): ₦${platformFee.toLocaleString()}</li>
               <li>Amount Released: ₦${sellerAmount.toLocaleString()}</li>
               <li>New Wallet Balance: ₦${updatedSeller.walletBalance.toLocaleString()}</li>
             </ul>
-            <p>The shipping fee has been deducted from the total amount.</p>
+            <p>The platform fee has been deducted from the total amount.</p>
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `
       };
 
-      await sendEmailNotification(updatedSeller, sellerEmail);
+      await notificationController.sendEmailNotification(updatedSeller, sellerEmail);
 
     } catch (error) {
       return next(error);

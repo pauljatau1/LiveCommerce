@@ -130,7 +130,7 @@ router.get('/check-token', buyerController.checkToken);
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
@@ -138,36 +138,31 @@ router.get('/check-token', buyerController.checkToken);
  *                 type: string
  *               lastName:
  *                 type: string
+ *               username:
+ *                 type: string
+ *                 description: Must be unique
  *               country:
  *                 type: string
  *               phoneNumber:
  *                 type: string
- *               shippingAddresses:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     country:
- *                       type: string
- *                     city:
- *                       type: string
- *                     address1:
- *                       type: string
- *                     address2:
- *                       type: string
- *                     zipCode:
- *                       type: string
- *                     addressType:
- *                       type: string
  *               bio:
  *                 type: string
+ *                 description: User biography or about text
+ *               preferredLanguage:
+ *                 type: string
+ *                 enum: [en, es, fr]
+ *               preferredCurrency:
+ *                 type: string
+ *                 enum: [USD, EUR, GBP]
  *     responses:
  *       200:
  *         description: Profile updated successfully
+ *       400:
+ *         description: Username already taken or invalid input
  *       404:
  *         description: Buyer not found
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
 router.put('/profile', authMiddleware.verifyToken, buyerController.updateProfile);
 
@@ -784,39 +779,7 @@ router.post('/follow/:sellerId', authMiddleware.verifyToken, authMiddleware.isBu
  */
 router.delete('/follow/:sellerId', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.unfollowSeller);
 
-/**
- * @swagger
- * /api/buyer/following:
- *   get:
- *     summary: Get list of sellers that the buyer follows
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of followed sellers retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   sellerId:
- *                     type: string
- *                   storeName:
- *                     type: string
- *                   businessName:
- *                     type: string
- *                   aboutStore:
- *                     type: string
- *                   followDate:
- *                     type: string
- *                     format: date-time
- *       500:
- *         description: Server error
- */
-router.get('/following', authMiddleware.verifyToken, authMiddleware.isBuyer, buyerController.getFollowedSellers);
+
 
 // Wishlist routes
 /**
@@ -1178,88 +1141,7 @@ router.get('/seller/:sellerId',
   buyerController.getSellerProfile
 );
 
-/**
- * @swagger
- * /api/buyer/seller/{sellerId}/review:
- *   post:
- *     summary: Add a review for a seller
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: sellerId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - rating
- *               - comment
- *             properties:
- *               rating:
- *                 type: number
- *                 minimum: 1
- *                 maximum: 5
- *               comment:
- *                 type: string
- *     responses:
- *       201:
- *         description: Review added successfully
- *       400:
- *         description: Invalid input
- *       404:
- *         description: Seller not found
- */
-router.post('/seller/:sellerId/review', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isBuyer, 
-  buyerController.addSellerReview
-);
 
-/**
- * @swagger
- * /api/buyer/seller/{sellerId}/review:
- *   put:
- *     summary: Update an existing review for a seller
- *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: sellerId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               rating:
- *                 type: number
- *                 minimum: 1
- *                 maximum: 5
- *               comment:
- *                 type: string
- *     responses:
- *       200:
- *         description: Review updated successfully
- *       404:
- *         description: Review not found
- */
-router.put('/seller/:sellerId/review',
-  authMiddleware.verifyToken,
-  authMiddleware.isBuyer,
-  buyerController.updateSellerReview
-);
 
 /**
  * @swagger
@@ -1464,5 +1346,235 @@ router.put('/profile/update', authMiddleware.verifyToken, buyerController.update
 router.post('/change-password', authMiddleware.verifyToken, buyerController.changePassword);
 router.post('/forgot-password/request', buyerController.requestPasswordReset);
 router.post('/forgot-password/verify', buyerController.verifyAndResetPassword);
+
+/**
+ * @swagger
+ * /api/buyer/followers:
+ *   get:
+ *     summary: Get list of followers (buyers and sellers who follow this buyer)
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of followers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 followers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [buyer, seller]
+ *                       name:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                       followDate:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     current:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/followers', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getFollowers
+);
+
+/**
+ * @swagger
+ * /api/buyer/following:
+ *   get:
+ *     summary: Get list of users the buyer follows (both buyers and sellers)
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of following retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 following:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [buyer, seller]
+ *                       name:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                       followDate:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     current:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/following', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.getFollowing
+);
+
+/**
+ * @swagger
+ * /api/buyer/seller/{sellerId}/review:
+ *   post:
+ *     summary: Write a review for a seller's store
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller to review
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *               - comment
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: Rating from 1 to 5
+ *               comment:
+ *                 type: string
+ *                 minLength: 10
+ *                 description: Review comment
+ *     responses:
+ *       201:
+ *         description: Review created successfully
+ *       400:
+ *         description: Invalid input or already reviewed
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/seller/:sellerId/review',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.reviewSeller
+);
+
+/**
+ * @swagger
+ * /api/buyer/seller/{sellerId}/reviews:
+ *   get:
+ *     summary: Get all reviews for a seller's store
+ *     tags: [Buyer]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of reviews per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [recent, rating-high, rating-low]
+ *           default: recent
+ *         description: Sort order for reviews
+ *     responses:
+ *       200:
+ *         description: List of seller reviews
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/reviews',
+  buyerController.getSellerReviews
+);
 
 module.exports = router;
