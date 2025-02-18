@@ -2,88 +2,106 @@ import { View, Text, Image, TouchableOpacity } from "react-native";
 import React from "react";
 import { icons, images } from "@/constants";
 import CustomButton from "../button/CustomButton";
+import { AntDesign } from '@expo/vector-icons';
+import { useLivestream } from "../../../contexts/livestreamContext";
+import { Link } from "expo-router";
 
-const LiveProductCard = ({ item, showBtn, showLive, lastSeller }: any) => {
+const LiveProductCard = ({ item, showBtn, showLive }: any) => {
+
+  const { joinStream } = useLivestream();
+
+  const handleJoinStream = async () => {
+    await joinStream(item?._id);
+  }
+
+
+
   return (
-    <View
-      className={`bg-black p-[11.847px] mr-[4px] mb-[5.54px]  gap-x-3 w-[172.922px] rounded-[7.898px] `}
-    >
-      <View className="flex-row justify-between items-center">
-        <View className="relative flex-row gap-x-2">
-          <View>
-            <Image source={images.manImage} className="relative" />
-            <Text className="text-white text-[3px] font-LexendDeca font-normal text-center absolute bottom-[0px] left-3 flex-row  bg-[#FF0A0A] flex justify-center items-center p-[2px] pr-[3px] rounded-full ">
-              Live
+    <View className="bg-black border border-[#222] p-3 mr-2 w-[180px] rounded-lg">
+      {/* Seller Info */}
+
+      <View className="flex-row items-center mb-4 justify-between mt-3">
+        <View className="flex-row items-center gap-2">
+
+          <Image
+            source={{ uri: item?.seller?.storeAvatar?.url }}
+            className="w-6 h-6 rounded-full"
+          />
+          <Text className="text-gray-200 text-xs capitalize font-LexendDeca">
+            {item?.seller?.storeName}
+          </Text>
+        </View>
+        <View className="bg-[#E8C300] rounded px-1 mt-0.5">
+          <Text className="text-black text-[10px] font-LexendDeca">
+            Top Seller
+          </Text>
+        </View>
+      </View>
+      {/* Main Product Image */}
+      <View className="relative">
+        <Image
+          source={require('../../../assets/images/young-woman-organizing-live-shop 1.png')}
+          resizeMode="cover"
+          className="h-[240px] w-full rounded-lg"
+        />
+        <View className="absolute top-2 left-2">
+          <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-full">
+            <Text className="text-white text-[10px] font-LexendDeca">
+              Live Now  • 
             </Text>
-            <Image
-              source={icons.indicatorSmallIcon}
-              resizeMode="contain"
-              className="absolute bottom-[17px] right-[-2.5px] z-50 "
-            />
-          </View>
-          <View>
-            <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
-              Amos Kito
-            </Text>
-            <View className="flex-row items-center gap-x-1">
-              <View className="flex-row items-center gap-x-2">
-                <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDeca font-bold">
-                  Top seller
-                </Text>
-              </View>
-              <View className="flex-row items-center">
-                <Image source={icons.starIcon} />
-                <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDeca font-bold">
-                  4.7
-                </Text>
-              </View>
-            </View>
+            <Text className="text-white text-[10px] font-LexendDeca">{item?.viewers?.length || 0}</Text>
           </View>
         </View>
-        <TouchableOpacity className="flex-row justify-center items-center bg-primary-200 rounded-[2.333px] py-[2.67px] px-[4.67px]">
-          <Image source={icons.basePlusIcon} />
-          <Text className="text-white text-[5.833px] font-LexendDeca font-semibold">
-            Follow
-          </Text>
-        </TouchableOpacity>
+
+
+        {/* Play Button Overlay */}
+        <View className="absolute inset-0 flex items-center justify-center">
+          <Link href={`/livestream/livestreamStudio?id=${item?._id}`} asChild>
+            <TouchableOpacity onPress={handleJoinStream} className="bg-black/30 rounded-full p-4">
+              <AntDesign name="playcircleo" size={42} color="white" />
+            </TouchableOpacity>
+          </Link>
+        </View>
+
+
       </View>
 
-      <View className="mt-[8px]">
-        <View>
-          <Image
-            source={images.youngWomanImage}
-            // resizeMethod="scale"
-            resizeMode="cover"
-            className="h-[180px] w-[150px] relative"
-          />
-          {showLive ? (
-            <Text className="bg-[#FE4C4C] rounded-[1.949px] px-[3.69px] py-[2.15px] text-white text-[4.924px] flex justify-center items-center absolute font-LexendDeca mt-[7.5px] ml-[6.59px] ">
-              Live Now . 121
-            </Text>
-          ) : (
-            <Text className="bg-[#fff] rounded-[1.949px] px-[3.69px] py-[2.15px] text-[#2F2E41] text-[4.924px] flex justify-center items-center absolute font-LexendDeca mt-[7.5px] ml-[6.59px] ">
-              9/11, 5:00 PM{" "}
-            </Text>
-          )}
+      {/* Content Below Image */}
+      <View className="mt-3">
+        {/* Title */}
+        <Text className="text-white text-sm capitaliza font-LexendDeca font-semibold">
+          {item?.title}
+        </Text>
+
+
+
+        {/* Tags */}
+        <View className="flex-row mt-1">
+          <Text className="text-[#027CEC] text-xs font-LexendDeca">
+            {item?.category} • {item?.tags?.join(', ')}
+          </Text>
         </View>
-        <Text className="text-white text-[10px] font-LexendDeca font-semibold mt-[8px]">
-          Luxury Jackets
-        </Text>
-        <Text className="text-[#027CEC] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
-          Jackets. #Sweatshirts
-        </Text>
-        <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[8px]">
-          Lagos, Nigeria
+
+        {/* Location */}
+        <Text className="text-[#425466] text-xs font-LexendDeca mt-1">
+          {item?.seller?.businessName || 'Missouri, USA'}
         </Text>
       </View>
+
+      {/* Watch Now Button */}
       {showBtn && (
-        <CustomButton
-          textStyle="!text-[8px] !font-semibold  !py-0"
-          title="Watch  now"
-          className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
-        />
+        <Link  href={`/livestream/livestreamStudio?id=${item?._id}`} asChild>
+          <TouchableOpacity onPress={handleJoinStream} className="mt-3 bg-[#16783A] rounded-md py-2 px-4">
+            <Text className="text-white text-sm font-semibold text-center font-LexendDeca">
+              Watch Now
+
+            </Text>
+          </TouchableOpacity>
+        </Link>
       )}
     </View>
+
+
   );
 };
 

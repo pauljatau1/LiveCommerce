@@ -1,33 +1,46 @@
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-  TouchableOpacity,
-} from "react-native";
-import React from "react";
+import { View, FlatList, ActivityIndicator } from "react-native";
+import { useEffect } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
+import { useLivestream } from "../../../contexts/livestreamContext";
+
+
 
 const PopularCard = () => {
+  const { isLoading, activeLivestream, fetchAllActiveLiveStreams } = useLivestream();
+
+  useEffect(() => {
+    fetchAllActiveLiveStreams();
+  }, []);
+
+
   return (
-    <View className="pt-[30px] w-[100%]">
+    <View className="pt-[30px] mb-5 w-full">
       <SectionHeader title="Popular Now" btnText="View All" />
-      <View
-        style={{
-          paddingLeft: 23,
-        }}
-      >
-        <FlatList
-          data={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
-          renderItem={(item) => (
-            <LiveProductCard {...item} showLive={true} showBtn={true} />
-          )}
-          keyExtractor={(item) => item.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="pt-[14px]"
-        />
+      <View className="pl-6">
+        {
+          isLoading ? (
+            <ActivityIndicator size="large" color="#16783A" />
+          ) : (
+            <FlatList
+              data={activeLivestream}
+              renderItem={({ item }) => (
+                <LiveProductCard
+                  item={item}
+                  showLive={true}
+                  showBtn={true}
+                />
+              )}
+              keyExtractor={(item) => item._id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingTop: 14,
+                gap: 12
+              }}
+            />
+          )
+        }
       </View>
     </View>
   );

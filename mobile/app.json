@@ -8,6 +8,11 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/icons/auqli-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111111"
+    },
     "jsEngine": "hermes",
     "ios": {
       "supportsTablet": true,
@@ -37,6 +42,19 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#111111"
+        }
+      ],
+      [
+        "react-native-agora",
+        {
+          "ios": {
+            "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+            "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
+          },
+          "android": {
+            "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+            "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
+          }
         }
       ]
     ],

@@ -13,6 +13,7 @@ import { StyleSheet } from "react-native";
 import FlashMessage from "react-native-flash-message";
 import Constants from "expo-constants";
 import * as SystemUI from "expo-system-ui";
+import { LivestreamProvider } from "@/contexts/livestreamContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -50,18 +51,20 @@ function RootLayoutNav() {
       {/* <KeyboardProvider> */}
       <GestureHandlerRootView>
         <BottomSheetModalProvider>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="(categories)"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen name="(root)" options={{ headerShown: false }} />
+          <LivestreamProvider>
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="(categories)"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen name="(root)" options={{ headerShown: false }} />
 
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <FlashMessage floating style={styles.flashMessage} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <FlashMessage floating style={styles.flashMessage} />
+          </LivestreamProvider>
         </BottomSheetModalProvider>
       </GestureHandlerRootView>
       {/* </KeyboardProvider> */}
