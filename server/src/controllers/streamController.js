@@ -386,9 +386,13 @@ exports.joinStream = async (req, res) => {
     const role = isSeller ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
 
     // Generate appropriate token
+    const tokenUid = isSeller ? 
+      req.user.agoraUid : 
+      `viewer_${req.user.id}_${Date.now()}`; // Guaranteed unique
+
     const token = agoraService.generateToken(
       stream.channelName,
-      req.user.agoraUid,
+      tokenUid,
       role
     );
 
@@ -407,10 +411,14 @@ exports.joinStream = async (req, res) => {
       });
     }
 
+    console.log('agoraUid', tokenUid);
+    console.log('token', token);
+
     res.json({
       message: 'Successfully joined stream',
       channelName: stream.channelName,
       token,
+      uid: tokenUid, // Send the UID to the client
       role,
       tokenExpiration: Date.now() + (isSeller ? 
         (3600) * 1000 :
