@@ -72,6 +72,7 @@ export default function Payout() {
     totalPages: 1,
     totalTransactions: 0
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setHeaderName('Earnings & Payouts')
@@ -80,6 +81,7 @@ export default function Payout() {
 
   useEffect(() => {
     const fetchFinancialData = async () => {
+      setIsLoading(true);
       try {
         const sellerToken = localStorage.getItem('sellerToken');
         if (sellerToken) {
@@ -93,13 +95,13 @@ export default function Payout() {
             }
           });
           const withdrawalsData = await withdrawalsResponse.json();
-          setWithdrawals(withdrawalsData);
+          setWithdrawals(withdrawalsData || []); // Ensure array even if null/undefined
 
           // Calculate totalRevenue and amountOnHold
-          const totalRevenue = withdrawalsData
+          const totalRevenue = (withdrawalsData || [])
             .filter(w => w.status === 'completed')
             .reduce((sum, w) => sum + w.amount, 0);
-          const amountOnHold = withdrawalsData
+          const amountOnHold = (withdrawalsData || [])
             .filter(w => w.status === 'pending')
             .reduce((sum, w) => sum + w.amount, 0);
 
@@ -110,10 +112,14 @@ export default function Payout() {
             }
           });
           const profileData = await profileResponse.json();
-          const availableForWithdrawal = profileData.walletBalance;
+          const availableForWithdrawal = profileData?.walletBalance || 0;
 
-          // Set bank details
-          setBankDetails(profileData.bankDetails);
+          // Set bank details with default values
+          setBankDetails({
+            bankName: profileData?.bankDetails?.bankName || '',
+            accountNumber: profileData?.bankDetails?.accountNumber || '',
+            accountName: profileData?.bankDetails?.accountName || ''
+          });
 
           setFinancialData({
             totalRevenue,
@@ -123,6 +129,8 @@ export default function Payout() {
         }
       } catch (error) {
         console.error('Error fetching financial data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -300,6 +308,34 @@ export default function Payout() {
     }
   };
 
+  // Add empty state components
+  const EmptyTransactions = () => (
+    <div className="text-center py-12">
+      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+      <h3 className="text-lg font-medium text-gray-900">No transactions yet</h3>
+      <p className="text-gray-500 mt-2">Your transactions will appear here once you start making sales.</p>
+    </div>
+  );
+
+  const EmptyWithdrawals = () => (
+    <div className="text-center py-12">
+      <ArrowDownToLine className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+      <h3 className="text-lg font-medium text-gray-900">No withdrawals yet</h3>
+      <p className="text-gray-500 mt-2">Your withdrawal history will appear here once you make your first withdrawal.</p>
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="min-h-screen bg-gray-50/30">
@@ -379,7 +415,7 @@ export default function Payout() {
                 </div>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button className="w-full mt-3 bg-white hover:bg-gray-100 text-gray-900 border-0">
+                    <Button className="w-full mt-3 bg-green-500 hover:bg-gray-100 font-semibold text-white border-0">
                       <ArrowDownToLine className="h-4 w-4 mr-2" />
                       Withdraw Funds
                     </Button>
@@ -615,68 +651,72 @@ export default function Payout() {
                     </div>
                   </div>
                   <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50/60">
-                          <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Type</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Description</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Amount</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Platform Fee</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Net Amount</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {transactions.map((transaction) => (
-                          <TableRow key={transaction._id} className="hover:bg-gray-50/50">
-                            <TableCell className="whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-700">
-                                {new Date(transaction.createdAt).toLocaleDateString()}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(transaction.createdAt).toLocaleTimeString()}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="p-1.5 rounded-md bg-gray-50">
-                                  {getTransactionTypeIcon(transaction.type)}
-                                </div>
-                                <span className="capitalize font-medium">
-                                  {transaction.type.replace('_', ' ')}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="max-w-xs truncate font-medium text-gray-700">
-                                {transaction.description}
-                              </div>
-                              {transaction.orderDetails && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {transaction.orderDetails.items.map((item, index) => (
-                                    <div key={index} className="flex items-center gap-1">
-                                      <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
-                                        {item.quantity}
-                                      </span>
-                                      {item.productName}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-medium">{formatCurrency(transaction.amount)}</TableCell>
-                            <TableCell className="text-orange-600 font-medium">{formatCurrency(transaction.platformFee)}</TableCell>
-                            <TableCell className="font-medium text-green-600">{formatCurrency(transaction.netAmount)}</TableCell>
-                            <TableCell>
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTransactionStatusColor(transaction.status)}`}>
-                                {transaction.status}
-                              </span>
-                            </TableCell>
+                    {transactions && transactions.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50/60">
+                            <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Type</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Description</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Amount</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Platform Fee</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Net Amount</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Status</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {transactions.map((transaction) => (
+                            <TableRow key={transaction._id} className="hover:bg-gray-50/50">
+                              <TableCell className="whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-700">
+                                  {new Date(transaction.createdAt).toLocaleDateString()}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(transaction.createdAt).toLocaleTimeString()}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-md bg-gray-50">
+                                    {getTransactionTypeIcon(transaction.type)}
+                                  </div>
+                                  <span className="capitalize font-medium">
+                                    {transaction.type.replace('_', ' ')}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="max-w-xs truncate font-medium text-gray-700">
+                                  {transaction.description}
+                                </div>
+                                {transaction.orderDetails && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {transaction.orderDetails.items.map((item, index) => (
+                                      <div key={index} className="flex items-center gap-1">
+                                        <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                                          {item.quantity}
+                                        </span>
+                                        {item.productName}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="font-medium">{formatCurrency(transaction.amount)}</TableCell>
+                              <TableCell className="text-orange-600 font-medium">{formatCurrency(transaction.platformFee)}</TableCell>
+                              <TableCell className="font-medium text-green-600">{formatCurrency(transaction.netAmount)}</TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTransactionStatusColor(transaction.status)}`}>
+                                  {transaction.status}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <EmptyTransactions />
+                    )}
                   </div>
                 </div>
               </TabsContent>
@@ -714,71 +754,75 @@ export default function Payout() {
                     </div>
                   </div>
                   <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50/60">
-                          <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Reference</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Amount</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Bank Details</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Status</TableHead>
-                          <TableHead className="font-semibold text-gray-600">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {withdrawals.map((withdrawal) => (
-                          <TableRow key={withdrawal._id} className="hover:bg-gray-50/50">
-                            <TableCell className="whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-700">
-                                {new Date(withdrawal.requestDate).toLocaleDateString()}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(withdrawal.requestDate).toLocaleTimeString()}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-gray-700">{withdrawal.reference}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-green-600">{formatCurrency(withdrawal.amount)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="p-1.5 rounded-md bg-gray-50">
-                                  <Building2 className="h-4 w-4 text-gray-600" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-gray-700">
-                                    {withdrawal.bankDetails.bankName}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {withdrawal.bankDetails.accountNumber}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTransactionStatusColor(withdrawal.status)}`}>
-                                {withdrawal.status}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              {withdrawal.status === 'completed' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleViewReceipt(withdrawal)}
-                                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                  Download Receipt
-                                </Button>
-                              )}
-                            </TableCell>
+                    {withdrawals && withdrawals.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50/60">
+                            <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Reference</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Amount</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Bank Details</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Status</TableHead>
+                            <TableHead className="font-semibold text-gray-600">Actions</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {withdrawals.map((withdrawal) => (
+                            <TableRow key={withdrawal._id} className="hover:bg-gray-50/50">
+                              <TableCell className="whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-700">
+                                  {new Date(withdrawal.requestDate).toLocaleDateString()}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(withdrawal.requestDate).toLocaleTimeString()}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium text-gray-700">{withdrawal.reference}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium text-green-600">{formatCurrency(withdrawal.amount)}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-md bg-gray-50">
+                                    <Building2 className="h-4 w-4 text-gray-600" />
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-gray-700">
+                                      {withdrawal.bankDetails.bankName}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {withdrawal.bankDetails.accountNumber}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTransactionStatusColor(withdrawal.status)}`}>
+                                  {withdrawal.status}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {withdrawal.status === 'completed' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleViewReceipt(withdrawal)}
+                                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                    Download Receipt
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <EmptyWithdrawals />
+                    )}
                   </div>
                 </div>
               </TabsContent>
