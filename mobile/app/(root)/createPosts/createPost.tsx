@@ -14,6 +14,7 @@ import {
   Animated,
   FlatList,
   StyleSheet,
+  PressableProps,
 } from "react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -63,6 +64,30 @@ const createPost = () => {
   const [showSellers, setShowSellers] = useState<boolean>(false);
   const [showVisibilityDropDown, setShowVisibilityDropDown] =
     useState<boolean>(false);
+  const [isDropdownVisible, setDropdownVisible] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+  const buttonRef = useRef<any>(null);
+
+  const openDropdown = () => {
+    buttonRef.current.measureInWindow(
+      (x: any, y: any, width: any, height: any) => {
+        // Position the dropdown at the bottom right of the button
+        setDropdownPosition({
+          top: y + height + 8, // 8px margin below the button
+          left: x, // Adjust width of the dropdown (120px in this case)
+        });
+        setDropdownVisible(true);
+      },
+    );
+  };
+
+  // Close the dropdown
+  const closeDropdown = () => {
+    setDropdownVisible(false);
+  };
 
   const pickImage = async () => {
     // Check if the number of selected images is less than 4
@@ -159,6 +184,54 @@ const createPost = () => {
         className="h-full flex-1 bg-[#121212] "
         style={{ minHeight: height }}
       >
+        {isDropdownVisible && (
+          <>
+            <TouchableWithoutFeedback onPress={closeDropdown}>
+              <View
+                style={[
+                  {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                  },
+                  { backgroundColor: "transparent", zIndex: 10000 },
+                ]}
+              ></View>
+            </TouchableWithoutFeedback>
+            <View
+              style={{
+                position: "absolute",
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                backgroundColor: "white",
+                borderRadius: 4,
+                zIndex: 10000,
+              }}
+            >
+              {visibilityArray.map((value, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderBottomColor: "#121212",
+                    borderBottomWidth: 0.5,
+                  }}
+                  onPress={() => {
+                    setVisibility(value);
+                    setDropdownVisible(false);
+                  }}
+                >
+                  <Text className="text-black text-[14px] font-LexendDeca">
+                    {value}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
         <FocusAwareStatusBar
           barStyle="light-content"
           backgroundColor="#121212"
@@ -168,7 +241,7 @@ const createPost = () => {
             <AntDesign name="close" size={20} color="#ccc" />
           </Pressable>
           <View className="flex-row items-center gap-[12px]">
-            <Image
+            {/* <Image
               source={require("../../../assets/icons/animoji.png")}
               style={{
                 width: 35,
@@ -176,46 +249,16 @@ const createPost = () => {
                 borderRadius: 35,
               }}
               resizeMode="contain"
-            />
+            /> */}
             <Pressable
               className="flex-row items-center gap-[8px]"
-              onPress={() => setShowVisibilityDropDown(true)}
+              ref={buttonRef}
+              onPress={openDropdown}
             >
               <Text className="text-white text-[12px] font-LexendDeca font-500">
                 {visibility}
               </Text>
               <FontAwesome6 name="caret-down" size={14} color="#ccc" />
-              {showVisibilityDropDown && (
-                <View
-                  style={{
-                    position: "absolute",
-                    bottom: -54,
-                    left: 0,
-                    backgroundColor: "white",
-                    borderRadius: 4,
-                  }}
-                >
-                  {visibilityArray.map((value, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={{
-                        padding: 2,
-                        paddingHorizontal: 10,
-                        borderBottomColor: "#121212",
-                        borderBottomWidth: 0.5,
-                      }}
-                      onPress={() => {
-                        setVisibility(value);
-                        setShowVisibilityDropDown(false);
-                      }}
-                    >
-                      <Text className="text-black text-[9px] font-LexendDeca">
-                        {value}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
             </Pressable>
           </View>
           {body && (

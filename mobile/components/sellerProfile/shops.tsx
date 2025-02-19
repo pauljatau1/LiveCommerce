@@ -15,6 +15,7 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import BottomSheet from "../global/bottom-sheet";
 import { catalogSort } from "@/helpers/helpers";
+import ShopCard from "./shopItem";
 
 const Shops = ({
   sellerId,
@@ -51,16 +52,21 @@ const Shops = ({
 
   const renderProducts = (item: any) => {
     return (
-      <View className="w-[100%] basis-[49%] h-[299px]">
-        <CatalogCard
-          key={item.id}
-          id={item._id}
-          title={item.name}
-          price={item.price}
-          category={item.category}
-          sellerName={item.seller?.storeName}
-          imageUrl={item.images}
-          sellerRating={item.stats?.averageRating}
+      <View
+        className="w-[100%] basis-[45%]"
+        style={{
+          flexBasis: "47%",
+        }}
+      >
+        <ShopCard
+          key={item?._id}
+          id={item?._id}
+          title={item?.name}
+          price={item?.price}
+          category={item?.category}
+          sellerName={item?.seller?.storeName}
+          imageUrl={item?.images}
+          sellerRating={item?.stats?.averageRating}
           moreDetails={item}
           profileImage={undefined}
           location={""}
@@ -69,9 +75,11 @@ const Shops = ({
           isLive={false}
           isVerified={false}
           showNike={false}
+          discount={item?.discount}
           onAddToCart={function (): void {
             throw new Error("Function not implemented.");
           }}
+          closeSheet={() => null}
         />
       </View>
     );
@@ -149,7 +157,7 @@ const Shops = ({
             onEndReachedThreshold={0.5}
             columnWrapperStyle={{
               justifyContent: "space-between",
-              marginBottom: 8,
+              marginBottom: 20,
             }}
             contentContainerStyle={{
               paddingTop: headerHeight + 12,

@@ -51,4 +51,6 @@ export type ProductCardProps = {
   showNike: boolean;
   onAddToCart: () => void;
   moreDetails: any;
+  closeSheet: any;
+  discount: any;
 };

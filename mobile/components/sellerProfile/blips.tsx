@@ -6,6 +6,9 @@ import {
   Pressable,
   StyleSheet,
   Animated,
+  Platform,
+  Modal,
+  Alert,
 } from "react-native";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useGetSellerProductsQuery } from "@/services/products";
@@ -22,6 +25,8 @@ import { router } from "expo-router";
 import { Video } from "expo-av";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { Image } from "expo-image";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import BlipItem from "./blipItem";
 
 const Blips = ({
   sellerId,
@@ -46,8 +51,14 @@ const Blips = ({
 
   const renderBlips = (item: any) => {
     return (
-      <View className="w-[100%] basis-[49%] h-[299px]">
-        <VideoCard url={item.uri} />
+      <View
+        className="w-[100%] basis-[48%] h-[200px]"
+        style={{
+          flexBasis: "48%",
+          height: 250,
+        }}
+      >
+        <VideoCard item={item} />
       </View>
     );
   };
@@ -61,7 +72,7 @@ const Blips = ({
 
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/products/seller/${sellerId}/blips?page=${page}&limit=5`,
+          `api/products/seller/${sellerId}/blips?page=${page}&limit=3`,
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -74,6 +85,7 @@ const Blips = ({
         console.log("generating");
 
         generateThumbnail(newVideos);
+        setPage((prevPage) => prevPage + 1);
         // setVideos((prevVideos) => {
         //   return [...prevVideos, ...newVideos];
         // });
@@ -96,23 +108,24 @@ const Blips = ({
       const newImages = [] as any;
       console.log("generating thumbnail");
 
-      newVideos.forEach(async (video: any) => {
+      for (const video of newVideos) {
         const { uri } = await VideoThumbnails.getThumbnailAsync(
           video?.blipUrl,
           {
-            time: 15000,
+            time: 1000,
           },
         );
-        newImages.push({ uri });
-        console.log("new iamges uri", uri);
-        setImages((prevImages) => {
-          return [...prevImages, { uri }];
+        newImages.push({
+          uri,
+          views: video.blipEngagement.viewCount || 0,
+          ...video,
         });
+        console.log("new images uri", uri);
+      }
+      setImages((prevImages) => {
+        return [...prevImages, ...newImages];
       });
-      //   setImages((prevImages) => {
-      //     return [...prevImages, ...newImages];
-      //   });
-      setPage((prevPage) => prevPage + 1);
+      console.log("passed async");
     } catch (e) {
       console.warn(e);
     }
@@ -136,51 +149,133 @@ const Blips = ({
         </View>
       ) : (
         <View>
-          <Animated.FlatList
-            ref={flatListRef}
-            data={images}
-            renderItem={({ item, index }) => renderBlips(item)}
-            keyExtractor={(item, index) => index.toString()}
-            numColumns={2}
-            onEndReached={fetchMoreVideos}
-            onEndReachedThreshold={0.5}
-            columnWrapperStyle={{
-              justifyContent: "space-between",
-              marginBottom: 8,
-            }}
-            contentContainerStyle={{
-              paddingTop: headerHeight + 12,
-            }}
-            showsVerticalScrollIndicator={false}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true },
-            )}
-          />
+          {images?.length > 0 && (
+            <Animated.FlatList
+              ref={flatListRef}
+              data={images}
+              renderItem={({ item, index }) => renderBlips(item)}
+              keyExtractor={(item, index) => index.toString()}
+              numColumns={2}
+              onEndReached={fetchMoreVideos}
+              onEndReachedThreshold={0.5}
+              columnWrapperStyle={{
+                justifyContent: "space-between",
+                marginBottom: 16,
+              }}
+              contentContainerStyle={{
+                paddingTop: headerHeight + 12,
+              }}
+              showsVerticalScrollIndicator={false}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: true },
+              )}
+            />
+          )}
         </View>
       )}
     </View>
   );
 };
 
-const VideoCard = memo(({ url }: { url: string }) => {
-  console.log("blips", url);
+const VideoCard = memo(({ item }: { item: any }) => {
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
 
   return (
     <Pressable
-      className=" bg-black rounded-lg p-[11.85px]  w-[100%] h-[299px]"
-      //   onPress={() => router.push(`/product/${id}`)}
+      className=" bg-black rounded-[8px] w-[100%] h-[250px]"
+      onPress={() => setModalVisible(true)}
     >
       <Image
-        source={{ uri: url }}
+        source={{ uri: item.uri }}
         style={{
           width: "100%",
           height: "100%",
+          borderRadius: 8,
         }}
         contentFit="cover"
       />
+      <View style={styles.viewsContainer}>
+        <View style={styles.buttonShadow}>
+          <Ionicons name="play-outline" size={20} color="#f2f2f2" />
+        </View>
+        <Text style={styles.text}>{item.views}</Text>
+      </View>
+
+      <Modal
+        animationType="fade"
+        transparent={false}
+        visible={modalVisible}
+        onRequestClose={() => {
+          Alert.alert("Modal has been closed.");
+          setModalVisible(!modalVisible);
+        }}
+        presentationStyle="fullScreen"
+      >
+        <BlipItem
+          id={item.blipId}
+          videoUrl={item.blipUrl}
+          isVisible={true}
+          seller={item.seller}
+          engagement={{
+            likes: item?.blipEngagement?.likesCount,
+            comments: item?.blipEngagement?.commentsCount,
+          }}
+          product={{
+            id: item._id,
+            name: item.productName,
+            price: item.price,
+            image: item.images,
+          }}
+          closeModal={() => setModalVisible(false)}
+        />
+      </Modal>
     </Pressable>
   );
+});
+
+const styles = StyleSheet.create({
+  viewsContainer: {
+    position: "absolute",
+    left: 6,
+    bottom: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  text: {
+    color: "#f2f2f2",
+    fontFamily: "LexendDeca",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  imageShadow: {
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 31,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  buttonShadow: {
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
 });
 
 export default memo(Blips);

@@ -247,7 +247,7 @@ const PostItem2 = ({ item }: { item: any }) => {
     products: item?.products || [],
     activeIndex: 0,
   });
-  const [reactions, setReactions] = useState<number>(item.reactions?.length);
+  const [reactions, setReactions] = useState<any>(item?.reactions);
   const [isReacted, setIsReacted] = useState<boolean>(false);
   const [showComments, setShowComments] = useState<boolean>(false);
   const [showOptionsSheet, setShowOptionsSheet] = useState<boolean>(false);
@@ -255,7 +255,9 @@ const PostItem2 = ({ item }: { item: any }) => {
   const [comments, setComments] = useState<number>(item.comments?.length);
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
-  const [selectedReaction, setSelectedReaction] = useState(null);
+  const [reactionStats, setReactionStats] = useState<any>(
+    item?.stats?.reactions,
+  );
   const bubbleVisible = useSharedValue(false);
   const bubblePosition = useSharedValue(-100); // Start offscreen
 
@@ -284,10 +286,20 @@ const PostItem2 = ({ item }: { item: any }) => {
       bubbleVisible.value = false;
       bubblePosition.value = withTiming(-100);
       if (isReacted) {
-        setReactions(reactions - 1);
+        // setReactions(reactions - 1);
         return setIsReacted(false);
       }
-      setReactions(reactions + 1);
+      setReactions([
+        ...reactions,
+        {
+          id: item._id,
+          type: reaction.label,
+        },
+      ]);
+      setReactionStats({
+        ...reactionStats,
+        [reaction.label]: reactionStats[reaction.label] + 1,
+      });
       setIsReacted(true);
 
       try {
@@ -350,6 +362,22 @@ const PostItem2 = ({ item }: { item: any }) => {
   }, []);
 
   const productKeyExtractor = useCallback((item: any) => item?._id, [item]);
+
+  const pickedReactions = useMemo(() => {
+    let st = [];
+    for (const [key, value] of Object.entries(reactionStats)) {
+      if (value > 0) {
+        st.push(
+          reactionsList.find(
+            (rl) => rl.label.toLowerCase() == key.toLowerCase(),
+          )?.emoji,
+        );
+      }
+    }
+    console.log(st);
+
+    return st.slice(0, 4);
+  }, [reactionStats]);
 
   return (
     <Pressable style={styles.container} onPress={showMorePost}>
@@ -432,7 +460,25 @@ const PostItem2 = ({ item }: { item: any }) => {
             }}
             onPress={handleReactionClose}
           >
-            <Text>❤️</Text>
+            <View
+              style={{
+                position: "relative",
+              }}
+            >
+              {pickedReactions.map((pr, index) => (
+                <Text
+                  style={{
+                    position: "absolute",
+                    top: -10,
+                    right: index * 10,
+                    zIndex: index + 1,
+                  }}
+                >
+                  {pr}
+                </Text>
+              ))}
+            </View>
+
             <Text
               style={{
                 color: "#ccc",
@@ -440,7 +486,7 @@ const PostItem2 = ({ item }: { item: any }) => {
                 fontFamily: "LexendDeca",
               }}
             >
-              {reactions} Reactions
+              {reactions?.length} Reactions
             </Text>
           </TouchableOpacity>
         </GestureDetector>
