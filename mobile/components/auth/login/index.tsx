@@ -113,7 +113,7 @@ const Login = () => {
                       <CheckBox name="remember" label="Remember me" />
                       <Link href="/(root)/(auth)/forgot-password">
                         <Text
-                          className="text-sm font-bold
+                          className="text-sm
                                     font-LexendDecaBold
                                     text-primary-100"
                         >

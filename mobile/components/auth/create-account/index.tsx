@@ -133,7 +133,7 @@ const CreateAccount = () => {
           <View className="container h-full justify-between px-[21px] pb-3">
             <View>
               <View className="my-[48px] mb-10">
-                <Text className="mb-[20px] text-center text-gray-200 font-LexendDeca text-[21px] font-bold ">
+                <Text className="mb-[20px] text-center text-gray-200 font-LexendDecaBold text-[21px] ">
                   Create Account
                 </Text>
                 <Text className="mx-auto text-center font-LexendDeca  text-sm text-gray-200">

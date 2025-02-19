@@ -27,18 +27,27 @@ interface Props {
   scrollY: any;
   headerHeight: number;
   userId: string;
+  type: string;
+  index: any;
 }
 
-const AllPostsList = ({ scrollY, headerHeight, userId }: Props) => {
+const AllPostsList = ({
+  scrollY,
+  headerHeight,
+  userId,
+  type,
+  index,
+}: Props) => {
   const [page, setPage] = useState<number>(1);
   const [posts, setPosts] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const flatListRef = useRef<FlatList>(null);
 
   const { data, isLoading, isFetching, refetch } = useGetUserPostsQuery({
     page: page,
     id: userId,
-    type: "Buyer",
+    type: type,
     limit: 10,
   });
 
@@ -103,9 +112,15 @@ const AllPostsList = ({ scrollY, headerHeight, userId }: Props) => {
     return <PostItem2 item={item} />;
   }, []);
 
+  useEffect(() => {
+    if (flatListRef.current) {
+      flatListRef?.current?.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [index]);
+
   return (
     <View className="" style={{ flex: 1, gap: 10 }}>
-      {posts.length < 1 && !isLoading && !isFetching ? (
+      {posts.length < 1 && !isLoading && !isFetching && type == "Buyer" ? (
         <View className="items-center gap-[24px] " style={{ marginTop: 300 }}>
           <Text className="text-[#ccc] text-[22px] font-LexendDecaBold opacity-70">
             Your wall is empty
@@ -132,6 +147,7 @@ const AllPostsList = ({ scrollY, headerHeight, userId }: Props) => {
         />
       ) : posts?.length > 0 ? (
         <Animated.FlatList
+          ref={flatListRef}
           data={posts}
           renderItem={renderPosts}
           keyExtractor={(item, index) => item?._id}

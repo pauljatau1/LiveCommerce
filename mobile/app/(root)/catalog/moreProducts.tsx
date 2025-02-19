@@ -153,7 +153,7 @@ const MoreProducts = () => {
               <ActivityIndicator size={"small"} color="#16783A" />
             </View>
           ) : (
-            <View className="px-[23px]">
+            <View className="px-[16px] flex-1">
               <View className="flex-row items-center gap-[8px] mb-[12px]">
                 <TouchableOpacity
                   className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
@@ -192,9 +192,6 @@ const MoreProducts = () => {
                 columnWrapperStyle={{
                   justifyContent: "space-between",
                   marginBottom: 8,
-                }}
-                contentContainerStyle={{
-                  paddingBottom: 150,
                 }}
                 showsVerticalScrollIndicator={false}
               />

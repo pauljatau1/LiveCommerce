@@ -350,7 +350,6 @@ const PostItem2 = ({ item }: { item: any }) => {
   }, []);
 
   const productKeyExtractor = useCallback((item: any) => item?._id, [item]);
-  console.log(item.author);
 
   return (
     <Pressable style={styles.container} onPress={showMorePost}>

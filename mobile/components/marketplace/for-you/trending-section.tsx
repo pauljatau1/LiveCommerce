@@ -19,7 +19,7 @@ const ForYouTrendingSection = () => {
       <SectionHeader title="Trending" btnText="View All" />
       <View
         style={{
-          paddingLeft: 22,
+          paddingLeft: 16,
         }}
       >
         {isLoading ? (

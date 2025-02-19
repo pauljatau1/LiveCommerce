@@ -16,7 +16,9 @@ const ForYouFeaturedShopsSection = () => {
 
       if (response.status == 200) {
         setShops(
-          response.data.filter((data: any) => data.businessName).slice(0, 6),
+          response.data
+            .filter((data: any) => data.verification?.isFeatured)
+            .slice(0, 6),
         );
       }
     } catch (e) {
@@ -51,13 +53,13 @@ const ForYouFeaturedShopsSection = () => {
     <View className="w-[100%] pb-[9.5px]">
       <View className="flex-row items-center justify-between">
         <SectionHeader title="Featured Shops" />
-        <View className="mr-3">
+        <View style={{ marginRight: 16 }}>
           <View className="flex-row">{renderDotIndicators()}</View>
         </View>
       </View>
       <View
         style={{
-          paddingLeft: 22,
+          paddingLeft: 16,
           width: "100%",
         }}
       >

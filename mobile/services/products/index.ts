@@ -27,7 +27,8 @@ export const products = createApi({
       query: (id) => getRequest(`/products/${id}`),
     }),
     getSellerProducts: builder.query({
-      query: (id) => getRequest(`/products/seller/${id}`),
+      query: (credentials) =>
+        getRequest(`/products/seller/${credentials.id}`, credentials),
     }),
     getNewAuqli: builder.query({
       query: (credentials) => getRequest(`/products/just-arrived`, credentials),

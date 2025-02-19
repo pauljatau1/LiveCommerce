@@ -193,6 +193,7 @@ const TabScene = memo(
           scrollY={scrollY}
           headerHeight={HEADER_HEIGHT}
           userId={id}
+          type="Buyer"
         />
       );
     }
