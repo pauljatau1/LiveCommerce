@@ -163,7 +163,7 @@ exports.startStream = async (req, res) => {
     }
 
     const seller = await Seller.findById(req.user.id).select('agoraUid');
-    const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid);
+    const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid, RtcRole.PUBLISHER);
     console.log('start stream uid', seller.agoraUid);
 
     stream.status = 'live';
