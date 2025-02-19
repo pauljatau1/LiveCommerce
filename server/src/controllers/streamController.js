@@ -384,6 +384,7 @@ exports.joinStream = async (req, res) => {
     // Determine user role based on stream ownership
     const isSeller = stream.seller.toString() === req.user.id;
     const role = isSeller ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+    console.log('joining stream role', role);
 
     // Generate appropriate token
     const tokenUid = isSeller ? 
