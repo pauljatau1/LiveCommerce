@@ -1324,7 +1324,8 @@ exports.getAllBlips = async (req, res) => {
                   else: []
                 }
               }
-            }
+            },
+            viewCount: '$blips.viewCount'
           },
           averageRating: {
             $cond: {
@@ -1465,7 +1466,8 @@ exports.getSellerBlips = async (req, res) => {
                   else: []
                 }
               }
-            }
+            },
+            viewCount: '$blips.viewCount'
           },
           averageRating: {
             $cond: {
@@ -2712,3 +2714,58 @@ exports.getBlipComments = async (req, res) => {
     });
   }
 };
+
+// Record blip view
+exports.recordBlipView = async (req, res) => {
+  try {
+    const { id, blipId } = req.params;
+    const userId = req.user.id;
+    const userType = req.user.role === 'seller' ? 'Seller' : 'Buyer';
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    // Check if user has viewed this blip before
+    const existingView = blip.viewedBy.find(
+      view => view.user.toString() === userId && view.userType === userType
+    );
+
+    if (existingView) {
+      // Update last viewed time if it's been more than 1 hour since last view
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      if (existingView.lastViewed < oneHourAgo) {
+        existingView.lastViewed = new Date();
+        blip.viewCount += 1;
+      }
+    } else {
+      // Add new view
+      blip.viewedBy.push({
+        user: userId,
+        userType: userType,
+        lastViewed: new Date()
+      });
+      blip.viewCount += 1;
+    }
+
+    await product.save();
+
+    res.json({
+      message: 'View recorded successfully',
+      viewCount: blip.viewCount
+    });
+  } catch (error) {
+    console.error('Error recording blip view:', error);
+    res.status(500).json({
+      message: 'Failed to record view',
+      error: error.message
+    });
+  }
+};
+

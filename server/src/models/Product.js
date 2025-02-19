@@ -106,6 +106,12 @@ const blipSchema = new mongoose.Schema({
   contentType: { type: String },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' }],
   likesCount: { type: Number, default: 0 },
+  viewCount: { type: Number, default: 0 },
+  viewedBy: [{
+    user: { type: mongoose.Schema.Types.ObjectId, refPath: 'viewedBy.userType' },
+    userType: { type: String, enum: ['Buyer', 'Seller'] },
+    lastViewed: { type: Date, default: Date.now }
+  }],
   comments: [{
     buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
     comment: { type: String },

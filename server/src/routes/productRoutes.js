@@ -1666,4 +1666,36 @@ router.post('/:id/blips/:blipId/comments',
  */
 router.get('/:id/blips/:blipId/comments', productController.getBlipComments);
 
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/view:
+ *   post:
+ *     summary: Record a view for a product blip
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: View recorded successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.post('/:id/blips/:blipId/view',
+  authMiddleware.verifyToken,
+  productController.recordBlipView
+);
+
 module.exports = router;
