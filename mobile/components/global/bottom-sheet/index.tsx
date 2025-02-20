@@ -105,6 +105,9 @@ const BottomSheet = ({
       }}
       footerComponent={footerComponent}
       enableContentPanningGesture={false}
+      style={{
+        zIndex: 10000000,
+      }}
       {...rest}
     >
       <BottomSheetView>

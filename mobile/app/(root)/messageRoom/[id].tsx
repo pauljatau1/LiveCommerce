@@ -317,14 +317,12 @@ const MessageRoom = () => {
         setTimeout(() => {
           listRef.current?.scrollToEnd({ animated: false });
           isInitialLoad.current = false;
-
         }, 100);
         setLoading(false);
-        
       } else {
         // For new messages, scroll with animation
         listRef.current?.scrollToEnd({ animated: true });
-        setLoading(false)
+        setLoading(false);
       }
     }
   }, [messages]);
@@ -396,7 +394,7 @@ const MessageRoom = () => {
     >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView className="flex-1 h-full">
-        <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[30px] pb-[12px] border-b-[1px] border-b-[#888787]">
+        <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#888787]">
           <View className="flex-row items-center gap-[12px]">
             <TouchableOpacity className="" onPress={() => router.back()}>
               <Entypo
@@ -424,7 +422,14 @@ const MessageRoom = () => {
             </View>
           </View>
           <View className="flex-row items-center gap-[24px]">
-            <Pressable>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/(root)/sellerProfile",
+                  params: { sellerId: id, sellerAvatar: avatar },
+                })
+              }
+            >
               <Image
                 source={require("../../../assets/icons/store.png")}
                 contentFit="contain"
@@ -754,7 +759,7 @@ const ProductsSheet = ({
   const [query, setQuery] = useState<string>(".");
   // const [products]
   const { data, isLoading, isFetching, isError, refetch } =
-    useGetSellerProductsQuery(id);
+    useGetSellerProductsQuery({ id });
 
   const handleFinalSubmit = () => {
     handleSubmitSelectedProducts(selectedProducts[0]);

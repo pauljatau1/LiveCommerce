@@ -11,18 +11,17 @@ const ForYouCatetorySection = () => {
 
   return (
     <View className="w-[100%] pb-[9.81px] pt-[8px] ">
-      <SectionHeader title="Categories" btnText="Explore" />
-      <View
-        style={{
-          paddingLeft: 22,
-        }}
-      >
+      <SectionHeader title="Categories" btnText="" />
+      <View style={{}}>
         <FlatList
           data={categoriesData}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => <ForYouCategoryCard item={item} />}
           horizontal
           showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingLeft: 16,
+          }}
           className="pt-[15px]"
         />
       </View>

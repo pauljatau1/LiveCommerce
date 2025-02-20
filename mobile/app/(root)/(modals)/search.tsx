@@ -60,7 +60,7 @@ const Search = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <View className="mt-[30px] px-[23px] flex-row items-center justify-between gap-[10px]">
+        <View className="mt-[30px] px-[16px] flex-row items-center justify-between gap-[10px]">
           <View
             className="flex-row w-full px-[12px] items-center gap-[5px] shrink"
             style={{
@@ -103,7 +103,7 @@ const Search = () => {
           </Pressable>
         </View>
 
-        <View className="mt-[20px] px-[23px] w-full flex-row items-center justify-between">
+        <View className="mt-[20px] px-[16px] w-full flex-row items-center justify-between">
           <Text className="text-[15px] text-[#ccc] font-LexendDeca">
             Recent Searches
           </Text>
@@ -116,7 +116,7 @@ const Search = () => {
           )}
         </View>
 
-        <View className="mt-[10px] px-[23px]">
+        <View className="mt-[10px] px-[16px]">
           {searchHistory.map((term: string, index: number) => (
             <Pressable
               className="py-[12px] w-full flex-row items-center justify-between"

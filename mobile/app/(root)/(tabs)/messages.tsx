@@ -137,7 +137,7 @@ const Message = () => {
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="flex-row items-center gap-[12px] px-[17px] pt-[30px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
+        <View className="flex-row items-center gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
           <Image
             source={
               user?.profileImage?.url
@@ -153,7 +153,9 @@ const Message = () => {
           />
           <View className="gap-[2px]">
             <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
-              {user?.username || user?.firstName + " " + user?.lastName}
+              {user?.username ||
+                (user?.firstName && user?.firstName + " " + user?.lastName) ||
+                ""}
             </Text>
             <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
               Online

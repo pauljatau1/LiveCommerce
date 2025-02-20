@@ -33,6 +33,8 @@ import { TextInput } from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import moment from "moment";
 import CheckoutNow from "./checkoutNow";
+import ProductPreview from "./productPreview";
+import BlipsShop from "./blipsShop";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -63,6 +65,8 @@ const VideoItem = ({
   const [comments, setComments] = useState<number>(engagement.comments);
   const [showComments, setShowComments] = useState<boolean>(false);
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
+  const [showProduct, setShowProduct] = useState<boolean>(false);
+  const [showShop, setShowShop] = useState<boolean>(false);
 
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
@@ -96,24 +100,29 @@ const VideoItem = ({
     }
   };
 
+  const handleView = async () => {
+    const token = await getToken();
+    try {
+      const config = {
+        method: "POST",
+        url:
+          process.env.EXPO_PUBLIC_API_URL +
+          `api/products/${product.id}/blips/${id}/view`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        data: null,
+      };
+      const response = await axios(config);
+    } catch (e: any) {
+      console.log("error viewing blip ", e.response.data);
+    }
+  };
+
   const handleIncreaseCommentCount = () => {
     setComments(comments + 1);
   };
-  // useEffect(() => {
-  //   if (!videoUrl) {
-  //     return;
-  //   }
-  //   const cacheVideo = () => {
-  //     try {
-  //       const localUrl = videoUrl;
-  //       setCachedUrl(localUrl);
-  //     } catch (error) {
-  //       console.error("Error caching video:", error);
-  //     }
-  //   };
 
-  //   cacheVideo();
-  // }, [videoUrl]);
   const PauseVideo = useCallback(() => {
     if (paused && videoRef.current) {
       videoRef.current.playAsync?.();
@@ -132,16 +141,9 @@ const VideoItem = ({
         videoRef.current.pauseAsync?.();
         videoRef.current?.setPositionAsync(0);
       }
+      handleView();
     }
   }, [isFocused, isVisible]);
-
-  // useEffect(() => {
-  //   if (!paused && videoRef.current) {
-  //     videoRef.current.playAsync?.();
-  //   } else {
-  //     videoRef.current.pauseAsync?.();
-  //   }
-  // }, [paused]);
 
   useEffect(() => {
     if (!isFocused || !isVisible) {
@@ -168,8 +170,6 @@ const VideoItem = ({
     <TouchableWithoutFeedback
       onPress={() => {
         PauseVideo();
-        // setPaused(!paused);
-        // setPauseTriggered(!pausedTriggered);
       }}
       style={{
         justifyContent: "center",
@@ -294,7 +294,10 @@ const VideoItem = ({
               </Text>
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
-              <TouchableOpacity className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center">
+              <TouchableOpacity
+                className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
+                onPress={() => setShowShop(true)}
+              >
                 <SimpleLineIcons name="bag" size={18} color="#14AE5C" />
               </TouchableOpacity>
               <Text
@@ -311,7 +314,7 @@ const VideoItem = ({
               style={{
                 backgroundColor: "rgba(255,255,255,0.6)",
               }}
-              onPress={() => router.push(`/product/${product.id}`)}
+              onPress={() => setShowProduct(true)}
             >
               <Image
                 source={{ uri: product?.image }}
@@ -414,6 +417,38 @@ const VideoItem = ({
             closeSheet={() => setShowCheckout(false)}
             sellerId={seller._id}
           />
+        </BottomSheet>
+
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showProduct}
+          snapPoints={["70%"]}
+          titleColor="!text-white"
+          onRequestClose={() => setShowProduct(false)}
+          keyboardBehavior={"interactive"}
+        >
+          <ProductPreview
+            product={product}
+            closeSheet={() => setShowProduct(false)}
+          />
+        </BottomSheet>
+
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showShop}
+          snapPoints={["70%"]}
+          titleColor="!text-white"
+          onRequestClose={() => setShowShop(false)}
+          keyboardBehavior={"interactive"}
+          enableDynamicSizing={false}
+        >
+          <BlipsShop id={seller._id} closeSheet={() => setShowShop(false)} />
         </BottomSheet>
       </View>
     </TouchableWithoutFeedback>

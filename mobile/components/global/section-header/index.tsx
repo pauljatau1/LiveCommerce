@@ -10,8 +10,11 @@ const SectionHeader = ({
   btnText?: string;
 }) => {
   return (
-    <View className="flex-row pl-[24px] pr-[18px] justify-between items-center">
-      <Text className="text-white font-LexendDecaBold text-[14px] font-bold">
+    <View
+      className="flex-row pr-[18px] justify-between items-center"
+      style={{ paddingLeft: 16 }}
+    >
+      <Text className="text-white font-LexendDecaBold text-[16px]">
         {title}
       </Text>
       {btnText && (
@@ -24,7 +27,7 @@ const SectionHeader = ({
             });
           }}
         >
-          <Text className="text-primary-200 font-normal font-LexendDeca text-[7.279px]">
+          <Text className="text-primary-200 font-LexendDecaMedium text-[8px]">
             {btnText}
           </Text>
         </TouchableOpacity>

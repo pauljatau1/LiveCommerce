@@ -1,12 +1,24 @@
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import React from "react";
 import { icons, images } from "@/constants";
 import CustomButton from "@/components/global/button/CustomButton";
+import { router } from "expo-router";
 
 const FollowCard = ({ item, data }: { item: string; data: any }) => {
   return (
-    <View className={`mt-[9px] w-full px-[4px] gap-x-3  `}>
-      <View className="border border-[#CCCCCC1A] rounded-[10px] py-[4px] px-[12px] ">
+    <Pressable
+      className={`mt-[9px] w-full px-[4px] gap-x-3  `}
+      onPress={() =>
+        router.push({
+          pathname: "/sellerProfile",
+          params: {
+            sellerId: data?._id,
+            sellerAvatar: data?.storePresence?.storeAvatar,
+          },
+        })
+      }
+    >
+      <View className="border border-[#CCCCCC1A] rounded-[10px] py-[8px] px-[12px] ">
         <View className="flex flex-col items-center justify-center">
           <Image
             source={{
@@ -21,17 +33,17 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
             {data.storeName || data.businessName}
           </Text>
           <Text className="text-[#CCCCCCCC] text-[7.67px] pt-1 font-LexendDecaLight">
-            231k followers
+            {data?.metrics?.followers} followers
           </Text>
           <View className="flex-row items-center pt-1">
             <Image source={icons.starIcon} />
-            <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDeca font-bold">
+            <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDecaBold">
               4.7
             </Text>
           </View>
-          <Text className="text-[#CCCCCC] text-[8px] font-LexendDeca pt-1  font-light">
+          {/* <Text className="text-[#CCCCCC] text-[8px] font-LexendDeca pt-1  font-light">
             Lagos, Nigeria
-          </Text>
+          </Text> */}
         </View>
         <CustomButton
           textStyle="!text-[8px] !font-semibold  !py-0"
@@ -40,7 +52,7 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
           IconLeft={() => <Image source={icons.basePlusIcon} />}
         />
       </View>
-    </View>
+    </Pressable>
   );
 };
 

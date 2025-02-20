@@ -386,7 +386,7 @@ const ProductDescription = () => {
                     alignItems: "center",
                   }}
                 >
-                  <Text className="text-[#fff] text-[9px] font-bold">
+                  <Text className="text-[#fff] text-[9px] font-LexendDecaBold">
                     {cartNumber}
                   </Text>
                 </View>
@@ -419,7 +419,7 @@ const ProductDescription = () => {
                       height={400}
                       // autoPlay={true}
                       data={productDetails.images}
-                      scrollAnimationDuration={500}
+                      scrollAnimationDuration={200}
                       renderItem={({
                         item,
                         index,
@@ -843,7 +843,19 @@ const ProductDescription = () => {
                             Chat Seller
                           </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]">
+                        <TouchableOpacity
+                          className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
+                          onPress={() =>
+                            router.push({
+                              pathname: "/sellerProfile",
+                              params: {
+                                sellerId: sellerInfo?._id,
+                                sellerAvatar:
+                                  sellerInfo?.storePresence?.storeAvatar?.url,
+                              },
+                            })
+                          }
+                        >
                           <Text className="font-LexendDecaMedium text-[#FFD700] text-[8px]">
                             View Shop
                           </Text>

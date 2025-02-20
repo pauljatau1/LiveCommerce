@@ -13,7 +13,7 @@ const Carousel = ({ banners }: { banners: any[] }) => {
   });
 
   const renderItem = ({ item }: any) => {
-    const margin = screenWidth * 0.06;
+    const margin = 16;
     return (
       <View
         style={{

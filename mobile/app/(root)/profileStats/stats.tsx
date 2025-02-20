@@ -8,7 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { Image } from "expo-image";
@@ -89,7 +89,7 @@ const ProfileStats = () => {
     const filteredFollowers = followers.filter((item) =>
       item?.name?.includes(searchTerm.current.toLowerCase()),
     );
-    setfilteredfollowers(followers);
+    setfilteredfollowers(filteredFollowers);
   };
 
   useEffect(() => {
@@ -123,11 +123,6 @@ const ProfileStats = () => {
     [selectedTab],
   );
 
-  //   const renderListHeader = () => {
-  //     return (
-
-  //     );
-  //   };
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -189,6 +184,34 @@ const ProfileStats = () => {
         </Pressable>
       </View>
 
+      <View style={styles.searchContainer}>
+        <Image
+          source={require("../../../assets/icons/connect-search.png")}
+          style={{
+            width: 16,
+            height: 16,
+          }}
+          contentFit="cover"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder={
+            selectedTab == "following"
+              ? " Search Following"
+              : "Search Followers"
+          }
+          value={searchState}
+          placeholderTextColor="#ccc"
+          onChangeText={(text) => {
+            setSearchState(text);
+            searchTerm.current = text;
+          }}
+          onSubmitEditing={() =>
+            selectedTab == "following" ? filterFollowing() : filterFollowers()
+          }
+        />
+      </View>
+
       <View style={styles.listContainer}>
         <FlatList
           data={
@@ -200,37 +223,7 @@ const ProfileStats = () => {
             paddingBottom: 20,
           }}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={() => (
-            <View style={styles.searchContainer}>
-              <Image
-                source={require("../../../assets/icons/connect-search.png")}
-                style={{
-                  width: 16,
-                  height: 16,
-                }}
-                contentFit="cover"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  selectedTab == "following"
-                    ? " Search Following"
-                    : "Search Followers"
-                }
-                value={searchTerm.current}
-                placeholderTextColor="#ccc"
-                onChangeText={(text) => {
-                  setSearchState(text);
-                  searchTerm.current = text;
-                }}
-                onSubmitEditing={() =>
-                  selectedTab == "following"
-                    ? filterFollowing()
-                    : filterFollowers()
-                }
-              />
-            </View>
-          )}
+          keyboardShouldPersistTaps="handled"
         />
       </View>
     </SafeAreaView>
@@ -289,6 +282,7 @@ const styles = StyleSheet.create({
     gap: 20,
     marginVertical: 10,
     marginBottom: 20,
+    marginHorizontal: 16,
   },
   input: {
     padding: 0,

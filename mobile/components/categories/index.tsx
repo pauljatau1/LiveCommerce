@@ -130,7 +130,7 @@ const Categories = () => {
             numColumns={2}
             keyExtractor={(item) => item._id}
             ListHeaderComponent={() => (
-              <Text className="text-gray-200 font-LexendDeca text-center text-[21.77px] font-bold mt-10 mb-[36px]">
+              <Text className="text-gray-200 font-LexendDecaBold text-center text-[21.77px] mt-10 mb-[36px]">
                 What’s your style vibe?
               </Text>
             )}
@@ -253,7 +253,7 @@ const Categories = () => {
                 <CustomButton
                   title="Continue"
                   onPress={() => setShow(false)}
-                  className="mb-8 mt-[18px] bg-primary-200 !rounded !text-white text-[14.512px] font-bold font-LexendDecaBold"
+                  className="mb-8 mt-[18px] bg-primary-200 !rounded !text-white text-[14.512px] font-LexendDecaBold"
                 />
               </View>
             </BottomSheet>
