@@ -124,6 +124,27 @@ export default function OrderDetails() {
     return colors[status] || 'bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 text-gray-700'
   }
 
+  const hashEmail = (email) => {
+    if (!email) return '';
+    const atIndex = email.indexOf('@');
+    if (atIndex === -1) {
+      const first = email.slice(0, 2);
+      const last = email.slice(-6);
+      return `${first}******${last}`;
+    }
+    const localPart = email.slice(0, atIndex);
+    const domain = email.slice(atIndex);
+    const firstLocal = localPart.slice(0, 2);
+    return `${firstLocal}***${domain}`;
+  };
+
+  const hashPhoneNumber = (phone) => {
+    if (!phone) return '';
+    const first = phone.slice(0, 3);
+    const last = phone.slice(-3);
+    return `${first}***${last}`;
+  };
+
   return (
     <div className="container mx-auto p-4 py-10 space-y-6 min-h-screen">
       {/* Order Header - More subtle design */}
@@ -211,11 +232,11 @@ export default function OrderDetails() {
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
                   <Mail className="h-3 w-3" />
-                  {buyer?.email}
+                  {buyer?.email ? `${buyer.email.slice(0, 2)}********${buyer.email.slice(-10)}` : 'N/A'}
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
                   <Phone className="h-3 w-3" />
-                  {buyer?.phoneNumber}
+                  {buyer?.phoneNumber ? `${buyer.phoneNumber.slice(0, 4)}*****${buyer.phoneNumber.slice(-2)}` : 'N/A'}
                 </p>
               </div>
             </div>
