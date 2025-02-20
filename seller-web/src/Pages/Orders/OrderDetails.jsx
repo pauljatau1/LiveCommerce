@@ -124,6 +124,20 @@ export default function OrderDetails() {
     return colors[status] || 'bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 text-gray-700'
   }
 
+  const maskPhoneNumber = (phone) => {
+    if (!phone) return '';
+    const last3Digits = phone.slice(-3);
+    const maskedPart = 'xxx';
+    return `${phone.slice(0, 3)}${maskedPart}${last3Digits}`;
+  };
+
+  const maskEmail = (email) => {
+    if (!email) return '';
+    const [username, domain] = email.split('@');
+    const maskedUsername = `${username.slice(0, 2)}***${username.slice(-2)}`;
+    return `${maskedUsername}@${domain}`;
+  };
+
   return (
     <div className="container mx-auto p-4 py-10 space-y-6 min-h-screen">
       {/* Order Header - More subtle design */}
@@ -211,11 +225,11 @@ export default function OrderDetails() {
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
                   <Mail className="h-3 w-3" />
-                  {buyer?.email}
+                  {maskEmail(buyer?.email)}
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
                   <Phone className="h-3 w-3" />
-                  {buyer?.phoneNumber}
+                  {maskPhoneNumber(buyer?.phoneNumber)}
                 </p>
               </div>
             </div>
@@ -230,11 +244,11 @@ export default function OrderDetails() {
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
                   <Mail className="h-3 w-3" />
-                  {seller?.email}
+                  {maskEmail(seller?.email)}
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
                   <Phone className="h-3 w-3" />
-                  {seller?.phoneNumber}
+                  {maskPhoneNumber(seller?.phoneNumber)}
                 </p>
               </div>
             </div>
@@ -338,16 +352,22 @@ export default function OrderDetails() {
             </CardHeader>
             <CardContent className="p-4">
               <div className="space-y-4">
-                {timeline?.map((event, index) => (
+                {shipping?.tracking?.history?.map((event, index) => (
                   <div key={index} className="flex gap-3 relative">
                     <div className="absolute left-[5px] top-6 bottom-0 w-[1px] bg-gray-200" />
                     <div className="w-3 h-3 rounded-full bg-blue-500 mt-1.5 z-10" />
                     <div className="flex-1 text-sm">
-                      <p className="font-medium text-gray-700 capitalize">{event?.status}</p>
+                      <p className="font-medium text-gray-700 capitalize">{event?.status?.replace(/-/g, ' ')}</p>
                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                         <Calendar className="h-3 w-3" />
                         {event?.timestamp ? new Date(event.timestamp).toLocaleString() : ''}
                       </p>
+                      {/* {event?.location && (
+                        <p className="text-xs text-gray-600 mt-1">Location: {event.location}</p>
+                      )}
+                      {event?.description && (
+                        <p className="text-xs text-gray-600 mt-1">{event.description}</p>
+                      )} */}
                     </div>
                   </div>
                 ))}
@@ -357,27 +377,59 @@ export default function OrderDetails() {
 
           {/* Price Breakdown */}
           <Card className="border border-gray-100 shadow-sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
+                <DollarSign className="h-4 w-4 text-blue-500" />
+                Payment Breakdown
+              </CardTitle>
+            </CardHeader>
             <CardContent className="p-4">
               <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span>₦{order?.totalAmount?.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Shipping Fee</span>
-                  <span>₦{shipping?.fee?.amount?.toLocaleString() || '0'}</span>
-                </div>
-                {order?.discount && Object.keys(order?.discount || {}).length > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount</span>
-                    <span>-₦{order?.discount?.amount?.toLocaleString()}</span>
+                {/* Order Items Breakdown */}
+                {order?.paymentBreakdown?.items?.map((item, index) => (
+                  <div key={index} className="flex justify-between text-sm">
+                    <span className="text-gray-600">{item.productName}</span>
+                    <span>₦{item.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+
+                {/* Delivery Fee (if exists) */}
+                {shipping?.fee?.amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Delivery Fee (Paid by buyer)</span>
+                    <span className="text-gray-600">₦{shipping.fee.amount.toLocaleString()}</span>
                   </div>
                 )}
+
                 <Separator />
-                <div className="flex justify-between text-lg font-inter font-semibold">
-                  <span>Total</span>
-                  <span>₦{((order?.totalAmount || 0) + (shipping?.fee?.amount || 0)).toLocaleString()}</span>
+
+                {/* Platform Fees */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Platform Fee ({order?.paymentBreakdown?.items?.[0]?.platformFeePercentage}%)</span>
+                    <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalPlatformFee?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Payment Processing Fee ({order?.paymentBreakdown?.fees?.processingFeePercentage}%)</span>
+                    <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.processingFee?.toLocaleString()}</span>
+                  </div>
                 </div>
+
+                <Separator />
+
+                {/* Total Deductions */}
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-gray-700">Total Deductions</span>
+                  <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalDeductions?.toLocaleString()}</span>
+                </div>
+
+                {/* Seller Payout */}
+                <div className="flex justify-between text-lg font-inter font-semibold bg-green-50 p-3 rounded-md">
+                  <span>Payout</span>
+                  <span className="text-green-700">₦{order?.paymentBreakdown?.sellerPayout?.toLocaleString()}</span>
+                </div>
+
+                {/* Payment Status */}
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <Badge className={getStatusColor(order?.paymentInfo?.status)}>
@@ -416,8 +468,8 @@ export default function OrderDetails() {
                   <p className="font-medium">
                     {addresses?.delivery?.first_name} {addresses?.delivery?.last_name}
                   </p>
-                  <p>{addresses?.delivery?.phone}</p>
-                  <p>{addresses?.delivery?.email}</p>
+                  <p>{maskPhoneNumber(addresses?.delivery?.phone)}</p>
+                  <p>{maskEmail(addresses?.delivery?.email)}</p>
                   <p>{addresses?.delivery?.line1}</p>
                   {addresses?.delivery?.line2 && <p>{addresses?.delivery?.line2}</p>}
                   <p>
@@ -434,8 +486,8 @@ export default function OrderDetails() {
                   <p className="font-medium">
                     {addresses?.pickup?.first_name} {addresses?.pickup?.last_name}
                   </p>
-                  <p>{addresses?.pickup?.phone}</p>
-                  <p>{addresses?.pickup?.email}</p>
+                  <p>{maskPhoneNumber(addresses?.pickup?.phone)}</p>
+                  <p>{maskEmail(addresses?.pickup?.email)}</p>
                   <p>{addresses?.pickup?.line1}</p>
                   {addresses?.pickup?.line2 && <p>{addresses?.pickup?.line2}</p>}
                   <p>
@@ -529,7 +581,7 @@ export default function OrderDetails() {
                 </div>
               )}
               
-              {shipping?.tracking?.history?.length > 0 && (
+              {/* {shipping?.tracking?.history?.length > 0 && (
                 <div className="mt-4">
                   <h4 className="font-inter font-medium mb-2">Tracking History</h4>
                   <div className="space-y-2">
@@ -546,7 +598,7 @@ export default function OrderDetails() {
                     ))}
                   </div>
                 </div>
-              )}
+              )} */}
             </CardContent>
           </Card>
         </div>
