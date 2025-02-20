@@ -11,7 +11,7 @@ const ForYouCategoryCard = ({ item }: any) => {
           resizeMode="cover"
         />
       </View>
-      <Text className="text-[15px] font-normal pl-[12.71px]  !text-white font-LexendDecaSemiBold mt-[8.43px]">
+      <Text className="text-[12px] font-normal  !text-white font-LexendDecaSemiBold mt-[8.43px]">
         {item.name}
       </Text>
     </View>

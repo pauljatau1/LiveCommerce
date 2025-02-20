@@ -160,6 +160,14 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="sellerProfile/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 };

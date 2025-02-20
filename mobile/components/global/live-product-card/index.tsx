@@ -27,13 +27,13 @@ const LiveProductCard = ({ item, showBtn, showLive, lastSeller }: any) => {
             </Text>
             <View className="flex-row items-center gap-x-1">
               <View className="flex-row items-center gap-x-2">
-                <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDeca font-bold">
+                <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDecaBold">
                   Top seller
                 </Text>
               </View>
               <View className="flex-row items-center">
                 <Image source={icons.starIcon} />
-                <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDeca font-bold">
+                <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDecaBold">
                   4.7
                 </Text>
               </View>

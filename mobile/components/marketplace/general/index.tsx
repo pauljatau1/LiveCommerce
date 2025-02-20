@@ -57,18 +57,21 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   };
 
   return (
-    <View className="w-full px-[23px]">
+    <View className="w-full ">
       <View className="w-full mb-[20px]">
         <FlatList
           data={strippedCategory}
           renderItem={({ item }) => renderSubCategory(item)}
           keyExtractor={(item) => item.toString()}
           horizontal
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+          }}
           showsHorizontalScrollIndicator={false}
         />
       </View>
 
-      <View className="w-full justify-between gap-[8px]">
+      <View className="w-full justify-between gap-[8px] px-[16px]">
         {isLoading ? (
           <ActivityIndicator size={"small"} color="#16783A" />
         ) : (

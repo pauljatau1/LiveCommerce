@@ -34,18 +34,18 @@ const HomeHeader = () => {
 
   return (
     <View
-      className="flex-row items-center justify-between w-full px-[23px] gap-[10px]"
-      // style={{
-      //     paddingTop: top + 16,
-      // }}
+      className="flex-row items-center justify-between w-full gap-[16px]"
+      style={{
+        paddingHorizontal: 16,
+      }}
     >
       <Pressable
-        className="flex-row w-full max-w-[220px] px-[12px] items-center gap-[5px] shrink"
+        className="flex-row w-full  px-[12px] items-center gap-[5px] shrink"
         style={{
           borderRadius: 6,
           borderWidth: 1,
           borderColor: "#c6c6c6",
-          maxWidth: 250,
+          // maxWidth: 250,
           paddingVertical: 12,
         }}
         onPress={() => router.push("/(root)/(modals)/search")}

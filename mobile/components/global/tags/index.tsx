@@ -11,22 +11,25 @@ import React, { useState } from "react";
 const Tags = ({ tags, setSelected, selected }: any) => {
   return (
     <View
-      style={[styles.container, { marginLeft: 23 }]}
-      className=" mt-8 border-b-[2px] border-b-gray-200"
+      style={[
+        // styles.container,
+        { borderBottomColor: "rgba(255, 255, 255, 0.38)" },
+      ]}
+      className=" mt-8 border-b-[1px]"
     >
       <FlatList
         horizontal
         data={tags}
         showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           return (
             <TouchableOpacity onPress={() => setSelected(item)}>
               <Text
                 style={[
                   styles.tagText,
                   item == selected ? styles.isSelected : null,
+                  // index == 0 ? { marginLeft: 23 } : {},
                 ]}
-                className={`${tags.length - 1 === tags.indexOf(item) ? "" : ""}`}
               >
                 {item}
               </Text>
@@ -43,7 +46,7 @@ export default Tags;
 
 const styles = StyleSheet.create({
   tagText: {
-    fontSize: 12,
+    fontSize: 13,
     paddingVertical: 11,
     paddingHorizontal: 14,
     color: "#938F8F",
@@ -58,6 +61,7 @@ const styles = StyleSheet.create({
   },
   container: {
     marginVertical: 0,
+    paddingLeft: 16,
     // marginHorizontal: -16,
   },
 });

@@ -43,8 +43,8 @@ const ForYou = () => {
           <Carousel banners={banners} />
           <View
             style={{
-              borderBottomColor: "white",
-              borderBottomWidth: 2,
+              borderBottomColor: "rgba(255, 255, 255, 0.38)",
+              borderBottomWidth: 1,
               marginLeft: 0,
               marginRight: 0,
               marginTop: 12,

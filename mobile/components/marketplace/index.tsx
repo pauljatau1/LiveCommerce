@@ -71,16 +71,17 @@ const Marketplace = () => {
   };
 
   return (
-    <View className="pt-[30px]">
+    <View className="pt-[30px]" style={{ flex: 1 }}>
       <HomeHeader />
-      <View className="pb-[20px]">
+      <View className="">
         <Tags tags={categories} selected={selected} setSelected={setSelected} />
       </View>
       <ScrollView
+        style={{ flex: 1 }}
         className="w-full"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingBottom: 120,
+          paddingTop: 20,
         }}
       >
         {renderContent()}

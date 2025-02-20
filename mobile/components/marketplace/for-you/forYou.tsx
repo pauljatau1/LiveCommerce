@@ -90,7 +90,7 @@ const ForYouSection = () => {
   return (
     <View className="w-[100%]">
       <SectionHeader title="For You" btnText="View All" />
-      <View style={{ paddingLeft: 22 }}>
+      <View style={{ paddingLeft: 16 }}>
         {isLoading ? (
           <FlatList
             key={1}
