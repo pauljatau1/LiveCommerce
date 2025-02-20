@@ -241,12 +241,12 @@ const VideoItem = ({
             </View>
           </View>
 
-          <Pressable
+          {/* <Pressable
             className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
             style={styles.buttonShadow}
           >
             <Text className="text-white text-[10px]">+ Follow</Text>
-          </Pressable>
+          </Pressable> */}
         </View>
         <View className="p-[10px]">
           <View className="gap-2 mb-[16px]">
