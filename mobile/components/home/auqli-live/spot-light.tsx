@@ -1,6 +1,6 @@
 import { View, Text, FlatList } from 'react-native'
 import React from 'react'
-import LiveProductCard from '@/components/global/live-product-card'
+import LiveProductCardTemplate from '@/components/global/live-product-card/LiveProductCardTemplate'
 
 const SpotLight = () => {
     return (
@@ -16,7 +16,7 @@ const SpotLight = () => {
                     data={[1, 2, 3, 4, 5, 6, 7]}
                     renderItem={(item) => (
 
-                        <LiveProductCard {...item} showBtn={false} />
+                        <LiveProductCardTemplate {...item} showBtn={false} />
                     )}
                     keyExtractor={item => item.toString()}
                     horizontal

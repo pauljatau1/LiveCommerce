@@ -8,6 +8,11 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/icons/auqli-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111111"
+    },
     "jsEngine": "hermes",
     "ios": {
       "supportsTablet": true,
@@ -41,7 +46,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#111111"
         }
-      ]
+      ],
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true

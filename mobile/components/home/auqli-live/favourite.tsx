@@ -1,7 +1,7 @@
 import { View, Text, FlatList } from "react-native";
 import React from "react";
 import SectionHeader from "@/components/global/section-header";
-import LiveProductCard from "@/components/global/live-product-card";
+import LiveProductCardTemplate from "@/components/global/live-product-card/LiveProductCardTemplate";
 
 const Favourite = () => {
     const numColumns = 2;
@@ -24,7 +24,7 @@ const Favourite = () => {
                     renderItem={({ item: row }) => (
                         <View className="space-x-4 space-y-4 mb-[5.54px]">
                             {row.map((seller) => (
-                                <LiveProductCard
+                                <LiveProductCardTemplate
                                     key={seller}
                                     {...seller}
                                     showLive={true}
