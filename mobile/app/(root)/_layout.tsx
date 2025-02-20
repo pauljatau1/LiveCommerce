@@ -163,8 +163,6 @@ const Layout = () => {
       <Stack.Screen
         name="livestream/livestreamStudio"
         options={{
-          headerTitle: "",
-          headerShadowVisible: false,
           headerShown: false,
         }}
       />

@@ -33,7 +33,7 @@ const LiveProductCardTemplate = ({ item, showBtn, showLive }: any) => {
         </View>
         <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-full">
           <Text className="text-white text-[10px] font-LexendDeca">
-            Live Now  •
+            Live •
           </Text>
           <Text className="text-white text-[10px] font-LexendDeca">{item?.viewers?.length || 0}</Text>
         </View>

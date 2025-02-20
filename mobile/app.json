@@ -44,19 +44,7 @@
           "backgroundColor": "#111111"
         }
       ],
-      [
-        "react-native-agora",
-        {
-          "ios": {
-            "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-            "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
-          },
-          "android": {
-            "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-            "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
-          }
-        }
-      ]
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true

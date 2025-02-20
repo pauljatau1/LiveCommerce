@@ -13,6 +13,7 @@ export const LivestreamProvider = ({ children }) => {
         activeLivestream: [],
         isLoading: false,
         activeStreamDetails: null,
+        isDataReady: false
     }
 
 
@@ -39,15 +40,18 @@ export const LivestreamProvider = ({ children }) => {
     const fetchAllActiveLiveStreams = async () => {
         try {
             dispatch({ type: "SET_IS_LOADING", payload: true });
+            dispatch({ type: "SET_IS_DATA_READY", payload: false });
             const response = await axios.get(process.env.EXPO_PUBLIC_API_URL + `api/streams/active`);
             if (response.status === 200) {
                 dispatch({ type: "SET_ACTIVE_LIVESTREAM", payload: response.data });
                 console.log('active live streams', response.data);
+                return response.data;
             }
         } catch (error) {
             console.log(error);
         } finally {
             dispatch({ type: "SET_IS_LOADING", payload: false });
+            dispatch({ type: "SET_IS_DATA_READY", payload: true });
         }
 
     }

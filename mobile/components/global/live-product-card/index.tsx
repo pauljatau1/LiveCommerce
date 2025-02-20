@@ -47,7 +47,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         <View className="absolute top-2 left-2">
           <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-full">
             <Text className="text-white text-[10px] font-LexendDeca">
-              Live Now  • 
+              Live • 
             </Text>
             <Text className="text-white text-[10px] font-LexendDeca">{item?.viewers?.length || 0}</Text>
           </View>
@@ -57,7 +57,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         {/* Play Button Overlay */}
         <View className="absolute inset-0 flex items-center justify-center">
           <Link href={`/livestream/livestreamStudio?id=${item?._id}`} asChild>
-            <TouchableOpacity onPress={handleJoinStream} className="bg-black/30 rounded-full p-4">
+            <TouchableOpacity className="bg-black/30 rounded-full p-4">
               <AntDesign name="playcircleo" size={42} color="white" />
             </TouchableOpacity>
           </Link>
@@ -91,7 +91,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
       {/* Watch Now Button */}
       {showBtn && (
         <Link  href={`/livestream/livestreamStudio?id=${item?._id}`} asChild>
-          <TouchableOpacity onPress={handleJoinStream} className="mt-3 bg-[#16783A] rounded-md py-2 px-4">
+          <TouchableOpacity className="mt-3 bg-[#16783A] rounded-md py-2 px-4">
             <Text className="text-white text-sm font-semibold text-center font-LexendDeca">
               Watch Now
 

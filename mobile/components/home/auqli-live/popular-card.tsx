@@ -7,11 +7,7 @@ import { useLivestream } from "../../../contexts/livestreamContext";
 
 
 const PopularCard = () => {
-  const { isLoading, activeLivestream, fetchAllActiveLiveStreams } = useLivestream();
-
-  useEffect(() => {
-    fetchAllActiveLiveStreams();
-  }, []);
+  const { isLoading, activeLivestream, isDataReady, fetchAllActiveLiveStreams } = useLivestream();
 
 
   return (

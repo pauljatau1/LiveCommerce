@@ -1,37 +1,33 @@
-import RtcEngine, { ClientRole, ChannelProfile } from 'react-native-agora';
+import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 
 class AgoraService {
-  engine: RtcEngine | null = null;
-
+  client: IAgoraRTCClient | null = null;
+  
   async initialize() {
     try {
-      this.engine = await RtcEngine.create(process.env.EXPO_PUBLIC_AGORA_APP_ID!);
+      this.client = AgoraRTC.createClient({
+        mode: "live",
+        codec: "vp8",
+        role: "audience"
+      });
       
-      // Enable video
-      await this.engine.enableVideo();
-      
-      // Set channel profile as live streaming
-      await this.engine.setChannelProfile(ChannelProfile.LiveBroadcasting);
-      
-      // Set client role as audience
-      await this.engine.setClientRole(ClientRole.Audience);
-      
-      return this.engine;
+      await this.client.setClientRole("audience");
+      return this.client;
     } catch (error) {
       console.error('Failed to initialize Agora:', error);
       throw error;
     }
   }
 
-  async joinChannel(channelName: string) {
-    if (!this.engine) throw new Error('Agora Engine not initialized');
+  async joinChannel(channelName: string, uid: string, token: string) {
+    if (!this.client) throw new Error('Agora Client not initialized');
 
     try {
-      await this.engine.joinChannel(
-        null, // Token (use null for testing, implement token server for production)
+      await this.client.join(
+        process.env.EXPO_PUBLIC_AGORA_APP_ID,
         channelName,
-        null,
-        0
+        token,
+        uid
       );
     } catch (error) {
       console.error('Error joining channel:', error);
@@ -40,14 +36,14 @@ class AgoraService {
   }
 
   async leaveChannel() {
-    if (!this.engine) return;
-    await this.engine.leaveChannel();
+    if (!this.client) return;
+    await this.client.leave();
   }
 
   async destroy() {
-    if (!this.engine) return;
+    if (!this.client) return;
     await this.leaveChannel();
-    await this.engine.destroy();
+    this.client = null;
   }
 }
 
