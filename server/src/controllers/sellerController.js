@@ -2733,131 +2733,174 @@ exports.getFollowedBuyers = async (req, res) => {
 // Get seller's transactions
 exports.getTransactions = async (req, res) => {
   try {
-    const { 
-      startDate, 
-      endDate, 
-      type, 
-      page = 1, 
-      limit = 10 
-    } = req.query;
-    
-    // Get the seller's current wallet balance
-    const seller = await Seller.findById(req.user.id);
+    const { page = 1, limit = 10 } = req.query;
+    const sellerId = req.user.id;
+
+    // Get seller for wallet balance
+    const seller = await Seller.findById(sellerId).select('walletBalance');
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    const query = { seller: new mongoose.Types.ObjectId(req.user.id) };
+    // Get total count for pagination
+    const totalTransactions = await Transaction.countDocuments({ seller: sellerId });
+    const totalPages = Math.ceil(totalTransactions / limit);
 
-    // Apply date filters
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-
-    // Apply type filter
-    if (type) {
-      query.type = type;
-    }
-
-    // Get transactions with pagination
-    const transactions = await Transaction.find(query)
-      .populate({
-        path: 'orderId',
-        select: 'order_id items totalAmount',
-        populate: {
-          path: 'items.product',
-          select: 'name'
-        }
-      })
+    // Get transactions with order details
+    const transactions = await Transaction.find({ seller: sellerId })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(limit);
-
-    // Get total count for pagination
-    const totalTransactions = await Transaction.countDocuments(query);
-
-    // Calculate summary statistics
-    const summary = await Transaction.aggregate([
-      { $match: { seller: new mongoose.Types.ObjectId(req.user.id) } },
-      { $group: {
-        _id: null,
-        totalEarnings: {
-          $sum: {
-            $cond: [{ $eq: ["$type", "order_payment"] }, "$amount", 0]
-          }
-        },
-        totalPlatformFees: {
-          $sum: {
-            $cond: [{ $eq: ["$type", "platform_fee"] }, "$amount", 0]
-          }
-        },
-        totalWithdrawals: {
-          $sum: {
-            $cond: [{ $eq: ["$type", "withdrawal"] }, "$amount", 0]
-          }
+      .limit(limit)
+      .populate({
+        path: 'orderId',
+        select: 'items totalAmount order_id',
+        populate: {
+          path: 'items.product',
+          select: 'name category'
         }
-      }}
-    ]);
+      });
 
-    // Format transaction data
-    const formattedTransactions = transactions.map(t => ({
-      _id: t._id,
-      type: t.type,
-      amount: t.amount,
-      platformFee: t.type === 'order_payment' ? t.amount * 0.08 : 0,
-      netAmount: t.type === 'order_payment' ? t.amount * 0.92 : t.amount,
-      orderId: t.orderId?.order_id,
-      description: getTransactionDescription(t),
-      status: t.status,
-      createdAt: t.createdAt,
-      orderDetails: t.orderId ? {
-        items: t.orderId.items.map(item => ({
+    // Process transactions to include detailed information
+    const processedTransactions = await Promise.all(transactions.map(async (transaction) => {
+      const orderDetails = transaction.orderId ? {
+        items: transaction.orderId.items.map(item => ({
           productName: item.product?.name || 'Product Unavailable',
           quantity: item.quantity,
-          price: item.price
+          price: item.price,
+          category: item.product?.category,
+          platformFee: transaction.metadata?.categoryFee || 0
         })),
-        totalAmount: t.orderId.totalAmount
-      } : null
+        totalAmount: transaction.orderId.totalAmount
+      } : null;
+
+      let description = transaction.description;
+      let platformFee = 0;
+      let processingFee = 0;
+      let netAmount = transaction.amount;
+      let deductions = 0;
+
+      switch (transaction.type) {
+        case 'platform_fee':
+          const categoryFee = transaction.metadata?.categoryFee || 0;
+          const categoryName = transaction.metadata?.categoryName || 'Unknown';
+          description = `Platform fee for order #${transaction.orderId?.order_id} (${categoryFee}% for ${categoryName})`;
+          deductions = transaction.amount;
+          netAmount = -transaction.amount;
+          break;
+
+        case 'processing_fee':
+          description = `Payment processing fee for order #${transaction.orderId?.order_id} (1.5%)`;
+          deductions = transaction.amount;
+          netAmount = -transaction.amount;
+          break;
+
+        case 'order_payment':
+          // Get associated fees for this order
+          const relatedFees = await Transaction.find({
+            orderId: transaction.orderId?._id,
+            seller: transaction.seller,
+            type: { $in: ['platform_fee', 'processing_fee'] }
+          });
+
+          // Calculate fees
+          platformFee = relatedFees
+            .filter(fee => fee.type === 'platform_fee')
+            .reduce((sum, fee) => sum + fee.amount, 0);
+
+          processingFee = relatedFees
+            .filter(fee => fee.type === 'processing_fee')
+            .reduce((sum, fee) => sum + fee.amount, 0);
+
+          deductions = platformFee + processingFee;
+          netAmount = transaction.amount - deductions;
+          
+          description = `Payment received for order #${transaction.orderId?.order_id} (${transaction.amount.toLocaleString()} - ${deductions.toLocaleString()} in fees = ${netAmount.toLocaleString()})`;
+          break;
+
+        case 'withdrawal':
+          netAmount = -transaction.amount;
+          break;
+      }
+
+      return {
+        _id: transaction._id,
+        type: transaction.type,
+        amount: transaction.amount,
+        deductions,
+        netAmount,
+        orderId: transaction.orderId?.order_id,
+        description,
+        status: transaction.status,
+        createdAt: transaction.createdAt,
+        orderDetails,
+        metadata: transaction.metadata,
+        breakdown: transaction.type === 'order_payment' ? {
+          grossAmount: transaction.amount,
+          platformFee,
+          processingFee,
+          totalDeductions: deductions,
+          netAmount
+        } : null
+      };
     }));
 
+    // Calculate summary with more detailed breakdown
+    const summary = await calculateTransactionSummary(sellerId);
+
     res.json({
-      transactions: formattedTransactions,
+      transactions: processedTransactions,
       summary: {
-        totalEarnings: summary[0]?.totalEarnings || 0,
-        totalPlatformFees: summary[0]?.totalPlatformFees || 0,
-        totalWithdrawals: summary[0]?.totalWithdrawals || 0,
-        currentBalance: seller.walletBalance // Use actual wallet balance from seller
+        ...summary,
+        currentBalance: seller.walletBalance,
+        breakdown: {
+          grossEarnings: summary.totalEarnings,
+          platformFees: summary.totalPlatformFees,
+          processingFees: summary.totalProcessingFees,
+          totalDeductions: summary.totalPlatformFees + summary.totalProcessingFees,
+          netEarnings: summary.totalEarnings - (summary.totalPlatformFees + summary.totalProcessingFees),
+          totalWithdrawals: summary.totalWithdrawals
+        }
       },
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(totalTransactions / limit),
+        totalPages,
         totalTransactions
       }
     });
 
   } catch (error) {
-    console.error('Error fetching transactions:', error);
-    res.status(500).json({ 
-      message: 'Failed to fetch transactions', 
-      error: error.message 
-    });
+    console.error('Error getting transactions:', error);
+    res.status(500).json({ message: 'Failed to get transactions', error: error.message });
   }
 };
 
-// Helper function to generate transaction descriptions
-function getTransactionDescription(transaction) {
-  switch (transaction.type) {
-    case 'order_payment':
-      return `Payment received for order #${transaction.orderId?.order_id} (92% of ${transaction.amount})`;
-    case 'platform_fee':
-      return `Platform fee for order #${transaction.orderId?.order_id} (8% of ${transaction.amount})`;
-    case 'withdrawal':
-      return `Withdrawal to bank account ${transaction.bankDetails?.accountNumber}`;
-    default:
-      return 'Transaction';
-  }
+// Updated helper function to calculate summary with separate fee types
+async function calculateTransactionSummary(sellerId) {
+  const [orderPayments, platformFees, processingFees, withdrawals] = await Promise.all([
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'order_payment' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'platform_fee' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'processing_fee' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Transaction.aggregate([
+      { $match: { seller: new mongoose.Types.ObjectId(sellerId), type: 'withdrawal' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ])
+  ]);
+
+  return {
+    totalEarnings: orderPayments[0]?.total || 0,
+    totalPlatformFees: platformFees[0]?.total || 0,
+    totalProcessingFees: processingFees[0]?.total || 0,
+    totalWithdrawals: withdrawals[0]?.total || 0
+  };
 }
 
 exports.getAdvancedAnalytics = async (req, res) => {

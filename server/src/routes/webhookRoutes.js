@@ -122,4 +122,6 @@ router.post('/:webhookId/toggle',
   webhookController.toggleWebhook
 );
 
+router.post('/paystack', express.raw({ type: 'application/json' }), webhookController.handlePaystackWebhook);
+
 module.exports = router;

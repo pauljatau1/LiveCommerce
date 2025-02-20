@@ -17,6 +17,7 @@ const categorySchema = new mongoose.Schema({
     url: { type: String },
     public_id: { type: String },
   },
+  platformFee: { type: Number, default: 0 },
   subCategories: [subCategorySchema],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

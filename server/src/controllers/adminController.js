@@ -15,12 +15,68 @@ const Transaction = require('../models/Transaction');
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
 const axios = require('axios');
+const { TEST_DATA, isTestMode, getTestBankAccount } = require('../utils/paystackTestData');
+
+// Add bank code mapping at the top of the file
+const BANK_CODES = {
+  'access bank': '044',
+  'guaranty trust bank': '058',
+  'first bank': '011',
+  'united bank for africa': '033',
+  'zenith bank': '057',
+  // Add more banks as needed
+};
+
+// Test bank accounts you can use
+const TEST_ACCOUNTS = {
+  'Access Bank': {
+    code: '044',
+    number: '0690000031',
+    name: 'Test Account'
+  },
+  'Guaranty Trust Bank': {
+    code: '058',
+    number: '0123456789',
+    name: 'Test Account'
+  }
+};
+
+// Add debug logging for Paystack configuration
+console.log('Paystack Configuration:', {
+  secretKeyExists: !!process.env.PAYSTACK_SECRET_KEY,
+  secretKeyLength: process.env.PAYSTACK_SECRET_KEY?.length,
+  secretKeyPrefix: process.env.PAYSTACK_SECRET_KEY?.substring(0, 6),
+});
+
+// Update Paystack configuration with logging
 const paystack = axios.create({
   baseURL: 'https://api.paystack.co',
   headers: {
     Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
     'Content-Type': 'application/json'
   }
+});
+
+// Add request interceptor with logging
+paystack.interceptors.request.use((config) => {
+  console.log('Paystack Request Config:', {
+    url: config.url,
+    method: config.method,
+    authHeader: config.headers.Authorization?.substring(0, 15) + '...',
+    baseURL: config.baseURL
+  });
+  
+  if (!process.env.PAYSTACK_SECRET_KEY) {
+    console.error('Paystack Secret Key is missing');
+    throw new Error('Invalid Paystack configuration: Key missing');
+  }
+
+  if (process.env.PAYSTACK_SECRET_KEY === 'scret') {
+    console.error('Paystack Secret Key is set to default value');
+    throw new Error('Invalid Paystack configuration: Default key detected');
+  }
+
+  return config;
 });
 
 sgMail.setApiKey('SG.REDACTED');
@@ -34,6 +90,18 @@ cloudinary.config({
 
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
+
+// Add validation middleware
+const validatePaystackConfig = (req, res, next) => {
+  if (!process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY === 'sk_test_REDACTED') {
+    return res.status(500).json({
+      success: false,
+      message: 'Server configuration error',
+      error: 'Invalid Paystack configuration'
+    });
+  }
+  next();
+};
 
 exports.register = async (req, res) => {
   const { username, email, password } = req.body;
@@ -1672,6 +1740,292 @@ exports.rejectBusinessAccount = async (req, res) => {
       success: false,
       message: 'Failed to reject account verification',
       error: error.message
+    });
+  }
+};
+
+exports.updateCategoryPlatformFee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { platformFee } = req.body;
+
+    // Validate platform fee
+    if (typeof platformFee !== 'number' || platformFee < 0) {
+      return res.status(400).json({ 
+        message: 'Platform fee must be a non-negative number' 
+      });
+    }
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    category.platformFee = platformFee;
+    await category.save();
+
+    res.json({
+      message: 'Platform fee updated successfully',
+      category: {
+        id: category._id,
+        name: category.name,
+        platformFee: category.platformFee
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update platform fee', 
+      error: error.message 
+    });
+  }
+};
+
+// Verify bank account details
+exports.verifyBankAccount = async (req, res) => {
+  try {
+    const { accountNumber, bankCode } = req.body;
+
+    const response = await paystack.get(`/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`);
+
+    res.json({
+      success: true,
+      data: response.data.data
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Could not verify account details',
+      error: error.response?.data?.message || error.message
+    });
+  }
+};
+
+// Create transfer recipient
+exports.createTransferRecipient = async (req, res) => {
+  try {
+    const { name, accountNumber, bankCode } = req.body;
+
+    const response = await paystack.post('/transferrecipient', {
+      type: 'nuban',
+      name,
+      account_number: accountNumber,
+      bank_code: bankCode,
+      currency: 'NGN'
+    });
+
+    res.json({
+      success: true,
+      data: response.data.data
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Could not create transfer recipient',
+      error: error.response?.data?.message || error.message
+    });
+  }
+};
+
+// Initiate transfer for withdrawal
+exports.initiateWithdrawalTransfer = async (req, res) => {
+  console.log('Starting withdrawal transfer process...');
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  let withdrawal = null;
+  let testAmount = null;
+
+  try {
+    console.log('Environment Check:', {
+      nodeEnv: process.env.NODE_ENV,
+      isTestMode: isTestMode(),
+      paystackKeyExists: !!process.env.PAYSTACK_SECRET_KEY
+    });
+
+    const { withdrawalId } = req.params;
+    console.log('Processing withdrawal:', { withdrawalId });
+
+    withdrawal = await Withdrawal.findById(withdrawalId)
+      .populate('seller')
+      .session(session);
+
+    if (!withdrawal) {
+      throw new Error('Withdrawal request not found');
+    }
+
+    // For test mode, use minimum test amount
+    testAmount = isTestMode() ? 10 : withdrawal.amount; // Use ₦10 for testing
+    const amountInKobo = Math.round(testAmount * 100); // Convert to kobo
+
+    console.log('Amount calculation:', {
+      originalAmount: withdrawal.amount,
+      testAmount: testAmount,
+      amountInKobo: amountInKobo,
+      isTestMode: isTestMode()
+    });
+
+    try {
+      // First verify the recipient's bank account
+      const verifyAccount = await paystack.get(
+        `/bank/resolve?account_number=${withdrawal.bankDetails.accountNumber}&bank_code=${withdrawal.bankDetails.bankCode || '044'}`
+      );
+      
+      console.log('Account verification:', {
+        status: verifyAccount.data.status,
+        accountName: verifyAccount.data.data.account_name
+      });
+
+      const recipientPayload = {
+        type: 'nuban',
+        name: verifyAccount.data.data.account_name, // Use verified account name
+        account_number: withdrawal.bankDetails.accountNumber,
+        bank_code: withdrawal.bankDetails.bankCode || '044',
+        currency: 'NGN'
+      };
+      console.log('Creating recipient with payload:', recipientPayload);
+
+      const recipientResponse = await paystack.post('/transferrecipient', recipientPayload);
+      console.log('Recipient created:', {
+        recipientCode: recipientResponse.data.data.recipient_code,
+        status: recipientResponse.data.status
+      });
+
+      const transferPayload = {
+        source: 'balance',
+        amount: amountInKobo,
+        recipient: recipientResponse.data.data.recipient_code,
+        reason: `Test transfer - ${withdrawal.reference}`,
+        currency: 'NGN'
+      };
+      console.log('Transfer payload:', transferPayload);
+
+      const transferResponse = await paystack.post('/transfer', transferPayload);
+      console.log('Transfer initiated:', {
+        reference: transferResponse.data.data.reference,
+        status: transferResponse.data.status,
+        amount: transferResponse.data.data.amount / 100 // Convert back to Naira for logging
+      });
+
+      withdrawal.status = 'processing';
+      withdrawal.paymentInfo = {
+        transferReference: transferResponse.data.data.reference,
+        transferRecipientCode: recipientResponse.data.data.recipient_code,
+        initiatedAt: new Date(),
+        testMode: isTestMode(),
+        originalAmount: withdrawal.amount,
+        testAmount: testAmount,
+        amountInKobo: amountInKobo
+      };
+
+      withdrawal.notes.push({
+        content: `Test transfer of ₦${testAmount} initiated (Original amount: ₦${withdrawal.amount})`,
+        addedBy: 'admin'
+      });
+
+      await withdrawal.save({ session });
+      await session.commitTransaction();
+      console.log('Transaction committed successfully');
+
+      res.json({
+        success: true,
+        message: 'Test transfer initiated successfully',
+        data: {
+          withdrawal,
+          transfer: {
+            reference: transferResponse.data.data.reference,
+            amount: testAmount,
+            originalAmount: withdrawal.amount,
+            status: transferResponse.data.status
+          },
+          testMode: true
+        }
+      });
+
+    } catch (paystackError) {
+      console.error('Paystack Error Details:', {
+        status: paystackError.response?.status,
+        statusText: paystackError.response?.statusText,
+        data: paystackError.response?.data,
+        message: paystackError.message
+      });
+
+      // Handle specific Paystack errors
+      const errorMessage = paystackError.response?.data?.message || paystackError.message;
+      if (errorMessage.includes('balance is not enough')) {
+        throw new Error(`Test transfer failed: Insufficient balance for ₦${testAmount}. Please try a smaller amount or fund your test account.`);
+      } else if (errorMessage.includes('account number')) {
+        throw new Error('Invalid bank account details. Please verify the account number and bank code.');
+      } else {
+        throw new Error(`Paystack error: ${errorMessage}`);
+      }
+    }
+
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Transfer process error:', {
+      message: error.message,
+      type: error.name,
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to initiate transfer',
+      error: error.message,
+      details: isTestMode() ? {
+        testMode: true,
+        originalAmount: withdrawal?.amount,
+        testAmount: testAmount,
+        withdrawalId: req.params.withdrawalId
+      } : undefined
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Verify transfer status
+exports.verifyTransferStatus = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    
+    const response = await paystack.get(`/transfer/verify/${reference}`);
+    const transferData = response.data.data;
+
+    const withdrawal = await Withdrawal.findOne({ 'paymentInfo.transferReference': reference });
+    if (!withdrawal) {
+      throw new Error('Withdrawal not found');
+    }
+
+    if (transferData.status === 'success') {
+      withdrawal.status = 'completed';
+      withdrawal.processedDate = new Date();
+      withdrawal.notes.push({
+        content: 'Transfer completed successfully',
+        addedBy: 'admin'
+      });
+    } else if (transferData.status === 'failed') {
+      withdrawal.status = 'failed';
+      withdrawal.notes.push({
+        content: `Transfer failed: ${transferData.reason}`,
+        addedBy: 'admin'
+      });
+    }
+
+    await withdrawal.save();
+
+    res.json({
+      success: true,
+      data: {
+        withdrawal,
+        transfer: transferData
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify transfer status',
+      error: error.response?.data?.message || error.message
     });
   }
 };
