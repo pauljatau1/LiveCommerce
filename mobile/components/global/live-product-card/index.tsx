@@ -31,10 +31,11 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
             {item?.seller?.storeName}
           </Text>
         </View>
-        <View className="bg-[#E8C300] rounded px-1 mt-0.5">
-          <Text className="text-black text-[10px] font-LexendDeca">
-            Top Seller
+        <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-full">
+          <Text className="text-white text-[10px] font-LexendDeca">
+            Live •
           </Text>
+          <Text className="text-white text-[10px] font-LexendDeca">{item?.viewers?.length || 0}</Text>
         </View>
       </View>
       {/* Main Product Image */}
@@ -45,12 +46,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
           className="h-[240px] w-full rounded-lg"
         />
         <View className="absolute top-2 left-2">
-          <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-full">
-            <Text className="text-white text-[10px] font-LexendDeca">
-              Live • 
-            </Text>
-            <Text className="text-white text-[10px] font-LexendDeca">{item?.viewers?.length || 0}</Text>
-          </View>
+        
         </View>
 
 

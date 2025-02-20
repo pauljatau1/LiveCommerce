@@ -15,59 +15,72 @@ const getHtmlContent = (appId: string, channel: string, token: string, uid: stri
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.21.0.js"></script>
     <style>
       body { margin: 0; padding: 0; background: black; }
-      #video-container { width: 100vw; height: 100vh; }
+      #video-container { 
+        width: 100vw; 
+        height: 100vh; 
+        position: relative;
+      }
     </style>
   </head>
   <body>
     <div id="video-container"></div>
     <script>
       let client;
-      
+      let remoteTracks = {};
+
       async function initializeAgora() {
         try {
-          // 1. Create client with broadcast mode
+          // 1. Create client FIRST
           client = AgoraRTC.createClient({
             mode: "live",
             codec: "vp8",
             role: "audience"
           });
 
-          // 2. Setup event handlers first
+          // 2. SET UP HANDLERS BEFORE JOINING (CRUCIAL)
           client.on("user-published", async (user, mediaType) => {
-            console.log('Host published stream');
-            window.ReactNativeWebView.postMessage('host_published');
-            
+            console.log('Host published:', user.uid, mediaType);
+            window.ReactNativeWebView.postMessage('host_published:' + mediaType);
+
             try {
+              // 3. Subscribe FIRST before playing
               await client.subscribe(user, mediaType);
               
+              // 4. Handle video track
               if (mediaType === "video") {
                 const videoContainer = document.getElementById('video-container');
-                const videoElement = document.createElement("div");
-                videoElement.id = user.uid;
-                videoContainer.appendChild(videoElement);
-                
-                user.videoTrack.play(videoElement, {
+                videoContainer.innerHTML = ''; // Clear previous
+                user.videoTrack.play(videoContainer, {
                   fit: "cover",
                   mirror: false
                 });
               }
               
+              // 5. Handle audio track
               if (mediaType === "audio") {
                 user.audioTrack.play();
               }
+
+              // Store tracks
+              remoteTracks[user.uid] = user;
+
             } catch (error) {
-              console.error("Subscription error:", error);
+              console.error("Subscribe failed:", error);
               window.ReactNativeWebView.postMessage('error:' + error.message);
             }
           });
 
           client.on("user-unpublished", (user) => {
-            const element = document.getElementById(user.uid);
-            if(element) element.remove();
-            window.ReactNativeWebView.postMessage('host_unpublished');
+            console.log('Host unpublished:', user.uid);
+            if(remoteTracks[user.uid]) {
+              delete remoteTracks[user.uid];
+              const container = document.getElementById('video-container');
+              container.innerHTML = '';
+              window.ReactNativeWebView.postMessage('host_unpublished');
+            }
           });
 
-          // 3. Join channel
+          // 6. JOIN CHANNEL AFTER HANDLERS ARE SET
           await client.join(
             "${appId}",
             "${channel}",
@@ -76,7 +89,7 @@ const getHtmlContent = (appId: string, channel: string, token: string, uid: stri
           );
           
           window.ReactNativeWebView.postMessage('joined_success');
-          
+
         } catch (error) {
           console.error("Join failed:", error);
           window.ReactNativeWebView.postMessage('error:' + error.message);
@@ -86,7 +99,7 @@ const getHtmlContent = (appId: string, channel: string, token: string, uid: stri
       // Initialize when loaded
       initializeAgora();
 
-      // Cleanup handler
+      // Cleanup
       window.leaveChannel = async () => {
         if(client) {
           await client.leave();
@@ -138,16 +151,16 @@ const LivestreamStudio = () => {
       return;
     }
 
-    switch(message) {
-      case 'joined_success':
-        setStatus('Waiting for host...');
-        setIsLoading(false);
+    switch(true) {
+      case message === 'joined_success':
+        setStatus('Connected - Waiting for host stream...');
         break;
-      case 'host_published':
-        setStatus('Host video playing...');
+      case message.startsWith('host_published'):
+        const mediaType = message.split(':')[1];
+        setStatus(`Host ${mediaType} stream playing...`);
         break;
-      case 'host_unpublished':
-        setStatus('Host left the stream');
+      case message === 'host_unpublished':
+        setStatus('Host disconnected');
         break;
       default:
         setStatus(message);
