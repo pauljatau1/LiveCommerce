@@ -107,6 +107,11 @@ export default function ChatInterface() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [buyerDetails, setBuyerDetails] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const messagesContainerRef = useRef(null);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
     setHeaderName('Messages')
@@ -138,61 +143,247 @@ export default function ChatInterface() {
 
   // Fetch messages when conversation changes
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (!currentConversation) return;
+    if (!currentConversation) return;
+    setPage(1);
+    setHasMore(true);
+    setInitialLoad(true);
+    fetchMessages(1, true);
+  }, [currentConversation]);
+
+  // Separate fetchMessages function
+  const fetchMessages = async (pageNum, isNewConversation = false) => {
+    if (!currentConversation) return;
+    
+    if (pageNum === 1) {
       setIsLoadingMessages(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(
+        `${BASE_URL}/messages/${currentConversation._id}?page=${pageNum}&limit=20`,
+        {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        }
+      );
+      const data = await response.json();
+      
+      // Check if there are more messages to load
+      setHasMore(data.messages.length === 20);
+
+      if (pageNum === 1) {
+        setMessages(data.messages || []);
+      } else {
+        // Prepend older messages
+        setMessages(prev => [...data.messages, ...prev]);
+      }
+
+      // Save the previous scroll height if loading more
+      if (!isNewConversation && pageNum > 1 && messagesContainerRef.current) {
+        const scrollContainer = messagesContainerRef.current;
+        const previousHeight = scrollContainer.scrollHeight;
+        
+        // After the new messages are rendered, maintain scroll position
+        setTimeout(() => {
+          const newHeight = scrollContainer.scrollHeight;
+          scrollContainer.scrollTop = newHeight - previousHeight;
+        }, 0);
+      }
+
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      toast.error('Failed to load messages');
+    } finally {
+      if (pageNum === 1) {
+        setIsLoadingMessages(false);
+      } else {
+        setIsLoadingMore(false);
+      }
+      if (isNewConversation) {
+        setInitialLoad(false);
+      }
+    }
+  };
+
+  // Handle scroll to load more
+  const handleScroll = (e) => {
+    const container = e.target;
+    if (
+      container.scrollTop === 0 && 
+      hasMore && 
+      !isLoadingMore && 
+      !isLoadingMessages
+    ) {
+      setPage(prev => prev + 1);
+      fetchMessages(page + 1);
+    }
+  };
+
+  // Auto-scroll to bottom for new messages
+  useEffect(() => {
+    if (!messagesContainerRef.current || initialLoad) return;
+    
+    const scrollContainer = messagesContainerRef.current;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+  }, [messages.length]);
+
+  // // Update messages rendering with new styling and scroll handling
+  // const renderMessages = () => (
+  //   <ScrollArea 
+  //     ref={messagesContainerRef}
+  //     className="flex-1 p-4"
+  //     onScrollCapture={handleScroll}
+  //   >
+  //     {isLoadingMore && (
+  //       <div className="text-center py-2">
+  //         <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+  //       </div>
+  //     )}
+      
+  //     {isLoadingMessages ? (
+  //       <div className="flex flex-col items-center justify-center h-40">
+  //         <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
+  //         <p className="text-sm text-gray-500">Loading messages...</p>
+  //       </div>
+  //     ) : (
+  //       <div className="space-y-4">
+  //         {messages && messages.length > 0 ? (
+  //           messages.map((message) => {
+  //             if (!message || !message.sender) return null;
+  //             const isSeller = message.sender?.model === 'Seller';
+
+  //             return (
+  //               <div
+  //                 key={message._id}
+  //                 className={`flex ${isSeller ? 'justify-end' : 'justify-start'}`}
+  //               >
+  //                 {!isSeller && (
+  //                   <Avatar className="h-8 w-8 mr-2 mt-1">
+  //                     <AvatarImage src={currentConversation?.participant?.avatar || "/placeholder.svg"} />
+  //                     <AvatarFallback>{currentConversation?.participant?.name?.[0]}</AvatarFallback>
+  //                   </Avatar>
+  //                 )}
+  //                 <div
+  //                   className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+  //                     isSeller
+  //                       ? 'bg-green-100 text-gray-800'
+  //                       : 'bg-gray-100 text-gray-800'
+  //                   }`}
+  //                 >
+  //                   {message.messageType === 'image' && message.media?.length > 0 && (
+  //                     <img
+  //                       src={message.media[0].url}
+  //                       alt="Message attachment"
+  //                       className="max-w-full rounded-lg mb-2"
+  //                     />
+  //                   )}
+
+  //                   {message.messageType === 'product' && message.product && (
+  //                     <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
+  //                       <img
+  //                         src={message.product.image}
+  //                         alt={message.product.name}
+  //                         className="w-full h-24 object-cover rounded-md"
+  //                       />
+  //                       <h4 className="text-sm font-medium mt-2">{message.product.name}</h4>
+  //                       <p className="text-sm font-medium text-green-600 mt-1">
+  //                         ₦ {message.product.price.toLocaleString()}
+  //                       </p>
+  //                     </div>
+  //                   )}
+
+  //                   <p className="text-sm">{message.content}</p>
+
+  //                   <div className="flex items-center gap-1 mt-1">
+  //                     <span className="text-[10px] text-gray-500">
+  //                       {formatMessageTime(message.createdAt)}
+  //                     </span>
+  //                     {isSeller && (
+  //                       <span className="text-gray-400">
+  //                         {message.isRead ? 
+  //                           <CheckCheck className="h-3 w-3" /> : 
+  //                           <Check className="h-3 w-3" />
+  //                         }
+  //                       </span>
+  //                     )}
+  //                   </div>
+  //                 </div>
+  //               </div>
+  //             );
+  //           })
+  //         ) : (
+  //           <div className="flex items-center justify-center h-full text-sm text-gray-500">
+  //             Start the conversation!
+  //           </div>
+  //         )}
+  //       </div>
+  //     )}
+  //   </ScrollArea>
+  // );
+
+  // Add this effect to mark messages as read when opening a conversation
+  useEffect(() => {
+    const markConversationAsRead = async () => {
+      if (!currentConversation) return;
+
       try {
         const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        const response = await fetch(`${BASE_URL}/messages/${currentConversation._id}?limit=10000`, {
+        await fetch(`${BASE_URL}/conversations/${currentConversation._id}/read`, {
+          method: 'PUT',
           headers: {
             'Authorization': `Bearer ${sellerToken}`
           }
         });
-        const data = await response.json();
-        console.log('Fetched messages:', data);
-        setMessages(data.messages || []);
+
+        // Update local conversations list to remove unread count
+        setConversations(prev =>
+          prev.map(conv =>
+            conv._id === currentConversation._id
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          )
+        );
       } catch (error) {
-        console.error('Error fetching messages:', error);
-        toast.error('Failed to load messages');
-      } finally {
-        setIsLoadingMessages(false);
+        console.error('Error marking conversation as read:', error);
       }
     };
-    fetchMessages();
+
+    markConversationAsRead();
   }, [currentConversation]);
 
-  // Scroll to bottom helper
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Add this effect to handle incoming messages
+  // Update the socket effect to properly handle unread counts
   useEffect(() => {
     if (!socket) return;
 
     socket.on('receive_message', (newMessage) => {
       console.log('Socket: Received new message:', newMessage);
-      console.log('Current conversation:', currentConversation);
-
+      
       // Handle the message object if it's wrapped
       const messageData = newMessage.message || newMessage;
 
       // Update messages if the message belongs to current conversation
       if (messageData.conversation === currentConversation?._id) {
-        console.log('Adding message to current conversation');
-        setMessages(prev => {
-          console.log('Previous messages:', prev);
-          const updated = [...prev, messageData];
-          console.log('Updated messages:', updated);
-          return updated;
-        });
+        setMessages(prev => [...prev, messageData]);
+        
+        // If this is the current conversation, mark it as read immediately
+        const markAsRead = async () => {
+          try {
+            const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+            await fetch(`${BASE_URL}/conversations/${messageData.conversation}/read`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${sellerToken}`
+              }
+            });
+          } catch (error) {
+            console.error('Error marking conversation as read:', error);
+          }
+        };
+        markAsRead();
       }
 
       // Update conversations list
@@ -205,7 +396,10 @@ export default function ChatInterface() {
                   content: messageData.content,
                   createdAt: messageData.createdAt
                 },
-                unreadCount: conv.unreadCount + 1
+                // Only increment unread count if not currently viewing this conversation
+                unreadCount: currentConversation?._id === conv._id 
+                  ? 0 
+                  : (conv.unreadCount || 0) + 1
               }
             : conv
         )
@@ -346,7 +540,7 @@ export default function ChatInterface() {
     handleNavigatedConversation();
   }, [location.state?.conversationId]);
 
-  // Enhanced handleSendMessage with immediate UI update
+  // Update handleSendMessage to maintain scroll position
   const handleSendMessage = async () => {
     if (!messageInput.trim()) {
       toast.error("Please enter a message");
@@ -386,6 +580,11 @@ export default function ChatInterface() {
       console.log('Messages after adding temp:', updated);
       return updated;
     });
+
+    // After adding the temporary message, scroll to bottom
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
@@ -741,9 +940,16 @@ export default function ChatInterface() {
                     {formatMessageTime(conv.lastMessage.createdAt)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 truncate">
-                  {conv.lastMessage.content}
-                </p>
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-gray-600 truncate">
+                    {conv.lastMessage.content}
+                  </p>
+                  {conv.unreadCount > 0 && (
+                    <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                      {conv.unreadCount}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -794,7 +1000,17 @@ export default function ChatInterface() {
 
   // Update messages rendering with new styling
   const renderMessages = () => (
-    <ScrollArea className="flex-1 p-4">
+    <ScrollArea 
+      ref={messagesContainerRef}
+      className="flex-1 p-4"
+      onScrollCapture={handleScroll}
+    >
+      {isLoadingMore && (
+        <div className="text-center py-2">
+          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+        </div>
+      )}
+      
       {isLoadingMessages ? (
         <div className="flex flex-col items-center justify-center h-40">
           <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />

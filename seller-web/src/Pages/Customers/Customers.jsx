@@ -293,7 +293,7 @@ function Customers() {
                             <p className="font-semibold font-inter text-[#27272E]">
                               {follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name}
                             </p>
-                            <p className="text-sm text-gray-500">ID: {follower._id.slice(-6)}</p>
+                            {/* <p className="text-sm text-gray-500">ID: {follower._id.slice(-6)}</p> */}
                           </div>
                         </div>
                       </TableCell>

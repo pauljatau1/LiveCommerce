@@ -264,7 +264,7 @@ const HomePage = () => {
     return [
       {
         id: ObjectID().toHexString(),
-        title: 'Wallet Balance',
+        title: 'Payable Balance',
         icon: BiWallet,
         current: `₦${formatMetricValue(analytics.walletBalance.amount)}`,
         percentage: `${analytics.walletBalance.changePercentage}%`,
