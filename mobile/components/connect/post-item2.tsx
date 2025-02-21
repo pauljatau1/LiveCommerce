@@ -815,6 +815,7 @@ const styles = StyleSheet.create({
     fontFamily: "LexendDeca",
     fontSize: 14,
     marginBottom: 10,
+    lineHeight: 18,
   },
   mediaContainer: {
     width: width - 32,

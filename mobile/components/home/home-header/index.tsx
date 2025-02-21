@@ -139,7 +139,7 @@ const HomeHeader = () => {
           className="flex-column items-center justify-center relative gap-[6px]"
           onPress={() => {
             if (token) {
-              return router.push("/orders/orders");
+              return router.push("/notifications");
             }
             return setShowAuthSheet(true);
           }}
