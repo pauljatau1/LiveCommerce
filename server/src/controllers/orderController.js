@@ -2130,11 +2130,6 @@ exports.cancelShipment = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // // Check if user is authorized (either seller or admin)
-    // if (req.user.role !== 'admin' && order.seller._id.toString() !== req.user.id) {
-    //   return res.status(403).json({ message: 'Unauthorized to cancel this shipment' });
-    // }
-
     // Check if shipment can be cancelled (only before pickup)
     const allowedStatuses = ['pending', 'confirmed', 'pickup_arranged'];
     if (!allowedStatuses.includes(order.shipping.tracking.status)) {
@@ -2143,13 +2138,22 @@ exports.cancelShipment = async (req, res) => {
       });
     }
 
-    // Cancel shipment with Terminal Africa
-    const cancelResponse = await terminalAPI.post('/shipments/cancel', {
-      shipment_id: order.shipping.shipment_id
-    });
+    // Only attempt to cancel with Terminal if order is paid and has shipment_id
+    if (order.paid && order.shipping.shipment_id) {
+      try {
+        // Cancel shipment with Terminal Africa
+        const cancelResponse = await terminalAPI.post('/shipments/cancel', {
+          shipment_id: order.shipping.shipment_id
+        });
 
-    if (!cancelResponse.data.status) {
-      throw new Error(cancelResponse.data.message || 'Failed to cancel shipment');
+        if (!cancelResponse.data.status) {
+          console.log('Terminal API cancellation failed:', cancelResponse.data.message);
+          // Continue with local cancellation despite Terminal API error
+        }
+      } catch (terminalError) {
+        console.log('Terminal API error:', terminalError.message);
+        // Continue with local cancellation despite Terminal API error
+      }
     }
 
     // Create new tracking entry
@@ -2235,16 +2239,16 @@ exports.cancelShipment = async (req, res) => {
       })
     ]);
 
-    res.json({
+    res.json({ 
       message: 'Shipment cancelled successfully',
       order: updatedOrder
     });
 
   } catch (error) {
-    console.error('Cancel shipment error:', error);
-    res.status(500).json({
-      message: 'Failed to cancel shipment',
-      error: error.message
+    console.error('Error updating order open status:', error);
+    res.status(500).json({ 
+      message: 'Error updating order status', 
+      error: error.message 
     });
   }
 };

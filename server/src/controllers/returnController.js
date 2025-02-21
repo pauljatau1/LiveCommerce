@@ -1809,4 +1809,43 @@ exports.addAdminNote = async (req, res) => {
       error: error.message
     });
   }
+};
+
+exports.getBuyerReturns = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 10 } = req.query;
+    const buyerId = req.user.id;
+
+    const query = { buyer: buyerId };
+    if (status) {
+      query.status = status;
+    }
+
+    const returns = await Return.find(query)
+      .populate('order', 'order_id createdAt total')
+      .populate('seller', 'firstName lastName businessName storeName')
+      .populate('items.product', 'name images price')
+      .sort({ requestDate: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Return.countDocuments(query);
+
+    res.json({
+      returns,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        page: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching buyer returns:', error);
+    res.status(500).json({
+      message: 'Failed to fetch returns',
+      error: error.message
+    });
+  }
 }; 
