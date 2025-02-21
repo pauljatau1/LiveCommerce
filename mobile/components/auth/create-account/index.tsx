@@ -334,7 +334,7 @@ const CreateAccount = () => {
               <Text className="text-[#ccc] font-LexendDeca text-[12px] text-center">
                 By signing up you agree to our{" "}
                 <Link
-                  href="https://www.auqli.live/privacy-policy"
+                  href="https://www.auqli.live/terms"
                   className="underline font-LexendDecaMedium text-[#16783A]"
                 >
                   Terms and conditions

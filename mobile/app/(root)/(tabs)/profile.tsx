@@ -163,7 +163,10 @@ const CollapsibleHeader = memo(
             </View>
           </View>
           <View>
-            <Text className="text-[12px] font-LexendDeca text-[#ccc]">
+            <Text
+              className="text-[12px] font-LexendDeca text-[#ccc]"
+              style={{ lineHeight: 16 }}
+            >
               {info?.bio?.split("\n")?.slice(0, 4)?.join("\n")}
             </Text>
           </View>
@@ -370,7 +373,7 @@ const Profile = () => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => null}
+                onPress={() => router.push("../../(root)/settings")}
                 className="items-center gap-[2px]"
               >
                 <Image

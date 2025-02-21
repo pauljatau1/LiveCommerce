@@ -7,7 +7,6 @@ import {
   Image,
   FlatList,
   Pressable,
-  Clipboard,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -20,6 +19,8 @@ import { formatDate } from "@/helpers/helpers";
 import Feather from "@expo/vector-icons/Feather";
 import { ActivityIndicator } from "react-native-paper";
 import { toast } from "@/core/toast";
+
+import * as Clipboard from "expo-clipboard";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
@@ -35,7 +36,7 @@ const SingleOrder = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   const copyTrackingNumber = () => {
-    Clipboard.setString(order?.shipping?.tracking.number);
+    Clipboard.setStringAsync(order?.shipping?.tracking.number);
     toast.info("Copied to Clipboard");
   };
 

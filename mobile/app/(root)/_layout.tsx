@@ -174,6 +174,79 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+
+      <Stack.Screen
+        name="notifications/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/activityStatus"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/blockedUsers"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/communityActivity"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/liveStreamAlerts"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/newMessages"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/orderUpdates"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/promotionSales"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 };
