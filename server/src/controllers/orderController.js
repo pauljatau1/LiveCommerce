@@ -2130,10 +2130,10 @@ exports.cancelShipment = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Check if user is authorized (either seller or admin)
-    if (req.user.role !== 'admin' && order.seller._id.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized to cancel this shipment' });
-    }
+    // // Check if user is authorized (either seller or admin)
+    // if (req.user.role !== 'admin' && order.seller._id.toString() !== req.user.id) {
+    //   return res.status(403).json({ message: 'Unauthorized to cancel this shipment' });
+    // }
 
     // Check if shipment can be cancelled (only before pickup)
     const allowedStatuses = ['pending', 'confirmed', 'pickup_arranged'];

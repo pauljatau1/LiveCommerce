@@ -5,7 +5,7 @@ const Conversation = require('../models/Conversation');
 function initializeSocket(server) {
   const io = socketIO(server, {
     cors: {
-      origin: ["*","http://localhost:5173", "http://localhost:5173/","https://seller.auqli.live/", "https://seller.auqli.live"],
+      origin: ["*","http://localhost:5173", "http://localhost:5173/","https://seller.auqli.live/", "https://seller.auqli.live", "http://localhost:5174/", "http://localhost:5174"],
       methods: ["GET", "POST"],
       credentials: true,
       allowedHeaders: ["Authorization", "Content-Type"]

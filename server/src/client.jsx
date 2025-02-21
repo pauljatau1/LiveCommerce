@@ -66,6 +66,8 @@ function Withdrawals() {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [transferStatus, setTransferStatus] = useState({ loading: false, error: null });
   const [transferPolling, setTransferPolling] = useState<NodeJS.Timeout | null>(null);
+  const [requiresOTP, setRequiresOTP] = useState(false);
+  const [transferCode, setTransferCode] = useState(null);
 
   const fetchWithdrawals = async () => {
     try {
@@ -121,32 +123,68 @@ function Withdrawals() {
       const response = await api.post(`/api/admin/withdrawals/${selectedWithdrawal._id}/transfer`);
       toast.success("Transfer initiated successfully");
       
-      // Start polling for transfer status
+      // Start polling for transfer status with improved logic
       const pollInterval = setInterval(async () => {
         try {
           const statusResponse = await api.get(
             `/api/admin/transfers/${response.data.data.transfer.reference}/verify`
           );
           
-          const status = statusResponse.data.data.withdrawal.status;
+          const { status, requiresAction } = statusResponse.data.data;
           
-          if (status === 'completed') {
-            toast.success("Transfer completed successfully");
+          console.log('Transfer status check:', {
+            reference: response.data.data.transfer.reference,
+            status,
+            requiresAction
+          });
+
+          if (requiresAction) {
+            // Stop polling and show OTP verification UI
             clearInterval(pollInterval);
             setTransferPolling(null);
+            setRequiresOTP(true);
+            // For test mode, automatically finalize the transfer
+            try {
+              const finalizeResponse = await api.post(
+                `/api/admin/transfers/${response.data.data.transfer.reference}/finalize`
+              );
+              if (finalizeResponse.data.success) {
+                toast.success("Transfer finalized successfully");
+                await fetchWithdrawals();
+                setIsTransferModalOpen(false);
+              }
+            } catch (finalizeError) {
+              console.error("Error finalizing transfer:", finalizeError);
+              toast.error("Failed to finalize transfer");
+            }
+            return;
+          }
+
+          if (status === 'completed') {
+            clearInterval(pollInterval);
+            setTransferPolling(null);
+            toast.success("Transfer completed successfully");
             await fetchWithdrawals();
             setIsTransferModalOpen(false);
           } else if (status === 'failed') {
-            toast.error("Transfer failed");
             clearInterval(pollInterval);
             setTransferPolling(null);
+            toast.error("Transfer failed");
             await fetchWithdrawals();
             setIsTransferModalOpen(false);
           }
+          // Continue polling for 'processing' status
         } catch (error) {
           console.error("Error polling transfer status:", error);
+          // Don't clear interval on network errors, keep trying
+          if (error.response?.status === 404) {
+            // Only stop polling if withdrawal is not found
+            clearInterval(pollInterval);
+            setTransferPolling(null);
+            toast.error("Transfer reference not found");
+          }
         }
-      }, 5000);
+      }, 5000); // Poll every 5 seconds
 
       setTransferPolling(pollInterval);
     } catch (error) {
@@ -268,7 +306,9 @@ function Withdrawals() {
     <Dialog open={isTransferModalOpen} onOpenChange={setIsTransferModalOpen}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Confirm Transfer</DialogTitle>
+          <DialogTitle>
+            {requiresOTP ? 'Verify Transfer' : 'Confirm Transfer'}
+          </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
@@ -300,6 +340,16 @@ function Withdrawals() {
                 </Alert>
               )}
             </>
+          )}
+
+          {requiresOTP && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Verification Required</AlertTitle>
+              <AlertDescription>
+                Transfer requires verification. Processing automatically...
+              </AlertDescription>
+            </Alert>
           )}
         </div>
 

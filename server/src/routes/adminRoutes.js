@@ -6,6 +6,7 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const bankService = require('../services/bankService');
 
+
 // /**
 //  * @swagger
 //  * /api/admin/register:
@@ -1387,5 +1388,8 @@ router.get('/banks', authMiddleware.verifyToken, async (req, res) => {
     });
   }
 });
+
+// Add the new finalize transfer route
+router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, adminController.finalizeTransfer);
 
 module.exports = router;

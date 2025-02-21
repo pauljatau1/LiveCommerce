@@ -15,7 +15,7 @@ const Transaction = require('../models/Transaction');
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
 const axios = require('axios');
-const { TEST_DATA, isTestMode, getTestBankAccount } = require('../utils/paystackTestData');
+// const { TEST_DATA, isTestMode, getTestBankAccount } = require('../utils/paystackTestData');
 
 // Add bank code mapping at the top of the file
 const BANK_CODES = {
@@ -1914,8 +1914,13 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
         testMode: isTestMode(),
         originalAmount: withdrawal.amount,
         testAmount: testAmount,
-        amountInKobo: amountInKobo
+        amountInKobo: amountInKobo,
+        paystackStatus: transferResponse.data.data.status,
+        lastChecked: new Date(),
+        reference: transferResponse.data.data.reference
       };
+
+      withdrawal.reference = transferResponse.data.data.reference;
 
       withdrawal.notes.push({
         content: `Test transfer of ₦${testAmount} initiated (Original amount: ₦${withdrawal.amount})`,
@@ -1988,47 +1993,325 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
 exports.verifyTransferStatus = async (req, res) => {
   try {
     const { reference } = req.params;
-    
-    const response = await paystack.get(`/transfer/verify/${reference}`);
-    const transferData = response.data.data;
+    console.log('Verifying transfer status for reference:', reference);
 
-    const withdrawal = await Withdrawal.findOne({ 'paymentInfo.transferReference': reference });
+    // Find withdrawal first
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': reference },
+        { reference: reference }
+      ]
+    });
+
     if (!withdrawal) {
-      throw new Error('Withdrawal not found');
-    }
-
-    if (transferData.status === 'success') {
-      withdrawal.status = 'completed';
-      withdrawal.processedDate = new Date();
-      withdrawal.notes.push({
-        content: 'Transfer completed successfully',
-        addedBy: 'admin'
-      });
-    } else if (transferData.status === 'failed') {
-      withdrawal.status = 'failed';
-      withdrawal.notes.push({
-        content: `Transfer failed: ${transferData.reason}`,
-        addedBy: 'admin'
+      console.log('Withdrawal not found for reference:', reference);
+      return res.status(404).json({
+        success: false,
+        message: 'Withdrawal not found',
+        reference
       });
     }
 
-    await withdrawal.save();
+    // Verify with Paystack
+    const paystackResponse = await paystack.get(`/transfer/verify/${reference}`);
+    const transferData = paystackResponse.data.data;
+    
+    console.log('Transfer status check:', {
+      reference,
+      status: transferData.status,
+      currentWithdrawalStatus: withdrawal.status
+    });
+
+    // Handle different Paystack transfer statuses
+    let newStatus;
+    let message;
+    
+    switch (transferData.status) {
+      case 'success':
+        newStatus = 'completed';
+        message = 'Transfer completed successfully';
+        break;
+      case 'failed':
+        newStatus = 'failed';
+        message = `Transfer failed: ${transferData.reason || 'No reason provided'}`;
+        break;
+      case 'otp':
+        newStatus = 'processing';
+        message = 'Transfer pending OTP verification';
+        // Stop continuous polling for OTP status
+        return res.json({
+          success: true,
+          data: {
+            status: 'processing',
+            message: 'Transfer requires OTP verification',
+            requiresAction: true,
+            withdrawal: {
+              _id: withdrawal._id,
+              status: 'processing',
+              reference
+            }
+          }
+        });
+      case 'pending':
+        newStatus = 'processing';
+        message = 'Transfer is still processing';
+        break;
+      default:
+        newStatus = withdrawal.status;
+        message = `Transfer status: ${transferData.status}`;
+    }
+
+    // Only update if status has changed
+    if (withdrawal.status !== newStatus) {
+      withdrawal.status = newStatus;
+      withdrawal.paymentInfo = {
+        ...(withdrawal.paymentInfo || {}),
+        transferReference: reference,
+        lastChecked: new Date(),
+        paystackStatus: transferData.status,
+        statusDetails: transferData
+      };
+
+      withdrawal.notes.push({
+        content: message,
+        addedBy: 'system'
+      });
+
+      await withdrawal.save();
+
+      // Send email notifications if status is final
+      if (newStatus === 'completed' || newStatus === 'failed') {
+        try {
+          await sendStatusUpdateEmail(withdrawal);
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+        }
+      }
+    }
 
     res.json({
       success: true,
       data: {
-        withdrawal,
-        transfer: transferData
+        status: newStatus,
+        message,
+        withdrawal: {
+          _id: withdrawal._id,
+          status: newStatus,
+          reference,
+          paymentInfo: withdrawal.paymentInfo
+        },
+        requiresAction: false
       }
     });
+
   } catch (error) {
+    console.error('Transfer verification error:', {
+      message: error.message,
+      stack: error.stack
+    });
+
     res.status(500).json({
       success: false,
       message: 'Failed to verify transfer status',
-      error: error.response?.data?.message || error.message
+      error: error.message
     });
   }
 };
+
+// Add email notification function
+async function sendStatusUpdateEmail(withdrawal) {
+  const emailContent = {
+    completed: {
+      subject: 'Withdrawal Completed Successfully - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Withdrawal Completed</h2>
+          <p>Dear ${withdrawal.seller.firstName},</p>
+          <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been completed successfully.</p>
+          <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
+          <p>The funds have been transferred to your bank account.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    },
+    failed: {
+      subject: 'Withdrawal Transfer Failed - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Withdrawal Transfer Failed</h2>
+          <p>Dear ${withdrawal.seller.firstName},</p>
+          <p>We encountered an issue while processing your withdrawal (Ref: ${withdrawal.reference}).</p>
+          <p>Our team has been notified and will investigate the issue.</p>
+          <p>We will process your withdrawal as soon as possible.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    }
+  };
+
+  const template = emailContent[withdrawal.status];
+  if (template) {
+    await sgMail.send({
+      to: withdrawal.seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: template.subject,
+      html: template.html
+    });
+  }
+}
+
+// Also update the webhook handler to match the reference properly
+exports.handlePaystackWebhook = async (req, res) => {
+  // ... existing validation code ...
+
+  try {
+    const event = req.body;
+    console.log('Received Paystack webhook:', {
+      event: event.event,
+      reference: event.data.reference
+    });
+
+    // Find withdrawal with more flexible matching
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': event.data.reference },
+        { reference: event.data.reference }
+      ]
+    });
+
+    if (!withdrawal) {
+      console.log('Withdrawal not found for webhook event:', event.data.reference);
+      return res.sendStatus(200); // Still return 200 to acknowledge receipt
+    }
+
+    // ... rest of the webhook handling code ...
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    res.status(500).json({ message: 'Webhook processing failed' });
+  }
+};
+
+// Add new endpoint to finalize transfer
+exports.finalizeTransfer = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    console.log('Starting transfer finalization for reference:', reference);
+
+    // Find withdrawal first
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': reference },
+        { reference: reference }
+      ]
+    }).populate('seller');
+
+    if (!withdrawal) {
+      console.log('Withdrawal not found for reference:', reference);
+      return res.status(404).json({
+        success: false,
+        message: 'Withdrawal not found',
+        reference
+      });
+    }
+
+    // Add a small delay for test mode (Paystack recommendation)
+    if (isTestMode()) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // First get the transfer details to get the transfer_code
+    const transferResponse = await paystack.get(`/transfer/verify/${reference}`);
+    console.log('Transfer verification response:', {
+      status: transferResponse.data.data.status,
+      transfer_code: transferResponse.data.data.transfer_code,
+      reference: transferResponse.data.data.reference
+    });
+
+    // Check if transfer is in OTP state
+    if (transferResponse.data.data.status === 'otp') {
+      const transfer_code = transferResponse.data.data.transfer_code;
+      console.log('Attempting to finalize transfer with transfer_code:', transfer_code);
+
+      try {
+        const finalizeResponse = await paystack.post('/transfer/finalize_transfer', {
+          transfer_code: transfer_code,
+          otp: "123456"  // Test mode OTP
+        });
+
+        console.log('Finalize response:', {
+          status: finalizeResponse.data.status,
+          message: finalizeResponse.data.message,
+          data: finalizeResponse.data.data
+        });
+
+        // Update withdrawal status
+        withdrawal.status = 'processing';
+        withdrawal.paymentInfo = {
+          ...withdrawal.paymentInfo,
+          lastChecked: new Date(),
+          finalizeAttempted: true,
+          finalizeResponse: finalizeResponse.data,
+          transfer_code: transfer_code
+        };
+
+        await withdrawal.save();
+
+        return res.json({
+          success: true,
+          message: 'Transfer finalized successfully',
+          data: {
+            status: finalizeResponse.data.data.status,
+            reference,
+            withdrawal: {
+              _id: withdrawal._id,
+              status: withdrawal.status
+            }
+          }
+        });
+      } catch (finalizeError) {
+        console.error('Error in finalize request:', {
+          message: finalizeError.message,
+          response: finalizeError.response?.data
+        });
+
+        throw finalizeError;
+      }
+    } else {
+      console.log('Transfer not in OTP state:', transferResponse.data.data.status);
+      return res.json({
+        success: false,
+        message: `Transfer is not in OTP state (current status: ${transferResponse.data.data.status})`,
+        data: {
+          status: transferResponse.data.data.status,
+          reference
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error finalizing transfer:', {
+      message: error.message,
+      response: error.response?.data,
+      stack: error.stack
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to finalize transfer',
+      error: error.response?.data?.message || error.message,
+      details: {
+        reference,
+        errorType: error.name,
+        paystackError: error.response?.data
+      }
+    });
+  }
+};
+
+// Helper function to check test mode
+const isTestMode = () => process.env.NODE_ENV === 'development';
+
+
 
 
 
