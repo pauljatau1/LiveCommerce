@@ -7,6 +7,7 @@ import {
   Image,
   FlatList,
   Pressable,
+  Clipboard,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -18,6 +19,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import { formatDate } from "@/helpers/helpers";
 import Feather from "@expo/vector-icons/Feather";
 import { ActivityIndicator } from "react-native-paper";
+import { toast } from "@/core/toast";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
@@ -31,6 +33,11 @@ const SingleOrder = () => {
   const { id, token: userToken, conversationId } = useGlobalSearchParams();
   const [order, setOrder] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
+
+  const copyTrackingNumber = () => {
+    Clipboard.setString(order?.shipping?.tracking.number);
+    toast.info("Copied to Clipboard");
+  };
 
   const handleGetOrder = async () => {
     try {
@@ -270,7 +277,7 @@ const SingleOrder = () => {
                 >
                   <Text className="text-white text-[10px]">Chat Seller</Text>
                 </Pressable>
-                {order.shipping.tracking.status == "delivered" && (
+                {/* {order.shipping.tracking.status == "delivered" && (
                   <Pressable
                     className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
                     style={{ width: "30%" }}
@@ -279,7 +286,7 @@ const SingleOrder = () => {
                       Return/Refund
                     </Text>
                   </Pressable>
-                )}
+                )} */}
 
                 {["pickup_arranged"].includes(
                   order.shipping.tracking.status,
@@ -300,9 +307,12 @@ const SingleOrder = () => {
                 <Text className="font-LexendDeca text-[12px] text-[#ccc]">
                   Tracking Number -{" "}
                 </Text>
-                <Text className="text-[12px] text-[#027CEC] font-LexendDeca">
-                  {order?.shipping?.tracking.number || ""}
-                </Text>
+                <Pressable onPress={copyTrackingNumber}>
+                  <Text className="text-[12px] text-[#027CEC] font-LexendDeca">
+                    {order?.shipping?.tracking.number || ""}
+                  </Text>
+                </Pressable>
+
                 {order?.shipping?.tracking?.number && (
                   <Feather
                     name="copy"
@@ -720,44 +730,16 @@ const OrderItem = ({
             </View>
           </View>
         </View>
-        {/* <View className="flex-row justify-between items-center flex-wrap relative">
-          <Pressable
-            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-            style={{ width: "30%" }}
-            onPress={() =>
-              router.push({
-                pathname: `../../(root)/messageRoom/${seller}`,
-                params: {
-                  name:
-                    orderItem.product?.seller?.storeName ||
-                    orderItem.product?.seller?.firstName +
-                      " " +
-                      orderItem.product?.seller?.lastName ||
-                    "Default",
-                  avatar: orderItem.product?.seller?.storeAvatar?.url,
-                  conversationId,
-                  userId: buyer,
-                  token: token,
-                  model: "Seller",
-                },
-              })
-            }
-          >
-            <Text className="text-white text-[10px]">Chat Seller</Text>
-          </Pressable>
-          <Pressable
-            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-            style={{ width: "30%" }}
-          >
-            <Text className="text-white text-[10px]">Return/Refund</Text>
-          </Pressable>
-          <Pressable
-            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-            style={{ width: "30%" }}
-          >
-            <Text className="text-white text-[10px]">Track Order</Text>
-          </Pressable>
-        </View> */}
+        <View className="flex-row justify-end items-center flex-wrap relative">
+          {orderStatus == "delivered" && (
+            <Pressable
+              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
+              style={{ width: "30%" }}
+            >
+              <Text className="text-white text-[10px]">Return/Refund</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
     </View>
   );

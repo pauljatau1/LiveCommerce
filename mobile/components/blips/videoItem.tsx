@@ -35,6 +35,7 @@ import moment from "moment";
 import CheckoutNow from "./checkoutNow";
 import ProductPreview from "./productPreview";
 import BlipsShop from "./blipsShop";
+import AuthSheet from "../auth/authSheet";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -67,6 +68,7 @@ const VideoItem = ({
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
   const [showProduct, setShowProduct] = useState<boolean>(false);
   const [showShop, setShowShop] = useState<boolean>(false);
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
 
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
@@ -75,6 +77,10 @@ const VideoItem = ({
   };
 
   const handleLike = async () => {
+    const token = await getToken();
+    if (!token) {
+      return setShowAuthSheet(true);
+    }
     if (liked) {
       setLiked(false);
       setLikes(likes - 1);
@@ -82,7 +88,6 @@ const VideoItem = ({
       setLiked(true);
       setLikes(likes + 1);
     }
-    const token = await getToken();
     try {
       const config = {
         method: "POST",
@@ -117,6 +122,11 @@ const VideoItem = ({
     } catch (e: any) {
       console.log("error viewing blip ", e.response.data);
     }
+  };
+
+  const handleCantComment = () => {
+    setShowComments(false);
+    setShowAuthSheet(true);
   };
 
   const handleIncreaseCommentCount = () => {
@@ -162,7 +172,9 @@ const VideoItem = ({
 
   const tabBarHeight = useBottomTabBarHeight();
 
-  const handleBuyNow = useCallback(() => {
+  const handleBuyNow = useCallback(async () => {
+    const token = await getToken();
+    if (!token) return setShowAuthSheet(true);
     setShowCheckout(true);
   }, []);
 
@@ -241,12 +253,12 @@ const VideoItem = ({
             </View>
           </View>
 
-          <Pressable
+          {/* <Pressable
             className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
             style={styles.buttonShadow}
           >
             <Text className="text-white text-[10px]">+ Follow</Text>
-          </Pressable>
+          </Pressable> */}
         </View>
         <View className="p-[10px]">
           <View className="gap-2 mb-[16px]">
@@ -398,6 +410,7 @@ const VideoItem = ({
             product={product}
             id={id}
             commentCount={comments}
+            handleCantComment={handleCantComment}
           />
         </BottomSheet>
 
@@ -450,6 +463,21 @@ const VideoItem = ({
         >
           <BlipsShop id={seller._id} closeSheet={() => setShowShop(false)} />
         </BottomSheet>
+
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showAuthSheet}
+          titleColor="!text-white"
+          snapPoints={["20%"]}
+          enableDynamicSizing={false}
+          onRequestClose={() => setShowAuthSheet(false)}
+          keyboardBehavior="interactive"
+        >
+          <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+        </BottomSheet>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -460,11 +488,13 @@ const CommentsSheet = ({
   product,
   id,
   commentCount,
+  handleCantComment,
 }: {
   handleIncreaseCommentCount: () => void;
   product: any;
   id: string;
   commentCount: number;
+  handleCantComment: any;
 }) => {
   const [comments, setComments] = useState<any[]>([]);
   const [comment, setComment] = useState<string>("");
@@ -496,7 +526,9 @@ const CommentsSheet = ({
   const handleCreateComment = async () => {
     const token = await getToken();
     const user = await getUser();
-
+    if (!token) {
+      return handleCantComment();
+    }
     const constructComment = {
       buyer: {
         firstName: user.firstName,

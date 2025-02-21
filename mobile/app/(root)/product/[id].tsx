@@ -34,6 +34,7 @@ import moment from "moment";
 import { useIsFocused } from "@react-navigation/native";
 import { getProductSpecifications } from "@/helpers/helpers";
 import { getToken, getUser } from "@/store/features/auth/utils";
+import AuthSheet from "@/components/auth/authSheet";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -77,6 +78,7 @@ const ProductDescription = () => {
   const [user, setUser] = useState<any>(null);
   const [userToken, setUserToken] = useState<string>("");
   const [conversations, setConversations] = useState<any[]>([]);
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
 
   useEffect(() => {
     setProductDetails(product);
@@ -212,18 +214,18 @@ const ProductDescription = () => {
   };
 
   useEffect(() => {
-    async function getCartNumber() {
-      const cart = await AsyncStorage.getItem("cart");
-      if (cart) {
-        const cartItems = JSON.parse(cart);
-        return setCartNumber(cartItems.length);
+    if (isFocused) {
+      async function getCartNumber() {
+        const cart = await AsyncStorage.getItem("cart");
+        if (cart) {
+          const cartItems = JSON.parse(cart);
+          return setCartNumber(cartItems.length);
+        }
+        return setCartNumber(0);
       }
-      return setCartNumber(0);
+      getCartNumber();
+      handleGetConversations();
     }
-    getCartNumber();
-    handleGetConversations();
-
-    // refetch();
   }, [isFocused]);
 
   useEffect(() => {
@@ -355,19 +357,25 @@ const ProductDescription = () => {
           </View>
 
           <View className="flex-row items-center gap-[12px] mr-2">
-            <TouchableOpacity className=" relative ">
+            <TouchableOpacity
+              className=" relative "
+              onPress={() => {
+                if (userToken) {
+                  return;
+                }
+                return setShowAuthSheet(true);
+              }}
+            >
               <Ionicons name="heart-sharp" size={24} color="#16783A" />
-            </TouchableOpacity>
-            <TouchableOpacity className=" flex justify-center items-center ">
-              <AntDesign
-                name="sharealt"
-                size={20}
-                color="rgba(22, 120, 58, 1)"
-              />
             </TouchableOpacity>
             <TouchableOpacity
               className=" flex justify-center items-center "
-              onPress={() => router.push("/cart/cart")}
+              onPress={() => {
+                if (userToken) {
+                  return router.push("/cart/cart");
+                }
+                return setShowAuthSheet(true);
+              }}
             >
               <AntDesign
                 name="shoppingcart"
@@ -815,7 +823,10 @@ const ProductDescription = () => {
                       <View className="flex-row gap-[8px] items-center">
                         <TouchableOpacity
                           className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
-                          onPress={() =>
+                          onPress={() => {
+                            if (!userToken) {
+                              return setShowAuthSheet(true);
+                            }
                             router.push({
                               pathname: `/(root)/messageRoom/${sellerInfo._id}`,
                               params: {
@@ -836,8 +847,8 @@ const ProductDescription = () => {
                                 token: userToken,
                                 model: "Seller",
                               },
-                            })
-                          }
+                            });
+                          }}
                         >
                           <Text className="font-LexendDecaMedium text-[#FFD700] text-[8px]">
                             Chat Seller
@@ -899,39 +910,6 @@ const ProductDescription = () => {
                     </View>
                   </View>
                 </View>
-
-                <BottomSheet
-                  bgColor="#3A3A3A"
-                  childrenStyle="!px-[11px]"
-                  showCloseIcon={false}
-                  title=""
-                  show={showCartSheet}
-                  titleColor="!text-white"
-                  onRequestClose={() => setShowCartSheet(false)}
-                  keyboardBehavior={"interactive"}
-                >
-                  <CartSheet
-                    productDetails={productDetails}
-                    closeSheet={() => setShowCartSheet(false)}
-                    addToCart={handleAddToCart}
-                  />
-                </BottomSheet>
-
-                <BottomSheet
-                  bgColor="#3A3A3A"
-                  childrenStyle="!px-[11px]"
-                  showCloseIcon={false}
-                  title=""
-                  show={showAddedToCartSheet}
-                  titleColor="!text-white"
-                  onRequestClose={() => setShowAddedToCartSheet(false)}
-                  keyboardBehavior={"interactive"}
-                >
-                  <AddedToCart
-                    cartData={productDetails}
-                    closeSheet={() => setShowAddedToCartSheet(false)}
-                  />
-                </BottomSheet>
               </>
             )}
           </ScrollView>
@@ -951,7 +929,12 @@ const ProductDescription = () => {
               borderColor: "#16783A",
               minWidth: 130,
             }}
-            onPress={() => setShowCartSheet(true)}
+            onPress={() => {
+              if (userToken) {
+                return setShowCartSheet(true);
+              }
+              return setShowAuthSheet(true);
+            }}
           >
             <Text className="text-[10px]" style={{ color: "#16783A" }}>
               ADD TO CART
@@ -965,14 +948,64 @@ const ProductDescription = () => {
               minWidth: 130,
             }}
             onPress={async () => {
-              // await AsyncStorage.removeItem("cart");
-              router.push(`/checkout/67a921b5197723b9f4d08f34`);
+              if (userToken) {
+                return router.push(`/checkout/`);
+              }
+              return setShowAuthSheet(true);
             }}
           >
             <Text className="text-[10px] text-white">BUY NOW</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showCartSheet}
+        titleColor="!text-white"
+        onRequestClose={() => setShowCartSheet(false)}
+        keyboardBehavior={"interactive"}
+      >
+        <CartSheet
+          productDetails={productDetails}
+          closeSheet={() => setShowCartSheet(false)}
+          addToCart={handleAddToCart}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAddedToCartSheet}
+        titleColor="!text-white"
+        onRequestClose={() => setShowAddedToCartSheet(false)}
+        keyboardBehavior={"interactive"}
+      >
+        <AddedToCart
+          cartData={productDetails}
+          closeSheet={() => setShowAddedToCartSheet(false)}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAuthSheet}
+        titleColor="!text-white"
+        snapPoints={["20%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowAuthSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+      </BottomSheet>
     </View>
   );
 };

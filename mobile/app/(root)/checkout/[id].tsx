@@ -379,7 +379,7 @@ const CheckoutSummary = () => {
 
       {showPaystack && (
         <Paystack
-          paystackKey="pk_test_a3b5afa78a80b71c20a6ac4e571b6447d0343852"
+          paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
           amount={100}
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}

@@ -103,7 +103,9 @@ const Orders = () => {
   }, []);
 
   useEffect(() => {
-    handleGetConversations();
+    if (isFocused) {
+      handleGetConversations();
+    }
   }, [isFocused]);
 
   useEffect(() => {

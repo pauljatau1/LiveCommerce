@@ -25,7 +25,7 @@ const Marketplace = () => {
     error,
     isLoading,
   } = useGetAllCategoriesQuery({});
-  const [selected, setSelected] = useState("For You");
+  const [selected, setSelected] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
   const tags = ["For You", "Jewellery", "Shoes", "Suits", "Denim"];
 
@@ -47,7 +47,12 @@ const Marketplace = () => {
         );
         cat = response.data.categories;
       }
-      setCategories(["For You", ...cat.map((ct: any) => ct.name)]);
+      if (token) {
+        setCategories(["For You", ...cat.map((ct: any) => ct.name)]);
+        return setSelected("For You");
+      }
+      setCategories(allCategories.map((ct: any) => ct.name));
+      setSelected(allCategories[0]?.name);
     } catch (e) {
       console.log(e);
     }
@@ -84,7 +89,7 @@ const Marketplace = () => {
           paddingTop: 20,
         }}
       >
-        {renderContent()}
+        {selected && renderContent()}
         <View className="w-full relative px-[23px] pb-[50px]">
           <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
             Still Searching

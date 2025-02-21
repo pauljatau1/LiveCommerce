@@ -19,6 +19,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator } from "react-native-paper";
 import { router } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
+import BottomSheet from "@/components/global/bottom-sheet";
+import AuthSheet from "@/components/auth/authSheet";
 
 const Message = () => {
   const isFocused = useIsFocused();
@@ -28,6 +30,7 @@ const Message = () => {
   const [user, setUser] = useState<any>({});
   const [filter, setFilter] = useState<string>("all");
   const [token, setToken] = useState<string>("");
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
 
   const getUserInfo = async () => {
     try {
@@ -41,6 +44,9 @@ const Message = () => {
   const handleGetConversations = async () => {
     try {
       const token = await getToken();
+      if (!token) {
+        setShowAuthSheet(true);
+      }
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + "api/conversations",
         {
@@ -126,7 +132,7 @@ const Message = () => {
   };
 
   useEffect(() => {
-    handleGetConversations();
+    if (isFocused) handleGetConversations();
   }, [isFocused]);
 
   useEffect(() => {
@@ -142,7 +148,7 @@ const Message = () => {
             source={
               user?.profileImage?.url
                 ? { uri: user?.profileImage?.url }
-                : require("../../../assets/icons/animoji.png")
+                : require("../../../assets/icons/profile.jpg")
             }
             contentFit="cover"
             style={{
@@ -157,9 +163,11 @@ const Message = () => {
                 (user?.firstName && user?.firstName + " " + user?.lastName) ||
                 ""}
             </Text>
-            <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
-              Online
-            </Text>
+            {user?._id && (
+              <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
+                Online
+              </Text>
+            )}
           </View>
         </View>
 
@@ -209,6 +217,21 @@ const Message = () => {
         ) : null}
 
         {!loading && conversations.length < 1 ? <EmptyMessages /> : null}
+
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showAuthSheet}
+          titleColor="!text-white"
+          snapPoints={["20%"]}
+          enableDynamicSizing={false}
+          onRequestClose={() => setShowAuthSheet(false)}
+          keyboardBehavior="interactive"
+        >
+          <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+        </BottomSheet>
       </SafeAreaView>
     </>
   );

@@ -234,7 +234,7 @@ const Checkout = () => {
           name: item.name,
           description: item.description,
           weight: item.weight * item.quantity,
-          price: item.price,
+          price: item?.discount?.discountedPrice || item.price,
           sellerId: item.seller._id,
           specifications: item.specifications,
         };
@@ -293,7 +293,7 @@ const Checkout = () => {
   }, []);
 
   useEffect(() => {
-    if (user) getAddresses();
+    if (user && isFocused) getAddresses();
   }, [user, isFocused]);
 
   useEffect(() => {

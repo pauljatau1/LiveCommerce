@@ -53,7 +53,7 @@ const TabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
           home: require("@/assets/icons/home.png"),
           explore: require("@/assets/icons/internet.png"),
           blips: require("@/assets/icons/blip.png"),
-          profile: require("@/assets/icons/animoji.png"),
+          profile: require("@/assets/icons/profile.jpg"),
           messages: require("@/assets/icons/mail-open.png"),
           connect: require("@/assets/icons/connect.png"),
         };
