@@ -13,7 +13,14 @@ import {
   ScrollView,
   Keyboard,
 } from "react-native";
-import React, { memo, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -25,10 +32,12 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Octicons from "@expo/vector-icons/Octicons";
 import { ResizeMode, Video } from "expo-av";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { getUser } from "@/store/features/auth/utils";
+import { getToken, getUser } from "@/store/features/auth/utils";
 import moment from "moment";
 import { useCommentPostMutation, useReactPostMutation } from "@/services/posts";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import BottomSheet from "@/components/global/bottom-sheet";
+import AuthSheet from "@/components/auth/authSheet";
 
 const { width } = Dimensions.get("window");
 const offset = 20;
@@ -48,7 +57,20 @@ const MorePostInfo = () => {
 
   const [keyboardOffset, setKeyboardOffset] = useState(0);
 
+  const [token, setToken] = useState<string>("");
+
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+
+  const getAuthUser = useCallback(async () => {
+    const authToken = await getToken();
+    console.log(authToken);
+
+    setToken(authToken);
+  }, []);
+
   useEffect(() => {
+    getAuthUser();
+
     const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
       setKeyboardOffset(offset);
     });
@@ -59,6 +81,9 @@ const MorePostInfo = () => {
   }, []);
 
   const handleReact = async () => {
+    if (!token) {
+      return setShowAuthSheet(true);
+    }
     if (isReacted) {
       setReactionCount(reactionCount - 1);
       return setIsReacted(false);
@@ -154,7 +179,7 @@ const MorePostInfo = () => {
               source={
                 post?.author?.image
                   ? { uri: post?.author?.image }
-                  : require("../../../assets/icons/animoji.png")
+                  : require("../../../assets/icons/profile.jpg")
               }
               contentFit="cover"
               style={{
@@ -284,6 +309,21 @@ const MorePostInfo = () => {
             </View>
           </View>
         </View>
+
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showAuthSheet}
+          titleColor="!text-white"
+          snapPoints={["20%"]}
+          enableDynamicSizing={false}
+          onRequestClose={() => setShowAuthSheet(false)}
+          keyboardBehavior="interactive"
+        >
+          <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+        </BottomSheet>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );

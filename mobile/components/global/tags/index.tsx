@@ -37,6 +37,7 @@ const Tags = ({ tags, setSelected, selected }: any) => {
           );
         }}
         contentContainerStyle={styles.container}
+        keyExtractor={(item, index) => item?.toString()}
       />
     </View>
   );

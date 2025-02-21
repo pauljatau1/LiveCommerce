@@ -21,7 +21,9 @@ import TrendingPostsList from "@/components/connect/trending-posts-list";
 import { router } from "expo-router";
 import { TabBar, TabBarItem, TabView, SceneMap } from "react-native-tab-view";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
-import { getUser } from "@/store/features/auth/utils";
+import { getToken, getUser } from "@/store/features/auth/utils";
+import BottomSheet from "@/components/global/bottom-sheet";
+import AuthSheet from "@/components/auth/authSheet";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -31,6 +33,8 @@ const tabs = ["All", "New", "Trending"];
 const Connect = () => {
   const [activeTab, setActiveTab] = useState<string>("All");
   const [user, setUser] = useState<any>({});
+  const [token, setToken] = useState<string>("");
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
 
   const renderContent = useCallback(() => {
     switch (activeTab) {
@@ -47,6 +51,8 @@ const Connect = () => {
     const getUserInfo = async () => {
       try {
         const user = await getUser();
+        const token = await getToken();
+        setToken(token);
         setUser(user);
       } catch (e) {
         console.log("error getting user info");
@@ -72,7 +78,7 @@ const Connect = () => {
             minHeight: height,
           }}
         >
-          <View className="h-full flex-1 pt-[20px]">
+          <View className="h-full pt-[20px]">
             <View style={styles.header}>
               <Text className="text-[24px] font-LexendDecaSemiBold text-[#ccc]">
                 Auqli Connect
@@ -104,7 +110,7 @@ const Connect = () => {
                     source={
                       user?.profileImage?.url
                         ? { uri: user?.profileImage?.url }
-                        : require("../../../assets/icons/animoji.png")
+                        : require("../../../assets/icons/profile.jpg")
                     }
                     style={{
                       width: 33,
@@ -119,20 +125,29 @@ const Connect = () => {
             </View>
 
             <View style={styles.searchSection}>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  placeholder="Whats on your mind?"
-                  placeholderTextColor={"#ccc"}
-                  style={styles.input}
-                  editable={false}
-                  onPress={() => router.push("/createPosts/createPost")}
-                />
-              </View>
+              <Pressable
+                style={styles.inputContainer}
+                onPress={() => {
+                  if (token) {
+                    return router.push("/createPosts/createPost");
+                  }
+                  return setShowAuthSheet(true);
+                }}
+              >
+                <Text className="text-[#ccc] font-LexendDeca text-[12px]">
+                  What's on your mind?
+                </Text>
+              </Pressable>
 
               <View style={styles.search}>
                 <Pressable
                   style={styles.post}
-                  onPress={() => router.push("/createPosts/createPost")}
+                  onPress={() => {
+                    if (token) {
+                      return router.push("/createPosts/createPost");
+                    }
+                    return setShowAuthSheet(true);
+                  }}
                 >
                   <AntDesign name="plus" size={18} color="black" />
                 </Pressable>
@@ -162,11 +177,37 @@ const Connect = () => {
             </View>
 
             {renderContent()}
-            {/* <Tab.Navigator>
-              <Tab.Screen name="All" component={AllPostsList} />
-              <Tab.Screen name="New" component={NewPostsList} />
-              <Tab.Screen name="Trending" component={TrendingPostsList} />
+            {/* <Tab.Navigator
+              screenOptions={{
+                lazy: true,
+              }}
+              initialLayout={{
+                width: Dimensions.get("window").width,
+              }}
+            >
+              <Tab.Screen key={1} name="All" component={AllPostsList} />
+              <Tab.Screen key={2} name="New" component={NewPostsList} />
+              <Tab.Screen
+                key={3}
+                name="Trending"
+                component={TrendingPostsList}
+              />
             </Tab.Navigator> */}
+
+            <BottomSheet
+              bgColor="#121212"
+              childrenStyle="!px-[11px]"
+              showCloseIcon={false}
+              title=""
+              show={showAuthSheet}
+              titleColor="!text-white"
+              snapPoints={["20%"]}
+              enableDynamicSizing={false}
+              onRequestClose={() => setShowAuthSheet(false)}
+              keyboardBehavior="interactive"
+            >
+              <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+            </BottomSheet>
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -192,7 +233,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderColor: "#ccc",
     borderWidth: 0.3,
-    borderRadius: 2,
+    borderRadius: 4,
     width: "100%",
     flexShrink: 1,
   },

@@ -242,7 +242,7 @@ const createPost = () => {
           </Pressable>
           <View className="flex-row items-center gap-[12px]">
             {/* <Image
-              source={require("../../../assets/icons/animoji.png")}
+              source={require("../../../assets/icons/profile.jpg")}
               style={{
                 width: 35,
                 height: 35,

@@ -9,6 +9,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import BottomSheet from "../bottom-sheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toast } from "@/core/toast";
+import AuthSheet from "@/components/auth/authSheet";
+import { getToken } from "@/store/features/auth/utils";
 
 const ProductCard: React.FC<ProductCardProps> = ({
   imageUrl,
@@ -36,6 +38,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const [showCartSheet, setShowCartSheet] = useState<boolean>(false);
   const [showAddedToCartSheet, setShowAddedToCartSheet] =
     useState<boolean>(false);
+  const [token, setToken] = useState<string>("");
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+
+  const getAuthUser = async () => {
+    const authToken = await getToken();
+    console.log(authToken);
+
+    setToken(authToken);
+  };
+
+  useEffect(() => {
+    getAuthUser();
+  }, []);
 
   const handleAddToCart = async (cartItem: any) => {
     try {
@@ -155,7 +170,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
         title="Add to cart"
         className="w-full mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px] absolute bottom-2 self-center"
         onPress={() => {
-          setShowCartSheet(true);
+          if (token) {
+            return setShowCartSheet(true);
+          }
+          setShowAuthSheet(true);
         }}
       />
 
@@ -190,6 +208,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
           cartData={moreDetails}
           closeSheet={() => setShowAddedToCartSheet(false)}
         />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAuthSheet}
+        titleColor="!text-white"
+        snapPoints={["20%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowAuthSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
       </BottomSheet>
     </TouchableOpacity>
   );

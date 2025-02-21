@@ -236,9 +236,11 @@ const CartScreen = () => {
   // useEffect(() => {},[wishList])
 
   useEffect(() => {
-    handleGetCart();
-    handleGetWishList();
-    handleGetConversations();
+    if (isFocused) {
+      handleGetCart();
+      handleGetWishList();
+      handleGetConversations();
+    }
   }, [isFocused]);
 
   useEffect(() => {

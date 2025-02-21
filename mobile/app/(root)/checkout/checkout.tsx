@@ -293,7 +293,7 @@ const Checkout = () => {
   }, []);
 
   useEffect(() => {
-    if (user) getAddresses();
+    if (user && isFocused) getAddresses();
   }, [user, isFocused]);
 
   useEffect(() => {
