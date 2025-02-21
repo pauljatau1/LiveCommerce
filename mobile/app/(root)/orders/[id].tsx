@@ -7,6 +7,7 @@ import {
   Image,
   FlatList,
   Pressable,
+  Clipboard,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -18,6 +19,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import { formatDate } from "@/helpers/helpers";
 import Feather from "@expo/vector-icons/Feather";
 import { ActivityIndicator } from "react-native-paper";
+import { toast } from "@/core/toast";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
@@ -31,6 +33,11 @@ const SingleOrder = () => {
   const { id, token: userToken, conversationId } = useGlobalSearchParams();
   const [order, setOrder] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
+
+  const copyTrackingNumber = () => {
+    Clipboard.setString(order?.shipping?.tracking.number);
+    toast.info("Copied to Clipboard");
+  };
 
   const handleGetOrder = async () => {
     try {
@@ -300,9 +307,12 @@ const SingleOrder = () => {
                 <Text className="font-LexendDeca text-[12px] text-[#ccc]">
                   Tracking Number -{" "}
                 </Text>
-                <Text className="text-[12px] text-[#027CEC] font-LexendDeca">
-                  {order?.shipping?.tracking.number || ""}
-                </Text>
+                <Pressable onPress={copyTrackingNumber}>
+                  <Text className="text-[12px] text-[#027CEC] font-LexendDeca">
+                    {order?.shipping?.tracking.number || ""}
+                  </Text>
+                </Pressable>
+
                 {order?.shipping?.tracking?.number && (
                   <Feather
                     name="copy"

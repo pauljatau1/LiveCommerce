@@ -82,7 +82,7 @@ const Connect = () => {
                 className=""
                 style={{
                   flexDirection: "row",
-                  alignItems: "flex-end",
+                  alignItems: "center",
                   gap: 20,
                 }}
               >
@@ -90,14 +90,14 @@ const Connect = () => {
                   <Image
                     source={require("../../../assets/icons/connect-search.png")}
                     style={{
-                      width: 24,
-                      height: 24,
+                      width: 20,
+                      height: 20,
                     }}
                     resizeMode="cover"
                   />
-                  <Text className="text-[7px] text-[#94A3B1] font-LexendDeca">
+                  {/* <Text className="text-[7px] text-[#94A3B1] font-LexendDeca">
                     Search
-                  </Text>
+                  </Text> */}
                 </Pressable>
                 <Pressable style={styles.headerBtn}>
                   <Image
@@ -113,7 +113,7 @@ const Connect = () => {
                     }}
                     resizeMode="cover"
                   />
-                  <Text className="text-[7px] text-[#94A3B1] ">Profile</Text>
+                  {/* <Text className="text-[7px] text-[#94A3B1] ">Profile</Text> */}
                 </Pressable>
               </View>
             </View>
@@ -124,6 +124,8 @@ const Connect = () => {
                   placeholder="Whats on your mind?"
                   placeholderTextColor={"#ccc"}
                   style={styles.input}
+                  editable={false}
+                  onPress={() => router.push("/createPosts/createPost")}
                 />
               </View>
 

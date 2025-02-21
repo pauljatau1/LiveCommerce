@@ -470,7 +470,7 @@ const PostItem2 = ({ item }: { item: any }) => {
                   style={{
                     position: "absolute",
                     top: -10,
-                    right: index * 10,
+                    right: index * 14,
                     zIndex: index + 1,
                   }}
                 >
@@ -524,7 +524,7 @@ const PostItem2 = ({ item }: { item: any }) => {
             {comments} Comments
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -542,7 +542,7 @@ const PostItem2 = ({ item }: { item: any }) => {
           >
             Share
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       <BottomSheet
@@ -727,7 +727,7 @@ const OptionsSheet = memo(() => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 10,
+    paddingVertical: 14,
     borderBottomColor: "#888787",
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
@@ -736,7 +736,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    marginBottom: 10,
+    // paddingVertical: 10,
   },
   userInfo: {
     flexDirection: "row",
