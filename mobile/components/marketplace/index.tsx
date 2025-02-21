@@ -60,7 +60,7 @@ const Marketplace = () => {
 
   useEffect(() => {
     getSelectedCategories();
-  }, []);
+  }, [allCategories]);
 
   const renderContent = () => {
     if (selected == "For You") {

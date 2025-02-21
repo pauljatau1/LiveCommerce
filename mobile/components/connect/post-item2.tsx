@@ -265,7 +265,7 @@ const PostItem2 = ({ item }: { item: any }) => {
 
   const getAuthUser = useCallback(async () => {
     const authToken = await getToken();
-    console.log(authToken);
+    console.log("Setting auth token ", authToken);
 
     setToken(authToken);
   }, []);
@@ -338,7 +338,7 @@ const PostItem2 = ({ item }: { item: any }) => {
         console.log("cannot like post", e.message);
       }
     },
-    [reactions],
+    [reactions, token],
   );
 
   const handleReactionClose = (reaction: any) => {
