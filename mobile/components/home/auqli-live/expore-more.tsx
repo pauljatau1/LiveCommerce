@@ -1,7 +1,7 @@
 import { View, Text, FlatList } from "react-native";
 import React from "react";
 import SectionHeader from "@/components/global/section-header";
-import LiveProductCard from "@/components/global/live-product-card";
+import LiveProductCardTemplate from "@/components/global/live-product-card/LiveProductCardTemplate";
 import CustomButton from "@/components/global/button/CustomButton";
 import { router } from "expo-router";
 
@@ -17,7 +17,7 @@ const ExploreMoreSection = () => {
         <FlatList
           data={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
           renderItem={(item) => (
-            <LiveProductCard {...item} showLive={true} showBtn={true} />
+            <LiveProductCardTemplate {...item} showLive={true} showBtn={true} />
           )}
           keyExtractor={(item) => item.toString()}
           horizontal

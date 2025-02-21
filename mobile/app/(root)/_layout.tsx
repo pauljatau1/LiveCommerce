@@ -161,6 +161,12 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
+        name="livestream/livestreamStudio"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="sellerProfile/index"
         options={{
           headerTitle: "",
