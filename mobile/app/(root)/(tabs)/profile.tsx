@@ -370,7 +370,7 @@ const Profile = () => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => null}
+                onPress={() => router.push("../../(root)/settings")}
                 className="items-center gap-[2px]"
               >
                 <Image
