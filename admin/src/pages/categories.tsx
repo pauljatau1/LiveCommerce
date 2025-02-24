@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronRight, Percent } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import AddCategoryModal from "@/components/dashboard/add-category-modal"
 import { toast } from "sonner"
 import { api } from "@/api/axios"
+import { Input } from "@/components/ui/input"
 
 interface SubSubCategory {
   name: string
@@ -23,6 +24,7 @@ interface Category {
   image: {
     url: string
   }
+  platformFee: number
   subCategories: SubCategory[]
 }
 
@@ -33,6 +35,7 @@ export default function CategoriesPage() {
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [loading, setLoading] = useState(true)
   const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, boolean>>({})
+  const [editingFee, setEditingFee] = useState<{id: string, fee: number} | null>(null)
 
   const fetchCategories = async () => {
     try {
@@ -84,6 +87,21 @@ export default function CategoriesPage() {
     }))
   }
 
+  const handleUpdatePlatformFee = async (categoryId: string) => {
+    if (!editingFee) return;
+    
+    try {
+      await api.put(`/api/admin/categories/${categoryId}/platform-fee`, {
+        platformFee: Number(editingFee.fee)
+      });
+      toast.success("Platform fee updated successfully");
+      setEditingFee(null);
+      fetchCategories();
+    } catch (error) {
+      toast.error("Failed to update platform fee: " + error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -115,7 +133,55 @@ export default function CategoriesPage() {
               </div>
               
               <div className="flex-grow">
-                <h2 className="text-xl font-semibold mb-2">{category.name}</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">{category.name}</h2>
+                  <div className="flex items-center gap-2">
+                    {editingFee?.id === category._id ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={editingFee.fee}
+                            onChange={(e) => setEditingFee({ id: category._id, fee: parseFloat(e.target.value) })}
+                            className="w-24"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                          />
+                          <span className="text-sm text-muted-foreground">%</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleUpdatePlatformFee(category._id)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingFee(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="bg-secondary px-3 py-1 rounded-md flex items-center gap-1">
+                          <Percent className="h-4 w-4 text-muted-foreground" />
+                          <span>{category.platformFee}% Platform Fee</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingFee({ id: category._id, fee: category.platformFee })}
+                        >
+                          Edit Fee
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground mb-1">Categories Hierarchy:</h3>
                   <div className="space-y-2">

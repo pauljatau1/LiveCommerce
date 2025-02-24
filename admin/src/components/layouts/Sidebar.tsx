@@ -26,6 +26,7 @@ const mainLinks = [
   { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
   { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
   { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals' },
+  { icon: DollarSign, label: 'Payments', path: '/dashboard/payments' },
   { icon: Video, label: 'Streams', path: '/dashboard/streams' },
   { icon: Image, label: 'Banners', path: '/dashboard/banners' },
   { icon: Megaphone, label: 'Announcements', path: '/dashboard/announcements' },

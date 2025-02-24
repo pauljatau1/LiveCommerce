@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Check, X, Eye, Loader2, PlayCircle } from "lucide-react";
+import { Check, X, Eye, Loader2, PlayCircle, AlertCircle } from "lucide-react";
 import { api } from "@/api/axios";
 import { toast } from "sonner";
 import {
@@ -20,6 +20,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 
 interface WithdrawalNote {
   content: string;
@@ -58,6 +63,11 @@ function Withdrawals() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusNote, setStatusNote] = useState("");
   const [pendingAction, setPendingAction] = useState<'processing' | 'completed' | 'rejected' | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferStatus, setTransferStatus] = useState({ loading: false, error: null });
+  const [transferPolling, setTransferPolling] = useState<NodeJS.Timeout | null>(null);
+  const [requiresOTP, setRequiresOTP] = useState(false);
+  const [transferCode, setTransferCode] = useState(null);
 
   const fetchWithdrawals = async () => {
     try {
@@ -72,6 +82,12 @@ function Withdrawals() {
 
   useEffect(() => {
     fetchWithdrawals();
+    return () => {
+      // Cleanup polling on unmount
+      if (transferPolling) {
+        clearInterval(transferPolling);
+      }
+    };
   }, []);
 
   const handleStatusUpdate = async () => {
@@ -92,6 +108,91 @@ function Withdrawals() {
       toast.error("Failed to update withdrawal status");
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleTransfer = async (withdrawal) => {
+    setSelectedWithdrawal(withdrawal);
+    setTransferStatus({ loading: false, error: null });
+    setIsTransferModalOpen(true);
+  };
+
+  const confirmTransfer = async () => {
+    setTransferStatus({ loading: true, error: null });
+    try {
+      const response = await api.post(`/api/admin/withdrawals/${selectedWithdrawal._id}/transfer`);
+      toast.success("Transfer initiated successfully");
+      
+      // Start polling for transfer status with improved logic
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await api.get(
+            `/api/admin/transfers/${response.data.data.transfer.reference}/verify`
+          );
+          
+          const { status, requiresAction } = statusResponse.data.data;
+          
+          console.log('Transfer status check:', {
+            reference: response.data.data.transfer.reference,
+            status,
+            requiresAction
+          });
+
+          if (requiresAction) {
+            // Stop polling and show OTP verification UI
+            clearInterval(pollInterval);
+            setTransferPolling(null);
+            setRequiresOTP(true);
+            // For test mode, automatically finalize the transfer
+            try {
+              const finalizeResponse = await api.post(
+                `/api/admin/transfers/${response.data.data.transfer.reference}/finalize`
+              );
+              if (finalizeResponse.data.success) {
+                toast.success("Transfer finalized successfully");
+                await fetchWithdrawals();
+                setIsTransferModalOpen(false);
+              }
+            } catch (finalizeError) {
+              console.error("Error finalizing transfer:", finalizeError);
+              toast.error("Failed to finalize transfer");
+            }
+            return;
+          }
+
+          if (status === 'completed') {
+            clearInterval(pollInterval);
+            setTransferPolling(null);
+            toast.success("Transfer completed successfully");
+            await fetchWithdrawals();
+            setIsTransferModalOpen(false);
+          } else if (status === 'failed') {
+            clearInterval(pollInterval);
+            setTransferPolling(null);
+            toast.error("Transfer failed");
+            await fetchWithdrawals();
+            setIsTransferModalOpen(false);
+          }
+          // Continue polling for 'processing' status
+        } catch (error) {
+          console.error("Error polling transfer status:", error);
+          // Don't clear interval on network errors, keep trying
+          if (error.response?.status === 404) {
+            // Only stop polling if withdrawal is not found
+            clearInterval(pollInterval);
+            setTransferPolling(null);
+            toast.error("Transfer reference not found");
+          }
+        }
+      }, 5000); // Poll every 5 seconds
+
+      setTransferPolling(pollInterval);
+    } catch (error) {
+      setTransferStatus({
+        loading: false,
+        error: error.response?.data?.message || "Failed to initiate transfer"
+      });
+      toast.error("Failed to initiate transfer");
     }
   };
 
@@ -127,6 +228,156 @@ function Withdrawals() {
     };
     return colors[status];
   };
+
+  const renderActions = (withdrawal) => (
+    <div className="flex space-x-2">
+      <Button 
+        variant="outline" 
+        size="sm"
+        onClick={() => {
+          setSelectedWithdrawal(withdrawal);
+          setIsDetailsModalOpen(true);
+        }}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      {withdrawal.status === 'pending' && (
+        <>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-blue-500"
+            onClick={() => {
+              setSelectedWithdrawal(withdrawal);
+              setPendingAction('processing');
+              setIsStatusModalOpen(true);
+            }}
+            disabled={processingId === withdrawal._id}
+          >
+            <PlayCircle className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-red-500"
+            onClick={() => {
+              setSelectedWithdrawal(withdrawal);
+              setPendingAction('rejected');
+              setIsStatusModalOpen(true);
+            }}
+            disabled={processingId === withdrawal._id}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-green-500"
+            onClick={() => handleTransfer(withdrawal)}
+            disabled={transferStatus.loading}
+          >
+            {transferStatus.loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              'Transfer'
+            )}
+          </Button>
+        </>
+      )}
+      {withdrawal.status === 'processing' && (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-green-500"
+          onClick={() => {
+            setSelectedWithdrawal(withdrawal);
+            setPendingAction('completed');
+            setIsStatusModalOpen(true);
+          }}
+          disabled={processingId === withdrawal._id}
+        >
+          <Check className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+
+  const renderTransferModal = () => (
+    <Dialog open={isTransferModalOpen} onOpenChange={setIsTransferModalOpen}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>
+            {requiresOTP ? 'Verify Transfer' : 'Confirm Transfer'}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          {selectedWithdrawal && (
+            <>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="font-semibold">Amount</p>
+                  <p className="text-lg">{formatCurrency(selectedWithdrawal.amount)}</p>
+                </div>
+                <div>
+                  <p className="font-semibold">Recipient</p>
+                  <p>{selectedWithdrawal.seller.firstName} {selectedWithdrawal.seller.lastName}</p>
+                </div>
+              </div>
+
+              <div className="border rounded p-3">
+                <p className="font-semibold mb-2">Bank Details</p>
+                <p>{selectedWithdrawal.bankDetails.bankName}</p>
+                <p>{selectedWithdrawal.bankDetails.accountNumber}</p>
+                <p>{selectedWithdrawal.bankDetails.accountName}</p>
+              </div>
+
+              {transferStatus.error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{transferStatus.error}</AlertDescription>
+                </Alert>
+              )}
+            </>
+          )}
+
+          {requiresOTP && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Verification Required</AlertTitle>
+              <AlertDescription>
+                Transfer requires verification. Processing automatically...
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsTransferModalOpen(false)}
+            disabled={transferStatus.loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmTransfer}
+            disabled={transferStatus.loading}
+          >
+            {transferStatus.loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing
+              </>
+            ) : (
+              'Confirm Transfer'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   return (
     <div className="space-y-6">
@@ -204,69 +455,15 @@ function Withdrawals() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setSelectedWithdrawal(withdrawal);
-                        setIsDetailsModalOpen(true);
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    {withdrawal.status === 'pending' && (
-                      <>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-blue-500"
-                          onClick={() => {
-                            setSelectedWithdrawal(withdrawal);
-                            setPendingAction('processing');
-                            setIsStatusModalOpen(true);
-                          }}
-                          disabled={processingId === withdrawal._id}
-                        >
-                          <PlayCircle className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-red-500"
-                          onClick={() => {
-                            setSelectedWithdrawal(withdrawal);
-                            setPendingAction('rejected');
-                            setIsStatusModalOpen(true);
-                          }}
-                          disabled={processingId === withdrawal._id}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {withdrawal.status === 'processing' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-green-500"
-                        onClick={() => {
-                          setSelectedWithdrawal(withdrawal);
-                          setPendingAction('completed');
-                          setIsStatusModalOpen(true);
-                        }}
-                        disabled={processingId === withdrawal._id}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                  {renderActions(withdrawal)}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Card>
+
+      {renderTransferModal()}
 
       {/* Details Modal */}
       <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
