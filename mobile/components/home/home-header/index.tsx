@@ -88,7 +88,7 @@ const HomeHeader = () => {
           }}
         /> */}
       </Pressable>
-      <View className="flex-row items-center gap-[30px]">
+      <View className="flex-row items-center gap-[16px]">
         <TouchableOpacity
           className=" flex justify-center items-center gap-[6px]"
           onPress={() => {

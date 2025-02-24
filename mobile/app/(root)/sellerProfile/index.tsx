@@ -33,6 +33,8 @@ import { formatDate } from "@/helpers/helpers";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Shops from "@/components/sellerProfile/shops";
 import Blips from "@/components/sellerProfile/blips";
+import ReviewsPage from "../reviews/[id]";
+import SellerReviews from "@/components/sellerProfile/reviews";
 
 const HEADER_HEIGHT = 450;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -226,11 +228,15 @@ const TabScene = memo(
     scrollY,
     id,
     index,
+    storeName,
+    storeAvatar,
   }: {
     route: any;
     scrollY: any;
     id: string;
     index: number;
+    storeName: string;
+    storeAvatar: string;
   }) => {
     const contentContainerStyle = {
       paddingTop: HEADER_HEIGHT, // Space for the header
@@ -264,6 +270,17 @@ const TabScene = memo(
             scrollY={scrollY}
             headerHeight={HEADER_HEIGHT}
             index={index}
+          />
+        );
+      case "Reviews":
+        return (
+          <SellerReviews
+            sellerId={id}
+            scrollY={scrollY}
+            headerHeight={HEADER_HEIGHT}
+            index={index}
+            storeAvatar={storeAvatar}
+            storeName={storeName}
           />
         );
       default:
@@ -313,6 +330,8 @@ const SellerProfile = () => {
       scrollY={scrollY}
       id={sellerId?.toString()}
       index={index}
+      storeName={storeName}
+      storeAvatar={seller?.storeInfo?.storeAvatar?.url}
     />
   );
 

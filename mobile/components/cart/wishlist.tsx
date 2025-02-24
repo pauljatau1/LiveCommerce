@@ -10,15 +10,18 @@ const WishList = ({
   wishlist: any[];
   handleModifyWishList: (action: string, data: any) => Promise<void>;
 }) => {
-  const renderWishlistItem = useCallback(({ item }: { item: any }) => {
-    return (
-      <WishlistItem
-        wishlistItem={item.product}
-        handleModifyWishList={handleModifyWishList}
-        key={item._id}
-      />
-    );
-  }, []);
+  const renderWishlistItem = useCallback(
+    ({ item }: { item: any }) => {
+      return (
+        <WishlistItem
+          wishlistItem={item.product}
+          handleModifyWishList={handleModifyWishList}
+          key={item._id}
+        />
+      );
+    },
+    [wishlist],
+  );
   return (
     <View className="px-[20px] h-[90%]">
       <FlatList

@@ -15,12 +15,29 @@ import { signOut } from "@/store/features/auth/authSlice";
 import { useDispatch } from "react-redux";
 import BottomSheet from "@/components/global/bottom-sheet";
 import DeleteSheet from "@/components/settings/deleteSheet";
+import LoadingModal from "@/components/global/loading-modal";
+import { useRequestDeleteMutation } from "@/services/auth";
+import { toast } from "@/core/toast";
 
 const { width, height } = Dimensions.get("window");
 
 const Settings = () => {
   const dispatch = useDispatch();
+  const [deleteRequest, { isLoading }] = useRequestDeleteMutation();
+  const [deleteConfirm, { isLoading: confirmLoading }] =
+    useRequestDeleteMutation();
   const [showDeleteSheet, setShowDeleteSheet] = useState<boolean>(false);
+  // const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+
+  const handleDeleteRequest = async () => {
+    try {
+      const result = await deleteRequest({});
+      setShowDeleteSheet(true);
+    } catch (e: any) {
+      console.log("error deleteing account ", e?.response);
+      toast.error("Could not delete account");
+    }
+  };
 
   const handleDelete = () => {
     setShowDeleteSheet(false);
@@ -184,7 +201,7 @@ const Settings = () => {
               style={styles.sectionRow}
               activeOpacity={0.5}
               onPress={() => {
-                setShowDeleteSheet(true);
+                handleDeleteRequest();
               }}
             >
               <Text style={[styles.sectionText, { color: "red" }]}>
@@ -202,7 +219,7 @@ const Settings = () => {
         title=""
         show={showDeleteSheet}
         titleColor="!text-white"
-        snapPoints={["25%"]}
+        snapPoints={["27%"]}
         enableDynamicSizing={false}
         onRequestClose={() => {
           setShowDeleteSheet(false);
@@ -213,9 +230,10 @@ const Settings = () => {
           closeSheet={() => {
             setShowDeleteSheet(false);
           }}
-          handleDelete={handleDelete}
         />
       </BottomSheet>
+
+      <LoadingModal isVisible={isLoading} />
     </SafeAreaView>
   );
 };

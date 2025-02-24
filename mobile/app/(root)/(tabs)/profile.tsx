@@ -151,6 +151,8 @@ const CollapsibleHeader = memo(
                         bio: info?.bio,
                         email: info?.email,
                         phoneNumber: info?.phoneNumber,
+                        firstName: info?.firstName,
+                        lastName: info?.lastName,
                       },
                     })
                   }

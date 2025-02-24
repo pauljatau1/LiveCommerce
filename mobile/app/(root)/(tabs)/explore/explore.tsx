@@ -63,7 +63,7 @@ const Explore = () => {
                   }}
                 />
                 <Text className="text-[8px] text-[#3A3A3A] font-LexendDecaMedium">
-                  1.8k Products
+                  {category?.statistics?.totalProducts} Products
                 </Text>
               </View>
             </View>
@@ -140,7 +140,7 @@ const Explore = () => {
       <View className="pt-[30px]">
         <HomeHeader />
 
-        <View className="p-[23px] pb-[50px] h-full ">
+        <View className="p-[23px] px-[16px] pb-[50px] h-full ">
           {isLoading ? (
             <ActivityIndicator
               size={"small"}

@@ -105,10 +105,6 @@ export const postRequest = (url: string, details: unknown) => ({
   url,
   method: "POST",
   body: details,
-  // headers:
-  //   details instanceof FormData
-  //     ? { "Content-Type": "multipart/form-data" }
-  //     : {},
 });
 
 export const patchRequest = (url: string, details: unknown) => ({

@@ -5,8 +5,8 @@ import {
   SafeAreaView,
   Dimensions,
   TouchableOpacity,
-  ActivityIndicator,
 } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
 import React, { useEffect, useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -20,7 +20,7 @@ import { getToken } from "@/store/features/auth/utils";
 const { width, height } = Dimensions.get("window");
 
 const ReviewsPage = () => {
-  const { id } = useGlobalSearchParams();
+  const { id, sellerId, storeName, storeAvatar } = useGlobalSearchParams();
 
   const [productReviews, setProductReviews] = useState<any>([]);
   const [isProductReviewsLoading, setIsProductReviewsLoading] =
@@ -145,16 +145,25 @@ const ReviewsPage = () => {
               </View>
             </View>
 
-            {token && (
+            {/* {token && (
               <TouchableOpacity
                 className="bg-[#16783A] px-[16px] py-[8px] mt-[16px] mb-[8px] mx-[18px] justify-center items-center"
-                onPress={() => router.replace(`/createReview/${id}`)}
+                onPress={() =>
+                  router.push({
+                    pathname: "/createReview/sellerReview",
+                    params: {
+                      id: sellerId,
+                      storeName: storeName,
+                      storeAvatar: storeAvatar,
+                    },
+                  })
+                }
               >
                 <Text className="text-white text-[15px] light">
                   Write a review
                 </Text>
               </TouchableOpacity>
-            )}
+            )} */}
 
             <Text
               className="px-[18px] text-[14px] leading-[20px] mb-[23px]"

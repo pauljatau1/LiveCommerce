@@ -9,7 +9,7 @@ import {
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
 import { useGetSingleProductQuery } from "@/services/products";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -35,6 +35,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { getProductSpecifications } from "@/helpers/helpers";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import AuthSheet from "@/components/auth/authSheet";
+import CheckoutNow from "@/components/blips/checkoutNow";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -79,7 +80,7 @@ const ProductDescription = () => {
   const [userToken, setUserToken] = useState<string>("");
   const [conversations, setConversations] = useState<any[]>([]);
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
-
+  const [showCheckout, setShowCheckout] = useState<boolean>(false);
   useEffect(() => {
     setProductDetails(product);
   }, [id, product]);
@@ -213,6 +214,18 @@ const ProductDescription = () => {
     setProductSpecifications(specs);
   };
 
+  const handleBuyNow = () => {};
+
+  const formattedStoreName = useMemo(() => {
+    return (
+      sellerInfo?.storeName ||
+      sellerInfo?.personalInfo?.firstName +
+        " " +
+        sellerInfo?.personalInfo?.lastName ||
+      sellerInfo?.businessInfo?.businessName
+    );
+  }, [sellerInfo]);
+
   useEffect(() => {
     if (isFocused) {
       async function getCartNumber() {
@@ -316,10 +329,10 @@ const ProductDescription = () => {
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView
         className="h-full bg-[#121212]"
-        style={{ minHeight: height }}
+        style={{ minHeight: height, flex: 1 }}
       >
         <View
-          className={`py-[30px] px-[12px] flex flex-row justify-between items-center gap-[10px]`}
+          className={`pt-[30px] pb-[12px] px-[12px] flex flex-row justify-between items-center gap-[10px]`}
         >
           <View className="flex flex-row items-center gap-[10px] shrink">
             <TouchableOpacity onPress={() => router.back()}>
@@ -402,13 +415,13 @@ const ProductDescription = () => {
             </TouchableOpacity>
           </View>
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <ScrollView
             showsVerticalScrollIndicator={false}
             ref={scrollViewRef}
-            style={{ height: "90%" }}
+            style={{ flex: 1 }}
             contentContainerStyle={{
-              paddingBottom: 120,
+              paddingBottom: 80,
             }}
           >
             {isLoading || isFetching ? (
@@ -560,7 +573,17 @@ const ProductDescription = () => {
                       }}
                     >
                       <TouchableOpacity
-                        onPress={() => router.push(`/reviews/${id}`)}
+                        onPress={() =>
+                          router.push({
+                            pathname: `../reviews/${id}`,
+                            params: {
+                              sellerId: sellerInfo?._id,
+                              storeName: formattedStoreName,
+                              storeAvatar:
+                                sellerInfo?.storePresence?.storeAvatar?.url,
+                            },
+                          })
+                        }
                       >
                         {productReviews?.length > 0 && (
                           <Text className="ml-[18px] mt-[4px] text-[12px] text-[#16783A] font-LexendDecaMedium opacity-70">
@@ -765,23 +788,7 @@ const ProductDescription = () => {
                     </TouchableOpacity>
                   </TouchableOpacity>
 
-                  {
-                    isProductSpecsShow && renderSpecifications()
-                    // <View
-                    //   style={{
-                    //     paddingHorizontal: 20,
-                    //     paddingVertical: 10,
-                    //     paddingLeft: 61,
-                    //     backgroundColor: "#000",
-                    //     borderTopWidth: 1,
-                    //     borderTopColor: "rgba(159, 159, 159, 0.23)",
-                    //   }}
-                    // >
-                    //   <Text className="text-white font-LexendDecaMedium leading-7">
-                    //     {productDetails?.description}
-                    //   </Text>
-                    // </View>
-                  }
+                  {isProductSpecsShow && renderSpecifications()}
 
                   <View className="px-[20px] py-[14px]">
                     <View
@@ -949,7 +956,7 @@ const ProductDescription = () => {
             }}
             onPress={async () => {
               if (userToken) {
-                return router.push(`/checkout/`);
+                return setShowCheckout(true);
               }
               return setShowAuthSheet(true);
             }}
@@ -1005,6 +1012,24 @@ const ProductDescription = () => {
         keyboardBehavior="interactive"
       >
         <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showCheckout}
+        snapPoints={["70%"]}
+        titleColor="!text-white"
+        onRequestClose={() => setShowCheckout(false)}
+        keyboardBehavior={"interactive"}
+      >
+        <CheckoutNow
+          productId={productDetails?._id}
+          closeSheet={() => setShowCheckout(false)}
+          sellerId={sellerInfo?._id}
+        />
       </BottomSheet>
     </View>
   );
@@ -1245,7 +1270,10 @@ const AddedToCart = ({
             Continue Shopping
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]">
+        <TouchableOpacity
+          className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
+          onPress={() => router.push("/checkout/checkout")}
+        >
           <Text className="text-white font-LexendDecaBold text-[12px]">
             Checkout Now
           </Text>
