@@ -73,7 +73,9 @@ const NewPostsList = () => {
   }, [hasReachedEnd]);
 
   const renderPosts = useCallback(({ item }: { item: any }) => {
-    return <PostItem2 item={item} />;
+    return item?.author?.name != "undefined undefined" ? (
+      <PostItem2 item={item} />
+    ) : null;
   }, []);
 
   return (
