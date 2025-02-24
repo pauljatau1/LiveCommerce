@@ -135,7 +135,7 @@ const Orders = () => {
         className="h-full flex-1 bg-[#121212] "
         style={{ minHeight: height }}
       >
-        <View className="mb-[12px]">
+        <View>
           <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
             <TouchableOpacity
               className="absolute left-[18px]"

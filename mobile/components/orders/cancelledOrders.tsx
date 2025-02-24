@@ -133,7 +133,7 @@ const CancelledOrders = ({
         <View className="flex-row items-center justify-between gap-[50px]">
           <Text className="font-LexendDeca text-[12px] text-[#ccc]">Note</Text>
           <Text className="font-LexendDecaBold text-[12px] text-[#ccc] shrink">
-            Your refund is being processed and you will be funded shortly
+            Your refund is being processed and you will be refunded shortly
           </Text>
         </View>
       </View>

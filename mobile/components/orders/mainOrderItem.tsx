@@ -25,6 +25,7 @@ const OrderItem = ({
   const [showCancelSheet, setShowCancelSheet] = useState<boolean>(false);
   return (
     <TouchableOpacity
+      activeOpacity={0.5}
       className="border-b-[1px] p-[14px] pb-[25px] flex-row justify-center"
       style={{
         borderColor: "rgba(242, 242, 242, 0.50)",
@@ -45,11 +46,21 @@ const OrderItem = ({
     >
       <View className="w-[100%] gap-[16px] shrink relative">
         <View className=" flex-row items-center justify-between">
-          <Text className="text-[16px] text-white font-LexendDecaSemiBold">
-            {orderItem?.items[0]?.seller?.storeName ||
-              orderItem?.items[0]?.seller?.businessName ||
-              "Kicks Store"}
-          </Text>
+          <View className=" flex-row items-center gap-[8px]">
+            <Image
+              source={require("../../assets/icons/store.png")}
+              resizeMode="contain"
+              style={{
+                width: 14,
+                height: 14,
+              }}
+            />
+            <Text className="text-[16px] text-white font-LexendDecaSemiBold">
+              {orderItem?.items[0]?.seller?.storeName ||
+                orderItem?.items[0]?.seller?.businessName}
+            </Text>
+          </View>
+
           <View
             className="rounded-[3px] px-[6px] py-[4px] justify-center items-center"
             style={{
