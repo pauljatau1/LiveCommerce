@@ -105,6 +105,35 @@ const formatCommentPreview = (comments) => {
   return `${names[0]} and ${names.length - 1} others commented`;
 };
 
+// Add this helper function near the other helper functions at the top
+const formatRelativeTime = (timestamp) => {
+  if (!timestamp) return '';
+
+  const now = new Date();
+  const date = new Date(timestamp);
+  const diffInSeconds = Math.floor((now - date) / 1000);
+
+  // Define time intervals in seconds
+  const intervals = {
+    year: 31536000,
+    month: 2592000,
+    week: 604800,
+    day: 86400,
+    hour: 3600,
+    minute: 60
+  };
+
+  // Check each interval
+  for (const [unit, seconds] of Object.entries(intervals)) {
+    const diff = Math.floor(diffInSeconds / seconds);
+    if (diff >= 1) {
+      return `${diff} ${unit}${diff > 1 ? 's' : ''} ago`;
+    }
+  }
+
+  return 'Just now';
+};
+
 // Create a new separate component for the create post modal
 const CreatePostModal = ({ isOpen, onClose, onSubmit, isSubmitting, postForm, setPostForm }) => {
   const [previews, setPreviews] = useState([]);
@@ -607,6 +636,7 @@ export default function SocialFeed() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [activeGalleryPost, setActiveGalleryPost] = useState(null);
+  const [savedPosts, setSavedPosts] = useState([]);
 
   useEffect(() => {
     setHeaderName('Auqli Connect')
@@ -857,22 +887,25 @@ export default function SocialFeed() {
   }
 
   const renderPosts = () => {
-    let postsToRender = []
+    let postsToRender = [];
     switch (selectedTab) {
       case 'all':
-        postsToRender = posts
-        break
+        postsToRender = posts;
+        break;
       case 'trending':
-        postsToRender = trendingPosts
-        break
+        postsToRender = trendingPosts;
+        break;
       case 'new':
-        postsToRender = newPosts
-        break
+        postsToRender = newPosts;
+        break;
       case 'my-posts':
-        postsToRender = myPosts
-        break
+        postsToRender = myPosts;
+        break;
+      case 'saved':
+        postsToRender = savedPosts;
+        break;
       default:
-        postsToRender = posts
+        postsToRender = posts;
     }
 
     if (!postsToRender || postsToRender.length === 0) {
@@ -881,7 +914,7 @@ export default function SocialFeed() {
           <h3 className="text-xl font-semibold text-gray-600">No posts available</h3>
           <p className="text-gray-500 mt-2">Check back later for new content</p>
         </div>
-      )
+      );
     }
 
     return postsToRender.map((post) => {
@@ -889,7 +922,7 @@ export default function SocialFeed() {
 
       const authorName = post.author?.name || post.author?.businessName || 'Anonymous'
       const authorImage = post.author?.image
-      const postDate = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Unknown date'
+      const postDate = post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown date'
       const postBody = post.body || ''
       const postTags = Array.isArray(post.tags) ? post.tags : []
       const currentSlideIndex = slideIndices[post._id] || 0
@@ -942,11 +975,11 @@ export default function SocialFeed() {
               </h3>
             )}
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
-              {postBody.length > 40 ? `${postBody.slice(0, 40)}...` : postBody}
+              {postBody.length > 50 ? `${postBody.slice(0, 50)}...` : postBody}
             </p>
             
             {/* Tags */}
-            {postTags.length > 0 && (
+            {postTags.length > 0 && !postTags.includes("[]") && (
               <div className="flex gap-2 flex-wrap pt-2">
                 {postTags.map((tag, index) => (
                   <Badge
@@ -1014,22 +1047,17 @@ export default function SocialFeed() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="gap-2 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"
+                  className={`gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 ${
+                    savedPosts.some(savedPost => savedPost._id === post._id) 
+                      ? 'text-purple-500' 
+                      : 'hover:text-purple-500'
+                  }`}
+                  onClick={() => toggleSavePost(post)}
                 >
-                  <FaShareSquare className="h-5 w-5" />
-                  <span>Share</span>
+                  <FaBookmark className="h-5 w-5" />
+                  <span>Save</span>
                 </Button>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className={`gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 ${
-                  post.bookmarked ? 'text-purple-500' : 'hover:text-purple-500'
-                }`}
-              >
-                <FaBookmark className="h-5 w-5" />
-                <span>Save</span>
-              </Button>
             </div>
           </CardFooter>
         </Card>
@@ -1726,6 +1754,70 @@ export default function SocialFeed() {
     );
   };
 
+  // Add searchPosts function
+  const searchPosts = async (query) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${BASE_URL}/posts/search?q=${encodeURIComponent(query)}&limit=10`);
+      if (!response.ok) throw new Error('Failed to search posts');
+      const data = await response.json();
+      setPosts(data.posts);
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Failed to search posts');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add debounce function to prevent too many API calls
+  const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  };
+
+  // Create debounced search function
+  const debouncedSearch = debounce(searchPosts, 500);
+
+  // Modify the search input handler
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    
+    if (query.trim()) {
+      debouncedSearch(query);
+    } else {
+      // If search is cleared, revert to default posts
+      fetchPosts();
+    }
+  };
+
+  const toggleSavePost = (post) => {
+    const savedPostsStr = localStorage.getItem('savedPosts') || '[]';
+    const currentSavedPosts = JSON.parse(savedPostsStr);
+    
+    const isPostSaved = currentSavedPosts.some(savedPost => savedPost._id === post._id);
+    let newSavedPosts;
+    
+    if (isPostSaved) {
+      newSavedPosts = currentSavedPosts.filter(savedPost => savedPost._id !== post._id);
+      toast.success('Post removed from saved items');
+    } else {
+      newSavedPosts = [...currentSavedPosts, post];
+      toast.success('Post saved successfully');
+    }
+    
+    localStorage.setItem('savedPosts', JSON.stringify(newSavedPosts));
+    setSavedPosts(newSavedPosts);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -1746,9 +1838,13 @@ export default function SocialFeed() {
                 placeholder="Search posts, people, or tags..."
                 className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchChange}
               />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              {isLoading ? (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              )}
             </div>
             
             {/* <div className="flex items-center gap-3">
@@ -1785,16 +1881,18 @@ export default function SocialFeed() {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1">
             <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 mb-6 md:mb-8 p-1 rounded-xl">
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-6 md:mb-8 p-1 rounded-xl">
                 <TabsTrigger value="all">ALL</TabsTrigger>
                 <TabsTrigger value="new">NEW</TabsTrigger>
                 <TabsTrigger value="trending">TRENDING</TabsTrigger>
                 <TabsTrigger value="my-posts" className="hidden md:block">MY POSTS</TabsTrigger>
+                <TabsTrigger value="saved" className="hidden md:block">SAVED</TabsTrigger>
                 <TabsTrigger value="blips" className="hidden md:block">BLIPS</TabsTrigger>
               </TabsList>
 
-              <TabsList className="grid w-full grid-cols-2 mb-6 p-1 rounded-xl md:hidden">
+              <TabsList className="grid w-full grid-cols-3 mb-6 p-1 rounded-xl md:hidden">
                 <TabsTrigger value="my-posts">MY POSTS</TabsTrigger>
+                <TabsTrigger value="saved">SAVED</TabsTrigger>
                 <TabsTrigger value="blips">BLIPS</TabsTrigger>
               </TabsList>
 
@@ -1812,6 +1910,24 @@ export default function SocialFeed() {
 
               <TabsContent value="my-posts" className="space-y-6">
                 {renderPosts()}
+              </TabsContent>
+
+              <TabsContent value="saved" className="space-y-6">
+                {savedPosts.length > 0 ? (
+                  renderPosts()
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                      <FaBookmark className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      No saved posts yet
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Start saving posts to access them later
+                    </p>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="blips">

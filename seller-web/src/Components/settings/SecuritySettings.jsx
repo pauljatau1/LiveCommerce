@@ -1,173 +1,212 @@
 "use client"
 
-import { Smartphone, Laptop, MoreVertical } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Smartphone, Laptop, MoreVertical, Lock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { BASE_URL } from "@/Constants/Server"
+import { toast } from "sonner"
 
 export default function SecuritySettings() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [showResetCode, setShowResetCode] = useState(false);
+  const [sellerEmail, setSellerEmail] = useState('');
+  const [formData, setFormData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+    resetCode: ''
+  });
+
+  useEffect(() => {
+    fetchSellerProfile();
+  }, []);
+
+  const fetchSellerProfile = async () => {
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/seller/profile`, {
+        headers: {
+          Authorization: `Bearer ${sellerToken}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSellerEmail(data.email);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch profile");
+    }
+  };
+
+  const handleRequestPasswordReset = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/seller/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: sellerEmail }),
+      });
+
+      if (response.ok) {
+        toast.success("Reset code sent to your email");
+        setShowResetCode(true);
+      } else {
+        throw new Error("Failed to send reset code");
+      }
+    } catch (error) {
+      toast.error("Error requesting password reset");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (formData.newPassword !== formData.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/seller/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: sellerEmail,
+          code: formData.resetCode,
+          newPassword: formData.newPassword,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success("Password reset successfully");
+        setShowResetCode(false);
+        setFormData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+          resetCode: ''
+        });
+      } else {
+        throw new Error("Failed to reset password");
+      }
+    } catch (error) {
+      toast.error("Error resetting password");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
       {/* Left Column - Authentication Settings */}
       <div className="space-y-6">
+        {/* Two-factor Authentication - Coming Soon */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">Two-factor Authentication</h3>
-              <Switch checked />
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Authentication app</p>
-                  <p className="text-sm text-muted-foreground">Google auth app</p>
-                </div>
-                <Button variant="outline" className="text-green-500 border-green-500">
-                  Setup
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Another e-mail</p>
-                  <p className="text-sm text-muted-foreground">E-mail to send verification link</p>
-                </div>
-                <Button variant="outline" className="text-green-500 border-green-500">
-                  Setup
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Phone number</p>
-                  <p className="text-sm text-muted-foreground">Either of your phone numbers</p>
-                </div>
-                <Button variant="outline" className="text-green-500 border-green-500">
-                  Setup
-                </Button>
-              </div>
-            </div>
+          <CardContent className="flex flex-col items-center justify-center h-[300px] text-center p-6">
+            <Lock className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Two-factor Authentication</h3>
+            <p className="text-sm text-muted-foreground">
+              Enhanced security features coming soon to protect your account.
+            </p>
           </CardContent>
         </Card>
 
+        {/* Password Reset Section */}
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold">Password</h3>
-                <p className="text-sm text-muted-foreground">You can change your passwords regularly</p>
+                <h3 className="text-lg font-semibold">Reset Password</h3>
+                <p className="text-sm text-muted-foreground">Change your password securely</p>
               </div>
 
               <div className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current">Current password</Label>
-                  <Input id="current" type="password" value="Password8@" />
-                </div>
+                {showResetCode && (
+                  <div className="space-y-2">
+                    <Label htmlFor="resetCode">Reset Code</Label>
+                    <Input 
+                      id="resetCode"
+                      type="text"
+                      maxLength={4}
+                      value={formData.resetCode}
+                      onChange={(e) => setFormData({...formData, resetCode: e.target.value})}
+                      placeholder="Enter 4-digit code"
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="new">New password</Label>
-                  <Input id="new" type="password" value="Current8@" />
+                  <Input 
+                    id="new"
+                    type="password"
+                    value={formData.newPassword}
+                    onChange={(e) => setFormData({...formData, newPassword: e.target.value})}
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirm">Confirm password</Label>
-                  <Input id="confirm" type="password" value="Current8@" />
+                  <Input 
+                    id="confirm"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                  />
                 </div>
               </div>
 
               <div className="bg-slate-50 p-4 rounded-lg space-y-2">
-                <h4 className="font-medium">Rules for passwords</h4>
-                <p className="text-sm text-muted-foreground">
-                  To create a new password, you have to meet all of the following requirements:
-                </p>
+                <h4 className="font-medium">Password Requirements</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Minimum 8 character</li>
+                  <li>• Minimum 8 characters</li>
                   <li>• At least one special character</li>
                   <li>• At least one number</li>
-                  <li>• Can't be the same as a previous</li>
+                  <li>• Can't be the same as a previous password</li>
                 </ul>
               </div>
 
-              <Button className="bg-green-500 hover:bg-green-600">Save</Button>
+              {!showResetCode ? (
+                <Button 
+                  className="bg-green-500 hover:bg-green-600 w-full"
+                  onClick={handleRequestPasswordReset}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Requesting..." : "Request Password Reset"}
+                </Button>
+              ) : (
+                <Button 
+                  className="bg-green-500 hover:bg-green-600 w-full"
+                  onClick={handleResetPassword}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Resetting..." : "Reset Password"}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Right Column - Devices */}
+      {/* Right Column - Devices Coming Soon */}
       <Card>
-        <CardHeader>
-          <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-4">
-            <Smartphone className="h-6 w-6 text-green-500" />
-          </div>
-          <CardTitle>Devices</CardTitle>
-          <CardDescription>
-            View a list of devices currently logged into your account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <Button className="w-full bg-green-500 hover:bg-green-600">
-            Sign out from all devices
-          </Button>
-
-          <div className="space-y-4">
-            <div className="flex items-start justify-between">
-              <div className="flex gap-3">
-                <Smartphone className="h-5 w-5 text-muted-foreground mt-1" />
-                <div>
-                  <p className="font-medium">iPhone 11</p>
-                  <p className="text-sm text-muted-foreground">
-                    Lagos, Nigeria • Jan 25 at 1:15 AM
-                  </p>
-                </div>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Sign out</DropdownMenuItem>
-                  <DropdownMenuItem>View details</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="flex items-start justify-between">
-              <div className="flex gap-3">
-                <Laptop className="h-5 w-5 text-muted-foreground mt-1" />
-                <div>
-                  <p className="font-medium">Macbook Pro</p>
-                  <p className="text-sm text-muted-foreground">
-                    Lagos, Nigeria • Jan 25 at 1:15 AM
-                  </p>
-                </div>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Sign out</DropdownMenuItem>
-                  <DropdownMenuItem>View details</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
+        <CardContent className="flex flex-col items-center justify-center h-[300px] text-center p-6">
+          <Smartphone className="h-16 w-16 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Device Management</h3>
+          <p className="text-sm text-muted-foreground">
+            Device tracking and management features coming soon.
+          </p>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
