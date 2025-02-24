@@ -33,6 +33,9 @@ const passport = require('passport');
  *                 type: string
  *               password:
  *                 type: string
+ *               expoPushToken:
+ *                 type: string
+ *                 description: Expo push token for mobile notifications
  *     responses:
  *       201:
  *         description: Buyer registered successfully
@@ -57,16 +60,23 @@ router.post('/register', buyerController.register);
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - expoPushToken
  *             properties:
  *               email:
  *                 type: string
  *               password:
  *                 type: string
+ *               expoPushToken:
+ *                 type: string
+ *                 description: Expo push token for mobile notifications
  *     responses:
  *       200:
  *         description: Successful login
  *       400:
- *         description: Bad request
+ *         description: Missing required fields
  *       401:
  *         description: Invalid credentials
  *       403:

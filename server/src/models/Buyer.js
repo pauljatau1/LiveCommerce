@@ -90,6 +90,7 @@ const buyerSchema = new mongoose.Schema({
     sms: { type: Boolean, default: true },
     push: { type: Boolean, default: true }
   },
+  expoPushToken: { type: String },
   preferredLanguage: {
     type: String,
     enum: ['en', 'es', 'fr'],
