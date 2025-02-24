@@ -24,11 +24,13 @@ import axios from "axios";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import LoadingModal from "@/components/global/loading-modal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
 
 const EditProfile = () => {
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const { avatar, username, bio, email, phoneNumber } = useLocalSearchParams();
 
   const [editUsernameVal, setEditUsernameVal] = useState<string>(
@@ -140,9 +142,9 @@ const EditProfile = () => {
   }, []);
 
   return (
-    <SafeAreaView
+    <View
       className="h-full flex-1 bg-[#121212] "
-      style={{ minHeight: height }}
+      style={{ minHeight: height, paddingTop: insets.top }}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -271,7 +273,7 @@ const EditProfile = () => {
           <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
         </BottomSheet>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

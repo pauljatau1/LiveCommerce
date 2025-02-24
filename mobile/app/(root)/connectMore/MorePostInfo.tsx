@@ -3,7 +3,6 @@ import {
   Text,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StyleSheet,
   TouchableOpacity,
   Pressable,
@@ -21,6 +20,10 @@ import React, {
   useRef,
   useState,
 } from "react";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -38,11 +41,13 @@ import { useCommentPostMutation, useReactPostMutation } from "@/services/posts";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
+import { ActivityIndicator } from "react-native-paper";
 
 const { width } = Dimensions.get("window");
 const offset = 20;
 
 const MorePostInfo = () => {
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const [commentPost, { isLoading }] = useCommentPostMutation({});
   const [reactPost, { isLoading: isLoadingReactions }] = useReactPostMutation(
     {},
@@ -63,8 +68,6 @@ const MorePostInfo = () => {
 
   const getAuthUser = useCallback(async () => {
     const authToken = await getToken();
-    console.log(authToken);
-
     setToken(authToken);
   }, []);
 
@@ -155,178 +158,199 @@ const MorePostInfo = () => {
   useEffect(() => {
     getPost();
   }, []);
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.select({
-        ios: 0,
-        android: keyboardOffset,
-      })}
-      style={{ flex: 1, backgroundColor: "#121212" }}
-    >
-      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="flex-1 h-full">
-        <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[30px] pb-[12px]">
-          <View className="flex-row items-center gap-[12px]">
-            <TouchableOpacity className="" onPress={() => router.back()}>
-              <Entypo
-                name="chevron-left"
-                size={24}
-                color="rgba(204, 204, 204, 0.8)"
-              />
-            </TouchableOpacity>
-            <Image
-              source={
-                post?.author?.image
-                  ? { uri: post?.author?.image }
-                  : require("../../../assets/icons/profile.jpg")
-              }
-              contentFit="cover"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 40,
-              }}
-            />
-            <View style={styles.userMetadata}>
-              <Text style={styles.userName}>{post?.author?.name}</Text>
-              <Text style={styles.timestamp}>
-                {timeFromNow(post?.createdAt)}
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity onPress={() => null}>
-            <Entypo name="dots-three-vertical" size={16} color="#ccc" />
-          </TouchableOpacity>
-        </View>
-        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-          <View style={{ paddingHorizontal: 16, paddingVertical: 5 }}>
-            <Text style={styles.postBody}>{body?.map((bd: any) => bd)}</Text>
-          </View>
 
-          {media?.length > 0
-            ? media?.map((med) => <SingleMediaItem item={med} key={med._id} />)
-            : null}
-
-          <View
-            style={{
-              marginVertical: 20,
-
-              flexDirection: "row",
-              justifyContent: "center",
-              gap: 30,
-            }}
-          >
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-              }}
-              onPress={handleReact}
-            >
-              <Text>❤️</Text>
-              <Text
-                style={{
-                  color: "#ccc",
-                  fontSize: 12,
-                  fontFamily: "LexendDeca",
-                }}
-              >
-                {reactionCount} Reactions
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <Octicons name="comment" size={14} color="#ccc" />
-
-              <Text
-                style={{
-                  color: "#ccc",
-                  fontSize: 12,
-                  fontFamily: "LexendDeca",
-                }}
-              >
-                {comments?.length} Comments
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <Ionicons name="arrow-redo-sharp" size={14} color="#ccc" />
-
-              <Text
-                style={{
-                  color: "#ccc",
-                  fontSize: 12,
-                  fontFamily: "LexendDeca",
-                }}
-              >
-                Share
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View className="p-[16px]">
-            {comments?.length > 0
-              ? comments
-                  ?.slice()
-                  ?.reverse()
-                  ?.map((comment) => (
-                    <SingleComment item={comment} key={comment._id} />
-                  ))
-              : null}
-          </View>
-        </ScrollView>
-
-        <View className="gap-[12px] flex-col items-center  bg-[#121212]">
-          <View className="flex-row items-center gap-[12px] pt-[12px] pb-[12px] border-t-[0.5px] border-t-[#888787] px-[17px]">
-            <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink border-[1px] border-[#ccc]">
-              <TextInput
-                placeholder="Add a comment..."
-                placeholderTextColor={"rgba(204,204,204,0.25)"}
-                className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
-                value={newComment}
-                multiline
-                onChangeText={(text) => setNewComment(text)}
-              />
-              <Pressable onPress={handleSendComment}>
-                <MaterialCommunityIcons
-                  name="send-circle"
-                  size={30}
-                  color="#16783A"
-                />
-              </Pressable>
-            </View>
-          </View>
-        </View>
-
-        <BottomSheet
-          bgColor="#121212"
-          childrenStyle="!px-[11px]"
-          showCloseIcon={false}
-          title=""
-          show={showAuthSheet}
-          titleColor="!text-white"
-          snapPoints={["20%"]}
-          enableDynamicSizing={false}
-          onRequestClose={() => setShowAuthSheet(false)}
-          keyboardBehavior="interactive"
+  if (!post?._id) {
+    return (
+      <View style={{ paddingTop: 50, flex: 1, backgroundColor: "#121212" }}>
+        <ActivityIndicator
+          size={"small"}
+          color={"#16783A"}
+          style={{ marginTop: 30, marginHorizontal: "auto" }}
+        />
+      </View>
+    );
+  } else {
+    return (
+      <View
+        className="flex-1 h-full bg-[#121212]"
+        style={{ paddingTop: insets.top }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.select({
+            ios: 0,
+            android: keyboardOffset,
+          })}
+          style={{ flex: 1, backgroundColor: "#121212" }}
         >
-          <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
-        </BottomSheet>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
-  );
+          <FocusAwareStatusBar
+            barStyle="light-content"
+            backgroundColor="#121212"
+          />
+          <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[30px] pb-[12px]">
+            <View className="flex-row items-center gap-[12px]">
+              <TouchableOpacity className="" onPress={() => router.back()}>
+                <Entypo
+                  name="chevron-left"
+                  size={24}
+                  color="rgba(204, 204, 204, 0.8)"
+                />
+              </TouchableOpacity>
+              <Image
+                source={
+                  post?.author?.image
+                    ? { uri: post?.author?.image }
+                    : require("../../../assets/icons/profile.jpg")
+                }
+                contentFit="cover"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 40,
+                }}
+              />
+              <View style={styles.userMetadata}>
+                <Text style={styles.userName}>{post?.author?.name}</Text>
+                <Text style={styles.timestamp}>
+                  {timeFromNow(post?.createdAt)}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => null}>
+              <Entypo name="dots-three-vertical" size={16} color="#ccc" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 5 }}>
+              <Text style={styles.postBody}>{body?.map((bd: any) => bd)}</Text>
+            </View>
+
+            {media?.length > 0
+              ? media?.map((med) => (
+                  <SingleMediaItem item={med} key={med._id} />
+                ))
+              : null}
+
+            <View
+              style={{
+                marginVertical: 20,
+
+                flexDirection: "row",
+                justifyContent: "center",
+                gap: 30,
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+                onPress={handleReact}
+              >
+                <Text>❤️</Text>
+                <Text
+                  style={{
+                    color: "#ccc",
+                    fontSize: 12,
+                    fontFamily: "LexendDeca",
+                  }}
+                >
+                  {reactionCount} Reactions
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Octicons name="comment" size={14} color="#ccc" />
+
+                <Text
+                  style={{
+                    color: "#ccc",
+                    fontSize: 12,
+                    fontFamily: "LexendDeca",
+                  }}
+                >
+                  {comments?.length} Comments
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Ionicons name="arrow-redo-sharp" size={14} color="#ccc" />
+
+                <Text
+                  style={{
+                    color: "#ccc",
+                    fontSize: 12,
+                    fontFamily: "LexendDeca",
+                  }}
+                >
+                  Share
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="p-[16px]">
+              {comments?.length > 0
+                ? comments
+                    ?.slice()
+                    ?.reverse()
+                    ?.map((comment) => (
+                      <SingleComment item={comment} key={comment._id} />
+                    ))
+                : null}
+            </View>
+          </ScrollView>
+
+          <View className="gap-[12px] flex-col items-center  bg-[#121212]">
+            <View className="flex-row items-center gap-[12px] pt-[12px] pb-[12px] border-t-[0.5px] border-t-[#888787] px-[17px]">
+              <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink border-[1px] border-[#ccc]">
+                <TextInput
+                  placeholder="Add a comment..."
+                  placeholderTextColor={"rgba(204,204,204,0.25)"}
+                  className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
+                  value={newComment}
+                  multiline
+                  onChangeText={(text) => setNewComment(text)}
+                />
+                <Pressable onPress={handleSendComment}>
+                  <MaterialCommunityIcons
+                    name="send-circle"
+                    size={30}
+                    color="#16783A"
+                  />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+
+          <BottomSheet
+            bgColor="#121212"
+            childrenStyle="!px-[11px]"
+            showCloseIcon={false}
+            title=""
+            show={showAuthSheet}
+            titleColor="!text-white"
+            snapPoints={["20%"]}
+            enableDynamicSizing={false}
+            onRequestClose={() => setShowAuthSheet(false)}
+            keyboardBehavior="interactive"
+          >
+            <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+          </BottomSheet>
+        </KeyboardAvoidingView>
+      </View>
+    );
+  }
 };
 
 const SingleMediaItem = memo(({ item }: { item: any }) => {

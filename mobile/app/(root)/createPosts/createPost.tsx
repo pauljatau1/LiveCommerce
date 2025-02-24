@@ -44,6 +44,7 @@ import {
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import { white } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height } = Dimensions.get("window");
 
@@ -53,6 +54,7 @@ const AnimatedTouchableOpacity =
 const visibilityArray = ["Public", "Private", "Draft"];
 
 const createPost = () => {
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const [createPost, { isLoading }] = useCreatePostMutation({});
   const [body, setBody] = useState<string>("");
   const [selectedMedia, setSelectedMedia] = useState<any[]>([]);
@@ -84,7 +86,6 @@ const createPost = () => {
     );
   };
 
-  // Close the dropdown
   const closeDropdown = () => {
     setDropdownVisible(false);
   };
@@ -114,10 +115,6 @@ const createPost = () => {
 
       setSelectedMedia((prevMedia) => [...prevMedia, ...imagesToAdd]);
     }
-  };
-
-  const clearSelectedImages = () => {
-    setSelectedMedia([]);
   };
 
   const handleDeleteMedia = (uri: string) => {
@@ -178,70 +175,65 @@ const createPost = () => {
   };
 
   return (
-    // <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-    <View>
-      <SafeAreaView
-        className="h-full flex-1 bg-[#121212] "
-        style={{ minHeight: height }}
-      >
-        {isDropdownVisible && (
-          <>
-            <TouchableWithoutFeedback onPress={closeDropdown}>
-              <View
-                style={[
-                  {
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                  },
-                  { backgroundColor: "transparent", zIndex: 10000 },
-                ]}
-              ></View>
-            </TouchableWithoutFeedback>
+    <View
+      className="h-full flex-1 bg-[#121212] "
+      style={{ minHeight: height, paddingTop: insets.top }}
+    >
+      {isDropdownVisible && (
+        <>
+          <TouchableWithoutFeedback onPress={closeDropdown}>
             <View
-              style={{
-                position: "absolute",
-                top: dropdownPosition.top,
-                left: dropdownPosition.left,
-                backgroundColor: "white",
-                borderRadius: 4,
-                zIndex: 10000,
-              }}
-            >
-              {visibilityArray.map((value, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={{
-                    paddingVertical: 8,
-                    paddingHorizontal: 12,
-                    borderBottomColor: "#121212",
-                    borderBottomWidth: 0.5,
-                  }}
-                  onPress={() => {
-                    setVisibility(value);
-                    setDropdownVisible(false);
-                  }}
-                >
-                  <Text className="text-black text-[14px] font-LexendDeca">
-                    {value}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
-        <FocusAwareStatusBar
-          barStyle="light-content"
-          backgroundColor="#121212"
-        />
-        <View className="flex-row items-center gap-[30px] pt-[30px] px-[16px] mb-[40px]">
-          <Pressable onPress={() => router.back()}>
-            <AntDesign name="close" size={20} color="#ccc" />
-          </Pressable>
-          <View className="flex-row items-center gap-[12px]">
-            {/* <Image
+              style={[
+                {
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                },
+                { backgroundColor: "transparent", zIndex: 10000 },
+              ]}
+            ></View>
+          </TouchableWithoutFeedback>
+          <View
+            style={{
+              position: "absolute",
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              backgroundColor: "white",
+              borderRadius: 4,
+              zIndex: 10000,
+            }}
+          >
+            {visibilityArray.map((value, index) => (
+              <TouchableOpacity
+                key={index}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  borderBottomColor: "#121212",
+                  borderBottomWidth: 0.5,
+                }}
+                onPress={() => {
+                  setVisibility(value);
+                  setDropdownVisible(false);
+                }}
+              >
+                <Text className="text-black text-[14px] font-LexendDeca">
+                  {value}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <View className="flex-row items-center gap-[30px] pt-[30px] px-[16px] mb-[40px]">
+        <Pressable onPress={() => router.back()}>
+          <AntDesign name="close" size={20} color="#ccc" />
+        </Pressable>
+        <View className="flex-row items-center gap-[12px]">
+          {/* <Image
               source={require("../../../assets/icons/profile.jpg")}
               style={{
                 width: 35,
@@ -250,234 +242,229 @@ const createPost = () => {
               }}
               resizeMode="contain"
             /> */}
-            <Pressable
-              className="flex-row items-center gap-[8px]"
-              ref={buttonRef}
-              onPress={openDropdown}
-            >
-              <Text className="text-white text-[12px] font-LexendDeca font-500">
-                {visibility}
-              </Text>
-              <FontAwesome6 name="caret-down" size={14} color="#ccc" />
-            </Pressable>
-          </View>
-          {body && (
-            <TouchableOpacity
-              className="rounded-[4px] px-[15px] py-[10px] items-center justify-center bg-[#16783A]"
-              onPress={() => submitPost()}
-              style={{
-                marginLeft: "auto",
-              }}
-            >
-              <Text className="text-white text-[10px]">Post</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View className="px-[16px] pl-[30px]">
-            <View>
-              <TextInput
-                placeholder="What's on your mind?..."
-                placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
-                className="font-LexendDeca font-500 text-white text-[16px] mb-[20px]"
-                value={body}
-                onChangeText={(text) => setBody(text)}
-                multiline={true}
-                maxLength={250}
-
-                // numberOfLines={5}
-              />
-            </View>
-          </View>
-          {selectedMedia.length > 0 ? (
-            <View
-              style={{
-                height: 220,
-                marginBottom: 10,
-              }}
-            >
-              <ScrollView
-                style={{
-                  marginLeft: 30,
-                }}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                  height: 220,
-                }}
-              >
-                <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                  {selectedMedia.map((uri, index) => (
-                    <View
-                      key={index}
-                      style={{
-                        marginRight: 6,
-                        width: 160,
-                        backgroundColor: "#111",
-                      }}
-                    >
-                      {uri.mimeType.split("/")[0] == "image" ? (
-                        <Image
-                          source={{ uri: uri.uri }}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            borderRadius: 10,
-                          }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <Video
-                          source={{
-                            uri: uri.uri,
-                          }}
-                          style={{
-                            height: "100%",
-                            width: "100%",
-                            borderRadius: 10,
-                          }}
-                          resizeMode={ResizeMode.CONTAIN}
-                          useNativeControls
-                          isLooping
-                        />
-                      )}
-
-                      <Pressable
-                        className="absolute right-[4px] top-[4px] bg-[#000] w-[25px] h-[25px] rounded-full items-center justify-center"
-                        onPress={() => handleDeleteMedia(uri.uri)}
-                      >
-                        <Ionicons name="close-sharp" size={14} color="white" />
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          ) : null}
-
           <Pressable
-            className="flex-row ml-[30] gap-[4px] items-center my-[10px]"
-            onPress={() => setShowSellers(true)}
+            className="flex-row items-center gap-[8px]"
+            ref={buttonRef}
+            onPress={openDropdown}
           >
-            <Entypo
-              name="shop"
-              size={16}
-              color="#16783A"
-              style={{ marginTop: 2 }}
-            />
-            {sellers?.length < 1 ? (
-              <Text className="text-[14px] text-[#16783A] font-LexendDeca">
-                Tag sellers
-              </Text>
-            ) : (
-              <Text className="text-[14px] text-[#16783A] font-LexendDeca">
-                {construcTaggedSellers(sellers)}
-              </Text>
-            )}
+            <Text className="text-white text-[12px] font-LexendDeca font-500">
+              {visibility}
+            </Text>
+            <FontAwesome6 name="caret-down" size={14} color="#ccc" />
           </Pressable>
+        </View>
+        {body && (
+          <TouchableOpacity
+            className="rounded-[4px] px-[15px] py-[10px] items-center justify-center bg-[#16783A]"
+            onPress={() => submitPost()}
+            style={{
+              marginLeft: "auto",
+            }}
+          >
+            <Text className="text-white text-[10px]">Post</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
-          {products.length > 0 && (
-            <View className="w-full ml-[30px] pr-[30px]">
-              <Text className="text-white text-[12px] font-LexendDeca mb-[10px]">
-                Tagged Products :
-              </Text>
-              <FlatList
-                data={products}
-                nestedScrollEnabled={true}
-                renderItem={({ item }) => (
-                  <View className="w-[160px] h-[260px] mr-[6px]">
-                    <ConnectProductCard
-                      name={item.name}
-                      price={item.price}
-                      category={item.category}
-                      seller={item.seller}
-                      image_url={item?.images[0]?.url}
-                      rating={item?.stats?.averageRating}
-                    />
-                    <TouchableOpacity
-                      className="absolute right-[4px] top-[4px] bg-[#000] w-[25px] h-[25px] rounded-full items-center justify-center bg-[#121212]"
-                      onPress={() =>
-                        setProducts(
-                          products.filter((prod) => prod._id != item._id),
-                        )
-                      }
-                      // pointerEvents="box-none"
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View className="px-[16px] pl-[30px]">
+          <View>
+            <TextInput
+              placeholder="What's on your mind?..."
+              placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
+              className="font-LexendDeca font-500 text-white text-[16px] mb-[20px]"
+              value={body}
+              onChangeText={(text) => setBody(text)}
+              multiline={true}
+              maxLength={250}
+
+              // numberOfLines={5}
+            />
+          </View>
+        </View>
+        {selectedMedia.length > 0 ? (
+          <View
+            style={{
+              height: 220,
+              marginBottom: 10,
+            }}
+          >
+            <ScrollView
+              style={{
+                marginLeft: 30,
+              }}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                height: 220,
+              }}
+            >
+              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                {selectedMedia.map((uri, index) => (
+                  <View
+                    key={index}
+                    style={{
+                      marginRight: 6,
+                      width: 160,
+                      backgroundColor: "#111",
+                    }}
+                  >
+                    {uri.mimeType.split("/")[0] == "image" ? (
+                      <Image
+                        source={{ uri: uri.uri }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: 10,
+                        }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Video
+                        source={{
+                          uri: uri.uri,
+                        }}
+                        style={{
+                          height: "100%",
+                          width: "100%",
+                          borderRadius: 10,
+                        }}
+                        resizeMode={ResizeMode.CONTAIN}
+                        useNativeControls
+                        isLooping
+                      />
+                    )}
+
+                    <Pressable
+                      className="absolute right-[4px] top-[4px] bg-[#000] w-[25px] h-[25px] rounded-full items-center justify-center"
+                      onPress={() => handleDeleteMedia(uri.uri)}
                     >
                       <Ionicons name="close-sharp" size={14} color="white" />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
-                )}
-                keyExtractor={(item, index) => item._id.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-              />
-            </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
+
+        <Pressable
+          className="flex-row ml-[30] gap-[4px] items-center my-[10px]"
+          onPress={() => setShowSellers(true)}
+        >
+          <Entypo
+            name="shop"
+            size={16}
+            color="#16783A"
+            style={{ marginTop: 2 }}
+          />
+          {sellers?.length < 1 ? (
+            <Text className="text-[14px] text-[#16783A] font-LexendDeca">
+              Tag sellers
+            </Text>
+          ) : (
+            <Text className="text-[14px] text-[#16783A] font-LexendDeca">
+              {construcTaggedSellers(sellers)}
+            </Text>
           )}
+        </Pressable>
 
-          <BottomSheet
-            bgColor="#121212"
-            childrenStyle="!px-[11px]"
-            showCloseIcon={false}
-            title=""
-            show={showProducts}
-            titleColor="!text-white"
-            snapPoints={["80%"]}
-            enableDynamicSizing={false}
-            onRequestClose={() => setShowProducts(false)}
-            keyboardBehavior="interactive"
-          >
-            <ProductsSheet
-              handleSubmitSelectedProducts={handleSubmitSelectedProducts}
-            />
-          </BottomSheet>
-
-          <BottomSheet
-            bgColor="#121212"
-            childrenStyle="!px-[0px] !py-[0px]"
-            showCloseIcon={false}
-            show={showSellers}
-            snapPoints={["90%"]}
-            enableDynamicSizing={false}
-            onRequestClose={() => setShowSellers(false)}
-            keyboardBehavior="interactive"
-          >
-            <SellersSheet
-              handleSubmitTaggedSellers={handleSubmitTaggedSellers}
-            />
-          </BottomSheet>
-        </ScrollView>
-        <View className="flex-row items-center justify-center gap-[50] flex-wrap absolute bottom-10 self-center">
-          <TouchableOpacity
-            className="flex-col items-center gap-[5px]"
-            onPress={() => pickImage()}
-          >
-            <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
-              <AntDesign name="picture" size={15} color="#94A3B1" />
-            </View>
-            <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
-              Media
+        {products.length > 0 && (
+          <View className="w-full ml-[30px] pr-[30px]">
+            <Text className="text-white text-[12px] font-LexendDeca mb-[10px]">
+              Tagged Products :
             </Text>
-          </TouchableOpacity>
+            <FlatList
+              data={products}
+              nestedScrollEnabled={true}
+              renderItem={({ item }) => (
+                <View className="w-[160px] h-[260px] mr-[6px]">
+                  <ConnectProductCard
+                    name={item.name}
+                    price={item.price}
+                    category={item.category}
+                    seller={item.seller}
+                    image_url={item?.images[0]?.url}
+                    rating={item?.stats?.averageRating}
+                  />
+                  <TouchableOpacity
+                    className="absolute right-[4px] top-[4px] bg-[#000] w-[25px] h-[25px] rounded-full items-center justify-center bg-[#121212]"
+                    onPress={() =>
+                      setProducts(
+                        products.filter((prod) => prod._id != item._id),
+                      )
+                    }
+                    // pointerEvents="box-none"
+                  >
+                    <Ionicons name="close-sharp" size={14} color="white" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              keyExtractor={(item, index) => item._id.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            />
+          </View>
+        )}
 
-          <TouchableOpacity
-            className="flex-col items-center gap-[5px]"
-            onPress={() => setShowProducts(true)}
-          >
-            <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
-              <SimpleLineIcons name="chart" size={15} color="#94A3B1" />
-            </View>
-            <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
-              Product
-            </Text>
-          </TouchableOpacity>
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          title=""
+          show={showProducts}
+          titleColor="!text-white"
+          snapPoints={["80%"]}
+          enableDynamicSizing={false}
+          onRequestClose={() => setShowProducts(false)}
+          keyboardBehavior="interactive"
+        >
+          <ProductsSheet
+            handleSubmitSelectedProducts={handleSubmitSelectedProducts}
+          />
+        </BottomSheet>
 
-          <LoadingModal isVisible={isLoading} />
-        </View>
-      </SafeAreaView>
+        <BottomSheet
+          bgColor="#121212"
+          childrenStyle="!px-[0px] !py-[0px]"
+          showCloseIcon={false}
+          show={showSellers}
+          snapPoints={["90%"]}
+          enableDynamicSizing={false}
+          onRequestClose={() => setShowSellers(false)}
+          keyboardBehavior="interactive"
+        >
+          <SellersSheet handleSubmitTaggedSellers={handleSubmitTaggedSellers} />
+        </BottomSheet>
+      </ScrollView>
+      <View className="flex-row items-center justify-center gap-[50] flex-wrap absolute bottom-10 self-center">
+        <TouchableOpacity
+          className="flex-col items-center gap-[5px]"
+          onPress={() => pickImage()}
+        >
+          <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
+            <AntDesign name="picture" size={15} color="#94A3B1" />
+          </View>
+          <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
+            Media
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="flex-col items-center gap-[5px]"
+          onPress={() => setShowProducts(true)}
+        >
+          <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
+            <SimpleLineIcons name="chart" size={15} color="#94A3B1" />
+          </View>
+          <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
+            Product
+          </Text>
+        </TouchableOpacity>
+
+        <LoadingModal isVisible={isLoading} />
+      </View>
     </View>
-
-    // </TouchableWithoutFeedback>
   );
 };
 

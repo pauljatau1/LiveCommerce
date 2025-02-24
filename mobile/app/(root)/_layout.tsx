@@ -80,6 +80,15 @@ const Layout = () => {
       />
 
       <Stack.Screen
+        name="orders/returns"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
         name="addresses/addAddress"
         options={{
           headerTitle: "",

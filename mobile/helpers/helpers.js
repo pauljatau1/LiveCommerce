@@ -98,3 +98,17 @@ export const getProductSpecifications = (obj, prefix) => {
       {},
     );
 };
+
+export const findVariantType = (obj) => {
+  if (!obj) return null;
+  let selectedType = "";
+  for (let [key, value] of Object.entries(obj)) {
+    if (value) {
+      console.log("variant value ", value);
+
+      return (selectedType = key);
+    }
+  }
+  console.log("variant obj ", obj);
+  return selectedType;
+};

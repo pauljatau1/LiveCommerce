@@ -1,19 +1,6 @@
-import {
-  View,
-  Text,
-  Pressable,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-  FlatList,
-} from "react-native";
-import React, { useEffect, useState } from "react";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import AntDesign from "@expo/vector-icons/AntDesign";
+import { View, Text, TouchableOpacity, Image, FlatList } from "react-native";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import BouncyCheckbox from "react-native-bouncy-checkbox";
-import { white } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
-import { toast } from "@/core/toast";
 import { router } from "expo-router";
 
 const WishList = ({
@@ -23,17 +10,20 @@ const WishList = ({
   wishlist: any[];
   handleModifyWishList: (action: string, data: any) => Promise<void>;
 }) => {
+  const renderWishlistItem = useCallback(({ item }: { item: any }) => {
+    return (
+      <WishlistItem
+        wishlistItem={item.product}
+        handleModifyWishList={handleModifyWishList}
+        key={item._id}
+      />
+    );
+  }, []);
   return (
     <View className="px-[20px] h-[90%]">
       <FlatList
         data={wishlist}
-        renderItem={({ item }) => (
-          <WishlistItem
-            wishlistItem={item.product}
-            handleModifyWishList={handleModifyWishList}
-            key={item._id}
-          />
-        )}
+        renderItem={renderWishlistItem}
         keyExtractor={(item) => item._id}
         showsVerticalScrollIndicator={false}
       />
@@ -108,4 +98,4 @@ const WishlistItem = ({
   );
 };
 
-export default WishList;
+export default memo(WishList);
