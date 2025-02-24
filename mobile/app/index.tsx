@@ -1,8 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect, router } from "expo-router";
 import { useEffect } from "react";
+import { usePushNotifications } from "../hooks/useExpoPushToken";
 
 const Home = () => {
+  const { expoPushToken } = usePushNotifications();
+  console.log("expoPushToken", expoPushToken);
+  
   useEffect(() => {
     async function getToken() {
       const token = await AsyncStorage.getItem("token");
