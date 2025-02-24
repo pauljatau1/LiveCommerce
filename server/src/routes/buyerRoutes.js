@@ -367,60 +367,6 @@ router.get('/google-callback', passport.authenticate('google', { failureRedirect
 
 /**
  * @swagger
- * /api/buyer/forgot-password:
- *   post:
- *     summary: Request password reset email
- *     tags: [Buyer]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *     responses:
- *       200:
- *         description: Password reset email sent
- *       400:
- *         description: Email is required
- *       404:
- *         description: No account with that email exists
- *       500:
- *         description: Internal server error
- */
-router.post('/forgot-password', buyerController.forgotPassword);
-
-/**
- * @swagger
- * /api/buyer/reset-password:
- *   post:
- *     summary: Reset password using token
- *     tags: [Buyer]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               token:
- *                 type: string
- *               newPassword:
- *                 type: string
- *     responses:
- *       200:
- *         description: Password reset successful
- *       400:
- *         description: Invalid or expired reset token
- *       500:
- *         description: Internal server error
- */
-router.post('/reset-password', buyerController.resetPassword);
-
-/**
- * @swagger
  * /api/buyer/orders:
  *   get:
  *     summary: Get buyer's orders
@@ -1247,105 +1193,11 @@ router.post('/verify-identity/:buyerId',
  *       500:
  *         description: Server error
  * 
- * /api/buyer/change-password:
- *   post:
- *     summary: Change password while logged in
- *     tags: [Buyer Profile]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - currentPassword
- *               - newPassword
- *               - confirmPassword
- *             properties:
- *               currentPassword:
- *                 type: string
- *                 format: password
- *               newPassword:
- *                 type: string
- *                 format: password
- *               confirmPassword:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Password changed successfully
- *       400:
- *         description: Passwords don't match or invalid input
- *       401:
- *         description: Current password is incorrect
- *
- * /api/buyer/forgot-password/request:
- *   post:
- *     summary: Request password reset OTP
- *     tags: [Buyer Profile]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: OTP sent successfully
- *       404:
- *         description: Email not found
- *
- * /api/buyer/forgot-password/verify:
- *   post:
- *     summary: Verify OTP and reset password
- *     tags: [Buyer Profile]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - otp
- *               - newPassword
- *               - confirmPassword
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               otp:
- *                 type: string
- *                 minLength: 4
- *                 maxLength: 4
- *               newPassword:
- *                 type: string
- *                 format: password
- *               confirmPassword:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Password reset successful
- *       400:
- *         description: Invalid OTP or passwords don't match
- *       404:
- *         description: Email not found
  */
 
 // Route definitions
 router.put('/profile/update', authMiddleware.verifyToken, buyerController.updateProfile);
-router.post('/change-password', authMiddleware.verifyToken, buyerController.changePassword);
-router.post('/forgot-password/request', buyerController.requestPasswordReset);
-router.post('/forgot-password/verify', buyerController.verifyAndResetPassword);
+
 
 /**
  * @swagger
@@ -1575,6 +1427,305 @@ router.post('/seller/:sellerId/review',
  */
 router.get('/seller/:sellerId/reviews',
   buyerController.getSellerReviews
+);
+
+/**
+ * @swagger
+ * /api/buyer/notification-preferences:
+ *   get:
+ *     summary: Get buyer's notification preferences
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Notification preferences retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 preferences:
+ *                   type: object
+ *                   properties:
+ *                     orderUpdates:
+ *                       type: object
+ *                       properties:
+ *                         orderConfirmation:
+ *                           type: boolean
+ *                         shippingAndDelivery:
+ *                           type: boolean
+ *                         orderCancellation:
+ *                           type: boolean
+ *                         refundUpdates:
+ *                           type: boolean
+ *                     liveShows:
+ *                       type: object
+ *                       properties:
+ *                         allShows:
+ *                           type: boolean
+ *                         followedSellers:
+ *                           type: boolean
+ *                         recommendedShows:
+ *                           type: boolean
+ *                     messages:
+ *                       type: object
+ *                       properties:
+ *                         fromSellers:
+ *                           type: boolean
+ *                         fromBuyers:
+ *                           type: boolean
+ *                         chatReplies:
+ *                           type: boolean
+ *                         mentions:
+ *                           type: boolean
+ *                     communityActivity:
+ *                       type: object
+ *                       properties:
+ *                         postComments:
+ *                           type: boolean
+ *                         postLikes:
+ *                           type: boolean
+ *                         repliesAndMentions:
+ *                           type: boolean
+ *                     promotionsAndSales:
+ *                       type: object
+ *                       properties:
+ *                         flashSales:
+ *                           type: boolean
+ *                         couponsAndDeals:
+ *                           type: boolean
+ *                         trendingProducts:
+ *                           type: boolean
+ *                         recommendations:
+ *                           type: boolean
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/notification-preferences', 
+  authMiddleware.verifyToken, 
+  buyerController.getNotificationPreferences
+);
+
+/**
+ * @swagger
+ * /api/buyer/notification-preferences:
+ *   put:
+ *     summary: Update buyer's notification preferences
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               preferences:
+ *                 type: object
+ *                 properties:
+ *                   orderUpdates:
+ *                     type: object
+ *                     properties:
+ *                       orderConfirmation:
+ *                         type: boolean
+ *                       shippingAndDelivery:
+ *                         type: boolean
+ *                       orderCancellation:
+ *                         type: boolean
+ *                       refundUpdates:
+ *                         type: boolean
+ *                   liveShows:
+ *                     type: object
+ *                     properties:
+ *                       allShows:
+ *                         type: boolean
+ *                       followedSellers:
+ *                         type: boolean
+ *                       recommendedShows:
+ *                         type: boolean
+ *                   messages:
+ *                     type: object
+ *                     properties:
+ *                       fromSellers:
+ *                         type: boolean
+ *                       fromBuyers:
+ *                         type: boolean
+ *                       chatReplies:
+ *                         type: boolean
+ *                       mentions:
+ *                         type: boolean
+ *                   communityActivity:
+ *                     type: object
+ *                     properties:
+ *                       postComments:
+ *                         type: boolean
+ *                       postLikes:
+ *                         type: boolean
+ *                       repliesAndMentions:
+ *                         type: boolean
+ *                   promotionsAndSales:
+ *                     type: object
+ *                     properties:
+ *                       flashSales:
+ *                         type: boolean
+ *                       couponsAndDeals:
+ *                         type: boolean
+ *                       trendingProducts:
+ *                         type: boolean
+ *                       recommendations:
+ *                         type: boolean
+ *     responses:
+ *       200:
+ *         description: Notification preferences updated successfully
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/notification-preferences', 
+  authMiddleware.verifyToken, 
+  buyerController.updateNotificationPreferences
+);
+
+/**
+ * @swagger
+ * /api/buyer/forgot-password:
+ *   post:
+ *     summary: Request password reset OTP
+ *     tags: [Buyer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/forgot-password', buyerController.forgotPassword);
+
+/**
+ * @swagger
+ * /api/buyer/reset-password:
+ *   post:
+ *     summary: Reset password using OTP
+ *     tags: [Buyer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *       400:
+ *         description: Invalid or expired OTP
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/reset-password', buyerController.resetPassword);
+
+/**
+ * @swagger
+ * /api/buyer/delete-account/request:
+ *   post:
+ *     summary: Request account deletion and receive verification code
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Verification code sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Account deletion verification code sent to your email
+ *                 validFor:
+ *                   type: string
+ *                   example: 10 minutes
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/delete-account/request',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.requestAccountDeletion
+);
+
+/**
+ * @swagger
+ * /api/buyer/delete-account/confirm:
+ *   post:
+ *     summary: Confirm and execute account deletion with verification code
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               otp:
+ *                 type: string
+ *                 description: Verification code received via email
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Account deleted successfully
+ *       400:
+ *         description: Invalid or expired verification code
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/delete-account/confirm',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.confirmAccountDeletion
 );
 
 module.exports = router;
