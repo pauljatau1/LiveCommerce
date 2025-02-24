@@ -1179,4 +1179,231 @@ exports.getNewPosts = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Search posts
+exports.searchPosts = async (req, res) => {
+  try {
+    const { 
+      q = '', 
+      category, 
+      seller, 
+      page = 1, 
+      limit = 10,
+      sortBy = 'recent'
+    } = req.query;
+
+    // Build search query
+    const searchQuery = {
+      visibility: 'public',
+      $or: [
+        { title: { $regex: q, $options: 'i' } },
+        { body: { $regex: q, $options: 'i' } },
+        { tags: { $regex: q, $options: 'i' } }
+      ]
+    };
+
+    // Add category filter if provided
+    if (category) {
+      searchQuery['products.productId'] = {
+        $in: await Product.find({ category }).select('_id')
+      };
+    }
+
+    // Add seller filter if provided
+    if (seller) {
+      searchQuery['author.userId'] = seller;
+      searchQuery['author.userModel'] = 'Seller';
+    }
+
+    // Determine sort order
+    const sortOptions = sortBy === 'popular' 
+      ? { 'stats.viewCount': -1, 'stats.reactions.like': -1 }
+      : { createdAt: -1 };
+
+    // Execute search query with pagination
+    const posts = await Post.find(searchQuery)
+      .sort(sortOptions)
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate({
+        path: 'author.userId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar bio country',
+        refPath: 'author.userModel'
+      })
+      .populate('products.productId', 'name price images category brand');
+
+    // Enhance posts with formatted data
+    const enhancedPosts = await Promise.all(posts.map(async post => {
+      const enhancedTaggedSellers = await enhanceTaggedSellers(post.taggedSellers);
+      
+      // Get the appropriate profile image based on user type
+      const profileImageUrl = post.author.userModel === 'Seller' 
+        ? post.author.userId?.storeAvatar?.url || post.author.userId?.profileImage?.url
+        : post.author.userId?.profileImage?.url;
+      
+      return {
+        ...post.toObject(),
+        author: {
+          id: post.author.userId?._id,
+          name: post.author.userId?.storeName || 
+                post.author.userId?.username || 
+                `${post.author.userId?.firstName} ${post.author.userId?.lastName}`,
+          image: profileImageUrl || null,
+          bio: post.author.userId?.bio || null,
+          country: post.author.userId?.country,
+          type: post.author.userModel,
+          businessName: post.author.userId?.businessName || null,
+          username: post.author.userId?.username || null
+        },
+        taggedSellers: enhancedTaggedSellers
+      };
+    }));
+
+    // Get total count for pagination
+    const count = await Post.countDocuments(searchQuery);
+
+    res.json({
+      posts: enhancedPosts,
+      totalPages: Math.ceil(count / limit),
+      currentPage: parseInt(page),
+      totalPosts: count
+    });
+
+  } catch (error) {
+    console.error('Search posts error:', error);
+    res.status(500).json({
+      message: 'Failed to search posts',
+      error: error.message
+    });
+  }
+};
+
+// Delete multiple posts for a user
+exports.deleteBatchPosts = async (req, res) => {
+  try {
+    const { userType, userId } = req.params;
+    const { postIds } = req.body;
+    
+    // Verify user authorization
+    if (req.user.id !== userId || req.user.role !== userType) {
+      return res.status(401).json({ message: 'Unauthorized to delete these posts' });
+    }
+
+    // Find all posts that match the criteria
+    const posts = await Post.find({
+      _id: { $in: postIds },
+      'author.userId': userId,
+      'author.userModel': userType
+    });
+
+    if (!posts.length) {
+      return res.status(404).json({ message: 'No posts found' });
+    }
+
+    // Collect all image public_ids for S3 deletion
+    const imagePublicIds = posts.reduce((acc, post) => {
+      const postImageIds = post.images.map(img => img.public_id);
+      return [...acc, ...postImageIds];
+    }, []);
+
+    // Delete images from S3
+    if (imagePublicIds.length > 0) {
+      const deletePromises = imagePublicIds.map(public_id => {
+        const params = {
+          Bucket: 'auqli-uploads',
+          Key: public_id
+        };
+        return s3.deleteObject(params).promise();
+      });
+      await Promise.all(deletePromises);
+    }
+
+    // Delete all matching posts
+    await Post.deleteMany({
+      _id: { $in: postIds },
+      'author.userId': userId,
+      'author.userModel': userType
+    });
+
+    res.json({
+      message: 'Posts deleted successfully',
+      deletedCount: posts.length
+    });
+
+  } catch (error) {
+    console.error('Delete batch posts error:', error);
+    res.status(500).json({
+      message: 'Failed to delete posts',
+      error: error.message
+    });
+  }
+};
+
+// Update multiple posts for a user
+exports.updateBatchPosts = async (req, res) => {
+  try {
+    const { userType, userId } = req.params;
+    const { updates } = req.body;
+
+    // Verify user authorization
+    if (req.user.id !== userId || req.user.role !== userType) {
+      return res.status(401).json({ message: 'Unauthorized to update these posts' });
+    }
+
+    const updateResults = await Promise.all(
+      updates.map(async update => {
+        try {
+          const post = await Post.findOne({
+            _id: update.postId,
+            'author.userId': userId,
+            'author.userModel': userType
+          });
+
+          if (!post) {
+            return {
+              postId: update.postId,
+              success: false,
+              message: 'Post not found'
+            };
+          }
+
+          // Update only provided fields
+          if (update.title) post.title = update.title;
+          if (update.body) post.body = update.body;
+          if (update.visibility) post.visibility = update.visibility;
+          if (update.tags) post.tags = update.tags;
+          
+          post.updatedAt = Date.now();
+          await post.save();
+
+          return {
+            postId: update.postId,
+            success: true,
+            message: 'Post updated successfully'
+          };
+        } catch (error) {
+          return {
+            postId: update.postId,
+            success: false,
+            message: error.message
+          };
+        }
+      })
+    );
+
+    const successCount = updateResults.filter(result => result.success).length;
+
+    res.json({
+      message: `Updated ${successCount} out of ${updates.length} posts`,
+      results: updateResults
+    });
+
+  } catch (error) {
+    console.error('Update batch posts error:', error);
+    res.status(500).json({
+      message: 'Failed to update posts',
+      error: error.message
+    });
+  }
 }; 

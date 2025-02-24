@@ -2,6 +2,7 @@ require('dotenv').config();
 const { app, server } = require('./src/app');
 const connectDB = require('./src/config/database');
 const logger = require('./src/utils/logger');
+const { startAgenda } = require('./src/config/agenda');
 
 const PORT = process.env.PORT || 8000;
 
@@ -16,11 +17,15 @@ process.on('unhandledRejection', (error) => {
   process.exit(1);
 });
 
-// Connect to MongoDB and start server
+// Connect to MongoDB, start Agenda, and start server
 const startServer = async () => {
   try {
     await connectDB();
     logger.info('Connected to MongoDB');
+    
+    // Start Agenda after MongoDB connection
+    await startAgenda();
+    logger.info('Agenda started successfully');
     
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server is running on port ${PORT}`);

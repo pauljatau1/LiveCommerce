@@ -96,6 +96,44 @@ router.get('/seller',
     authMiddleware.isSeller,
     returnController.getSellerReturns
   );
+
+  /**
+ * @swagger
+ * /api/returns/buyer:
+ *   get:
+ *     summary: Get all return requests for a buyer
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter by return status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: List of return requests
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyer',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  returnController.getBuyerReturns
+);
   
   /**
    * @swagger
@@ -844,42 +882,6 @@ router.post('/:returnId/admin/add-note',
   returnController.addAdminNote
 );
 
-/**
- * @swagger
- * /api/returns/buyer:
- *   get:
- *     summary: Get all return requests for a buyer
- *     tags: [Returns]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *         description: Filter by return status
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         description: Items per page
- *     responses:
- *       200:
- *         description: List of return requests
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.get('/buyer',
-  authMiddleware.verifyToken,
-  authMiddleware.isBuyer,
-  returnController.getBuyerReturns
-);
+
 
 module.exports = router; 

@@ -200,4 +200,28 @@ router.get('/validate/:code',
   couponController.validateCoupon
 );
 
+/**
+ * @swagger
+ * /api/coupons/{id}/expire:
+ *   post:
+ *     summary: Expire a coupon and remove its discounts from products
+ *     tags: [Coupons]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Coupon expired successfully
+ */
+router.post('/:id/expire', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  couponController.expireCoupon
+);
+
 module.exports = router; 

@@ -951,7 +951,27 @@ exports.getOrdersForBuyer = async (req, res) => {
     const orders = await Order.find({ buyer: buyerId }).sort({ createdAt: -1 })
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'name');
-    res.json(orders);
+
+    // Get associated return requests for these orders
+    const Return = mongoose.model('Return');
+    const returnRequests = await Return.find({
+      order: { $in: orders.map(order => order._id) }
+    }, '_id order status');
+
+    // Create a map of order IDs to return request details
+    const returnMap = new Map(returnRequests.map(r => [r.order.toString(), { returnId: r._id, status: r.status }]));
+
+    // Add return request info to orders
+    const ordersWithReturns = orders.map(order => {
+      const orderObj = order.toObject();
+      const returnInfo = returnMap.get(order._id.toString());
+      if (returnInfo) {
+        orderObj.returnRequestId = returnInfo.returnId;
+      }
+      return orderObj;
+    });
+
+    res.json(ordersWithReturns);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve orders for buyer', error: error.message });
   }
@@ -965,7 +985,27 @@ exports.getOrdersForSeller = async (req, res) => {
     const orders = await Order.find({ seller: sellerId }).sort({ createdAt: -1 })
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'name');
-    res.json(orders);
+
+    // Get associated return requests for these orders
+    const Return = mongoose.model('Return');
+    const returnRequests = await Return.find({
+      order: { $in: orders.map(order => order._id) }
+    }, '_id order status');
+
+    // Create a map of order IDs to return request details
+    const returnMap = new Map(returnRequests.map(r => [r.order.toString(), { returnId: r._id, status: r.status }]));
+
+    // Add return request info to orders
+    const ordersWithReturns = orders.map(order => {
+      const orderObj = order.toObject();
+      const returnInfo = returnMap.get(order._id.toString());
+      if (returnInfo) {
+        orderObj.returnRequestId = returnInfo.returnId;
+      }
+      return orderObj;
+    });
+
+    res.json(ordersWithReturns);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve orders for seller', error: error.message });
   }
@@ -1526,71 +1566,76 @@ exports.getOrderDetails = async (req, res) => {
     const order = await Order.findById(req.params.orderId)
       .populate('buyer', 'firstName lastName email phoneNumber')
       .populate('seller', 'firstName lastName email phoneNumber businessName')
-      .populate('items.product', 'name category images discount') // Added images and discount
+      .populate('items.product', 'name category images discount')
       .populate('items.seller', 'businessName');
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+
     // Calculate payment breakdown
-    let paymentBreakdown = null;
-    if (order.paid || !order.isOpen) {  // Calculate if paid or closed
-      // Get unique category names
-      const categoryNames = [...new Set(order.items.map(item => 
-        item.product?.category || null
-      ).filter(Boolean))];
-      
-      const Category = mongoose.model('Category');
-      // Find categories by name instead of _id
-      const categories = await Category.find({ name: { $in: categoryNames } });
-      const categoryFeeMap = new Map(categories.map(cat => [
-        cat.name, // Use name as the key instead of _id
-        cat.platformFee
-      ]));
+ let paymentBreakdown = null;
+ if (order.paid || !order.isOpen) {  // Calculate if paid or closed
+   // Get unique category names
+   const categoryNames = [...new Set(order.items.map(item => 
+     item.product?.category || null
+   ).filter(Boolean))];
+   
+   const Category = mongoose.model('Category');
+   // Find categories by name instead of _id
+   const categories = await Category.find({ name: { $in: categoryNames } });
+   const categoryFeeMap = new Map(categories.map(cat => [
+     cat.name, // Use name as the key instead of _id
+     cat.platformFee
+   ]));
+   // Calculate fees for each item
+   let totalPlatformFee = 0;
+   const itemizedFees = order.items.map(item => {
+     const itemTotal = item.price * item.quantity;
+     const categoryFee = categoryFeeMap.get(item.product?.category) || 0;
+     const itemPlatformFee = itemTotal * (categoryFee / 100);
+     totalPlatformFee += itemPlatformFee;
 
-      // Calculate fees for each item
-      let totalPlatformFee = 0;
-      const itemizedFees = order.items.map(item => {
-        const itemTotal = item.price * item.quantity;
-        const categoryFee = categoryFeeMap.get(item.product?.category) || 0;
-        const itemPlatformFee = itemTotal * (categoryFee / 100);
-        totalPlatformFee += itemPlatformFee;
+     return {
+       productName: item.productName,
+       amount: itemTotal,
+       platformFeePercentage: categoryFee,
+       platformFeeAmount: itemPlatformFee
+     };
+   });
 
-        return {
-          productName: item.productName,
-          amount: itemTotal,
-          platformFeePercentage: categoryFee,
-          platformFeeAmount: itemPlatformFee
-        };
-      });
+   // Calculate processing fee (1.5%)
+   const processingFee = order.totalAmount * 0.015;
+   const totalDeductions = totalPlatformFee + processingFee;
+   const sellerAmount = order.totalAmount - totalDeductions;
 
-      // Calculate processing fee (1.5%)
-      const processingFee = order.totalAmount * 0.015;
-      const totalDeductions = totalPlatformFee + processingFee;
-      const sellerAmount = order.totalAmount - totalDeductions;
+   paymentBreakdown = {
+     orderTotal: order.totalAmount,
+     items: itemizedFees,
+     fees: {
+       totalPlatformFee,
+       processingFee,
+       processingFeePercentage: 1.5,
+       totalDeductions
+     },
+     sellerPayout: sellerAmount
+   };
+ }
 
-      paymentBreakdown = {
-        orderTotal: order.totalAmount,
-        items: itemizedFees,
-        fees: {
-          totalPlatformFee,
-          processingFee,
-          processingFeePercentage: 1.5,
-          totalDeductions
-        },
-        sellerPayout: sellerAmount
-      };
-    }
-
-    const timeline = [
-      {
-        event: 'Order Created',
-        timestamp: order.createdAt,
-        details: `Order #${order.order_id} created`
-      },
-      // ... existing timeline events ...
-    ];
+ const timeline = [
+   {
+     event: 'Order Created',
+     timestamp: order.createdAt,
+     details: `Order #${order.order_id} created`
+   },
+   // ... existing timeline events ...
+ ];
+    // Get associated return request if it exists
+    const Return = mongoose.model('Return');
+    const returnRequest = await Return.findOne({ order: order._id })
+      .populate('items.product', 'name')
+      .select('_id status description preferredResolution requestDate items timeline evidence sellerResponse refundDetails');
 
     const response = {
       order: {
@@ -1610,9 +1655,25 @@ exports.getOrderDetails = async (req, res) => {
           isOpen: order.isOpen,
           closedAt: order.closedAt,
           closedBy: order.closedBy,
-          closedReason: order.closedReason
+          closedReason: order.closedReason,
+          hasReturn: !!returnRequest,
+          hasDispute: returnRequest?.status === 'DISPUTED' || false,
+          hasRefund: returnRequest?.status === 'REFUNDED' || false,
+          returnRequestId: returnRequest?._id || null
         },
-        paymentBreakdown  // Add the payment breakdown here
+        returnDetails: returnRequest ? {
+          _id: returnRequest._id,
+          status: returnRequest.status,
+          description: returnRequest.description,
+          preferredResolution: returnRequest.preferredResolution,
+          requestDate: returnRequest.requestDate,
+          items: returnRequest.items,
+          timeline: returnRequest.timeline,
+          evidence: returnRequest.evidence,
+          sellerResponse: returnRequest.sellerResponse,
+          refundDetails: returnRequest.refundDetails
+        } : null,
+        paymentBreakdown
       },
       buyer: order.buyer,
       seller: order.seller,

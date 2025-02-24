@@ -1816,6 +1816,9 @@ exports.getBuyerReturns = async (req, res) => {
     const { status, page = 1, limit = 10 } = req.query;
     const buyerId = req.user.id;
 
+    console.log('Buyer ID:', buyerId); // Debug log
+    console.log('Query:', { buyer: buyerId, status }); // Debug log
+
     const query = { buyer: buyerId };
     if (status) {
       query.status = status;

@@ -1,544 +1,740 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Check, X, Eye, Loader2, PlayCircle, AlertCircle } from "lucide-react";
-import { api } from "@/api/axios";
-import { toast } from "sonner";
+import { useState, useEffect } from "react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Search } from "lucide-react"
+import { BASE_URL } from "@/Constants/Server"
+import axios from "axios"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/ui/dialog"
+import { useNavigate } from "react-router-dom"
+import { CheckCircle, AlertCircle, AlertTriangle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { InfoIcon } from "lucide-react"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
-interface WithdrawalNote {
-  content: string;
-  addedBy: string;
-  _id: string;
-  createdAt: string;
-}
-
-interface Withdrawal {
-  _id: string;
-  seller: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-  bankDetails: {
-    bankName: string;
-    accountNumber: string;
-    accountName: string;
-  };
-  amount: number;
-  status: 'pending' | 'processing' | 'completed' | 'rejected';
-  notes: WithdrawalNote[];
-  requestDate: string;
-  processedDate?: string;
-  reference: string;
-}
-
-function Withdrawals() {
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [statusNote, setStatusNote] = useState("");
-  const [pendingAction, setPendingAction] = useState<'processing' | 'completed' | 'rejected' | null>(null);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [transferStatus, setTransferStatus] = useState({ loading: false, error: null });
-  const [transferPolling, setTransferPolling] = useState<NodeJS.Timeout | null>(null);
-  const [requiresOTP, setRequiresOTP] = useState(false);
-  const [transferCode, setTransferCode] = useState(null);
-
-  const fetchWithdrawals = async () => {
-    try {
-      const response = await api.get("/api/admin/withdrawals");
-      setWithdrawals(response.data);
-    } catch (error) {
-      toast.error("Failed to fetch withdrawals");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+export default function Coupons() {
+  // State management
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '', // Optional now
+    discountPercentage: '',
+    hasMinimumRequirement: false,
+    minimumAmount: 0,
+    startDate: new Date(),
+    endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 7 days from now
+    customerEligibility: 'all',
+    usageLimit: null,
+    productDiscounts: [] // Will store {productId, discountedPrice}
+  })
+  const [selectedProducts, setSelectedProducts] = useState([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [endDateEnabled, setEndDateEnabled] = useState(false)
+  const [sellerProducts, setSellerProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false)
+  const [productErrors, setProductErrors] = useState({})
+  const navigate = useNavigate()
+  const [startTimeOption, setStartTimeOption] = useState('immediately')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [expireDialogOpen, setExpireDialogOpen] = useState(false)
+  const [selectedCouponId, setSelectedCouponId] = useState(null)
+  const [successMessage, setSuccessMessage] = useState("")
 
   useEffect(() => {
-    fetchWithdrawals();
-    return () => {
-      // Cleanup polling on unmount
-      if (transferPolling) {
-        clearInterval(transferPolling);
-      }
-    };
-  }, []);
+    const fetchSellerProducts = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken')
+        if (sellerToken) {
+          const tokenData = JSON.parse(sellerToken)
+          const token = tokenData.data
 
-  const handleStatusUpdate = async () => {
-    if (!selectedWithdrawal || !pendingAction) return;
+          const profileResponse = await axios.get(`${BASE_URL}/seller/profile`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
 
-    setProcessingId(selectedWithdrawal._id);
-    try {
-      await api.put(`/api/admin/withdrawals/${selectedWithdrawal._id}/status`, {
-        status: pendingAction,
-        note: statusNote.trim() || undefined
-      });
-      toast.success(`Withdrawal ${pendingAction}`);
-      fetchWithdrawals();
-      setIsStatusModalOpen(false);
-      setStatusNote("");
-      setPendingAction(null);
-    } catch (error) {
-      toast.error("Failed to update withdrawal status");
-    } finally {
-      setProcessingId(null);
-    }
-  };
+          const sellerId = profileResponse.data._id
+          const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`)
 
-  const handleTransfer = async (withdrawal) => {
-    setSelectedWithdrawal(withdrawal);
-    setTransferStatus({ loading: false, error: null });
-    setIsTransferModalOpen(true);
-  };
+          // Filter out products that are already on discount
+          const availableProducts = productsResponse.data.products.map(product => ({
+            ...product,
+            isOnDiscount: product.discountEndDate && new Date(product.discountEndDate) > new Date(),
+            discountEndDate: product.discountEndDate
+          }))
 
-  const confirmTransfer = async () => {
-    setTransferStatus({ loading: true, error: null });
-    try {
-      const response = await api.post(`/api/admin/withdrawals/${selectedWithdrawal._id}/transfer`);
-      toast.success("Transfer initiated successfully");
-      
-      // Start polling for transfer status with improved logic
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusResponse = await api.get(
-            `/api/admin/transfers/${response.data.data.transfer.reference}/verify`
-          );
-          
-          const { status, requiresAction } = statusResponse.data.data;
-          
-          console.log('Transfer status check:', {
-            reference: response.data.data.transfer.reference,
-            status,
-            requiresAction
-          });
-
-          if (requiresAction) {
-            // Stop polling and show OTP verification UI
-            clearInterval(pollInterval);
-            setTransferPolling(null);
-            setRequiresOTP(true);
-            // For test mode, automatically finalize the transfer
-            try {
-              const finalizeResponse = await api.post(
-                `/api/admin/transfers/${response.data.data.transfer.reference}/finalize`
-              );
-              if (finalizeResponse.data.success) {
-                toast.success("Transfer finalized successfully");
-                await fetchWithdrawals();
-                setIsTransferModalOpen(false);
-              }
-            } catch (finalizeError) {
-              console.error("Error finalizing transfer:", finalizeError);
-              toast.error("Failed to finalize transfer");
-            }
-            return;
-          }
-
-          if (status === 'completed') {
-            clearInterval(pollInterval);
-            setTransferPolling(null);
-            toast.success("Transfer completed successfully");
-            await fetchWithdrawals();
-            setIsTransferModalOpen(false);
-          } else if (status === 'failed') {
-            clearInterval(pollInterval);
-            setTransferPolling(null);
-            toast.error("Transfer failed");
-            await fetchWithdrawals();
-            setIsTransferModalOpen(false);
-          }
-          // Continue polling for 'processing' status
-        } catch (error) {
-          console.error("Error polling transfer status:", error);
-          // Don't clear interval on network errors, keep trying
-          if (error.response?.status === 404) {
-            // Only stop polling if withdrawal is not found
-            clearInterval(pollInterval);
-            setTransferPolling(null);
-            toast.error("Transfer reference not found");
-          }
+          setSellerProducts(availableProducts)
         }
-      }, 5000); // Poll every 5 seconds
-
-      setTransferPolling(pollInterval);
-    } catch (error) {
-      setTransferStatus({
-        loading: false,
-        error: error.response?.data?.message || "Failed to initiate transfer"
-      });
-      toast.error("Failed to initiate transfer");
+      } catch (error) {
+        setError("Failed to fetch products: " + error.message)
+      } finally {
+        setLoading(false)
+      }
     }
-  };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  };
+    fetchSellerProducts()
+  }, [])
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN'
-    }).format(amount);
-  };
+  // Update form data when start time option changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      startDate: startTimeOption === 'immediately' ? new Date() : prev.startDate
+    }))
+  }, [startTimeOption])
 
-  const getTotalAmount = (status: Withdrawal['status']) => {
-    return withdrawals
-      .filter(w => w.status === status)
-      .reduce((acc, curr) => acc + curr.amount, 0);
-  };
+  // Add date validation
+  const isDateValid = () => {
+    if (!formData.endDate) return false;
+    if (startTimeOption === 'scheduled' && !formData.startDate) return false;
+    if (startTimeOption === 'scheduled' && formData.startDate >= formData.endDate) return false;
+    if (startTimeOption === 'immediately' && new Date() >= formData.endDate) return false;
+    return true;
+  }
 
-  const getStatusColor = (status: Withdrawal['status']) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      processing: 'bg-blue-100 text-blue-800',
-      completed: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800'
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!isDateValid()) {
+      setError("Please set valid start and end dates");
+      return;
+    }
+    setIsSubmitting(true)
+    try {
+      const sellerToken = localStorage.getItem('sellerToken')
+      if (!sellerToken) {
+        throw new Error("Not authenticated")
+      }
+
+      const tokenData = JSON.parse(sellerToken)
+      const token = tokenData.data
+
+      // Prepare product discounts data
+      const productDiscounts = selectedProducts.map(productId => {
+        const product = sellerProducts.find(p => p._id === productId)
+        const discountedPrice = product.price * (1 - (formData.discountPercentage / 100))
+        return {
+          productId,
+          discountedPrice: Math.round(discountedPrice)
+        }
+      })
+
+      // Format dates properly
+      const startDateTime = startTimeOption === 'immediately' 
+        ? new Date().toISOString()
+        : formData.startDate.toISOString();
+
+      const endDateTime = formData.endDate.toISOString();
+
+      const couponData = {
+        name: formData.name,
+        code: formData.code.toUpperCase(),
+        discountPercentage: Number(formData.discountPercentage),
+        hasMinimumRequirement: formData.hasMinimumRequirement,
+        minimumAmount: formData.hasMinimumRequirement ? Number(formData.minimumAmount) : 0,
+        startDate: startDateTime,
+        endDate: endDateTime, // Now properly included
+        customerEligibility: formData.customerEligibility,
+        productDiscounts,
+        usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null
+      }
+
+      await axios.post(`${BASE_URL}/coupons`, couponData, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      setSuccessDialogOpen(true)
+
+      // Reset form
+      setFormData({
+        name: "",
+        code: "",
+        discountPercentage: 0,
+        hasMinimumRequirement: false,
+        minimumAmount: 0,
+        startDate: new Date(),
+        endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
+        customerEligibility: "all",
+        usageLimit: null,
+        productDiscounts: []
+      })
+      setSelectedProducts([])
+
+    } catch (error) {
+      setError(error.response?.data?.message || error.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Filter products based on search query
+  const filteredProducts = sellerProducts.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Modify the product selection handler
+  const handleProductSelection = (productId, checked) => {
+    const product = sellerProducts.find(p => p._id === productId)
+
+    if (checked && product.isOnDiscount) {
+      setProductErrors({
+        ...productErrors,
+        [productId]: `This product is already on discount until ${new Date(product.discountEndDate).toLocaleDateString()}`
+      })
+      return
+    }
+
+    setProductErrors({
+      ...productErrors,
+      [productId]: null
+    })
+
+    if (checked) {
+      setSelectedProducts([...selectedProducts, productId])
+    } else {
+      setSelectedProducts(selectedProducts.filter((id) => id !== productId))
+    }
+  }
+
+  const formatDiscountInfo = (product) => {
+    if (!product.isOnDiscount) return null;
+
+    const endDate = new Date(product.discountEndDate).toLocaleDateString();
+    const discountPercentage = product.discountType === 'coupon'
+      ? `${product.discountPercentage}% off`
+      : `${Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% off`;
+
+    return {
+      endDate,
+      discountPercentage,
+      daysRemaining: Math.ceil((new Date(product.discountEndDate) - new Date()) / (1000 * 60 * 60 * 24))
     };
-    return colors[status];
   };
 
-  const renderActions = (withdrawal) => (
-    <div className="flex space-x-2">
-      <Button 
-        variant="outline" 
-        size="sm"
-        onClick={() => {
-          setSelectedWithdrawal(withdrawal);
-          setIsDetailsModalOpen(true);
-        }}
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-      {withdrawal.status === 'pending' && (
-        <>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-blue-500"
-            onClick={() => {
-              setSelectedWithdrawal(withdrawal);
-              setPendingAction('processing');
-              setIsStatusModalOpen(true);
-            }}
-            disabled={processingId === withdrawal._id}
-          >
-            <PlayCircle className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-red-500"
-            onClick={() => {
-              setSelectedWithdrawal(withdrawal);
-              setPendingAction('rejected');
-              setIsStatusModalOpen(true);
-            }}
-            disabled={processingId === withdrawal._id}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-green-500"
-            onClick={() => handleTransfer(withdrawal)}
-            disabled={transferStatus.loading}
-          >
-            {transferStatus.loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              'Transfer'
-            )}
-          </Button>
-        </>
-      )}
-      {withdrawal.status === 'processing' && (
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="text-green-500"
-          onClick={() => {
-            setSelectedWithdrawal(withdrawal);
-            setPendingAction('completed');
-            setIsStatusModalOpen(true);
-          }}
-          disabled={processingId === withdrawal._id}
-        >
-          <Check className="h-4 w-4" />
-        </Button>
-      )}
-    </div>
-  );
+  const handleExpireCoupon = async (couponId) => {
+    try {
+      const sellerToken = localStorage.getItem('sellerToken')
+      if (!sellerToken) {
+        throw new Error("Not authenticated")
+      }
 
-  const renderTransferModal = () => (
-    <Dialog open={isTransferModalOpen} onOpenChange={setIsTransferModalOpen}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>
-            {requiresOTP ? 'Verify Transfer' : 'Confirm Transfer'}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          {selectedWithdrawal && (
-            <>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-semibold">Amount</p>
-                  <p className="text-lg">{formatCurrency(selectedWithdrawal.amount)}</p>
-                </div>
-                <div>
-                  <p className="font-semibold">Recipient</p>
-                  <p>{selectedWithdrawal.seller.firstName} {selectedWithdrawal.seller.lastName}</p>
-                </div>
-              </div>
+      const tokenData = JSON.parse(sellerToken)
+      const token = tokenData.data
 
-              <div className="border rounded p-3">
-                <p className="font-semibold mb-2">Bank Details</p>
-                <p>{selectedWithdrawal.bankDetails.bankName}</p>
-                <p>{selectedWithdrawal.bankDetails.accountNumber}</p>
-                <p>{selectedWithdrawal.bankDetails.accountName}</p>
-              </div>
+      // Call the expire coupon endpoint
+      await axios.post(`${BASE_URL}/coupons/${couponId}/expire`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
 
-              {transferStatus.error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>{transferStatus.error}</AlertDescription>
-                </Alert>
-              )}
-            </>
-          )}
+      // Refresh the products list to show updated discount status
+      await fetchSellerProducts()
 
-          {requiresOTP && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Verification Required</AlertTitle>
-              <AlertDescription>
-                Transfer requires verification. Processing automatically...
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
+      // Show success message
+      setSuccessDialogOpen(true)
+      setSuccessMessage("Coupon expired successfully")
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsTransferModalOpen(false)}
-            disabled={transferStatus.loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={confirmTransfer}
-            disabled={transferStatus.loading}
-          >
-            {transferStatus.loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing
-              </>
-            ) : (
-              'Confirm Transfer'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+    } catch (error) {
+      setError(error.response?.data?.message || error.message)
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-white">Withdrawals</h2>
-        <p className="text-muted-foreground">Manage seller withdrawal requests</p>
+    <div className=" mx-auto p-6">
+      {/* Header Section with improved spacing and styling */}
+      <div className="flex justify-between items-center mb-8 border-b pb-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Create New Coupon</h1>
+          <p className="text-gray-500 mt-1">Set up discounts for your products</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/dashboard/coupons/list')}
+          className="flex items-center gap-2"
+        >
+          <CalendarIcon className="h-4 w-4" />
+          View All Coupons
+        </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Pending Amount</span>
-            <span className="text-2xl font-bold mt-2">
-              {formatCurrency(getTotalAmount('pending'))}
-            </span>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Processing Amount</span>
-            <span className="text-2xl font-bold mt-2">
-              {formatCurrency(getTotalAmount('processing'))}
-            </span>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Completed Amount</span>
-            <span className="text-2xl font-bold mt-2">
-              {formatCurrency(getTotalAmount('completed'))}
-            </span>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Total Requests</span>
-            <span className="text-2xl font-bold mt-2">{withdrawals.length}</span>
-          </div>
-        </Card>
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Organize form into card-like sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Coupon Details Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-primary" />
+                </span>
+                Coupon Details
+              </h2>
+              <div className="space-y-4">
+                <div className="grid gap-3">
+                  <Label htmlFor="name">Coupon Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g., Summer Sale 2024"
+                    className="max-w-md"
+                  />
+                </div>
+                
+                <div className="grid gap-3">
+                  <Label htmlFor="code">Coupon Code</Label>
+                  <Input
+                    id="code"
+                    value={formData.code}
+                    onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                    placeholder="e.g., SUMMER2024"
+                    className="max-w-md uppercase"
+                  />
+                  <span className="text-sm text-gray-500">Leave empty for auto-generation</span>
+                </div>
 
-      <Card className="p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Reference</TableHead>
-              <TableHead>Seller</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Bank Details</TableHead>
-              <TableHead>Request Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {withdrawals.map((withdrawal) => (
-              <TableRow key={withdrawal._id}>
-                <TableCell className="font-mono text-xs">
-                  {withdrawal.reference}
-                </TableCell>
-                <TableCell>
-                  {withdrawal.seller.firstName} {withdrawal.seller.lastName}
-                </TableCell>
-                <TableCell>{formatCurrency(withdrawal.amount)}</TableCell>
-                <TableCell>
-                  <div className="text-sm">
-                    <div>{withdrawal.bankDetails.bankName}</div>
-                    <div className="text-muted-foreground">{withdrawal.bankDetails.accountNumber}</div>
+                <div className="grid gap-3">
+                  <Label htmlFor="discountPercentage">Discount Percentage</Label>
+                  <div className="relative max-w-[200px]">
+                    <Input
+                      id="discountPercentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.discountPercentage}
+                      onChange={(e) => setFormData({...formData, discountPercentage: e.target.value})}
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-500">%</span>
                   </div>
-                </TableCell>
-                <TableCell>{formatDate(withdrawal.requestDate)}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(withdrawal.status)}`}>
-                    {withdrawal.status.charAt(0).toUpperCase() + withdrawal.status.slice(1)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {renderActions(withdrawal)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-
-      {renderTransferModal()}
-
-      {/* Details Modal */}
-      <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Withdrawal Details</DialogTitle>
-          </DialogHeader>
-          {selectedWithdrawal && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold">Seller Information</h4>
-                  <p>{selectedWithdrawal.seller.firstName} {selectedWithdrawal.seller.lastName}</p>
-                  <p className="text-sm text-muted-foreground">{selectedWithdrawal.seller.email}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Bank Details</h4>
-                  <p>{selectedWithdrawal.bankDetails.bankName}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedWithdrawal.bankDetails.accountNumber} ({selectedWithdrawal.bankDetails.accountName})
-                  </p>
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold mb-2">Notes History</h4>
-                <div className="space-y-2">
-                  {selectedWithdrawal.notes.map((note) => (
-                    <div key={note._id} className="bg-muted p-3 rounded-md">
-                      <p className="text-sm">{note.content}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        By {note.addedBy} on {formatDate(note.createdAt)}
-                      </p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Status Update Modal */}
-      <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Withdrawal Status</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label htmlFor="note">Add a note (optional)</label>
-              <Textarea
-                id="note"
-                value={statusNote}
-                onChange={(e) => setStatusNote(e.target.value)}
-                placeholder="Enter a note about this status change..."
+            {/* Purchase Restrictions Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-primary" />
+                </span>
+                Purchase Restrictions
+              </h2>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="hasMinimum"
+                    checked={formData.hasMinimumRequirement}
+                    onCheckedChange={(checked) => setFormData({
+                      ...formData,
+                      hasMinimumRequirement: checked,
+                      minimumAmount: checked ? formData.minimumAmount : 0
+                    })}
+                  />
+                  <Label htmlFor="hasMinimum">Set minimum purchase amount</Label>
+                </div>
+
+                {formData.hasMinimumRequirement && (
+                  <div className="ml-6">
+                    <Label htmlFor="minimumAmount">Minimum Amount (₦)</Label>
+                    <Input
+                      id="minimumAmount"
+                      type="number"
+                      value={formData.minimumAmount}
+                      onChange={(e) => setFormData({...formData, minimumAmount: e.target.value})}
+                      placeholder="1000"
+                      className="max-w-[200px] mt-2"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Duration Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <CalendarIcon className="h-5 w-5 text-primary" />
+                </span>
+                Coupon Duration
+              </h2>
+              <div className="space-y-4">
+                <RadioGroup
+                  value={startTimeOption}
+                  onValueChange={setStartTimeOption}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="immediately" id="immediately" />
+                    <Label htmlFor="immediately">Start immediately</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="scheduled" id="scheduled" />
+                    <Label htmlFor="scheduled">Schedule start time</Label>
+                  </div>
+                </RadioGroup>
+
+                {startTimeOption === 'scheduled' && (
+                  <div className="grid gap-2">
+                    <Label>Start Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "justify-start text-left font-normal",
+                            !formData.startDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.startDate ? format(formData.startDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.startDate}
+                          onSelect={(date) => setFormData({ ...formData, startDate: date })}
+                          disabled={(date) => 
+                            date < new Date() || 
+                            (formData.endDate && date >= formData.endDate)
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  <Label>End Date <span className="text-red-500">*</span></Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !formData.endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.endDate ? format(formData.endDate, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={formData.endDate}
+                        onSelect={(date) => setFormData({ ...formData, endDate: date })}
+                        disabled={(date) => 
+                          date < new Date() || 
+                          (startTimeOption === 'scheduled' && formData.startDate && date <= formData.startDate)
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {!isDateValid() && (
+                    <p className="text-sm text-red-500">
+                      Please select a valid end date that is after the start date
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Eligibility Card */}
+            <div className="bg-white rounded-lg border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="bg-primary/10 p-2 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-primary" />
+                </span>
+                Customer Eligibility
+              </h2>
+              <RadioGroup
+                value={formData.customerEligibility}
+                onValueChange={(value) => setFormData({...formData, customerEligibility: value})}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="all" />
+                  <Label htmlFor="all">All customers</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="new" id="new" />
+                  <Label htmlFor="new">New customers</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="followers" id="followers" />
+                  <Label htmlFor="followers">Followers only</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+        </div>
+
+        {/* Products Selection Section - Full Width */}
+        <div className="bg-white rounded-lg border p-6 shadow-sm mt-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span className="bg-primary/10 p-2 rounded-lg">
+              <Search className="h-5 w-5 text-primary" />
+            </span>
+            Select Products
+          </h2>
+          
+          {/* Improved search bar */}
+          <div className="max-w-md mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Search products by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
               />
             </div>
           </div>
-          <DialogFooter>
+
+          {error && (
+            <div className="text-red-500 text-sm">{error}</div>
+          )}
+
+          <div className="border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>PRODUCTS</TableHead>
+                  <TableHead>STOCK</TableHead>
+                  <TableHead>PRICE</TableHead>
+                  <TableHead>DISCOUNTED PRICE</TableHead>
+                  <TableHead>STATUS</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                        <span>Loading products...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">No products found</TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProducts.map((product) => {
+                    const isDiscounted = product.discount?.isActive;
+                    const discountInfo = isDiscounted ? {
+                      endDate: product.discount.endDate ? new Date(product.discount.endDate).toLocaleDateString() : 'Ongoing',
+                      discountPercentage: `${product.discount.value}%`,
+                      couponName: product.discount.couponName
+                    } : null;
+
+                    return (
+                      <TableRow
+                        key={product._id}
+                        className={isDiscounted ? "bg-gray-50" : ""}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedProducts.includes(product._id)}
+                            onCheckedChange={(checked) => handleProductSelection(product._id, checked)}
+                            disabled={isDiscounted}
+                            className={isDiscounted ? "opacity-50 cursor-not-allowed" : ""}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <img
+                              src={product.images[0]?.url || "/placeholder.svg"}
+                              alt={product.name}
+                              className="h-10 w-10 rounded-md object-cover"
+                            />
+                            <div className="font-medium">{product.name}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{product.stock}</TableCell>
+                        <TableCell>
+                          <div className={isDiscounted ? "line-through text-gray-400" : ""}>
+                            ₦ {product.price.toLocaleString()}
+                          </div>
+                          {isDiscounted && (
+                            <div className="text-green-600 font-medium">
+                              ₦ {product.discountedPrice.toLocaleString()}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isDiscounted ? (
+                            <span className="text-gray-400">N/A</span>
+                          ) : (
+                            <div>
+                              ₦ {(product.price * (1 - (formData.discountPercentage / 100))).toLocaleString()}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isDiscounted && (
+                            <div className="inline-flex items-center gap-2">
+                              <Badge 
+                                variant="secondary" 
+                                className="bg-amber-50 text-amber-700 hover:bg-amber-50"
+                              >
+                                <div className="flex items-center gap-1">
+                                  <AlertCircle className="h-3 w-3" />
+                                  <span>
+                                    {discountInfo.discountPercentage} off until {discountInfo.endDate}
+                                  </span>
+                                </div>
+                              </Badge>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => {
+                                    // Show discount details
+                                    alert(`Current Discount Details:\nDiscount: ${discountInfo.discountPercentage} off\nEnds: ${discountInfo.endDate}\nCoupon: ${discountInfo.couponName}`)
+                                  }}
+                                >
+                                  <InfoIcon className="h-4 w-4 text-gray-400" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => {
+                                    setSelectedCouponId(product.discount.couponId)
+                                    setExpireDialogOpen(true)
+                                  }}
+                                >
+                                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+            <div className="p-4 border-t text-sm text-gray-500">
+              Showing {filteredProducts.length} items
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-4 pt-6 border-t">
+          <Button type="button" variant="outline">Cancel</Button>
+          <Button 
+            type="submit"
+            className="min-w-[150px]"
+            disabled={selectedProducts.length === 0 || isSubmitting || !isDateValid()}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Publishing...
+              </div>
+            ) : (
+              'Publish Coupon'
+            )}
+          </Button>
+        </div>
+      </form>
+
+      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+              {successMessage || "Coupon Created Successfully"}
+            </DialogTitle>
+            <DialogDescription>
+              {successMessage 
+                ? "The coupon has been expired and all associated discounts have been removed."
+                : "Your coupon has been created and is now active. You can view and manage all your coupons in the coupons list."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            {!successMessage && (
+              <Button
+                variant="outline"
+                onClick={() => setSuccessDialogOpen(false)}
+              >
+                Create Another
+              </Button>
+            )}
             <Button
-              onClick={handleStatusUpdate}
-              disabled={processingId === selectedWithdrawal?._id}
+              onClick={() => {
+                setSuccessDialogOpen(false)
+                if (!successMessage) {
+                  navigate('/dashboard/coupons/list')
+                }
+              }}
+              className="bg-green-600 hover:bg-green-700"
             >
-              {processingId === selectedWithdrawal?._id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Confirm'
-              )}
+              {successMessage ? "Close" : "View All Coupons"}
             </Button>
-          </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={expireDialogOpen} onOpenChange={setExpireDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              Expire Coupon
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to expire this coupon? This will remove the discount from all associated products and cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setExpireDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleExpireCoupon(selectedCouponId)
+                setExpireDialogOpen(false)
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Expire Coupon
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }
-
-export default Withdrawals;

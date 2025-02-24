@@ -16,6 +16,7 @@
         "@ffmpeg-installer/ffmpeg": "^1.1.0",
         "@ffmpeg/ffmpeg": "^0.12.15",
         "@sendgrid/mail": "^8.1.4",
+        "agenda": "^5.0.0",
         "agora-access-token": "^2.0.4",
         "aws-sdk": "^2.1692.0",
         "bcrypt": "^5.1.1",

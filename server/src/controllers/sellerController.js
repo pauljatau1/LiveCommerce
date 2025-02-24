@@ -357,7 +357,11 @@ exports.getProfile = async (req, res) => {
         lastStreamCancellation: 1,
         agoraUid: 1,
         followers: 1,
-        following: 1
+        following: 1,
+        operatingHours: 1,
+        specialDates: 1,
+        timezone: 1,
+        storePolicy: 1,
       })
       .lean();
 
@@ -380,7 +384,12 @@ exports.getProfile = async (req, res) => {
       followingCount: followingCount,
       totalOrders: orderCount,
       streamCount: streamCount,
-      categoriesCount: categoriesCount
+      categoriesCount: categoriesCount,
+      // Add current store status
+      storeStatus: {
+        isCurrentlyOpen: seller.isCurrentlyOpen?.(),
+        currentSchedule: getCurrentSchedule(seller)
+      }
     };
 
     // Remove the full arrays from the response
@@ -391,6 +400,38 @@ exports.getProfile = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error fetching seller profile', error: error.message });
   }
+};
+
+// Helper function to get current schedule
+const getCurrentSchedule = (seller) => {
+  const now = new Date();
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const today = days[now.getDay()];
+  
+  // Check for special dates first
+  const specialDate = seller.specialDates?.find(d => 
+    new Date(d.date).toDateString() === now.toDateString()
+  );
+
+  if (specialDate) {
+    return {
+      type: 'special',
+      isOpen: specialDate.isOpen,
+      openTime: specialDate.openTime,
+      closeTime: specialDate.closeTime,
+      note: specialDate.note
+    };
+  }
+
+  // Return regular hours
+  const regularHours = seller.operatingHours?.[today];
+  return {
+    type: 'regular',
+    day: today,
+    isOpen: regularHours?.isOpen || false,
+    openTime: regularHours?.openTime,
+    closeTime: regularHours?.closeTime
+  };
 };
 
 // Update seller profile information
@@ -691,12 +732,12 @@ exports.addBusinessDetails = async (req, res) => {
   try {
     const { businessName, businessType, taxInformation } = req.body;
 
-    // Validate required fields
-    if (!businessName || !businessType || !taxInformation) {
-      return res.status(400).json({ 
-        message: 'Business name, business type, and tax information are all required' 
-      });
-    }
+    // // Validate required fields
+    // if (!businessName || !businessType || !taxInformation) {
+    //   return res.status(400).json({ 
+    //     message: 'Business name, business type, and tax information are all required' 
+    //   });
+    // }
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
@@ -2905,8 +2946,12 @@ async function calculateTransactionSummary(sellerId) {
 
 exports.getAdvancedAnalytics = async (req, res) => {
   try {
+    console.log('Starting getAdvancedAnalytics...');
     const sellerId = req.user.id;
     const { timeframe = '30d' } = req.query;
+
+    console.log('Seller ID:', sellerId);
+    console.log('Timeframe:', timeframe);
 
     // Calculate date ranges
     const now = new Date();
@@ -2920,8 +2965,10 @@ exports.getAdvancedAnalytics = async (req, res) => {
         end: getDateRange(timeframe, now)
       }
     };
+    console.log('Date ranges:', dateRanges);
 
     // Parallel fetch all required data
+    console.log('Fetching data...');
     const [
       currentOrders,
       previousOrders,
@@ -2946,7 +2993,15 @@ exports.getAdvancedAnalytics = async (req, res) => {
       })
     ]);
 
+    console.log('Data fetched:');
+    console.log('Current orders:', currentOrders.length);
+    console.log('Previous orders:', previousOrders.length);
+    console.log('Products:', products.length);
+    console.log('Customer data:', customerData?.length);
+    console.log('Returns:', returns.length);
+
     // Calculate comprehensive analytics
+    console.log('Calculating analytics...');
     const analytics = {
       revenue: calculateRevenueMetrics(currentOrders, previousOrders),
       orders: calculateOrderMetrics(currentOrders, previousOrders),
@@ -2970,6 +3025,7 @@ exports.getAdvancedAnalytics = async (req, res) => {
     res.json(analytics);
   } catch (error) {
     console.error('Error in getAdvancedAnalytics:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       message: 'Failed to retrieve analytics',
       error: error.message
@@ -3080,18 +3136,113 @@ function calculateInventoryMetrics(products) {
 }
 
 function calculateCustomerMetrics(customerData, currentOrders, previousOrders) {
-  const currentCustomers = new Set(currentOrders.map(order => order.buyer._id.toString()));
-  const previousCustomers = new Set(previousOrders.map(order => order.buyer._id.toString()));
-  const returningCustomers = new Set([...currentCustomers].filter(x => previousCustomers.has(x)));
-
-  return {
-    total: currentCustomers.size,
-    new: currentCustomers.size - returningCustomers.size,
-    returning: returningCustomers.size,
-    retentionRate: previousCustomers.size ? (returningCustomers.size / previousCustomers.size) * 100 : 0,
-    averageOrdersPerCustomer: currentOrders.length / Math.max(1, currentCustomers.size),
-    customerLifetimeValue: calculateCustomerLifetimeValue(customerData, currentOrders)
+  console.log('Starting calculateCustomerMetrics...');
+  
+  // Initialize with safe defaults
+  const metrics = {
+    total: 0,
+    new: 0,
+    returning: 0,
+    retentionRate: 0,
+    averageOrdersPerCustomer: 0,
+    customerLifetimeValue: 0,
+    topCustomers: []
   };
+
+  try {
+    // Combine customers and followers data
+    const allCustomers = new Set();
+    
+    // Add customers from orders
+    currentOrders.forEach(order => {
+      if (order?.buyer?._id) {
+        allCustomers.add(order.buyer._id.toString());
+      }
+    });
+
+    // Add followers if they exist in customerData
+    if (customerData && Array.isArray(customerData)) {
+      customerData.forEach(customer => {
+        if (customer?.followers) {
+          customer.followers.forEach(follower => {
+            if (follower?.buyerId) {
+              allCustomers.add(follower.buyerId.toString());
+            }
+          });
+        }
+        if (customer?.buyerId) {
+          allCustomers.add(customer.buyerId.toString());
+        }
+      });
+    }
+
+    // Process previous customers for retention calculation
+    const previousCustomerSet = new Set(
+      previousOrders
+        .filter(order => order?.buyer?._id)
+        .map(order => order.buyer._id.toString())
+    );
+
+    // Calculate returning customers
+    const returningCustomers = new Set(
+      [...allCustomers].filter(id => previousCustomerSet.has(id))
+    );
+
+    // Calculate customer lifetime value safely
+    const validOrders = currentOrders.filter(order => 
+      order?.totalAmount && order?.buyer?._id
+    );
+
+    const customerSpending = new Map();
+    validOrders.forEach(order => {
+      const buyerId = order.buyer._id.toString();
+      const currentSpent = customerSpending.get(buyerId) || 0;
+      customerSpending.set(buyerId, currentSpent + order.totalAmount);
+    });
+
+    // Get top customers
+    const topCustomers = Array.from(customerSpending.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([buyerId, totalSpent]) => {
+        const customerOrder = currentOrders.find(
+          order => order.buyer._id.toString() === buyerId
+        );
+        return {
+          id: buyerId,
+          name: customerOrder ? 
+            `${customerOrder.buyer.firstName || ''} ${customerOrder.buyer.lastName || ''}`.trim() : 
+            'Unknown Customer',
+          totalOrders: validOrders.filter(
+            order => order.buyer._id.toString() === buyerId
+          ).length,
+          totalSpent: totalSpent
+        };
+      });
+
+    // Update metrics
+    metrics.total = allCustomers.size;
+    metrics.new = allCustomers.size - returningCustomers.size;
+    metrics.returning = returningCustomers.size;
+    metrics.retentionRate = previousCustomerSet.size ? 
+      (returningCustomers.size / previousCustomerSet.size) * 100 : 0;
+    metrics.averageOrdersPerCustomer = validOrders.length / Math.max(1, allCustomers.size);
+    metrics.customerLifetimeValue = customerSpending.size ? 
+      Array.from(customerSpending.values()).reduce((sum, spent) => sum + spent, 0) / customerSpending.size : 0;
+    metrics.topCustomers = topCustomers;
+
+    console.log('Customer metrics calculated:', {
+      totalCustomers: metrics.total,
+      newCustomers: metrics.new,
+      returningCustomers: metrics.returning
+    });
+
+  } catch (error) {
+    console.error('Error calculating customer metrics:', error);
+    // Return safe defaults if there's an error
+  }
+
+  return metrics;
 }
 
 // Additional helper functions for specific calculations
@@ -3475,20 +3626,39 @@ function analyzeProductPerformance(products, orders) {
 }
 
 function analyzeCustomerEngagement(customerData, orders) {
+  console.log('Starting analyzeCustomerEngagement...');
+  console.log('Customer data:', customerData?.length);
+  console.log('Orders:', orders?.length);
+
   const recommendations = [];
   
   // Analyze customer repeat purchase rate
   const customerOrders = new Map();
+  
+  console.log('Processing orders...');
   orders.forEach(order => {
+    console.log('Processing order:', order?._id);
+    console.log('Order buyer:', order?.buyer);
+    
+    if (!order?.buyer?._id) {
+      console.log('Skipping order - no valid buyer ID');
+      return;
+    }
+
     const buyerId = order.buyer._id.toString();
     const orderCount = customerOrders.get(buyerId) || 0;
     customerOrders.set(buyerId, orderCount + 1);
   });
 
-  const repeatCustomers = Array.from(customerOrders.values()).filter(count => count > 1).length;
-  const repeatRate = (repeatCustomers / customerOrders.size) * 100;
+  console.log('Customer orders map size:', customerOrders.size);
 
-  if (repeatRate < 20) { // If repeat customer rate is below 20%
+  const repeatCustomers = Array.from(customerOrders.values()).filter(count => count > 1).length;
+  const repeatRate = customerOrders.size > 0 ? (repeatCustomers / customerOrders.size) * 100 : 0;
+
+  console.log('Repeat customers:', repeatCustomers);
+  console.log('Repeat rate:', repeatRate);
+
+  if (repeatRate < 20) {
     recommendations.push({
       type: 'customer_engagement',
       priority: 'medium',
@@ -3501,6 +3671,7 @@ function analyzeCustomerEngagement(customerData, orders) {
     });
   }
 
+  console.log('Finished analyzeCustomerEngagement');
   return {
     recommendations,
     metrics: {
@@ -3510,3 +3681,182 @@ function analyzeCustomerEngagement(customerData, orders) {
     }
   };
 }
+
+// Validate time format (HH:mm)
+const isValidTimeFormat = (time) => {
+  const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  return timeRegex.test(time);
+};
+
+// Update operating hours
+exports.updateOperatingHours = async (req, res) => {
+  try {
+    const { operatingHours, timezone } = req.body;
+    const seller = await Seller.findById(req.user.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Validate time formats
+    for (const day in operatingHours) {
+      const { openTime, closeTime, isOpen } = operatingHours[day];
+      
+      if (isOpen && (!isValidTimeFormat(openTime) || !isValidTimeFormat(closeTime))) {
+        return res.status(400).json({ 
+          message: `Invalid time format for ${day}. Use HH:mm format (e.g., 09:00)` 
+        });
+      }
+    }
+
+    seller.operatingHours = operatingHours;
+    if (timezone) seller.timezone = timezone;
+
+    await seller.save();
+
+    res.json({ 
+      message: 'Operating hours updated successfully', 
+      operatingHours: seller.operatingHours,
+      timezone: seller.timezone 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update operating hours', 
+      error: error.message 
+    });
+  }
+};
+
+// Add special dates
+exports.addSpecialDates = async (req, res) => {
+  try {
+    const { specialDates } = req.body;
+    const seller = await Seller.findById(req.user.id);
+
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Validate dates and times
+    for (const dateInfo of specialDates) {
+      const { date, isOpen, openTime, closeTime } = dateInfo;
+      
+      if (!date || typeof isOpen !== 'boolean') {
+        return res.status(400).json({ 
+          message: 'Each special date must include a valid date and isOpen status' 
+        });
+      }
+
+      if (isOpen && openTime && closeTime) {
+        if (!isValidTimeFormat(openTime) || !isValidTimeFormat(closeTime)) {
+          return res.status(400).json({ 
+            message: 'Invalid time format. Use HH:mm format (e.g., 09:00)' 
+          });
+        }
+      }
+    }
+
+    // Add new special dates
+    seller.specialDates = [
+      ...seller.specialDates,
+      ...specialDates.map(date => ({
+        ...date,
+        date: new Date(date.date)
+      }))
+    ];
+
+    // Sort special dates by date
+    seller.specialDates.sort((a, b) => a.date - b.date);
+
+    await seller.save();
+
+    res.json({ 
+      message: 'Special dates added successfully', 
+      specialDates: seller.specialDates 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to add special dates', 
+      error: error.message 
+    });
+  }
+};
+
+// Update store policy
+exports.updateStorePolicy = async (req, res) => {
+  try {
+    const {
+      deliveryTimes,
+      freeShippingPolicy,
+      lostOrDamagedPolicy,
+      refundPolicy,
+      processingTime,
+      refundMethod,
+      nonRefundableItems,
+      returnWindow,
+      returnCondition,
+      returnShipping,
+      exchangePolicy
+    } = req.body;
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    seller.storePolicy = {
+      deliveryTimes,
+      freeShippingPolicy,
+      lostOrDamagedPolicy,
+      refundPolicy,
+      processingTime,
+      refundMethod,
+      nonRefundableItems,
+      returnWindow,
+      returnCondition,
+      returnShipping,
+      exchangePolicy
+    };
+
+    await seller.save();
+
+    res.json({ 
+      message: 'Store policy updated successfully',
+      storePolicy: seller.storePolicy 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update store policy', 
+      error: error.message 
+    });
+  }
+};
+
+// const calculateCustomerMetrics = (customers) => {
+//   // Add null check before mapping
+//   if (!customers || !Array.isArray(customers)) {
+//     return {
+//       totalCustomers: 0,
+//       averageOrdersPerCustomer: 0,
+//       customerLifetimeValue: 0,
+//       topCustomers: []
+//     };
+//   }
+
+//   const validCustomers = customers.filter(customer => customer && customer.buyerId); // Filter out null/invalid customers
+
+//   return {
+//     totalCustomers: validCustomers.length,
+//     averageOrdersPerCustomer: validCustomers.reduce((acc, curr) => acc + (curr.totalOrders || 0), 0) / validCustomers.length || 0,
+//     customerLifetimeValue: validCustomers.reduce((acc, curr) => acc + (curr.totalSpent || 0), 0) / validCustomers.length || 0,
+//     topCustomers: validCustomers
+//       .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+//       .slice(0, 5)
+//       .map(customer => ({
+//         id: customer.buyerId?._id || customer.buyerId,
+//         name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+//         totalOrders: customer.totalOrders || 0,
+//         totalSpent: customer.totalSpent || 0
+//       }))
+//   };
+// };

@@ -1362,6 +1362,27 @@ router.get('/transfers/:reference/verify',
   adminController.verifyTransferStatus
 );
 
+// Add this new route
+
+/**
+ * @swagger
+ * /api/admin/categories/recalculate-stats:
+ *   post:
+ *     summary: Recalculate category statistics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Category statistics recalculated successfully
+ *       500:
+ *         description: Server error
+ */
+router.post('/categories/recalculate-stats', 
+ 
+  adminController.recalculateCategoryStats
+);
+
 /**
  * @swagger
  * /api/admin/banks:
@@ -1391,5 +1412,7 @@ router.get('/banks', authMiddleware.verifyToken, async (req, res) => {
 
 // Add the new finalize transfer route
 router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, adminController.finalizeTransfer);
+
+
 
 module.exports = router;

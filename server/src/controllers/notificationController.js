@@ -1,6 +1,7 @@
 const Notification = require('../models/Notification');
 const sgMail = require('@sendgrid/mail');
 const Order = require('../models/Order');
+const { agenda } = require('../config/agenda');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Helper function to get notification title
@@ -587,10 +588,21 @@ const handleShipmentDelivered = async (webhookData) => {
       }
     };
 
-    await Order.findByIdAndUpdate(order._id, shippingUpdate);
+    // Update order and mark items as delivered
+    const updatedOrder = await Order.findByIdAndUpdate(
+      order._id,
+      {
+        ...shippingUpdate,
+        // Mark all items as delivered
+        $set: {
+          'items.$[].status': 'delivered'
+        }
+      },
+      { new: true }
+    );
 
-    // Send email to buyer
-    const buyerEmail = {
+    // Send immediate delivery notification emails
+    const buyerDeliveryEmail = {
       to: order.buyer.email,
       from: 'Auqli Shipping <joseph@auqli.com>',
       subject: 'Your Order Has Been Delivered - Auqli',
@@ -604,14 +616,13 @@ const handleShipmentDelivered = async (webhookData) => {
             <li>Delivered on: ${new Date().toLocaleDateString()}</li>
             <li>Location: ${webhookData.events[0]?.location || 'Delivery Address'}</li>
           </ul>
-          <p>We hope you enjoy your purchase! If you have any questions or concerns, please don't hesitate to contact us.</p>
+          <p>We hope you enjoy your purchase! The order will be automatically closed in 2 days if no issues are reported.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
       `
     };
 
-    // Send email to seller
-    const sellerEmail = {
+    const sellerDeliveryEmail = {
       to: order.seller.email,
       from: 'Auqli Shipping <joseph@auqli.com>',
       subject: 'Order Delivered Successfully - Auqli',
@@ -625,28 +636,24 @@ const handleShipmentDelivered = async (webhookData) => {
             <li>Delivered on: ${new Date().toLocaleDateString()}</li>
             <li>Location: ${webhookData.events[0]?.location || 'Delivery Address'}</li>
           </ul>
-          <p>Thank you for using Auqli!</p>
+          <p>The order will be automatically closed and payment will be released in 2 days if no issues are reported.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
       `
     };
 
-    // Send emails
+    // Send immediate delivery emails
     await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail)
+      sgMail.send(buyerDeliveryEmail),
+      sgMail.send(sellerDeliveryEmail)
     ]);
 
-    // Create notification for seller
-    await exports.createNotification(order.seller, 'order_delivered', {
-      orderId: order._id,
-      order_id: order.order_id,
-      tracking_number: webhookData.tracking_number
-    });
+    // Schedule order closure job for 2 days - this will trigger the pre-save middleware
+    // that handles all transaction calculations and notifications
+    await agenda.schedule('in 2 days', 'closeOrder', { orderId: order._id });
 
   } catch (error) {
-    console.error('Error handling shipment.delivered webhook:', error);
-    throw error;
+    console.error('Error in handleShipmentDelivered:', error);
   }
 };
 

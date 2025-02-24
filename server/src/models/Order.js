@@ -500,13 +500,13 @@ orderSchema.pre('save', async function(next) {
       this.items[0].statusHistory.find(h => h.status === 'delivered')) {
     
     const deliveredDate = this.items[0].statusHistory.find(h => h.status === 'delivered').timestamp;
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
-    if (deliveredDate <= twoDaysAgo) {
+    if (deliveredDate <= oneMinuteAgo) {
       this.isOpen = false;
       this.closedAt = new Date();
       this.closedBy = 'auto';
-      this.closedReason = 'Auto-closed after 2 days of delivery with no action';
+      this.closedReason = 'Auto-closed after 1 minute of delivery with no action';
       // The wallet update will be triggered by the isOpen change in the middleware above
     }
   }
