@@ -58,6 +58,10 @@ const MessageRoom = () => {
   const [selectedProduct, setSelectedProduct] = useState<any>({});
   const [showOptions, setShowOptions] = useState<boolean>(false);
   const [isFirstTimer, setIsFirstTimer] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(0);
+  const [changePage, setChangePage] = useState<number>(0);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+
   const listRef = useRef<FlatList>(null);
   const isInitialLoad = useRef(true);
 
@@ -95,16 +99,27 @@ const MessageRoom = () => {
       return;
     }
     try {
+      setMessagesLoading(true);
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/messages/" + conversationId,
+        process.env.EXPO_PUBLIC_API_URL +
+          "api/messages/" +
+          conversationId +
+          `?${page > 0 ? "page=" + page + "&" : ""}limit=10`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setMessages(response.data.messages);
+      setMessages([
+        ...response.data?.messages?.slice()?.reverse(),
+        ...messages,
+      ]);
+      if (response.data.pagination.currentPage == 1) {
+        setHasReachedEnd(true);
+      }
+      setChangePage(response.data.pagination.currentPage);
     } catch (e) {
       console.log("error getting message history ", e);
     } finally {
@@ -112,6 +127,12 @@ const MessageRoom = () => {
       handleReadMessages();
     }
   };
+
+  const fetchMoreMessages = useCallback(() => {
+    if (!hasReachedEnd && !messagesLoading && changePage > 1) {
+      setPage(changePage - 1);
+    }
+  }, [page, changePage]);
 
   const handleReadMessages = async () => {
     try {
@@ -308,7 +329,7 @@ const MessageRoom = () => {
 
   useEffect(() => {
     getAllMessages();
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -321,7 +342,7 @@ const MessageRoom = () => {
         setLoading(false);
       } else {
         // For new messages, scroll with animation
-        listRef.current?.scrollToEnd({ animated: true });
+        // listRef.current?.scrollToEnd({ animated: true });
         setLoading(false);
       }
     }
@@ -464,28 +485,29 @@ const MessageRoom = () => {
               data={messages}
               renderItem={renderMessage}
               keyExtractor={keyExtractor}
-              // onEndReached={onLoadMore}
-              onEndReachedThreshold={0.5}
+              onStartReached={fetchMoreMessages}
+              onStartReachedThreshold={0.5}
               ListHeaderComponent={
                 messagesLoading ? <ActivityIndicator /> : null
               }
               maintainVisibleContentPosition={{
                 minIndexForVisible: 0,
-                autoscrollToTopThreshold: 0,
+                // autoscrollToTopThreshold: 0,
               }}
               contentContainerStyle={[
                 styles.contentContainer,
                 messages.length === 0 && styles.emptyList,
               ]}
-              removeClippedSubviews={false}
+              // removeClippedSubviews={false}
+              // inverted
               windowSize={10}
               maxToRenderPerBatch={10}
               updateCellsBatchingPeriod={50}
-              onLayout={() => {
-                if (isInitialLoad.current && messages.length > 0) {
-                  listRef.current?.scrollToEnd({ animated: true });
-                }
-              }}
+              // onLayout={() => {
+              //   if (isInitialLoad.current && messages.length > 0) {
+              //     listRef.current?.scrollToEnd({ animated: true });
+              //   }
+              // }}
               showsVerticalScrollIndicator={false}
             />
             {isFirstTimer && (

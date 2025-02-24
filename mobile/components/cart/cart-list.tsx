@@ -4,18 +4,13 @@ import {
   Pressable,
   TouchableOpacity,
   Image,
-  ScrollView,
   FlatList,
 } from "react-native";
 import React, { memo, useEffect, useState } from "react";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import BouncyCheckbox from "react-native-bouncy-checkbox";
-import { white } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
-import { toast } from "@/core/toast";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, getUser } from "@/store/features/auth/utils";
 
 const CartList = ({
@@ -205,4 +200,4 @@ const CartItem = memo(
   },
 );
 
-export default CartList;
+export default memo(CartList);

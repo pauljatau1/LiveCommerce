@@ -14,6 +14,10 @@ import FlashMessage from "react-native-flash-message";
 import Constants from "expo-constants";
 import * as SystemUI from "expo-system-ui";
 import { LivestreamProvider } from "@/contexts/livestreamContext";
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+} from "react-native-safe-area-context";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -49,24 +53,27 @@ function RootLayoutNav() {
   return (
     <Provider store={store}>
       {/* <KeyboardProvider> */}
-      <GestureHandlerRootView>
-        <BottomSheetModalProvider>
-          <LivestreamProvider>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="(categories)"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen name="(root)" options={{ headerShown: false }} />
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <GestureHandlerRootView>
+          <BottomSheetModalProvider>
+            <LivestreamProvider>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="(categories)"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="(root)" options={{ headerShown: false }} />
 
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <FlashMessage floating style={styles.flashMessage} />
-          </LivestreamProvider>
-        </BottomSheetModalProvider>
-      </GestureHandlerRootView>
+                <Stack.Screen name="+not-found" />
+              </Stack>
+              <FlashMessage floating style={styles.flashMessage} />
+            </LivestreamProvider>
+          </BottomSheetModalProvider>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+
       {/* </KeyboardProvider> */}
     </Provider>
   );

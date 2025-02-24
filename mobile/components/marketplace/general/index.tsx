@@ -56,6 +56,16 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     );
   };
 
+  const renderEmptyPlaceholder = () => {
+    return (
+      <View className="">
+        <Text className="text-white font-LexendDeca text-[16px] text-center">
+          No Products Found
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <View className="w-full ">
       <View className="w-full mb-[20px]">
@@ -85,6 +95,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
               marginBottom: 8, // Add space between rows
             }}
             showsVerticalScrollIndicator={false}
+            ListEmptyComponent={renderEmptyPlaceholder}
           />
         )}
       </View>
