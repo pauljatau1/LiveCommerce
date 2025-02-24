@@ -5,12 +5,12 @@ import LiveProductCard from "@/components/global/live-product-card";
 const SpotLightExplore = () => {
   return (
     <View className="mt-[9px] w-[100%] bg-[#3A3A3A]  pb-[15.5px]">
-      <Text className="text-white text-[14px] font-LexendDecaBold px-[22px] pt-[12px]">
+      <Text className="text-white text-[14px] font-LexendDecaBold px-[16px] pt-[12px]">
         Popular Shows
       </Text>
       <View
         style={{
-          paddingHorizontal: 22,
+          paddingHorizontal: 16,
         }}
       >
         <FlatList

@@ -36,9 +36,9 @@ const ReviewCard = ({
     >
       <View className="flex-row item-center gap-[6px]">
         <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
-          <Text className="text-white text-[9px]">{name.split("")[0]}</Text>
+          <Text className="text-white text-[9px]">{name?.split("")[0]}</Text>
           <Text className="text-white text-[9px]">
-            {name.split(" ")[1].split("")[0]}
+            {name?.split(" ")[1]?.split("")[0]}
           </Text>
         </View>
         <View className="gap-[2px]">
@@ -66,7 +66,9 @@ const ReviewCard = ({
           )}
       </View>
       <Text className="text-white text-[8px] leading-[10px] ">
-        {imageDimensions.width <= 190 ? comment.slice(0, 40) + "..." : comment}
+        {imageDimensions?.width <= 190
+          ? comment?.slice(0, 40) + "..."
+          : comment}
       </Text>
       <Image
         source={{ uri: imageUrl }}

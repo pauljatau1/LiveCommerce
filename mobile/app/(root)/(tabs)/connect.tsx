@@ -180,6 +180,7 @@ const Connect = () => {
             {/* <Tab.Navigator
               screenOptions={{
                 lazy: true,
+                lazyPreloadDistance: 0,
               }}
               initialLayout={{
                 width: Dimensions.get("window").width,

@@ -127,7 +127,7 @@ const CancelledOrders = ({
             Total Refund
           </Text>
           <Text className="font-LexendDecaBold text-[12px] text-[#ccc]">
-            ₦{order?.totalAmount.toLocaleString()}
+            ₦{order?.order?.totalAmount.toLocaleString()}
           </Text>
         </View>
         <View className="flex-row items-center justify-between gap-[50px]">
@@ -141,11 +141,11 @@ const CancelledOrders = ({
       <View>
         {order?.items?.map((orderItem: any, index: number) => (
           <OrderItem
-            key={orderItem?._id}
+            key={orderItem?.product?._id}
             orderItem={orderItem}
             orderStatus={order?.shipping?.tracking?.status}
-            seller={order.seller}
-            buyer={order.buyer}
+            seller={order?.seller?._id}
+            buyer={order?.buyer?._id}
             token={userToken.toString()}
             conversationId={conversationId.toString()}
           />

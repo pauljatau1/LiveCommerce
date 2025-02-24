@@ -57,6 +57,7 @@ const OrderItem = ({
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
             {orderItem?.seller?.storeName ||
               orderItem?.seller?.businessName ||
+              orderItem?.product?.seller?.storeName ||
               "Kicks Store"}
           </Text>
           <View
@@ -105,7 +106,7 @@ const OrderItem = ({
 
             <View className="flex-row items-center justify-between gap-[11px]">
               <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight shrink">
-                Item ID: {orderItem._id}
+                Item ID: {orderItem.product?._id}
               </Text>
               <Text className="text-white text-[11px] font-LexendDecaMedium">
                 Quantity: {orderItem?.quantity}
@@ -120,7 +121,7 @@ const OrderItem = ({
             )}
           </View>
         </View>
-        {orderStatus == "delivered" && (
+        {/* {orderStatus == "delivered" && (
           <View className="flex-row justify-end items-center flex-wrap relative">
             <Pressable
               className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
@@ -131,7 +132,7 @@ const OrderItem = ({
               </Text>
             </Pressable>
           </View>
-        )}
+        )} */}
       </View>
     </View>
   );

@@ -31,10 +31,17 @@ const offset = 20;
 
 const EditProfile = () => {
   const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
-  const { avatar, username, bio, email, phoneNumber } = useLocalSearchParams();
+  const { avatar, username, bio, email, phoneNumber, firstName, lastName } =
+    useLocalSearchParams();
 
   const [editUsernameVal, setEditUsernameVal] = useState<string>(
     username?.toString(),
+  );
+  const [editFirstNameVal, setEditFirstNameVal] = useState<string>(
+    firstName?.toString(),
+  );
+  const [editLastNameVal, setEditLastNameVal] = useState<string>(
+    lastName?.toString(),
   );
   const [editBioVal, setEditBioVal] = useState<string>(bio?.toString());
   const [editEmailVal, setEditEmailVal] = useState<string>(email?.toString());
@@ -107,6 +114,8 @@ const EditProfile = () => {
         username: editUsernameVal,
         phoneNumber: editPhoneVal,
         bio: editBioVal,
+        firstName: editFirstNameVal,
+        lastName: editLastNameVal,
       };
       const response = await axios.put(
         process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/update",
@@ -215,6 +224,24 @@ const EditProfile = () => {
                 placeholder="Username"
                 value={editUsernameVal}
                 onChangeText={(text) => setEditUsernameVal(text)}
+              />
+            </View>
+            <View style={styles.editSingleSection}>
+              <Text style={styles.label}>FirstName</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="FirstName"
+                value={editFirstNameVal}
+                onChangeText={(text) => setEditFirstNameVal(text)}
+              />
+            </View>
+            <View style={styles.editSingleSection}>
+              <Text style={styles.label}>LastName</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="LastName"
+                value={editLastNameVal}
+                onChangeText={(text) => setEditLastNameVal(text)}
               />
             </View>
             <View style={styles.editSingleSection}>

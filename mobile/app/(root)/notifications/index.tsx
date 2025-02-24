@@ -33,6 +33,7 @@ const Notifications = () => {
   const [tab, setTab] = useState<string>("All");
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [filter, setFilter] = useState<string>("All");
 
   const handleGetNotifications = useCallback(async () => {
     if (isFetching || hasReachedEnd) {
@@ -53,11 +54,8 @@ const Notifications = () => {
         },
       );
       const notifications = response.data.notifications;
-      console.log("getting notifications", response.data.currentPage);
 
       if (response.data.currentPage === response.data.totalPages) {
-        console.log("has reached end ", response.data.currentPage);
-
         setHasReachedEnd(true);
       }
       if (notifications.length > 0) {
@@ -69,7 +67,6 @@ const Notifications = () => {
         setFilteredData((prevData) => {
           return [...prevData, ...notifications];
         });
-        console.log("here");
         handleMarkAllRead();
 
         // setFilteredData([]);
@@ -101,9 +98,17 @@ const Notifications = () => {
     }
   }, []);
 
-  //   const handleFilterData = () => {
-
-  //   }
+  const handleFilterData = (tab: any) => {
+    if (tab == "All") {
+      return setFilteredData(data);
+    }
+    if (tab == "Orders") {
+      return setFilteredData(
+        data.filter((fd: any) => fd?.type?.includes("order_")),
+      );
+    }
+    setFilteredData(data.filter((fd: any) => fd?.type?.includes(filter)));
+  };
 
   const renderNotification = useCallback(
     ({ item }: { item: any }) => {
@@ -187,6 +192,10 @@ const Notifications = () => {
     }
     handleGetNotifications();
   }, [page]);
+
+  useEffect(() => {
+    handleFilterData(tab);
+  }, [tab]);
 
   return (
     <SafeAreaView className="h-full flex-1 bg-[#121212] ">

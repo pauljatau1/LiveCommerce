@@ -33,6 +33,14 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="createReview/sellerReview"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
 
       <Stack.Screen
         name="cart/cart"
