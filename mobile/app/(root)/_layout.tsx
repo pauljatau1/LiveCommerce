@@ -33,6 +33,14 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="createReview/sellerReview"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
 
       <Stack.Screen
         name="cart/cart"
@@ -72,6 +80,15 @@ const Layout = () => {
 
       <Stack.Screen
         name="orders/[id]"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="orders/returns"
         options={{
           headerTitle: "",
           headerShadowVisible: false,
@@ -168,6 +185,79 @@ const Layout = () => {
       />
       <Stack.Screen
         name="sellerProfile/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="notifications/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/activityStatus"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/blockedUsers"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/communityActivity"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/liveStreamAlerts"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/newMessages"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/orderUpdates"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="settings/promotionSales"
         options={{
           headerTitle: "",
           headerShadowVisible: false,

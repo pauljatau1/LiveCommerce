@@ -7,18 +7,18 @@ const Home = () => {
   const { expoPushToken } = usePushNotifications();
   console.log("expoPushToken", expoPushToken);
   
-  useEffect(() => {
-    async function getToken() {
-      const token = await AsyncStorage.getItem("token");
-      if (token) {
-        router.navigate("/(root)/(tabs)/home");
-      } else {
-        router.navigate("/(root)/(auth)/welcome");
-      }
-    }
-    getToken();
-  }, []);
-  return <Redirect href={"/(root)/(tabs)/home"} />;
+  // useEffect(() => {
+  //   async function getToken() {
+  //     const token = await AsyncStorage.getItem("token");
+  //     if (token) {
+  //       router.navigate("/(root)/(tabs)/home");
+  //     } else {
+  //       router.navigate("/(root)/(auth)/welcome");
+  //     }
+  //   }
+  //   getToken();
+  // }, []);
+  return <Redirect href={"../(root)/(tabs)/home"} />;
 };
 
 export default Home;

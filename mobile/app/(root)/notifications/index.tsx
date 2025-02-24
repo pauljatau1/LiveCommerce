@@ -1,0 +1,365 @@
+import {
+  View,
+  Text,
+  SafeAreaView,
+  Dimensions,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
+import Entypo from "@expo/vector-icons/Entypo";
+import { Link, router } from "expo-router";
+import { FlatList, ScrollView } from "react-native-gesture-handler";
+import { signOut } from "@/store/features/auth/authSlice";
+import { useDispatch } from "react-redux";
+import BottomSheet from "@/components/global/bottom-sheet";
+import DeleteSheet from "@/components/settings/deleteSheet";
+import { Image } from "expo-image";
+import { icons } from "@/constants";
+import { getToken } from "@/store/features/auth/utils";
+import axios from "axios";
+import { formatDate, formatMessageDate } from "@/helpers/helpers";
+
+const { width, height } = Dimensions.get("window");
+const tabs = ["All", "Orders", "Community", "From Auqli"];
+
+const Notifications = () => {
+  const dispatch = useDispatch();
+  const [showDeleteSheet, setShowDeleteSheet] = useState<boolean>(false);
+  const [data, setData] = useState<any[]>([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [tab, setTab] = useState<string>("All");
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [filter, setFilter] = useState<string>("All");
+
+  const handleGetNotifications = useCallback(async () => {
+    if (isFetching || hasReachedEnd) {
+      return;
+    }
+
+    try {
+      setIsFetching(true);
+      const token = await getToken();
+
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/notifications/buyer?page=${page}&limit=10`,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      const notifications = response.data.notifications;
+
+      if (response.data.currentPage === response.data.totalPages) {
+        setHasReachedEnd(true);
+      }
+      if (notifications.length > 0) {
+        let newData = [] as any[];
+        setData((prevData) => {
+          newData = [...prevData, ...notifications];
+          return newData;
+        });
+        setFilteredData((prevData) => {
+          return [...prevData, ...notifications];
+        });
+        handleMarkAllRead();
+
+        // setFilteredData([]);
+      }
+      //   setPage((prevPage) => prevPage + 1);
+    } catch (error) {
+      console.error("Error fetching more notifications:", error);
+    } finally {
+      setIsFetching(false);
+    }
+  }, [page]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      const token = await getToken();
+
+      const response = await axios.put(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/notifications/buyer/mark-all-read`,
+        {},
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+    }
+  }, []);
+
+  const handleFilterData = (tab: any) => {
+    if (tab == "All") {
+      return setFilteredData(data);
+    }
+    if (tab == "Orders") {
+      return setFilteredData(
+        data.filter((fd: any) => fd?.type?.includes("order_")),
+      );
+    }
+    setFilteredData(data.filter((fd: any) => fd?.type?.includes(filter)));
+  };
+
+  const renderNotification = useCallback(
+    ({ item }: { item: any }) => {
+      return (
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderContainer}>
+            <Text style={styles.sectionHeader}>{item?.title}</Text>
+            {!item?.isRead && <View style={styles.unread}></View>}
+          </View>
+
+          <TouchableOpacity style={styles.sectionRow} activeOpacity={0.5}>
+            <Text style={styles.sectionText}>{item?.message}</Text>
+            <Text style={styles.date}>
+              {formatMessageDate(item?.createdAt)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    },
+    [filteredData, page],
+  );
+
+  const renderListHeader = useCallback(() => {
+    return (
+      <View style={styles.tabs}>
+        {tabs.map((tabLabel, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[styles.tab, tabLabel == tab ? styles.activeTab : null]}
+            onPress={() => setTab(tabLabel)}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                tabLabel == tab ? styles.activeTabText : null,
+              ]}
+            >
+              {tabLabel}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  }, [tab]);
+
+  const renderEmptyComponent = useCallback(() => {
+    return (
+      <View style={[styles.emptyComponent]}>
+        <View style={styles.emptyWrapper}>
+          <View style={styles.emptyImageContainer}>
+            <Image
+              source={icons.waving}
+              contentFit="contain"
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 56,
+                backgroundColor: "#E4ECF7",
+              }}
+            />
+          </View>
+
+          <Text style={styles.emptyText}>You have no notifications!</Text>
+          <Text style={styles.emptySubText}>
+            if you will get any notifications we will tell you about it
+          </Text>
+        </View>
+      </View>
+    );
+  }, [filteredData]);
+
+  const fetchMoreNotifications = () => {
+    if (!isFetching && !hasReachedEnd) {
+      setPage((prevPage) => prevPage + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (isFetching) {
+      return;
+    }
+    handleGetNotifications();
+  }, [page]);
+
+  useEffect(() => {
+    handleFilterData(tab);
+  }, [tab]);
+
+  return (
+    <SafeAreaView className="h-full flex-1 bg-[#121212] ">
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <View className="flex flex-row items-center justify-center gap-[10px] px-[16px] py-[20px]">
+        <TouchableOpacity
+          className="absolute left-[12px] pr-[8px]"
+          onPress={() => router.back()}
+        >
+          <Entypo
+            name="chevron-left"
+            size={24}
+            color="rgba(204, 204, 204, 0.8)"
+          />
+        </TouchableOpacity>
+
+        <Text className="text-white font-LexendDecaMedium text-[20px]">
+          Notifications
+        </Text>
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={renderNotification}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={renderEmptyComponent}
+          onEndReachedThreshold={0.5}
+          onEndReached={fetchMoreNotifications}
+          contentContainerStyle={{}}
+        />
+      </View>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showDeleteSheet}
+        titleColor="!text-white"
+        snapPoints={["25%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => {
+          setShowDeleteSheet(false);
+        }}
+        keyboardBehavior="interactive"
+      >
+        <></>
+      </BottomSheet>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  section: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(204, 204, 204, 0.60)",
+    marginBottom: 14,
+  },
+  sectionHeaderContainer: {
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontFamily: "LexendDeca-Medium",
+    color: "#ccc",
+  },
+  unread: {
+    width: 8,
+    height: 8,
+    borderRadius: 8,
+    backgroundColor: "#16783A",
+  },
+  sectionRow: {
+    padding: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  sectionText: {
+    fontSize: 13,
+    fontFamily: "LexendDeca-Light",
+    color: "#ccc",
+    flexShrink: 1,
+  },
+  inactiveRow: {
+    opacity: 0.3,
+  },
+  tabs: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginBottom: 25,
+    paddingHorizontal: 16,
+  },
+  tab: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 6,
+    backgroundColor: "rgba(204, 204, 204, 0.25)",
+  },
+  activeTab: {
+    backgroundColor: "#fff",
+  },
+  tabText: {
+    fontSize: 10,
+    fontFamily: "LexendDeca",
+    color: "#ccc",
+  },
+  activeTabText: {
+    color: "#2F2E41",
+  },
+  emptyComponent: {
+    // position: "absolute",
+    // left: 0,
+    // right: 0,
+    // top: 0,
+    // bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: height / 2 - 300,
+  },
+  emptyWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    paddingHorizontal: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: "LexendDeca-Medium",
+    color: "#fff",
+    textAlign: "center",
+  },
+  emptySubText: {
+    fontSize: 14,
+    fontFamily: "LexendDeca",
+    color: "#ccc",
+    textAlign: "center",
+  },
+  emptyImageContainer: {
+    width: 124,
+    height: 124,
+    borderRadius: "50%",
+    backgroundColor: "#E4ECF7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  date: {
+    fontSize: 12,
+    fontFamily: "LexendDeca",
+    color: "#ccc",
+  },
+});
+
+export default Notifications;

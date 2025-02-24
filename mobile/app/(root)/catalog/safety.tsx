@@ -103,7 +103,7 @@ const Connect = () => {
               </Pressable>
               <Pressable style={styles.headerBtn}>
                 <Image
-                  source={require("../../../assets/icons/animoji.png")}
+                  source={require("../../../assets/icons/profile.jpg")}
                   style={{
                     width: 33,
                     height: 33,

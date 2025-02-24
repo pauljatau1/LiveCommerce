@@ -27,7 +27,7 @@ import { router } from "expo-router";
 import BottomSheet from "../global/bottom-sheet";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
-import { getUser } from "@/store/features/auth/utils";
+import { getToken, getUser } from "@/store/features/auth/utils";
 import moment from "moment";
 import { useCommentPostMutation, useReactPostMutation } from "@/services/posts";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -43,6 +43,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { black } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
+import AuthSheet from "../auth/authSheet";
 
 const { width } = Dimensions.get("window");
 
@@ -258,6 +259,24 @@ const PostItem2 = ({ item }: { item: any }) => {
   const [reactionStats, setReactionStats] = useState<any>(
     item?.stats?.reactions,
   );
+  const [token, setToken] = useState<string>("");
+
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+
+  const getAuthUser = useCallback(async () => {
+    const authToken = await getToken();
+    setToken(authToken);
+  }, []);
+
+  useEffect(() => {
+    getAuthUser();
+  }, []);
+
+  const handleCantComment = () => {
+    setShowComments(false);
+    setShowAuthSheet(true);
+  };
+
   const bubbleVisible = useSharedValue(false);
   const bubblePosition = useSharedValue(-100); // Start offscreen
 
@@ -285,6 +304,10 @@ const PostItem2 = ({ item }: { item: any }) => {
     async (reaction: any) => {
       bubbleVisible.value = false;
       bubblePosition.value = withTiming(-100);
+
+      if (!token) {
+        return setShowAuthSheet(true);
+      }
       if (isReacted) {
         // setReactions(reactions - 1);
         return setIsReacted(false);
@@ -308,12 +331,12 @@ const PostItem2 = ({ item }: { item: any }) => {
           type: reaction.label,
         });
 
-        console.log("successfully added reaction ", result);
+        // console.log("successfully added reaction ", result);
       } catch (e: any) {
         console.log("cannot like post", e.message);
       }
     },
-    [reactions],
+    [reactions, token],
   );
 
   const handleReactionClose = (reaction: any) => {
@@ -374,8 +397,6 @@ const PostItem2 = ({ item }: { item: any }) => {
         );
       }
     }
-    console.log(st);
-
     return st.slice(0, 4);
   }, [reactionStats]);
 
@@ -387,7 +408,7 @@ const PostItem2 = ({ item }: { item: any }) => {
             source={
               item?.author?.image
                 ? { uri: item?.author?.image }
-                : require("../../assets/icons/animoji.png")
+                : require("../../assets/icons/profile.jpg")
             }
             contentFit="cover"
             style={styles.avatar}
@@ -467,10 +488,11 @@ const PostItem2 = ({ item }: { item: any }) => {
             >
               {pickedReactions.map((pr, index) => (
                 <Text
+                  key={index}
                   style={{
                     position: "absolute",
                     top: -10,
-                    right: index * 10,
+                    right: index * 14,
                     zIndex: index + 1,
                   }}
                 >
@@ -524,7 +546,7 @@ const PostItem2 = ({ item }: { item: any }) => {
             {comments} Comments
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -542,7 +564,7 @@ const PostItem2 = ({ item }: { item: any }) => {
           >
             Share
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       <BottomSheet
@@ -559,6 +581,7 @@ const PostItem2 = ({ item }: { item: any }) => {
       >
         <CommentsSheet
           handleIncreaseCommentCount={handleIncreaseCommentCount}
+          handleCantComment={handleCantComment}
           allComments={allComments}
           commentsCount={comments}
           handleAddComment={handleAddComment}
@@ -578,6 +601,21 @@ const PostItem2 = ({ item }: { item: any }) => {
       >
         <OptionsSheet />
       </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAuthSheet}
+        titleColor="!text-white"
+        snapPoints={["20%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowAuthSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+      </BottomSheet>
     </Pressable>
   );
 };
@@ -589,12 +627,14 @@ const CommentsSheet = memo(
     commentsCount,
     handleAddComment,
     id,
+    handleCantComment,
   }: {
     handleIncreaseCommentCount: () => void;
     allComments: any;
     commentsCount: number;
     handleAddComment: any;
     id: string;
+    handleCantComment: any;
   }) => {
     const [commentPost, { isLoading }] = useCommentPostMutation({});
     const [comments, setComments] = useState<any[]>(allComments);
@@ -603,6 +643,10 @@ const CommentsSheet = memo(
     const [loading, setLoading] = useState<boolean>(true);
 
     const handleCreateComment = async () => {
+      const token = await getToken();
+      if (!token) {
+        return handleCantComment();
+      }
       const user = await getUser();
 
       const constructComment = {
@@ -727,7 +771,7 @@ const OptionsSheet = memo(() => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 10,
+    paddingVertical: 14,
     borderBottomColor: "#888787",
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
@@ -736,7 +780,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    marginBottom: 10,
+    // paddingVertical: 10,
   },
   userInfo: {
     flexDirection: "row",
@@ -766,6 +811,7 @@ const styles = StyleSheet.create({
     fontFamily: "LexendDeca",
     fontSize: 14,
     marginBottom: 10,
+    lineHeight: 18,
   },
   mediaContainer: {
     width: width - 32,

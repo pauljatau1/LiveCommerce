@@ -5,8 +5,8 @@ import {
   SafeAreaView,
   Dimensions,
   TouchableOpacity,
-  ActivityIndicator,
 } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
 import React, { useEffect, useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -15,21 +15,24 @@ import ReviewCard from "@/components/reviews";
 import { useGetSingleProductQuery } from "@/services/products";
 import Entypo from "@expo/vector-icons/Entypo";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import { getToken } from "@/store/features/auth/utils";
 
 const { width, height } = Dimensions.get("window");
 
 const ReviewsPage = () => {
-  const { id } = useGlobalSearchParams();
-  const { data: product, error, isLoading } = useGetSingleProductQuery(id);
+  const { id, sellerId, storeName, storeAvatar } = useGlobalSearchParams();
 
   const [productReviews, setProductReviews] = useState<any>([]);
   const [isProductReviewsLoading, setIsProductReviewsLoading] =
     useState<boolean>(true);
   const [averageRating, setAverageRating] = useState<string>("");
   const [totalReviews, setTotalReviews] = useState<string>("");
+  const [token, setToken] = useState<string>("");
 
   const getProductReviews = async () => {
     try {
+      const userToken = await getToken();
+      setToken(userToken);
       setIsProductReviewsLoading(true);
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/products/${id}/reviews`,
@@ -142,14 +145,25 @@ const ReviewsPage = () => {
               </View>
             </View>
 
-            <TouchableOpacity
-              className="bg-[#16783A] px-[16px] py-[8px] mt-[16px] mb-[8px] mx-[18px] justify-center items-center"
-              onPress={() => router.replace(`/createReview/${id}`)}
-            >
-              <Text className="text-white text-[15px] light">
-                Write a review
-              </Text>
-            </TouchableOpacity>
+            {/* {token && (
+              <TouchableOpacity
+                className="bg-[#16783A] px-[16px] py-[8px] mt-[16px] mb-[8px] mx-[18px] justify-center items-center"
+                onPress={() =>
+                  router.push({
+                    pathname: "/createReview/sellerReview",
+                    params: {
+                      id: sellerId,
+                      storeName: storeName,
+                      storeAvatar: storeAvatar,
+                    },
+                  })
+                }
+              >
+                <Text className="text-white text-[15px] light">
+                  Write a review
+                </Text>
+              </TouchableOpacity>
+            )} */}
 
             <Text
               className="px-[18px] text-[14px] leading-[20px] mb-[23px]"

@@ -16,20 +16,38 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import EvilIcons from "@expo/vector-icons/EvilIcons";
+import { getToken, getUser } from "@/store/features/auth/utils";
+import BottomSheet from "@/components/global/bottom-sheet";
+import AuthSheet from "@/components/auth/authSheet";
 
 const HomeHeader = () => {
   const isFocused = useIsFocused();
   const [cartNumber, setCartNumber] = useState<number>(0);
+  const [token, setToken] = useState<string>("");
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+
+  const getAuthUser = async () => {
+    const authToken = await getToken();
+    console.log(authToken);
+
+    setToken(authToken);
+  };
+
+  useEffect(() => {
+    getAuthUser();
+  }, []);
 
   const { top } = useSafeAreaInsets();
 
   const getCardNumber = useMemo(async () => {
-    const cart = await AsyncStorage.getItem("cart");
-    if (cart) {
-      const cartItems = JSON.parse(cart);
-      return setCartNumber(cartItems.length);
+    if (isFocused) {
+      const cart = await AsyncStorage.getItem("cart");
+      if (cart) {
+        const cartItems = JSON.parse(cart);
+        return setCartNumber(cartItems.length);
+      }
+      return setCartNumber(0);
     }
-    return setCartNumber(0);
   }, [isFocused]);
 
   return (
@@ -70,10 +88,15 @@ const HomeHeader = () => {
           }}
         /> */}
       </Pressable>
-      <View className="flex-row items-center gap-[30px]">
+      <View className="flex-row items-center gap-[16px]">
         <TouchableOpacity
           className=" flex justify-center items-center gap-[6px]"
-          onPress={() => router.push("/cart/cart")}
+          onPress={() => {
+            if (token) {
+              return router.push("/cart/cart");
+            }
+            return setShowAuthSheet(true);
+          }}
         >
           <Image
             source={require("../../../assets/icons/cart.png")}
@@ -114,7 +137,12 @@ const HomeHeader = () => {
         </TouchableOpacity>
         <Pressable
           className="flex-column items-center justify-center relative gap-[6px]"
-          onPress={() => router.push("/orders/orders")}
+          onPress={() => {
+            if (token) {
+              return router.push("/notifications");
+            }
+            return setShowAuthSheet(true);
+          }}
         >
           <Image
             source={require("../../../assets/icons/notification.png")}
@@ -129,6 +157,21 @@ const HomeHeader = () => {
           </Text> */}
         </Pressable>
       </View>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAuthSheet}
+        titleColor="!text-white"
+        snapPoints={["20%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowAuthSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+      </BottomSheet>
     </View>
   );
 };

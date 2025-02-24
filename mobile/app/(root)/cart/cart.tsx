@@ -207,7 +207,6 @@ const CartScreen = () => {
           },
         },
       );
-      console.log("Deleted => ", response.data);
     } catch (e) {
       console.log(e);
     }
@@ -217,12 +216,9 @@ const CartScreen = () => {
     async (action: string, data: any) => {
       switch (action) {
         case "add":
-          console.log("action delete", data);
           handleCreateWishList(data);
           break;
         case "delete":
-          console.log("action delete", data);
-
           setWishList(wishList.filter((item) => item.product._id !== data));
           handleRemoveWishtList(data);
           break;
@@ -236,9 +232,11 @@ const CartScreen = () => {
   // useEffect(() => {},[wishList])
 
   useEffect(() => {
-    handleGetCart();
-    handleGetWishList();
-    handleGetConversations();
+    if (isFocused) {
+      handleGetCart();
+      handleGetWishList();
+      handleGetConversations();
+    }
   }, [isFocused]);
 
   useEffect(() => {

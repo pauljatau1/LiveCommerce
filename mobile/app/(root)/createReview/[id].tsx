@@ -96,6 +96,9 @@ const createReview = () => {
           },
         },
       );
+      const data = await response.json();
+      console.log("review response", data);
+
       toast.success("Review submitted successfully");
       setLoading(false);
       router.back();

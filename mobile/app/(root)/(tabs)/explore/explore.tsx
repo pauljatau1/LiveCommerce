@@ -33,10 +33,9 @@ const Explore = () => {
             pathname: `../explore/${category._id}`,
             params: { name: category.name },
           })
-          
         }
         style={{
-          marginBottom:12
+          marginBottom: 12,
         }}
       >
         <View className="relative flex-row items-center w-full rounded-[4px] overflow-hidden p-[1px] bg-[#f2f2f2]">
@@ -64,7 +63,7 @@ const Explore = () => {
                   }}
                 />
                 <Text className="text-[8px] text-[#3A3A3A] font-LexendDecaMedium">
-                  1.8k Products
+                  {category?.statistics?.totalProducts} Products
                 </Text>
               </View>
             </View>
@@ -98,76 +97,72 @@ const Explore = () => {
   const exploreHeader = useCallback(() => {
     return (
       <>
-      <Text className="text-[#ccc] text-[18px] font-LexendDecaMedium mb-[14px]">
-              Browse by Category
+        <Text className="text-[#ccc] text-[18px] font-LexendDecaMedium mb-[14px]">
+          Browse by Category
+        </Text>
+        <View className="flex-row items-center gap-[8px] mb-[26px]">
+          <TouchableOpacity
+            className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
+            style={{
+              backgroundColor:
+                filter == "Popular" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+            }}
+            onPress={() => setFilter("Popular")}
+          >
+            <Text
+              className={`${filter == "Popular" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[10px] font-LexendDecaMedium`}
+            >
+              Popular
             </Text>
-            <View className="flex-row items-center gap-[8px] mb-[26px]">
-              <TouchableOpacity
-                className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
-                style={{
-                  backgroundColor:
-                    filter == "Popular" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-                }}
-                onPress={() => setFilter("Popular")}
-              >
-                <Text
-                  className={`${filter == "Popular" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[10px] font-LexendDecaMedium`}
-                >
-                  Popular
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
-                style={{
-                  backgroundColor:
-                    filter == "A-Z" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-                }}
-                onPress={() => setFilter("A-Z")}
-              >
-                <Text
-                  className={`${filter == "A-Z" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[10px] font-LexendDecaMedium`}
-                >
-                  A-Z
-                </Text>
-              </TouchableOpacity>
-            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
+            style={{
+              backgroundColor:
+                filter == "A-Z" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+            }}
+            onPress={() => setFilter("A-Z")}
+          >
+            <Text
+              className={`${filter == "A-Z" ? "text-[#2F2E41]" : "text-[#cccccc]"}  text-[10px] font-LexendDecaMedium`}
+            >
+              A-Z
+            </Text>
+          </TouchableOpacity>
+        </View>
       </>
-     )
-  },[filter])
+    );
+  }, [filter]);
 
   return (
-    <>
+    <SafeAreaView className="h-full flex-1 bg-[#121212]">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="pt-[30px]">
-          <HomeHeader />
+      <View className="pt-[30px]">
+        <HomeHeader />
 
-          <View className="p-[23px] pb-[50px] h-full ">
-            
-
-            {isLoading ? (
-              <ActivityIndicator
-                size={"small"}
-                color={"#16783A"}
-                style={{ marginTop: 30 }}
-              />
-            ) : (
-              <FlatList
-                data={categoriesData}
-                keyExtractor={(_, index) => index.toString()}
-                renderItem={({ item, index }) => renderCategories(item, index)}
-                contentContainerStyle={{
-                  paddingBottom: Platform.OS == "android" ? 50 : 20,
-                  // gap: 12,
-                }}
-                showsVerticalScrollIndicator={false}
-                ListHeaderComponent={exploreHeader}
-              />
-            )}
-          </View>
+        <View className="p-[23px] px-[16px] pb-[50px] h-full ">
+          {isLoading ? (
+            <ActivityIndicator
+              size={"small"}
+              color={"#16783A"}
+              style={{ marginTop: 30 }}
+            />
+          ) : (
+            <FlatList
+              data={categoriesData}
+              keyExtractor={(_, index) => index.toString()}
+              renderItem={({ item, index }) => renderCategories(item, index)}
+              contentContainerStyle={{
+                paddingBottom: Platform.OS == "android" ? 50 : 20,
+                // gap: 12,
+              }}
+              showsVerticalScrollIndicator={false}
+              ListHeaderComponent={exploreHeader}
+            />
+          )}
         </View>
-      </SafeAreaView>
-    </>
+      </View>
+    </SafeAreaView>
   );
 };
 

@@ -12,6 +12,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   View,
@@ -25,7 +26,7 @@ import {
   setPassword,
   setUserEmail,
 } from "@/store/features/auth/utils";
-import { signIn } from "@/store/features/auth/authSlice";
+import { signIn, signInAsGuest } from "@/store/features/auth/authSlice";
 import { API_URL } from "@env";
 import { toast } from "@/core/toast";
 
@@ -170,6 +171,21 @@ const Login = () => {
                 >
                   Sign up
                 </Link>
+                {/* <Text className="text-white font-LexendDeca text-[10px] text-center">
+                  Or
+                </Text> */}
+
+                <Pressable
+                  onPress={() => {
+                    dispatch(signInAsGuest());
+                    router.push("../../../(root)/(tabs)/home");
+                  }}
+                  className="self-center  mt-[12px]"
+                >
+                  <Text className="text-center text-[12px] font-LexendDecaMedium text-primary-100">
+                    Continue as Guest
+                  </Text>
+                </Pressable>
               </View>
             </View>
           </ScrollView>

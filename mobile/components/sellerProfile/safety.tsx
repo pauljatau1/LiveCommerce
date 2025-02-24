@@ -118,7 +118,6 @@ const Blips = ({
       setImages((prevImages) => {
         return [...prevImages, ...newImages];
       });
-      console.log("passed async");
     } catch (e) {
       console.warn(e);
     }

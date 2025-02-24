@@ -123,7 +123,12 @@ const CreateAccount = () => {
   }, [phone]);
 
   return (
-    <ScrollView>
+    <ScrollView
+      style={{
+        backgroundColor: "black",
+      }}
+      showsVerticalScrollIndicator={false}
+    >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="h-full flex-1 bg-black">
         <KeyboardAvoidingView
@@ -323,6 +328,25 @@ const CreateAccount = () => {
                   Log in
                 </Text>
               </Link>
+            </View>
+
+            <View>
+              <Text className="text-[#ccc] font-LexendDeca text-[12px] text-center">
+                By signing up you agree to our{" "}
+                <Link
+                  href="https://www.auqli.live/terms"
+                  className="underline font-LexendDecaMedium text-[#16783A]"
+                >
+                  Terms and conditions
+                </Link>{" "}
+                and{" "}
+                <Link
+                  href="https://www.auqli.live/privacy-policy"
+                  className="underline font-LexendDecaMedium text-[#16783A]"
+                >
+                  Privacy Policy
+                </Link>
+              </Text>
             </View>
           </View>
         </KeyboardAvoidingView>

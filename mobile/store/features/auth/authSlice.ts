@@ -1,8 +1,8 @@
 /* eslint-disable unicorn/filename-case */
-import type { PayloadAction } from '@reduxjs/toolkit';
-import { createSlice } from '@reduxjs/toolkit';
+import type { PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 
-import type { LoginResponse, User } from '../../../types/services/auth';
+import type { LoginResponse, User } from "../../../types/services/auth";
 import {
   getToken,
   getUser,
@@ -10,12 +10,12 @@ import {
   removeUser,
   setToken,
   setUser,
-} from './utils';
+} from "./utils";
 
 export interface AuthState {
   user: User | null;
   token: string | null;
-  status: 'signOut' | 'signIn' | 'guest' | null;
+  status: "signOut" | "signIn" | "guest" | null;
   signIn: ((data: LoginResponse) => void) | null;
   signOut: (() => void) | null;
 }
@@ -28,24 +28,23 @@ var initialState: AuthState = {
   signOut: null,
 };
 
-const setInitialState = async() => {
+const setInitialState = async () => {
   const token = await getToken();
   const user = await getUser();
 
   initialState = {
     user: user,
     token: token,
-    status: token ? 'signIn' : 'signOut',
+    status: token ? "signIn" : "signOut",
     signIn: null,
     signOut: null,
-  }
-  
-}
+  };
+};
 
-setInitialState()
+setInitialState();
 
 export const authSlice = createSlice({
-  name: 'authState',
+  name: "authState",
   initialState,
   reducers: {
     setUserData: (state, action: PayloadAction<User>) => {
@@ -57,17 +56,17 @@ export const authSlice = createSlice({
       setUser(action?.payload?.user!);
       state.user = action?.payload?.user!;
       state.token = action?.payload?.token;
-      state.status = 'signIn';
+      state.status = "signIn";
     },
     signInAsGuest: (state) => {
-      state.status = 'guest';
+      state.status = "guest";
     },
     signOut: (state) => {
       removeToken();
       removeUser();
       state.user = null;
-      state.token = '';
-      state.status = 'signOut';
+      state.token = "";
+      state.status = "signOut";
     },
   },
 });

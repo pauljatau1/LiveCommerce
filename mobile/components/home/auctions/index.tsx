@@ -8,13 +8,13 @@ const Auctions = () => {
   const dispatch = useDispatch();
   return (
     <View className="p-[30px]">
-      <Text className="text-white mx-auto mb-10">Auctions</Text>
-      <CustomButton
+      <Text className="text-white mx-auto">Auctions</Text>
+      {/* <CustomButton
         title="Logout"
         onPress={() => {
           dispatch(signOut());
         }}
-      />
+      /> */}
     </View>
   );
 };

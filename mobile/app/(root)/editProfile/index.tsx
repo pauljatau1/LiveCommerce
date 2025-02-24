@@ -24,15 +24,24 @@ import axios from "axios";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import LoadingModal from "@/components/global/loading-modal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
 
 const EditProfile = () => {
-  const { avatar, username, bio, email, phoneNumber } = useLocalSearchParams();
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const { avatar, username, bio, email, phoneNumber, firstName, lastName } =
+    useLocalSearchParams();
 
   const [editUsernameVal, setEditUsernameVal] = useState<string>(
     username?.toString(),
+  );
+  const [editFirstNameVal, setEditFirstNameVal] = useState<string>(
+    firstName?.toString(),
+  );
+  const [editLastNameVal, setEditLastNameVal] = useState<string>(
+    lastName?.toString(),
   );
   const [editBioVal, setEditBioVal] = useState<string>(bio?.toString());
   const [editEmailVal, setEditEmailVal] = useState<string>(email?.toString());
@@ -105,6 +114,8 @@ const EditProfile = () => {
         username: editUsernameVal,
         phoneNumber: editPhoneVal,
         bio: editBioVal,
+        firstName: editFirstNameVal,
+        lastName: editLastNameVal,
       };
       const response = await axios.put(
         process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/update",
@@ -140,9 +151,9 @@ const EditProfile = () => {
   }, []);
 
   return (
-    <SafeAreaView
+    <View
       className="h-full flex-1 bg-[#121212] "
-      style={{ minHeight: height }}
+      style={{ minHeight: height, paddingTop: insets.top }}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -216,6 +227,24 @@ const EditProfile = () => {
               />
             </View>
             <View style={styles.editSingleSection}>
+              <Text style={styles.label}>FirstName</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="FirstName"
+                value={editFirstNameVal}
+                onChangeText={(text) => setEditFirstNameVal(text)}
+              />
+            </View>
+            <View style={styles.editSingleSection}>
+              <Text style={styles.label}>LastName</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="LastName"
+                value={editLastNameVal}
+                onChangeText={(text) => setEditLastNameVal(text)}
+              />
+            </View>
+            <View style={styles.editSingleSection}>
               <Text style={styles.label}>Bio</Text>
               <TextInput
                 style={styles.input}
@@ -271,7 +300,7 @@ const EditProfile = () => {
           <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
         </BottomSheet>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -48,7 +48,7 @@ const AllPostsList = ({
     page: page,
     id: userId,
     type: type,
-    limit: 10,
+    limit: 6,
   });
 
   // Update posts when data changes
@@ -155,15 +155,17 @@ const AllPostsList = ({
           onEndReachedThreshold={0.5}
           refreshing={refreshing}
           onRefresh={refreshPosts}
-          maxToRenderPerBatch={5}
+          maxToRenderPerBatch={3}
           contentContainerStyle={{
             paddingTop: headerHeight,
           }}
-          windowSize={5}
+          windowSize={3}
           showsVerticalScrollIndicator={false}
           // ListFooterComponent={renderFooter}
-          initialNumToRender={10}
+          initialNumToRender={6}
           nestedScrollEnabled={true}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={100}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true },

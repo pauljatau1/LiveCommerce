@@ -187,29 +187,29 @@ const Checkout = () => {
           first_name:
             cart.seller.personalInfo?.firstName || cart.seller.firstName,
           last_name: cart.seller.personalInfo?.lastName || cart.seller.lastName,
-          email: cart.seller.businessInfo?.businessEmail
-            ? cart.seller.email
-            : "bolu@gmail.com",
-          phone: cart.seller.businessInfo?.businessNumber
-            ? cart.seller.phoneNumber
-            : "+2348083412865",
-          line1: cart.seller.businessInfo?.businessAddress?.addressLine1
-            ? cart.seller.businessAddress?.addressLine1
-            : "ajayi crowder way",
-          line2: cart.seller.businessInfo?.businessAddress?.addressLine2
-            ? cart.seller?.businessAddress?.addressLine2
-            : "boluwa street",
-          city: "Amuwo-Odofin",
+          email:
+            cart.seller.businessInfo?.businessEmail ||
+            cart.seller.personalInfo?.email,
+          phone:
+            cart.seller.businessInfo?.businessNumber || cart.seller.phoneNumber,
+          line1:
+            cart.seller.businessInfo?.businessAddress?.addressLine1 ||
+            cart.seller.businessAddress?.addressLine1,
+          line2:
+            cart.seller.businessInfo?.businessAddress?.addressLine2 ||
+            cart.seller?.businessAddress?.addressLine2,
+          city: cart.seller?.businessAddress?.city || "Amuwo-Odofin",
           // || response.data.contactInformation.businessAddress.city,
-          state: cart.seller.businessInfo?.businessAddress?.state
-            ? cart.seller.businessAddress?.state
-            : "lagos",
-          country: cart.seller.businessInfo?.businessAddress?.country
-            ? cart.seller.businessAddress?.country
-            : "NG",
-          zip: cart.seller.businessInfo?.businessAddress?.zipCode
-            ? cart.seller.businessAddress?.zipCode
-            : "100001",
+          state:
+            cart.seller.businessInfo?.businessAddress?.state ||
+            cart.seller.businessAddress?.state,
+          country: "NG",
+
+          // cart.seller.businessInfo?.businessAddress?.country ||
+          // cart.seller.businessAddress?.country,
+          zip:
+            cart.seller.businessInfo?.businessAddress?.zipCode ||
+            cart.seller.businessAddress?.zipCode,
         };
 
         sellerObj[cart.seller._id] = pickup_address;
@@ -225,6 +225,7 @@ const Checkout = () => {
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
+    console.log("info ", cart[0].seller);
 
     const order = {
       items: cart.map((item) => {
@@ -234,7 +235,7 @@ const Checkout = () => {
           name: item.name,
           description: item.description,
           weight: item.weight * item.quantity,
-          price: item.price,
+          price: item?.discount?.discountedPrice || item.price,
           sellerId: item.seller._id,
           specifications: item.specifications,
         };
@@ -293,7 +294,7 @@ const Checkout = () => {
   }, []);
 
   useEffect(() => {
-    if (user) getAddresses();
+    if (user && isFocused) getAddresses();
   }, [user, isFocused]);
 
   useEffect(() => {
@@ -599,9 +600,9 @@ const AddressSheet = ({
 
   return (
     <View className="p-[8px] pb-[16px]">
-      <View className="flex-row justify-center mb-[23px] w-full">
+      <View className="flex-row justify-center items-center mb-[23px] w-full">
         <View className="">
-          <Text className="text-[18px] text-[#ccc]">
+          <Text className="text-[18px] text-[#ccc] font-LexendDecaBold">
             Select Shipping Address
           </Text>
         </View>

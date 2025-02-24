@@ -19,6 +19,8 @@ import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
 import { formatDate } from "@/helpers/helpers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { color } from "@rneui/base";
+import OrderItem from "@/components/orders/mainOrderItem";
 
 const { width, height } = Dimensions.get("window");
 
@@ -27,6 +29,8 @@ const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
   pickup_arranged: { name: "In Transit", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
+  cancelled: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },
+  refunded: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },
 } as any;
 
 const Orders = () => {
@@ -51,11 +55,22 @@ const Orders = () => {
       return setOrders(allOrders);
     }
 
+    if (selection.toLowerCase() == "my returns") {
+      return setOrders(
+        allOrders.filter(
+          (order) =>
+            ["returned", "cancelled"].includes(
+              order.shipping.tracking.status,
+            ) || order?.orderStatus?.hasReturn,
+        ),
+      );
+    }
     setOrders(
       allOrders.filter(
         (order) =>
           order.shipping.tracking.status ==
-          actualSelection[selection.toLowerCase()],
+            actualSelection[selection.toLowerCase()] &&
+          !order?.orderStatus?.hasReturn,
       ),
     );
   };
@@ -98,12 +113,15 @@ const Orders = () => {
       console.log("unable to get conversations in product details page", e);
     }
   };
+
   useEffect(() => {
     handleGetOrders();
   }, []);
 
   useEffect(() => {
-    handleGetConversations();
+    if (isFocused) {
+      handleGetConversations();
+    }
   }, [isFocused]);
 
   useEffect(() => {
@@ -117,7 +135,7 @@ const Orders = () => {
         className="h-full flex-1 bg-[#121212] "
         style={{ minHeight: height }}
       >
-        <View className="mb-[12px]">
+        <View>
           <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
             <TouchableOpacity
               className="absolute left-[18px]"
@@ -168,7 +186,7 @@ const Orders = () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               paddingVertical: 20,
-              paddingHorizontal: 30,
+              paddingHorizontal: 16,
               // backgroundColor: "red",
               // height: "100%",
             }}
@@ -254,178 +272,6 @@ const Orders = () => {
   );
 };
 
-const OrderItem = ({
-  orderItem,
-  conversations,
-  token,
-}: {
-  orderItem: any;
-  conversations: any;
-  token: string;
-}) => {
-  return (
-    <TouchableOpacity
-      className="border-b-[1px] p-[14px] pb-[25px] flex-row justify-center"
-      style={{
-        borderColor: "rgba(242, 242, 242, 0.50)",
-      }}
-      onPress={() => {
-        if (!orderItem.paid) return;
-        router.push({
-          pathname: `../../(root)/orders/${orderItem._id}`,
-          params: {
-            token,
-            conversationId:
-              conversations?.find(
-                (convo: any) => convo.participant.id == orderItem.seller,
-              )?._id || "",
-          },
-        });
-      }}
-    >
-      <View className="w-[100%] gap-[16px] shrink relative">
-        <View className=" flex-row items-center justify-between">
-          <Text className="text-[16px] text-white font-LexendDecaSemiBold">
-            {orderItem?.items[0]?.seller?.storeName ||
-              orderItem?.items[0]?.seller?.businessName ||
-              "Kicks Store"}
-          </Text>
-          <View
-            className="rounded-[3px] px-[6px] py-[4px] justify-center items-center"
-            style={{
-              backgroundColor: orderItem.paid
-                ? statusColor[orderItem?.shipping?.tracking?.status]?.color
-                : "red",
-            }}
-          >
-            <Text
-              className={`text-[8px] font-LexendDeca ${orderItem.paid ? null : "text-white"}`}
-            >
-              {orderItem.paid
-                ? statusColor[orderItem.shipping.tracking.status]?.name
-                : "Pending Payment"}
-            </Text>
-          </View>
-        </View>
-        <View className="gap-[16px]">
-          <View>
-            <Image
-              source={{ uri: orderItem?.items[0]?.product?.images[0].url }}
-              resizeMode="cover"
-              style={{
-                width: 115,
-                height: 103,
-                borderRadius: 14,
-              }}
-            />
-          </View>
-          <View className="gap-[8px] relative shrink">
-            <View className="flex-row items-center justify-between gap-[11px] flex-wrap">
-              <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-                {orderItem?.items[0]?.productName?.length > 20
-                  ? orderItem?.items[0]?.productName?.slice(0, 20) + "..."
-                  : orderItem?.items[0]?.productName}
-              </Text>
-              <View
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 6,
-                  backgroundColor: "#E5FDFF",
-                }}
-              >
-                <Text className="text-[12px] text-[#16783A] font-LexendDecaSemiBold">
-                  N{orderItem?.totalAmount.toLocaleString()}
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-center justify-between gap-[11px] flex-wrap">
-              <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
-                Order ID: {orderItem._id?.toLocaleString().slice(0, 15)}...
-              </Text>
-              <Text className="text-white text-[11px] font-LexendDecaMedium">
-                Quantity: {orderItem?.items[0].quantity}
-              </Text>
-            </View>
-          </View>
-        </View>
-        <View className="flex-row justify-between items-center flex-wrap relative">
-          <Pressable
-            className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-            style={{ width: "30%" }}
-            onPress={() =>
-              router.push({
-                pathname: `../../(root)/messageRoom/${orderItem.seller}`,
-                params: {
-                  name:
-                    orderItem.items?.[0]?.product?.seller?.storeName ||
-                    orderItem.items?.[0]?.product?.seller?.firstName +
-                      " " +
-                      orderItem.items?.[0]?.product?.seller?.lastName ||
-                    "Default",
-                  avatar:
-                    orderItem.items?.[0]?.product?.seller?.storeAvatar?.url,
-                  conversationId:
-                    conversations?.find(
-                      (convo: any) => convo.participant.id == orderItem.seller,
-                    )?._id || "",
-                  userId: orderItem?.buyer,
-                  token: token,
-                  model: "Seller",
-                },
-              })
-            }
-          >
-            <Text className="text-white text-[10px]">Chat Seller</Text>
-          </Pressable>
-          {orderItem.shipping.tracking.status == "pending" && orderItem.paid ? (
-            <Pressable
-              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-              style={{ width: "30%" }}
-            >
-              <Text className="text-white text-[10px]">Cancel Order</Text>
-            </Pressable>
-          ) : null}
-          {orderItem.shipping.tracking.status == "delivered" && (
-            <Pressable
-              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
-              style={{ width: "30%" }}
-            >
-              <Text className="text-white text-[10px]">Return/Refund</Text>
-            </Pressable>
-          )}
-
-          {["pickup_arranged"].includes(orderItem.shipping.tracking.status) && (
-            <Pressable
-              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-              style={{ width: "30%" }}
-            >
-              <Text className="text-white text-[10px]">Track Order</Text>
-            </Pressable>
-          )}
-
-          {!orderItem.paid && (
-            <Pressable
-              className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
-              style={{ width: "30%" }}
-              onPress={async () => {
-                console.log(orderItem._id);
-                await AsyncStorage.setItem(
-                  "orders",
-                  JSON.stringify([{ ...orderItem, orderId: orderItem._id }]),
-                );
-                router.push(`/checkout/${orderItem._id}`);
-              }}
-            >
-              <Text className="text-white text-[10px]">Pay</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-};
 const EmptyOrders = () => {
   return (
     <View className="relative justify-center items-center">

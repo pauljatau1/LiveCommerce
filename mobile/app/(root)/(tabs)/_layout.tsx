@@ -219,7 +219,7 @@ const TabsLayout = () => {
               source={
                 user?.profileImage?.url
                   ? { uri: user?.profileImage?.url }
-                  : require("../../../assets/icons/animoji.png")
+                  : require("../../../assets/icons/profile.jpg")
               }
               style={{
                 width: 22,

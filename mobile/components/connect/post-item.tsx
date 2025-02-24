@@ -70,8 +70,6 @@ const PostItem = ({ item }: { item: any }) => {
         id: item._id,
         type: "like",
       });
-
-      console.log("successfully added reaction ", result.data);
     } catch (e: any) {
       console.log("cannot like post", e.message);
     }
@@ -170,7 +168,7 @@ const PostItem = ({ item }: { item: any }) => {
       <View className="flex-row items-center justify-between py-[10px]">
         <View className="flex-row items-center gap-[12px]">
           <Image
-            source={require("../../assets/icons/animoji.png")}
+            source={require("../../assets/icons/profile.jpg")}
             contentFit="contain"
             style={{
               width: 40,

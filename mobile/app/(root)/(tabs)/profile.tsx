@@ -23,6 +23,8 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
 import { formatDate } from "@/helpers/helpers";
+import BottomSheet from "@/components/global/bottom-sheet";
+import AuthSheet from "@/components/auth/authSheet";
 
 const HEADER_HEIGHT = 250;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -149,6 +151,8 @@ const CollapsibleHeader = memo(
                         bio: info?.bio,
                         email: info?.email,
                         phoneNumber: info?.phoneNumber,
+                        firstName: info?.firstName,
+                        lastName: info?.lastName,
                       },
                     })
                   }
@@ -161,7 +165,10 @@ const CollapsibleHeader = memo(
             </View>
           </View>
           <View>
-            <Text className="text-[12px] font-LexendDeca text-[#ccc]">
+            <Text
+              className="text-[12px] font-LexendDeca text-[#ccc]"
+              style={{ lineHeight: 16 }}
+            >
               {info?.bio?.split("\n")?.slice(0, 4)?.join("\n")}
             </Text>
           </View>
@@ -230,6 +237,7 @@ const Profile = () => {
   ]);
 
   const [user, setUser] = useState<any>({});
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [profile, setProfile] = useState<any>({});
   const scrollY = useRef(new Animated.Value(0)).current;
   const renderScene = ({ route }: { route: any }) => (
@@ -274,6 +282,9 @@ const Profile = () => {
 
   const getUserProfile = useCallback(async () => {
     const token = await getToken();
+    if (!token) {
+      return setShowAuthSheet(true);
+    }
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/buyer/profile`,
@@ -309,97 +320,111 @@ const Profile = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      {user?._id && (
+        <>
+          <View
+            style={{
+              height: statusBarHeight,
+              padding: 20,
+              backgroundColor: "#121212",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 2,
+              justifyContent: "center",
+            }}
+          ></View>
 
-      <View
-        style={{
-          height: statusBarHeight,
-          padding: 20,
-          backgroundColor: "#121212",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 2,
-          justifyContent: "center",
-        }}
-      ></View>
+          <View
+            style={{
+              // height: 0,
+              paddingVertical: 20,
+              paddingHorizontal: 16,
+              backgroundColor: "#121212",
+              zIndex: 3,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View className="flex-row items-center gap-[8px]">
+              <Text style={styles.userName}>
+                {profile?.username || user?.username}
+              </Text>
+            </View>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 23,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => router.push("/(root)/orders/orders")}
+                className="items-center gap-[2px]"
+              >
+                <Image
+                  source={require("../../../assets/icons/orders.png")}
+                  style={{ width: 20, height: 20 }}
+                  contentFit="contain"
+                />
+                <Text className="font-LexendDecaLight text-[8px] text-[#ccc] ">
+                  Orders
+                </Text>
+              </TouchableOpacity>
 
-      {/* Main Static Header */}
-      <View
-        style={{
-          // height: 0,
-          paddingVertical: 20,
-          paddingHorizontal: 16,
-          backgroundColor: "#121212",
-          zIndex: 3,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
+              <TouchableOpacity
+                onPress={() => router.push("../../(root)/settings")}
+                className="items-center gap-[2px]"
+              >
+                <Image
+                  source={require("../../../assets/icons/settings.png")}
+                  style={{ width: 20, height: 20 }}
+                  contentFit="contain"
+                />
+                <Text className="font-LexendDecaLight text-[8px] text-[#ccc] ">
+                  Settings
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <CollapsibleHeader scrollY={scrollY} info={profile} user={user} />
+
+            <TabView
+              lazy={true}
+              navigationState={{ index, routes }}
+              renderScene={renderScene}
+              onIndexChange={setIndex}
+              initialLayout={{ width: layout.width }}
+              renderTabBar={renderTabBar}
+            />
+          </View>
+        </>
+      )}
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAuthSheet}
+        titleColor="!text-white"
+        snapPoints={["20%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => {
+          setShowAuthSheet(false);
         }}
+        keyboardBehavior="interactive"
       >
-        <View className="flex-row items-center gap-[8px]">
-          {/* <TouchableOpacity className="" onPress={() => router.back()}>
-            <Entypo
-              name="chevron-left"
-              size={24}
-              color="rgba(204, 204, 204, 0.8)"
-            />
-          </TouchableOpacity> */}
-          <Text style={styles.userName}>
-            {profile?.username || user?.username}
-          </Text>
-        </View>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 23,
+        <AuthSheet
+          closeSheet={() => {
+            setShowAuthSheet(false);
           }}
-        >
-          <TouchableOpacity
-            onPress={() => router.push("/(root)/orders/orders")}
-            className="items-center gap-[2px]"
-          >
-            <Image
-              source={require("../../../assets/icons/orders.png")}
-              style={{ width: 20, height: 20 }}
-              contentFit="contain"
-            />
-            <Text className="font-LexendDecaLight text-[8px] text-[#ccc] ">
-              Orders
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => null}
-            className="items-center gap-[2px]"
-          >
-            <Image
-              source={require("../../../assets/icons/settings.png")}
-              style={{ width: 20, height: 20 }}
-              contentFit="contain"
-            />
-            <Text className="font-LexendDecaLight text-[8px] text-[#ccc] ">
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={{ flex: 1 }}>
-        {/* Collapsible Header */}
-        <CollapsibleHeader scrollY={scrollY} info={profile} user={user} />
-
-        {/* Tab View */}
-        <TabView
-          lazy={true}
-          navigationState={{ index, routes }}
-          renderScene={renderScene}
-          onIndexChange={setIndex}
-          initialLayout={{ width: layout.width }}
-          renderTabBar={renderTabBar}
         />
-      </View>
+      </BottomSheet>
     </SafeAreaView>
   );
 };

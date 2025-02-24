@@ -117,6 +117,7 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
       <View style={styles.tabs}>
         {tabs.map((tabLabel, index) => (
           <TouchableOpacity
+            key={index}
             style={[styles.tab, tabLabel == tab ? styles.activeTab : null]}
             onPress={() => setTab(tabLabel)}
           >

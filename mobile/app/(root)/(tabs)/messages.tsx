@@ -19,6 +19,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator } from "react-native-paper";
 import { router } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
+import BottomSheet from "@/components/global/bottom-sheet";
+import AuthSheet from "@/components/auth/authSheet";
 
 const Message = () => {
   const isFocused = useIsFocused();
@@ -28,6 +30,7 @@ const Message = () => {
   const [user, setUser] = useState<any>({});
   const [filter, setFilter] = useState<string>("all");
   const [token, setToken] = useState<string>("");
+  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
 
   const getUserInfo = async () => {
     try {
@@ -41,6 +44,9 @@ const Message = () => {
   const handleGetConversations = async () => {
     try {
       const token = await getToken();
+      if (!token) {
+        setShowAuthSheet(true);
+      }
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + "api/conversations",
         {
@@ -126,7 +132,7 @@ const Message = () => {
   };
 
   useEffect(() => {
-    handleGetConversations();
+    if (isFocused) handleGetConversations();
   }, [isFocused]);
 
   useEffect(() => {
@@ -134,83 +140,98 @@ const Message = () => {
     handleGetConversations();
   }, []);
   return (
-    <>
+    <SafeAreaView className="h-full flex-1 bg-[#121212]">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="flex-row items-center gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
-          <Image
-            source={
-              user?.profileImage?.url
-                ? { uri: user?.profileImage?.url }
-                : require("../../../assets/icons/animoji.png")
-            }
-            contentFit="cover"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 40,
-            }}
-          />
-          <View className="gap-[2px]">
-            <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
-              {user?.username ||
-                (user?.firstName && user?.firstName + " " + user?.lastName) ||
-                ""}
-            </Text>
+      <View className="flex-row items-center gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
+        <Image
+          source={
+            user?.profileImage?.url
+              ? { uri: user?.profileImage?.url }
+              : require("../../../assets/icons/profile.jpg")
+          }
+          contentFit="cover"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 40,
+          }}
+        />
+        <View className="gap-[2px]">
+          <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
+            {user?.username ||
+              (user?.firstName && user?.firstName + " " + user?.lastName) ||
+              ""}
+          </Text>
+          {user?._id && (
             <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
               Online
             </Text>
-          </View>
+          )}
         </View>
+      </View>
 
-        {loading ? (
-          <ActivityIndicator size={"small"} color="#16783A" />
-        ) : conversations.length > 0 ? (
-          <>
-            <View className="flex-row items-center gap-[8px] mb-[28px] px-[17px]">
-              <TouchableOpacity
-                className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
-                style={{
-                  backgroundColor:
-                    filter == "all" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-                }}
-                onPress={() => setFilter("all")}
+      {loading ? (
+        <ActivityIndicator size={"small"} color="#16783A" />
+      ) : conversations.length > 0 ? (
+        <>
+          <View className="flex-row items-center gap-[8px] mb-[28px] px-[17px]">
+            <TouchableOpacity
+              className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+              style={{
+                backgroundColor:
+                  filter == "all" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+              }}
+              onPress={() => setFilter("all")}
+            >
+              <Text
+                className={`${filter == "all" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
               >
-                <Text
-                  className={`${filter == "all" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
-                style={{
-                  backgroundColor:
-                    filter == "unread" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-                }}
-                onPress={() => setFilter("unread")}
+                All
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+              style={{
+                backgroundColor:
+                  filter == "unread" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+              }}
+              onPress={() => setFilter("unread")}
+            >
+              <Text
+                className={`${filter == "unread" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
               >
-                <Text
-                  className={`${filter == "unread" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
-                >
-                  Unread Messages ({unreadConvos?.length || 0})
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={{ flex: 1 }}>
-              <FlatList
-                data={filter == "all" ? conversations : unreadConvos}
-                renderItem={({ item }) => renderConversations(item)}
-                keyExtractor={(item) => item._id}
-                showsVerticalScrollIndicator={false}
-              />
-            </View>
-          </>
-        ) : null}
+                Unread Messages ({unreadConvos?.length || 0})
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ flex: 1 }}>
+            <FlatList
+              data={filter == "all" ? conversations : unreadConvos}
+              renderItem={({ item }) => renderConversations(item)}
+              keyExtractor={(item) => item._id}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </>
+      ) : null}
 
-        {!loading && conversations.length < 1 ? <EmptyMessages /> : null}
-      </SafeAreaView>
-    </>
+      {!loading && conversations.length < 1 ? <EmptyMessages /> : null}
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showAuthSheet}
+        titleColor="!text-white"
+        snapPoints={["20%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowAuthSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+      </BottomSheet>
+    </SafeAreaView>
   );
 };
 
