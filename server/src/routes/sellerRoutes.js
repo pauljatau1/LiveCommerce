@@ -2450,4 +2450,164 @@ router.get('/advanced-analytics',
   sellerController.getAdvancedAnalytics
 );
 
+/**
+ * @swagger
+ * /api/seller/operating-hours:
+ *   put:
+ *     summary: Update store operating hours
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               operatingHours:
+ *                 type: object
+ *                 properties:
+ *                   monday:
+ *                     type: object
+ *                     properties:
+ *                       isOpen:
+ *                         type: boolean
+ *                       openTime:
+ *                         type: string
+ *                         format: HH:mm
+ *                       closeTime:
+ *                         type: string
+ *                         format: HH:mm
+ *                   tuesday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   wednesday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   thursday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   friday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   saturday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *                   sunday:
+ *                     $ref: '#/components/schemas/DaySchedule'
+ *               timezone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Operating hours updated successfully
+ *       400:
+ *         description: Invalid time format
+ *       401:
+ *         description: Unauthorized
+ */
+router.put('/operating-hours', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.updateOperatingHours
+);
+
+/**
+ * @swagger
+ * /api/seller/special-dates:
+ *   post:
+ *     summary: Add special operating dates (holidays, special hours, etc.)
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - specialDates
+ *             properties:
+ *               specialDates:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - date
+ *                     - isOpen
+ *                   properties:
+ *                     date:
+ *                       type: string
+ *                       format: date
+ *                     isOpen:
+ *                       type: boolean
+ *                     openTime:
+ *                       type: string
+ *                       format: HH:mm
+ *                     closeTime:
+ *                       type: string
+ *                       format: HH:mm
+ *                     note:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: Special dates added successfully
+ *       400:
+ *         description: Invalid date format
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/special-dates', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.addSpecialDates
+);
+
+/**
+ * @swagger
+ * /api/seller/store-policy:
+ *   put:
+ *     summary: Update store policy
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               deliveryTimes:
+ *                 type: string
+ *               freeShippingPolicy:
+ *                 type: string
+ *               lostOrDamagedPolicy:
+ *                 type: string
+ *               refundPolicy:
+ *                 type: string
+ *               processingTime:
+ *                 type: string
+ *               refundMethod:
+ *                 type: string
+ *                 enum: [store_credit, original_payment, bank_transfer, both]
+ *               nonRefundableItems:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               returnWindow:
+ *                 type: number
+ *               returnCondition:
+ *                 type: string
+ *               returnShipping:
+ *                 type: string
+ *                 enum: [buyer_paid, seller_paid, case_by_case]
+ *               exchangePolicy:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Store policy updated successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/store-policy', authMiddleware.verifyToken, sellerController.updateStorePolicy);
+
 module.exports = router;

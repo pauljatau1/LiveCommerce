@@ -454,4 +454,99 @@ exports.validateCoupon = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Expire a coupon
+exports.expireCoupon = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sellerId = req.user.id;
+
+    // Find the coupon and ensure it belongs to the seller
+    const coupon = await Coupon.findOne({ _id: id, seller: sellerId });
+    
+    if (!coupon) {
+      return res.status(404).json({
+        message: 'Coupon not found'
+      });
+    }
+
+    // Check if coupon is already expired
+    if (coupon.status === 'expired') {
+      return res.status(400).json({
+        message: 'Coupon is already expired'
+      });
+    }
+
+    // Get all product IDs from the coupon's applicable products
+    const productIds = coupon.applicableProducts.map(ap => ap.product);
+
+    // Update all products to remove the discount, including variants
+    await Product.updateMany(
+      {
+        _id: { $in: productIds },
+        'discount.couponName': coupon.name
+      },
+      {
+        $set: {
+          discount: {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          },
+          'pricing.discountInfo': {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          },
+          'variants.$[].discount': {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          }
+        }
+      }
+    );
+
+    // Update coupon status to expired and set end date if not already set
+    coupon.status = 'expired';
+    coupon.endDate = coupon.endDate || new Date();
+    
+    // Update all applicable products status to expired
+    coupon.applicableProducts.forEach(product => {
+      product.status = 'expired';
+      product.lastUpdated = new Date();
+    });
+
+    await coupon.save();
+
+    res.json({
+      message: 'Coupon expired successfully and product discounts removed',
+      affectedProducts: productIds.length,
+      coupon: {
+        id: coupon._id,
+        name: coupon.name,
+        status: coupon.status,
+        endDate: coupon.endDate
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to expire coupon',
+      error: error.message
+    });
+  }
 }; 

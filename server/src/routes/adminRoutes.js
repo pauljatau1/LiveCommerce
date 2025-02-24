@@ -4,6 +4,8 @@ const adminController = require('../controllers/adminController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
+const bankService = require('../services/bankService');
+
 
 // /**
 //  * @swagger
@@ -1230,5 +1232,187 @@ router.delete('/resources/:id',
  *         description: Internal server error
  */
 router.put('/sellers/:sellerId/reject', authMiddleware.verifyToken, adminController.rejectBusinessAccount);
+
+/**
+ * @swagger
+ * /api/admin/categories/{id}/platform-fee:
+ *   put:
+ *     summary: Update platform fee for a category
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               platformFee:
+ *                 type: number
+ *                 description: Platform fee percentage (0-100)
+ *     responses:
+ *       200:
+ *         description: Platform fee updated successfully
+ *       400:
+ *         description: Invalid platform fee value
+ *       404:
+ *         description: Category not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/categories/:id/platform-fee', 
+  authMiddleware.verifyToken, 
+  adminController.updateCategoryPlatformFee
+);
+
+/**
+ * @swagger
+ * /api/admin/bank-account/verify:
+ *   post:
+ *     summary: Verify bank account details
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - accountNumber
+ *               - bankCode
+ *             properties:
+ *               accountNumber:
+ *                 type: string
+ *               bankCode:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Account details verified successfully
+ *       400:
+ *         description: Invalid account details
+ *       500:
+ *         description: Server error
+ */
+router.post('/bank-account/verify',
+  authMiddleware.verifyToken,
+  adminController.verifyBankAccount
+);
+
+/**
+ * @swagger
+ * /api/admin/withdrawals/{withdrawalId}/transfer:
+ *   post:
+ *     summary: Initiate transfer for withdrawal
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: withdrawalId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Transfer initiated successfully
+ *       400:
+ *         description: Invalid withdrawal request
+ *       500:
+ *         description: Server error
+ */
+router.post('/withdrawals/:withdrawalId/transfer',
+  authMiddleware.verifyToken,
+  adminController.initiateWithdrawalTransfer
+);
+
+/**
+ * @swagger
+ * /api/admin/transfers/{reference}/verify:
+ *   get:
+ *     summary: Verify transfer status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reference
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Transfer status verified successfully
+ *       404:
+ *         description: Transfer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/transfers/:reference/verify',
+  authMiddleware.verifyToken,
+  adminController.verifyTransferStatus
+);
+
+// Add this new route
+
+/**
+ * @swagger
+ * /api/admin/categories/recalculate-stats:
+ *   post:
+ *     summary: Recalculate category statistics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Category statistics recalculated successfully
+ *       500:
+ *         description: Server error
+ */
+router.post('/categories/recalculate-stats', 
+ 
+  adminController.recalculateCategoryStats
+);
+
+/**
+ * @swagger
+ * /api/admin/banks:
+ *   get:
+ *     summary: Get list of supported banks
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of banks retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/banks', authMiddleware.verifyToken, async (req, res) => {
+  try {
+    const banks = await bankService.getBankList();
+    res.json({ success: true, data: banks });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bank list',
+      error: error.message
+    });
+  }
+});
+
+// Add the new finalize transfer route
+router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, adminController.finalizeTransfer);
+
+
 
 module.exports = router;

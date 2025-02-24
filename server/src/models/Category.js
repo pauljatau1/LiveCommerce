@@ -17,7 +17,19 @@ const categorySchema = new mongoose.Schema({
     url: { type: String },
     public_id: { type: String },
   },
+  platformFee: { type: Number, default: 0 },
   subCategories: [subCategorySchema],
+  statistics: {
+    orders: {
+      pending: { type: Number, default: 0 },
+      completed: { type: Number, default: 0 }
+    },
+    items: {
+      pending: { type: Number, default: 0 },
+      sold: { type: Number, default: 0 }
+    },
+    totalProducts: { type: Number, default: 0 }
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

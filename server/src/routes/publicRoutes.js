@@ -5,6 +5,10 @@ const Announcement = require('../models/Annoucement')
 const Resource = require('../models/Resource')
 const Seller = require('../models/Seller');
 const Buyer = require('../models/Buyer');
+const Category = require('../models/Category');
+const mongoose = require('mongoose');
+const Order = require('../models/Order');
+const Product = require('../models/Product');
 
 /**
  * @swagger
@@ -18,7 +22,126 @@ const Buyer = require('../models/Buyer');
  *       500:
  *         description: Internal server error
  */
-router.get('/categories', adminController.getCategories);
+router.get('/categories', async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Get all categories
+    const categories = await Category.find({}, null, { session });
+    
+    // Reset all category statistics
+    await Category.updateMany({}, {
+      $set: {
+        'statistics.orders.pending': 0,
+        'statistics.orders.completed': 0,
+        'statistics.items.pending': 0,
+        'statistics.items.sold': 0,
+        'statistics.totalProducts': 0
+      }
+    }, { session });
+
+    // Get all orders and their items
+    const orders = await Order.find({})
+      .populate({
+        path: 'items.product',
+        select: 'category'
+      });
+
+    // Get product counts per category
+    const productCounts = await Product.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          totalProducts: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create maps to store statistics
+    const categoryStats = {};
+    const productCountMap = productCounts.reduce((acc, item) => {
+      acc[item._id] = item.totalProducts;
+      return acc;
+    }, {});
+
+    // Process each order
+    for (const order of orders) {
+      for (const item of order.items) {
+        if (!item.product || !item.product.category) continue;
+
+        const category = item.product.category;
+        
+        if (!categoryStats[category]) {
+          categoryStats[category] = {
+            pending: { orders: 0, items: 0 },
+            completed: { orders: 0, items: 0 }
+          };
+        }
+
+        if (order.paid) {
+          categoryStats[category].completed.orders++;
+          categoryStats[category].completed.items += item.quantity;
+        } else {
+          categoryStats[category].pending.orders++;
+          categoryStats[category].pending.items += item.quantity;
+        }
+      }
+    }
+
+    // Update each category with the calculated statistics
+    for (const [categoryName, stats] of Object.entries(categoryStats)) {
+      await Category.findOneAndUpdate(
+        { name: categoryName },
+        {
+          $set: {
+            'statistics.orders.pending': stats.pending.orders,
+            'statistics.orders.completed': stats.completed.orders,
+            'statistics.items.pending': stats.pending.items,
+            'statistics.items.sold': stats.completed.items,
+            'statistics.totalProducts': productCountMap[categoryName] || 0
+          }
+        },
+        { session }
+      );
+    }
+
+    // Update categories that might have products but no orders
+    for (const [categoryName, totalProducts] of Object.entries(productCountMap)) {
+      if (!categoryStats[categoryName]) {
+        await Category.findOneAndUpdate(
+          { name: categoryName },
+          {
+            $set: {
+              'statistics.totalProducts': totalProducts
+            }
+          },
+          { session }
+        );
+      }
+    }
+
+    await session.commitTransaction();
+
+    // Get updated categories and sort them
+    const updatedCategories = await Category.find().sort({
+      'statistics.orders.completed': -1,
+      'statistics.orders.pending': -1
+    });
+
+    res.json(updatedCategories);
+
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Error retrieving categories:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve categories',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+});
 
 /**
  * @swagger

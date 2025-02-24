@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const notificationController = require('../controllers/notificationController');
 const Transaction = require('./Transaction');
+const Seller = require('./Seller');
 
 // Define the address schema to match Terminal Africa's format
 const addressSchema = new mongoose.Schema({
@@ -200,23 +201,123 @@ const orderSchema = new mongoose.Schema({
 
 // Add a pre-save middleware to handle seller wallet updates
 orderSchema.pre('save', async function(next) {
-  // Only proceed if the order's isOpen status is changing from true to false
   if (this.isModified('isOpen') && !this.isOpen) {
     try {
-      const Seller = mongoose.model('Seller');
+      console.log('Order closing process started:', {
+        orderId: this._id,
+        items: this.items.length
+      });
+
+      // Populate the products
+      await this.populate('items.product', 'name category');
+
+      const Category = mongoose.model('Category');
       
-      // Calculate total amount for seller (excluding shipping fees)
-      const totalAmount = this.items.reduce((total, item) => {
-        return total + (item.price * item.quantity);
-      }, 0);
+      console.log('Populated items:', this.items.map(item => ({
+        productName: item.productName,
+        product: item.product,
+        category: item.product?.category
+      })));
 
-      // Calculate platform fee (8%) and seller amount (92%)
-      const platformFee = totalAmount * 0.08;
-      const sellerAmount = totalAmount * 0.92;
+      // First, let's log all categories in the database
+      const allCategories = await Category.find({});
+      console.log('All categories in database:', allCategories.map(c => ({
+        id: c._id,
+        name: c.name.toLowerCase(),
+        platformFee: c.platformFee
+      })));
 
-      // Create transaction records
-      await Promise.all([
-        // Create order payment transaction
+      // Get categories by name
+      const categoryNames = [...new Set(this.items.map(item => 
+        typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null
+      ).filter(Boolean))];
+
+      console.log('Looking up categories by names:', categoryNames);
+
+      // Let's try a case-insensitive search
+      const categories = await Category.find({
+        name: { 
+          $regex: new RegExp('^' + categoryNames.join('|') + '$', 'i')
+        }
+      });
+
+      console.log('Found categories after search:', categories.map(c => ({
+        id: c._id,
+        name: c.name,
+        platformFee: c.platformFee,
+        searchedFor: categoryNames
+      })));
+
+      // Create map with case-insensitive keys
+      const categoryFeeMap = new Map(
+        categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
+      );
+
+      console.log('Category fee map created:', 
+        Object.fromEntries(categoryFeeMap.entries())
+      );
+
+      // Calculate totals and fees for each item
+      let totalPlatformFee = 0;
+      let totalAmount = 0;
+
+      this.items.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        totalAmount += itemTotal;
+
+        const categoryName = typeof item.product?.category === 'string' 
+          ? item.product.category.toLowerCase() 
+          : null;
+        
+        console.log('Looking up fee for category:', {
+          categoryName,
+          availableCategories: Array.from(categoryFeeMap.keys()),
+          foundFee: categoryFeeMap.get(categoryName)
+        });
+
+        const categoryFee = categoryFeeMap.get(categoryName) || 0;
+        const itemPlatformFee = itemTotal * (categoryFee / 100);
+        totalPlatformFee += itemPlatformFee;
+
+        console.log('Item fee calculation:', {
+          productName: item.productName,
+          categoryName,
+          categoryFee,
+          itemTotal,
+          itemPlatformFee
+        });
+      });
+
+      // Calculate payment processing fee (1.5%)
+      const paymentProcessingFee = totalAmount * 0.015;
+      const totalDeductions = totalPlatformFee + paymentProcessingFee;
+      const sellerAmount = totalAmount - totalDeductions;
+
+      console.log('Final calculations:', {
+        totalAmount,
+        totalPlatformFee,
+        paymentProcessingFee,
+        totalDeductions,
+        sellerAmount
+      });
+
+      // Update seller's wallet
+      const updatedSeller = await Seller.findByIdAndUpdate(
+        this.seller,
+        { $inc: { walletBalance: sellerAmount } },
+        { new: true }
+      );
+
+      console.log('Seller wallet updated:', {
+        sellerId: updatedSeller._id,
+        newBalance: updatedSeller.walletBalance
+      });
+
+      // Create transaction records with detailed metadata
+      const transactionPromises = [];
+
+      // Order payment transaction
+      transactionPromises.push(
         Transaction.create({
           seller: this.seller,
           type: 'order_payment',
@@ -224,61 +325,127 @@ orderSchema.pre('save', async function(next) {
           orderId: this._id,
           description: `Payment for order #${this.order_id}`,
           status: 'completed'
-        }),
-        
-        // Create platform fee transaction
-        Transaction.create({
-          seller: this.seller,
-          type: 'platform_fee',
-          amount: platformFee,
-          orderId: this._id,
-          description: `Platform fee for order #${this.order_id} (8%)`,
-          status: 'completed'
         })
-      ]);
-
-      // Update seller's wallet balance with 92% of the total
-      const updatedSeller = await Seller.findByIdAndUpdate(
-        this.seller,
-        { $inc: { walletBalance: sellerAmount } },
-        { new: true }
       );
 
-      // Create notification for order closure and wallet update
-      await notificationController.createNotification(this.seller, 'order_closed', {
-        orderId: this._id,
-        order_id: this.order_id,
-        amount: sellerAmount,
-        platformFee: platformFee,
-        newWalletBalance: updatedSeller.walletBalance
+      // Platform fee transactions for each item
+      this.items.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        const categoryFee = categoryFeeMap.get(typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null) || 0;
+        const itemPlatformFee = itemTotal * (categoryFee / 100);
+
+        if (itemPlatformFee > 0) {
+          transactionPromises.push(
+            Transaction.create({
+              seller: this.seller,
+              type: 'platform_fee',
+              amount: itemPlatformFee,
+              orderId: this._id,
+              description: `Platform fee for ${item.productName} in order #${this.order_id}`,
+              metadata: {
+                categoryFee: categoryFee,
+                categoryName: typeof item.product?.category === 'string' ? item.product.category : null,
+                itemTotal: itemTotal
+              },
+              status: 'completed'
+            })
+          );
+        }
       });
 
-      // Send email notification
-      const sellerEmail = {
-        to: updatedSeller.email,
-        from: 'Auqli Payments <joseph@auqli.com>',
-        subject: 'Order Closed and Payment Released - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Order Closed and Payment Released</h2>
-            <p>Dear ${updatedSeller.firstName},</p>
-            <p>Order #${this.order_id} has been closed and the payment has been released to your wallet.</p>
-            <p><strong>Payment Details:</strong></p>
-            <ul>
-              <li>Total Order Amount: ₦${totalAmount.toLocaleString()}</li>
-              <li>Platform Fee (8%): ₦${platformFee.toLocaleString()}</li>
-              <li>Amount Released: ₦${sellerAmount.toLocaleString()}</li>
-              <li>New Wallet Balance: ₦${updatedSeller.walletBalance.toLocaleString()}</li>
-            </ul>
-            <p>The platform fee has been deducted from the total amount.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
+      // Processing fee transaction
+      transactionPromises.push(
+        Transaction.create({
+          seller: this.seller,
+          type: 'processing_fee',
+          amount: paymentProcessingFee,
+          orderId: this._id,
+          description: `Payment processing fee for order #${this.order_id}`,
+          metadata: {
+            processingFeePercent: 1.5,
+            itemTotal: totalAmount
+          },
+          status: 'completed'
+        })
+      );
 
-      await notificationController.sendEmailNotification(updatedSeller, sellerEmail);
+      await Promise.all(transactionPromises);
+
+      // Send email notification to seller
+      try {
+        const sellerEmail = {
+          to: updatedSeller.email,
+          from: {
+            email: 'joseph@auqli.com',
+            name: 'Auqli Orders'
+          },
+          subject: 'Order Closed and Payment Released',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Order Closed and Payment Released</h2>
+              <p>Dear ${updatedSeller.firstName},</p>
+              <p>Order #${this.order_id} has been closed and the payment has been released to your wallet.</p>
+              <p><strong>Payment Details:</strong></p>
+              <ul>
+                <li>Total Order Amount: ₦${totalAmount.toLocaleString()}</li>
+                
+                <li style="margin-top: 10px;"><strong>Platform Fees Breakdown:</strong></li>
+                ${this.items.map(item => {
+                  const categoryFee = categoryFeeMap.get(typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null) || 0;
+                  const itemTotal = item.price * item.quantity;
+                  const itemPlatformFee = itemTotal * (categoryFee / 100);
+                  return `
+                    <li style="margin-left: 20px;">
+                      ${item.productName} (${categoryFee}% fee): ₦${itemPlatformFee.toLocaleString()}
+                      <br><small style="color: #666;">Item Total: ₦${itemTotal.toLocaleString()}</small>
+                    </li>
+                  `;
+                }).join('')}
+                <li style="margin-top: 5px;">Total Platform Fees: ₦${totalPlatformFee.toLocaleString()}</li>
+                
+                <li style="margin-top: 10px;">Payment Processing Fee (1.5%): ₦${paymentProcessingFee.toLocaleString()}</li>
+                <li>Total Deductions: ₦${totalDeductions.toLocaleString()}</li>
+                <li style="margin-top: 10px; font-weight: bold;">Amount Released: ₦${sellerAmount.toLocaleString()}</li>
+                <li>New Wallet Balance: ₦${updatedSeller.walletBalance.toLocaleString()}</li>
+              </ul>
+              <p>The platform fees have been deducted based on your products' category rates, and a 1.5% payment processing fee has been applied.</p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        };
+
+        console.log('Attempting to send email with full config:', {
+          to: sellerEmail.to,
+          from: sellerEmail.from,
+          subject: sellerEmail.subject,
+          apiKey: process.env.SENDGRID_API_KEY ? 'Present' : 'Missing'
+        });
+
+        // Send directly with sgMail instead of using the notification controller
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        await sgMail.send(sellerEmail);
+        
+        console.log('Email sent successfully');
+      } catch (emailError) {
+        console.error('Email sending failed:', {
+          error: emailError.message,
+          details: emailError.response?.body?.errors,
+          stack: emailError.stack,
+          config: {
+            to: updatedSeller.email,
+            from: sellerEmail.from,
+            subject: sellerEmail.subject
+          }
+        });
+        // Continue execution despite email error
+      }
 
     } catch (error) {
+      console.error('Error in order close middleware:', {
+        error: error.message,
+        stack: error.stack
+      });
       return next(error);
     }
   }
@@ -333,13 +500,13 @@ orderSchema.pre('save', async function(next) {
       this.items[0].statusHistory.find(h => h.status === 'delivered')) {
     
     const deliveredDate = this.items[0].statusHistory.find(h => h.status === 'delivered').timestamp;
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
-    if (deliveredDate <= twoDaysAgo) {
+    if (deliveredDate <= oneMinuteAgo) {
       this.isOpen = false;
       this.closedAt = new Date();
       this.closedBy = 'auto';
-      this.closedReason = 'Auto-closed after 2 days of delivery with no action';
+      this.closedReason = 'Auto-closed after 1 minute of delivery with no action';
       // The wallet update will be triggered by the isOpen change in the middleware above
     }
   }

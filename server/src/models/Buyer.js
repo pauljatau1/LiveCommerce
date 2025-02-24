@@ -86,9 +86,34 @@ const buyerSchema = new mongoose.Schema({
   resetPasswordOTP: String,
   resetPasswordOTPExpires: Date,
   notificationPreferences: {
-    email: { type: Boolean, default: true },
-    sms: { type: Boolean, default: true },
-    push: { type: Boolean, default: true }
+    orderUpdates: {
+      orderConfirmation: { type: Boolean, default: true },
+      shippingAndDelivery: { type: Boolean, default: true },
+      orderCancellation: { type: Boolean, default: true },
+      refundUpdates: { type: Boolean, default: true }
+    },
+    liveShows: {
+      allShows: { type: Boolean, default: true },
+      followedSellers: { type: Boolean, default: true },
+      recommendedShows: { type: Boolean, default: true }
+    },
+    messages: {
+      fromSellers: { type: Boolean, default: true },
+      fromBuyers: { type: Boolean, default: true },
+      chatReplies: { type: Boolean, default: true },
+      mentions: { type: Boolean, default: true }
+    },
+    communityActivity: {
+      postComments: { type: Boolean, default: true },
+      postLikes: { type: Boolean, default: true },
+      repliesAndMentions: { type: Boolean, default: true }
+    },
+    promotionsAndSales: {
+      flashSales: { type: Boolean, default: true },
+      couponsAndDeals: { type: Boolean, default: true },
+      trendingProducts: { type: Boolean, default: true },
+      recommendations: { type: Boolean, default: true }
+    }
   },
   expoPushToken: { type: String },
   preferredLanguage: {
@@ -107,7 +132,12 @@ const buyerSchema = new mongoose.Schema({
     followDate: { type: Date, default: Date.now },
     lastInteraction: { type: Date },
     optedOut: { type: Boolean, default: false }
-  }]
+  }],
+  accountDeletion: {
+    otp: String,
+    expiresAt: Date,
+    attempts: { type: Number, default: 0 }
+  },
 });
 
 // Middleware to update isNew property after 3 days

@@ -784,4 +784,183 @@ router.get('/new',
   postController.getNewPosts
 );
 
+/**
+ * @swagger
+ * /api/posts/search:
+ *   get:
+ *     summary: Search posts by query parameters
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Search query for title, body, or tags
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by product category
+ *       - in: query
+ *         name: seller
+ *         schema:
+ *           type: string
+ *         description: Filter by seller ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of posts per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [recent, popular]
+ *           default: recent
+ *         description: Sort posts by date or popularity
+ *     responses:
+ *       200:
+ *         description: Search results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 posts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       title:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       author:
+ *                         type: object
+ *                       products:
+ *                         type: array
+ *                       stats:
+ *                         type: object
+ *                 totalPages:
+ *                   type: number
+ *                 currentPage:
+ *                   type: number
+ *                 totalPosts:
+ *                   type: number
+ *       500:
+ *         description: Server error
+ */
+router.get('/search', postController.searchPosts);
+
+/**
+ * @swagger
+ * /api/posts/user/{userType}/{userId}/batch:
+ *   delete:
+ *     summary: Delete multiple posts from a specific user
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [Buyer, Seller]
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               postIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of post IDs to delete
+ *     responses:
+ *       200:
+ *         description: Posts deleted successfully
+ *       401:
+ *         description: Unauthorized - Only post owners can delete their posts
+ *       404:
+ *         description: User or posts not found
+ */
+router.delete('/user/:userType/:userId/batch',
+  authMiddleware.verifyToken,
+  postController.deleteBatchPosts
+);
+
+/**
+ * @swagger
+ * /api/posts/user/{userType}/{userId}/batch:
+ *   put:
+ *     summary: Update multiple posts from a specific user
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [Buyer, Seller]
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               updates:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     postId:
+ *                       type: string
+ *                       required: true
+ *                     visibility:
+ *                       type: string
+ *                       enum: [public, private, draft]
+ *                     title:
+ *                       type: string
+ *                     body:
+ *                       type: string
+ *                     tags:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *     responses:
+ *       200:
+ *         description: Posts updated successfully
+ *       401:
+ *         description: Unauthorized - Only post owners can update their posts
+ *       404:
+ *         description: User or posts not found
+ */
+router.put('/user/:userType/:userId/batch',
+  authMiddleware.verifyToken,
+  postController.updateBatchPosts
+);
+
 module.exports = router; 

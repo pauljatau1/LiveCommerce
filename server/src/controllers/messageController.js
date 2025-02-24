@@ -206,7 +206,7 @@ exports.getMessages = async (req, res) => {
         model: 'Product',
         select: 'name price images description inventory.sku category'
       })
-      .sort({ createdAt: -1 }) // Sort by newest first
+      .sort({ createdAt: 1 }) // Sort by newest first
       .skip((effectivePage - 1) * limit)
       .limit(limit)
       .lean();

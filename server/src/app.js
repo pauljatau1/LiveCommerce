@@ -9,8 +9,6 @@ const initializeSocket = require('./socket/socketManager');
 const compression = require('compression');
 
 
-
-
 // Import routes
 const adminRoutes = require('./routes/adminRoutes');
 const buyerRoutes = require('./routes/buyerRoutes');
@@ -24,8 +22,6 @@ const returnRoutes = require('./routes/returnRoutes');
 
 const publicRoutes = require('./routes/publicRoutes')
 const notificationRoutes = require('./routes/notificationRoutes');
-
-
 
 const webhookRoutes = require('./routes/webhookRoutes');
 const locationRoutes = require('./routes/locationRoutes');
@@ -95,7 +91,6 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
-
 
 app.use('/webhooks', webhookRoutes);
 app.use('/api/locations', locationRoutes);

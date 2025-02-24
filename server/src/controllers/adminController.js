@@ -15,12 +15,68 @@ const Transaction = require('../models/Transaction');
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
 const axios = require('axios');
+// const { TEST_DATA, isTestMode, getTestBankAccount } = require('../utils/paystackTestData');
+
+// Add bank code mapping at the top of the file
+const BANK_CODES = {
+  'access bank': '044',
+  'guaranty trust bank': '058',
+  'first bank': '011',
+  'united bank for africa': '033',
+  'zenith bank': '057',
+  // Add more banks as needed
+};
+
+// Test bank accounts you can use
+const TEST_ACCOUNTS = {
+  'Access Bank': {
+    code: '044',
+    number: '0690000031',
+    name: 'Test Account'
+  },
+  'Guaranty Trust Bank': {
+    code: '058',
+    number: '0123456789',
+    name: 'Test Account'
+  }
+};
+
+// Add debug logging for Paystack configuration
+console.log('Paystack Configuration:', {
+  secretKeyExists: !!process.env.PAYSTACK_SECRET_KEY,
+  secretKeyLength: process.env.PAYSTACK_SECRET_KEY?.length,
+  secretKeyPrefix: process.env.PAYSTACK_SECRET_KEY?.substring(0, 6),
+});
+
+// Update Paystack configuration with logging
 const paystack = axios.create({
   baseURL: 'https://api.paystack.co',
   headers: {
     Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
     'Content-Type': 'application/json'
   }
+});
+
+// Add request interceptor with logging
+paystack.interceptors.request.use((config) => {
+  console.log('Paystack Request Config:', {
+    url: config.url,
+    method: config.method,
+    authHeader: config.headers.Authorization?.substring(0, 15) + '...',
+    baseURL: config.baseURL
+  });
+  
+  if (!process.env.PAYSTACK_SECRET_KEY) {
+    console.error('Paystack Secret Key is missing');
+    throw new Error('Invalid Paystack configuration: Key missing');
+  }
+
+  if (process.env.PAYSTACK_SECRET_KEY === 'scret') {
+    console.error('Paystack Secret Key is set to default value');
+    throw new Error('Invalid Paystack configuration: Default key detected');
+  }
+
+  return config;
 });
 
 sgMail.setApiKey('SG.REDACTED');
@@ -34,6 +90,18 @@ cloudinary.config({
 
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
+
+// Add validation middleware
+const validatePaystackConfig = (req, res, next) => {
+  if (!process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY === 'sk_test_REDACTED') {
+    return res.status(500).json({
+      success: false,
+      message: 'Server configuration error',
+      error: 'Invalid Paystack configuration'
+    });
+  }
+  next();
+};
 
 exports.register = async (req, res) => {
   const { username, email, password } = req.body;
@@ -57,7 +125,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: '80h' });
     res.json({ token });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -336,11 +404,123 @@ exports.createCategory = async (req, res) => {
 
 
 exports.getCategories = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const categories = await Category.find();
-    res.json(categories);
+    // Get all categories
+    const categories = await Category.find({}, null, { session });
+    
+    // Reset all category statistics
+    await Category.updateMany({}, {
+      $set: {
+        'statistics.orders.pending': 0,
+        'statistics.orders.completed': 0,
+        'statistics.items.pending': 0,
+        'statistics.items.sold': 0,
+        'statistics.totalProducts': 0
+      }
+    }, { session });
+
+    // Get all orders and their items
+    const orders = await Order.find({})
+      .populate({
+        path: 'items.product',
+        select: 'category'
+      });
+
+    // Get product counts per category
+    const productCounts = await Product.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          totalProducts: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create maps to store statistics
+    const categoryStats = {};
+    const productCountMap = productCounts.reduce((acc, item) => {
+      acc[item._id] = item.totalProducts;
+      return acc;
+    }, {});
+
+    // Process each order
+    for (const order of orders) {
+      for (const item of order.items) {
+        if (!item.product || !item.product.category) continue;
+
+        const category = item.product.category;
+        
+        if (!categoryStats[category]) {
+          categoryStats[category] = {
+            pending: { orders: 0, items: 0 },
+            completed: { orders: 0, items: 0 }
+          };
+        }
+
+        if (order.paid) {
+          categoryStats[category].completed.orders++;
+          categoryStats[category].completed.items += item.quantity;
+        } else {
+          categoryStats[category].pending.orders++;
+          categoryStats[category].pending.items += item.quantity;
+        }
+      }
+    }
+
+    // Update each category with the calculated statistics
+    for (const [categoryName, stats] of Object.entries(categoryStats)) {
+      await Category.findOneAndUpdate(
+        { name: categoryName },
+        {
+          $set: {
+            'statistics.orders.pending': stats.pending.orders,
+            'statistics.orders.completed': stats.completed.orders,
+            'statistics.items.pending': stats.pending.items,
+            'statistics.items.sold': stats.completed.items,
+            'statistics.totalProducts': productCountMap[categoryName] || 0
+          }
+        },
+        { session }
+      );
+    }
+
+    // Update categories that might have products but no orders
+    for (const [categoryName, totalProducts] of Object.entries(productCountMap)) {
+      if (!categoryStats[categoryName]) {
+        await Category.findOneAndUpdate(
+          { name: categoryName },
+          {
+            $set: {
+              'statistics.totalProducts': totalProducts
+            }
+          },
+          { session }
+        );
+      }
+    }
+
+    await session.commitTransaction();
+
+    // Get updated categories and sort them
+    const updatedCategories = await Category.find().sort({
+      'statistics.orders.completed': -1,
+      'statistics.orders.pending': -1
+    });
+
+    res.json(updatedCategories);
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    await session.abortTransaction();
+    console.error('Error in getCategories:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve categories',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -1675,6 +1855,669 @@ exports.rejectBusinessAccount = async (req, res) => {
     });
   }
 };
+
+exports.updateCategoryPlatformFee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { platformFee } = req.body;
+
+    // Validate platform fee
+    if (typeof platformFee !== 'number' || platformFee < 0) {
+      return res.status(400).json({ 
+        message: 'Platform fee must be a non-negative number' 
+      });
+    }
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    category.platformFee = platformFee;
+    await category.save();
+
+    res.json({
+      message: 'Platform fee updated successfully',
+      category: {
+        id: category._id,
+        name: category.name,
+        platformFee: category.platformFee
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to update platform fee', 
+      error: error.message 
+    });
+  }
+};
+
+// Verify bank account details
+exports.verifyBankAccount = async (req, res) => {
+  try {
+    const { accountNumber, bankCode } = req.body;
+
+    const response = await paystack.get(`/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`);
+
+    res.json({
+      success: true,
+      data: response.data.data
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Could not verify account details',
+      error: error.response?.data?.message || error.message
+    });
+  }
+};
+
+// Create transfer recipient
+exports.createTransferRecipient = async (req, res) => {
+  try {
+    const { name, accountNumber, bankCode } = req.body;
+
+    const response = await paystack.post('/transferrecipient', {
+      type: 'nuban',
+      name,
+      account_number: accountNumber,
+      bank_code: bankCode,
+      currency: 'NGN'
+    });
+
+    res.json({
+      success: true,
+      data: response.data.data
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Could not create transfer recipient',
+      error: error.response?.data?.message || error.message
+    });
+  }
+};
+
+// Initiate transfer for withdrawal
+exports.initiateWithdrawalTransfer = async (req, res) => {
+  console.log('Starting withdrawal transfer process...');
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  let withdrawal = null;
+  let testAmount = null;
+
+  try {
+    console.log('Environment Check:', {
+      nodeEnv: process.env.NODE_ENV,
+      isTestMode: isTestMode(),
+      paystackKeyExists: !!process.env.PAYSTACK_SECRET_KEY
+    });
+
+    const { withdrawalId } = req.params;
+    console.log('Processing withdrawal:', { withdrawalId });
+
+    withdrawal = await Withdrawal.findById(withdrawalId)
+      .populate('seller')
+      .session(session);
+
+    if (!withdrawal) {
+      throw new Error('Withdrawal request not found');
+    }
+
+    // For test mode, use minimum test amount
+    testAmount = isTestMode() ? 10 : withdrawal.amount; // Use ₦10 for testing
+    const amountInKobo = Math.round(testAmount * 100); // Convert to kobo
+
+    console.log('Amount calculation:', {
+      originalAmount: withdrawal.amount,
+      testAmount: testAmount,
+      amountInKobo: amountInKobo,
+      isTestMode: isTestMode()
+    });
+
+    try {
+      // First verify the recipient's bank account
+      const verifyAccount = await paystack.get(
+        `/bank/resolve?account_number=${withdrawal.bankDetails.accountNumber}&bank_code=${withdrawal.bankDetails.bankCode || '044'}`
+      );
+      
+      console.log('Account verification:', {
+        status: verifyAccount.data.status,
+        accountName: verifyAccount.data.data.account_name
+      });
+
+      const recipientPayload = {
+        type: 'nuban',
+        name: verifyAccount.data.data.account_name, // Use verified account name
+        account_number: withdrawal.bankDetails.accountNumber,
+        bank_code: withdrawal.bankDetails.bankCode || '044',
+        currency: 'NGN'
+      };
+      console.log('Creating recipient with payload:', recipientPayload);
+
+      const recipientResponse = await paystack.post('/transferrecipient', recipientPayload);
+      console.log('Recipient created:', {
+        recipientCode: recipientResponse.data.data.recipient_code,
+        status: recipientResponse.data.status
+      });
+
+      const transferPayload = {
+        source: 'balance',
+        amount: amountInKobo,
+        recipient: recipientResponse.data.data.recipient_code,
+        reason: `Test transfer - ${withdrawal.reference}`,
+        currency: 'NGN'
+      };
+      console.log('Transfer payload:', transferPayload);
+
+      const transferResponse = await paystack.post('/transfer', transferPayload);
+      console.log('Transfer initiated:', {
+        reference: transferResponse.data.data.reference,
+        status: transferResponse.data.status,
+        amount: transferResponse.data.data.amount / 100 // Convert back to Naira for logging
+      });
+
+      withdrawal.status = 'processing';
+      withdrawal.paymentInfo = {
+        transferReference: transferResponse.data.data.reference,
+        transferRecipientCode: recipientResponse.data.data.recipient_code,
+        initiatedAt: new Date(),
+        testMode: isTestMode(),
+        originalAmount: withdrawal.amount,
+        testAmount: testAmount,
+        amountInKobo: amountInKobo,
+        paystackStatus: transferResponse.data.data.status,
+        lastChecked: new Date(),
+        reference: transferResponse.data.data.reference
+      };
+
+      withdrawal.reference = transferResponse.data.data.reference;
+
+      withdrawal.notes.push({
+        content: `Test transfer of ₦${testAmount} initiated (Original amount: ₦${withdrawal.amount})`,
+        addedBy: 'admin'
+      });
+
+      await withdrawal.save({ session });
+      await session.commitTransaction();
+      console.log('Transaction committed successfully');
+
+      res.json({
+        success: true,
+        message: 'Test transfer initiated successfully',
+        data: {
+          withdrawal,
+          transfer: {
+            reference: transferResponse.data.data.reference,
+            amount: testAmount,
+            originalAmount: withdrawal.amount,
+            status: transferResponse.data.status
+          },
+          testMode: true
+        }
+      });
+
+    } catch (paystackError) {
+      console.error('Paystack Error Details:', {
+        status: paystackError.response?.status,
+        statusText: paystackError.response?.statusText,
+        data: paystackError.response?.data,
+        message: paystackError.message
+      });
+
+      // Handle specific Paystack errors
+      const errorMessage = paystackError.response?.data?.message || paystackError.message;
+      if (errorMessage.includes('balance is not enough')) {
+        throw new Error(`Test transfer failed: Insufficient balance for ₦${testAmount}. Please try a smaller amount or fund your test account.`);
+      } else if (errorMessage.includes('account number')) {
+        throw new Error('Invalid bank account details. Please verify the account number and bank code.');
+      } else {
+        throw new Error(`Paystack error: ${errorMessage}`);
+      }
+    }
+
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Transfer process error:', {
+      message: error.message,
+      type: error.name,
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to initiate transfer',
+      error: error.message,
+      details: isTestMode() ? {
+        testMode: true,
+        originalAmount: withdrawal?.amount,
+        testAmount: testAmount,
+        withdrawalId: req.params.withdrawalId
+      } : undefined
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Verify transfer status
+exports.verifyTransferStatus = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    console.log('Verifying transfer status for reference:', reference);
+
+    // Find withdrawal first
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': reference },
+        { reference: reference }
+      ]
+    });
+
+    if (!withdrawal) {
+      console.log('Withdrawal not found for reference:', reference);
+      return res.status(404).json({
+        success: false,
+        message: 'Withdrawal not found',
+        reference
+      });
+    }
+
+    // Verify with Paystack
+    const paystackResponse = await paystack.get(`/transfer/verify/${reference}`);
+    const transferData = paystackResponse.data.data;
+    
+    console.log('Transfer status check:', {
+      reference,
+      status: transferData.status,
+      currentWithdrawalStatus: withdrawal.status
+    });
+
+    // Handle different Paystack transfer statuses
+    let newStatus;
+    let message;
+    
+    switch (transferData.status) {
+      case 'success':
+        newStatus = 'completed';
+        message = 'Transfer completed successfully';
+        break;
+      case 'failed':
+        newStatus = 'failed';
+        message = `Transfer failed: ${transferData.reason || 'No reason provided'}`;
+        break;
+      case 'otp':
+        newStatus = 'processing';
+        message = 'Transfer pending OTP verification';
+        // Stop continuous polling for OTP status
+        return res.json({
+          success: true,
+          data: {
+            status: 'processing',
+            message: 'Transfer requires OTP verification',
+            requiresAction: true,
+            withdrawal: {
+              _id: withdrawal._id,
+              status: 'processing',
+              reference
+            }
+          }
+        });
+      case 'pending':
+        newStatus = 'processing';
+        message = 'Transfer is still processing';
+        break;
+      default:
+        newStatus = withdrawal.status;
+        message = `Transfer status: ${transferData.status}`;
+    }
+
+    // Only update if status has changed
+    if (withdrawal.status !== newStatus) {
+      withdrawal.status = newStatus;
+      withdrawal.paymentInfo = {
+        ...(withdrawal.paymentInfo || {}),
+        transferReference: reference,
+        lastChecked: new Date(),
+        paystackStatus: transferData.status,
+        statusDetails: transferData
+      };
+
+      withdrawal.notes.push({
+        content: message,
+        addedBy: 'system'
+      });
+
+      await withdrawal.save();
+
+      // Send email notifications if status is final
+      if (newStatus === 'completed' || newStatus === 'failed') {
+        try {
+          await sendStatusUpdateEmail(withdrawal);
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        status: newStatus,
+        message,
+        withdrawal: {
+          _id: withdrawal._id,
+          status: newStatus,
+          reference,
+          paymentInfo: withdrawal.paymentInfo
+        },
+        requiresAction: false
+      }
+    });
+
+  } catch (error) {
+    console.error('Transfer verification error:', {
+      message: error.message,
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify transfer status',
+      error: error.message
+    });
+  }
+};
+
+// Add email notification function
+async function sendStatusUpdateEmail(withdrawal) {
+  const emailContent = {
+    completed: {
+      subject: 'Withdrawal Completed Successfully - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Withdrawal Completed</h2>
+          <p>Dear ${withdrawal.seller.firstName},</p>
+          <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been completed successfully.</p>
+          <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
+          <p>The funds have been transferred to your bank account.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    },
+    failed: {
+      subject: 'Withdrawal Transfer Failed - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Withdrawal Transfer Failed</h2>
+          <p>Dear ${withdrawal.seller.firstName},</p>
+          <p>We encountered an issue while processing your withdrawal (Ref: ${withdrawal.reference}).</p>
+          <p>Our team has been notified and will investigate the issue.</p>
+          <p>We will process your withdrawal as soon as possible.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    }
+  };
+
+  const template = emailContent[withdrawal.status];
+  if (template) {
+    await sgMail.send({
+      to: withdrawal.seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: template.subject,
+      html: template.html
+    });
+  }
+}
+
+// Also update the webhook handler to match the reference properly
+exports.handlePaystackWebhook = async (req, res) => {
+  // ... existing validation code ...
+
+  try {
+    const event = req.body;
+    console.log('Received Paystack webhook:', {
+      event: event.event,
+      reference: event.data.reference
+    });
+
+    // Find withdrawal with more flexible matching
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': event.data.reference },
+        { reference: event.data.reference }
+      ]
+    });
+
+    if (!withdrawal) {
+      console.log('Withdrawal not found for webhook event:', event.data.reference);
+      return res.sendStatus(200); // Still return 200 to acknowledge receipt
+    }
+
+    // ... rest of the webhook handling code ...
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    res.status(500).json({ message: 'Webhook processing failed' });
+  }
+};
+
+// Add new endpoint to finalize transfer
+exports.finalizeTransfer = async (req, res) => {
+  try {
+    const { reference } = req.params;
+    console.log('Starting transfer finalization for reference:', reference);
+
+    // Find withdrawal first
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': reference },
+        { reference: reference }
+      ]
+    }).populate('seller');
+
+    if (!withdrawal) {
+      console.log('Withdrawal not found for reference:', reference);
+      return res.status(404).json({
+        success: false,
+        message: 'Withdrawal not found',
+        reference
+      });
+    }
+
+    // Add a small delay for test mode (Paystack recommendation)
+    if (isTestMode()) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // First get the transfer details to get the transfer_code
+    const transferResponse = await paystack.get(`/transfer/verify/${reference}`);
+    console.log('Transfer verification response:', {
+      status: transferResponse.data.data.status,
+      transfer_code: transferResponse.data.data.transfer_code,
+      reference: transferResponse.data.data.reference
+    });
+
+    // Check if transfer is in OTP state
+    if (transferResponse.data.data.status === 'otp') {
+      const transfer_code = transferResponse.data.data.transfer_code;
+      console.log('Attempting to finalize transfer with transfer_code:', transfer_code);
+
+      try {
+        const finalizeResponse = await paystack.post('/transfer/finalize_transfer', {
+          transfer_code: transfer_code,
+          otp: "123456"  // Test mode OTP
+        });
+
+        console.log('Finalize response:', {
+          status: finalizeResponse.data.status,
+          message: finalizeResponse.data.message,
+          data: finalizeResponse.data.data
+        });
+
+        // Update withdrawal status
+        withdrawal.status = 'processing';
+        withdrawal.paymentInfo = {
+          ...withdrawal.paymentInfo,
+          lastChecked: new Date(),
+          finalizeAttempted: true,
+          finalizeResponse: finalizeResponse.data,
+          transfer_code: transfer_code
+        };
+
+        await withdrawal.save();
+
+        return res.json({
+          success: true,
+          message: 'Transfer finalized successfully',
+          data: {
+            status: finalizeResponse.data.data.status,
+            reference,
+            withdrawal: {
+              _id: withdrawal._id,
+              status: withdrawal.status
+            }
+          }
+        });
+      } catch (finalizeError) {
+        console.error('Error in finalize request:', {
+          message: finalizeError.message,
+          response: finalizeError.response?.data
+        });
+
+        throw finalizeError;
+      }
+    } else {
+      console.log('Transfer not in OTP state:', transferResponse.data.data.status);
+      return res.json({
+        success: false,
+        message: `Transfer is not in OTP state (current status: ${transferResponse.data.data.status})`,
+        data: {
+          status: transferResponse.data.data.status,
+          reference
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error finalizing transfer:', {
+      message: error.message,
+      response: error.response?.data,
+      stack: error.stack
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to finalize transfer',
+      error: error.response?.data?.message || error.message,
+      details: {
+        reference,
+        errorType: error.name,
+        paystackError: error.response?.data
+      }
+    });
+  }
+};
+
+// Helper function to check test mode
+const isTestMode = () => process.env.NODE_ENV === 'development';
+
+// Add this new function to recalculate category statistics
+exports.recalculateCategoryStats = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Get all categories
+    const categories = await Category.find({}, null, { session });
+    
+    // Reset all category statistics
+    await Category.updateMany({}, {
+      $set: {
+        'statistics.orders.pending': 0,
+        'statistics.orders.completed': 0,
+        'statistics.items.pending': 0,
+        'statistics.items.sold': 0
+      }
+    }, { session });
+
+    // Get all orders and their items
+    const orders = await Order.find({})
+      .populate({
+        path: 'items.product',
+        select: 'category'
+      });
+
+    // Create a map to store category statistics
+    const categoryStats = {};
+
+    // Process each order
+    for (const order of orders) {
+      for (const item of order.items) {
+        if (!item.product || !item.product.category) continue;
+
+        const category = item.product.category;
+        
+        if (!categoryStats[category]) {
+          categoryStats[category] = {
+            pending: { orders: 0, items: 0 },
+            completed: { orders: 0, items: 0 }
+          };
+        }
+
+        if (order.paid) {
+          categoryStats[category].completed.orders++;
+          categoryStats[category].completed.items += item.quantity;
+        } else {
+          categoryStats[category].pending.orders++;
+          categoryStats[category].pending.items += item.quantity;
+        }
+      }
+    }
+
+    // Update each category with the calculated statistics
+    for (const [categoryName, stats] of Object.entries(categoryStats)) {
+      await Category.findOneAndUpdate(
+        { name: categoryName },
+        {
+          $set: {
+            'statistics.orders.pending': stats.pending.orders,
+            'statistics.orders.completed': stats.completed.orders,
+            'statistics.items.pending': stats.pending.items,
+            'statistics.items.sold': stats.completed.items
+          }
+        },
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+
+    // Get updated categories
+    const updatedCategories = await Category.find().sort({
+      'statistics.orders.completed': -1,
+      'statistics.orders.pending': -1
+    });
+
+    res.json({
+      message: 'Category statistics recalculated successfully',
+      categories: updatedCategories
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Error recalculating category statistics:', error);
+    res.status(500).json({
+      message: 'Failed to recalculate category statistics',
+      error: error.message
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+
 
 
 

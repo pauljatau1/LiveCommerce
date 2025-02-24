@@ -243,7 +243,77 @@ const sellerSchema = new mongoose.Schema({
       of: Number,
       default: new Map()
     }
-  }
+  },
+  operatingHours: {
+    monday: {
+      isOpen: { type: Boolean, default: true },
+      openTime: { type: String, default: "09:00" },
+      closeTime: { type: String, default: "17:00" }
+    },
+    tuesday: {
+      isOpen: { type: Boolean, default: true },
+      openTime: { type: String, default: "09:00" },
+      closeTime: { type: String, default: "17:00" }
+    },
+    wednesday: {
+      isOpen: { type: Boolean, default: true },
+      openTime: { type: String, default: "09:00" },
+      closeTime: { type: String, default: "17:00" }
+    },
+    thursday: {
+      isOpen: { type: Boolean, default: true },
+      openTime: { type: String, default: "09:00" },
+      closeTime: { type: String, default: "17:00" }
+    },
+    friday: {
+      isOpen: { type: Boolean, default: true },
+      openTime: { type: String, default: "09:00" },
+      closeTime: { type: String, default: "17:00" }
+    },
+    saturday: {
+      isOpen: { type: Boolean, default: true },
+      openTime: { type: String, default: "09:00" },
+      closeTime: { type: String, default: "17:00" }
+    },
+    sunday: {
+      isOpen: { type: Boolean, default: false },
+      openTime: { type: String, default: "09:00" },
+      closeTime: { type: String, default: "17:00" }
+    }
+  },
+  specialDates: [{
+    date: { type: Date, required: true },
+    isOpen: { type: Boolean, required: true },
+    openTime: String,
+    closeTime: String,
+    note: String
+  }],
+  timezone: { 
+    type: String, 
+    default: "Africa/Lagos" 
+  },
+  storePolicy: {
+    deliveryTimes: { type: String },
+    freeShippingPolicy: { type: String },
+    lostOrDamagedPolicy: { type: String },
+    refundPolicy: { type: String },
+    processingTime: { type: String },
+    refundMethod: { 
+      type: String,
+      enum: ['store_credit', 'original_payment', 'bank_transfer', 'both']
+    },
+    nonRefundableItems: [{ type: String }],
+    returnWindow: { 
+      type: Number, // Number of days
+      default: 14
+    },
+    returnCondition: { type: String },
+    returnShipping: {
+      type: String,
+      enum: ['buyer_paid', 'seller_paid', 'case_by_case']
+    },
+    exchangePolicy: { type: String }
+  },
 });
 
 // Middleware to update isNew property after 3 days
