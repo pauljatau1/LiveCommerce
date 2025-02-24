@@ -70,8 +70,6 @@ const PostItem = ({ item }: { item: any }) => {
         id: item._id,
         type: "like",
       });
-
-      console.log("successfully added reaction ", result.data);
     } catch (e: any) {
       console.log("cannot like post", e.message);
     }

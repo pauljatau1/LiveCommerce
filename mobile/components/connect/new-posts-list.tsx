@@ -101,8 +101,8 @@ const NewPostsList = () => {
           showsVerticalScrollIndicator={false}
           ListFooterComponent={renderFooter}
           initialNumToRender={6}
-          // removeClippedSubviews={true}
-          // updateCellsBatchingPeriod={100}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={100}
         />
       )}
     </View>

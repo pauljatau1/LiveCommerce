@@ -332,7 +332,7 @@ const ProductDescription = () => {
         style={{ minHeight: height, flex: 1 }}
       >
         <View
-          className={`pt-[30px] pb-[12px] px-[12px] flex flex-row justify-between items-center gap-[10px]`}
+          className={`pt-[30px] pb-[12px] px-[12px] flex flex-row justify-between items-center gap-[12px]`}
         >
           <View className="flex flex-row items-center gap-[10px] shrink">
             <TouchableOpacity onPress={() => router.back()}>
@@ -347,7 +347,7 @@ const ProductDescription = () => {
                 borderRadius: 6,
                 borderWidth: 1,
                 borderColor: "#c6c6c6",
-                maxWidth: 250,
+                // maxWidth: 250,
                 paddingVertical: 12,
                 flexDirection: "row",
                 paddingHorizontal: 12,
@@ -370,7 +370,7 @@ const ProductDescription = () => {
           </View>
 
           <View className="flex-row items-center gap-[12px] mr-2">
-            <TouchableOpacity
+            {/* <TouchableOpacity
               className=" relative "
               onPress={() => {
                 if (userToken) {
@@ -380,7 +380,7 @@ const ProductDescription = () => {
               }}
             >
               <Ionicons name="heart-sharp" size={24} color="#16783A" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               className=" flex justify-center items-center "
               onPress={() => {
@@ -390,11 +390,19 @@ const ProductDescription = () => {
                 return setShowAuthSheet(true);
               }}
             >
-              <AntDesign
+              <Image
+                source={require("../../../assets/icons/cart.png")}
+                resizeMode="cover"
+                style={{
+                  width: 25,
+                  height: 25,
+                }}
+              />
+              {/* <AntDesign
                 name="shoppingcart"
                 size={24}
                 color="rgba(22, 120, 58, 1)"
-              />
+              /> */}
               {cartNumber > 0 && (
                 <View
                   className="absolute top-[-15px] right-[-5px]"

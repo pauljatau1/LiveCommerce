@@ -21,8 +21,6 @@ const SellerReviews = ({
   headerHeight: any;
   index: any;
 }) => {
-  console.log("store name", storeName);
-
   const [sellerReviews, setSellerReviews] = useState<any>([]);
   const [issellerReviewsLoading, setIsSellerReviewsLoading] =
     useState<boolean>(true);

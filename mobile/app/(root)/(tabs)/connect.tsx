@@ -176,10 +176,13 @@ const Connect = () => {
               ))}
             </View>
 
-            {renderContent()}
-            {/* <Tab.Navigator
+            {/* {renderContent()} */}
+            <Tab.Navigator
+              lazy={true}
+              lazyPreloadDistance={0}
               screenOptions={{
                 lazy: true,
+                lazyPreloadDistance: 0,
               }}
               initialLayout={{
                 width: Dimensions.get("window").width,
@@ -192,7 +195,7 @@ const Connect = () => {
                 name="Trending"
                 component={TrendingPostsList}
               />
-            </Tab.Navigator> */}
+            </Tab.Navigator>
 
             <BottomSheet
               bgColor="#121212"
