@@ -131,7 +131,12 @@ const buyerSchema = new mongoose.Schema({
     followDate: { type: Date, default: Date.now },
     lastInteraction: { type: Date },
     optedOut: { type: Boolean, default: false }
-  }]
+  }],
+  accountDeletion: {
+    otp: String,
+    expiresAt: Date,
+    attempts: { type: Number, default: 0 }
+  },
 });
 
 // Middleware to update isNew property after 3 days
