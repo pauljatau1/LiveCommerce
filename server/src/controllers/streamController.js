@@ -324,12 +324,6 @@ exports.endStream = async (req, res) => {
 exports.getActiveStreams = async (req, res) => {
   try {
     const activeStreams = await Stream.find({ status: 'live' })
-      .populate('seller')
-      .populate('products.product')
-      .populate('products.currentBidder')
-      .populate('viewers')
-      .populate('bids.buyer')
-      .populate('bids.product')
       .lean(); // Convert to plain JS objects
 
     res.json(activeStreams.map(stream => ({
