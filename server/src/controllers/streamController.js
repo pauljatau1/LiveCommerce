@@ -324,13 +324,11 @@ exports.endStream = async (req, res) => {
 exports.getActiveStreams = async (req, res) => {
   try {
     const activeStreams = await Stream.find({ status: 'live' })
-      .lean(); // Convert to plain JS objects
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price')
+      .sort({ actualStartTime: -1 });
 
-    res.json(activeStreams.map(stream => ({
-      ...stream,
-      viewerCount: stream.viewers.length,
-      isLive: stream.status === 'live'
-    })));
+    res.json(activeStreams);
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch active streams',
