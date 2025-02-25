@@ -187,7 +187,7 @@ const CreateLiveShow = () => {
                             </div>
                         ) : (
                             <>
-                                <img src={CreateAuctionIcon} alt="Upload" className="w-12 h-12 mb-2" />
+                                <img src={CreateAuctionIcon} alt="Upload" className="w-14 h-12 mb-2" />
                                 <div className="text-center px-4">
                                     <p className="text-sm text-gray-600">
                                         Drop & drop files or <span className="text-green-600">Browse</span>
