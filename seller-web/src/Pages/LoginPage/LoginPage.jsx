@@ -1,15 +1,12 @@
-import { Link, useNavigate, useLoaderData } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { fetchOnboardingProcess } from '../../Utilities/apiRestaurant';
-import { BASE_URL } from '../../Constants/Server';
 import Modal from '../../Components/Modal';
 import Logo from '../../assets/auqli-official-logo.png';
 import LoginImage from '../../assets/login-image.png';
 import CircularProgress from '@mui/material/CircularProgress';
-import axios from 'axios';
 import Emoji from '../../assets/Emoji -_.png'
 import OtpInput from 'react-otp-input';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
@@ -29,7 +26,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
   const navigate = useNavigate();
-  const onboardingProcess = useLoaderData();
   const [otp, setOtp] = useState('');
   const [isOtpEntered, setIsOtpEntered] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -367,10 +363,5 @@ const LoginPage = () => {
     </div>
   )
 };
-
-export async function Loader() {
-  const onboardingProcess = await fetchOnboardingProcess();
-  return onboardingProcess;
-}
 
 export default LoginPage

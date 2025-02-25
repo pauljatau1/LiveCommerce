@@ -62,23 +62,28 @@ const LivestreamStudio = () => {
             setHeaderName('Live Streams')
             setNavName('Live Studio')
             setShowBackButton(true)
-        }
+        };
     }, []);
 
     useEffect(() => {
+        let isMounted = true;
         const fetchLivestreamData = async () => {
             try {
                 const response = await getLiveStreamFullDetails(id);
-                if (!response) {
+                if (!response && isMounted) {
                     throw new Error('Failed to fetch livestream details');
                 }
-                setIsInitialDataLoaded(true);
+                if (isMounted) setIsInitialDataLoaded(true);
             } catch (error) {
                 console.error('Error fetching initial livestream data:', error);
                 toast.error('Failed to load livestream details');
             }
         };
         fetchLivestreamData();
+        
+        return () => {
+            isMounted = false;
+        };
     }, [id]);
 
 
@@ -235,6 +240,10 @@ const LivestreamStudio = () => {
                 seller.agoraUid,
             );
 
+            // Check the role after joining the channel
+            const currentRole = client.role;
+            console.log('Current role:', currentRole);
+
             // 7. Create tracks AFTER setting isStreaming
             const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
                 {
@@ -259,7 +268,7 @@ const LivestreamStudio = () => {
                     mediaStreamTrack: previewStream.getVideoTracks()[0] // Reuse existing track
                 },
                 { 
-                    timeout: 30000, // Increase timeout to 30s
+                    timeout: 60000, // Increase timeout to 30s
                     retry: 3 // Add retry attempts
                 }
             );
@@ -321,41 +330,92 @@ const LivestreamStudio = () => {
             } else if (button2 === true) {
                 setIsLiveStreamEndingButton2(true);
             }
+            
+            // 1. Stop all local tracks first
+            if (localTracks.length > 0) {
+                localTracks.forEach(track => {
+                    try {
+                        track.stop();  // This releases the hardware resource
+                        track.close(); // This removes the track from any associated senders
+                    } catch (trackError) {
+                        console.error('Error stopping track:', trackError);
+                    }
+                });
+                setLocalTracks([]);
+            }
+
+            // 2. Leave the channel and cleanup client
+            if (client) {
+                try {
+                    // Unpublish tracks before leaving
+                    await client.unpublish(localTracks);
+                } catch (unpublishError) {
+                    console.error('Error unpublishing tracks:', unpublishError);
+                }
+                
+                if (client.connectionState === 'CONNECTED') {
+                    await client.leave();
+                }
+                
+                // Reset client state
+                client.removeAllListeners();
+            }
+
+            // 3. Release camera/mic access - Modified section
+            const streams = [];
+            if (localTracks.some(t => t.getMediaStreamTrack().kind === 'video')) {
+                streams.push(...localTracks.map(t => t.getMediaStream()));
+            }
+            
+            // Also stop any permission preview streams
+            const previewStream = await checkDevicePermissions();
+            if (previewStream) {
+                streams.push(previewStream);
+            }
+
+            // Stop all media streams
+            streams.forEach(stream => {
+                stream.getTracks().forEach(track => {
+                    track.stop();
+                    track.dispatchEvent(new Event('ended')); // Force end event
+                });
+            });
+
+            // 4. Close any open WebSocket connections
+            // Replace with your actual socket cleanup logic
+            if (window.streamSocket && window.streamSocket.readyState === WebSocket.OPEN) {
+                window.streamSocket.close();
+            }
+
+            // 5. Final cleanup before navigation
+            setIsStreaming(false);
+            stopTimer();
+            localStorage.removeItem(`stream_connected_${id}`);
+
+            // 6. End stream with backend
             await endLiveStream(_id);
 
-            localTracks.forEach(track => {
-                track.stop();
-                track.close();
-            });
-            await client.leave();
-
-            setIsStreaming(false);
-            setLocalTracks([]);
-
-            toast.success('Livestream ended successfully', {
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
-                }
-            });
-
+            // 7. Navigate only after all cleanup
             navigate('/dashboard/live-streams/past-shows');
 
-            stopTimer();
-            const finalDuration = streamDuration;
-
-            // Remove the connected flag from localStorage
-            localStorage.removeItem(`stream_connected_${id}`);
+            toast.success('Livestream ended successfully', {
+                style: { background: '#161A1E', color: '#fff' }
+            });
 
         } catch (error) {
             console.error('Error ending stream:', error);
             toast.error('Failed to end stream: ' + error.message, {
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
-                }
+                style: { background: '#161A1E', color: '#fff' }
             });
         } finally {
+            // Force release media devices through navigator
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    stream.getTracks().forEach(track => track.stop());
+                })
+                .catch(() => {}); // Intentional empty catch
+
+            // Reset all states
             setIsLiveStreamEndingButton1(false);
             setIsLiveStreamEndingButton2(false);
         }
@@ -405,10 +465,21 @@ const LivestreamStudio = () => {
     };
 
     useEffect(() => {
+        let interval;
+        if (isStreaming) {
+            interval = setInterval(() => {
+                setStreamDuration(prev => prev + 1);
+            }, 1000);
+            setTimerInterval(interval);
+        }
+        
         return () => {
-            stopTimer();
+            if (interval) {
+                clearInterval(interval);
+                setTimerInterval(null);
+            }
         };
-    }, []);
+    }, [isStreaming]);
 
     useEffect(() => {
         // Handle user joining
