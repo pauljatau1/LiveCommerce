@@ -52,7 +52,7 @@ const HomeHeader = () => {
 
   return (
     <View
-      className="flex-row items-center justify-between w-full gap-[16px]"
+      className="flex-row items-center justify-between w-full gap-[18px]"
       style={{
         paddingHorizontal: 16,
       }}
@@ -88,7 +88,7 @@ const HomeHeader = () => {
           }}
         /> */}
       </Pressable>
-      <View className="flex-row items-center gap-[16px]">
+      <View className="flex-row items-center gap-[18px]">
         <TouchableOpacity
           className=" flex justify-center items-center gap-[6px]"
           onPress={() => {
