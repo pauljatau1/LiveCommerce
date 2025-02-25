@@ -19,7 +19,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import * as ImagePicker from "expo-image-picker";
-import { getToken } from "@/store/features/auth/utils";
+import { getToken, getUser, setUser } from "@/store/features/auth/utils";
 import axios from "axios";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
@@ -61,6 +61,7 @@ const EditProfile = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [showPasswordValidation, setShowPasswordValidation] =
     useState<boolean>(false);
+  const [hasChanged, setHasChanged] = useState<boolean>(false);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -80,6 +81,7 @@ const EditProfile = () => {
       const imagesToAdd = newImages.slice(0, remainingSlots);
 
       setSelectedMedia(imagesToAdd);
+      setHasChanged(true);
     }
   };
 
@@ -102,8 +104,17 @@ const EditProfile = () => {
           },
         },
       );
+      const user = await getUser();
+      console.log(response.data);
+
+      await setUser({
+        ...user,
+        profileImage: { url: response.data.buyer?.profileImage?.url },
+      });
+      updateProfile();
     } catch (e) {
       console.log("error updating avatar", e);
+      setLoading(false);
     }
   };
 
@@ -136,8 +147,11 @@ const EditProfile = () => {
 
   const handleUpdateProfile = () => {
     setShowPasswordValidation(false);
-    updateAvatar();
-    updateProfile();
+    if (hasChanged) {
+      updateAvatar();
+    } else {
+      updateProfile();
+    }
   };
 
   useEffect(() => {
@@ -285,7 +299,7 @@ const EditProfile = () => {
             <Text style={styles.updateBtnText}>Update</Text>
           </Pressable>
         </ScrollView>
-        {/* <LoadingModal isVisible={loading} /> */}
+        <LoadingModal isVisible={loading} />
 
         <BottomSheet
           bgColor="#121212"
