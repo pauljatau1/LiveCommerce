@@ -12,7 +12,7 @@ const SectionHeader = ({
   return (
     <View
       className="flex-row pr-[18px] justify-between items-center"
-      style={{ paddingLeft: 16 }}
+      style={{ paddingLeft: 26 }}
     >
       <Text className="text-white font-LexendDecaBold text-[16px]">
         {title}

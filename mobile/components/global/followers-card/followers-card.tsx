@@ -7,7 +7,7 @@ import { router } from "expo-router";
 const FollowCard = ({ item, data }: { item: string; data: any }) => {
   return (
     <Pressable
-      className={`mt-[9px] w-full px-[4px] gap-x-3  `}
+      className={`mt-[9px] mr-[30px] w-full px-[4px] gap-x-3  `}
       onPress={() =>
         router.push({
           pathname: "/sellerProfile",
