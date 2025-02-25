@@ -92,6 +92,20 @@ const ProtectedRoute = ({ children }) => {
         }
       } catch (error) {
         console.log('caught error', error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('sellerToken');
+          localStorage.removeItem('seller');
+          localStorage.removeItem('onboardingProcess');
+          localStorage.removeItem('visitorId')
+          navigate('/login');
+          toast.error('Session expired', {
+            description: 'Please login again',
+            style: {
+              background: '#17171B',
+              color: '#fff',
+            }
+          });
+        }
       }
     };
 
