@@ -27,10 +27,11 @@ export interface User {
   wishlist: any[];
 }
 
-export type LoginRequest = {
+export interface LoginRequest {
   email: string;
   password: string;
-};
+  expoPushToken: string;
+}
 
 export type LoginResponse = {
   token: string;
@@ -45,6 +46,7 @@ export type SignUpRequest = {
   country: string;
   phoneNumber: string;
   password: string;
+  expoPushToken?: string;
 };
 
 export type SignUpResponse = {

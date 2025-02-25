@@ -26,6 +26,7 @@ import { toast } from "@/core/toast";
 import PhoneInput, { isValidNumber } from "react-native-phone-number-input";
 import { signIn } from "@/store/features/auth/authSlice";
 import { useDispatch } from "react-redux";
+import { usePushNotifications } from "@/hooks/useExpoPushToken";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const service = [
@@ -49,6 +50,7 @@ const service = [
 const CreateAccount = () => {
   // const router = useRouter();
   const dispatch = useDispatch();
+  const { expoPushToken } = usePushNotifications()
   const phoneInput = useRef<PhoneInput>(null);
 
   const methods = useForm({
@@ -98,6 +100,7 @@ const CreateAccount = () => {
       country: country.label,
       username: userName,
       agree,
+      expoPushToken: expoPushToken?.data || "",
     };
     try {
       const result = await signUp(details).unwrap();
