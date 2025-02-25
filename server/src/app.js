@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const passport = require('passport');
+
 const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
 const http = require('http');
@@ -29,8 +29,7 @@ const streamRoutes = require('./routes/streamRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const flashSaleRoutes = require('./routes/flashSaleRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
-// Import Passport configuration
-require('./config/passport');
+
 
 const app = express();
 const server = http.createServer(app);
@@ -63,8 +62,7 @@ app.use(session({
   cookie: { secure: false }
 }));
 
-app.use(passport.initialize());
-app.use(passport.session());
+
 
 // Add compression middleware
 app.use(compression());

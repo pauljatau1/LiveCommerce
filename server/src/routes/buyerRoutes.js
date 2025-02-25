@@ -4,7 +4,7 @@ const buyerController = require('../controllers/buyerController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const passport = require('passport');
+
 
 /**
  * @swagger
@@ -336,34 +336,6 @@ router.get('/selected-categories',
   buyerController.getSelectedCategories
 );
 
-/**
- * @swagger
- * /api/buyer/google:
- *   get:
- *     summary: Redirect to Google OAuth
- *     tags: [Buyer]
- *     responses:
- *       302:
- *         description: Redirect to Google OAuth
- */
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-/**
- * @swagger
- * /api/buyer/google-callback:
- *   get:
- *     summary: Google OAuth callback
- *     tags: [Buyer]
- *     responses:
- *       200:
- *         description: Successful authentication
- *       302:
- *         description: Redirect on failure
- */
-router.get('/google-callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
-  const { user, token } = req.user;
-  res.json({ user, token });
-});
 
 /**
  * @swagger
