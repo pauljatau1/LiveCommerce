@@ -4,7 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import { Suspense, useEffect } from 'react';
 import { Toaster } from "sonner";
 import { OnboardingProvider } from './Contexts/OnboardingContext';
-import LoginPage, { Loader as loginLoader } from './Pages/LoginPage/LoginPage';
+import LoginPage from './Pages/LoginPage/LoginPage';
 import { ProductProvider } from './Contexts/ProductContext';
 import { LivestreamProvider } from './Contexts/LivestreamContext';
 import SignUpPage from './Pages/SignUpPage/SignUpPage';
@@ -98,7 +98,7 @@ const router = createBrowserRouter([
       {
         path: '/login',
         element: <LoginPage />,
-        loader: loginLoader,
+        loader: () => new Promise(resolve => setTimeout(resolve, 500)),
         errorElement: <NotFoundPage />
       },
       {

@@ -1264,7 +1264,7 @@ const AddProduct = () => {
                         {/* Bottom Action Buttons */}
                         <div className="flex flex-wrap justify-end gap-4 mt-6">
                             <Button onClick={handleCancelButton} variant="outline">Cancel</Button>
-                            <Button onClick={handleSubmitProduct} className="bg-[#17171B]/90">
+                            <Button disabled={isLoading} onClick={handleSubmitProduct} className="bg-[#17171B]/90 disabled:opacity-50">
                                 {
                                     isLoading ? 'Publishing...' : 'Publish Product'
                                 }
