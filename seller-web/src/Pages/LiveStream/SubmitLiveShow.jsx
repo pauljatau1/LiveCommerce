@@ -102,7 +102,7 @@ const SubmitLiveShow = () => {
         const streamData = {
             title: livestream.title,
             description: livestream.description,
-            coverPhoto: livestream.coverPhoto,
+            coverImage: livestream.coverPhoto,
             category: livestream.category,
             tags: livestream.tags.map(tag => tag.label),
             scheduledStartTime: new Date().toISOString(),
