@@ -152,12 +152,12 @@ export default function OrderDetails() {
                   <Badge variant="outline" className="bg-blue-600 mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
                     {order?.channel}
                   </Badge>
-                  {/* <Badge variant="outline" className={`${shipping?.tracking?.status === 'delivered' ? 'bg-gray-600' : 'bg-blue-600'} mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
-                    {shipping?.tracking?.status === 'delivered' ? 'Closed' : 'Open'}
-                  </Badge> */}
-                  {orderStatus?.hasReturn && (
+                  <Badge variant="outline" className={`${orderData?.order?.orderStatus?.isOpen ? 'bg-green-600' : 'bg-gray-600'} mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
+                    {orderData?.order?.orderStatus?.isOpen ? 'Open' : 'Closed'}
+                  </Badge>
+                  {orderData?.order?.orderStatus?.hasReturn && (
                     <Badge variant="outline" className="bg-orange-600 mb-1 md:mb-0 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
-                      Return Issues
+                      Return Requested
                     </Badge>
                   )}
                 </div>
@@ -168,14 +168,14 @@ export default function OrderDetails() {
               </div>
 
               <div className="flex gap-2">
-                {orderStatus?.hasReturn && (
+                {orderData?.order?.orderStatus?.hasReturn && (
                   <Button
-                    onClick={() => navigate('/dashboard/returns')}
+                    onClick={() => navigate(`/dashboard/return/${orderData.order.orderStatus.returnRequestId}`)}
                     size="lg"
                     className="bg-orange-600 hover:bg-orange-700 capitalize transition-all duration-300 text-white text-sm h-10"
                   >
                     <ArrowUpRight className="mr-2 h-3 w-3" />
-                    View Return
+                    View Return Request
                   </Button>
                 )}
 
@@ -384,68 +384,76 @@ export default function OrderDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="space-y-4">
-                {/* Order Items Breakdown */}
-                {order?.paymentBreakdown?.items?.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{item.productName}</span>
-                    <span>₦{item.amount.toLocaleString()}</span>
-                  </div>
-                ))}
+              {order?.paymentInfo?.status === 'paid' ? (
+                <div className="space-y-4">
+                  {/* Order Items Breakdown */}
+                  {order?.paymentBreakdown?.items?.map((item, index) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{item.productName}</span>
+                      <span>₦{item.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
 
-                {/* Delivery Fee (if exists) */}
-                {shipping?.fee?.amount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Delivery Fee (Paid by buyer)</span>
-                    <span className="text-gray-600">₦{shipping.fee.amount.toLocaleString()}</span>
-                  </div>
-                )}
-
-                <Separator />
-
-                {/* Platform Fees */}
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Platform Fee ({order?.paymentBreakdown?.items?.[0]?.platformFeePercentage}%)</span>
-                    <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalPlatformFee?.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Payment Processing Fee ({order?.paymentBreakdown?.fees?.processingFeePercentage}%)</span>
-                    <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.processingFee?.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Total Deductions */}
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium text-gray-700">Total Deductions</span>
-                  <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalDeductions?.toLocaleString()}</span>
-                </div>
-
-                {/* Seller Payout */}
-                <div className="flex justify-between text-lg font-inter font-semibold bg-green-50 p-3 rounded-md">
-                  <span>Payout</span>
-                  <span className="text-green-700">₦{order?.paymentBreakdown?.sellerPayout?.toLocaleString()}</span>
-                </div>
-
-                {/* Payment Status */}
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(order?.paymentInfo?.status)}>
-                      {order?.paymentInfo?.status}
-                    </Badge>
-                    <span className="text-sm text-gray-600">
-                      via {order?.paymentInfo?.method}
-                    </span>
-                  </div>
-                  {order?.paymentInfo?.paidAt && (
-                    <span className="text-sm text-gray-600">
-                      Paid on {new Date(order.paymentInfo.paidAt).toLocaleString()}
-                    </span>
+                  {/* Delivery Fee (if exists) */}
+                  {shipping?.fee?.amount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Delivery Fee (Paid by buyer)</span>
+                      <span className="text-gray-600">₦{shipping.fee.amount.toLocaleString()}</span>
+                    </div>
                   )}
+
+                  <Separator />
+
+                  {/* Platform Fees */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Platform Fee ({order?.paymentBreakdown?.items?.[0]?.platformFeePercentage}%)</span>
+                      <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalPlatformFee?.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>Payment Processing Fee ({order?.paymentBreakdown?.fees?.processingFeePercentage}%)</span>
+                      <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.processingFee?.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Total Deductions */}
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-700">Total Deductions</span>
+                    <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalDeductions?.toLocaleString()}</span>
+                  </div>
+
+                  {/* Seller Payout */}
+                  <div className="flex justify-between text-lg font-inter font-semibold bg-green-50 p-3 rounded-md">
+                    <span>Payout</span>
+                    <span className="text-green-700">₦{order?.paymentBreakdown?.sellerPayout?.toLocaleString()}</span>
+                  </div>
+
+                  {/* Payment Status */}
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(order?.paymentInfo?.status)}>
+                        {order?.paymentInfo?.status}
+                      </Badge>
+                      <span className="text-sm text-gray-600">
+                        via {order?.paymentInfo?.method}
+                      </span>
+                    </div>
+                    {order?.paymentInfo?.paidAt && (
+                      <span className="text-sm text-gray-600">
+                        Paid on {new Date(order.paymentInfo.paidAt).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-6">
+                  <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                  <p className="text-gray-600 font-medium">Payment Pending</p>
+                  <p className="text-sm text-gray-500 mt-1">Payment breakdown will be available once the order is paid.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

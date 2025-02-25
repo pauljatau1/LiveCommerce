@@ -16,6 +16,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   const { stuffToDo, getSellerNotifications } = useAuthContext()
   const [unreadMessages, setUnreadMessages] = useState(0)
   const navigate = useNavigate()
+  const [notificationDialogOpen, setNotificationDialogOpen] = useState(false)
 
   useEffect(() => {
     const fetchSellerProfile = async () => {
@@ -89,7 +90,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   }
 
   const mobileNotificationsItem = (
-    <Dialog>
+    <Dialog open={notificationDialogOpen} onOpenChange={setNotificationDialogOpen}>
       <DialogTrigger asChild>
         <CommandItem
           onSelect={() => setOpen(false)}
@@ -104,7 +105,10 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           )}
         </CommandItem>
       </DialogTrigger>
-      <NotificationsDialog notifications={stuffToDo?.notifications || []} />
+      <NotificationsDialog 
+        notifications={stuffToDo?.notifications || []} 
+        onClose={() => setNotificationDialogOpen(false)}
+      />
     </Dialog>
   )
 
@@ -129,7 +133,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   )
 
   const desktopNotificationsButton = (
-    <Dialog>
+    <Dialog open={notificationDialogOpen} onOpenChange={setNotificationDialogOpen}>
       <DialogTrigger asChild>
         <button className="relative p-2 mr-3 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
           <Icon icon="ion:notifications-outline" className="h-7 w-7" />
@@ -140,7 +144,10 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           )}
         </button>
       </DialogTrigger>
-      <NotificationsDialog notifications={stuffToDo?.notifications || []} />
+      <NotificationsDialog 
+        notifications={stuffToDo?.notifications || []} 
+        onClose={() => setNotificationDialogOpen(false)}
+      />
     </Dialog>
   )
 
@@ -162,11 +169,37 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     )
   }
 
+  const handleMessagesClick = async () => {
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+      if (!sellerToken) return;
+
+      // Clear unread count locally first for immediate UI update
+      setUnreadMessages(0);
+
+      // Navigate to messages page
+      navigate('/dashboard/messages');
+
+      // Make API call to mark all conversations as read
+      await fetch(`${BASE_URL}/conversations/mark-all-read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+
+    } catch (error) {
+      console.error('Error marking conversations as read:', error);
+      // Optionally refresh the unread count if the API call fails
+      calculateUnreadMessages();
+    }
+  };
+
   const desktopMenuItems = (
     <div className="hidden md:flex md:items-center md:gap-2">
       {desktopGoLiveButton}
       <button
-        onClick={() => navigate('/dashboard/messages')}
+        onClick={handleMessagesClick}
         className="relative p-2 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out"
       >
         <Icon icon="icon-park-outline:message" className="h-6 w-6" />
@@ -198,8 +231,8 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   const mobileMessagesItem = (
     <CommandItem
       onSelect={() => {
-        navigate('/dashboard/messages')
-        setOpen(false)
+        handleMessagesClick();
+        setOpen(false);
       }}
       className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
     >

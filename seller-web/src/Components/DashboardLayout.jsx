@@ -65,7 +65,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={`${fullScreenMode || isMessagesPage ? '' : 'pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-7 lg:pb-14'}`} >
+          <div className={`${fullScreenMode || isMessagesPage ? '' : 'container mx-auto sm:px-4 px-4'}`} >
             <Outlet context={outletContext} />
           </div>
         </div>

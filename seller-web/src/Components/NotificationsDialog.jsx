@@ -1,50 +1,207 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Icon } from "@iconify/react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
+import { BASE_URL } from '@/Constants/Server';
 
-function NotificationsDialog({ notifications }) {
+function NotificationsDialog({ notifications, onClose }) {
+  const navigate = useNavigate();
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'new_order':
+      case 'order_paid':
+      case 'order_delivered':
+      case 'order_cancelled':
+      case 'order_status_update':
+      case 'order_shipped':
+      case 'order_reminder':
+        return "material-symbols:order-approve-outline";
+      case 'low_stock':
+      case 'back_in_stock':
+        return "material-symbols:inventory-2-outline";
+      case 'return_request':
+      case 'return_created':
+      case 'return_approved':
+      case 'return_rejected':
+      case 'return_info_needed':
+      case 'return_partial_refund':
+      case 'return_label_created':
+      case 'return_pickup_arranged':
+        return "material-symbols:assignment-return";
+      case 'new_campaign':
+      case 'campaign_scheduled':
+        return "material-symbols:campaign-outline";
+      default:
+        return "material-symbols:notifications-outline";
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId) => {
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+      if (!sellerToken) return;
+
+      const response = await fetch(`${BASE_URL}/notifications/${notificationId}/mark-read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'accept': '*/*'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark notification as read');
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    // Mark notification as read if it isn't already
+    if (!notification.isRead) {
+      await markNotificationAsRead(notification._id);
+    }
+    
+    // Close the dialog
+    if (onClose) {
+      onClose();
+    }
+
+    // Route based on notification type
+    switch (notification.type) {
+      case 'low_stock':
+      case 'back_in_stock':
+        navigate(`/dashboard/products`);
+        break;
+      
+      case 'new_order':
+      case 'order_paid':
+      case 'order_delivered':
+      case 'order_cancelled':
+      case 'order_status_update':
+      case 'order_shipped':
+      case 'order_reminder':
+        if (notification.data?.order_id) {
+          navigate(`/dashboard/orders`);
+        } else {
+          navigate('/dashboard/orders');
+        }
+        break;
+
+      case 'return_request':
+      case 'return_created':
+      case 'return_approved':
+      case 'return_rejected':
+      case 'return_info_needed':
+      case 'return_partial_refund':
+      case 'return_label_created':
+      case 'return_pickup_arranged':
+        if (notification.data?.order_id) {
+          navigate(`/dashboard/returns`);
+        } else {
+          navigate('/dashboard/returns');
+        }
+        break;
+
+      case 'new_campaign':
+      case 'campaign_scheduled':
+        navigate('/dashboard/marketing/inbox-campaigns/list');
+        break;
+
+      default:
+        // Default to dashboard if no specific route
+        navigate('/dashboard/home');
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = Math.abs(now - date);
+    const diffInHours = diffInMs / 36e5;
+
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor(diffInMs / 60000);
+      if (diffInMinutes < 1) {
+        const diffInSeconds = Math.floor(diffInMs / 1000);
+        return `${diffInSeconds} seconds ago`;
+      }
+      return `${diffInMinutes} minutes ago`;
+    } else if (diffInHours < 24) {
+      return `${Math.round(diffInHours)} hours ago`;
+    } else if (diffInHours < 48) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
   return (
     <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>All Notifications</DialogTitle>
+        <DialogTitle className="flex items-center gap-2">
+          <Icon icon="material-symbols:notifications-outline" className="h-5 w-5" />
+          Notifications
+        </DialogTitle>
       </DialogHeader>
       
       <div className="divide-y divide-gray-100">
-        {notifications?.map((notification) => (
-          <div key={notification._id} className="py-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h4 className="font-medium text-gray-900">{notification.title}</h4>
-                <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                
-                {notification.data && (
-                  <div className="mt-2 text-sm">
-                    {Object.entries(notification.data).map(([key, value]) => (
-                      <div key={key} className="text-gray-500">
-                        <span className="font-medium">{key.replace(/([A-Z])/g, ' $1').toLowerCase()}: </span>
-                        {typeof value === 'object' 
-                          ? JSON.stringify(value) 
-                          : String(value)}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                <p className="text-xs text-gray-400 mt-2">
-                  {new Date(notification.createdAt).toLocaleString()}
-                </p>
-              </div>
-              
-              {!notification.isRead && (
-                <span className="h-2 w-2 bg-green-500 rounded-full"></span>
-              )}
-            </div>
+        {notifications?.length === 0 ? (
+          <div className="py-8 text-center text-gray-500">
+            <Icon icon="material-symbols:notifications-off-outline" className="mx-auto h-12 w-12 mb-3" />
+            <p>No notifications yet</p>
           </div>
-        ))}
+        ) : (
+          notifications?.map((notification) => (
+            <div
+              key={notification._id}
+              onClick={() => handleNotificationClick(notification)}
+              className={`py-4 px-4 hover:bg-gray-50 cursor-pointer transition-colors duration-200 ${
+                !notification.isRead ? 'bg-blue-50/50' : ''
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <Icon 
+                    icon={getNotificationIcon(notification.type)} 
+                    className={`h-6 w-6 ${!notification.isRead ? 'text-blue-600' : 'text-gray-400'}`}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-medium text-gray-900">{notification.title}</h4>
+                    <p className="text-xs text-gray-500 whitespace-nowrap">
+                      {formatDate(notification.createdAt)}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                  
+                  {notification.data && Object.keys(notification.data).length > 0 && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      {Object.entries(notification.data)
+                        .filter(([key]) => !['productId', 'order_id'].includes(key))
+                        .map(([key, value]) => (
+                          <span key={key} className="inline-block mr-3">
+                            <span className="font-medium">
+                              {key.replace(/([A-Z])/g, ' $1').toLowerCase()}:
+                            </span>{' '}
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </span>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </DialogContent>
   );

@@ -7,6 +7,7 @@ import PaymentSettings from "@/Components/settings/PaymentSettings"
 import DelegationSettings from "@/Components/settings/DelegationSettings"
 import VacationSettings from "@/Components/settings/VacationSettings"
 import SecuritySettings from "@/Components/settings/SecuritySettings"
+import AddressSettings from "@/Components/settings/AddressSettings"
 import { useOutletContext } from "react-router-dom";
 import { useEffect } from "react";
 
@@ -21,25 +22,32 @@ export default function SettingsDashboard() {
 
   return (
     <div className="w-full px-4 py-6">
-      <Tabs defaultValue="notifications" className="w-full">
+      <Tabs defaultValue="store" className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-          <TabsTrigger
-            value="notifications"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
-          >
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger
+        <TabsTrigger
             value="store"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
           >
             Store
           </TabsTrigger>
           <TabsTrigger
+            value="notifications"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
+          >
+            Notifications
+          </TabsTrigger>
+         
+          {/* <TabsTrigger
             value="warehouse"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
           >
             Warehouse
+          </TabsTrigger> */}
+          <TabsTrigger
+            value="addresses"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
+          >
+            Addresses
           </TabsTrigger>
           <TabsTrigger
             value="payment"
@@ -47,7 +55,7 @@ export default function SettingsDashboard() {
           >
             Payment
           </TabsTrigger>
-          <TabsTrigger
+          {/* <TabsTrigger
             value="delegation"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
           >
@@ -58,26 +66,15 @@ export default function SettingsDashboard() {
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
           >
             Vacation Mode
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger
             value="security"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
           >
             Security
           </TabsTrigger>
+         
         </TabsList>
-
-        <TabsContent value="notifications" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications Settings</CardTitle>
-              <CardDescription>Manage your notification preferences</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <NotificationsSettings />
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="store">
           <Card>
@@ -91,7 +88,21 @@ export default function SettingsDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="warehouse">
+        <TabsContent value="notifications" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notifications Settings</CardTitle>
+              <CardDescription>Manage your notification preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NotificationsSettings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+       
+
+        {/* <TabsContent value="warehouse">
           <Card>
             <CardHeader>
               <CardTitle>Warehouse Settings</CardTitle>
@@ -101,7 +112,7 @@ export default function SettingsDashboard() {
               <WarehouseSettings />
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="payment">
           <Card>
@@ -147,6 +158,18 @@ export default function SettingsDashboard() {
             </CardHeader>
             <CardContent>
               <SecuritySettings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="addresses">
+          <Card>
+            <CardHeader>
+              <CardTitle>Address Settings</CardTitle>
+              <CardDescription>Manage your business and warehouse addresses</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AddressSettings />
             </CardContent>
           </Card>
         </TabsContent>

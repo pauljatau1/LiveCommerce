@@ -1,10 +1,73 @@
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { BASE_URL } from "@/Constants/Server"
+import { toast } from "sonner"
 
 export default function NotificationsSettings() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [preferences, setPreferences] = useState({
+    emailNotifications: true,
+    pushNotifications: true,
+    notificationTypes: {
+      orderUpdates: true,
+      lowStock: true,
+      newReviews: true,
+      promotions: true,
+    }
+  });
+
+  useEffect(() => {
+    fetchNotificationPreferences();
+  }, []);
+
+  const fetchNotificationPreferences = async () => {
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/seller/profile`, {
+        headers: {
+          Authorization: `Bearer ${sellerToken}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPreferences(data.notificationPreferences || {});
+      }
+    } catch (error) {
+      toast.error("Failed to fetch notification preferences");
+    }
+  };
+
+  const updatePreferences = async (updates) => {
+    setIsLoading(true);
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/seller/notification-preferences`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sellerToken}`,
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.ok) {
+        setPreferences(prev => ({ ...prev, ...updates }));
+        toast.success("Notification preferences updated");
+      } else {
+        throw new Error("Failed to update preferences");
+      }
+    } catch (error) {
+      toast.error("Error updating notification preferences");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Customizable Notifications */}
@@ -14,24 +77,60 @@ export default function NotificationsSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm">New orders placed</span>
-            <Checkbox checked />
+            <span className="text-sm">Order Updates</span>
+            <Checkbox 
+              checked={preferences.notificationTypes?.orderUpdates}
+              onCheckedChange={(checked) => {
+                updatePreferences({
+                  notificationTypes: {
+                    ...preferences.notificationTypes,
+                    orderUpdates: checked
+                  }
+                });
+              }}
+            />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Upcoming payout reminders</span>
-            <Checkbox />
+            <span className="text-sm">Low Stock Alerts</span>
+            <Checkbox 
+              checked={preferences.notificationTypes?.lowStock}
+              onCheckedChange={(checked) => {
+                updatePreferences({
+                  notificationTypes: {
+                    ...preferences.notificationTypes,
+                    lowStock: checked
+                  }
+                });
+              }}
+            />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Inventory running low</span>
-            <Checkbox checked />
+            <span className="text-sm">New Reviews</span>
+            <Checkbox 
+              checked={preferences.notificationTypes?.newReviews}
+              onCheckedChange={(checked) => {
+                updatePreferences({
+                  notificationTypes: {
+                    ...preferences.notificationTypes,
+                    newReviews: checked
+                  }
+                });
+              }}
+            />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Auction starting/ending alerts</span>
-            <Checkbox checked />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Feedback or reviews received</span>
-            <Checkbox checked />
+            <span className="text-sm">Promotions</span>
+            <Checkbox 
+              checked={preferences.notificationTypes?.promotions}
+              onCheckedChange={(checked) => {
+                updatePreferences({
+                  notificationTypes: {
+                    ...preferences.notificationTypes,
+                    promotions: checked
+                  }
+                });
+              }}
+            />
           </div>
         </CardContent>
       </Card>
@@ -45,115 +144,40 @@ export default function NotificationsSettings() {
               <div className="space-y-2">
                 <h3 className="font-medium">E-mail</h3>
                 <p className="text-sm text-muted-foreground">
-                  Sellers can toggle to receive updates and reports (e.g., weekly sales summary)
+                  Receive updates and reports via email
                 </p>
               </div>
-              <Switch checked />
+              <Switch 
+                checked={preferences.emailNotifications}
+                onCheckedChange={(checked) => {
+                  updatePreferences({ emailNotifications: checked });
+                }}
+              />
             </div>
           </CardContent>
         </Card>
 
-        {/* Browse Push */}
+        {/* Push Notifications */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex justify-between items-start">
               <div className="space-y-2">
-                <h3 className="font-medium">Browse Push</h3>
+                <h3 className="font-medium">Push Notifications</h3>
                 <p className="text-sm text-muted-foreground">
-                  Toggle for real-time updates while logged in, such as new orders or live auction activity.
+                  Receive real-time updates while logged in
                 </p>
               </div>
-              <Switch />
+              <Switch 
+                checked={preferences.pushNotifications}
+                onCheckedChange={(checked) => {
+                  updatePreferences({ pushNotifications: checked });
+                }}
+              />
             </div>
           </CardContent>
         </Card>
-
-        {/* SMS */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <h3 className="font-medium">SMS</h3>
-                <p className="text-sm text-muted-foreground">
-                  Sellers can opt to receive critical updates like payout confirmations or urgent platform notices.
-                </p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Sales Performance */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <h3 className="font-medium">Sales Performance</h3>
-                <p className="text-sm text-muted-foreground">
-                  Weekly or monthly reports emailed to sellers. Also, notifications for milestones (e.g., 100 sales or
-                  $1,000 revenue).
-                </p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Customer Interaction */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <h3 className="font-medium">Customer Interaction</h3>
-                <p className="text-sm text-muted-foreground">
-                  Alerts for new reviews or ratings & Feedback received on products.
-                </p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Do Not Disturb */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2">
-                <h3 className="font-medium">Do Not Disturb</h3>
-                <p className="text-sm text-muted-foreground">
-                  Critical notifications (e.g., payment issues) will still come through
-                </p>
-              </div>
-              <Switch checked />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Time Settings */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Start Date *</Label>
-            <Input type="date" defaultValue="2023-06-14" />
-          </div>
-          <div className="space-y-2">
-            <Label>End Date *</Label>
-            <Input type="date" defaultValue="2023-06-14" />
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Start Time *</Label>
-            <Input type="time" defaultValue="12:00" />
-          </div>
-          <div className="space-y-2">
-            <Label>End Time *</Label>
-            <Input type="time" defaultValue="12:00" />
-          </div>
-        </div>
       </div>
     </div>
-  )
+  );
 }
 
