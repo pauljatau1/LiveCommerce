@@ -33,6 +33,14 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="createReview/sellerReview"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
 
       <Stack.Screen
         name="cart/cart"
@@ -72,6 +80,15 @@ const Layout = () => {
 
       <Stack.Screen
         name="orders/[id]"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="orders/returns"
         options={{
           headerTitle: "",
           headerShadowVisible: false,

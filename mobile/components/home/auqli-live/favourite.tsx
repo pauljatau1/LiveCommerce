@@ -18,7 +18,7 @@ const Favourite = () => {
     return (
         <View className="w-[100%] pt-[30px]">
             <SectionHeader title="Your Favourite sellers" />
-            <View style={{ paddingLeft: 22 ,  }}>
+            <View style={{ paddingHorizontal: 22 }}>
                 <FlatList
                     data={groupedSellers}
                     renderItem={({ item: row }) => (

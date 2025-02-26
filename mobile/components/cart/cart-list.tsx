@@ -4,18 +4,13 @@ import {
   Pressable,
   TouchableOpacity,
   Image,
-  ScrollView,
   FlatList,
 } from "react-native";
 import React, { memo, useEffect, useState } from "react";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import BouncyCheckbox from "react-native-bouncy-checkbox";
-import { white } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
-import { toast } from "@/core/toast";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, getUser } from "@/store/features/auth/utils";
 
 const CartList = ({
@@ -94,24 +89,27 @@ const CartItem = memo(
 
     return (
       <View className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row mb-[20px]">
-        <View className="mt-[2px]">
-          <BouncyCheckbox
-            isChecked={includeInOrder}
-            size={18}
-            fillColor="#16783A"
-            iconStyle={{ borderColor: "red" }}
-            innerIconStyle={{ borderWidth: 1 }}
-            onPress={(isChecked: boolean) => {
-              setIncludeInOrder(isChecked);
-            }}
-          />
-        </View>
         <View className="gap-[16px] shrink">
-          <View className=" flex-row items-center justify-between">
-            <Text className="text-[16px] text-white font-LexendDecaSemiBold">
-              {cartItem?.seller?.storeInfo?.storeName}
-              {/* {includeInOrder.toString()} */}
-            </Text>
+          <View className=" flex-row items-center justify-between w-full">
+            <View className=" flex-row items-center justify-between">
+              <View className="">
+                <BouncyCheckbox
+                  isChecked={includeInOrder}
+                  size={18}
+                  fillColor="#16783A"
+                  iconStyle={{ borderColor: "red" }}
+                  innerIconStyle={{ borderWidth: 1 }}
+                  onPress={(isChecked: boolean) => {
+                    setIncludeInOrder(isChecked);
+                  }}
+                />
+              </View>
+              <Text className="text-[16px] text-white font-LexendDecaSemiBold">
+                {cartItem?.seller?.storeInfo?.storeName ||
+                  cartItem?.seller?.storeName}
+              </Text>
+            </View>
+
             <TouchableOpacity
               className="rounded-[8px] px-[8px] py-[6px] bg-white flex-row items-center gap-2"
               onPress={() =>
@@ -137,7 +135,9 @@ const CartItem = memo(
                 })
               }
             >
-              <Text className="text-[#16783A] text-[10px]">Message Seller</Text>
+              <Text className="text-[#16783A] text-[10px] font-LexendDecaMedium">
+                Message Seller
+              </Text>
               <AntDesign name="arrowright" size={12} color="#16783A" />
             </TouchableOpacity>
           </View>
@@ -145,17 +145,22 @@ const CartItem = memo(
             <View>
               <Image
                 source={{ uri: cartItem?.images[0].url }}
-                resizeMode="cover"
-                className="w-[115px] h-[136px]"
+                resizeMode="contain"
+                className="w-[115px] h-[136px] rounded-[5px]"
+                style={
+                  {
+                    // backgroundColor: "white",
+                  }
+                }
               />
             </View>
             <View className="gap-[6px] relative shrink">
-              <Text className="text-[14px] text-white font-LexendDecaLight">
+              {/* <Text className="text-[14px] text-white font-LexendDecaLight">
                 {cartItem?.seller?.storeInfo?.storeName}
-              </Text>
+              </Text> */}
               <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-                {cartItem.name.length > 20
-                  ? cartItem.name.slice(0, 20) + "..."
+                {cartItem.name.length > 45
+                  ? cartItem.name.slice(0, 45) + "..."
                   : cartItem.name}
               </Text>
               <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
@@ -181,12 +186,12 @@ const CartItem = memo(
                   <AntDesign name="plus" size={14} color="black" />
                 </TouchableOpacity>
               </View>
-              <View className="flex-row justify-between items-center gap-8 mt-[4px]">
+              <View className="flex-row justify-between items-center gap-8 mt-[4px] w-full">
                 <TouchableOpacity
-                  className="w-[110px] py-[8px] px-[16px] bg-[#16783A] rounded-[4px]"
+                  className="px-[12px] py-[8px] justify-center items-center px-[16px] bg-[#16783A] rounded-[4px]"
                   onPress={() => handleModifyCart("moveToWishList", cartItem)}
                 >
-                  <Text className="text-white text-[10px]">
+                  <Text className="text-white text-[10px] font-LexendDecaMedium">
                     Move to wishlist
                   </Text>
                 </TouchableOpacity>
@@ -205,4 +210,4 @@ const CartItem = memo(
   },
 );
 
-export default CartList;
+export default memo(CartList);

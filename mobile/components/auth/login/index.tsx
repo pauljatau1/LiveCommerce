@@ -29,8 +29,10 @@ import {
 import { signIn, signInAsGuest } from "@/store/features/auth/authSlice";
 import { API_URL } from "@env";
 import { toast } from "@/core/toast";
+import { usePushNotifications } from "@/hooks/useExpoPushToken";
 
 const Login = () => {
+  const { expoPushToken } = usePushNotifications()
   const dispatch = useDispatch();
 
   const methods = useForm({
@@ -56,6 +58,7 @@ const Login = () => {
       const result = await login({
         email,
         password,
+        expoPushToken: expoPushToken?.data,
       }).unwrap();
       dispatch(signIn(result));
       setPassword(password);
@@ -91,7 +94,7 @@ const Login = () => {
                     Welcome back!
                   </Text>
                   <Text className="text-center font-SfPro text-base text-[#425466]">
-                    Let’s build something great
+                    Let's build something great
                   </Text>
                 </View>
                 <View className="gap-y-4 rounded-[8px] border border-[#C6C6C640] p-8">

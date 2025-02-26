@@ -69,7 +69,7 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   }, [data]);
 
   return (
-    <View className="px-[23px] py-[12px] ">
+    <View className="px-[16px] py-[12px] ">
       {isLoading ? (
         <View>
           <ActivityIndicator size={"small"} color="#16783A" />

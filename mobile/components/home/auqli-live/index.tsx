@@ -30,7 +30,7 @@ const AuqliLive = () => {
       <Sellers />
       <Favourite />
       <WatchCategory />
-      <WatchFriends />
+      {/* <WatchFriends /> */}
       <ExploreMoreSection />
     </View>
   )

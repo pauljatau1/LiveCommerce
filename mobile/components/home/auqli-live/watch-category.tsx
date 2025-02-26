@@ -6,7 +6,7 @@ import { data, icons } from '@/constants'
 
 const WatchCategory = () => {
     return (
-        <View className="w-[100%] pb-[9.81px] ">
+        <View className="w-[100%] py-[29.81px] ">
             <SectionHeader title="Watch By Category" />
             <View style={{
                 paddingLeft: 22

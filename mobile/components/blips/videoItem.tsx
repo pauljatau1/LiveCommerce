@@ -531,8 +531,8 @@ const CommentsSheet = ({
     }
     const constructComment = {
       buyer: {
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
       },
       comment: comment,
       createdAt: moment().toISOString(),
@@ -581,19 +581,19 @@ const CommentsSheet = ({
               <View key={index} className="flex-row gap-2 mb-[16px]">
                 <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
                   <Text className="text-white text-[10px]">
-                    {item.buyer.firstName.charAt(0).toUpperCase() +
-                      item.buyer.lastName.charAt(0).toUpperCase()}
+                    {item?.buyer?.firstName.charAt(0).toUpperCase() +
+                      item?.buyer?.lastName.charAt(0).toUpperCase()}
                   </Text>
                 </View>
                 <View className="shrink">
                   <Text className="text-[#ccc] mb-[4px]">
-                    {item.buyer.firstName + " " + item.buyer.lastName}
+                    {item?.buyer?.firstName + " " + item?.buyer?.lastName}
                   </Text>
                   <Text className="text-white leading-20 font-[400] mb-[12px]">
                     {item?.comment}
                   </Text>
                   <Text className="text-[#f2f2f2] text-[12px] opacity-50">
-                    {timeFromNow(item.createdAt)}
+                    {timeFromNow(item?.createdAt)}
                   </Text>
                 </View>
               </View>

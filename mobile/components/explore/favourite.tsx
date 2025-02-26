@@ -17,7 +17,7 @@ const FavouriteExplore = () => {
 
   return (
     <View className="w-[100%]">
-      <View style={{ paddingLeft: 22 }}>
+      <View style={{ paddingLeft: 16 }}>
         <FlatList
           data={groupedSellers}
           renderItem={({ item: row }) => (

@@ -265,8 +265,6 @@ const PostItem2 = ({ item }: { item: any }) => {
 
   const getAuthUser = useCallback(async () => {
     const authToken = await getToken();
-    console.log("Setting auth token ", authToken);
-
     setToken(authToken);
   }, []);
 
@@ -333,7 +331,7 @@ const PostItem2 = ({ item }: { item: any }) => {
           type: reaction.label,
         });
 
-        console.log("successfully added reaction ", result);
+        // console.log("successfully added reaction ", result);
       } catch (e: any) {
         console.log("cannot like post", e.message);
       }
@@ -399,8 +397,6 @@ const PostItem2 = ({ item }: { item: any }) => {
         );
       }
     }
-    console.log(st);
-
     return st.slice(0, 4);
   }, [reactionStats]);
 

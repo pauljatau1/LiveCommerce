@@ -92,7 +92,7 @@ const Connect = () => {
                   gap: 20,
                 }}
               >
-                <Pressable style={styles.headerBtn}>
+                {/* <Pressable style={styles.headerBtn}>
                   <Image
                     source={require("../../../assets/icons/connect-search.png")}
                     style={{
@@ -101,10 +101,10 @@ const Connect = () => {
                     }}
                     resizeMode="cover"
                   />
-                  {/* <Text className="text-[7px] text-[#94A3B1] font-LexendDeca">
+                  <Text className="text-[7px] text-[#94A3B1] font-LexendDeca">
                     Search
-                  </Text> */}
-                </Pressable>
+                  </Text>
+                </Pressable> */}
                 <Pressable style={styles.headerBtn}>
                   <Image
                     source={
@@ -180,6 +180,7 @@ const Connect = () => {
             {/* <Tab.Navigator
               screenOptions={{
                 lazy: true,
+                lazyPreloadDistance: 0,
               }}
               initialLayout={{
                 width: Dimensions.get("window").width,

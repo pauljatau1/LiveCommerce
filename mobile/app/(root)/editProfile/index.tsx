@@ -19,20 +19,29 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import * as ImagePicker from "expo-image-picker";
-import { getToken } from "@/store/features/auth/utils";
+import { getToken, getUser, setUser } from "@/store/features/auth/utils";
 import axios from "axios";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import LoadingModal from "@/components/global/loading-modal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
 
 const EditProfile = () => {
-  const { avatar, username, bio, email, phoneNumber } = useLocalSearchParams();
+  const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
+  const { avatar, username, bio, email, phoneNumber, firstName, lastName } =
+    useLocalSearchParams();
 
   const [editUsernameVal, setEditUsernameVal] = useState<string>(
     username?.toString(),
+  );
+  const [editFirstNameVal, setEditFirstNameVal] = useState<string>(
+    firstName?.toString(),
+  );
+  const [editLastNameVal, setEditLastNameVal] = useState<string>(
+    lastName?.toString(),
   );
   const [editBioVal, setEditBioVal] = useState<string>(bio?.toString());
   const [editEmailVal, setEditEmailVal] = useState<string>(email?.toString());
@@ -52,6 +61,7 @@ const EditProfile = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [showPasswordValidation, setShowPasswordValidation] =
     useState<boolean>(false);
+  const [hasChanged, setHasChanged] = useState<boolean>(false);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -71,6 +81,7 @@ const EditProfile = () => {
       const imagesToAdd = newImages.slice(0, remainingSlots);
 
       setSelectedMedia(imagesToAdd);
+      setHasChanged(true);
     }
   };
 
@@ -93,8 +104,17 @@ const EditProfile = () => {
           },
         },
       );
+      const user = await getUser();
+      console.log(response.data);
+
+      await setUser({
+        ...user,
+        profileImage: { url: response.data.buyer?.profileImage?.url },
+      });
+      updateProfile();
     } catch (e) {
       console.log("error updating avatar", e);
+      setLoading(false);
     }
   };
 
@@ -105,6 +125,8 @@ const EditProfile = () => {
         username: editUsernameVal,
         phoneNumber: editPhoneVal,
         bio: editBioVal,
+        firstName: editFirstNameVal,
+        lastName: editLastNameVal,
       };
       const response = await axios.put(
         process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/update",
@@ -125,8 +147,11 @@ const EditProfile = () => {
 
   const handleUpdateProfile = () => {
     setShowPasswordValidation(false);
-    updateAvatar();
-    updateProfile();
+    if (hasChanged) {
+      updateAvatar();
+    } else {
+      updateProfile();
+    }
   };
 
   useEffect(() => {
@@ -140,9 +165,9 @@ const EditProfile = () => {
   }, []);
 
   return (
-    <SafeAreaView
+    <View
       className="h-full flex-1 bg-[#121212] "
-      style={{ minHeight: height }}
+      style={{ minHeight: height, paddingTop: insets.top }}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -216,6 +241,24 @@ const EditProfile = () => {
               />
             </View>
             <View style={styles.editSingleSection}>
+              <Text style={styles.label}>FirstName</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="FirstName"
+                value={editFirstNameVal}
+                onChangeText={(text) => setEditFirstNameVal(text)}
+              />
+            </View>
+            <View style={styles.editSingleSection}>
+              <Text style={styles.label}>LastName</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="LastName"
+                value={editLastNameVal}
+                onChangeText={(text) => setEditLastNameVal(text)}
+              />
+            </View>
+            <View style={styles.editSingleSection}>
               <Text style={styles.label}>Bio</Text>
               <TextInput
                 style={styles.input}
@@ -256,7 +299,7 @@ const EditProfile = () => {
             <Text style={styles.updateBtnText}>Update</Text>
           </Pressable>
         </ScrollView>
-        {/* <LoadingModal isVisible={loading} /> */}
+        <LoadingModal isVisible={loading} />
 
         <BottomSheet
           bgColor="#121212"
@@ -271,7 +314,7 @@ const EditProfile = () => {
           <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
         </BottomSheet>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

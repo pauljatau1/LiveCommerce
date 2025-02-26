@@ -74,7 +74,7 @@ const SingleExplore = () => {
         <View className="h-full relative">
           <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
             <TouchableOpacity
-              className="absolute left-[18px]"
+              className="absolute left-[12px]"
               onPress={() => router.back()}
             >
               <Entypo
@@ -88,7 +88,7 @@ const SingleExplore = () => {
               {categoryName}
             </Text>
           </View>
-          <View className="flex-row items-center gap-[8px] mb-[17px] mx-[23px]">
+          <View className="flex-row items-center gap-[8px] mb-[17px] mx-[16px]">
             <TouchableOpacity
               className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
               style={{
@@ -119,7 +119,7 @@ const SingleExplore = () => {
           >
             <FavouriteExplore />
             <SpotLightExplore />
-            <View style={{ paddingHorizontal: 23 }}>
+            <View style={{ paddingHorizontal: 16 }}>
               {isLoading ? (
                 <ActivityIndicator
                   color="#16783A"

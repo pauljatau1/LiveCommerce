@@ -80,7 +80,9 @@ const AllPostsList = () => {
   }, [hasReachedEnd]);
 
   const renderPosts = useCallback(({ item }: { item: any }) => {
-    return <PostItem2 item={item} />;
+    return item?.author?.name != "undefined undefined" ? (
+      <PostItem2 item={item} />
+    ) : null;
   }, []);
 
   return (
@@ -108,12 +110,12 @@ const AllPostsList = () => {
           showsVerticalScrollIndicator={false}
           ListFooterComponent={renderFooter}
           initialNumToRender={6}
-          // removeClippedSubviews={true}
-          // updateCellsBatchingPeriod={100}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={100}
         />
       )}
     </View>
   );
 };
 
-export default React.memo(AllPostsList);
+export default AllPostsList;
