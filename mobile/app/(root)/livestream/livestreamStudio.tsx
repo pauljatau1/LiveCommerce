@@ -130,7 +130,7 @@ const LivestreamStudio = () => {
       console.log('Stream details:', streamDetails);
       
       setStreamConfig({
-        appId: process.env.EXPO_PUBLIC_AGORA_APP_ID,
+        appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || '',
         channel: streamDetails.channelName,
         token: streamDetails.token,
         uid: streamDetails.uid
