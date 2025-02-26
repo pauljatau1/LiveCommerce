@@ -515,7 +515,7 @@ const CommentsSheet = ({
         data: null,
       };
       const response = await axios(config);
-      setComments(response.data.comments);
+      setComments(response.data.comments?.filter((cm: any) => cm?.buyer));
       setPage(page + 1);
       setLoading(false);
     } catch (e: any) {

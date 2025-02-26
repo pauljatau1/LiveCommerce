@@ -74,6 +74,7 @@ export function formatMessageRoomDate(date) {
 }
 
 export function catalogSort(items, criteria) {
+  if (items?.length < 1) return [];
   return [...items].sort((a, b) => {
     switch (criteria) {
       case "Price: High to Low":

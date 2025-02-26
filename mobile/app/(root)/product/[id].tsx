@@ -503,7 +503,7 @@ const ProductDescription = () => {
                       {productDetails?.discount?.isActive ? (
                         <View className=" bg-[#FFD700] py-[5px] px-[17px] rounded-[14px]">
                           <Text className="text-[9px] text-black font-LexendDecaBold">
-                            {productDetails?.discount?.value}
+                            {productDetails?.discount?.value?.toFixed(0)}
                             {productDetails?.discount?.type == "percentage" &&
                               "%"}
                           </Text>

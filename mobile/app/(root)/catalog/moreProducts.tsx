@@ -71,7 +71,7 @@ const MoreProducts = () => {
           },
         },
       );
-      setProducts(response.data.data || response.data.products);
+      setProducts(response.data.data || response.data.products || []);
       setFilteredProducts(response.data.data || response.data.products);
     } catch (e) {
       console.log("ERROR GETTING MORE PRODUCT DATA", e);
@@ -84,6 +84,8 @@ const MoreProducts = () => {
     setShowSortSheet(false);
     setFilter(type);
     const sortedProducts = catalogSort(products, type);
+    return console.log(sortedProducts);
+
     setFilteredProducts(sortedProducts);
   };
 
