@@ -29,9 +29,14 @@ const buyerSchema = new mongoose.Schema({
   lastName: { type: String, required: true },
   username: { type: String, unique: true },
   email: { type: String, required: true, unique: true },
-  country: { type: String, required: true },
-  phoneNumber: { type: String, required: true },
-  password: { type: String },
+  country: { type: String, default: 'NG' },
+  phoneNumber: { type: String},
+  password: {
+    type: String,
+    required: function() {
+      return this.authProvider === 'local'; // Only required for local auth
+    }
+  },
   profileImage: {
     url: { type: String },
     public_id: { type: String },
@@ -115,6 +120,7 @@ const buyerSchema = new mongoose.Schema({
       recommendations: { type: Boolean, default: true }
     }
   },
+  expoPushToken: { type: String },
   preferredLanguage: {
     type: String,
     enum: ['en', 'es', 'fr'],
@@ -137,23 +143,35 @@ const buyerSchema = new mongoose.Schema({
     expiresAt: Date,
     attempts: { type: Number, default: 0 }
   },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
+  googleId: {
+    type: String,
+    sparse: true // Allows null/undefined values
+  },
 });
 
 // Middleware to update isNew property after 3 days
 buyerSchema.pre('save', async function(next) {
+  // First handle the isNew check
   if (this.isNew && this.createdAt) {
     const createdAt = new Date(this.createdAt);
     const now = new Date();
     const daysDifference = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
 
     if (daysDifference >= 3) {
-      this.isNew = false; // Set isNew to false after 3 days
+      this.isNew = false;
     }
   }
 
-  if (this.isModified('password')) {
+  // Only hash password if it's been modified (or is new) and exists
+  if (this.isModified('password') && this.password) {
     this.password = await bcrypt.hash(this.password, 10);
   }
+  
   next();
 });
 
@@ -172,6 +190,9 @@ buyerSchema.pre('save', function(next) {
 
 // Compare passwords
 buyerSchema.methods.comparePassword = function(password) {
+  if (!this.password) {
+    return false; // OAuth users won't have a password
+  }
   return bcrypt.compare(password, this.password);
 };
 

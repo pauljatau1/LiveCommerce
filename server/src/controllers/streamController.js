@@ -25,8 +25,10 @@ exports.createStream = async (req, res) => {
       });
     }
 
-    // Parse tags if they're provided as a string
-    const parsedTags = tags ? (typeof tags === 'string' ? tags.split(',').map(tag => tag.trim()) : tags) : [];
+    // Update tags parsing to handle JSON string from frontend
+    const parsedTags = tags ? 
+      (typeof tags === 'string' ? JSON.parse(tags) : tags) // Parse JSON string to array
+      : [];
 
     // Parse products array
     let products;
@@ -527,8 +529,10 @@ exports.createOpenLiveShow = async (req, res) => {
       });
     }
 
-    // Parse tags if they're provided as a string
-    const parsedTags = tags ? (typeof tags === 'string' ? tags.split(',').map(tag => tag.trim()) : tags) : [];
+    // Update tags parsing to handle JSON string from frontend
+    const parsedTags = tags ? 
+      (typeof tags === 'string' ? JSON.parse(tags) : tags) // Parse JSON string to array
+      : [];
 
     // Upload cover image to AWS S3
     let imageData = {};

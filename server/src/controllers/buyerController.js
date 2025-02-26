@@ -10,6 +10,7 @@ const Seller = require('../models/Seller')
 const Product = require('../models/Product');
 const Post = require('../models/Post');
 const Stream = require('../models/Stream');
+const { saveToken } = require('../../Firebase');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
@@ -40,10 +41,10 @@ const generateResetOTP = () => {
 
 // Register a new buyer
 exports.register = async (req, res) => {
-  const { firstName, lastName, username, email, country, phoneNumber, password } = req.body;
+  const { firstName, lastName, username, email, country, phoneNumber, password, expoPushToken } = req.body;
 
   // Validate required fields
-  if (!firstName || !lastName || !username || !email || !phoneNumber || !password) {
+  if (!firstName || !lastName || !username || !email || !phoneNumber || !password || !expoPushToken) {
     return res.status(400).json({
       message: 'Missing required fields',
       details: {
@@ -52,7 +53,8 @@ exports.register = async (req, res) => {
         // username: !username ? 'Username is required' : null,
         email: !email ? 'Email is required' : null,
         phoneNumber: !phoneNumber ? 'Phone number is required' : null,
-        password: !password ? 'Password is required' : null
+        password: !password ? 'Password is required' : null,
+        expoPushToken: !expoPushToken ? 'Expo push token is required' : null
       }
     });
   }
@@ -79,10 +81,13 @@ exports.register = async (req, res) => {
       country,
       phoneNumber,
       password,
-      otp
+      otp,
+      expoPushToken
     });
 
     await newBuyer.save();
+    await saveToken(newBuyer._id, expoPushToken);
+
     const token = generateToken(newBuyer._id);
 
     const msg = {
@@ -146,9 +151,19 @@ exports.register = async (req, res) => {
 
 // Login a buyer
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, expoPushToken } = req.body;
 
-  if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
+  // Add expoPushToken to required validation
+  if (!email || !password || !expoPushToken) {
+    return res.status(400).json({
+      message: 'Email, password and expoPushToken are required.',
+      details: {
+        email: !email ? 'Email is required' : null,
+        password: !password ? 'Password is required' : null,
+        expoPushToken: !expoPushToken ? 'Expo push token is required' : null
+      }
+    });
+  }
 
   try {
     const buyer = await Buyer.findOne({ email });
@@ -156,9 +171,8 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    // if (!buyer.emailVerified) {
-    //   return res.status(403).json({ message: 'Email not yet verified.' });
-    // }
+    // Save token unconditionally since it's now required
+    await saveToken(buyer._id, expoPushToken);
 
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
@@ -229,8 +243,8 @@ exports.getProfile = async (req, res) => {
       Buyer.findById(req.user.id).select('followers').then(b => b.followers?.length || 0),
       Buyer.findById(req.user.id)
         .select('activityFeed')
-        .then(b => b.activityFeed?.filter(activity => 
-          activity.type === 'follow' && 
+        .then(b => b.activityFeed?.filter(activity =>
+          activity.type === 'follow' &&
           activity.referenceModel === 'Seller'
         ).length || 0),
       Post.countDocuments({ 'author.userId': req.user.id, 'author.userModel': 'Buyer' })
@@ -248,9 +262,9 @@ exports.getProfile = async (req, res) => {
 
     res.json(enhancedBuyer);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching buyer profile', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error fetching buyer profile',
+      error: error.message
     });
   }
 };
@@ -474,7 +488,7 @@ exports.getOrders = async (req, res) => {
     const orders = await Order.find({ buyer: req.user.id })
       .populate('items.product', 'name images price')
       .populate('items.seller', 'storeName')
-      .sort({ createdAt: -1 }); 
+      .sort({ createdAt: -1 });
     res.json({
       orders,
     });
@@ -1069,7 +1083,7 @@ exports.sendPhoneOTP = async (req, res) => {
       console.log('sms response', response);
     })();
 
-    res.json({ 
+    res.json({
       message: 'OTP sent successfully',
       validFor: '10 minutes'
     });
@@ -1177,9 +1191,9 @@ exports.getBuyerDetails = async (req, res) => {
       .select('orderNumber totalAmount status createdAt items delivery_address shipping paymentInfo');
 
     // Get unique product IDs from all orders
-    const allOrderedProductIds = await Order.find({ 
+    const allOrderedProductIds = await Order.find({
       buyer: req.user.id,
-      'paymentInfo.status': 'completed' 
+      'paymentInfo.status': 'completed'
     })
       .distinct('items.product');
 
@@ -1273,9 +1287,9 @@ exports.getBuyerDetails = async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error in getBuyerDetails:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve buyer details', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve buyer details',
+      error: error.message
     });
   }
 };
@@ -1283,7 +1297,7 @@ exports.getBuyerDetails = async (req, res) => {
 exports.getSellerProfile = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
+
     const seller = await Seller.findById(sellerId)
       .select('-password -bankDetails -otp -emailVerified -walletBalance -phoneNumber')
       .populate('reviews')
@@ -1322,7 +1336,7 @@ exports.getSellerProfile = async (req, res) => {
 
     // Calculate delivered orders count
     const soldItemsCount = orders.reduce((count, order) => {
-      const deliveredItems = order.items.filter(item => 
+      const deliveredItems = order.items.filter(item =>
         order.shipping?.tracking?.status === 'delivered'
       ).length;
       return count + deliveredItems;
@@ -1337,7 +1351,7 @@ exports.getSellerProfile = async (req, res) => {
       },
       verifiedPurchaseCount: seller.reviews?.filter(r => r.isVerifiedPurchase)?.length || 0
     };
-    
+
     const sellerProfile = {
       personalInfo: {
         firstName: seller.firstName,
@@ -1377,8 +1391,8 @@ exports.getSellerProfile = async (req, res) => {
         averageRating: parseFloat(reviewStats.averageRating),
         totalReviews: reviewStats.totalReviews,
         ratingDistribution: reviewStats.ratingDistribution,
-      
-       
+
+
       }
     };
 
@@ -1444,7 +1458,7 @@ exports.verifyIdentity = async (req, res) => {
     if (note) {
       buyer.identityVerificationNote = note;
     }
-    
+
     await buyer.save();
 
     // Send email notification to buyer
@@ -1507,7 +1521,7 @@ exports.getFollowers = async (req, res) => {
         path: 'followers.sellerId',
         select: 'firstName lastName storeName businessName profileImage storeAvatar'
       });
-    
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
@@ -1540,9 +1554,9 @@ exports.getFollowers = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve followers', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve followers',
+      error: error.message
     });
   }
 };
@@ -1608,9 +1622,9 @@ exports.getFollowing = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve following list', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve following list',
+      error: error.message
     });
   }
 };
@@ -2099,6 +2113,39 @@ exports.confirmAccountDeletion = async (req, res) => {
     console.error('Confirm account deletion error:', error);
     res.status(500).json({
       message: 'Failed to delete account',
+      error: error.message
+    });
+  }
+};
+
+exports.handleGoogleCallback = async (req, res) => {
+  try {
+    const buyer = req.user;
+    const token = generateToken(buyer._id);
+
+    // If this is a mobile app callback, you might want to redirect to a deep link
+    if (req.query.state) {
+      const state = JSON.parse(Buffer.from(req.query.state, 'base64').toString());
+      if (state.expoPushToken) {
+        await saveToken(buyer._id, state.expoPushToken);
+      }
+    }
+
+    // For web clients
+    res.json({
+      token,
+      user: {
+        _id: buyer._id,
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        profileImage: buyer.profileImage,
+        emailVerified: buyer.emailVerified
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Authentication failed',
       error: error.message
     });
   }

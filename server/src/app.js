@@ -7,6 +7,7 @@ const { swaggerUi, specs } = require('../swagger');
 const http = require('http');
 const initializeSocket = require('./socket/socketManager');
 const compression = require('compression');
+const passport = require('./config/passport');
 
 
 // Import routes
@@ -56,10 +57,13 @@ app.use(express.urlencoded({
 
 // Configure express-session middleware
 app.use(session({
-  secret: "my secret",
+  secret: process.env.SESSION_SECRET || 'your_session_secret',
   resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false }
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 
 
@@ -113,5 +117,9 @@ app.get('/health', (req, res) => {
 
 // Store io instance for use in other parts of the application
 app.set('io', io);
+
+// Add passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
 
 module.exports = { app, server };
