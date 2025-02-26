@@ -57,14 +57,11 @@ const MoreProducts = () => {
         endpoint = "api/products/trending";
         break;
     }
-    console.log(name);
-
-    console.log(endpoint);
 
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `${endpoint}?limit=50`,
+        process.env.EXPO_PUBLIC_API_URL + `${endpoint}?limit=50&period=month`,
         {
           headers: {
             Authorization: "Bearer " + token,

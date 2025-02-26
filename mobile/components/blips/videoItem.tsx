@@ -73,7 +73,13 @@ const VideoItem = ({
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
 
-    setLoading((!status.isPlaying && status.shouldPlay) || status.isBuffering);
+    setTimeout(
+      () =>
+        setLoading(
+          (!status.isPlaying && status.shouldPlay) || status.isBuffering,
+        ),
+      1000,
+    );
   };
 
   const handleLike = async () => {
@@ -162,13 +168,13 @@ const VideoItem = ({
     }
   }, [isFocused]);
 
-  // useEffect(() => {
-  //   return () => {
-  //     if (videoRef.current) {
-  //       videoRef.current.unloadAsync();
-  //     }
-  //   };
-  // }, []);
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   const tabBarHeight = useBottomTabBarHeight();
 

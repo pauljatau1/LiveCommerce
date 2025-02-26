@@ -55,6 +55,7 @@ const Marketplace = () => {
       setSelected(allCategories[0]?.name);
     } catch (e) {
       console.log(e);
+      setCategories(allCategories.map((ct: any) => ct.name));
     }
   };
 

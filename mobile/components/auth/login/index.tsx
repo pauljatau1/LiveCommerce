@@ -32,7 +32,7 @@ import { toast } from "@/core/toast";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
 
 const Login = () => {
-  const { expoPushToken } = usePushNotifications()
+  const { expoPushToken } = usePushNotifications();
   const dispatch = useDispatch();
 
   const methods = useForm({
@@ -58,7 +58,7 @@ const Login = () => {
       const result = await login({
         email,
         password,
-        expoPushToken: expoPushToken?.data,
+        expoPushToken: expoPushToken?.data!,
       }).unwrap();
       dispatch(signIn(result));
       setPassword(password);
