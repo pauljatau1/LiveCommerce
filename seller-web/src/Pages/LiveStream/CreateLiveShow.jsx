@@ -271,10 +271,6 @@ const CreateLiveShow = () => {
                         options={availableTags}
                         value={livestream?.tags || []}
                         onChange={(event, newValue) => {
-                            // Ensure fixed tags remain selected
-                            const keepFixed = fixedTags.filter(
-                                tag => !newValue.find(option => option.id === tag.id)
-                            );
                             livestreamDispatch({ 
                                 type: 'SET_LIVESTREAM_DATA', 
                                 payload: { tags: [ ...newValue] } 
