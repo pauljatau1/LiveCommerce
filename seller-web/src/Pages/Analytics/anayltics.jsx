@@ -91,6 +91,103 @@ const formatRecommendations = (recs) => {
   }));
 };
 
+// Add new performance metrics section
+const PerformanceMetricsCard = ({ title, metrics }) => (
+  <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+    <CardHeader className="border-b bg-gray-50/50 pb-4">
+      <CardTitle className="text-lg font-semibold flex items-center gap-2">
+        <FaChartLine className="text-violet-500" />
+        {title}
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="pt-6">
+      <div className="space-y-4">
+        {metrics.map((metric, index) => (
+          <div key={index} className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-600">{metric.name}</span>
+              <span className="text-sm font-bold">{formatPercentage(metric.value)}</span>
+            </div>
+            <LinearProgress 
+              variant="determinate" 
+              value={metric.value} 
+              className="h-2 rounded-full"
+              sx={{
+                backgroundColor: 'rgba(0,0,0,0.1)',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: `var(--${metric.color || 'primary'})`,
+                }
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Add new revenue breakdown section
+const RevenueBreakdownCard = ({ title, data }) => (
+  <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+    <CardHeader className="border-b bg-gray-50/50 pb-4">
+      <CardTitle className="text-lg font-semibold flex items-center gap-2">
+        <DollarSign className="text-emerald-500" />
+        {title}
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="pt-6">
+      <div className="space-y-4">
+        {Object.entries(data).map(([category, amount], index) => (
+          <div key={index} className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-600">{category}</span>
+            <span className="text-sm font-bold">{formatCurrency(amount)}</span>
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Add this new component after the existing card components
+const TopCustomersCard = ({ customers }) => (
+  <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+    <CardHeader className="border-b bg-gray-50/50 pb-4">
+      <CardTitle className="text-lg font-semibold flex items-center gap-2">
+        <FaUsers className="text-indigo-500" />
+        Top Customers
+      </CardTitle>
+      <CardDescription className="text-gray-600">Customers by total spend and orders</CardDescription>
+    </CardHeader>
+    <CardContent className="pt-6">
+      <div className="space-y-4">
+        {customers?.map((customer, index) => (
+          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-medium">
+                  {customer.firstName?.[0]}{customer.lastName?.[0]}
+                </span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">
+                  {customer.firstName} {customer.lastName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  First Purchase: {formatDate(customer.firstPurchaseDate)}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-bold text-gray-900">{formatCurrency(customer.totalSpent)}</p>
+              <p className="text-sm text-gray-500">{customer.totalOrders} orders</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+);
+
 const AnalyticsAndInsights = () => {
   const { setHeaderName, setNavName } = useOutletContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -178,11 +275,13 @@ const AnalyticsAndInsights = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-4 md:p-8 mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" className="bg-white hover:bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <div className="p-6 md:p-8 max-w-[1920px] mx-auto">
+        {/* Header Section */}
+        {/* <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl -sm">
+          <h1 className="text-2xl font-bold text-gray-800">Analytics Dashboard</h1>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" className="bg-white hover:bg-gray-50 border-2">
               <CalendarIcon className="mr-2 h-4 w-4" />
               {dateRange}
             </Button>
@@ -198,44 +297,145 @@ const AnalyticsAndInsights = () => {
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </div> */}
 
+        {/* Metrics Cards - Updated layout and styling */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <MetricCard
             title="Total Revenue"
             value={formatCurrency(revenue.total)}
             change={revenue.growth}
             icon={<FaChartLine />}
-            color="blue"
+            color="indigo"
+            gradient="from-indigo-500 to-blue-600"
           />
           <MetricCard
             title="Orders"
             value={formatNumber(orders.total)}
             change={orders.growth}
             icon={<FaShoppingCart />}
-            color="green"
+            color="emerald"
+            gradient="from-emerald-500 to-green-600"
           />
           <MetricCard
             title="Customers"
             value={formatNumber(customers.total)}
             change={customers.new}
             icon={<FaUsers />}
-            color="purple"
+            color="violet"
+            gradient="from-violet-500 to-purple-600"
           />
           <MetricCard
             title="Active Products"
             value={formatNumber(products.active)}
             change={products.turnoverRate}
             icon={<FaBoxOpen />}
-            color="orange"
+            color="amber"
+            gradient="from-amber-500 to-orange-600"
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-white -sm hover:-md transition-all duration-200 border-none">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg font-semibold">Revenue & Orders Trend</CardTitle>
-              <CardDescription className="text-gray-500">Monthly performance analysis</CardDescription>
+        {/* New Revenue Analysis Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <RevenueBreakdownCard 
+            title="Revenue by Category" 
+            data={revenue.byCategory} 
+          />
+          <RevenueBreakdownCard 
+            title="Revenue by Payment Method" 
+            data={revenue.byPaymentMethod} 
+          />
+        </div>
+
+        {/* Order Analysis Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50 pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <ShoppingCart className="text-blue-500" />
+                Order Analytics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Average Order Value</p>
+                    <p className="text-xl font-bold">{formatCurrency(orders.averageOrderValue)}</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Fulfillment Time</p>
+                    <p className="text-xl font-bold">{orders.fulfillmentTime} days</p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Orders by Status</h3>
+                  {Object.entries(orders.byStatus).map(([status, count], index) => (
+                    <div key={index} className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600 capitalize">{status || 'Processing'}</span>
+                      <span className="text-sm font-bold">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50 pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FaBoxOpen className="text-amber-500" />
+                Product Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Active Products</p>
+                    <p className="text-xl font-bold">{products.active}</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Low Stock Items</p>
+                    <p className="text-xl font-bold">{products.lowStock}</p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Top Selling Products</h3>
+                  <div className="space-y-2">
+                    {products.topSelling.slice(0, 5).map((product, index) => (
+                      <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span className="text-sm font-medium">{product.name}</span>
+                        <span className="text-sm text-gray-600">{formatNumber(product.soldCount)} sold</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Performance Metrics Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <PerformanceMetricsCard
+            title="Performance Metrics"
+            metrics={[
+              { name: 'Revenue Growth', value: revenue.growth, color: 'primary' },
+              { name: 'Order Growth', value: orders.growth, color: 'secondary' },
+              { name: 'Customer Growth', value: customers.growth, color: 'success' },
+              { name: 'Product Turnover', value: products.turnoverRate, color: 'warning' }
+            ]}
+          />
+          
+          {/* Charts Section - Updated styling */}
+          <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50 pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FaChartLine className="text-indigo-500" />
+                Revenue & Orders Trend
+              </CardTitle>
+              <CardDescription className="text-gray-600">Monthly performance analysis</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="min-w-[300px]">
@@ -286,10 +486,13 @@ const AnalyticsAndInsights = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white -sm hover:-md transition-all duration-200 border-none">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg font-semibold">Product Category Performance</CardTitle>
-              <CardDescription className="text-gray-500">Breakdown of revenue by category</CardDescription>
+          <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50 pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FaChartPie className="text-emerald-500" />
+                Product Category Performance
+              </CardTitle>
+              <CardDescription className="text-gray-600">Breakdown of revenue by category</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="min-w-[300px]">
@@ -329,82 +532,100 @@ const AnalyticsAndInsights = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-white -sm hover:-md transition-all duration-200 border-none">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg font-semibold">Customer Acquisition</CardTitle>
-              <CardDescription className="text-gray-500">New vs. returning customers</CardDescription>
+        {/* Customer Analysis Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <TopCustomersCard customers={analyticsData.customers?.topCustomers || []} />
+          
+          <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50 pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Users className="text-violet-500" />
+                Customer Insights
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="min-w-[300px]">
-                <ChartContainer
-                  config={{
-                    newCustomers: {
-                      label: "New Customers",
-                      color: COLORS[0], // Use the first color from the COLORS array
-                    },
-                    returningCustomers: {
-                      label: "Returning Customers",
-                      color: COLORS[1], // Use the second color from the COLORS array
-                    },
-                  }}
-                  className="h-[200px] md:h-[350px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={customerData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                      <XAxis
-                        dataKey="name"
-                        stroke="#6b7280"
-                        tick={{ fontSize: window.innerWidth < 768 ? 10 : 14 }}
-                      />
-                      <YAxis
-                        stroke="#6b7280"
-                        tick={{ fontSize: window.innerWidth < 768 ? 10 : 14 }}
-                        width={window.innerWidth < 768 ? 35 : 60}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend
-                        wrapperStyle={{ fontSize: window.innerWidth < 768 ? 10 : 14 }}
-                      />
-                      <Bar dataKey="newCustomers" fill={COLORS[0]} />
-                      <Bar dataKey="returningCustomers" fill={COLORS[1]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </CardContent>
-          </Card>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Total Customers</p>
+                    <p className="text-xl font-bold">{formatNumber(customers?.total || 0)}</p>
+                    <p className="text-sm text-emerald-600 flex items-center mt-1">
+                      <ArrowUpRight className="h-4 w-4 mr-1" />
+                      {formatPercentage(customers?.growth || 0)} growth
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Returning Customers</p>
+                    <p className="text-xl font-bold">{formatNumber(customers?.returning || 0)}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {formatPercentage((customers?.returning / customers?.total) * 100 || 0)} of total
+                    </p>
+                  </div>
+                </div>
 
-          <Card className="bg-white -sm hover:-md transition-all duration-200 border-none">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg font-semibold">Top Selling Products</CardTitle>
-              <CardDescription className="text-gray-500">Most popular items</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                {products.topSelling.map((product, index) => (
-                  <div key={index} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{product.name || `Product ${index + 1}`}</p>
-                      <p className="text-sm text-gray-500">Sold: {product.soldCount}</p>
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900">Customer Retention</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm text-gray-600">Repeat Purchase Rate</span>
+                      <span className="text-sm font-bold">
+                        {formatPercentage(customers?.repeatPurchaseRate || 0)}
+                      </span>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">₦{product.revenue}</p>
-                      <p className="text-sm text-gray-500">Orders: {product.orderCount}</p>
+                    <LinearProgress
+                      variant="determinate"
+                      value={customers?.repeatPurchaseRate || 0}
+                      className="h-2 rounded-full"
+                      sx={{
+                        backgroundColor: 'rgba(0,0,0,0.1)',
+                        '& .MuiLinearProgress-bar': {
+                          backgroundColor: 'var(--primary)',
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm text-gray-600">Average Customer Value</span>
+                      <span className="text-sm font-bold">
+                        {formatCurrency(customers?.averageValue || 0)}
+                      </span>
                     </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900">Customer Activity</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">New This Period</span>
+                      <span className="text-sm font-bold">{formatNumber(customers?.new || 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Active Last 30 Days</span>
+                      <span className="text-sm font-bold">{formatNumber(customers?.active30Days || 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">At Risk</span>
+                      <span className="text-sm font-bold text-amber-600">{formatNumber(customers?.atRisk || 0)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-white -sm hover:-md transition-all duration-200 border-none">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg font-semibold">Key Insights</CardTitle>
-              <CardDescription className="text-gray-500">Important metrics and recommendations</CardDescription>
+        {/* Insights and Recommendations - Updated styling */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50 pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FaExclamationTriangle className="text-amber-500" />
+                Key Insights
+              </CardTitle>
+              <CardDescription className="text-gray-600">Important metrics and recommendations</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               {formattedRecommendations.map((rec, index) => (
@@ -434,10 +655,13 @@ const AnalyticsAndInsights = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white -sm hover:-md transition-all duration-200 border-none">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg font-semibold">Recommendations</CardTitle>
-              <CardDescription className="text-gray-500">Actions to improve performance</CardDescription>
+          <Card className="bg-white -lg rounded-xl border-none overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50 pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FaChartPie className="text-indigo-500" />
+                Recommendations
+              </CardTitle>
+              <CardDescription className="text-gray-600">Actions to improve performance</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-6">
@@ -482,10 +706,10 @@ const AnalyticsAndInsights = () => {
           </Card>
         </div>
 
-        {/* Inventory Alerts */}
-        <div className="bg-white p-6 rounded-lg  mb-8">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <FaExclamationTriangle className="text-yellow-500 mr-2" />
+        {/* Inventory Alerts - Updated styling */}
+        <div className="bg-white -lg rounded-xl p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-6 flex items-center">
+            <FaExclamationTriangle className="text-amber-500 mr-2" />
             Inventory Alerts
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -500,9 +724,12 @@ const AnalyticsAndInsights = () => {
           </div>
         </div>
 
-        {/* Category Analysis */}
-        <div className="bg-white p-6 rounded-lg ">
-          <h2 className="text-xl font-semibold mb-4">Category Performance</h2>
+        {/* Category Analysis - Updated styling */}
+        <div className="bg-white -lg rounded-xl p-6">
+          <h2 className="text-xl font-semibold mb-6 flex items-center">
+            <FaChartPie className="text-indigo-500 mr-2" />
+            Category Performance
+          </h2>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
@@ -543,27 +770,24 @@ const AnalyticsAndInsights = () => {
   );
 };
 
-// Metric Card Component
-const MetricCard = ({ title, value, change, icon, color }) => {
-  const colorClasses = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    purple: 'bg-purple-500',
-    orange: 'bg-orange-500'
-  };
-
+// Updated MetricCard Component
+const MetricCard = ({ title, value, change, icon, color, gradient }) => {
   return (
-    <div className="bg-white p-6 rounded-lg ">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`${colorClasses[color]} p-3 rounded-full`}>
-          {React.cloneElement(icon, { className: 'text-white text-xl' })}
+    <div className="bg-white rounded-xl -lg overflow-hidden">
+      <div className={`p-6 transition-all duration-200 hover:scale-[1.02]`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className={`bg-gradient-to-r ${gradient} p-3 rounded-xl`}>
+            {React.cloneElement(icon, { className: 'text-white text-xl' })}
+          </div>
+          <div className={`text-sm font-medium ${change > 0 ? 'text-emerald-500' : 'text-red-500'} 
+            flex items-center gap-1`}>
+            {change > 0 ? <ArrowUpRight size={16} /> : <TrendingDown size={16} />}
+            {Math.abs(change)}%
+          </div>
         </div>
-        <div className="text-sm font-medium text-green-500">
-          {change > 0 ? '+' : ''}{change}%
-        </div>
+        <h3 className="text-gray-600 text-sm font-medium">{title}</h3>
+        <p className="text-2xl font-bold text-gray-800 mt-1">{value}</p>
       </div>
-      <h3 className="text-gray-500 text-sm font-medium">{title}</h3>
-      <p className="text-2xl font-bold text-gray-800 mt-1">{value}</p>
     </div>
   );
 };
