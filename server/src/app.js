@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const passport = require('passport');
+
 const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
 const http = require('http');
 const initializeSocket = require('./socket/socketManager');
 const compression = require('compression');
+const passport = require('./config/passport');
 
 
 // Import routes
@@ -29,8 +30,7 @@ const streamRoutes = require('./routes/streamRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const flashSaleRoutes = require('./routes/flashSaleRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
-// Import Passport configuration
-require('./config/passport');
+
 
 const app = express();
 const server = http.createServer(app);
@@ -57,14 +57,16 @@ app.use(express.urlencoded({
 
 // Configure express-session middleware
 app.use(session({
-  secret: "my secret",
+  secret: process.env.SESSION_SECRET || 'your_session_secret',
   resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false }
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 
-app.use(passport.initialize());
-app.use(passport.session());
+
 
 // Add compression middleware
 app.use(compression());
@@ -115,5 +117,9 @@ app.get('/health', (req, res) => {
 
 // Store io instance for use in other parts of the application
 app.set('io', io);
+
+// Add passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
 
 module.exports = { app, server };

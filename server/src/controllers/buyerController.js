@@ -2118,3 +2118,36 @@ exports.confirmAccountDeletion = async (req, res) => {
   }
 };
 
+exports.handleGoogleCallback = async (req, res) => {
+  try {
+    const buyer = req.user;
+    const token = generateToken(buyer._id);
+
+    // If this is a mobile app callback, you might want to redirect to a deep link
+    if (req.query.state) {
+      const state = JSON.parse(Buffer.from(req.query.state, 'base64').toString());
+      if (state.expoPushToken) {
+        await saveToken(buyer._id, state.expoPushToken);
+      }
+    }
+
+    // For web clients
+    res.json({
+      token,
+      user: {
+        _id: buyer._id,
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        profileImage: buyer.profileImage,
+        emailVerified: buyer.emailVerified
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Authentication failed',
+      error: error.message
+    });
+  }
+};
+

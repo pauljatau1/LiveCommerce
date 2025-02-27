@@ -4,7 +4,9 @@ const buyerController = require('../controllers/buyerController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const passport = require('passport');
+const passport = require('../config/passport');
+const jwt = require('jsonwebtoken');
+
 
 /**
  * @swagger
@@ -346,34 +348,6 @@ router.get('/selected-categories',
   buyerController.getSelectedCategories
 );
 
-/**
- * @swagger
- * /api/buyer/google:
- *   get:
- *     summary: Redirect to Google OAuth
- *     tags: [Buyer]
- *     responses:
- *       302:
- *         description: Redirect to Google OAuth
- */
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-/**
- * @swagger
- * /api/buyer/google-callback:
- *   get:
- *     summary: Google OAuth callback
- *     tags: [Buyer]
- *     responses:
- *       200:
- *         description: Successful authentication
- *       302:
- *         description: Redirect on failure
- */
-router.get('/google-callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
-  const { user, token } = req.user;
-  res.json({ user, token });
-});
 
 /**
  * @swagger
@@ -1150,7 +1124,7 @@ router.post('/verify-identity/:buyerId',
  *   put:
  *     summary: Update buyer profile details
  *     description: Update various profile details including personal info, preferences, and settings
- *     tags: [Buyer Profile]
+ *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -1736,6 +1710,81 @@ router.post('/delete-account/confirm',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
   buyerController.confirmAccountDeletion
+);
+
+/**
+ * @swagger
+ * /api/buyer/auth/google:
+ *   get:
+ *     summary: Initiate Google OAuth login
+ *     tags: [Buyer]
+ *     parameters:
+ *       - in: query
+ *         name: expoPushToken
+ *         schema:
+ *           type: string
+ *         description: Optional Expo push token for mobile notifications
+ *     responses:
+ *       302:
+ *         description: Redirects to Google login page
+ */
+router.get('/auth/google',
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    prompt: 'select_account'
+  })
+);
+
+/**
+ * @swagger
+ * /api/buyer/google/callback:
+ *   get:
+ *     summary: Google OAuth callback URL
+ *     tags: [Buyer]
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Authentication failed
+ */
+router.get('/google-callback',
+  passport.authenticate('google', { 
+    session: false,
+    failureRedirect: process.env.FRONTEND_URL
+  }),
+  (req, res) => {
+    try {
+      // Generate token
+      const token = jwt.sign(
+        { id: req.user._id, role: 'Buyer' },
+        process.env.JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      // Prepare user data
+      const user = {
+        _id: req.user._id,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        email: req.user.email,
+        profileImage: req.user.profileImage
+      };
+
+      console.log('Redirecting with:', { token, user }); // Debug log
+
+      // Construct redirect URL
+      const redirectUrl = new URL(process.env.FRONTEND_URL);
+      redirectUrl.searchParams.append('token', token);
+      redirectUrl.searchParams.append('user', JSON.stringify(user));
+
+      console.log('Redirect URL:', redirectUrl.toString()); // Debug log
+
+      res.redirect(redirectUrl.toString());
+    } catch (error) {
+      console.error('Callback error:', error);
+      res.redirect(`${process.env.FRONTEND_URL}?error=callback_failed`);
+    }
+  }
 );
 
 module.exports = router;
