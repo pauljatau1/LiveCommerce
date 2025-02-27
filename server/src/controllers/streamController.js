@@ -386,26 +386,34 @@ exports.joinStream = async (req, res) => {
     // Determine user role based on stream ownership
     const isSeller = stream.seller.toString() === req.user.id;
     const role = isSeller ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
-    console.log('joining stream role', role);
-
-    // Generate appropriate token
-    const tokenUid = isSeller ? 
-      req.user.agoraUid : 
-      `viewer_${req.user.id}_${Date.now()}`; // Guaranteed unique
+    
+    // Generate appropriate UID
+    let tokenUid;
+    
+    if (isSeller) {
+      // For hosts, use the existing agoraUid (should be a number)
+      tokenUid = req.user.agoraUid;
+    } else {
+      // For viewers, generate a numeric UID between 1000-999999
+      // Create a deterministic but unique value based on user ID and stream ID
+      const userIdNum = parseInt(req.user.id.substring(0, 8), 16);
+      const streamIdNum = parseInt(stream._id.toString().substring(0, 8), 16);
+      // Combine and constrain to be within Agora's allowed range, but high enough not to collide with host UIDs
+      tokenUid = ((userIdNum ^ streamIdNum) % 999000) + 1000;
+    }
 
     const token = agoraService.generateToken(
       stream.channelName,
-      tokenUid,
+      tokenUid, 
       role
     );
 
-    // Update viewer list only for non-sellers
+    // Rest of the function unchanged
     if (!isSeller && !stream.viewers.includes(req.user.id)) {
       stream.viewers.push(req.user.id);
       await stream.save();
     }
 
-    // Notify stream participants
     if (!isSeller) {
       req.io.to(stream.channelName).emit('viewerJoined', {
         streamId: stream._id,
@@ -421,13 +429,12 @@ exports.joinStream = async (req, res) => {
       message: 'Successfully joined stream',
       channelName: stream.channelName,
       token,
-      uid: tokenUid, // Send the UID to the client
+      uid: tokenUid, // Now a proper number within Agora's range
       role,
       tokenExpiration: Date.now() + (isSeller ? 
         (3600) * 1000 :
         (14400) * 1000
       ),
-
       stream: {
         id: stream._id,
         title: stream.title,
