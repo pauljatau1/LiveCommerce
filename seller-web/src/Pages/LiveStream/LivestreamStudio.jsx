@@ -45,6 +45,7 @@ const LivestreamStudio = () => {
     const [isLiveStreamEndingButton2, setIsLiveStreamEndingButton2] = useState(false);
     const [isToolsSidebarOpen, setIsToolsSidebarOpen] = useState(false);
     const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
+    const [previewMediaStream, setPreviewMediaStream] = useState(null);
 
     const socket = useSocket();
     const existingLivestream = JSON.parse(localStorage.getItem(`stream_connected_${id}`));
@@ -108,7 +109,6 @@ const LivestreamStudio = () => {
 
     const checkDevicePermissions = async () => {
         try {
-            // Request persistent permission first
             const videoPermission = await navigator.permissions.query({ name: 'camera' });
             const audioPermission = await navigator.permissions.query({ name: 'microphone' });
             
@@ -117,7 +117,6 @@ const LivestreamStudio = () => {
                 return false;
             }
 
-            // Keep stream alive for preview before formal track creation
             const previewStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     width: { ideal: 1920 },
@@ -131,7 +130,8 @@ const LivestreamStudio = () => {
                 }
             });
 
-            // Return stream instead of closing immediately
+            // Store the preview stream in state
+            setPreviewMediaStream(previewStream);
             return previewStream;
 
         } catch (error) {
@@ -165,6 +165,15 @@ const LivestreamStudio = () => {
 
     const cleanupAgoraResources = async () => {
         try {
+            // Clean up preview stream
+            if (previewMediaStream) {
+                previewMediaStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+                setPreviewMediaStream(null);
+            }
+
+            // Clean up Agora resources
             await client.leave();
             localTracks.forEach(track => {
                 track.stop();
@@ -330,92 +339,69 @@ const LivestreamStudio = () => {
             } else if (button2 === true) {
                 setIsLiveStreamEndingButton2(true);
             }
-            
-            // 1. Stop all local tracks first
-            if (localTracks.length > 0) {
-                localTracks.forEach(track => {
-                    try {
-                        track.stop();  // This releases the hardware resource
-                        track.close(); // This removes the track from any associated senders
-                    } catch (trackError) {
-                        console.error('Error stopping track:', trackError);
-                    }
+
+            // 1. Stop the preview stream first
+            if (previewMediaStream) {
+                previewMediaStream.getTracks().forEach(track => {
+                    track.stop();
                 });
-                setLocalTracks([]);
+                setPreviewMediaStream(null);
             }
 
-            // 2. Leave the channel and cleanup client
+            // 2. Unpublish and stop Agora tracks
+            if (localTracks.length > 0) {
+                try {
+                    // Unpublish from Agora client
+                    await client.unpublish(localTracks);
+                    
+                    // Stop and close each Agora track
+                    for (let track of localTracks) {
+                        track.stop();
+                        track.close();
+                    }
+                    setLocalTracks([]);
+                } catch (error) {
+                    console.error("Error unpublishing tracks:", error);
+                }
+            }
+
+            // 3. Leave the Agora channel
             if (client) {
                 try {
-                    // Unpublish tracks before leaving
-                    await client.unpublish(localTracks);
-                } catch (unpublishError) {
-                    console.error('Error unpublishing tracks:', unpublishError);
-                }
-                
-                if (client.connectionState === 'CONNECTED') {
                     await client.leave();
+                    client.removeAllListeners();
+                } catch (error) {
+                    console.error("Error leaving channel:", error);
                 }
-                
-                // Reset client state
-                client.removeAllListeners();
             }
 
-            // 3. Release camera/mic access - Modified section
-            const streams = [];
-            if (localTracks.some(t => t.getMediaStreamTrack().kind === 'video')) {
-                streams.push(...localTracks.map(t => t.getMediaStream()));
-            }
-            
-            // Also stop any permission preview streams
-            const previewStream = await checkDevicePermissions();
-            if (previewStream) {
-                streams.push(previewStream);
-            }
-
-            // Stop all media streams
-            streams.forEach(stream => {
-                stream.getTracks().forEach(track => {
-                    track.stop();
-                    track.dispatchEvent(new Event('ended')); // Force end event
-                });
-            });
-
-            // 4. Close any open WebSocket connections
-            // Replace with your actual socket cleanup logic
-            if (window.streamSocket && window.streamSocket.readyState === WebSocket.OPEN) {
-                window.streamSocket.close();
-            }
-
-            // 5. Final cleanup before navigation
+            // 4. Reset states and clear storage
             setIsStreaming(false);
             stopTimer();
             localStorage.removeItem(`stream_connected_${id}`);
 
-            // 6. End stream with backend
+            // 5. Notify backend
             await endLiveStream(_id);
 
-            // 7. Navigate only after all cleanup
-            navigate('/dashboard/live-streams/past-shows');
+            // 6. Reset UI states
+            setIsLiveStreamEndingButton1(false);
+            setIsLiveStreamEndingButton2(false);
 
+            // 7. Show success message
             toast.success('Livestream ended successfully', {
                 style: { background: '#161A1E', color: '#fff' }
             });
+
+            // 8. Navigate to past shows
+            navigate('/dashboard/live-streams/past-shows');
 
         } catch (error) {
             console.error('Error ending stream:', error);
             toast.error('Failed to end stream: ' + error.message, {
                 style: { background: '#161A1E', color: '#fff' }
             });
-        } finally {
-            // Force release media devices through navigator
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                .then(stream => {
-                    stream.getTracks().forEach(track => track.stop());
-                })
-                .catch(() => {}); // Intentional empty catch
-
-            // Reset all states
+            
+            // Reset UI states even if there's an error
             setIsLiveStreamEndingButton1(false);
             setIsLiveStreamEndingButton2(false);
         }
