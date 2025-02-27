@@ -300,7 +300,7 @@ const VideoItem = ({
                 {comments}
               </Text>
             </View>
-            <View className="items-center gap-2 max-w-[60px] self-end">
+            {/* <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center">
                 <Ionicons name="arrow-redo-sharp" size={18} color="#14AE5C" />
               </TouchableOpacity>
@@ -310,7 +310,7 @@ const VideoItem = ({
               >
                 Share
               </Text>
-            </View>
+            </View> */}
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
                 className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"

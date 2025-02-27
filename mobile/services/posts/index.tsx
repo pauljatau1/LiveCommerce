@@ -6,7 +6,7 @@ import { getToken } from "@/store/features/auth/utils";
 
 export const posts = createApi({
   reducerPath: "posts",
-  tagTypes: ["createPost", "createComment"],
+  tagTypes: ["createPost", "createComment", "deletePost"],
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.EXPO_PUBLIC_API_URL + "api",
     prepareHeaders: async (headers) => {
@@ -20,7 +20,7 @@ export const posts = createApi({
   endpoints: (builder) => ({
     getAllPosts: builder.query({
       query: (credentials) => getRequest(`/posts`, credentials),
-      // providesTags: ["createComment"],
+      providesTags: ["createPost"],
     }),
     getUserPosts: builder.query({
       query: (credentials) =>
@@ -28,7 +28,7 @@ export const posts = createApi({
           `/posts/user/${credentials.type}/${credentials.id}`,
           credentials,
         ),
-      providesTags: ["createPost"],
+      providesTags: ["createPost", "deletePost"],
     }),
     getTrendingPosts: builder.query({
       query: (credentials) => getRequest(`/posts/trending`, credentials),
@@ -47,6 +47,7 @@ export const posts = createApi({
     deletePost: builder.mutation<any, any>({
       query: (credentials) =>
         deleteRequest(`/posts/${credentials.id}`, credentials),
+      invalidatesTags: ["deletePost"],
     }),
     likePost: builder.mutation<any, any>({
       query: (credentials) =>
