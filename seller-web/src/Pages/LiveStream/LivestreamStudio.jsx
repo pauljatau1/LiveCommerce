@@ -260,25 +260,27 @@ const LivestreamStudio = () => {
                         sampleRate: 48000,
                         stereo: true,
                         bitrate: 128,
-                    },
-                    AEC: true,
-                    ANS: true,
+                        AEC: true,
+                        ANS: true,
+                        AGC: true
+                    }
                 },
                 {
                     encoderConfig: {
-                        width: 1920,
-                        height: 1080,
-                        frameRate: 30,
-                        bitrateMin: 1000,
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 1080, min: 720 },
+                        frameRate: 60,
+                        bitrateMin: 1500,
                         bitrateMax: 4000,
-                        optimizationMode: 'detail'
+                        optimizationMode: 'motion',
+                        mirror: true
                     },
                     facingMode: "user",
-                    mediaStreamTrack: previewStream.getVideoTracks()[0] // Reuse existing track
+                    mediaStreamTrack: previewStream.getVideoTracks()[0],
                 },
                 { 
-                    timeout: 60000, // Increase timeout to 30s
-                    retry: 3 // Add retry attempts
+                    timeout: 60000,
+                    retry: 3
                 }
             );
 
@@ -298,7 +300,10 @@ const LivestreamStudio = () => {
             });
 
             // 9. Play and publish
-            videoTrack.play(videoContainerRef.current, { fit: 'cover', mirror: true });
+            videoTrack.play(videoContainerRef.current, { 
+                fit: 'cover', 
+                mirror: true
+            });
             await client.publish([audioTrack, videoTrack]);
 
             // Set localStorage AFTER successful stream initialization
