@@ -182,6 +182,7 @@ const Checkout = () => {
         if (sellerObj[cart.seller._id]) {
           return;
         }
+        console.log("seller cart info", cart?.seller);
 
         const pickup_address = {
           first_name:
@@ -189,27 +190,34 @@ const Checkout = () => {
           last_name: cart.seller.personalInfo?.lastName || cart.seller.lastName,
           email:
             cart.seller.businessInfo?.businessEmail ||
-            cart.seller.personalInfo?.email,
-          phone:
-            cart.seller.businessInfo?.businessNumber || cart.seller.phoneNumber,
+            cart.seller.personalInfo?.email ||
+            cart?.seller?.email,
+          phone: cart.seller.phoneNumber?.includes("+")
+            ? cart.seller.phoneNumber
+            : `+${cart.seller.phoneNumber}`,
           line1:
             cart.seller.businessInfo?.businessAddress?.addressLine1 ||
-            cart.seller.businessAddress?.addressLine1,
+            cart.seller.businessAddress?.addressLine1 ||
+            cart.seller.warehouseDetails?.address?.addressLine1,
           line2:
             cart.seller.businessInfo?.businessAddress?.addressLine2 ||
-            cart.seller?.businessAddress?.addressLine2,
+            cart.seller?.businessAddress?.addressLine2 ||
+            cart.seller.warehouseDetails?.address?.addressLine2 ||
+            "",
           city: cart.seller?.businessAddress?.city || "Amuwo-Odofin",
           // || response.data.contactInformation.businessAddress.city,
           state:
             cart.seller.businessInfo?.businessAddress?.state ||
-            cart.seller.businessAddress?.state,
+            cart.seller.businessAddress?.state ||
+            cart.seller.warehouseDetails?.address?.state,
           country: "NG",
 
           // cart.seller.businessInfo?.businessAddress?.country ||
           // cart.seller.businessAddress?.country,
           zip:
             cart.seller.businessInfo?.businessAddress?.zipCode ||
-            cart.seller.businessAddress?.zipCode,
+            cart.seller.businessAddress?.zipCode ||
+            cart.seller.warehouseDetails?.address?.zipCode,
         };
 
         sellerObj[cart.seller._id] = pickup_address;
