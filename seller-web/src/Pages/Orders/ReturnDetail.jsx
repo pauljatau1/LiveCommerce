@@ -319,7 +319,7 @@ export default function ReturnDetail() {
 
   const renderShippingRatesDialog = () => (
     <Dialog open={showRatesDialog} onOpenChange={setShowRatesDialog}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="w-[95vw] max-w-3xl mx-auto">
         <DialogHeader>
           <DialogTitle>Select Shipping Rate</DialogTitle>
         </DialogHeader>
@@ -478,7 +478,7 @@ export default function ReturnDetail() {
 
   const renderRejectDialog = () => (
     <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[95vw] max-w-md mx-auto">
         <DialogHeader>
           <DialogTitle>Reject Return Request</DialogTitle>
         </DialogHeader>
@@ -568,17 +568,18 @@ export default function ReturnDetail() {
   )
 
   const renderActionButtons = () => (
-    <div className="flex space-x-4">
+    <div className="flex flex-col md:flex-row gap-2 md:gap-4 w-full">
       <Button
         variant="destructive"
         onClick={() => setShowRejectDialog(true)}
         disabled={returnData?.status !== "PENDING_SELLER_REVIEW"}
+        className="w-full md:w-auto"
       >
         <AlertTriangle className="mr-2 h-4 w-4" />
         Decline/Escalate
       </Button>
       <Button
-        className="bg-green-600 hover:bg-green-700 text-white"
+        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white"
         onClick={() => setApprovalDialog(true)}
         disabled={isProcessing}
       >
@@ -599,19 +600,19 @@ export default function ReturnDetail() {
   }
 
   return (
-    <div className="pt-10 px-6 bg-gray-50 min-h-screen">
+    <div className="pt-6 md:pt-10 px-4 md:px-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8 bg-white p-6 rounded-lg shadow-sm">
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-gray-900">Return ID: #{id}</h1>
-            <Badge variant="outline" className={`px-4 py-1.5 text-sm font-medium flex items-center gap-2 ${statusConfig.color}`}>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 bg-white p-4 md:p-6 rounded-lg shadow-sm">
+        <div className="space-y-4 w-full md:w-auto">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Return ID: #{id.slice(-6)}</h1>
+            <Badge variant="outline" className={`px-2 md:px-4 py-1 md:py-1.5 text-sm font-medium flex items-center gap-2 ${statusConfig.color}`}>
               {statusConfig.icon}
               {statusConfig.label}
             </Badge>
           </div>
 
-          <div className="grid grid-cols-2 gap-6 text-gray-600">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-gray-600">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="font-medium">Return Reason:</span>
@@ -647,27 +648,27 @@ export default function ReturnDetail() {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+        <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
+          <Button variant="outline" size="sm" className="w-full md:w-auto">
             <Printer className="w-4 h-4 mr-2" />
             Print Details
           </Button>
           {returnData?.returnShippingLabel?.url && (
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="w-full md:w-auto">
               Download Label
             </Button>
           )}
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="w-full md:w-auto">
             <MessageCircle className="w-4 h-4 mr-2" />
             Contact Buyer
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="md:col-span-2 space-y-4 md:space-y-6">
           {/* Product Section */}
-          <Card className="p-6 shadow-md">
+          <Card className="p-4 md:p-6 shadow-md">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Product Details</h2>
               {returnData?.status === "APPROVED" && (
@@ -676,8 +677,8 @@ export default function ReturnDetail() {
                 </Badge>
               )}
             </div>
-            <div className="flex gap-6">
-              <div className="w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
+            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+              <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
                 <img
                   src={returnData?.items[0]?.product?.images[0]?.url}
                   alt={returnData?.items[0]?.product?.name}
@@ -688,7 +689,7 @@ export default function ReturnDetail() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {returnData?.items[0]?.product?.name}
                 </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                <div className="sm:grid sm:grid-cols-2 gap-4 text-sm text-gray-600">
                   <p>Quantity: {returnData?.items[0]?.quantity}</p>
                   <p>Status: <span className="text-yellow-600 font-medium">{returnData?.status}</span></p>
                   <p className="text-green-700 font-medium">
@@ -700,12 +701,14 @@ export default function ReturnDetail() {
                 </div>
               </div>
             </div>
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div className="mt-4 md:mt-6 p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600">
                 <span className="font-medium">Buyer's Comment:</span> {returnData?.description}
               </p>
             </div>
-            {renderActionButtons()}
+            <div className="mt-4 flex flex-col md:flex-row gap-2 md:gap-4">
+              {renderActionButtons()}
+            </div>
           </Card>
 
           {/* Return Timeline */}
@@ -772,7 +775,7 @@ export default function ReturnDetail() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Customer Details */}
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Customer Details</h2>
@@ -992,7 +995,7 @@ export default function ReturnDetail() {
               {returnData.rejectionDetails.evidence?.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">Evidence</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {returnData.rejectionDetails.evidence.map((evidence, index) => (
                       <a 
                         key={evidence._id} 
@@ -1047,7 +1050,7 @@ export default function ReturnDetail() {
               {returnData.dispute.resolutionDetails?.evidence?.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">Resolution Evidence</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {returnData.dispute.resolutionDetails.evidence.map((evidence, index) => (
                       <a 
                         key={index}

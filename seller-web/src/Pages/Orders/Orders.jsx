@@ -43,10 +43,10 @@ export default function OrdersDashboard() {
   const filteredOrders = orders.filter((order) => {
     if (activeTab === "all") return true;
     if (activeTab === "process") return order.shipping.tracking.status === "pending";
-    if (activeTab === "transit")
-      return ["pickup_arranged", "picked_up", "in_transit"].includes(order.shipping.tracking.status);
+    if (activeTab === "transit") 
+      return ["pickup_arranged", "picked_up", "in_transit", "in-transit"].includes(order.shipping.tracking.status);
     if (activeTab === "delivered") return order.shipping.tracking.status === "delivered";
-    if (activeTab === "cancelled") return order.shipping.tracking.status === "failed";
+    if (activeTab === "cancelled") return ["cancelled", "failed"].includes(order.shipping.tracking.status);
     return true;
   });
 
@@ -155,9 +155,11 @@ export default function OrdersDashboard() {
       pending: "bg-yellow-100 px-3 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md py-1 text-yellow-700",
       pickup_arranged: "bg-blue-100 px-3 hover:bg-blue-200 capitalize transition-all duration-300 rounded-md py-1 text-blue-700",
       picked_up: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
+      "in-transit": "bg-purple-100 px-3 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
       in_transit: "bg-purple-100 px-3 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
       delivered: "bg-green-100 px-3 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
       failed: "bg-red-100 px-3 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
+      cancelled: "bg-red-100 px-3 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
     };
     return statusColors[status] || "bg-gray-100 text-gray-700";
   };
@@ -169,16 +171,16 @@ export default function OrdersDashboard() {
   return (
     <>
       <div className="relative">
-        <Link to="/dashboard/returns">
+        <Link to="/dashboard/returns" className="hidden sm:block">
           <Button
             variant="outline"
             className="absolute top-4 right-4 border-green-600 text-green-600 font-inter px-2 lg:px-3 hover:bg-green-600 hover:text-white"
-        >
-          Returns Center
+          >
+            Returns Center
           </Button>
         </Link>
         <div className="py-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8 hidden sm:block">
             <TabsList className="border-b gap-6 h-auto p-0 bg-transparent">
               <TabsTrigger
                 value="all"
@@ -315,8 +317,8 @@ export default function OrdersDashboard() {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium capitalize ">{`${order.buyer.firstName} ${order.buyer.lastName}`}</div>
-                          <div className="text-sm capitalize text-gray-500">{order.delivery_address.city}</div>
+                          <div className="font-medium capitalize ">{`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}</div>
+                          <div className="text-sm capitalize text-gray-500">{order?.delivery_address?.city}</div>
                         </div>
                       </TableCell>
                       <TableCell>

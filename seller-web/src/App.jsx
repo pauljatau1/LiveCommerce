@@ -43,7 +43,7 @@ import EditProduct from './Pages/ProductsPage/EditProduct';
 import LiveStream from './Pages/LiveStream/LiveStream';
 import DashboardRoute, { Loader as DashboardLoader } from './Components/DashboardRoute';
 import SettingsDashboard from './Pages/Settings/SettingsDashboard';
-import Analytics from './Pages/Analytics/anayltics';
+import AnalyticsDashboard from './Pages/Analytics/anayltics';
 import Help from './Pages/help/help';
 import LiveStreamLayout from './Components/LiveStreamLayout';
 import CreateLiveAuction from './Pages/LiveStream/CreateLiveAuction';
@@ -68,7 +68,6 @@ import theme from './lib/theme';
 import mixpanel from "mixpanel-browser";
 import IntercomWrapper from './Components/IntercomProvider';
 import IntercomInitializer from './Components/IntercomInitializer';
-
 // Create a wrapper component that provides both Router and Auth contexts
 
 
@@ -405,7 +404,7 @@ const router = createBrowserRouter([
           },
           {
             path: 'analytics-insights',
-            element: <Analytics />,
+            element: <AnalyticsDashboard />,
             errorElement: <NotFoundPage />
           }
         ]
