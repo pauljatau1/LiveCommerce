@@ -9,6 +9,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
+const sgMail = require('../config/sendgrid');
 
 // Helper function to generate video thumbnail
 const generateVideoThumbnail = async (videoBuffer) => {
@@ -1403,6 +1404,121 @@ exports.updateBatchPosts = async (req, res) => {
     console.error('Update batch posts error:', error);
     res.status(500).json({
       message: 'Failed to update posts',
+      error: error.message
+    });
+  }
+};
+
+// Report a post
+exports.reportPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { reason, description } = req.body;
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    // Validate input
+    if (!reason || !description) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        details: {
+          reason: !reason ? 'Reason is required' : null,
+          description: !description ? 'Description is required' : null
+        }
+      });
+    }
+
+    // Find post
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Get reporter information
+    const UserModel = mongoose.model(userModel);
+    const reporter = await UserModel.findById(userId);
+    if (!reporter) {
+      return res.status(404).json({ message: 'Reporter not found' });
+    }
+
+    // Check if user has already reported this post
+    const existingReport = post.reports.find(
+      report => 
+        report.reporter.userId.toString() === userId.toString() &&
+        report.reporter.userModel === userModel
+    );
+
+    if (existingReport) {
+      return res.status(400).json({ message: 'You have already reported this post' });
+    }
+
+    // Add report
+    post.reports.push({
+      reporter: {
+        userId,
+        userModel,
+        firstName: reporter.firstName,
+        lastName: reporter.lastName
+      },
+      reason,
+      description
+    });
+
+    await post.save();
+
+    // Send email notification
+    const msg = {
+      to: ['support@auqli.com', 'bolu@auqli.com'],
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: 'New Post Report',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #ff4444; margin-bottom: 20px;">New Post Report</h1>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #ffffff; margin-bottom: 15px;">Report Details</h3>
+              
+              <p style="margin: 10px 0;"><strong>Reporter:</strong><br>
+                Name: ${reporter.firstName} ${reporter.lastName}<br>
+                ID: ${reporter._id}<br>
+                Type: ${userModel}
+              </p>
+
+              <p style="margin: 10px 0;"><strong>Post Details:</strong><br>
+                Post ID: ${post._id}<br>
+                Author: ${post.author.firstName} ${post.author.lastName}<br>
+                Title: ${post.title}
+              </p>
+
+              <p style="margin: 10px 0;"><strong>Report Reason:</strong><br>
+                ${reason}
+              </p>
+
+              <p style="margin: 10px 0;"><strong>Description:</strong><br>
+                ${description}
+              </p>
+            </div>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.status(201).json({
+      message: 'Post reported successfully',
+      report: post.reports[post.reports.length - 1]
+    });
+
+  } catch (error) {
+    console.error('Report post error:', error);
+    res.status(500).json({
+      message: 'Failed to report post',
       error: error.message
     });
   }
