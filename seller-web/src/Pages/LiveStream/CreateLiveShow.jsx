@@ -187,7 +187,7 @@ const CreateLiveShow = () => {
                             </div>
                         ) : (
                             <>
-                                <img src={CreateAuctionIcon} alt="Upload" className="w-12 h-12 mb-2" />
+                                <img src={CreateAuctionIcon} alt="Upload" className="w-14 h-12 mb-2" />
                                 <div className="text-center px-4">
                                     <p className="text-sm text-gray-600">
                                         Drop & drop files or <span className="text-green-600">Browse</span>
@@ -271,10 +271,6 @@ const CreateLiveShow = () => {
                         options={availableTags}
                         value={livestream?.tags || []}
                         onChange={(event, newValue) => {
-                            // Ensure fixed tags remain selected
-                            const keepFixed = fixedTags.filter(
-                                tag => !newValue.find(option => option.id === tag.id)
-                            );
                             livestreamDispatch({ 
                                 type: 'SET_LIVESTREAM_DATA', 
                                 payload: { tags: [ ...newValue] } 

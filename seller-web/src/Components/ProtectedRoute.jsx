@@ -1,16 +1,14 @@
 import { useAuthContext } from '../Hooks/useAuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { BASE_URL } from '../Constants/Server';
-import { fetchOnboardingProcess } from '../Utilities/apiRestaurant';
 import axios from 'axios';
 
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, fetchSellerDetails, dispatch, blockedUser } = useAuthContext();
-  const [onboardingStep, setOnboardingStep] = useState("");
+  const { fetchSellerDetails } = useAuthContext();
 
 
   useEffect(() => {
@@ -91,7 +89,21 @@ const ProtectedRoute = ({ children }) => {
 
         }
       } catch (error) {
-        console.log('caught error', error);
+        console.log('token invalid error', error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('sellerToken');
+          localStorage.removeItem('seller');
+          localStorage.removeItem('onboardingProcess');
+          localStorage.removeItem('visitorId')
+          navigate('/login');
+          toast.error('Session expired', {
+            description: 'Please login again',
+            style: {
+              background: '#17171B',
+              color: '#fff',
+            }
+          });
+        }
       }
     };
 

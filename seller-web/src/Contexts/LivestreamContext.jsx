@@ -129,13 +129,27 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
-            const response = await axios.post(`${BASE_URL}/streams/open-live-show`, streamData, {
+
+            // Create FormData instance
+            const formData = new FormData();
+
+            // Append regular fields
+            formData.append('title', streamData.title);
+            formData.append('description', streamData.description);
+            formData.append('category', streamData.category);
+            formData.append('tags', JSON.stringify(streamData.tags));
+            formData.append('scheduledStartTime', streamData.scheduledStartTime);
+            // Append cover image file
+            formData.append('coverImage', streamData.coverImage);
+
+            const response = await axios.post(`${BASE_URL}/streams/open-live-show`, formData, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`,
-                    'Content-Type': 'application/json'
+                    // Let browser set Content-Type with boundary automatically
+                    'Content-Type': 'multipart/form-data'
                 }
             });
-            console.log(response);
+
             if (response.status === 201) {
                 dispatch({ type: 'SET_SUCCESS_LIVESTREAM_SCHEDULE', payload: 'livestream scheduled successfully' });
                 dispatch({ type: 'STORE_ACTIVE_STREAMS', payload: response.data.stream });
@@ -144,7 +158,7 @@ export const LivestreamProvider = ({ children }) => {
         } catch (error) {
             console.error(error);
             toast.error('Error scheduling livestream', {
-                description: error.response.data.message,
+                description: error.response?.data?.message || 'Failed to schedule livestream',
                 style: {
                     background: '#05031F',
                     color: '#fff',
@@ -153,7 +167,6 @@ export const LivestreamProvider = ({ children }) => {
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
-
     }
     const scheduleLiveAuction = async (streamData) => {
         try {

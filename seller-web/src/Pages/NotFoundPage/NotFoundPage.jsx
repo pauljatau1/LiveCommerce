@@ -16,6 +16,11 @@ const NotFoundPage = () => {
       if (isDashboardRoute) {
         navigate('/dashboard/home', { replace: true });
       } else {
+         // Clear app-specific storage
+         localStorage.removeItem('sellerToken');
+         localStorage.removeItem('seller');
+         localStorage.removeItem('onboardingProcess');
+         localStorage.removeItem('visitorId')
         navigate('/login', { replace: true });
       }
     };

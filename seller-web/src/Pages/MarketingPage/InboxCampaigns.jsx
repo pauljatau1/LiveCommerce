@@ -148,23 +148,23 @@ function CampaignsTable() {
   }, [])
 
   return (
-    <Card className="col-span-3">
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="col-span-3 lg:col-span-3 md:col-span-2 sm:col-span-1">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
         <h2 className="text-xl font-semibold">Campaigns</h2>
-        <div className="flex gap-2">
-          <Button variant="outline" className="bg-white">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="bg-white w-full sm:w-auto">
             <Calendar className="mr-2 h-4 w-4" />
             Filtering by date
           </Button>
-          <Button variant="outline" className="bg-white">
+          <Button variant="outline" className="bg-white w-full sm:w-auto">
             Channel
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto -mx-6">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="border-b">
                 <th className="px-6 py-3 text-left">Campaign Name</th>
@@ -231,18 +231,18 @@ function InboxCampaigns() {
   }, [])
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6">
         <h1 className="text-2xl font-bold">Campaign Analytics</h1>
         <Button 
-          className="bg-green-600 hover:bg-green-700" 
+          className="bg-green-600 hover:bg-green-700 w-full sm:w-auto" 
           onClick={() => navigate('/dashboard/inbox-campaigns/create')}
         >
           Create Campaign
         </Button>
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard 
           title="Total Followers" 
           value={stats.totalFollowers.value} 
@@ -271,9 +271,9 @@ function InboxCampaigns() {
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <TrendsChart />
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-1">
           <SubscriptionCard />
           <DistributionChart />
         </div>

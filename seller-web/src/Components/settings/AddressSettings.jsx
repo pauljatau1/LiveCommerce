@@ -131,7 +131,7 @@ export default function AddressSettings() {
         }}
       >
         <DialogContent 
-          className="sm:max-w-[425px]"
+          className="w-[95vw] max-w-[425px] p-4 sm:p-6"
           aria-describedby="address-form-description"
         >
           <DialogHeader>
@@ -162,7 +162,7 @@ export default function AddressSettings() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="state">State</Label>
                 <Select
@@ -232,11 +232,11 @@ export default function AddressSettings() {
               />
             </div>
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setEditingAddress(null)}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setEditingAddress(null)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmitAddress} disabled={isLoading}>
+            <Button className="w-full sm:w-auto" onClick={handleSubmitAddress} disabled={isLoading}>
               {isLoading ? "Saving..." : "Save Address"}
             </Button>
           </div>
@@ -376,18 +376,18 @@ export default function AddressSettings() {
 
   const AddressCard = ({ type, icon: Icon, address, hasVerified, name, contact }) => (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-2">
         <div className="flex items-center gap-2">
           <Icon className="h-5 w-5 text-muted-foreground" />
           <CardTitle>{type} Address</CardTitle>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
           {hasVerified && (
             <Badge variant="outline" className="text-green-500">Verified</Badge>
           )}
           <Button 
             variant="outline" 
-            className="text-green-500 border-green-500"
+            className="text-green-500 border-green-500 w-full sm:w-auto"
             onClick={() => setEditingAddress(type.toLowerCase())}
             disabled={isLoading}
           >
@@ -400,9 +400,9 @@ export default function AddressSettings() {
         <div className="space-y-4">
           {address && (
             <div className="bg-slate-50 p-4 rounded-lg">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-2">
+                <div className="space-y-1 w-full sm:w-auto">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{name}</span>
                     <Badge variant="outline" className="text-green-500">Primary</Badge>
                   </div>
@@ -413,7 +413,7 @@ export default function AddressSettings() {
                     value && <p key={key} className="text-sm text-muted-foreground">{value}</p>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto justify-end">
                   <Button 
                     variant="ghost" 
                     size="sm"
@@ -441,7 +441,7 @@ export default function AddressSettings() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {AddressDialog()}
       
       {profileData.accountType === 'business' && (
@@ -479,15 +479,15 @@ export default function AddressSettings() {
 
       {/* Additional Info Card */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
             <div className="space-y-1">
               <h3 className="font-medium">Address Verification Status</h3>
               <p className="text-sm text-muted-foreground">
                 Your address verification status affects your store's credibility
               </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col items-start sm:items-end gap-2">
               <Badge 
                 variant="outline" 
                 className={profileData.hasFilledAddress ? "text-green-500" : "text-yellow-500"}

@@ -171,16 +171,16 @@ export default function OrdersDashboard() {
   return (
     <>
       <div className="relative">
-        <Link to="/dashboard/returns">
+        <Link to="/dashboard/returns" className="hidden sm:block">
           <Button
             variant="outline"
             className="absolute top-4 right-4 border-green-600 text-green-600 font-inter px-2 lg:px-3 hover:bg-green-600 hover:text-white"
-        >
-          Returns Center
+          >
+            Returns Center
           </Button>
         </Link>
         <div className="py-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8 hidden sm:block">
             <TabsList className="border-b gap-6 h-auto p-0 bg-transparent">
               <TabsTrigger
                 value="all"
@@ -317,8 +317,8 @@ export default function OrdersDashboard() {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium capitalize ">{`${order.buyer.firstName} ${order.buyer.lastName}`}</div>
-                          <div className="text-sm capitalize text-gray-500">{order.delivery_address.city}</div>
+                          <div className="font-medium capitalize ">{`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}</div>
+                          <div className="text-sm capitalize text-gray-500">{order?.delivery_address?.city}</div>
                         </div>
                       </TableCell>
                       <TableCell>
