@@ -426,7 +426,7 @@ const AddProduct = () => {
             // Validate and submit
             if (title && description && images.length > 0 && shippingDetails.pricing &&
                 shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
-                selectedCategory && selectedSubCategory && skuNumber && upcNumber && brand) {
+                selectedCategory && selectedSubCategory && brand) {
 
                 dispatch(createProduct(productData));
             } else {
