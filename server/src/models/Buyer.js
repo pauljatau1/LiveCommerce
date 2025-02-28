@@ -152,6 +152,20 @@ const buyerSchema = new mongoose.Schema({
     type: String,
     sparse: true // Allows null/undefined values
   },
+  reports: [{
+    reportedUser: {
+      userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      userType: { type: String, enum: ['buyer', 'seller'], required: true }
+    },
+    reason: { type: String, required: true },
+    description: { type: String, required: true },
+    status: {
+      type: String,
+      enum: ['pending', 'reviewed', 'resolved'],
+      default: 'pending'
+    },
+    createdAt: { type: Date, default: Date.now }
+  }],
 });
 
 // Middleware to update isNew property after 3 days

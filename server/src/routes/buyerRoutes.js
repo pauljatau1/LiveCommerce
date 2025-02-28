@@ -1787,4 +1787,53 @@ router.get('/google-callback',
   }
 );
 
+/**
+ * @swagger
+ * /api/buyer/report:
+ *   post:
+ *     summary: Report a seller or buyer
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - userType
+ *               - reason
+ *               - description
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: ID of the user being reported
+ *               userType:
+ *                 type: string
+ *                 enum: [buyer, seller]
+ *                 description: Type of user being reported
+ *               reason:
+ *                 type: string
+ *                 description: Main reason for reporting
+ *               description:
+ *                 type: string
+ *                 description: Detailed description of the issue
+ *     responses:
+ *       201:
+ *         description: Report submitted successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/report', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.reportUser
+);
+
 module.exports = router;

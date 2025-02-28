@@ -1626,9 +1626,9 @@ exports.getBuyerDetails = async (req, res) => {
     .populate('items.product', 'name images price')
     .sort({ createdAt: -1 });
 
-    if (orders.length === 0) {
-      return res.status(403).json({ message: 'Buyer has not ordered from this seller' });
-    }
+    // if (orders.length === 0) {
+    //   return res.status(403).json({ message: 'Buyer has not ordered from this seller' });
+    // }
 
     // Get recent 5 orders with details
     const recentOrders = await Order.find({
@@ -3038,13 +3038,14 @@ exports.getAdvancedAnalytics = async (req, res) => {
 function calculateRevenueMetrics(currentOrders, previousOrders) {
   const currentRevenue = currentOrders.reduce((sum, order) => sum + order.totalAmount, 0);
   const previousRevenue = previousOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-  const revenueGrowth = previousRevenue ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 100;
+  const revenueGrowth = previousRevenue ? 
+    Number(((currentRevenue - previousRevenue) / previousRevenue * 100).toFixed(1)) : 100;
 
   return {
-    total: currentRevenue,
-    previousPeriod: previousRevenue,
+    total: Math.round(currentRevenue),
+    previousPeriod: Math.round(previousRevenue),
     growth: revenueGrowth,
-    dailyAverage: currentRevenue / Math.max(1, currentOrders.length),
+    dailyAverage: Math.round(currentRevenue / Math.max(1, currentOrders.length)),
     byPaymentMethod: calculateRevenueByPaymentMethod(currentOrders),
     byCategory: calculateRevenueByCategory(currentOrders)
   };
@@ -3056,13 +3057,17 @@ function calculateOrderMetrics(currentOrders, previousOrders) {
     return acc;
   }, {});
 
+  const growth = previousOrders.length ? 
+    Number(((currentOrders.length - previousOrders.length) / previousOrders.length * 100).toFixed(1)) : 100;
+
   return {
     total: currentOrders.length,
     previousPeriod: previousOrders.length,
-    growth: previousOrders.length ? ((currentOrders.length - previousOrders.length) / previousOrders.length) * 100 : 100,
+    growth: growth,
     byStatus: orderStatuses,
-    averageOrderValue: currentOrders.length ? currentOrders.reduce((sum, order) => sum + order.totalAmount, 0) / currentOrders.length : 0,
-    fulfillmentTime: calculateAverageFulfillmentTime(currentOrders)
+    averageOrderValue: Math.round(currentOrders.length ? 
+      currentOrders.reduce((sum, order) => sum + order.totalAmount, 0) / currentOrders.length : 0),
+    fulfillmentTime: Number(calculateAverageFulfillmentTime(currentOrders).toFixed(1))
   };
 }
 
@@ -3110,7 +3115,7 @@ function calculateProductMetrics(products, currentOrders) {
 function calculateAverageTurnoverRate(productMetrics) {
   if (!productMetrics.length) return 0;
   const totalTurnover = productMetrics.reduce((sum, product) => sum + (product.turnoverRate || 0), 0);
-  return totalTurnover / productMetrics.length;
+  return Number((totalTurnover / productMetrics.length).toFixed(1));
 }
 
 // Update calculateTurnoverRate to handle null values
@@ -3118,7 +3123,8 @@ function calculateTurnoverRate(product, soldCount) {
   if (!product || !product.inventory) return 0;
   const quantity = product.inventory.quantity || 0;
   const averageInventory = (quantity + (quantity + (soldCount || 0))) / 2;
-  return averageInventory > 0 ? ((soldCount || 0) / averageInventory) * 100 : 0;
+  return averageInventory > 0 ? 
+    Number(((soldCount || 0) / averageInventory * 100).toFixed(1)) : 0;
 }
 
 function calculateInventoryMetrics(products) {

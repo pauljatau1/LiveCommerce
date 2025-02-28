@@ -963,4 +963,48 @@ router.put('/user/:userType/:userId/batch',
   postController.updateBatchPosts
 );
 
+/**
+ * @swagger
+ * /api/posts/{postId}/report:
+ *   post:
+ *     summary: Report a post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *               - description
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 enum: [inappropriate_content, spam, harassment, hate_speech, misinformation, copyright_violation, other]
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Post reported successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Post not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:postId/report',
+  authMiddleware.verifyToken,
+  postController.reportPost
+);
+
 module.exports = router; 

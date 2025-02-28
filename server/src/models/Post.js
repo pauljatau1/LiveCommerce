@@ -94,6 +94,43 @@ const commentSchema = new mongoose.Schema({
   updatedAt: { type: Date }
 });
 
+const reportSchema = new mongoose.Schema({
+  reporter: {
+    userId: { 
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      refPath: 'reporter.userModel'
+    },
+    userModel: { 
+      type: String, 
+      enum: ['Buyer', 'Seller'], 
+      required: true 
+    },
+    firstName: String,
+    lastName: String
+  },
+  reason: { 
+    type: String, 
+    required: true,
+    enum: [
+      'inappropriate_content',
+      'spam',
+      'harassment',
+      'hate_speech',
+      'misinformation',
+      'copyright_violation',
+      'other'
+    ]
+  },
+  description: { type: String, required: true },
+  status: {
+    type: String,
+    enum: ['pending', 'reviewed', 'resolved'],
+    default: 'pending'
+  },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const postSchema = new mongoose.Schema({
   title: { type: String, required: true },
   body: { type: String, required: true },
@@ -128,6 +165,7 @@ const postSchema = new mongoose.Schema({
   },
   reactions: [reactionSchema],
   comments: [commentSchema],
+  reports: [reportSchema],
   stats: {
     reactions: {
       like: { type: Number, default: 0 },

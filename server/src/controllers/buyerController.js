@@ -2152,3 +2152,102 @@ exports.handleGoogleCallback = async (req, res) => {
   }
 };
 
+exports.reportUser = async (req, res) => {
+  try {
+    const { userId, userType, reason, description } = req.body;
+    const reporterId = req.user.id;
+
+    // Validate input
+    if (!userId || !userType || !reason || !description) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    // Find reporter
+    const reporter = await Buyer.findById(reporterId);
+    if (!reporter) {
+      return res.status(404).json({ message: 'Reporter not found' });
+    }
+
+    // Find reported user
+    let reportedUser;
+    if (userType === 'seller') {
+      reportedUser = await Seller.findById(userId);
+    } else {
+      reportedUser = await Buyer.findById(userId);
+    }
+
+    if (!reportedUser) {
+      return res.status(404).json({ message: 'Reported user not found' });
+    }
+
+    // Add report to reporter's reports array
+    reporter.reports.push({
+      reportedUser: {
+        userId,
+        userType
+      },
+      reason,
+      description
+    });
+
+    await reporter.save();
+
+    // Send email notification
+    const msg = {
+      to: ['support@auqli.com', 'bolu@auqli.com'],
+      from: 'Joseph From Auqli <joseph@auqli.com>',
+      subject: `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+            <h1 style="color: #ff4444; margin-bottom: 20px;">New User Report</h1>
+            
+            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #ffffff; margin-bottom: 15px;">Report Details</h3>
+              
+              <p style="margin: 10px 0;"><strong>Reporter:</strong><br>
+                Name: ${reporter.firstName} ${reporter.lastName}<br>
+                ID: ${reporter._id}<br>
+                Email: ${reporter.email}
+              </p>
+
+              <p style="margin: 10px 0;"><strong>Reported User:</strong><br>
+                Name: ${reportedUser.firstName} ${reportedUser.lastName}<br>
+                ID: ${reportedUser._id}<br>
+                Type: ${userType}<br>
+                ${userType === 'seller' ? `Store Name: ${reportedUser.storeName || 'N/A'}` : ''}
+              </p>
+
+              <p style="margin: 10px 0;"><strong>Reason:</strong><br>
+                ${reason}
+              </p>
+
+              <p style="margin: 10px 0;"><strong>Description:</strong><br>
+                ${description}
+              </p>
+            </div>
+
+            <hr style="border: 1px solid #333333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await sgMail.send(msg);
+
+    res.status(201).json({
+      message: 'Report submitted successfully',
+      report: reporter.reports[reporter.reports.length - 1]
+    });
+
+  } catch (error) {
+    console.error('Report user error:', error);
+    res.status(500).json({
+      message: 'Failed to submit report',
+      error: error.message
+    });
+  }
+};
+
