@@ -43,18 +43,16 @@ const generateResetOTP = () => {
 exports.register = async (req, res) => {
   const { firstName, lastName, username, email, country, phoneNumber, password, expoPushToken } = req.body;
 
-  // Validate required fields
-  if (!firstName || !lastName || !username || !email || !phoneNumber || !password || !expoPushToken) {
+  // Validate required fields (remove expoPushToken from required check)
+  if (!firstName || !lastName || !username || !email || !phoneNumber || !password) {
     return res.status(400).json({
       message: 'Missing required fields',
       details: {
         firstName: !firstName ? 'First name is required' : null,
         lastName: !lastName ? 'Last name is required' : null,
-        // username: !username ? 'Username is required' : null,
         email: !email ? 'Email is required' : null,
         phoneNumber: !phoneNumber ? 'Phone number is required' : null,
-        password: !password ? 'Password is required' : null,
-        expoPushToken: !expoPushToken ? 'Expo push token is required' : null
+        password: !password ? 'Password is required' : null
       }
     });
   }
@@ -82,11 +80,15 @@ exports.register = async (req, res) => {
       phoneNumber,
       password,
       otp,
-      expoPushToken
+      expoPushToken // This will be undefined if not provided, which is fine
     });
 
     await newBuyer.save();
-    await saveToken(newBuyer._id, expoPushToken);
+    
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(newBuyer._id, expoPushToken);
+    }
 
     const token = generateToken(newBuyer._id);
 
@@ -153,14 +155,12 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   const { email, password, expoPushToken } = req.body;
 
-  // Add expoPushToken to required validation
-  if (!email || !password || !expoPushToken) {
+  if (!email || !password) {
     return res.status(400).json({
-      message: 'Email, password and expoPushToken are required.',
+      message: 'Email and password are required.',
       details: {
         email: !email ? 'Email is required' : null,
-        password: !password ? 'Password is required' : null,
-        expoPushToken: !expoPushToken ? 'Expo push token is required' : null
+        password: !password ? 'Password is required' : null
       }
     });
   }
@@ -171,8 +171,10 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    // Save token unconditionally since it's now required
-    await saveToken(buyer._id, expoPushToken);
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(buyer._id, expoPushToken);
+    }
 
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
@@ -478,7 +480,6 @@ exports.updateSelectedCategories = async (req, res) => {
     res.status(500).json({ message: 'Failed to update selected categories', error: error.message });
   }
 };
-
 
 
 
