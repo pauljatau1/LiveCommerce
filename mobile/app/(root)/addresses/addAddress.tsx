@@ -92,7 +92,7 @@ const AddAddress = () => {
     if (loading) {
       return;
     }
-    if (!addressType || !city || !address1 || !address2 || !zipCode || !state) {
+    if (!addressType || !city || !address1 || !zipCode || !state) {
       return toast.info("enter empty fields");
     }
     if (phoneError || emailError || zipCodeError) {

@@ -460,7 +460,7 @@ const Checkout = () => {
                 </View>
               </View>
 
-              <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
+              {/* <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
                 <TextInput
                   placeholder="Enter Promo Code"
                   placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
@@ -471,7 +471,7 @@ const Checkout = () => {
                     Apply
                   </Text>
                 </Pressable>
-              </View>
+              </View> */}
 
               <View
                 className="p-[20px] rounded-[5px] gap-[10px]"

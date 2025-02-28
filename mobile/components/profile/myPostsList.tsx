@@ -5,6 +5,7 @@ import {
   Platform,
   Animated,
   Pressable,
+  Alert,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import React, {
@@ -16,12 +17,14 @@ import React, {
   useState,
 } from "react";
 import {
+  useDeletePostMutation,
   useGetAllPostsQuery,
   useGetNewPostsQuery,
   useGetUserPostsQuery,
 } from "@/services/posts";
 import PostItem2 from "../connect/post-item2";
 import { StyleSheet } from "nativewind";
+import { toast } from "@/core/toast";
 
 interface Props {
   scrollY: any;
@@ -50,6 +53,7 @@ const AllPostsList = ({
     type: type,
     limit: 6,
   });
+  const [deletePost, { isLoading: deleteLoading }] = useDeletePostMutation();
 
   // Update posts when data changes
   useEffect(() => {
@@ -108,8 +112,32 @@ const AllPostsList = ({
     ) : null;
   }, [hasReachedEnd]);
 
+  const handleDeletePost = useCallback(async (postId: any) => {
+    Alert.alert("Delete", "Are you sure you want to delete ? ", [
+      {
+        text: "Cancel",
+        onPress: () => {},
+        style: "cancel",
+      },
+      { text: "Confirm", onPress: () => deletePostAction(postId) },
+    ]);
+  }, []);
+
+  const deletePostAction = useCallback(async (postId: any) => {
+    try {
+      const result = await deletePost({ id: postId }).unwrap();
+      if (result.error) {
+        return toast.error("Could not delete post");
+      }
+      refreshPosts();
+    } catch (e) {
+      console.log(e);
+      return toast.error("Could not delete post");
+    }
+  }, []);
+
   const renderPosts = useCallback(({ item }: { item: any }) => {
-    return <PostItem2 item={item} />;
+    return <PostItem2 item={item} deletePost={handleDeletePost} />;
   }, []);
 
   useEffect(() => {
