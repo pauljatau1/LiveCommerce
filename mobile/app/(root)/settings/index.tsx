@@ -82,11 +82,24 @@ const Settings = () => {
                 color="rgba(204, 204, 204, 0.8)"
               />
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.sectionRow, styles.inactiveRow]}
               activeOpacity={0.5}
             >
               <Text style={styles.sectionText}>Blocked Users</Text>
+              <Entypo
+                name="chevron-right"
+                size={18}
+                color="rgba(204, 204, 204, 0.8)"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sectionRow]}
+              activeOpacity={0.5}
+              onPress={() => router.push("/settings/addresses")}
+            >
+              <Text style={styles.sectionText}>Addresses</Text>
               <Entypo
                 name="chevron-right"
                 size={18}

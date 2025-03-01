@@ -9,11 +9,11 @@ const Favourite = () => {
 
   const groupedSellers = sellers.reduce((rows, seller, index) => {
     if (index % numColumns === 0) rows.push([]);
-    rows[rows.length - 1].push(seller);
+    rows[rows?.length - 1].push(seller);
     return rows;
   }, [] as any[][]);
 
-  const lastSeller = sellers[sellers.length - 1];
+  const lastSeller = sellers[sellers?.length - 1];
 
   return (
     <View className="w-[100%] pt-[30px]">

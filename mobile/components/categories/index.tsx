@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FocusAwareStatusBar } from "../ui/focus-aware-status-bar";
@@ -22,6 +23,7 @@ import { icons, images } from "@/constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch } from "react-redux";
 import { signIn } from "@/store/features/auth/authSlice";
+import { Skeleton } from "@rneui/themed";
 
 type FormData = {
   selectedCategories: {
@@ -29,6 +31,8 @@ type FormData = {
     subCategories: { name: string }[];
   }[];
 };
+
+const { width } = Dimensions.get("window");
 
 const Categories = () => {
   const dispatch = useDispatch();
@@ -44,7 +48,8 @@ const Categories = () => {
 
   const selectedCategories = watch("selectedCategories");
   const [uploadCategories, { isLoading }] = useUploadCategoriesMutation();
-  const { data: categoriesData } = useGetAllCategoriesQuery({});
+  const { data: categoriesData, isLoading: categoriesLoading } =
+    useGetAllCategoriesQuery({});
 
   const toggleCategory = (categoryId: string, title: string) => {
     if (selectedCategories.find((val) => val.name == title)) {
@@ -120,34 +125,95 @@ const Categories = () => {
     }
   };
 
+  const renderSkeletonLoader = () => {
+    return (
+      <View className="flex-row gap-[18px] justify-between items-center flex-wrap">
+        <Skeleton
+          style={{
+            backgroundColor: "#121212",
+            borderRadius: 8,
+          }}
+          skeletonStyle={{
+            backgroundColor: "rgba(0,0,0,0.05)",
+            borderRadius: 5,
+          }}
+          animation="wave"
+          width={(width - 66) / 2}
+          height={173}
+        />
+
+        <Skeleton
+          style={{
+            backgroundColor: "#121212",
+            borderRadius: 8,
+          }}
+          skeletonStyle={{
+            backgroundColor: "rgba(0,0,0,0.05)",
+            borderRadius: 5,
+          }}
+          animation="wave"
+          width={(width - 66) / 2}
+          height={173}
+        />
+        <Skeleton
+          style={{
+            backgroundColor: "#121212",
+            borderRadius: 8,
+          }}
+          skeletonStyle={{
+            backgroundColor: "rgba(0,0,0,0.05)",
+            borderRadius: 5,
+          }}
+          animation="wave"
+          width={(width - 66) / 2}
+          height={173}
+        />
+        <Skeleton
+          style={{
+            backgroundColor: "#121212",
+            borderRadius: 8,
+          }}
+          skeletonStyle={{
+            backgroundColor: "rgba(0,0,0,0.05)",
+            borderRadius: 5,
+          }}
+          animation="wave"
+          width={(width - 66) / 2}
+          height={173}
+        />
+      </View>
+    );
+  };
+
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="h-full bg-black">
-        <ScrollView className="flex-1 px-4">
+        <View className="flex-1 px-[24px]">
           <FlatList
             data={categoriesData}
             numColumns={2}
             keyExtractor={(item) => item._id}
+            ListEmptyComponent={renderSkeletonLoader}
             ListHeaderComponent={() => (
               <Text className="text-gray-200 font-LexendDecaBold text-center text-[21.77px] mt-10 mb-[36px]">
-                What’s your style vibe?
+                What’s your style ?
               </Text>
             )}
             columnWrapperStyle={{
               justifyContent: "center",
-              columnGap: 48,
-              paddingHorizontal: 10,
+              columnGap: 18,
               paddingVertical: 10,
             }}
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => toggleCategory(item.id, item.name)}
-                className="rounded-md overflow-visible relative w-[115px] h-[173px]"
+                className="rounded-md overflow-visible relative w-full shrink h-[173px]"
+                activeOpacity={0.5}
               >
                 <Image
                   source={{ uri: item.image.url }}
-                  className="rounded-md border-[0.6px] border-gray-200 h-full"
+                  className="rounded-md border-[0.6px] border-gray-200 h-full opacity-50"
                   resizeMode="cover"
                 />
                 {selectedCategories.find((val) => val.name == item.name) && (
@@ -156,11 +222,12 @@ const Categories = () => {
                     className="absolute top-[-10px] right-[1px] w-6 h-6 z-50"
                   />
                 )}
-                <Text className="text-center font-LexendDecaBold text-white absolute bottom-3 text-lg px-[8.41px]">
+                <Text className=" font-LexendDecaSemiBold text-white absolute bottom-3 text-lg px-[8.41px]">
                   {item.name}
                 </Text>
               </TouchableOpacity>
             )}
+            showsVerticalScrollIndicator={false}
           />
           <View className="mx-5 mt-5">
             <CustomButton
@@ -258,7 +325,7 @@ const Categories = () => {
               </View>
             </BottomSheet>
           </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </>
   );
