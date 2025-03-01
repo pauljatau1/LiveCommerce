@@ -15,97 +15,119 @@ const getHtmlContent = (appId: string, channel: string, token: string, uid: stri
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.21.0.js"></script>
     <style>
       body { margin: 0; padding: 0; background: black; }
-      #video-container { 
-        width: 100vw; 
-        height: 100vh; 
-        position: relative;
-      }
+      #video-container { width: 100vw; height: 100vh; position: relative; }
+      #host-video { width: 100%; height: 100%; }
     </style>
   </head>
   <body>
-    <div id="video-container"></div>
+    <div id="video-container">
+      <div id="host-video"></div>
+    </div>
     <script>
+      // Global references to important objects
       let client;
-      let remoteTracks = {};
-
-      async function initializeAgora() {
+      let remoteUsers = {};
+      
+      async function joinAsAudience() {
         try {
-          // 1. Create client FIRST
-          client = AgoraRTC.createClient({
-            mode: "live",
-            codec: "vp8",
-            role: "audience"
-          });
-
-          // 2. SET UP HANDLERS BEFORE JOINING (CRUCIAL)
-          client.on("user-published", async (user, mediaType) => {
-            console.log('Host published:', user.uid, mediaType);
-            window.ReactNativeWebView.postMessage('host_published:' + mediaType);
-
-            try {
-              // 3. Subscribe FIRST before playing
-              await client.subscribe(user, mediaType);
-              
-              // 4. Handle video track
-              if (mediaType === "video") {
-                const videoContainer = document.getElementById('video-container');
-                videoContainer.innerHTML = ''; // Clear previous
-                user.videoTrack.play(videoContainer, {
-                  fit: "cover",
-                  mirror: false
-                });
-              }
-              
-              // 5. Handle audio track
-              if (mediaType === "audio") {
-                user.audioTrack.play();
-              }
-
-              // Store tracks
-              remoteTracks[user.uid] = user;
-
-            } catch (error) {
-              console.error("Subscribe failed:", error);
-              window.ReactNativeWebView.postMessage('error:' + error.message);
-            }
-          });
-
-          client.on("user-unpublished", (user) => {
-            console.log('Host unpublished:', user.uid);
-            if(remoteTracks[user.uid]) {
-              delete remoteTracks[user.uid];
-              const container = document.getElementById('video-container');
-              container.innerHTML = '';
-              window.ReactNativeWebView.postMessage('host_unpublished');
-            }
-          });
-
-          // 6. JOIN CHANNEL AFTER HANDLERS ARE SET
-          await client.join(
-            "${appId}",
-            "${channel}",
-            "${token}",
-            "${uid}"
-          );
+          // Create Agora client
+          client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
           
-          window.ReactNativeWebView.postMessage('joined_success');
-
+          // Set role to audience
+          await client.setClientRole("audience");
+          
+          window.ReactNativeWebView.postMessage('initializing');
+          
+          // Register all user events BEFORE joining
+          registerEvents();
+          
+          // Join the channel with token
+          await client.join("${appId}", "${channel}", "${token}", ${uid});
+          window.ReactNativeWebView.postMessage('joined_channel');
+          
+          // After joining, log all users currently in the channel
+          window.ReactNativeWebView.postMessage('users_in_channel:' + client.remoteUsers.length);
+          client.remoteUsers.forEach(user => {
+            window.ReactNativeWebView.postMessage('remote_user:' + user.uid);
+            
+            // Auto-subscribe to existing users
+            subscribeToUser(user);
+          });
         } catch (error) {
-          console.error("Join failed:", error);
-          window.ReactNativeWebView.postMessage('error:' + error.message);
+          console.error("Error joining:", error);
+          window.ReactNativeWebView.postMessage("error:" + error.message);
         }
       }
-
-      // Initialize when loaded
-      initializeAgora();
-
-      // Cleanup
-      window.leaveChannel = async () => {
-        if(client) {
-          await client.leave();
-          client.removeAllListeners();
+      
+      function registerEvents() {
+        // When remote user publishes a stream
+        client.on("user-published", async (user, mediaType) => {
+          window.ReactNativeWebView.postMessage("user_published:" + user.uid + ":" + mediaType);
+          
+          // Save remote user to our object
+          remoteUsers[user.uid] = user;
+          
+          // Subscribe to the remote user
+          await subscribeToUser(user);
+        });
+        
+        // When remote user stops publishing
+        client.on("user-unpublished", (user, mediaType) => {
+          window.ReactNativeWebView.postMessage("user_unpublished:" + user.uid + ":" + mediaType);
+        });
+        
+        // When remote user joins
+        client.on("user-joined", (user) => {
+          window.ReactNativeWebView.postMessage("user_joined:" + user.uid);
+          remoteUsers[user.uid] = user;
+        });
+        
+        // When remote user leaves
+        client.on("user-left", (user) => {
+          window.ReactNativeWebView.postMessage("user_left:" + user.uid);
+          delete remoteUsers[user.uid];
+        });
+        
+        // Connection state changes
+        client.on("connection-state-change", (newState) => {
+          window.ReactNativeWebView.postMessage("connection:" + newState);
+        });
+      }
+      
+      async function subscribeToUser(user) {
+        try {
+          // Subscribe to the video/audio tracks
+          await client.subscribe(user, "video");
+          window.ReactNativeWebView.postMessage("subscribed_video:" + user.uid);
+          
+          await client.subscribe(user, "audio");
+          window.ReactNativeWebView.postMessage("subscribed_audio:" + user.uid);
+          
+          // Play audio immediately
+          if (user.audioTrack) {
+            user.audioTrack.play();
+            window.ReactNativeWebView.postMessage("audio_playing:" + user.uid);
+          }
+          
+          // Play video onto the host-video div
+          if (user.videoTrack) {
+            // Create a guaranteed unique ID
+            const playerDiv = document.getElementById("host-video");
+            if (playerDiv) {
+              // Play the video - use cover to fill container
+              user.videoTrack.play(playerDiv, { fit: "cover" });
+              window.ReactNativeWebView.postMessage("video_playing:" + user.uid);
+            } else {
+              window.ReactNativeWebView.postMessage("error:video_container_missing");
+            }
+          }
+        } catch (err) {
+          window.ReactNativeWebView.postMessage("error:subscribe:" + err.message);
         }
       }
+      
+      // Start everything
+      joinAsAudience();
     </script>
   </body>
 </html>
@@ -131,13 +153,13 @@ const LivestreamStudio = () => {
       
       setStreamConfig({
         appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || '',
-        channel: streamDetails.channelName,
-        token: streamDetails.token,
-        uid: streamDetails.uid
+        channel: streamDetails?.channelName,
+        token: streamDetails?.token,
+        uid: streamDetails?.uid
       });
     } catch (error) {
       console.error('Error setting up livestream:', error);
-      setStatus('Error: ' + error.message);
+      setStatus('Error: ' + (error as Error).message);
     }
   };
 
@@ -151,16 +173,19 @@ const LivestreamStudio = () => {
       return;
     }
 
-    switch(true) {
-      case message === 'joined_success':
-        setStatus('Connected - Waiting for host stream...');
+    switch(message) {
+      case 'joined_channel':
+        setStatus('Connected to channel');
+        setIsLoading(false);
         break;
-      case message.startsWith('host_published'):
+      case message.startsWith('user_published:'):
         const mediaType = message.split(':')[1];
-        setStatus(`Host ${mediaType} stream playing...`);
+        setStatus(`Host ${mediaType} stream playing`);
+        setIsLoading(false);
         break;
-      case message === 'host_unpublished':
-        setStatus('Host disconnected');
+      case message.startsWith('connection:'):
+        const state = message.split(':')[1];
+        setStatus(`Connection: ${state}`);
         break;
       default:
         setStatus(message);
@@ -173,22 +198,21 @@ const LivestreamStudio = () => {
         {streamConfig ? (
           <>
             <WebView
-              style={styles.fullscreen}
               source={{
                 html: getHtmlContent(
                   streamConfig.appId,
                   streamConfig.channel,
                   streamConfig.token,
                   streamConfig.uid
-                )
+                ),
               }}
+              style={styles.fullscreen}
               onMessage={handleWebViewMessage}
               javaScriptEnabled={true}
               allowsInlineMediaPlayback={true}
               mediaPlaybackRequiresUserAction={false}
               originWhitelist={['*']}
-              allowFileAccess={true}
-              allowUniversalAccessFromFileURLs={true}
+              debuggingEnabled={true}
             />
             {isLoading && (
               <View style={styles.loadingOverlay}>
