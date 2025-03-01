@@ -225,6 +225,14 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
+        name="settings/addresses"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="settings/communityActivity"
         options={{
           headerTitle: "",
