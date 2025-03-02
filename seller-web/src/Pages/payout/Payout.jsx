@@ -21,7 +21,7 @@ import {
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
 import { Toaster } from "@/Components/ui/sonner";
 import { BASE_URL } from "@/Constants/Server";
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
 
@@ -48,17 +48,6 @@ export default function Payout() {
   const [withdrawalAmount, setWithdrawalAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [updatingBank, setUpdatingBank] = useState(false);
-  const [newBankDetails, setNewBankDetails] = useState({
-    bankCountry: '',
-    bankName: '',
-    bankAccountType: '',
-    accountCurrency: '',
-    accountNumber: '',
-    accountName: '',
-    swiftCode: '',
-    bankIdentifierCode: ''
-  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [transactionSummary, setTransactionSummary] = useState({
@@ -137,20 +126,6 @@ export default function Payout() {
 
     fetchFinancialData();
   }, []);
-
-  useEffect(() => {
-    // When bankDetails changes, update newBankDetails
-    setNewBankDetails({
-      bankCountry: bankDetails.bankCountry || '',
-      bankName: bankDetails.bankName || '',
-      bankAccountType: bankDetails.bankAccountType || '',
-      accountCurrency: bankDetails.accountCurrency || '',
-      accountNumber: bankDetails.accountNumber || '',
-      accountName: bankDetails.accountName || '',
-      swiftCode: bankDetails.swiftCode || '',
-      bankIdentifierCode: bankDetails.bankIdentifierCode || ''
-    });
-  }, [bankDetails]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -243,43 +218,6 @@ export default function Payout() {
       doc.save(`receipt_${withdrawal.reference}.pdf`);
     } else {
       alert('Receipt is only available for completed withdrawals.');
-    }
-  };
-
-  const handleUpdateBankDetails = async () => {
-    setUpdatingBank(true);
-    try {
-      const sellerToken = localStorage.getItem('sellerToken');
-      if (sellerToken) {
-        const tokenData = JSON.parse(sellerToken);
-        const token = tokenData.data;
-
-        const response = await fetch(`${BASE_URL}/seller/profile/bank-details`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            bankDetails: newBankDetails
-          })
-        });
-
-        if (response.ok) {
-          setBankDetails(newBankDetails);
-          // Show success dialog
-          document.querySelector('[data-state="open"]').click(); // Close update modal
-          document.getElementById('successDialog').click(); // Open success dialog
-        } else {
-          throw new Error('Failed to update bank details');
-        }
-      }
-    } catch (error) {
-      console.error('Error updating bank details:', error);
-      // Show error dialog
-      document.getElementById('errorDialog').click();
-    } finally {
-      setUpdatingBank(false);
     }
   };
 
@@ -475,7 +413,7 @@ export default function Payout() {
                             className="mt-2 h-auto p-0 text-blue-600"
                             onClick={() => {
                               document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
-                              document.querySelector('[role="dialog"] button:has-text("Update Bank Information")').click();
+                              window.location.href = "/dashboard/settings?tab=payment";
                             }}
                           >
                             Change Bank Details
@@ -533,104 +471,11 @@ export default function Payout() {
                 </div>
                 <h3 className="font-medium text-gray-800">Withdrawal Method</h3>
               </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="border-2 w-full sm:w-auto">
-                    Update Bank Information
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-xl p-6 w-[95%] max-h-[90vh] overflow-y-auto">
-                  <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Update Bank Details</DialogTitle>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank Country</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.bankCountry}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, bankCountry: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.bankName}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, bankName: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.bankAccountType}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, bankAccountType: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.accountCurrency}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, accountCurrency: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.accountNumber}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, accountNumber: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.accountName}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, accountName: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Swift Code</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.swiftCode}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, swiftCode: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bank Identifier Code</label>
-                        <input
-                          type="text"
-                          value={newBankDetails.bankIdentifierCode}
-                          onChange={(e) => setNewBankDetails({ ...newBankDetails, bankIdentifierCode: e.target.value })}
-                          className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter className="mt-6 flex flex-col sm:flex-row gap-2">
-                    <Button
-                      onClick={handleUpdateBankDetails}
-                      className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-                      disabled={updatingBank}
-                    >
-                      {updatingBank ? 'Updating...' : 'Update Bank Details'}
-                    </Button>
-                    <DialogClose asChild>
-                      <Button variant="outline" className="border-2 w-full sm:w-auto">Cancel</Button>
-                    </DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <Link to="/dashboard/settings?tab=payment">
+                <Button variant="outline" className="border-2 w-full sm:w-auto">
+                  Go To Bank Settings
+                </Button>
+              </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="flex items-center p-3 bg-gray-50 rounded-lg">
@@ -957,46 +802,6 @@ export default function Payout() {
               </TabsContent>
             </Tabs>
           </Card>
-
-          {/* Success Dialog */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <button id="successDialog" className="hidden">Success</button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogTitle className="text-green-600">Success!</DialogTitle>
-              <DialogDescription className="py-4">
-                Your bank details have been successfully updated.
-              </DialogDescription>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white">
-                    Close
-                  </Button>
-                </DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Error Dialog */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <button id="errorDialog" className="hidden">Error</button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogTitle className="text-red-600">Error</DialogTitle>
-              <DialogDescription className="py-4">
-                Failed to update bank details. Please try again.
-              </DialogDescription>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button className="bg-red-600 hover:bg-red-700 text-white">
-                    Close
-                  </Button>
-                </DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
 
           {/* Withdrawal Success Dialog */}
           <Dialog>

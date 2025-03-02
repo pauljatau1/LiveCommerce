@@ -8,19 +8,30 @@ import DelegationSettings from "@/Components/settings/DelegationSettings"
 import VacationSettings from "@/Components/settings/VacationSettings"
 import SecuritySettings from "@/Components/settings/SecuritySettings"
 import AddressSettings from "@/Components/settings/AddressSettings"
-import { useOutletContext } from "react-router-dom";
-import { useEffect } from "react";
+import { useOutletContext, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export default function SettingsDashboard() {
   const { setHeaderName, setNavName } = useOutletContext();
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState("store");
 
   useEffect(() => {
     setHeaderName("Settings");
-  }, []);
+    
+    // Get the tab from URL query parameters
+    const queryParams = new URLSearchParams(location.search);
+    const tabParam = queryParams.get('tab');
+    
+    // Set the active tab if a valid tab is specified in the URL
+    if (tabParam && ['store', 'notifications', 'addresses', 'payment', 'security'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search]);
 
   return (
     <div className="w-full px-2 sm:px-4 py-4 sm:py-6">
-      <Tabs defaultValue="store" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto">
           <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent min-w-[600px]">
             <TabsTrigger

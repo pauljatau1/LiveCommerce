@@ -29,6 +29,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 export default function CouponsList() {
   const [coupons, setCoupons] = useState([])
+  const [specialCoupons, setSpecialCoupons] = useState([])
+  const [activeTab, setActiveTab] = useState('all') // 'all', 'product', 'special'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -56,14 +58,36 @@ export default function CouponsList() {
       if (!sellerToken) throw new Error("Not authenticated")
       
       const tokenData = JSON.parse(sellerToken)
-      const response = await axios.get(`${BASE_URL}/coupons/seller`, {
-        headers: { Authorization: `Bearer ${tokenData.data}` }
-      })
-      setCoupons(response.data.coupons)
+      const token = tokenData.data
+
+      // Fetch both regular coupons and special coupons
+      const [regularResponse, specialResponse] = await Promise.all([
+        axios.get(`${BASE_URL}/coupons/seller`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`${BASE_URL}/coupons/special`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ])
+
+      setCoupons(regularResponse.data.coupons)
+      setSpecialCoupons(specialResponse.data.coupons)
     } catch (error) {
       setError(error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Get filtered coupons based on active tab
+  const getFilteredCoupons = () => {
+    switch (activeTab) {
+      case 'product':
+        return coupons
+      case 'special':
+        return specialCoupons
+      default:
+        return [...coupons, ...specialCoupons]
     }
   }
 
@@ -154,6 +178,40 @@ export default function CouponsList() {
         </Button>
       </div>
 
+      {/* Add tab navigation */}
+      <div className="flex space-x-2 mb-6">
+        <Button
+          variant={activeTab === 'all' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('all')}
+          className="relative"
+        >
+          All Coupons
+          <Badge className="ml-2 bg-gray-100 text-gray-600">
+            {coupons.length + specialCoupons.length}
+          </Badge>
+        </Button>
+        <Button
+          variant={activeTab === 'product' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('product')}
+          className="relative"
+        >
+          Product Discounts
+          <Badge className="ml-2 bg-gray-100 text-gray-600">
+            {coupons.length}
+          </Badge>
+        </Button>
+        <Button
+          variant={activeTab === 'special' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('special')}
+          className="relative"
+        >
+          Special Coupons
+          <Badge className="ml-2 bg-gray-100 text-gray-600">
+            {specialCoupons.length}
+          </Badge>
+        </Button>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-green-600" />
@@ -170,22 +228,34 @@ export default function CouponsList() {
             <TableHeader>
               <TableRow className="bg-gray-50">
                 <TableHead className="font-semibold">Name</TableHead>
+                <TableHead className="font-semibold">Type</TableHead>
                 <TableHead className="font-semibold">Code</TableHead>
                 <TableHead className="font-semibold">Discount</TableHead>
                 <TableHead className="font-semibold">Validity</TableHead>
-                {/* <TableHead className="font-semibold">Usage</TableHead> */}
                 <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {coupons.map((coupon) => (
+              {getFilteredCoupons().map((coupon) => (
                 <TableRow key={coupon._id} className="hover:bg-gray-50/50">
                   <TableCell className="font-medium">{coupon.name}</TableCell>
                   <TableCell>
-                    <code className="bg-gray-100 px-3 py-1 rounded-full text-sm font-mono">
-                      {coupon.code}
-                    </code>
+                    <Badge
+                      variant="outline"
+                      className={coupon.code ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}
+                    >
+                      {coupon.code ? 'Special Coupon' : 'Product Discount'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {coupon.code ? (
+                      <code className="bg-gray-100 px-3 py-1 rounded-full text-sm font-mono">
+                        {coupon.code}
+                      </code>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-green-600 font-semibold">
                     {coupon.discountPercentage}% OFF
@@ -202,14 +272,6 @@ export default function CouponsList() {
                       </div>
                     </div>
                   </TableCell>
-                  {/* <TableCell>
-                    <div className="flex items-center">
-                      
-                      <span className="ml-2 text-sm text-gray-600">
-                        {coupon.usageCount} / {coupon.usageLimit || '∞'}
-                      </span>
-                    </div>
-                  </TableCell> */}
                   <TableCell>
                     <Badge
                       variant={
@@ -273,11 +335,17 @@ export default function CouponsList() {
               ))}
             </TableBody>
           </Table>
-          {coupons.length === 0 && (
+          {getFilteredCoupons().length === 0 && (
             <div className="text-center py-12">
               <ShoppingBag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900">No coupons found</h3>
-              <p className="text-gray-500 mt-2">Get started by creating a new coupon.</p>
+              <p className="text-gray-500 mt-2">
+                {activeTab === 'special' 
+                  ? 'Get started by creating a new special coupon code.'
+                  : activeTab === 'product'
+                    ? 'Get started by creating a new product discount.'
+                    : 'Get started by creating a new coupon.'}
+              </p>
             </div>
           )}
         </div>
