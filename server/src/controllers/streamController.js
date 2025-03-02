@@ -377,7 +377,14 @@ exports.joinStream = async (req, res) => {
     const stream = await Stream.findOne({
       _id: req.params.streamId,
       status: 'live'
-    });
+    })
+    .populate('seller', 'storeName businessName storeAvatar rating')
+    .populate('products.product', 'name description images price stock sku variants')
+    .populate('products.currentBidder', 'firstName lastName username email')
+    .populate('viewers', 'firstName lastName username avatarUrl')
+    .populate('bids.buyer', 'firstName lastName username')
+    .populate('bids.product', 'name price')
+    .lean(); // Convert to plain JavaScript object
 
     if (!stream) {
       return res.status(404).json({ message: 'Active stream not found' });
@@ -408,10 +415,13 @@ exports.joinStream = async (req, res) => {
       role
     );
 
-    // Rest of the function unchanged
-    if (!isSeller && !stream.viewers.includes(req.user.id)) {
-      stream.viewers.push(req.user.id);
-      await stream.save();
+    // Add user to viewers if not already there and not the seller
+    if (!isSeller && !stream.viewers.some(viewer => viewer._id.toString() === req.user.id)) {
+      // Since we're using lean(), we need to update the database separately
+      await Stream.updateOne(
+        { _id: req.params.streamId },
+        { $addToSet: { viewers: req.user.id } }
+      );
     }
 
     if (!isSeller) {
@@ -425,6 +435,9 @@ exports.joinStream = async (req, res) => {
     console.log('agoraUid', tokenUid);
     console.log('token', token);
 
+    // Remove sensitive fields
+    const { __v, ...streamData } = stream;
+    
     res.json({
       message: 'Successfully joined stream',
       channelName: stream.channelName,
@@ -436,13 +449,19 @@ exports.joinStream = async (req, res) => {
         (14400) * 1000
       ),
       stream: {
-        id: stream._id,
-        title: stream.title,
-        seller: stream.seller,
-        products: stream.products
+        ...streamData,
+        viewerCount: stream.viewers.length,
+        isLive: stream.status === 'live',
+        products: stream.products.map(product => ({
+          ...product,
+          currentBid: product.currentBid,
+          minBid: product.minBid,
+          maxBid: product.maxBid
+        }))
       }
     });
   } catch (error) {
+    console.error('Join stream error:', error);
     res.status(500).json({
       message: 'Failed to join stream',
       error: error.message
