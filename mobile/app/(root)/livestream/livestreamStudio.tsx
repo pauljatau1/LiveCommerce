@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated, Platform, Keyboard, ScrollView } from 'react-native';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useLivestream } from '@/contexts/livestreamContext';
@@ -277,9 +277,12 @@ const LivestreamStudio = () => {
     // Add a new state to track if video is actually playing
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
+    // Add keyboard height tracking
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
     useEffect(() => {
         setupLivestream();
-        
+
         // Add sample comments and events for demonstration that match the reference image
         const sampleEvents = [
             {
@@ -316,7 +319,7 @@ const LivestreamStudio = () => {
             }
         ];
         setLiveComments(sampleEvents);
-        
+
         // Simulate new comments/events coming in
         const interval = setInterval(() => {
             const randomEvents = [
@@ -337,9 +340,9 @@ const LivestreamStudio = () => {
                     timestamp: new Date()
                 }
             ];
-            
+
             const newEvent = randomEvents[Math.floor(Math.random() * randomEvents.length)];
-            
+
             setLiveComments(prev => {
                 // Keep only the last 10 comments to avoid cluttering the UI
                 const updated = [...prev, newEvent];
@@ -348,14 +351,36 @@ const LivestreamStudio = () => {
                 }
                 return updated;
             });
-            
+
             // Scroll to the end to show new comments
             if (commentsListRef.current) {
                 commentsListRef.current.scrollToEnd({ animated: true });
             }
         }, 15000); // Add a new comment every 15 seconds
-        
-        return () => clearInterval(interval);
+
+        // Add keyboard listeners with height information
+        const keyboardDidShowListener = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                // Get keyboard height
+                const keyboardHeight = e.endCoordinates.height;
+                setKeyboardHeight(keyboardHeight);
+            }
+        );
+
+        const keyboardDidHideListener = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => {
+                setKeyboardHeight(0);
+            }
+        );
+
+        return () => {
+            // Clean up listeners
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+            clearInterval(interval);
+        };
     }, [id]);
 
     const setupLivestream = async () => {
@@ -381,7 +406,7 @@ const LivestreamStudio = () => {
                 // Debug seller information
                 console.log('Seller info from API:', streamDetails.seller);
                 console.log('Stream info:', streamDetails.stream);
-                
+
                 // Based on the console log, we can see the seller info is in streamDetails.stream.seller
                 if (streamDetails.stream && streamDetails.stream.seller) {
                     // Get seller data from stream.seller with type assertion
@@ -394,31 +419,31 @@ const LivestreamStudio = () => {
                         storeName: string;
                     };
                     console.log('Using seller data from stream.seller:', sellerData);
-                    
+
                     const newStoreInfo = {
                         name: sellerData.storeName || sellerData.businessName || 'Store Name',
                         username: `@${(sellerData.storeName || sellerData.businessName || 'username').toLowerCase().replace(/\s+/g, '')}`,
-                        avatar: sellerData.storeAvatar?.url 
-                            ? { uri: sellerData.storeAvatar.url } 
+                        avatar: sellerData.storeAvatar?.url
+                            ? { uri: sellerData.storeAvatar.url }
                             : require('@/assets/icons/animoji.png')
                     };
-                    
+
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
                 }
                 // If seller info is directly in streamDetails
                 else if (streamDetails.seller) {
                     console.log('Using seller data from streamDetails.seller');
-                    
+
                     const sellerData = streamDetails.seller;
                     const newStoreInfo = {
                         name: sellerData.storeName || sellerData.businessName || 'Store Name',
                         username: `@${(sellerData.storeName || sellerData.businessName || 'username').toLowerCase().replace(/\s+/g, '')}`,
-                        avatar: sellerData.storeAvatar?.url 
-                            ? { uri: sellerData.storeAvatar.url } 
+                        avatar: sellerData.storeAvatar?.url
+                            ? { uri: sellerData.storeAvatar.url }
                             : require('@/assets/icons/animoji.png')
                     };
-                    
+
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
                 }
@@ -561,9 +586,9 @@ const LivestreamStudio = () => {
         if (item.type === 'join') {
             return (
                 <View style={styles.joinCommentItem}>
-                    <Image 
-                        source={item.avatar} 
-                        style={styles.commentAvatar} 
+                    <Image
+                        source={item.avatar}
+                        style={styles.commentAvatar}
                     />
                     <View style={styles.joinCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
@@ -574,9 +599,9 @@ const LivestreamStudio = () => {
         } else if (item.type === 'purchase') {
             return (
                 <View style={styles.purchaseCommentItem}>
-                    <Image 
-                        source={item.avatar} 
-                        style={styles.commentAvatar} 
+                    <Image
+                        source={item.avatar}
+                        style={styles.commentAvatar}
                     />
                     <View style={styles.purchaseCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
@@ -587,9 +612,9 @@ const LivestreamStudio = () => {
         } else {
             return (
                 <View style={styles.regularCommentItem}>
-                    <Image 
-                        source={item.avatar} 
-                        style={styles.commentAvatar} 
+                    <Image
+                        source={item.avatar}
+                        style={styles.commentAvatar}
                     />
                     <View style={styles.regularCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
@@ -602,16 +627,16 @@ const LivestreamStudio = () => {
 
     const handleSendComment = async () => {
         if (!commentInput.trim()) return;
-        
+
         try {
             const token = await getToken();
             const user = await getUser();
-            
+
             if (!token || !user) {
                 console.log('User not authenticated');
                 return;
             }
-            
+
             // Create a new comment
             const newComment = {
                 id: Date.now().toString(),
@@ -621,7 +646,7 @@ const LivestreamStudio = () => {
                 content: commentInput.trim(),
                 timestamp: new Date()
             };
-            
+
             // Add to local state
             setLiveComments(prev => {
                 const updated = [...prev, newComment];
@@ -630,18 +655,18 @@ const LivestreamStudio = () => {
                 }
                 return updated;
             });
-            
+
             // Clear input
             setCommentInput('');
-            
+
             // Increment comment count
             setComments(prev => prev + 1);
-            
+
             // Scroll to the end to show new comment
             if (commentsListRef.current) {
                 commentsListRef.current.scrollToEnd({ animated: true });
             }
-            
+
             // Here you would typically call an API to save the comment
             // const response = await axios.post(...);
         } catch (error) {
@@ -651,6 +676,30 @@ const LivestreamStudio = () => {
 
     // Create a single condition to check if UI should be shown
     const shouldShowUI = streamConfig && !isLoading && isVideoPlaying;
+
+    // Calculate positions based on keyboard height
+    const commentsContainerStyle = {
+        ...styles.commentsContainer,
+        bottom: keyboardHeight > 0 ? keyboardHeight + 90 : 210, // Move comments up when keyboard is visible
+    };
+
+    const rightActionsContainerStyle = {
+        ...styles.rightActionsContainer,
+        bottom: keyboardHeight > 0 ? keyboardHeight + 80 : 200, // Move right actions up when keyboard is visible
+    };
+
+    const commentInputStyle = {
+        ...styles.commentInputContainer,
+        bottom: keyboardHeight > 0 ? keyboardHeight + 20 : 120, // Move input field up when keyboard is visible
+    };
+
+    const productCarouselStyle = {
+        position: 'absolute',
+        bottom: keyboardHeight > 0 ? keyboardHeight : 0,
+        left: 0,
+        right: 0,
+        padding: 16,
+    };
 
     return (
         <>
@@ -677,12 +726,12 @@ const LivestreamStudio = () => {
                                 originWhitelist={['*']}
                                 debuggingEnabled={true}
                             />
-                            
-                            {/* Show play button overlay while video is loading */}
+
+                            {/* Show play loader while video is loading */}
                             {(isLoading || !isVideoPlaying) && (
                                 <View style={styles.playButtonOverlay}>
                                     <View style={styles.playButtonContainer}>
-                                        <MaterialCommunityIcons name="play-circle" size={80} color="white" style={styles.playButton} />
+                                        <ActivityIndicator size="large" color="#fff" />
                                     </View>
                                 </View>
                             )}
@@ -700,7 +749,7 @@ const LivestreamStudio = () => {
                 {/* Top Actions - Only show when video is playing */}
                 {shouldShowUI && (
                     <SafeAreaView>
-                        <View className="flex-row justify-between items-center px-4 pt-2">
+                        <View className={`flex-row justify-between items-center px-4 pt-${Platform.OS === 'ios' ? '8' : '2'}`}>
                             <View className="flex-row items-center gap-2">
                                 <Image
                                     source={storeInfo.avatar}
@@ -720,54 +769,54 @@ const LivestreamStudio = () => {
 
                 {/* Right Side Actions - Only show when video is playing */}
                 {shouldShowUI && (
-                    <View style={styles.rightActionsContainer}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center'}} style={rightActionsContainerStyle}>
                         <View style={styles.actionItem}>
                             <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
                                 <SimpleLineIcons name="share-alt" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Share</Text>
-                        </View>
-                        
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Ionicons name="information-circle-outline" size={28} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Info</Text>
-                        </View>
-                        
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <FontAwesome name="credit-card" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Pay</Text>
-                        </View>
-                        
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Entypo name="box" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Orders</Text>
-                        </View>
-                        
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Feather name="shopping-bag" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Shop</Text>
-                        </View>
-                        
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <AntDesign name="like2" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>React</Text>
-                        </View>
-                    </View>
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Share</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Ionicons name="information-circle-outline" size={28} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Info</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <FontAwesome name="credit-card" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Pay</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Entypo name="box" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Orders</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Feather name="shopping-bag" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Shop</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <AntDesign name="like2" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>React</Text>
+                            </View>
+                    </ScrollView>
                 )}
-                
+
                 {/* Live Comments Section - Only show when video is playing */}
                 {shouldShowUI && (
-                    <View style={styles.commentsContainer}>
+                    <View style={commentsContainerStyle}>
                         <FlatList
                             ref={commentsListRef}
                             data={liveComments}
@@ -778,10 +827,10 @@ const LivestreamStudio = () => {
                         />
                     </View>
                 )}
-                
+
                 {/* Comment Input - Only show when video is playing */}
                 {shouldShowUI && (
-                    <View style={styles.commentInputContainer}>
+                    <View style={commentInputStyle}>
                         <TextInput
                             style={styles.commentInput}
                             placeholder="Say something..."
@@ -846,7 +895,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         right: 15,
         bottom: 200, // Position higher to avoid overlap with product card
-        alignItems: 'center',
+        maxHeight: 300,
         zIndex: 10,
     },
     actionItem: {
@@ -891,7 +940,7 @@ const styles = StyleSheet.create({
     // Join comment specific styles (green background)
     joinCommentItem: {
         flexDirection: 'row',
- 
+
         borderRadius: 20,
         paddingVertical: 8,
         paddingHorizontal: 12,
@@ -944,7 +993,6 @@ const styles = StyleSheet.create({
     // Comment input styling to match reference image
     commentInputContainer: {
         position: 'absolute',
-        bottom: 120, // Position above the product card
         left: 16,
         right: 18,
         flexDirection: 'row',
@@ -960,16 +1008,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         fontSize: 14,
         borderRadius: 10,
+        backgroundColor: 'rgba(50, 50, 50, 0.5)', // Semi-transparent background
     },
     playButtonOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: '#000000',
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10,
     },
     playButtonContainer: {
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        backgroundColor: '#000000',
         borderRadius: 50,
         padding: 10,
         shadowColor: "#000",
