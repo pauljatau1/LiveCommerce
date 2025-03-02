@@ -1,12 +1,18 @@
-import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList } from 'react-native';
-import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useLivestream } from '@/contexts/livestreamContext';
 import { WebView } from 'react-native-webview';
-import { AntDesign, Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { AntDesign, Feather, MaterialIcons, Ionicons, Octicons, FontAwesome, Entypo, MaterialCommunityIcons, SimpleLineIcons } from '@expo/vector-icons';
 import { FocusAwareStatusBar } from '@/components/ui/focus-aware-status-bar';
 import BottomSheet from '@/components/global/bottom-sheet';
 import { ActivityIndicator } from 'react-native';
+import Carousel from 'react-native-reanimated-carousel';
+import { getToken, getUser } from '@/store/features/auth/utils';
+import axios from 'axios';
+import moment from 'moment';
+import { timeFromNow } from '@/helpers/helpers';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 const { width, height } = Dimensions.get('window');
 
@@ -14,7 +20,7 @@ const getHtmlContent = (appId: string, channel: string, token: string, uid: stri
 <!DOCTYPE html>
 <html>
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.21.0.js"></script>
     <style>
       body { margin: 0; padding: 0; background: black; }
@@ -223,8 +229,101 @@ const LivestreamStudio = () => {
         avatar: require('@/assets/icons/animoji.png')
     });
 
+    const { width: screenWidth } = Dimensions.get('window');
+
+    const [comment, setComment] = useState('');
+
+    // New state for live comments and events
+    const [liveComments, setLiveComments] = useState<Array<{
+        id: string;
+        type: 'comment' | 'join' | 'purchase';
+        user: string;
+        avatar?: any;
+        content: string;
+        timestamp: Date;
+    }>>([]);
+    const [commentInput, setCommentInput] = useState('');
+    const commentsListRef = useRef<FlatList>(null);
+
     useEffect(() => {
         setupLivestream();
+        
+        // Add sample comments and events for demonstration that match the reference image
+        const sampleEvents = [
+            {
+                id: '1',
+                type: 'join' as const,
+                user: 'Ahmed',
+                avatar: require('@/assets/icons/animoji.png'),
+                content: 'joined the stream',
+                timestamp: new Date(Date.now() - 5000)
+            },
+            {
+                id: '2',
+                type: 'comment' as const,
+                user: 'Jessica',
+                avatar: require('@/assets/icons/animoji.png'),
+                content: 'This blue shirt looks amazing!',
+                timestamp: new Date(Date.now() - 15000)
+            },
+            {
+                id: '3',
+                type: 'purchase' as const,
+                user: 'Michael',
+                avatar: require('@/assets/icons/animoji.png'),
+                content: 'purchased Blue Polo Shirt',
+                timestamp: new Date(Date.now() - 30000)
+            },
+            {
+                id: '4',
+                type: 'join' as const,
+                user: 'User1638',
+                avatar: require('@/assets/icons/animoji.png'),
+                content: 'joined the stream',
+                timestamp: new Date(Date.now() - 2000)
+            }
+        ];
+        setLiveComments(sampleEvents);
+        
+        // Simulate new comments/events coming in
+        const interval = setInterval(() => {
+            const randomEvents = [
+                {
+                    id: Date.now().toString(),
+                    type: 'comment' as const,
+                    user: 'User' + Math.floor(Math.random() * 100),
+                    avatar: require('@/assets/icons/animoji.png'),
+                    content: 'I love this product! Do you ship internationally?',
+                    timestamp: new Date()
+                },
+                {
+                    id: Date.now().toString(),
+                    type: 'join' as const,
+                    user: 'User' + Math.floor(Math.random() * 100),
+                    avatar: require('@/assets/icons/animoji.png'),
+                    content: 'joined the stream',
+                    timestamp: new Date()
+                }
+            ];
+            
+            const newEvent = randomEvents[Math.floor(Math.random() * randomEvents.length)];
+            
+            setLiveComments(prev => {
+                // Keep only the last 10 comments to avoid cluttering the UI
+                const updated = [...prev, newEvent];
+                if (updated.length > 10) {
+                    return updated.slice(updated.length - 10);
+                }
+                return updated;
+            });
+            
+            // Scroll to the end to show new comments
+            if (commentsListRef.current) {
+                commentsListRef.current.scrollToEnd({ animated: true });
+            }
+        }, 15000); // Add a new comment every 15 seconds
+        
+        return () => clearInterval(interval);
     }, [id]);
 
     const setupLivestream = async () => {
@@ -239,20 +338,20 @@ const LivestreamStudio = () => {
                 // Update likes and comments if available from API
                 if (streamDetails.likes) setLikes(streamDetails.likes);
                 if (streamDetails.comments) setComments(streamDetails.comments);
-                
+
                 // Set products from stream data
                 if (streamDetails.products && streamDetails.products.length > 0) {
                     setStreamProducts(streamDetails.products);
                 } else if (streamDetails.stream?.products && streamDetails.stream.products.length > 0) {
                     setStreamProducts(streamDetails.stream.products);
                 }
-                
+
                 // Set store info
                 if (streamDetails.seller) {
                     setStoreInfo({
                         name: streamDetails?.seller?.storeName || streamDetails?.seller?.businessName || 'Store Name',
                         username: `@${streamDetails?.seller?.storeName?.toLowerCase().replace(/\s+/g, '') || 'username'}`,
-                        avatar: streamDetails?.seller.storeAvatar?.url ? { uri: streamDetails?.seller.storeAvatar?.url } : require('@/assets/icons/animoji.png')
+                        avatar: streamDetails?.seller?.storeAvatar?.url ? { uri: streamDetails?.seller.storeAvatar?.url } : require('@/assets/icons/animoji.png')
                     });
                 }
             }
@@ -330,7 +429,7 @@ const LivestreamStudio = () => {
 
     const handleNextProduct = () => {
         if (streamProducts.length > 0) {
-            setCurrentProductIndex((prevIndex) => 
+            setCurrentProductIndex((prevIndex) =>
                 prevIndex === streamProducts.length - 1 ? 0 : prevIndex + 1
             );
         }
@@ -338,7 +437,7 @@ const LivestreamStudio = () => {
 
     const handlePrevProduct = () => {
         if (streamProducts.length > 0) {
-            setCurrentProductIndex((prevIndex) => 
+            setCurrentProductIndex((prevIndex) =>
                 prevIndex === 0 ? streamProducts.length - 1 : prevIndex - 1
             );
         }
@@ -350,6 +449,133 @@ const LivestreamStudio = () => {
     };
 
     const currentProduct = getCurrentProduct();
+
+    const renderProductCard = useCallback(({ item, index }) => {
+        const product = item.product;
+
+        return (
+            <TouchableOpacity className="bg-white/10 backdrop-blur-lg p-3 rounded-lg flex-row items-center mx-1">
+                <Image
+                    source={{ uri: product.images[0]?.url }}
+                    className="w-16 h-16 rounded-lg"
+                    resizeMode="cover"
+                />
+                <View className="flex-1 ml-3">
+                    <Text numberOfLines={2} className="text-white capitalize font-LexendDecaMedium w-[100px] ">
+                        {product.name}
+                    </Text>
+                    <Text className="text-white text-lg font-LexendDecaBold">
+                        ₦{product?.price?.toLocaleString()}
+                    </Text>
+                </View>
+                <TouchableOpacity className="bg-[#16783A] px-4 py-2 rounded-lg">
+                    <Text className="text-white font-LexendDecaMedium">Buy Now</Text>
+                </TouchableOpacity>
+            </TouchableOpacity>
+        );
+    }, []);
+
+    const handleIncreaseCommentCount = () => {
+        setComments(comments + 1);
+    };
+
+    const handleCantComment = () => {
+        setShowComments(false);
+        // Handle auth flow if needed
+    };
+
+    // Render a comment or event item to match the reference image
+    const renderCommentItem = ({ item }: { item: any }) => {
+        if (item.type === 'join') {
+            return (
+                <View style={styles.joinCommentItem}>
+                    <Image 
+                        source={item.avatar} 
+                        style={styles.commentAvatar} 
+                    />
+                    <View style={styles.joinCommentContent}>
+                        <Text style={styles.commentUser}>{item.user}</Text>
+                        <Text style={styles.joinCommentText}>{item.content}</Text>
+                    </View>
+                </View>
+            );
+        } else if (item.type === 'purchase') {
+            return (
+                <View style={styles.purchaseCommentItem}>
+                    <Image 
+                        source={item.avatar} 
+                        style={styles.commentAvatar} 
+                    />
+                    <View style={styles.purchaseCommentContent}>
+                        <Text style={styles.commentUser}>{item.user}</Text>
+                        <Text style={styles.purchaseCommentText}>{item.content}</Text>
+                    </View>
+                </View>
+            );
+        } else {
+            return (
+                <View style={styles.regularCommentItem}>
+                    <Image 
+                        source={item.avatar} 
+                        style={styles.commentAvatar} 
+                    />
+                    <View style={styles.regularCommentContent}>
+                        <Text style={styles.commentUser}>{item.user}</Text>
+                        <Text style={styles.regularCommentText}>{item.content}</Text>
+                    </View>
+                </View>
+            );
+        }
+    };
+
+    const handleSendComment = async () => {
+        if (!commentInput.trim()) return;
+        
+        try {
+            const token = await getToken();
+            const user = await getUser();
+            
+            if (!token || !user) {
+                console.log('User not authenticated');
+                return;
+            }
+            
+            // Create a new comment
+            const newComment = {
+                id: Date.now().toString(),
+                type: 'comment' as const,
+                user: user.firstName || 'User',
+                avatar: require('@/assets/icons/animoji.png'),
+                content: commentInput.trim(),
+                timestamp: new Date()
+            };
+            
+            // Add to local state
+            setLiveComments(prev => {
+                const updated = [...prev, newComment];
+                if (updated.length > 10) {
+                    return updated.slice(updated.length - 10);
+                }
+                return updated;
+            });
+            
+            // Clear input
+            setCommentInput('');
+            
+            // Increment comment count
+            setComments(prev => prev + 1);
+            
+            // Scroll to the end to show new comment
+            if (commentsListRef.current) {
+                commentsListRef.current.scrollToEnd({ animated: true });
+            }
+            
+            // Here you would typically call an API to save the comment
+            // const response = await axios.post(...);
+        } catch (error) {
+            console.error('Error sending comment:', error);
+        }
+    };
 
     return (
         <>
@@ -387,7 +613,7 @@ const LivestreamStudio = () => {
 
                 {/* Top Actions */}
                 {
-                    streamConfig && (
+                    streamConfig && !isLoading && (
                         <SafeAreaView>
                             <View className="flex-row justify-between items-center px-4 pt-2">
                                 <View className="flex-row items-center gap-2">
@@ -408,62 +634,99 @@ const LivestreamStudio = () => {
                     )
                 }
 
-                {/* Right Side Actions */}
+                {/* Right Side Actions - Updated to match reference image */}
                 {
-                    streamConfig && (
-                        <View className="absolute right-4 bottom-32 items-center gap-6">
-                            <TouchableOpacity className="items-center" onPress={handleLike}>
-                                <AntDesign name={liked ? "heart" : "hearto"} size={28} color="white" />
-                                <Text className="text-white text-xs mt-1">{formatCount(likes)}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity className="items-center" onPress={() => setShowComments(true)}>
-                                <Feather name="message-circle" size={28} color="white" />
-                                <Text className="text-white text-xs mt-1">{formatCount(comments)}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity className="items-center" onPress={handleShare}>
-                                <Ionicons name="share-outline" size={28} color="white" />
-                                <Text className="text-white text-xs mt-1">Share</Text>
-                            </TouchableOpacity>
+                    streamConfig && !isLoading && (
+                        <View style={styles.rightActionsContainer}>
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+                                    <SimpleLineIcons name="share-alt" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Share</Text>
+                            </View>
+                            
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Ionicons name="information-circle-outline" size={28} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Info</Text>
+                            </View>
+                            
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <FontAwesome name="credit-card" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Pay</Text>
+                            </View>
+                            
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Entypo name="box" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Orders</Text>
+                            </View>
+                            
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Feather name="shopping-bag" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Shop</Text>
+                            </View>
+                            
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <AntDesign name="like2" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>React</Text>
+                            </View>
                         </View>
                     )
                 }
+                
+                {/* Live Comments Section - Updated to match reference image */}
+                {streamConfig && !isLoading && (
+                    <View style={styles.commentsContainer}>
+                        <FlatList
+                            ref={commentsListRef}
+                            data={liveComments}
+                            renderItem={renderCommentItem}
+                            keyExtractor={item => item.id}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.commentsList}
+                        />
+                    </View>
+                )}
+                
+                {/* Comment Input - Updated to match reference image */}
+                {streamConfig && !isLoading && (
+                    <View style={styles.commentInputContainer}>
+                        <TextInput
+                            style={styles.commentInput}
+                            placeholder="Say something..."
+                            placeholderTextColor="#999"
+                            value={commentInput}
+                            onChangeText={setCommentInput}
+                            returnKeyType="send"
+                            onSubmitEditing={handleSendComment}
+                        />
+                    </View>
+                )}
 
-                {/* Bottom Product Card */}
-                {currentProduct && (
+                {/* Bottom Product Card - KEEPING ORIGINAL CAROUSEL IMPLEMENTATION */}
+                {streamProducts.length > 0 && !isLoading && (
                     <View className="absolute bottom-0 left-0 right-0 p-4">
-                        <View className="flex-row justify-between items-center mb-2">
-                            {streamProducts.length > 1 && (
-                                <>
-                                    <TouchableOpacity onPress={handlePrevProduct} className="bg-white/20 rounded-full p-1">
-                                        <AntDesign name="left" size={16} color="white" />
-                                    </TouchableOpacity>
-                                    <Text className="text-white text-xs">
-                                        {currentProductIndex + 1}/{streamProducts?.length}
-                                    </Text>
-                                    <TouchableOpacity onPress={handleNextProduct} className="bg-white/20 rounded-full p-1">
-                                        <AntDesign name="right" size={16} color="white" />
-                                    </TouchableOpacity>
-                                </>
-                            )}
-                        </View>
-                        <TouchableOpacity className="bg-white/10 backdrop-blur-lg p-3 rounded-lg flex-row items-center">
-                            <Image
-                                source={{ uri: currentProduct.images[0]?.url }}
-                                className="w-16 h-16 rounded-lg"
-                                resizeMode="cover"
-                            />
-                            <View className="flex-1 ml-3">
-                                <Text numberOfLines={2} className="text-white font-LexendDecaMedium w-[100px] ">
-                                    {currentProduct.name}
-                                </Text>
-                                <Text className="text-white text-lg font-LexendDecaBold">
-                                    ₦{currentProduct?.price?.toLocaleString()}
-                                </Text>
-                            </View>
-                            <TouchableOpacity className="bg-[#16783A] px-4 py-2 rounded-lg">
-                                <Text className="text-white font-LexendDecaMedium">Buy Now</Text>
-                            </TouchableOpacity>
-                        </TouchableOpacity>
+                        <Carousel
+                            loop
+                            autoPlay={true}
+                            autoPlayInterval={9000}
+                            width={screenWidth - 32} // Account for padding
+                            height={90} // Adjust based on your card height
+                            data={streamProducts}
+                            scrollAnimationDuration={500}
+                            onSnapToItem={(index) => setCurrentProductIndex(index)}
+                            renderItem={renderProductCard}
+                            defaultIndex={currentProductIndex}
+                        />
                     </View>
                 )}
 
@@ -471,64 +734,7 @@ const LivestreamStudio = () => {
                 {isLoading && streamConfig && (
                     <View style={styles.loadingOverlay}>
                         <ActivityIndicator size="large" color="#fff" />
-                        {/*<Text style={styles.statusText}>{status}</Text>*/}
                     </View>
-                )}
-
-                {/* Comments Bottom Sheet */}
-                {showComments && (
-                    <BottomSheet
-                        show={showComments}
-                        onRequestClose={() => setShowComments(false)}
-                        snapPoints={['70%']}
-                        keyboardBehavior="extend"
-                        bgColor="#1A1A1A"
-                        title="Comments"
-                        titleColor="text-white"
-                    >
-                        <View style={{ flex: 1 }}>
-                            <Text style={{ color: '#fff', marginBottom: 20 }}>Join the conversation</Text>
-
-                            {/* Sample comments - replace with actual comments data */}
-                            <View style={styles.commentItem}>
-                                <Image
-                                    source={require('@/assets/icons/animoji.png')}
-                                    style={styles.commentAvatar}
-                                />
-                                <View style={styles.commentContent}>
-                                    <Text style={styles.commentUsername}>@user123</Text>
-                                    <Text style={styles.commentText}>This is an amazing product! I love it.</Text>
-                                    <Text style={styles.commentTime}>2m ago</Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.commentItem}>
-                                <Image
-                                    source={require('@/assets/icons/animoji.png')}
-                                    style={styles.commentAvatar}
-                                />
-                                <View style={styles.commentContent}>
-                                    <Text style={styles.commentUsername}>@fashionlover</Text>
-                                    <Text style={styles.commentText}>Do you have this in blue color?</Text>
-                                    <Text style={styles.commentTime}>5m ago</Text>
-                                </View>
-                            </View>
-
-                            {/* Comment input */}
-                            <View style={styles.commentInputContainer}>
-                                <Image
-                                    source={require('@/assets/icons/animoji.png')}
-                                    style={styles.inputAvatar}
-                                />
-                                <TouchableOpacity style={styles.commentInput}>
-                                    <Text style={styles.commentInputText}>Add a comment...</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.sendButton}>
-                                    <Ionicons name="send" size={20} color="#16783A" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </BottomSheet>
                 )}
             </View>
         </>
@@ -560,66 +766,124 @@ const styles = StyleSheet.create({
         color: '#fff',
         marginTop: 10,
     },
-    commentItem: {
-        flexDirection: 'row',
-        marginBottom: 20,
-        alignItems: 'flex-start',
+    // Right side actions styling to match reference image
+    rightActionsContainer: {
+        position: 'absolute',
+        right: 15,
+        bottom: 200, // Position higher to avoid overlap with product card
+        alignItems: 'center',
+        zIndex: 10,
     },
+    actionItem: {
+        alignItems: 'center',
+        marginBottom: 0,
+    },
+    actionButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    actionText: {
+        color: 'white',
+        fontSize: 12,
+        marginTop: 4,
+    },
+    // Comments styling to match reference image exactly
+    commentsContainer: {
+        position: 'absolute',
+        bottom: 210, // Position higher to avoid overlap with product card
+        left: 10,
+        width: '70%',
+        maxHeight: 200,
+        zIndex: 10,
+    },
+    commentsList: {
+        paddingVertical: 5,
+    },
+    // Base comment item styles
     commentAvatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        marginRight: 10,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        marginRight: 8,
     },
-    commentContent: {
-        flex: 1,
-    },
-    commentUsername: {
+    commentUser: {
         color: '#fff',
         fontWeight: 'bold',
-        marginBottom: 2,
+        fontSize: 14,
     },
-    commentText: {
-        color: '#fff',
-        marginBottom: 4,
+    // Join comment specific styles (green background)
+    joinCommentItem: {
+        flexDirection: 'row',
+ 
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: 0,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
     },
-    commentTime: {
-        color: '#999',
+    joinCommentContent: {
+        flexDirection: 'column',
+    },
+    joinCommentText: {
+        color: '#FFEB3B', // Yellow text for "joined the stream"
+        fontSize: 12,
+        fontFamily: 'LexendDeca',
+    },
+    // Purchase comment specific styles (red background)
+    purchaseCommentItem: {
+        flexDirection: 'row',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: 0,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
+    },
+    purchaseCommentContent: {
+        flexDirection: 'column',
+    },
+    purchaseCommentText: {
+        color: '#16783A',
         fontSize: 12,
     },
+    // Regular comment specific styles (dark background)
+    regularCommentItem: {
+        flexDirection: 'row',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: 0,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
+    },
+    regularCommentContent: {
+        flexDirection: 'column',
+    },
+    regularCommentText: {
+        color: '#fff',
+        fontSize: 12,
+    },
+    // Comment input styling to match reference image
     commentInputContainer: {
         position: 'absolute',
-        bottom: 20,
-        left: 0,
-        right: 0,
+        bottom: 120, // Position above the product card
+        left: 16,
+        right: 18,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-    },
-    inputAvatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        marginRight: 10,
+        zIndex: 10,
     },
     commentInput: {
         flex: 1,
-        backgroundColor: '#2E3038',
-        borderRadius: 20,
-        paddingHorizontal: 16,
+        color: '#fff',
+        backgroundColor: 'rgba(50, 50, 50, 0.5)',
         paddingVertical: 10,
-        marginRight: 10,
-    },
-    commentInputText: {
-        color: '#999',
-    },
-    sendButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#2E3038',
-        justifyContent: 'center',
-        alignItems: 'center',
+        paddingHorizontal: 15,
+        fontSize: 14,
+        borderRadius: 10,
     },
 });
 
