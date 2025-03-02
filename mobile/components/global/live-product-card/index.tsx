@@ -2,7 +2,7 @@ import { View, Text, Image, TouchableOpacity } from "react-native";
 import React from "react";
 import { icons, images } from "@/constants";
 import CustomButton from "../button/CustomButton";
-import { AntDesign } from '@expo/vector-icons';
+import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { useLivestream } from "../../../contexts/livestreamContext";
 import { Link, useRouter } from "expo-router";
 
@@ -49,7 +49,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
       <View className="absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center">
           <Link href={`/livestream/livestreamStudio?id=${item?._id}`} asChild>
             <TouchableOpacity className="bg-black/30 rounded-full p-4">
-              <AntDesign name="playcircleo" size={42} color="white" />
+              <Ionicons name="play" size={25} color="white" />
             </TouchableOpacity>
           </Link>
         </View>

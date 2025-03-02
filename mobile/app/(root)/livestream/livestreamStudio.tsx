@@ -194,11 +194,40 @@ interface StreamDetails {
         storeAvatar: {
             url: string;
         };
+        _id?: string;
     };
     stream?: {
         title: string;
         products: StreamProduct[];
-        seller: string;
+        seller: {
+            _id: string;
+            businessName: string;
+            storeAvatar: {
+                url: string;
+            };
+            storeName: string;
+        };
+        coverImage?: {
+            url: string;
+        };
+        _id?: string;
+        actualStartTime?: string;
+        agoraToken?: string;
+        agoraUid?: number;
+        bids?: any[];
+        cancelledStream?: boolean;
+        category?: string;
+        channelName?: string;
+        createdAt?: string;
+        description?: string;
+        isLive?: boolean;
+        scheduledStartTime?: string;
+        status?: string;
+        tags?: string[];
+        type?: string;
+        updatedAt?: string;
+        viewerCount?: number;
+        viewers?: any[];
     };
 }
 
@@ -244,6 +273,9 @@ const LivestreamStudio = () => {
     }>>([]);
     const [commentInput, setCommentInput] = useState('');
     const commentsListRef = useRef<FlatList>(null);
+
+    // Add a new state to track if video is actually playing
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
     useEffect(() => {
         setupLivestream();
@@ -346,13 +378,49 @@ const LivestreamStudio = () => {
                     setStreamProducts(streamDetails.stream.products);
                 }
 
-                // Set store info
-                if (streamDetails.seller) {
-                    setStoreInfo({
-                        name: streamDetails?.seller?.storeName || streamDetails?.seller?.businessName || 'Store Name',
-                        username: `@${streamDetails?.seller?.storeName?.toLowerCase().replace(/\s+/g, '') || 'username'}`,
-                        avatar: streamDetails?.seller?.storeAvatar?.url ? { uri: streamDetails?.seller.storeAvatar?.url } : require('@/assets/icons/animoji.png')
-                    });
+                // Debug seller information
+                console.log('Seller info from API:', streamDetails.seller);
+                console.log('Stream info:', streamDetails.stream);
+                
+                // Based on the console log, we can see the seller info is in streamDetails.stream.seller
+                if (streamDetails.stream && streamDetails.stream.seller) {
+                    // Get seller data from stream.seller with type assertion
+                    const sellerData = streamDetails.stream.seller as {
+                        _id: string;
+                        businessName: string;
+                        storeAvatar: {
+                            url: string;
+                        };
+                        storeName: string;
+                    };
+                    console.log('Using seller data from stream.seller:', sellerData);
+                    
+                    const newStoreInfo = {
+                        name: sellerData.storeName || sellerData.businessName || 'Store Name',
+                        username: `@${(sellerData.storeName || sellerData.businessName || 'username').toLowerCase().replace(/\s+/g, '')}`,
+                        avatar: sellerData.storeAvatar?.url 
+                            ? { uri: sellerData.storeAvatar.url } 
+                            : require('@/assets/icons/animoji.png')
+                    };
+                    
+                    console.log('Setting store info to:', newStoreInfo);
+                    setStoreInfo(newStoreInfo);
+                }
+                // If seller info is directly in streamDetails
+                else if (streamDetails.seller) {
+                    console.log('Using seller data from streamDetails.seller');
+                    
+                    const sellerData = streamDetails.seller;
+                    const newStoreInfo = {
+                        name: sellerData.storeName || sellerData.businessName || 'Store Name',
+                        username: `@${(sellerData.storeName || sellerData.businessName || 'username').toLowerCase().replace(/\s+/g, '')}`,
+                        avatar: sellerData.storeAvatar?.url 
+                            ? { uri: sellerData.storeAvatar.url } 
+                            : require('@/assets/icons/animoji.png')
+                    };
+                    
+                    console.log('Setting store info to:', newStoreInfo);
+                    setStoreInfo(newStoreInfo);
                 }
             }
 
@@ -388,6 +456,10 @@ const LivestreamStudio = () => {
                 setStatus(`Host ${mediaType} stream playing`);
                 setIsLoading(false);
             }
+        } else if (message.startsWith('video_playing:')) {
+            // Set video playing state to true when we get confirmation video is playing
+            setIsVideoPlaying(true);
+            setIsLoading(false);
         } else if (message.startsWith('connection:')) {
             const parts = message.split(':');
             if (parts.length >= 2) {
@@ -577,6 +649,9 @@ const LivestreamStudio = () => {
         }
     };
 
+    // Create a single condition to check if UI should be shown
+    const shouldShowUI = streamConfig && !isLoading && isVideoPlaying;
+
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -584,23 +659,34 @@ const LivestreamStudio = () => {
                 {/* Agora Video Container */}
                 <View className="absolute w-full h-full">
                     {streamConfig ? (
-                        <WebView
-                            source={{
-                                html: getHtmlContent(
-                                    streamConfig?.appId || '',
-                                    streamConfig?.channel || '',
-                                    streamConfig?.token || '',
-                                    streamConfig?.uid || ''
-                                ),
-                            }}
-                            style={styles.fullScreen}
-                            onMessage={handleWebViewMessage}
-                            javaScriptEnabled={true}
-                            allowsInlineMediaPlayback={true}
-                            mediaPlaybackRequiresUserAction={false}
-                            originWhitelist={['*']}
-                            debuggingEnabled={true}
-                        />
+                        <>
+                            <WebView
+                                source={{
+                                    html: getHtmlContent(
+                                        streamConfig?.appId || '',
+                                        streamConfig?.channel || '',
+                                        streamConfig?.token || '',
+                                        streamConfig?.uid || ''
+                                    ),
+                                }}
+                                style={styles.fullScreen}
+                                onMessage={handleWebViewMessage}
+                                javaScriptEnabled={true}
+                                allowsInlineMediaPlayback={true}
+                                mediaPlaybackRequiresUserAction={false}
+                                originWhitelist={['*']}
+                                debuggingEnabled={true}
+                            />
+                            
+                            {/* Show play button overlay while video is loading */}
+                            {(isLoading || !isVideoPlaying) && (
+                                <View style={styles.playButtonOverlay}>
+                                    <View style={styles.playButtonContainer}>
+                                        <MaterialCommunityIcons name="play-circle" size={80} color="white" style={styles.playButton} />
+                                    </View>
+                                </View>
+                            )}
+                        </>
                     ) : (
                         <View style={styles.fullScreen2}>
                             <Image
@@ -611,80 +697,76 @@ const LivestreamStudio = () => {
                     )}
                 </View>
 
-                {/* Top Actions */}
-                {
-                    streamConfig && !isLoading && (
-                        <SafeAreaView>
-                            <View className="flex-row justify-between items-center px-4 pt-2">
-                                <View className="flex-row items-center gap-2">
-                                    <Image
-                                        source={storeInfo.avatar}
-                                        className="w-10 h-10 rounded-full"
-                                    />
-                                    <View>
-                                        <Text className="text-white font-LexendDecaMedium text-base">{storeInfo.name}</Text>
-                                        <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
-                                    </View>
+                {/* Top Actions - Only show when video is playing */}
+                {shouldShowUI && (
+                    <SafeAreaView>
+                        <View className="flex-row justify-between items-center px-4 pt-2">
+                            <View className="flex-row items-center gap-2">
+                                <Image
+                                    source={storeInfo.avatar}
+                                    className="w-10 h-10 rounded-full"
+                                />
+                                <View>
+                                    <Text className="text-white font-LexendDecaMedium text-base">{storeInfo.name}</Text>
+                                    <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
                                 </View>
-                                <TouchableOpacity className="bg-[#FF3B3B] px-4 py-1 rounded-full">
-                                    <Text className="text-white text-sm">LIVE</Text>
-                                </TouchableOpacity>
                             </View>
-                        </SafeAreaView>
-                    )
-                }
-
-                {/* Right Side Actions - Updated to match reference image */}
-                {
-                    streamConfig && !isLoading && (
-                        <View style={styles.rightActionsContainer}>
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                                    <SimpleLineIcons name="share-alt" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Share</Text>
-                            </View>
-                            
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Ionicons name="information-circle-outline" size={28} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Info</Text>
-                            </View>
-                            
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <FontAwesome name="credit-card" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Pay</Text>
-                            </View>
-                            
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Entypo name="box" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Orders</Text>
-                            </View>
-                            
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Feather name="shopping-bag" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Shop</Text>
-                            </View>
-                            
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <AntDesign name="like2" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>React</Text>
-                            </View>
+                            <TouchableOpacity className="bg-[#FF3B3B] px-4 py-1 rounded-full">
+                                <Text className="text-white text-sm">LIVE</Text>
+                            </TouchableOpacity>
                         </View>
-                    )
-                }
+                    </SafeAreaView>
+                )}
+
+                {/* Right Side Actions - Only show when video is playing */}
+                {shouldShowUI && (
+                    <View style={styles.rightActionsContainer}>
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+                                <SimpleLineIcons name="share-alt" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Share</Text>
+                        </View>
+                        
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons name="information-circle-outline" size={28} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Info</Text>
+                        </View>
+                        
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <FontAwesome name="credit-card" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Pay</Text>
+                        </View>
+                        
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <Entypo name="box" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Orders</Text>
+                        </View>
+                        
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <Feather name="shopping-bag" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Shop</Text>
+                        </View>
+                        
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <AntDesign name="like2" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>React</Text>
+                        </View>
+                    </View>
+                )}
                 
-                {/* Live Comments Section - Updated to match reference image */}
-                {streamConfig && !isLoading && (
+                {/* Live Comments Section - Only show when video is playing */}
+                {shouldShowUI && (
                     <View style={styles.commentsContainer}>
                         <FlatList
                             ref={commentsListRef}
@@ -697,8 +779,8 @@ const LivestreamStudio = () => {
                     </View>
                 )}
                 
-                {/* Comment Input - Updated to match reference image */}
-                {streamConfig && !isLoading && (
+                {/* Comment Input - Only show when video is playing */}
+                {shouldShowUI && (
                     <View style={styles.commentInputContainer}>
                         <TextInput
                             style={styles.commentInput}
@@ -712,8 +794,8 @@ const LivestreamStudio = () => {
                     </View>
                 )}
 
-                {/* Bottom Product Card - KEEPING ORIGINAL CAROUSEL IMPLEMENTATION */}
-                {streamProducts.length > 0 && !isLoading && (
+                {/* Bottom Product Card - Only show when video is playing */}
+                {shouldShowUI && streamProducts.length > 0 && (
                     <View className="absolute bottom-0 left-0 right-0 p-4">
                         <Carousel
                             loop
@@ -727,13 +809,6 @@ const LivestreamStudio = () => {
                             renderItem={renderProductCard}
                             defaultIndex={currentProductIndex}
                         />
-                    </View>
-                )}
-
-                {/* Loading Overlay */}
-                {isLoading && streamConfig && (
-                    <View style={styles.loadingOverlay}>
-                        <ActivityIndicator size="large" color="#fff" />
                     </View>
                 )}
             </View>
@@ -879,11 +954,35 @@ const styles = StyleSheet.create({
     commentInput: {
         flex: 1,
         color: '#fff',
-        backgroundColor: 'rgba(50, 50, 50, 0.5)',
+        borderWidth: 1,
+        borderColor: '#ffffff',
         paddingVertical: 10,
         paddingHorizontal: 15,
         fontSize: 14,
         borderRadius: 10,
+    },
+    playButtonOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    playButtonContainer: {
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        borderRadius: 50,
+        padding: 10,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+        elevation: 8,
+    },
+    playButton: {
+        opacity: 0.9,
     },
 });
 
