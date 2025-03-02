@@ -1459,7 +1459,7 @@ router.get('/followers', authMiddleware.verifyToken, authMiddleware.isSeller, se
  *       403:
  *         description: Unauthorized - Buyer has not ordered from this seller
  *       404:
- *         description: Buyer not found
+ *         description: Buyer not found.
  *       500:
  *         description: Server error
  */
