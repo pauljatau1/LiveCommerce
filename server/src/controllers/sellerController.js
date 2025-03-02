@@ -2321,31 +2321,93 @@ exports.getSellerReviews = async (req, res) => {
       case 'rating-low':
         sortedReviews.sort((a, b) => a.rating - b.rating);
         break;
-      default: // recent
-        sortedReviews.sort((a, b) => b.createdAt - a.createdAt);
+      case 'recent':
+      default:
+        sortedReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
-    // Paginate results
+    // Apply pagination
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
     const paginatedReviews = sortedReviews.slice(startIndex, endIndex);
 
+    // Calculate total pages
+    const totalReviews = seller.reviews.length;
+    const totalPages = Math.ceil(totalReviews / limit);
+
     res.json({
       reviews: paginatedReviews,
       pagination: {
-        total: seller.reviews.length,
-        pages: Math.ceil(seller.reviews.length / limit),
-        currentPage: page,
-        hasMore: endIndex < seller.reviews.length
-      }
+        currentPage: parseInt(page),
+        totalPages,
+        totalReviews,
+        hasMore: endIndex < totalReviews
+      },
+      stats: seller.stats
     });
-
   } catch (error) {
-    console.error('Error in getSellerReviews:', error);
-    res.status(500).json({
-      message: 'Failed to retrieve reviews',
-      error: error.message
+    res.status(500).json({ message: 'Failed to fetch reviews', error: error.message });
+  }
+};
+
+// Reply to a review
+exports.replyToReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { content } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate input
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Reply content is required' });
+    }
+
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Find the review
+    const review = seller.reviews.id(reviewId);
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    // Add or update reply
+    review.reply = {
+      content: content.trim(),
+      createdAt: review.reply ? review.reply.createdAt : new Date(),
+      updatedAt: new Date()
+    };
+
+    await seller.save();
+
+    // If this is a new reply (not an update), send notification to buyer
+    if (!review.reply.createdAt) {
+      // Assuming you have a notification system
+      try {
+        await notificationController.createNotification({
+          recipient: 'buyer',
+          buyer: review.buyer,
+          type: 'review_reply',
+          title: 'Seller replied to your review',
+          message: `${seller.storeName || seller.businessName} has replied to your review`,
+          data: {
+            sellerId: seller._id,
+            reviewId: review._id
+          }
+        });
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+      }
+    }
+
+    res.json({
+      message: 'Reply added successfully',
+      review
     });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to add reply', error: error.message });
   }
 };
 

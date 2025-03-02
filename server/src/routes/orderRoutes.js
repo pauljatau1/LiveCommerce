@@ -298,7 +298,7 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  * /api/order/mark-as-paid:
  *   post:
  *     summary: Mark multiple orders as paid
- *     description: Updates the payment status for multiple orders and processes related updates
+ *     description: Updates the payment status for multiple orders and processes related updates. Can optionally use buyer's wallet balance for payment.
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -350,6 +350,10 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *                       type: string
  *                       format: date-time
  *                       description: Expected pickup date from seller
+ *                     paidFromWallet:
+ *                       type: boolean
+ *                       description: Whether to deduct the payment from buyer's wallet balance
+ *                       default: false
  *     responses:
  *       200:
  *         description: Orders marked as paid successfully
@@ -378,7 +382,7 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *                       shipping:
  *                         type: object
  *       400:
- *         description: Invalid request or order validation failed
+ *         description: Invalid request, order validation failed, or insufficient wallet balance
  *       404:
  *         description: One or more orders not found
  *       500:

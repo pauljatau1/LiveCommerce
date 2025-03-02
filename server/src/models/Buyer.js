@@ -24,6 +24,36 @@ const categorySchema = new mongoose.Schema({
   subCategories: [subCategorySchema],
 });
 
+const transactionSchema = new mongoose.Schema({
+  type: { 
+    type: String, 
+    enum: ['credit', 'debit'],
+    required: true 
+  },
+  amount: { 
+    type: Number, 
+    required: true 
+  },
+  paymentReference: { 
+    type: String, 
+    required: true,
+    unique: true 
+  },
+  description: { 
+    type: String, 
+    required: true 
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'completed', 'failed'],
+    default: 'completed'
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  }
+});
+
 const buyerSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
@@ -166,6 +196,18 @@ const buyerSchema = new mongoose.Schema({
     },
     createdAt: { type: Date, default: Date.now }
   }],
+  wallet: {
+    balance: { 
+      type: Number, 
+      default: 0,
+      min: 0 
+    },
+    currency: { 
+      type: String, 
+      default: 'NGN' 
+    },
+    transactions: [transactionSchema]
+  },
 });
 
 // Middleware to update isNew property after 3 days

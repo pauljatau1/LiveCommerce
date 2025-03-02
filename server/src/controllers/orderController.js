@@ -664,6 +664,42 @@ exports.markAsPaid = async (req, res) => {
     let totalAmount = 0;
     let totalShippingFee = 0;
 
+    // Group orders by buyer to validate wallet balance
+    const ordersByBuyer = {};
+    for (const orderData of orders) {
+      const order = await Order.findById(orderData.orderId);
+      if (!order) {
+        throw new Error(`Order not found: ${orderData.orderId}`);
+      }
+      
+      const buyerId = order.buyer.toString();
+      if (!ordersByBuyer[buyerId]) {
+        ordersByBuyer[buyerId] = {
+          orders: [],
+          totalAmount: 0
+        };
+      }
+      ordersByBuyer[buyerId].orders.push({ ...orderData, order });
+      ordersByBuyer[buyerId].totalAmount += orderData.amount;
+    }
+
+    // Validate wallet balances if using wallet payment
+    for (const buyerId in ordersByBuyer) {
+      const buyerOrders = ordersByBuyer[buyerId];
+      const anyWalletPayment = buyerOrders.orders.some(o => o.paidFromWallet);
+      
+      if (anyWalletPayment) {
+        const buyer = await Buyer.findById(buyerId);
+        if (!buyer) {
+          throw new Error(`Buyer not found: ${buyerId}`);
+        }
+        
+        if (buyer.wallet.balance < buyerOrders.totalAmount) {
+          throw new Error(`Insufficient wallet balance for buyer ${buyerId}. Required: ${buyerOrders.totalAmount}, Available: ${buyer.wallet.balance}`);
+        }
+      }
+    }
+
     for (const orderData of orders) {
       const { 
         orderId, 
@@ -673,7 +709,8 @@ exports.markAsPaid = async (req, res) => {
         carrier_name, 
         rate_id,
         estimatedDeliveryDate,
-        estimatedPickupDate
+        estimatedPickupDate,
+        paidFromWallet = false
       } = orderData;
 
       console.log('Processing order:', orderId);
@@ -684,29 +721,52 @@ exports.markAsPaid = async (req, res) => {
         throw new Error(`Order not found: ${orderId}`);
       }
 
+      // If using wallet payment, deduct from buyer's wallet
+      if (paidFromWallet) {
+        const buyer = await Buyer.findById(order.buyer);
+        
+        // Create wallet transaction
+        const transaction = {
+          type: 'debit',
+          amount,
+          paymentReference: `ORDER-${order.order_id}`,
+          description: `Payment for order #${order.order_id}`,
+          status: 'completed',
+          createdAt: new Date()
+        };
+
+        // Update buyer's wallet
+        await Buyer.findByIdAndUpdate(
+          order.buyer,
+          {
+            $inc: { 'wallet.balance': -amount },
+            $push: { 'wallet.transactions': transaction }
+          },
+          { session }
+        );
+      }
+
+      // Rest of the existing code remains the same
       console.log('Found order:', {
         orderId: order._id,
         items: order.items,
         totalAmount: order.totalAmount
       });
 
-      // Verify amount matches order total
       if (amount !== order.totalAmount) {
         console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
         throw new Error(`Payment amount does not match order total for order ${orderId}`);
       }
 
-      // Validate dates
       if (!estimatedDeliveryDate || !estimatedPickupDate) {
         throw new Error(`Estimated delivery and pickup dates are required for order ${orderId}`);
       }
 
-      // Validate that pickup date is before delivery date
       if (new Date(estimatedPickupDate) >= new Date(estimatedDeliveryDate)) {
         throw new Error(`Estimated pickup date must be before delivery date for order ${orderId}`);
       }
 
-      // Update soldCount and decrease stock for each product
+      // Update product inventory
       for (const item of order.items) {
         console.log('Processing item:', {
           productId: item.product,
@@ -733,15 +793,6 @@ exports.markAsPaid = async (req, res) => {
           { new: true, session }
         );
 
-        // // Update seller's wallet balance
-        // await Seller.findByIdAndUpdate(
-        //   item.seller,
-        //   {
-        //     $inc: { 'walletBalance': item.price * item.quantity }
-        //   },
-        //   { session }
-        // );
-
         console.log('Product after update:', {
           productId: updateResult._id,
           newStock: updateResult.stock,
@@ -751,15 +802,13 @@ exports.markAsPaid = async (req, res) => {
         });
       }
 
-      // Ensure tracking object exists with required fields
       const tracking = {
         status: 'pending',
         history: [],
         carrier: carrier_name,
-        ...(order.shipping.tracking || {}) // Preserve existing tracking data if any
+        ...(order.shipping.tracking || {})
       };
 
-      // Update shipping information
       order.shipping = {
         ...order.shipping,
         method: order.shipping.method || 'standard',
@@ -775,13 +824,12 @@ exports.markAsPaid = async (req, res) => {
         estimatedDeliveryDate: new Date(estimatedDeliveryDate),
         estimatedPickupDate: estimatedPickupDate,
         tracking: tracking,
-        documents: order.shipping.documents || {  // Add default documents object
+        documents: order.shipping.documents || {
           shippingLabel: null,
           commercialInvoice: null
         }
       };
 
-      // Ensure all required fields are present
       const updatedOrder = await Order.findByIdAndUpdate(
         orderId,
         {
@@ -790,7 +838,8 @@ exports.markAsPaid = async (req, res) => {
             paymentInfo: {
               ...order.paymentInfo,
               status: 'paid',
-              paidAt: new Date()
+              paidAt: new Date(),
+              method: paidFromWallet ? 'wallet' : order.paymentInfo.method
             },
             shipping: order.shipping
           }
@@ -802,27 +851,17 @@ exports.markAsPaid = async (req, res) => {
       totalAmount += amount;
       totalShippingFee += shipping_fee;
 
-      // Create notification for seller
-      await createNotification(order.seller, 'order_paid', {
-        orderId: order._id,
-        order_id: order.order_id,
-        amount: order.totalAmount,
-        paymentMethod: order.paymentInfo.method
-      });
-
-      // After order is marked as paid, notify both parties
+      // Create notifications
       await Promise.all([
-        // Existing seller notification
         createNotification(
           order.seller,
           'order_paid',
           {
             order_id: order.order_id,
             amount: order.totalAmount,
-            paymentMethod: order.paymentInfo.method
+            paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method
           }
         ),
-        // New buyer notification
         createBuyerNotification(
           order.buyer,
           'order_paid',
@@ -830,7 +869,7 @@ exports.markAsPaid = async (req, res) => {
             orderId: order._id,
             order_id: order.order_id,
             amount: order.totalAmount,
-            paymentMethod: order.paymentInfo.method,
+            paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method,
             sellerName: order.seller.businessName || 'Seller'
           }
         )
@@ -846,7 +885,8 @@ exports.markAsPaid = async (req, res) => {
         .populate('seller', 'email firstName lastName businessName')
         .populate('items.product', 'name');
 
-      // Buyer payment confirmation email
+      const paymentMethod = order.paymentInfo.method === 'wallet' ? 'Wallet Balance' : 'Online Payment';
+
       const buyerEmail = {
         to: populatedOrder.buyer.email,
         from: 'Auqli Payments <joseph@auqli.com>',
@@ -856,6 +896,7 @@ exports.markAsPaid = async (req, res) => {
             <h2>Payment Confirmed</h2>
             <p>Dear ${populatedOrder.buyer.firstName},</p>
             <p>Your payment has been confirmed for order #${populatedOrder.order_id}.</p>
+            <p><strong>Payment Method:</strong> ${paymentMethod}</p>
             <p><strong>Order Details:</strong></p>
             <ul>
               ${populatedOrder.items.map(item => `
@@ -870,7 +911,6 @@ exports.markAsPaid = async (req, res) => {
         `
       };
 
-      // Seller payment notification email
       const sellerEmail = {
         to: populatedOrder.seller.email,
         from: 'Auqli Payments <joseph@auqli.com>',
@@ -880,6 +920,7 @@ exports.markAsPaid = async (req, res) => {
             <h2>Payment Received</h2>
             <p>Dear ${populatedOrder.seller.firstName},</p>
             <p>Payment has been received for order #${populatedOrder.order_id}.</p>
+            <p><strong>Payment Method:</strong> ${paymentMethod}</p>
             <p><strong>Order Details:</strong></p>
             <ul>
               ${populatedOrder.items.map(item => `

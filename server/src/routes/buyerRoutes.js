@@ -1836,4 +1836,196 @@ router.post('/report',
   buyerController.reportUser
 );
 
+/**
+ * @swagger
+ * /api/buyer/wallet/balance:
+ *   get:
+ *     summary: Get buyer's wallet balance
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wallet balance retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 balance:
+ *                   type: number
+ *                   example: 5000.00
+ *                 currency:
+ *                   type: string
+ *                   example: NGN
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/wallet/balance',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.getWalletBalance
+);
+
+/**
+ * @swagger
+ * /api/buyer/wallet/topup:
+ *   post:
+ *     summary: Top up buyer's wallet
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 minimum: 1
+ *                 example: 5000
+ *               description:
+ *                 type: string
+ *                 example: Wallet top up
+ *     responses:
+ *       200:
+ *         description: Wallet topped up successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Wallet topped up successfully
+ *                 transaction:
+ *                   type: object
+ *                   properties:
+ *                     paymentReference:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     type:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                 newBalance:
+ *                   type: number
+ *       400:
+ *         description: Invalid amount
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/wallet/topup',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.topUpWallet
+);
+
+/**
+ * @swagger
+ * /api/buyer/wallet/transactions:
+ *   get:
+ *     summary: Get buyer's wallet transactions
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of transactions per page
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [credit, debit]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions until this date
+ *     responses:
+ *       200:
+ *         description: List of transactions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 transactions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       type:
+ *                         type: string
+ *                         enum: [credit, debit]
+ *                       amount:
+ *                         type: number
+ *                       paymentReference:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                         enum: [pending, completed, failed]
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     current:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/wallet/transactions',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.getWalletTransactions
+);
+
 module.exports = router;
