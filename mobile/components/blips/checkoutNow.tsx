@@ -415,7 +415,7 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
         <View className="flex-row gap-[16px]">
           <Image
             source={{ uri: cartItem?.images?.[0]?.url }}
-            contentFit="cover"
+            contentFit="contain"
             style={{
               width: 115,
               height: 136,

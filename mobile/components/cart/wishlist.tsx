@@ -1,4 +1,11 @@
-import { View, Text, TouchableOpacity, Image, FlatList } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  FlatList,
+  Pressable,
+} from "react-native";
 import React, { memo, useCallback, useEffect, useState } from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
@@ -42,7 +49,7 @@ const WishlistItem = ({
   handleModifyWishList: (action: string, data: any) => Promise<void>;
 }) => {
   return (
-    <TouchableOpacity
+    <Pressable
       className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row mb-[20px]"
       onPress={() => router.push(`/product/${wishlistItem?._id}`)}
     >
@@ -60,11 +67,11 @@ const WishlistItem = ({
           <View>
             <Image
               source={{ uri: wishlistItem?.images[0].url }}
-              resizeMode="cover"
+              resizeMode="contain"
               className="w-[115px] h-[136px]"
             />
           </View>
-          <View className="gap-[6px] relative shrink">
+          <View className="gap-[6px] relative shrink w-full">
             <Text className="text-[14px] text-white font-LexendDecaLight">
               {wishlistItem?.seller.storeName}
             </Text>
@@ -73,17 +80,34 @@ const WishlistItem = ({
                 ? wishlistItem?.name.slice(0, 50) + "..."
                 : wishlistItem?.name}
             </Text>
-            <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
-              ₦
-              {wishlistItem?.discount?.isActive
-                ? wishlistItem?.discount?.discountedPrice?.toLocaleString() || 0
-                : wishlistItem?.price?.toLocaleString()}
-            </Text>
+            {wishlistItem?.discount?.isActive ? (
+              <View className="flex-row items-end gap-[4px] flex-wrap">
+                <Text className="text-white text-[16px] font-LexendDecaMedium">
+                  ₦
+                  {wishlistItem?.discount?.isActive
+                    ? wishlistItem?.discount?.discountedPrice?.toLocaleString()
+                    : wishlistItem?.price?.toLocaleString()}
+                </Text>
+                <Text className="text-[#16783A] text-[10px] font-LexendDecaMedium line-through">
+                  ₦
+                  {wishlistItem?.discount?.isActive &&
+                    wishlistItem?.price.toLocaleString()}
+                </Text>
+                <Text className="text-[10px] text-[#16783A] font-LexendDecaBold">
+                  {wishlistItem?.discount?.value?.toFixed(0)}
+                  {wishlistItem?.discount?.type == "percentage" && "%"} off
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-white font-LexendDecaBold  text-[16px]">
+                ₦{wishlistItem?.price?.toLocaleString()}
+              </Text>
+            )}
             <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
               Item ID: {wishlistItem?._id?.toLocaleString().slice(0, 12)}...
             </Text>
 
-            <View className="flex-row justify-between items-center gap-[4px] mt-[4px]">
+            <View className="flex-row justify-between items-center gap-[4px] mt-[4px] ml-auto">
               <TouchableOpacity
                 className=""
                 onPress={() =>
@@ -99,7 +123,7 @@ const WishlistItem = ({
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 

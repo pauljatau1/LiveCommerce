@@ -540,11 +540,11 @@ const MessageRoom = () => {
                 alignSelf: "baseline",
               }}
             >
-              <View className="flex-row items-center gap-[12px] pt-[12px] pb-[12px] border-t-[0.5px] border-t-[#888787] px-[17px]">
-                <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink border-[1px] border-[#ccc]">
+              <View className="flex-row items-center gap-[12px] pt-[12px] border-t-[0.5px] border-t-[#888787] px-[17px]">
+                <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink  bg-[#2e2e2e]">
                   <TextInput
                     placeholder="Type a message..."
-                    placeholderTextColor={"rgba(204,204,204,0.25)"}
+                    // placeholderTextColor={"rgba(204,204,204,0.25)"}
                     className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
                     value={newMessage}
                     multiline
@@ -555,7 +555,7 @@ const MessageRoom = () => {
                     <MaterialCommunityIcons
                       name="send-circle"
                       size={30}
-                      color="#16783A"
+                      color={newMessage ? "#16783A" : "#2e2e2e"}
                     />
                   </Pressable>
                 </View>

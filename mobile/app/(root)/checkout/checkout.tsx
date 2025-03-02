@@ -350,13 +350,23 @@ const Checkout = () => {
                 onPress={() => setShowAddressSheet(true)}
               >
                 <View className="flex-row gap-[16px] shrink">
-                  <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
-                    <Text className="text-white text-[9px]">
-                      {user?.firstName?.split("")[0]}
-                    </Text>
-                    <Text className="text-white text-[9px]">
-                      {user?.lastName?.split("")[0]}
-                    </Text>
+                  <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center overflow-hidden">
+                    {user?.profileImage?.url ? (
+                      <Image
+                        source={{ uri: user?.profileImage?.url }}
+                        resizeMode="cover"
+                        style={{ width: "100%", height: "100%" }}
+                      />
+                    ) : (
+                      <>
+                        <Text className="text-white text-[9px]">
+                          {user?.firstName?.split("")[0]}
+                        </Text>
+                        <Text className="text-white text-[9px]">
+                          {user?.lastName?.split("")[0]}
+                        </Text>
+                      </>
+                    )}
                   </View>
                   <View className="gap-[18px] shrink">
                     <Text className="text-[#ccc] text-[16px] font-LexendDecaMedium">
@@ -537,14 +547,15 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
         <View className=" flex-row items-center justify-between">
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
             {cartItem?.seller?.businessName ||
-              cartItem?.seller?.storeInfo?.storeName}
+              cartItem?.seller?.storeInfo?.storeName ||
+              cartItem?.seller?.storeName}
           </Text>
         </View>
         <View className="flex-row gap-[16px]">
           <View>
             <Image
               source={{ uri: cartItem?.images[0].url }}
-              resizeMode="cover"
+              resizeMode="contain"
               className="w-[115px] h-[136px]"
             />
           </View>
@@ -554,16 +565,28 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
                 ? cartItem?.name.slice(0, 20) + "..."
                 : cartItem?.name}
             </Text>
-            <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
+            <Text className="text-[22px] text-[#F2F2F2] font-LexendDecaSemiBold">
               ₦
               {cartItem?.discount?.isActive
                 ? cartItem?.discount?.discountedPrice?.toLocaleString() || 0
                 : cartItem?.price?.toLocaleString()}
+              {"  "}
+              {cartItem?.discount?.isActive && (
+                <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
+                  {cartItem?.discount?.value}
+                  {cartItem?.discount?.type == "percentage" && "%"} off
+                </Text>
+              )}
             </Text>
             <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
-              Item ID: {cartItem._id?.toLocaleString().slice(0, 12)}...
+              Item ID: {cartItem._id}
             </Text>
-            <View className="flex-row items-center gap-[11px]">
+            <View
+              className="flex-row items-center gap-[11px] flex-wrap"
+              style={{
+                marginTop: "auto",
+              }}
+            >
               <Text className="text-white text-[12px] font-LexendDecaMedium">
                 Total:{" "}
                 <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">

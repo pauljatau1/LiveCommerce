@@ -429,7 +429,10 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
             <Text style={styles.timestamp}>{timeFromNow(item?.createdAt)}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => setShowOptionsSheet(true)}>
+        <TouchableOpacity
+          onPress={() => setShowOptionsSheet(true)}
+          className="w-[22px] h-[22px] rounded-[11px] items-center justify-center"
+        >
           <Entypo name="dots-three-vertical" size={12} color="#ccc" />
         </TouchableOpacity>
       </View>
@@ -667,6 +670,9 @@ const CommentsSheet = memo(
         author: {
           firstName: user.firstName,
           lastName: user.lastName,
+          profileImage: {
+            url: user?.profileImage?.url,
+          },
         },
         content: comment,
         createdAt: moment().toISOString(),
@@ -695,11 +701,19 @@ const CommentsSheet = memo(
     const renderComments = useCallback(({ item }: { item: any }) => {
       return (
         <View className="flex-row gap-2 mb-[16px]">
-          <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
-            <Text className="text-white text-[10px]">
-              {item.author.firstName.charAt(0).toUpperCase() +
-                item.author.lastName.charAt(0).toUpperCase()}
-            </Text>
+          <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
+            {item?.author?.profileImage?.url ? (
+              <Image
+                source={{ uri: item?.author?.profileImage?.url }}
+                className="w-full h-full"
+                contentFit="cover"
+              />
+            ) : (
+              <Text className="text-white text-[10px]">
+                {item.author.firstName.charAt(0).toUpperCase() +
+                  item.author.lastName.charAt(0).toUpperCase()}
+              </Text>
+            )}
           </View>
           <View className="shrink">
             <Text className="text-[#ccc] mb-[4px]">
@@ -783,7 +797,7 @@ const OptionsSheet = memo(
             className="py-[15px] flex-row gap-[20px] px-[5px] items-center"
             onPress={handleDeletePost}
           >
-            <AntDesign name="eyeo" size={22} color="#ccc" />
+            <AntDesign name="delete" size={18} color="#ccc" />
             <Text className="text-[14px] text-[#ccc] font-LexendDeca">
               Delete Post
             </Text>

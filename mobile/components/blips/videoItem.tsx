@@ -539,6 +539,9 @@ const CommentsSheet = ({
       buyer: {
         firstName: user?.firstName,
         lastName: user?.lastName,
+        profileImage: {
+          url: user?.profileImage?.url,
+        },
       },
       comment: comment,
       createdAt: moment().toISOString(),
@@ -585,11 +588,18 @@ const CommentsSheet = ({
             data={comments.slice().reverse()}
             renderItem={({ item, index }) => (
               <View key={index} className="flex-row gap-2 mb-[16px]">
-                <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
-                  <Text className="text-white text-[10px]">
-                    {item?.buyer?.firstName.charAt(0).toUpperCase() +
-                      item?.buyer?.lastName.charAt(0).toUpperCase()}
-                  </Text>
+                <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
+                  {item.buyer?.profileImage?.url ? (
+                    <Image
+                      source={{ uri: item.buyer?.profileImage?.url }}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <Text className="text-white text-[10px]">
+                      {item?.buyer?.firstName.charAt(0).toUpperCase() +
+                        item?.buyer?.lastName.charAt(0).toUpperCase()}
+                    </Text>
+                  )}
                 </View>
                 <View className="shrink">
                   <Text className="text-[#ccc] mb-[4px]">
