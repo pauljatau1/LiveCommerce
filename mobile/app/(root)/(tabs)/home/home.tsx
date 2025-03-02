@@ -12,12 +12,12 @@ import { router } from "expo-router";
 const { width, height } = Dimensions.get("window");
 
 const Homepage = () => {
-  const { expoPushToken } = usePushNotifications()
-  console.log('token', expoPushToken)
-  
+  const { expoPushToken } = usePushNotifications();
+  console.log("token", expoPushToken);
+
   return (
     <>
-      <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView
         className="h-full flex-1 bg-[#121212]"
         style={{

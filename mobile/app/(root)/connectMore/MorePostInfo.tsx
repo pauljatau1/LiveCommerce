@@ -107,7 +107,6 @@ const MorePostInfo = () => {
 
   const getPost = async () => {
     const localPost = await AsyncStorage.getItem("selectedPost");
-    console.log("more post info");
     const parsedPost = JSON.parse(localPost!);
     setPost(parsedPost);
     setMedia([...(parsedPost?.images || []), ...(parsedPost?.videos || [])]);
@@ -450,8 +449,6 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
 });
 
 const SingleComment = memo(({ item }: { item: any }) => {
-  console.log(item);
-
   return (
     <View className="flex-row gap-2 mb-[16px]">
       <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">

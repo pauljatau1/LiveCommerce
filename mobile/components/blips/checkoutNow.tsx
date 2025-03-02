@@ -235,6 +235,10 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
             <TouchableOpacity
               className="p-[20px] rounded-[16px] flex-row items-center justify-between"
               style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
+              onPress={() => {
+                closeSheet();
+                router.push("/settings/addresses");
+              }}
             >
               <View className="flex-row gap-[16px] shrink">
                 <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
@@ -343,7 +347,7 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
               </View>
             </View>
 
-            <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
+            {/* <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
               <TextInput
                 placeholder="Enter Promo Code"
                 placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
@@ -354,7 +358,7 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                   Apply
                 </Text>
               </Pressable>
-            </View>
+            </View> */}
 
             <View
               className="p-[20px] rounded-[5px] gap-[10px]"

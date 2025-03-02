@@ -14,9 +14,9 @@ const WishList = ({
     ({ item }: { item: any }) => {
       return (
         <WishlistItem
-          wishlistItem={item.product}
+          wishlistItem={item?.product}
           handleModifyWishList={handleModifyWishList}
-          key={item._id}
+          key={item?._id}
         />
       );
     },
@@ -44,12 +44,12 @@ const WishlistItem = ({
   return (
     <TouchableOpacity
       className="border-[2px] border-[#CCCCCC] rounded-[16px] p-[14px] flex-row mb-[20px]"
-      onPress={() => router.push(`/product/${wishlistItem._id}`)}
+      onPress={() => router.push(`/product/${wishlistItem?._id}`)}
     >
       <View className="gap-[16px] shrink">
         {/* <View className=" flex-row items-center justify-between">
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
-            {wishlistItem.seller.storeName}
+            {wishlistItem?.seller.storeName}
           </Text>
           <TouchableOpacity className="rounded-[8px] px-[8px] py-[6px] bg-white flex-row items-center gap-2">
             <Text className="text-[#16783A] text-[10px]">Message Seller</Text>
@@ -66,12 +66,12 @@ const WishlistItem = ({
           </View>
           <View className="gap-[6px] relative shrink">
             <Text className="text-[14px] text-white font-LexendDecaLight">
-              {wishlistItem.seller.storeName}
+              {wishlistItem?.seller.storeName}
             </Text>
             <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-              {wishlistItem.name.length > 50
-                ? wishlistItem.name.slice(0, 50) + "..."
-                : wishlistItem.name}
+              {wishlistItem?.name.length > 50
+                ? wishlistItem?.name.slice(0, 50) + "..."
+                : wishlistItem?.name}
             </Text>
             <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
               ₦
@@ -80,13 +80,15 @@ const WishlistItem = ({
                 : wishlistItem?.price?.toLocaleString()}
             </Text>
             <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
-              Item ID: {wishlistItem._id?.toLocaleString().slice(0, 12)}...
+              Item ID: {wishlistItem?._id?.toLocaleString().slice(0, 12)}...
             </Text>
 
             <View className="flex-row justify-between items-center gap-[4px] mt-[4px]">
               <TouchableOpacity
                 className=""
-                onPress={() => handleModifyWishList("delete", wishlistItem._id)}
+                onPress={() =>
+                  handleModifyWishList("delete", wishlistItem?._id)
+                }
               >
                 <Ionicons name="trash-outline" size={20} color="white" />
               </TouchableOpacity>
