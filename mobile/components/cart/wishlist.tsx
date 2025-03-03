@@ -30,7 +30,7 @@ const WishList = ({
     [wishlist],
   );
   return (
-    <View className="px-[20px] h-[90%]">
+    <View className="px-[20px]">
       <FlatList
         data={wishlist}
         renderItem={renderWishlistItem}

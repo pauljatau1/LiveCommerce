@@ -49,6 +49,9 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { black } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
 import AuthSheet from "../auth/authSheet";
 import { toast } from "@/core/toast";
+import OptionsSheet from "./optionsSheet";
+import ReportPostSheet from "./reportPostSheet";
+import ReportUserSheet from "./reportUserSheet";
 
 const { width } = Dimensions.get("window");
 
@@ -261,13 +264,15 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
   const [comments, setComments] = useState<number>(item.comments?.length);
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
-  const [reactionStats, setReactionStats] = useState<any>(
+  const [reactionStats, setReactionStats] = useState<Record<string, number>>(
     item?.stats?.reactions,
   );
   const [token, setToken] = useState<string>("");
   const [user, setUser] = useState<any>({});
 
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+  const [showReportUser, setShowReportUser] = useState<boolean>(false);
+  const [showReportPost, setShowReportPost] = useState<boolean>(false);
 
   const getAuthUser = useCallback(async () => {
     const authToken = await getToken();
@@ -352,6 +357,16 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
     bubblePosition.value = withTiming(-100); // Slide down
   };
 
+  const handleShowReportUser = () => {
+    setShowOptionsSheet(false);
+    setShowReportUser(true);
+  };
+
+  const handleShowReportPost = () => {
+    setShowOptionsSheet(false);
+    setShowReportPost(true);
+  };
+
   const body = useMemo(() => {
     const newBody = item.body.split(" ").map((word: any) => {
       if (word.includes("#")) {
@@ -379,7 +394,7 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
         product={product}
         onPress={() =>
           router.push({
-            pathname: `/product/${product?.productId?._id || product?.id}`,
+            pathname: `../../../(root)/product/${product?.productId?._id || product?.id}`,
           })
         }
       />
@@ -429,12 +444,14 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
             <Text style={styles.timestamp}>{timeFromNow(item?.createdAt)}</Text>
           </View>
         </View>
-        <TouchableOpacity
-          onPress={() => setShowOptionsSheet(true)}
-          className="w-[22px] h-[22px] rounded-[11px] items-center justify-center"
-        >
-          <Entypo name="dots-three-vertical" size={12} color="#ccc" />
-        </TouchableOpacity>
+        {token && (
+          <TouchableOpacity
+            onPress={() => setShowOptionsSheet(true)}
+            className="w-[22px] h-[22px] rounded-[11px] items-center justify-center"
+          >
+            <Entypo name="dots-three-vertical" size={12} color="#ccc" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <Text style={styles.postBody}>{body.map((bd: any) => bd)}</Text>
@@ -455,7 +472,7 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
             product={state.products[0]}
             onPress={() =>
               router.push({
-                pathname: `/product/${state.products[0]?.productId?._id || state.products[0]?.id}`,
+                pathname: `../../../(root)/product/${state.products[0]?.productId?._id || state.products[0]?.id}`,
               })
             }
           />
@@ -615,6 +632,8 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
           userId={user?._id}
           postId={item?._id}
           closeSheet={() => setShowOptionsSheet(false)}
+          handleShowReportPost={handleShowReportPost}
+          handleShowReportUser={handleShowReportUser}
           deletePost={deletePost}
         />
       </BottomSheet>
@@ -632,6 +651,39 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
         keyboardBehavior="interactive"
       >
         <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        title=""
+        show={showReportPost}
+        titleColor="!text-white"
+        onRequestClose={() => setShowReportPost(false)}
+        keyboardBehavior={"interactive"}
+      >
+        <ReportPostSheet
+          postId={item._id}
+          closeSheet={() => setShowReportPost(false)}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        title=""
+        show={showReportUser}
+        titleColor="!text-white"
+        onRequestClose={() => setShowReportUser(false)}
+        keyboardBehavior={"interactive"}
+      >
+        <ReportUserSheet
+          userId={item?.author?.id}
+          userType={item?.author?.type}
+          closeSheet={() => setShowReportUser(false)}
+        />
       </BottomSheet>
     </Pressable>
   );
@@ -767,63 +819,6 @@ const CommentsSheet = memo(
             onSubmitEditing={handleCreateComment}
           />
         </View>
-      </View>
-    );
-  },
-);
-
-const OptionsSheet = memo(
-  ({
-    authorId,
-    userId,
-    postId,
-    closeSheet,
-    deletePost,
-  }: {
-    authorId: string;
-    userId: string;
-    postId: string;
-    closeSheet: any;
-    deletePost: any;
-  }) => {
-    const handleDeletePost = async () => {
-      deletePost(postId);
-      closeSheet();
-    };
-    return (
-      <View className="w-full">
-        {authorId === userId ? (
-          <TouchableOpacity
-            className="py-[15px] flex-row gap-[20px] px-[5px] items-center"
-            onPress={handleDeletePost}
-          >
-            <AntDesign name="delete" size={18} color="#ccc" />
-            <Text className="text-[14px] text-[#ccc] font-LexendDeca">
-              Delete Post
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <>
-            <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
-              <AntDesign name="eyeo" size={22} color="#ccc" />
-              <Text className="text-[14px] text-[#ccc] font-LexendDeca">
-                Hide Post
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
-              <Octicons name="report" size={20} color="#ccc" />
-              <Text className="text-[14px] text-[#ccc] font-LexendDeca">
-                Report Post
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
-              <SimpleLineIcons name="user-unfollow" size={20} color="#ccc" />
-              <Text className="text-[14px] text-[#ccc] font-LexendDeca">
-                Report This User
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
       </View>
     );
   },

@@ -106,6 +106,18 @@ const Settings = () => {
                 color="rgba(204, 204, 204, 0.8)"
               />
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sectionRow]}
+              activeOpacity={0.5}
+              onPress={() => router.push("/settings/updateCategories")}
+            >
+              <Text style={styles.sectionText}>Change Product Preference</Text>
+              <Entypo
+                name="chevron-right"
+                size={18}
+                color="rgba(204, 204, 204, 0.8)"
+              />
+            </TouchableOpacity>
           </View>
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>Notifications</Text>
