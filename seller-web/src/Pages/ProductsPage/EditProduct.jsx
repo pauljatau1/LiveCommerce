@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 //import { useProductContext } from '../../Hooks/useProductContext';
 import { useSelector, useDispatch } from 'react-redux';
 import { VariantsProvider, useVariants } from '../../Contexts/VariantContext'
-import { createProduct, getProductDetailsById, updateProduct } from '../../Redux/Slices/ProductSlice';
+import { getProductDetailsById, updateProduct } from '../../Redux/Slices/ProductSlice';
 import { useParams } from 'react-router-dom';
 import { useOutletContext } from 'react-router-dom'
 import UploadImage from '../../assets/upload-image.png';
@@ -430,7 +430,7 @@ const EditProduct = () => {
                 description: description,
                 price: Number(shippingDetails.pricing),
                 salePrice: Number(shippingDetails.salePrice),
-                weight: Number(shippingDetails.weight),
+                weight: Number(shippingDetails.weight) || 10,
                 stock: Number(shippingDetails.inventory),
                 condition: shippingDetails.condition,
                 status: productStatus,
@@ -448,9 +448,9 @@ const EditProduct = () => {
                         unit: shippingDetails.weightUnit
                     },
                     dimensions: {
-                        length: Number(shippingDetails.dimensions.length),
-                        width: Number(shippingDetails.dimensions.width),
-                        height: Number(shippingDetails.dimensions.height)
+                        length: Number(shippingDetails.dimensions.length) || 10,
+                        width: Number(shippingDetails.dimensions.width) || 10,
+                        height: Number(shippingDetails.dimensions.height) || 10
                     },
                     freeShipping: false,
                     shippingClass: 'standard'
@@ -466,22 +466,33 @@ const EditProduct = () => {
                 });
             }
 
-            console.log('productData', productData);
+            console.log('submit product data', productData);
+            
+            // Validate all required fields and collect missing fields
+            const missingFields = [];
+            
+            if (!title) missingFields.push('Product title');
+            if (!description) missingFields.push('Product description');
+            if (images.length === 0) missingFields.push('Product images');
+            if (!shippingDetails.pricing) missingFields.push('Pricing information');
+            if (!shippingDetails.weight) missingFields.push('Product weight');
+            if (!shippingDetails.inventory) missingFields.push('Inventory quantity');
+            if (!shippingDetails.condition) missingFields.push('Product condition');
+            if (!selectedCategory) missingFields.push('Product category');
+            if (!selectedSubCategory) missingFields.push('Product subcategory');
+            if (!brand) missingFields.push('Product brand');
 
-            // Validate and submit
-            if (title && description && images.length > 0 && shippingDetails.pricing &&
-                shippingDetails.weight && shippingDetails.inventory && shippingDetails.condition &&
-                selectedCategory && selectedSubCategory && brand) {
-
+            // Submit if no missing fields, otherwise show specific error messages
+            if (missingFields.length === 0) {
                 dispatch(updateProduct({ productId: product._id, formData: productData }));
             } else {
-                toast.error('Please fill all required fields', {
-                    description: "Please fill all required fields",
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                if (missingFields.length === 1) {
+                    toast.error(`Please fill the required field: ${missingFields[0]}`);
+                } else if (missingFields.length <= 3) {
+                    toast.error(`Please fill these required fields: ${missingFields.join(', ')}`);
+                } else {
+                    toast.error(`Several required fields are missing: ${missingFields.join(', ')}`);
+                }
             }
         } catch (error) {
             console.error('Error submitting product:', error);
@@ -1307,7 +1318,7 @@ const EditProduct = () => {
                                                                 />
                                                             </div>
                                                         </div>
-                                                        <div>
+                                                        {/*<div>
                                                             <Label>On Sale Price</Label>
                                                             <div className="relative space-y-2">
                                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
@@ -1319,7 +1330,7 @@ const EditProduct = () => {
                                                                     onChange={(e) => handleShippingChange('salePrice', e.target.value)}
                                                                 />
                                                             </div>
-                                                        </div>
+                                                        </div>*/}
                                                         <div className="space-y-2">
                                                             <Label>Weight (Optional)</Label>
                                                             <div className="flex gap-2">
@@ -1596,7 +1607,7 @@ const EditProduct = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <RequiredLabel>SKU</RequiredLabel>
+                                            <Label>SKU</Label>
                                             <Input
                                                 value={skuNumber}
                                                 onChange={(e) => setSkuNumber(e.target.value)}
