@@ -153,8 +153,11 @@ exports.register = async (req, res) => {
 
 // Login a buyer
 exports.login = async (req, res) => {
-  const { email, password, expoPushToken } = req.body;
-
+  const { email, password, expoPushToken, googleToken } = req.body;
+  if(googleToken)
+  {
+    return googleLoginMobile(req.body)
+  }
   if (!email || !password) {
     return res.status(400).json({
       message: 'Email and password are required.',
@@ -182,6 +185,70 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Login failed', error: error.message });
   }
 };
+
+async function googleLoginMobile(data)
+{
+  const {email,googleToken} = data
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return googleRegisterMobile(data)
+    }
+
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(buyer._id, expoPushToken);
+    }
+
+    const token = generateToken(buyer._id);
+    res.json({ user: buyer, token });
+  } catch (error) {
+    res.status(500).json({ message: 'Login failed', error: error.message });
+  }
+}
+
+async function googleRegisterMobile(data)
+{
+  const {firstName,lastName,username,email,country,phoneNumber,googleToken,profileImage,expoPushToken} = data
+  const otp = generateOTP();
+  try
+  {
+    const newBuyer = new Buyer({
+      firstName,
+      lastName,
+      username,
+      email,
+      country,
+      phoneNumber,
+      password:googleToken,
+      otp,
+      expoPushToken // This will be undefined if not provided, which is fine
+    });
+
+    if(profileImage)
+    {
+      newBuyer.profileImage = {
+        url: profileImage,
+        public_id: profileImage,
+      };
+    }
+
+
+    await newBuyer.save();
+    
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(newBuyer._id, expoPushToken);
+    }
+    const token = generateToken(newBuyer._id);
+    res.status(201).json({ user: newBuyer, token });
+  }
+  catch(error)
+  {
+    res.status(500).json({ message: 'Login failed', error: error.message });
+  }
+  
+}
 
 
 exports.checkToken = async (req, res) => {
