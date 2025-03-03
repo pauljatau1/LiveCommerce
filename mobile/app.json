@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "auqli-app",
+    "name": "auqli",
     "slug": "auqli-app",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/appstore.png",
     "scheme": "myapp",
@@ -19,6 +19,9 @@
       "bundleIdentifier": "com.auqli.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "aps-environment": "production"
       }
     },
     "android": {
