@@ -156,7 +156,7 @@ exports.login = async (req, res) => {
   const { email, password, expoPushToken, googleToken } = req.body;
   if(googleToken)
   {
-    return googleLoginMobile(req.body)
+    return await googleLoginMobile(req.body)
   }
   if (!email || !password) {
     return res.status(400).json({
@@ -192,7 +192,7 @@ async function googleLoginMobile(data)
   try {
     const buyer = await Buyer.findOne({ email });
     if (!buyer) {
-      return googleRegisterMobile(data)
+      return await googleRegisterMobile(data)
     }
 
     // Only save token if provided
