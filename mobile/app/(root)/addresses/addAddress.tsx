@@ -92,7 +92,7 @@ const AddAddress = () => {
     if (loading) {
       return;
     }
-    if (!addressType || !city || !address1 || !address2 || !zipCode || !state) {
+    if (!addressType || !city || !address1 || !zipCode || !state) {
       return toast.info("enter empty fields");
     }
     if (phoneError || emailError || zipCodeError) {
@@ -157,14 +157,14 @@ const AddAddress = () => {
               justifyContent: "center",
               gap: 10,
               paddingHorizontal: 12,
-              paddingVertical: 30,
+              paddingVertical: 20,
               marginBottom: 8,
               marginTop: 4,
               position: "relative",
             }}
           >
             <TouchableOpacity
-              style={{ position: "absolute", left: 18 }}
+              style={{ position: "absolute", left: 12 }}
               onPress={() => router.back()}
             >
               <Entypo
@@ -177,17 +177,17 @@ const AddAddress = () => {
               style={{
                 color: "white",
                 fontFamily: "LexendDeca-Medium",
-                fontSize: 24,
+                fontSize: 20,
               }}
             >
-              Add Another Address
+              Add Address
             </Text>
           </View>
 
           {/* Form */}
           <ScrollView
             contentContainerStyle={{
-              paddingHorizontal: 26,
+              paddingHorizontal: 16,
               paddingBottom: 20,
             }}
           >
@@ -395,7 +395,8 @@ const AddAddress = () => {
           position: "fixed",
           bottom: 0,
           left: 0,
-          padding: 28,
+          padding: 16,
+          paddingBottom: 32,
           width: "100%",
           backgroundColor: "#121212",
         }}
@@ -429,12 +430,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#111",
     paddingVertical: 0,
+    fontFamily: "LexendDeca",
   },
   placeholderStyle: {
     fontSize: 12,
     color: "#00000070",
     marginVertical: 10,
     height: 20,
+    fontFamily: "LexendDeca",
   },
   selectedTextStyle: {
     fontSize: 12,
@@ -442,6 +445,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     height: 30,
     top: 1.5,
+    fontFamily: "LexendDeca",
   },
   inputSearchStyle: {
     height: 40,
@@ -451,6 +455,7 @@ const styles = StyleSheet.create({
   itemTextStyle: {
     color: "#00000070",
     fontSize: 12,
+    fontFamily: "LexendDeca",
   },
   addButton: {
     backgroundColor: "#16783A",

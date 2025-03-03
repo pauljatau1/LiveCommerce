@@ -2,47 +2,41 @@ import { View, Text, Image, TouchableOpacity } from "react-native";
 import React from "react";
 import { icons, images } from "@/constants";
 import CustomButton from "../button/CustomButton";
-import { AntDesign } from '@expo/vector-icons';
+import { AntDesign } from "@expo/vector-icons";
 import { useLivestream } from "../../../contexts/livestreamContext";
 import { Link } from "expo-router";
 
 const LiveCardTemp = ({ item, showBtn, showLive }: any) => {
-
   const { joinStream } = useLivestream();
 
   const handleJoinStream = async () => {
     await joinStream(item?._id);
-  }
-
-
+  };
 
   return (
-    <TouchableOpacity className=" mr-2 w-[150px] rounded-lg">
+    <TouchableOpacity className="  w-[100%] rounded-lg" activeOpacity={0.7}>
       {/* Seller Info */}
 
-      <View className="flex-row items-center mb-2 justify-between flex-wrap gap-2 mt-3">
+      <View className="flex-row items-center mb-2 justify-between flex-wrap gap-2 mt-1">
         <View className="flex-row items-center gap-2">
-
-          <Image
-            source={images.manImage}
-            className="w-8 h-8 rounded-full"
-          />
+          <Image source={images.manImage} className="w-8 h-8 rounded-full" />
           <Text className="text-gray-200 w-[50px] text-sm font-medium capitalize font-LexendDeca">
             Batman
           </Text>
         </View>
       </View>
       {/* Main Product Image */}
-      <View className="relative bg-gray-500 h-[240px] w-[150px] rounded-lg ">
+      <View className="relative bg-black h-[240px] rounded-lg ">
         <View className="absolute top-2 left-2">
           <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
             <Text className="text-white text-[10px] font-LexendDeca">
               Live •
             </Text>
-            <Text className="text-white text-[10px] font-LexendDeca">{item?.viewers?.length || 0}</Text>
+            <Text className="text-white text-[10px] font-LexendDeca">
+              {item?.viewers?.length || 0}
+            </Text>
           </View>
         </View>
-
 
         {/* Play Button Overlay */}
         {/*<View className="absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center">
@@ -52,10 +46,11 @@ const LiveCardTemp = ({ item, showBtn, showLive }: any) => {
         </View>*/}
 
         <View className="absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center">
-          <Image source={require('../../../assets/icons/auqli-logo.png')} className="w-8 h-8 " />
+          <Image
+            source={require("../../../assets/icons/auqli-logo.png")}
+            className="w-8 h-8 "
+          />
         </View>
-
-
       </View>
 
       {/* Content Below Image */}
@@ -65,8 +60,6 @@ const LiveCardTemp = ({ item, showBtn, showLive }: any) => {
           Auqli Livestream
         </Text>
 
-
-
         {/* Tags */}
         <View className="flex-row">
           <Text className="text-[#027CEC] text-xs font-LexendDeca">
@@ -75,8 +68,6 @@ const LiveCardTemp = ({ item, showBtn, showLive }: any) => {
         </View>
       </View>
     </TouchableOpacity>
-
-
   );
 };
 

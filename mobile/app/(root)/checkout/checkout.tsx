@@ -182,6 +182,7 @@ const Checkout = () => {
         if (sellerObj[cart.seller._id]) {
           return;
         }
+        console.log("seller cart info", cart?.seller);
 
         const pickup_address = {
           first_name:
@@ -189,27 +190,34 @@ const Checkout = () => {
           last_name: cart.seller.personalInfo?.lastName || cart.seller.lastName,
           email:
             cart.seller.businessInfo?.businessEmail ||
-            cart.seller.personalInfo?.email,
-          phone:
-            cart.seller.businessInfo?.businessNumber || cart.seller.phoneNumber,
+            cart.seller.personalInfo?.email ||
+            cart?.seller?.email,
+          phone: cart.seller.phoneNumber?.includes("+")
+            ? cart.seller.phoneNumber
+            : `+${cart.seller.phoneNumber}`,
           line1:
             cart.seller.businessInfo?.businessAddress?.addressLine1 ||
-            cart.seller.businessAddress?.addressLine1,
+            cart.seller.businessAddress?.addressLine1 ||
+            cart.seller.warehouseDetails?.address?.addressLine1,
           line2:
             cart.seller.businessInfo?.businessAddress?.addressLine2 ||
-            cart.seller?.businessAddress?.addressLine2,
+            cart.seller?.businessAddress?.addressLine2 ||
+            cart.seller.warehouseDetails?.address?.addressLine2 ||
+            "",
           city: cart.seller?.businessAddress?.city || "Amuwo-Odofin",
           // || response.data.contactInformation.businessAddress.city,
           state:
             cart.seller.businessInfo?.businessAddress?.state ||
-            cart.seller.businessAddress?.state,
+            cart.seller.businessAddress?.state ||
+            cart.seller.warehouseDetails?.address?.state,
           country: "NG",
 
           // cart.seller.businessInfo?.businessAddress?.country ||
           // cart.seller.businessAddress?.country,
           zip:
             cart.seller.businessInfo?.businessAddress?.zipCode ||
-            cart.seller.businessAddress?.zipCode,
+            cart.seller.businessAddress?.zipCode ||
+            cart.seller.warehouseDetails?.address?.zipCode,
         };
 
         sellerObj[cart.seller._id] = pickup_address;
@@ -342,13 +350,23 @@ const Checkout = () => {
                 onPress={() => setShowAddressSheet(true)}
               >
                 <View className="flex-row gap-[16px] shrink">
-                  <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
-                    <Text className="text-white text-[9px]">
-                      {user?.firstName?.split("")[0]}
-                    </Text>
-                    <Text className="text-white text-[9px]">
-                      {user?.lastName?.split("")[0]}
-                    </Text>
+                  <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center overflow-hidden">
+                    {user?.profileImage?.url ? (
+                      <Image
+                        source={{ uri: user?.profileImage?.url }}
+                        resizeMode="cover"
+                        style={{ width: "100%", height: "100%" }}
+                      />
+                    ) : (
+                      <>
+                        <Text className="text-white text-[9px]">
+                          {user?.firstName?.split("")[0]}
+                        </Text>
+                        <Text className="text-white text-[9px]">
+                          {user?.lastName?.split("")[0]}
+                        </Text>
+                      </>
+                    )}
                   </View>
                   <View className="gap-[18px] shrink">
                     <Text className="text-[#ccc] text-[16px] font-LexendDecaMedium">
@@ -452,7 +470,7 @@ const Checkout = () => {
                 </View>
               </View>
 
-              <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
+              {/* <View className="rounded-[3px] border-[#ccc] border-[0.3px] pr-[12px] flex-row items-center justify-between mb-[10px]">
                 <TextInput
                   placeholder="Enter Promo Code"
                   placeholderTextColor={"rgba(204, 204, 204, 0.25)"}
@@ -463,7 +481,7 @@ const Checkout = () => {
                     Apply
                   </Text>
                 </Pressable>
-              </View>
+              </View> */}
 
               <View
                 className="p-[20px] rounded-[5px] gap-[10px]"
@@ -529,14 +547,15 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
         <View className=" flex-row items-center justify-between">
           <Text className="text-[16px] text-white font-LexendDecaSemiBold">
             {cartItem?.seller?.businessName ||
-              cartItem?.seller?.storeInfo?.storeName}
+              cartItem?.seller?.storeInfo?.storeName ||
+              cartItem?.seller?.storeName}
           </Text>
         </View>
         <View className="flex-row gap-[16px]">
           <View>
             <Image
               source={{ uri: cartItem?.images[0].url }}
-              resizeMode="cover"
+              resizeMode="contain"
               className="w-[115px] h-[136px]"
             />
           </View>
@@ -546,16 +565,28 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
                 ? cartItem?.name.slice(0, 20) + "..."
                 : cartItem?.name}
             </Text>
-            <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
+            <Text className="text-[22px] text-[#F2F2F2] font-LexendDecaSemiBold">
               ₦
               {cartItem?.discount?.isActive
                 ? cartItem?.discount?.discountedPrice?.toLocaleString() || 0
                 : cartItem?.price?.toLocaleString()}
+              {"  "}
+              {cartItem?.discount?.isActive && (
+                <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
+                  {cartItem?.discount?.value}
+                  {cartItem?.discount?.type == "percentage" && "%"} off
+                </Text>
+              )}
             </Text>
             <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
-              Item ID: {cartItem._id?.toLocaleString().slice(0, 12)}...
+              Item ID: {cartItem._id}
             </Text>
-            <View className="flex-row items-center gap-[11px]">
+            <View
+              className="flex-row items-center gap-[11px] flex-wrap"
+              style={{
+                marginTop: "auto",
+              }}
+            >
               <Text className="text-white text-[12px] font-LexendDecaMedium">
                 Total:{" "}
                 <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">

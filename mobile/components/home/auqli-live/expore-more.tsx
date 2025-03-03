@@ -11,7 +11,7 @@ const ExploreMoreSection = () => {
       <SectionHeader title="Explore More Shows" />
       <View
         style={{
-          paddingLeft: 22,
+          paddingLeft: 16,
         }}
       >
         <FlatList

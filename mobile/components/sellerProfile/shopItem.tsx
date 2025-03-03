@@ -101,7 +101,7 @@ const ShopCard: React.FC<ProductCardProps> = ({
               ₦{discount?.isActive && price.toLocaleString()}
             </Text>
             <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
-              {discount?.value?.toFixed(1)}
+              {discount?.value?.toFixed(0)}
               {discount?.type == "percentage" && "%"} off
             </Text>
           </View>

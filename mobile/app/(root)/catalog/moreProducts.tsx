@@ -57,21 +57,18 @@ const MoreProducts = () => {
         endpoint = "api/products/trending";
         break;
     }
-    console.log(name);
-
-    console.log(endpoint);
 
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `${endpoint}?limit=50`,
+        process.env.EXPO_PUBLIC_API_URL + `${endpoint}?limit=50&period=month`,
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      setProducts(response.data.data || response.data.products);
+      setProducts(response.data.data || response.data.products || []);
       setFilteredProducts(response.data.data || response.data.products);
     } catch (e) {
       console.log("ERROR GETTING MORE PRODUCT DATA", e);
@@ -84,6 +81,8 @@ const MoreProducts = () => {
     setShowSortSheet(false);
     setFilter(type);
     const sortedProducts = catalogSort(products, type);
+    return console.log(sortedProducts);
+
     setFilteredProducts(sortedProducts);
   };
 

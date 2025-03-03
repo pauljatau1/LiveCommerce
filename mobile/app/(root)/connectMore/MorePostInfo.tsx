@@ -107,7 +107,6 @@ const MorePostInfo = () => {
 
   const getPost = async () => {
     const localPost = await AsyncStorage.getItem("selectedPost");
-    console.log("more post info");
     const parsedPost = JSON.parse(localPost!);
     setPost(parsedPost);
     setMedia([...(parsedPost?.images || []), ...(parsedPost?.videos || [])]);
@@ -138,6 +137,9 @@ const MorePostInfo = () => {
       author: {
         firstName: user.firstName,
         lastName: user.lastName,
+        profileImage: {
+          url: user?.profileImage?.url,
+        },
       },
       content: newComment,
       createdAt: moment().toISOString(),
@@ -304,32 +306,36 @@ const MorePostInfo = () => {
                 ? comments
                     ?.slice()
                     ?.reverse()
-                    ?.map((comment) => (
-                      <SingleComment item={comment} key={comment._id} />
+                    ?.map((comment, index) => (
+                      <SingleComment
+                        item={comment}
+                        key={comment._id || index}
+                      />
                     ))
                 : null}
             </View>
           </ScrollView>
 
-          <View className="gap-[12px] flex-col items-center  bg-[#121212]">
-            <View className="flex-row items-center gap-[12px] pt-[12px] pb-[12px] border-t-[0.5px] border-t-[#888787] px-[17px]">
-              <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink border-[1px] border-[#ccc]">
-                <TextInput
-                  placeholder="Add a comment..."
-                  placeholderTextColor={"rgba(204,204,204,0.25)"}
-                  className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
-                  value={newComment}
-                  multiline
-                  onChangeText={(text) => setNewComment(text)}
+          <View
+            className="flex-row items-center gap-[12px] py-[12px] pb-[12px] border-t-[0.5px] border-t-[#888787] px-[17px]"
+            style={{ marginBottom: 12 }}
+          >
+            <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink border-[1px] border-[#ccc]">
+              <TextInput
+                placeholder="Add a comment..."
+                placeholderTextColor={"rgba(204,204,204,0.25)"}
+                className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
+                value={newComment}
+                multiline
+                onChangeText={(text) => setNewComment(text)}
+              />
+              <Pressable onPress={handleSendComment}>
+                <MaterialCommunityIcons
+                  name="send-circle"
+                  size={30}
+                  color="#16783A"
                 />
-                <Pressable onPress={handleSendComment}>
-                  <MaterialCommunityIcons
-                    name="send-circle"
-                    size={30}
-                    color="#16783A"
-                  />
-                </Pressable>
-              </View>
+              </Pressable>
             </View>
           </View>
 
@@ -450,15 +456,21 @@ const SingleMediaItem = memo(({ item }: { item: any }) => {
 });
 
 const SingleComment = memo(({ item }: { item: any }) => {
-  console.log(item);
-
   return (
     <View className="flex-row gap-2 mb-[16px]">
-      <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
-        <Text className="text-white text-[10px]">
-          {item.author.firstName.charAt(0).toUpperCase() +
-            item.author.lastName.charAt(0).toUpperCase()}
-        </Text>
+      <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
+        {item?.author?.profileImage?.url ? (
+          <Image
+            source={{ uri: item?.author?.profileImage?.url }}
+            className="w-full h-full"
+            contentFit="cover"
+          />
+        ) : (
+          <Text className="text-white text-[10px]">
+            {item.author.firstName.charAt(0).toUpperCase() +
+              item.author.lastName.charAt(0).toUpperCase()}
+          </Text>
+        )}
       </View>
       <View className="shrink">
         <Text className="text-[#ccc] mb-[4px]">

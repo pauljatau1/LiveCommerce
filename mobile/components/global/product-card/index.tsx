@@ -98,14 +98,32 @@ const ProductCard: React.FC<ProductCardProps> = ({
         />
       )}
       {/* Product Details */}
-      <View>
+      <View className="gap-[4px]">
         <Text className="text-white text-[10px] capitalize font-LexendDecaBold  text-normal pt-3">
           {title?.slice(0, 25)}
         </Text>
-        <Text className="text-white font-LexendDecaBold  text-[10px]">
-          ₦{price?.toLocaleString()}
-        </Text>
-        <Text className="text-[#027CEC] text-[8px] pb-[4px] font-LexendDecaSemiBold mt-[2px]">
+        {moreDetails?.discount?.isActive ? (
+          <View className="flex-row items-center gap-[4px] flex-wrap">
+            <Text className="text-white text-[10px] font-LexendDecaMedium">
+              ₦
+              {moreDetails?.discount?.isActive
+                ? moreDetails?.discount?.discountedPrice?.toLocaleString()
+                : price?.toLocaleString()}
+            </Text>
+            <Text className="text-[#16783A] text-[8px] font-LexendDecaMedium line-through">
+              ₦{moreDetails?.discount?.isActive && price.toLocaleString()}
+            </Text>
+            <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
+              {moreDetails?.discount?.value?.toFixed(0)}
+              {moreDetails?.discount?.type == "percentage" && "%"} off
+            </Text>
+          </View>
+        ) : (
+          <Text className="text-white font-LexendDecaBold  text-[10px]">
+            ₦{price?.toLocaleString()}
+          </Text>
+        )}
+        <Text className="text-[#027CEC] text-[8px] pb-[4px] font-LexendDecaSemiBold">
           #{category}
         </Text>
       </View>
@@ -161,9 +179,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
           />
         )} */}
       </View>
-      <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
+      {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
         Lagos, Nigeria
-      </Text>
+      </Text> */}
 
       <CustomButton
         textStyle="!text-[8px] !font-semibold  !py-0"

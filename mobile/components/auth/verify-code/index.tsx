@@ -66,89 +66,88 @@ const VerifyCodeOtp = () => {
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
       <SafeAreaView className="h-full flex-1 bg-black">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <View className="container px-[30.6px] my-16">
-            <View className="flex-row mb-[45px]">
-              <View className="">
-                <Pressable onPress={() => router.back()}>
-                  <Image
-                    source={icons.circleBackArrow}
-                    className="mb-[18px] w-7 h-7"
-                  />
-                </Pressable>
-              </View>
-              <View className="mx-auto ">
-                <Text className="text-gray-200 pt-4 text-center font-LexendDecaBold text-[21.77px] pb-5 leading-5">
-                  Verify Code
-                </Text>
-                <Text className="text-gray-200 text-center font-LexendDecaMedium text-sm">
-                  We sent a code to you at {"\n"}
-                  {email}
-                </Text>
-                <Link
-                  href={"/(root)/(auth)/sign-up"}
-                  className="text-center text-[10px] font-LexendDecaMedium underline text-primary-100 mt-2"
-                >
-                  Change email
-                </Link>
-              </View>
-            </View>
-            <Controller
-              name="otp"
-              control={control}
-              render={({ field: { onChange, value } }: any) => (
-                <OtpInput
-                  numberOfDigits={4}
-                  focusColor="#2F2E41"
-                  autoFocus={false}
-                  hideStick={true}
-                  placeholder="******"
-                  blurOnFilled={true}
-                  disabled={false}
-                  type="numeric"
-                  secureTextEntry={false}
-                  focusStickBlinkingDuration={500}
-                  onFocus={() => console.log("Focused")}
-                  onBlur={() => console.log("Blurred")}
-                  onTextChange={onChange}
-                  onFilled={(text) => console.log(`OTP is ${text}`)}
-                  textInputProps={{
-                    accessibilityLabel: "One-Time Password",
-                  }}
-                  theme={{
-                    pinCodeContainerStyle: {
-                      width: 70.74,
-                      height: 50.7,
-                      backgroundColor: "#fff",
-                      borderRadius: 3.63,
-                    },
-                  }}
-                />
-              )}
-            />
-
-            <View className="flex-row justify-center py-8 items-center">
-              <Text className="font-LexendDeca text-sm text-gray-200">
-                Didn’t receive any OTP code?
+        <View className="container px-[30.6px] my-16">
+          <View className="flex-row mb-[45px]">
+            <Pressable
+              onPress={() => {
+                console.log("logging");
+                router.back();
+              }}
+              className="absolute"
+              style={{
+                zIndex: 100,
+              }}
+            >
+              <Image source={icons.circleBackArrow} className="w-7 h-7" />
+            </Pressable>
+            <View className="self-center justify-center w-full">
+              <Text className="text-gray-200 pt-4 text-center font-LexendDecaBold text-[21.77px] pb-5 leading-5">
+                Verify Code
               </Text>
-              <TouchableOpacity>
-                <Text className="underline text-gray-200 text-base font-LexendDecaBold pl-1">
-                  Resend code
-                </Text>
-              </TouchableOpacity>
+              <Text className="text-gray-200 text-center font-LexendDecaMedium text-sm">
+                We sent a code to you at {"\n"}
+                {email}
+              </Text>
+              <Link
+                href={"/(root)/(auth)/sign-up"}
+                className="text-center text-[10px] font-LexendDecaMedium underline text-primary-100 mt-2"
+              >
+                Change email
+              </Link>
             </View>
-            <CustomButton
-              title="Verify Code"
-              onPress={onSubmit}
-              className="mb-4 mt-[18px] !rounded-[40px] py-4 !text-white text-sm font-LexendDecaBold"
-              disabled={data.otp.length !== 4 || isLoading}
-              loading={isLoading}
-            />
           </View>
-        </KeyboardAvoidingView>
+          <Controller
+            name="otp"
+            control={control}
+            render={({ field: { onChange, value } }: any) => (
+              <OtpInput
+                numberOfDigits={4}
+                focusColor="#2F2E41"
+                autoFocus={false}
+                hideStick={true}
+                placeholder="******"
+                blurOnFilled={true}
+                disabled={false}
+                type="numeric"
+                secureTextEntry={false}
+                focusStickBlinkingDuration={500}
+                onFocus={() => console.log("Focused")}
+                onBlur={() => console.log("Blurred")}
+                onTextChange={onChange}
+                onFilled={(text) => console.log(`OTP is ${text}`)}
+                textInputProps={{
+                  accessibilityLabel: "One-Time Password",
+                }}
+                theme={{
+                  pinCodeContainerStyle: {
+                    width: 70.74,
+                    height: 50.7,
+                    backgroundColor: "#fff",
+                    borderRadius: 3.63,
+                  },
+                }}
+              />
+            )}
+          />
+
+          <View className="flex-row justify-center py-8 items-center">
+            <Text className="font-LexendDeca text-sm text-gray-200">
+              Didn’t receive any OTP code?
+            </Text>
+            <TouchableOpacity>
+              <Text className="underline text-gray-200 text-base font-LexendDecaBold pl-1">
+                Resend code
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <CustomButton
+            title="Verify Code"
+            onPress={onSubmit}
+            className="mb-4 mt-[18px] !rounded-[40px] py-4 !text-white text-sm font-LexendDecaBold"
+            disabled={data.otp.length !== 4 || isLoading}
+            loading={isLoading}
+          />
+        </View>
       </SafeAreaView>
     </>
   );

@@ -29,7 +29,11 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import moment from "moment";
-import { useCommentPostMutation, useReactPostMutation } from "@/services/posts";
+import {
+  useCommentPostMutation,
+  useDeletePostMutation,
+  useReactPostMutation,
+} from "@/services/posts";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MultipleMediaItem from "./multipleMediaItem";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -44,6 +48,7 @@ import Animated, {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { black } from "react-native-paper/lib/typescript/styles/themes/v2/colors";
 import AuthSheet from "../auth/authSheet";
+import { toast } from "@/core/toast";
 
 const { width } = Dimensions.get("window");
 
@@ -241,7 +246,7 @@ const ProductItemSingle = memo(
   ),
 );
 
-const PostItem2 = ({ item }: { item: any }) => {
+const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
   const [reactPost, { isLoading }] = useReactPostMutation({});
   const [state, setState] = useState({
     media: [...(item?.images || []), ...(item?.videos || [])],
@@ -260,12 +265,15 @@ const PostItem2 = ({ item }: { item: any }) => {
     item?.stats?.reactions,
   );
   const [token, setToken] = useState<string>("");
+  const [user, setUser] = useState<any>({});
 
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
 
   const getAuthUser = useCallback(async () => {
     const authToken = await getToken();
+    const userInfo = await getUser();
     setToken(authToken);
+    setUser(userInfo);
   }, []);
 
   useEffect(() => {
@@ -421,7 +429,10 @@ const PostItem2 = ({ item }: { item: any }) => {
             <Text style={styles.timestamp}>{timeFromNow(item?.createdAt)}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => setShowOptionsSheet(true)}>
+        <TouchableOpacity
+          onPress={() => setShowOptionsSheet(true)}
+          className="w-[22px] h-[22px] rounded-[11px] items-center justify-center"
+        >
           <Entypo name="dots-three-vertical" size={12} color="#ccc" />
         </TouchableOpacity>
       </View>
@@ -599,7 +610,13 @@ const PostItem2 = ({ item }: { item: any }) => {
         onRequestClose={() => setShowOptionsSheet(false)}
         keyboardBehavior={"interactive"}
       >
-        <OptionsSheet />
+        <OptionsSheet
+          authorId={item?.author?.id}
+          userId={user?._id}
+          postId={item?._id}
+          closeSheet={() => setShowOptionsSheet(false)}
+          deletePost={deletePost}
+        />
       </BottomSheet>
 
       <BottomSheet
@@ -653,6 +670,9 @@ const CommentsSheet = memo(
         author: {
           firstName: user.firstName,
           lastName: user.lastName,
+          profileImage: {
+            url: user?.profileImage?.url,
+          },
         },
         content: comment,
         createdAt: moment().toISOString(),
@@ -681,11 +701,19 @@ const CommentsSheet = memo(
     const renderComments = useCallback(({ item }: { item: any }) => {
       return (
         <View className="flex-row gap-2 mb-[16px]">
-          <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
-            <Text className="text-white text-[10px]">
-              {item.author.firstName.charAt(0).toUpperCase() +
-                item.author.lastName.charAt(0).toUpperCase()}
-            </Text>
+          <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
+            {item?.author?.profileImage?.url ? (
+              <Image
+                source={{ uri: item?.author?.profileImage?.url }}
+                className="w-full h-full"
+                contentFit="cover"
+              />
+            ) : (
+              <Text className="text-white text-[10px]">
+                {item.author.firstName.charAt(0).toUpperCase() +
+                  item.author.lastName.charAt(0).toUpperCase()}
+              </Text>
+            )}
           </View>
           <View className="shrink">
             <Text className="text-[#ccc] mb-[4px]">
@@ -744,30 +772,62 @@ const CommentsSheet = memo(
   },
 );
 
-const OptionsSheet = memo(() => {
-  return (
-    <View className="w-full">
-      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
-        <AntDesign name="eyeo" size={22} color="#ccc" />
-        <Text className="text-[14px] text-[#ccc] font-LexendDeca">
-          Hide Post
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
-        <Octicons name="report" size={20} color="#ccc" />
-        <Text className="text-[14px] text-[#ccc] font-LexendDeca">
-          Report Post
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
-        <SimpleLineIcons name="user-unfollow" size={20} color="#ccc" />
-        <Text className="text-[14px] text-[#ccc] font-LexendDeca">
-          Report This User
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-});
+const OptionsSheet = memo(
+  ({
+    authorId,
+    userId,
+    postId,
+    closeSheet,
+    deletePost,
+  }: {
+    authorId: string;
+    userId: string;
+    postId: string;
+    closeSheet: any;
+    deletePost: any;
+  }) => {
+    const handleDeletePost = async () => {
+      deletePost(postId);
+      closeSheet();
+    };
+    return (
+      <View className="w-full">
+        {authorId === userId ? (
+          <TouchableOpacity
+            className="py-[15px] flex-row gap-[20px] px-[5px] items-center"
+            onPress={handleDeletePost}
+          >
+            <AntDesign name="delete" size={18} color="#ccc" />
+            <Text className="text-[14px] text-[#ccc] font-LexendDeca">
+              Delete Post
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
+              <AntDesign name="eyeo" size={22} color="#ccc" />
+              <Text className="text-[14px] text-[#ccc] font-LexendDeca">
+                Hide Post
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
+              <Octicons name="report" size={20} color="#ccc" />
+              <Text className="text-[14px] text-[#ccc] font-LexendDeca">
+                Report Post
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="py-[15px] flex-row gap-[20px] px-[5px] items-center">
+              <SimpleLineIcons name="user-unfollow" size={20} color="#ccc" />
+              <Text className="text-[14px] text-[#ccc] font-LexendDeca">
+                Report This User
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {

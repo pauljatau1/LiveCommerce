@@ -37,3 +37,9 @@ yarn-error.*
 
 app-example
 .vscode/settings.json
+
+google-services.json
+GoogleServices-info.plist
+
+android
+ios

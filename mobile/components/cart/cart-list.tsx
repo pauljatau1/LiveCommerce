@@ -163,12 +163,35 @@ const CartItem = memo(
                   ? cartItem.name.slice(0, 45) + "..."
                   : cartItem.name}
               </Text>
-              <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
+              {/* <Text className="text-[16px] text-[#F2F2F2] font-LexendDecaSemiBold">
                 ₦
                 {cartItem?.discount?.isActive
                   ? cartItem?.discount?.discountedPrice?.toLocaleString() || 0
                   : cartItem?.price?.toLocaleString()}
-              </Text>
+              </Text> */}
+              {cartItem?.discount?.isActive ? (
+                <View className="flex-row items-end gap-[4px] flex-wrap">
+                  <Text className="text-white text-[16px] font-LexendDecaMedium">
+                    ₦
+                    {cartItem?.discount?.isActive
+                      ? cartItem?.discount?.discountedPrice?.toLocaleString()
+                      : cartItem?.price?.toLocaleString()}
+                  </Text>
+                  <Text className="text-[#16783A] text-[10px] font-LexendDecaMedium line-through">
+                    ₦
+                    {cartItem?.discount?.isActive &&
+                      cartItem?.price.toLocaleString()}
+                  </Text>
+                  <Text className="text-[10px] text-[#16783A] font-LexendDecaBold">
+                    {cartItem?.discount?.value?.toFixed(0)}
+                    {cartItem?.discount?.type == "percentage" && "%"} off
+                  </Text>
+                </View>
+              ) : (
+                <Text className="text-white font-LexendDecaBold  text-[16px]">
+                  ₦{cartItem?.price?.toLocaleString()}
+                </Text>
+              )}
               <View className="flex-row items-center gap-[11px]">
                 <TouchableOpacity
                   className="w-[24px] h-[24px] border-white border-[1px] rounded-[24px] items-center justify-center"
@@ -186,7 +209,12 @@ const CartItem = memo(
                   <AntDesign name="plus" size={14} color="black" />
                 </TouchableOpacity>
               </View>
-              <View className="flex-row justify-between items-center gap-8 mt-[4px] w-full">
+              <View
+                className="flex-row justify-between items-center gap-8 mt-[4px] w-full"
+                style={{
+                  marginTop: "auto",
+                }}
+              >
                 <TouchableOpacity
                   className="px-[12px] py-[8px] justify-center items-center px-[16px] bg-[#16783A] rounded-[4px]"
                   onPress={() => handleModifyCart("moveToWishList", cartItem)}

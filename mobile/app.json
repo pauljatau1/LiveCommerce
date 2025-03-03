@@ -17,6 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.auqli.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -51,7 +52,8 @@
           "backgroundColor": "#111111"
         }
       ],
-      "expo-dev-client"
+      "expo-dev-client",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true

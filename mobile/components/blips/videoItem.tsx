@@ -73,7 +73,13 @@ const VideoItem = ({
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
 
-    setLoading((!status.isPlaying && status.shouldPlay) || status.isBuffering);
+    setTimeout(
+      () =>
+        setLoading(
+          (!status.isPlaying && status.shouldPlay) || status.isBuffering,
+        ),
+      1000,
+    );
   };
 
   const handleLike = async () => {
@@ -162,13 +168,13 @@ const VideoItem = ({
     }
   }, [isFocused]);
 
-  // useEffect(() => {
-  //   return () => {
-  //     if (videoRef.current) {
-  //       videoRef.current.unloadAsync();
-  //     }
-  //   };
-  // }, []);
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   const tabBarHeight = useBottomTabBarHeight();
 
@@ -294,7 +300,7 @@ const VideoItem = ({
                 {comments}
               </Text>
             </View>
-            <View className="items-center gap-2 max-w-[60px] self-end">
+            {/* <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center">
                 <Ionicons name="arrow-redo-sharp" size={18} color="#14AE5C" />
               </TouchableOpacity>
@@ -304,7 +310,7 @@ const VideoItem = ({
               >
                 Share
               </Text>
-            </View>
+            </View> */}
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
                 className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
@@ -515,7 +521,7 @@ const CommentsSheet = ({
         data: null,
       };
       const response = await axios(config);
-      setComments(response.data.comments);
+      setComments(response.data.comments?.filter((cm: any) => cm?.buyer));
       setPage(page + 1);
       setLoading(false);
     } catch (e: any) {
@@ -533,6 +539,9 @@ const CommentsSheet = ({
       buyer: {
         firstName: user?.firstName,
         lastName: user?.lastName,
+        profileImage: {
+          url: user?.profileImage?.url,
+        },
       },
       comment: comment,
       createdAt: moment().toISOString(),
@@ -579,11 +588,18 @@ const CommentsSheet = ({
             data={comments.slice().reverse()}
             renderItem={({ item, index }) => (
               <View key={index} className="flex-row gap-2 mb-[16px]">
-                <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px]">
-                  <Text className="text-white text-[10px]">
-                    {item?.buyer?.firstName.charAt(0).toUpperCase() +
-                      item?.buyer?.lastName.charAt(0).toUpperCase()}
-                  </Text>
+                <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
+                  {item.buyer?.profileImage?.url ? (
+                    <Image
+                      source={{ uri: item.buyer?.profileImage?.url }}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <Text className="text-white text-[10px]">
+                      {item?.buyer?.firstName.charAt(0).toUpperCase() +
+                        item?.buyer?.lastName.charAt(0).toUpperCase()}
+                    </Text>
+                  )}
                 </View>
                 <View className="shrink">
                   <Text className="text-[#ccc] mb-[4px]">

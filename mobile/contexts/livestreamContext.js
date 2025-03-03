@@ -61,11 +61,22 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: "SET_IS_LOADING", payload: true });
             const token = await AsyncStorage.getItem("token");
             const userToken = JSON.parse(token);
-            const response = await axios.post(process.env.EXPO_PUBLIC_API_URL + `api/streams/${streamId}/join`, {}, {
-                headers: {
-                    Authorization: `Bearer ${userToken}`
+            
+            if (!userToken) {
+                throw new Error('No authentication token found');
+            }
+
+            console.log('Token being used:', userToken);
+
+            const response = await axios.post(
+                process.env.EXPO_PUBLIC_API_URL + `api/streams/${streamId}/join`, 
+                {}, 
+                {
+                    headers: {
+                        Authorization: `Bearer ${userToken}`
+                    }
                 }
-            });
+            );
 
             if (response.status === 200) {
                 dispatch({ type: "SET_ACTIVE_STREAM_DETAILS", payload: response.data });
@@ -73,7 +84,8 @@ export const LivestreamProvider = ({ children }) => {
                 return response.data;
             }
         } catch (error) {
-            console.log('error joining stream', error.response);
+            console.error('Error joining stream:', error);
+            throw new Error(error?.response?.data?.message || 'Failed to join stream');
         } finally {
             dispatch({ type: "SET_IS_LOADING", payload: false });
         }

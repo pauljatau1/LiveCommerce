@@ -304,21 +304,22 @@ const ProductDescription = () => {
         }}
       >
         {Object.entries(productSpecifications).map(
-          ([key, value]: any, index: number) => (
-            <View key={key} className="flex-row items-center justify-between">
-              <Text className="text-[14px] text-[#fff] font-LexendDeca">
-                {key}
-              </Text>
-              <View
-                className="rounded-[50px] px-[10px] py-[2px]"
-                style={{ backgroundColor: "rgba(22, 120, 58, 0.30)" }}
-              >
-                <Text className="text-[12px] text-[#fff] font-LexendDeca">
-                  {value}
+          ([key, value]: any, index: number) =>
+            value.length > 0 ? (
+              <View key={key} className="flex-row items-center justify-between">
+                <Text className="text-[14px] text-[#fff] font-LexendDeca">
+                  {key}
                 </Text>
+                <View
+                  className="rounded-[50px] px-[10px] py-[2px]"
+                  style={{ backgroundColor: "rgba(22, 120, 58, 0.30)" }}
+                >
+                  <Text className="text-[12px] text-[#fff] font-LexendDeca">
+                    {value}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ),
+            ) : null,
         )}
       </View>
     );
@@ -502,7 +503,7 @@ const ProductDescription = () => {
                       {productDetails?.discount?.isActive ? (
                         <View className=" bg-[#FFD700] py-[5px] px-[17px] rounded-[14px]">
                           <Text className="text-[9px] text-black font-LexendDecaBold">
-                            {productDetails?.discount?.value}
+                            {productDetails?.discount?.value?.toFixed(0)}
                             {productDetails?.discount?.type == "percentage" &&
                               "%"}
                           </Text>
