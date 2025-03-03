@@ -18,6 +18,7 @@ import DeleteSheet from "@/components/settings/deleteSheet";
 import LoadingModal from "@/components/global/loading-modal";
 import { useRequestDeleteMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 const { width, height } = Dimensions.get("window");
 
@@ -215,7 +216,8 @@ const Settings = () => {
             <TouchableOpacity
               style={styles.sectionRow}
               activeOpacity={0.5}
-              onPress={() => {
+              onPress={async () => {
+                await GoogleSignin.signOut();
                 dispatch(signOut());
                 router.push("/(root)/(auth)/sign-in");
               }}
