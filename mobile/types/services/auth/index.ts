@@ -31,6 +31,10 @@ export interface LoginRequest {
   email: string;
   password: string;
   expoPushToken: string;
+  googleToken: string;
+  firstName: string;
+  lastName: string;
+  username: string;
 }
 
 export type LoginResponse = {

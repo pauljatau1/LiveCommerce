@@ -123,7 +123,10 @@ const EditProfile = () => {
       const token = await getToken();
       const payload = {
         username: editUsernameVal,
-        phoneNumber: editPhoneVal,
+        phoneNumber:
+          editPhoneVal.length == 11
+            ? "+234" + editPhoneVal.slice(1)
+            : "+234" + editPhoneVal,
         bio: editBioVal,
         firstName: editFirstNameVal,
         lastName: editLastNameVal,
@@ -283,11 +286,13 @@ const EditProfile = () => {
             <View style={styles.editSingleSection}>
               <Text style={styles.label}>Phone Number</Text>
               <TextInput
-                style={[styles.input, { opacity: 0.3 }]}
+                style={[styles.input]}
                 placeholder="Phone Number"
                 value={editPhoneVal}
-                onChangeText={(text) => setEditPhoneVal(text)}
-                readOnly
+                onChangeText={(text) => {
+                  setEditPhoneVal(text);
+                }}
+                maxLength={15}
               />
             </View>
           </View>

@@ -5,7 +5,7 @@ import Input from "@/components/global/textInput";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { icons } from "@/constants";
 import { Link, router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   Image,
@@ -30,9 +30,26 @@ import { signIn, signInAsGuest } from "@/store/features/auth/authSlice";
 import { API_URL } from "@env";
 import { toast } from "@/core/toast";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+} from "@react-native-google-signin/google-signin";
+
+GoogleSignin.configure({
+  webClientId:
+    "95041167196-22r5o9uv5dm7a2nmc0k0hdvsouu01vln.apps.googleusercontent.com",
+  scopes: ["https://www.googleapis.com/auth/user.phonenumbers.read"],
+});
+
+const statusCodes = {
+  PLAY_SERVICES_NOT_AVAILABLE: "404",
+  IN_PROGRESS: "301",
+};
 
 const Login = () => {
   const { expoPushToken } = usePushNotifications();
+  const [state, setState] = useState<any>({});
   const dispatch = useDispatch();
 
   const methods = useForm({
@@ -64,7 +81,7 @@ const Login = () => {
       setPassword(password);
       setUserEmail(email);
       if (result?.user?.selectedCategories?.length! > 0) {
-        router.replace("/(root)/(tabs)/home");
+        router.replace("/(root)/(tabs)/home/home");
       } else router.replace("/(root)/(categories)/category");
     } catch (error: any) {
       console.log(error);
@@ -72,6 +89,87 @@ const Login = () => {
       toast.error(error.data.message);
     }
   };
+
+  const handleGoogleAuth = async (googleResponse: any) => {
+    try {
+      const payload = {
+        googleToken: googleResponse?.idToken,
+        email: googleResponse?.user?.email,
+        firstName:
+          googleResponse?.user?.givenName ||
+          googleResponse?.user?.name.split(" ")[0] ||
+          googleResponse?.user?.name,
+        lastName:
+          googleResponse?.user?.familyName ||
+          googleResponse?.user?.name.split(" ")[1] ||
+          googleResponse?.user?.name,
+        username: googleResponse?.user?.name,
+        profileImage: googleResponse?.user?.photo,
+        expoPushToken: expoPushToken?.data!,
+      };
+      // return await GoogleSignin.signOut();
+      // return console.log(payload);
+
+      const result = await login({
+        googleToken: googleResponse?.idToken,
+        email: googleResponse?.user?.email,
+        firstName:
+          googleResponse?.user?.givenName ||
+          googleResponse?.user?.name.split(" ")[0] ||
+          googleResponse?.user?.name,
+        lastName:
+          googleResponse?.user?.familyName ||
+          googleResponse?.user?.name.split(" ")[1] ||
+          googleResponse?.user?.name,
+        username: googleResponse?.user?.name,
+        profileImage: googleResponse?.user?.photo,
+        expoPushToken: expoPushToken?.data!,
+      }).unwrap();
+      dispatch(signIn(result));
+      setPassword(result?.user?.password!);
+      setUserEmail(result?.user?.email!);
+      if (result?.user?.selectedCategories?.length! > 0) {
+        router.replace("/(root)/(tabs)/home/home");
+      } else router.replace("/(root)/(categories)/category");
+
+      // console.log("google sign in data", googleResponse);
+    } catch (e) {
+      toast.error("could not sign in with google");
+      console.log(e);
+    }
+  };
+
+  const GoogleSignIn = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      if (isSuccessResponse(response)) {
+        setState({ userInfo: response.data });
+        handleGoogleAuth(response.data);
+      } else {
+        console.log(response?.data || response);
+      }
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        console.log(error.cause);
+
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            // operation (eg. sign in) already in progress
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            // Android only, play services not available or outdated
+            break;
+          default:
+          // some other error happened
+        }
+      } else {
+        // an error that's not related to google sign in occurred
+      }
+    }
+  };
+
+  useEffect(() => {}, []);
 
   return (
     <>
@@ -91,7 +189,7 @@ const Login = () => {
                     className="mb-[18px]"
                   />
                   <Text className="mb-2.5 text-center font-SfPro text-xl font-semibold text-white">
-                    Welcome back!
+                    Welcome back!!
                   </Text>
                   <Text className="text-center font-SfPro text-base text-[#425466]">
                     Let's build something great
@@ -149,6 +247,7 @@ const Login = () => {
                       textVariant="success"
                       title="Continue with Google"
                       className=" mt-[18px] !rounded border border-primary items-center justify-center !bg-white !text-black-100"
+                      onPress={GoogleSignIn}
                       IconLeft={() => (
                         <Image
                           source={icons.google}
