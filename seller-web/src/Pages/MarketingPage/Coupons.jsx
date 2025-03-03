@@ -30,18 +30,22 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
 export default function Coupons() {
+  // Add coupon type state
+  const [couponType, setCouponType] = useState('product') // 'product' or 'special'
+  
   // State management
   const [formData, setFormData] = useState({
     name: '',
-    code: '', // Optional now
+    code: '',
     discountPercentage: '',
     hasMinimumRequirement: false,
     minimumAmount: 0,
     startDate: new Date(),
-    endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 7 days from now
+    endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
     customerEligibility: 'all',
     usageLimit: null,
-    productDiscounts: [] // Will store {productId, discountedPrice}
+    productDiscounts: [],
+    applicableProductIds: [] // New field for special coupons
   })
   const [selectedProducts, setSelectedProducts] = useState([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -123,16 +127,6 @@ export default function Coupons() {
       const tokenData = JSON.parse(sellerToken)
       const token = tokenData.data
 
-      // Prepare product discounts data
-      const productDiscounts = selectedProducts.map(productId => {
-        const product = sellerProducts.find(p => p._id === productId)
-        const discountedPrice = product.price * (1 - (formData.discountPercentage / 100))
-        return {
-          productId,
-          discountedPrice: Math.round(discountedPrice)
-        }
-      })
-
       // Format dates properly
       const startDateTime = startTimeOption === 'immediately' 
         ? new Date().toISOString()
@@ -140,22 +134,48 @@ export default function Coupons() {
 
       const endDateTime = formData.endDate.toISOString();
 
-      const couponData = {
-        name: formData.name,
-        code: formData.code.toUpperCase(),
-        discountPercentage: Number(formData.discountPercentage),
-        hasMinimumRequirement: formData.hasMinimumRequirement,
-        minimumAmount: formData.hasMinimumRequirement ? Number(formData.minimumAmount) : 0,
-        startDate: startDateTime,
-        endDate: endDateTime, // Now properly included
-        customerEligibility: formData.customerEligibility,
-        productDiscounts,
-        usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null
-      }
+      if (couponType === 'special') {
+        // Special coupon data
+        const couponData = {
+          name: formData.name,
+          code: formData.code.toUpperCase(),
+          discountPercentage: Number(formData.discountPercentage),
+          startDate: startDateTime,
+          endDate: endDateTime,
+          usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null,
+          applicableProductIds: selectedProducts // Use selected products as applicable products
+        }
 
-      await axios.post(`${BASE_URL}/coupons`, couponData, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+        await axios.post(`${BASE_URL}/coupons/special`, couponData, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      } else {
+        // Regular product discount data
+        const productDiscounts = selectedProducts.map(productId => {
+          const product = sellerProducts.find(p => p._id === productId)
+          const discountedPrice = product.price * (1 - (formData.discountPercentage / 100))
+          return {
+            productId,
+            discountedPrice: Math.round(discountedPrice)
+          }
+        })
+
+        const couponData = {
+          name: formData.name,
+          discountPercentage: Number(formData.discountPercentage),
+          hasMinimumRequirement: formData.hasMinimumRequirement,
+          minimumAmount: formData.hasMinimumRequirement ? Number(formData.minimumAmount) : 0,
+          startDate: startDateTime,
+          endDate: endDateTime,
+          customerEligibility: formData.customerEligibility,
+          productDiscounts,
+          usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null
+        }
+
+        await axios.post(`${BASE_URL}/coupons`, couponData, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      }
 
       setSuccessDialogOpen(true)
 
@@ -170,7 +190,8 @@ export default function Coupons() {
         endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
         customerEligibility: "all",
         usageLimit: null,
-        productDiscounts: []
+        productDiscounts: [],
+        applicableProductIds: []
       })
       setSelectedProducts([])
 
@@ -243,6 +264,27 @@ export default function Coupons() {
         </Button>
       </div>
 
+      {/* Coupon Type Selector */}
+      <div className="bg-white rounded-lg border p-6 shadow-sm mb-8">
+        <h2 className="text-xl font-semibold mb-4">Select Coupon Type</h2>
+        <RadioGroup
+          value={couponType}
+          onValueChange={setCouponType}
+          className="flex space-x-8"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="product" id="product" />
+            <Label htmlFor="product">Product Discount</Label>
+            <InfoIcon className="h-4 w-4 text-gray-400 cursor-help" title="Apply discount directly to specific products" />
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="special" id="special" />
+            <Label htmlFor="special">Special Coupon Code</Label>
+            <InfoIcon className="h-4 w-4 text-gray-400 cursor-help" title="Create a reusable coupon code that can be applied at checkout" />
+          </div>
+        </RadioGroup>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Organize form into card-like sections */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -268,17 +310,22 @@ export default function Coupons() {
                   />
                 </div>
                 
-                <div className="grid gap-3">
-                  <Label htmlFor="code">Coupon Code</Label>
-                  <Input
-                    id="code"
-                    value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                    placeholder="e.g., SUMMER2024"
-                    className="max-w-md uppercase"
-                  />
-                  <span className="text-sm text-gray-500">Leave empty for auto-generation</span>
-                </div>
+                {couponType === 'special' && (
+                  <div className="grid gap-3">
+                    <Label htmlFor="code">Coupon Code <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                      placeholder="e.g., SUMMER2024"
+                      className="max-w-md uppercase"
+                      required
+                    />
+                    <span className="text-sm text-gray-500">
+                      This code will be used by customers at checkout
+                    </span>
+                  </div>
+                )}
 
                 <div className="grid gap-3">
                   <Label htmlFor="discountPercentage">Discount Percentage</Label>
@@ -299,42 +346,44 @@ export default function Coupons() {
             </div>
 
             {/* Purchase Restrictions Card */}
-            <div className="bg-white rounded-lg border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <span className="bg-primary/10 p-2 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-primary" />
-                </span>
-                Purchase Restrictions
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="hasMinimum"
-                    checked={formData.hasMinimumRequirement}
-                    onCheckedChange={(checked) => setFormData({
-                      ...formData,
-                      hasMinimumRequirement: checked,
-                      minimumAmount: checked ? formData.minimumAmount : 0
-                    })}
-                  />
-                  <Label htmlFor="hasMinimum">Set minimum purchase amount</Label>
-                </div>
-
-                {formData.hasMinimumRequirement && (
-                  <div className="ml-6">
-                    <Label htmlFor="minimumAmount">Minimum Amount (₦)</Label>
-                    <Input
-                      id="minimumAmount"
-                      type="number"
-                      value={formData.minimumAmount}
-                      onChange={(e) => setFormData({...formData, minimumAmount: e.target.value})}
-                      placeholder="1000"
-                      className="max-w-[200px] mt-2"
+            {couponType === 'product' && (
+              <div className="bg-white rounded-lg border p-6 shadow-sm">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <span className="bg-primary/10 p-2 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-primary" />
+                  </span>
+                  Purchase Restrictions
+                </h2>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="hasMinimum"
+                      checked={formData.hasMinimumRequirement}
+                      onCheckedChange={(checked) => setFormData({
+                        ...formData,
+                        hasMinimumRequirement: checked,
+                        minimumAmount: checked ? formData.minimumAmount : 0
+                      })}
                     />
+                    <Label htmlFor="hasMinimum">Set minimum purchase amount</Label>
                   </div>
-                )}
+
+                  {formData.hasMinimumRequirement && (
+                    <div className="ml-6">
+                      <Label htmlFor="minimumAmount">Minimum Amount (₦)</Label>
+                      <Input
+                        id="minimumAmount"
+                        type="number"
+                        value={formData.minimumAmount}
+                        onChange={(e) => setFormData({...formData, minimumAmount: e.target.value})}
+                        placeholder="1000"
+                        className="max-w-[200px] mt-2"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right Column */}
@@ -467,7 +516,7 @@ export default function Coupons() {
             <span className="bg-primary/10 p-2 rounded-lg">
               <Search className="h-5 w-5 text-primary" />
             </span>
-            Select Products
+            {couponType === 'special' ? 'Select Applicable Products' : 'Select Products to Discount'}
           </h2>
           
           {/* Improved search bar */}
@@ -630,10 +679,12 @@ export default function Coupons() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="h-6 w-6 text-green-600" />
-              Coupon Created Successfully
+              {couponType === 'special' ? 'Special Coupon Created' : 'Product Discount Created'}
             </DialogTitle>
             <DialogDescription>
-              Your coupon has been created and is now active. You can view and manage all your coupons in the coupons list.
+              {couponType === 'special' 
+                ? 'Your special coupon code has been created and is ready to use.'
+                : 'Your product discounts have been created and are now active.'}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end space-x-2">

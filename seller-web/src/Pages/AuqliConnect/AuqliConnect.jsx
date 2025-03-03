@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, MoreVertical, X, ChevronLeft, ChevronRight, MessageSquare, Heart } from 'lucide-react';
+import { MessageCircle, MoreVertical, X, ChevronLeft, ChevronRight, MessageSquare, Heart, Plus } from 'lucide-react';
 import { Search } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Bell } from 'lucide-react';
@@ -560,7 +560,7 @@ const TaggedProducts = ({ products }) => {
                 </div>
               </div>
               <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white dark:bg-gray-800 shadow-sm">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white dark:bg-gray-800 -sm">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -715,21 +715,16 @@ export default function SocialFeed() {
   useEffect(() => {
     const fetchSellerProfile = async () => {
       try {
-        const sellerToken = localStorage.getItem('sellerToken');
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
         if (!sellerToken) return;
-
-        const tokenData = JSON.parse(sellerToken);
-        const token = tokenData.data;
 
         const response = await fetch(`${BASE_URL}/seller/profile`, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${sellerToken}`
           }
         });
-
-        if (!response.ok) throw new Error('Failed to fetch seller profile');
-        const profileData = await response.json();
-        setSellerProfile(profileData);
+        const data = await response.json();
+        setSellerProfile(data);
       } catch (error) {
         console.error('Error fetching seller profile:', error);
       }
@@ -936,11 +931,11 @@ export default function SocialFeed() {
       const hasUserReacted = post.reactions?.some(r => r.user?.userId === currentUserId) || false;
 
       return (
-        <Card key={post._id} className="mb-8 bg-white dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden">
+        <Card key={post._id} className="mb-8 bg-white dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700/50 -sm hover:-md transition-all rounded-xl overflow-hidden">
           {/* Author Header */}
           <CardHeader className="flex flex-row items-center space-y-0 p-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-800">
             <div className="flex items-center gap-4 flex-1">
-              <Avatar className="h-12 w-12 ring-4 ring-white dark:ring-gray-800 shadow-sm">
+              <Avatar className="h-12 w-12 ring-4 ring-white dark:ring-gray-800 -sm">
                 <AvatarImage src={authorImage} className="object-cover" />
                 <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white font-semibold">
                   {authorName.charAt(0)}
@@ -1001,63 +996,94 @@ export default function SocialFeed() {
           </CardContent>
 
           {/* Engagement Stats & Actions */}
-          <CardFooter className="p-6 flex flex-col gap-4 bg-gray-50/50 dark:bg-gray-800/50">
-            {/* Stats */}
-            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50 pb-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                {formatReactions(post.stats).map(({ type, count, emoji }) => (
-                  <Badge
-                    key={type}
-                    variant="secondary"
-                    className="bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 flex items-center gap-1.5 px-3 py-1 rounded-full"
-                  >
-                    <span>{emoji}</span>
-                    <span>{count}</span>
-                  </Badge>
-                ))}
-                {/* {post.reactions?.length > 0 && (
-                  <span className="text-sm text-gray-500">
-                    {post.reactions.length}
-                  </span>
-                )} */}
-              </div>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                <span>{post.comments?.length || 0} comments</span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
+          <CardFooter className="p-6 bg-gray-50/50 dark:bg-gray-800/50">
             <div className="flex justify-between items-center w-full">
-              <div className="flex items-center gap-6">
-                <ReactionPopover
-                  postId={post._id}
-                  hasUserReacted={hasUserReacted}
-                  onReact={handleReact}
-                />
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="gap-2 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
-                  onClick={() => handleOpenPostActivity(post)}
+              {/* React Button with Reactions Count */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`flex-1 gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${
+                      hasUserReacted ? 'text-red-500' : 'hover:text-red-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {/* Reaction Emoji Icons */}
+                      <div className="flex -space-x-1">
+                        {Object.entries(post.stats?.reactions || {})
+                          .filter(([_, count]) => count > 0)
+                          .slice(0, 3)
+                          .map(([type, _], index) => (
+                            <div 
+                              key={type} 
+                              className={`w-6 h-6 rounded-full flex items-center justify-center bg-white dark:bg-gray-700 border-2 border-white dark:border-gray-800 ${index === 0 ? 'z-30' : index === 1 ? 'z-20' : 'z-10'}`}
+                            >
+                              <span className="text-xs">{getReactionEmoji(type)}</span>
+                            </div>
+                          ))}
+                        {Object.values(post.stats?.reactions || {}).reduce((a, b) => a + b, 0) === 0 && (
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white dark:bg-gray-700 border-2 border-white dark:border-gray-800">
+                            {hasUserReacted ? <AiFillHeart className="h-3 w-3 text-red-500" /> : <AiOutlineHeart className="h-3 w-3" />}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Reaction Count Text */}
+                      <span className="text-sm">
+                        {Object.values(post.stats?.reactions || {}).reduce((a, b) => a + b, 0) || ""} {Object.values(post.stats?.reactions || {}).reduce((a, b) => a + b, 0) > 0 ? "Reactions" : "React"}
+                      </span>
+                    </div>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-auto p-2 bg-white dark:bg-gray-800 rounded-full border-none shadow-xl"
+                  sideOffset={5}
                 >
-                  <FaRegCommentDots className="h-5 w-5" />
-                  <span>Comment</span>
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={`gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 ${
-                    savedPosts.some(savedPost => savedPost._id === post._id) 
-                      ? 'text-purple-500' 
-                      : 'hover:text-purple-500'
-                  }`}
-                  onClick={() => toggleSavePost(post)}
-                >
-                  <FaBookmark className="h-5 w-5" />
-                  <span>Save</span>
-                </Button>
-              </div>
+                  <div className="flex items-center gap-1">
+                    {REACTION_OPTIONS.map(({ type, emoji, label }) => (
+                      <button
+                        key={type}
+                        onClick={() => handleReact(post._id, type)}
+                        className="group relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-200 transform hover:scale-125"
+                      >
+                        <span className="text-2xl transition-transform duration-200 group-hover:scale-110">
+                          {emoji}
+                        </span>
+                        <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          {label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Comment Button with Count */}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex-1 gap-2 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
+                onClick={() => handleOpenPostActivity(post)}
+              >
+                <FaRegCommentDots className="h-5 w-5" />
+                <span>{post.comments?.length || 0} {post.comments?.length === 1 ? "Comment" : "Comments"}</span>
+              </Button>
+              
+              {/* Save Button */}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`flex-1 gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 ${
+                  savedPosts.some(savedPost => savedPost._id === post._id) 
+                    ? 'text-purple-500' 
+                    : 'hover:text-purple-500'
+                }`}
+                onClick={() => toggleSavePost(post)}
+              >
+                <FaBookmark className="h-5 w-5" />
+                <span>Save</span>
+              </Button>
             </div>
           </CardFooter>
         </Card>
@@ -1717,7 +1743,7 @@ export default function SocialFeed() {
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${
+            className={`flex-1 gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 ${
               hasUserReacted ? 'text-red-500' : 'hover:text-red-500'
             }`}
           >
@@ -1818,6 +1844,44 @@ export default function SocialFeed() {
     setSavedPosts(newSavedPosts);
   };
 
+  // Add this component inside SocialFeed but before the return statement
+  const CreatePostInput = () => {
+    return (
+      <Card className="mb-6 bg-white dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700/50 -sm hover:-md transition-all rounded-xl overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 ring-2 ring-white dark:ring-gray-800">
+              <AvatarImage 
+                src={sellerProfile?.storeAvatar?.url} 
+                alt={sellerProfile?.storeName}
+                className="object-cover"
+              />
+              <AvatarFallback className="bg-green-500 text-white">
+                {sellerProfile?.storeName?.[0] || 'S'}
+              </AvatarFallback>
+            </Avatar>
+            <div 
+              className="flex-1 bg-gray-100 dark:bg-gray-700/50 rounded-full px-4 py-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              onClick={() => setIsCreatePostOpen(true)}
+            >
+              <span className="text-gray-500 dark:text-gray-400">
+                What's on your mind?
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setIsCreatePostOpen(true)}
+            >
+              <PenSquare className="h-5 w-5 text-gray-500" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -1832,49 +1896,77 @@ export default function SocialFeed() {
     <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
       <div className=' mx-auto py-6 px-4 sm:px-6 lg:px-8'>
         <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8'>
-          <div className='flex items-center justify-between md:justify-start gap-4 flex-1'>
-            <div className='relative flex-1 md:max-w-md'>
-              <Input
-                placeholder="Search posts, people, or tags..."
-                className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                value={searchQuery}
-                onChange={handleSearchChange}
-              />
-              {isLoading ? (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
-              ) : (
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          {/* What's on your mind input - Now on the left and larger */}
+          <div className='flex-1'>
+            <div className="flex items-center gap-3 bg-white dark:bg-gray-800/90 rounded-xl px-4 py-3 border border-gray-200 dark:border-gray-700/50 hover:border-gray-300 dark:hover:border-gray-600 transition-colors -sm hover:-md">
+              <Avatar className="h-10 w-10 ring-2 ring-white dark:ring-gray-800">
+                <AvatarImage 
+                  src={sellerProfile?.storeAvatar?.url} 
+                  alt={sellerProfile?.storeName}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-green-500 text-white">
+                  {sellerProfile?.storeName?.[0] || 'S'}
+                </AvatarFallback>
+              </Avatar>
+              <div 
+                className="flex-1 cursor-pointer bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600/50 px-4 py-2.5 rounded-lg transition-colors"
+                onClick={() => setIsCreatePostOpen(true)}
+              >
+                <span className="text-gray-500 dark:text-gray-400">
+                  What's on your mind?
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-full bg-green-500 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600/50"
+                onClick={() => setIsCreatePostOpen(true)}
+              >
+                <Plus className="h-5 w-5 text-white dark:text-gray-400" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Improved Search Input - Now on the right */}
+          <div className='md:w-72'>
+            <div className="relative">
+              <div className="relative flex items-center">
+                <Input
+                  placeholder="Search posts, people, or tags..."
+                  className="pl-11 pr-4 h-12 bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700/50 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-colors -sm hover:-md"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  ) : (
+                    <Search className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      setSearchQuery('');
+                      fetchPosts();
+                    }}
+                  >
+                    <X className="h-4 w-4 text-gray-500" />
+                  </Button>
+                )}
+              </div>
+              {isLoading && searchQuery && (
+                <div className="absolute w-full mt-1 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 -lg">
+                  <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                    Searching...
+                  </div>
+                </div>
               )}
             </div>
-            
-            {/* <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                className="relative md:hidden border-gray-200 dark:border-gray-700"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  3
-                </span>
-              </Button>
-            </div> */}
-          </div>
-          
-          <div className='hidden md:flex items-center gap-4'>
-            {/* <Button 
-              variant="outline" 
-              className="gap-2 border-gray-200 dark:border-gray-700"
-            >
-              <Bell className="w-5 h-5" />
-              <Badge variant="secondary" className="bg-red-500 text-white">3</Badge>
-            </Button> */}
-            <Button
-              onClick={() => setIsCreatePostOpen(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-6"
-            >
-              Create Post
-            </Button>
           </div>
         </div>
 
@@ -1947,7 +2039,7 @@ export default function SocialFeed() {
         </div>
 
         <Button
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white lg:hidden"
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full -lg bg-green-600 hover:bg-green-700 text-white lg:hidden"
           onClick={() => navigate('/dashboard/messages')}
         >
           <MessageCircle className="h-6 w-6" />
@@ -1975,6 +2067,8 @@ export default function SocialFeed() {
         }}
         initialIndex={activeMediaIndex}
       />
+
+    
     </div>
   )
 }

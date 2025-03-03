@@ -1,64 +1,63 @@
-import { useState, useEffect } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mail, MapPin, MoreVertical, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera } from "lucide-react"
-import { UserSquareIcon } from "lucide-react"
-import LinearProgress from "@mui/material/LinearProgress"
-import { BASE_URL } from "@/Constants/Server"
-import { format } from "date-fns"
-import PostsTab from "./components/PostsTab"
-import ShopTab from "./components/ShopTab"
-import BlipsTab from "./components/BlipsTab"
-import ShowsTab from "./components/ShowsTab"
-import ReviewsTab from "./components/ReviewsTab"
-import { useOutletContext } from "react-router-dom"
-import { toast } from "sonner"
-
+import { useState, useEffect } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit } from "lucide-react";
+import { UserSquareIcon } from "lucide-react";
+import LinearProgress from "@mui/material/LinearProgress";
+import { BASE_URL } from "@/Constants/Server";
+import { format } from "date-fns";
+import PostsTab from "./components/PostsTab";
+import ShopTab from "./components/ShopTab";
+import BlipsTab from "./components/BlipsTab";
+import ShowsTab from "./components/ShowsTab";
+import ReviewsTab from "./components/ReviewsTab";
+import { useOutletContext, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function AccountPage() {
   const { setHeaderName, setNavName } = useOutletContext();
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     setHeaderName("Account");
-   
   }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const sellerToken = localStorage.getItem("sellerToken")
+        const sellerToken = localStorage.getItem("sellerToken");
         if (!sellerToken) {
-          throw new Error("No authentication token found")
+          throw new Error("No authentication token found");
         }
 
-        const tokenData = JSON.parse(sellerToken)
+        const tokenData = JSON.parse(sellerToken);
         const response = await fetch(`${BASE_URL}/seller/profile`, {
           headers: {
             Authorization: `Bearer ${tokenData.data}`,
           },
-        })
+        });
 
         if (!response.ok) {
-          throw new Error("Failed to fetch profile data")
+          throw new Error("Failed to fetch profile data");
         }
 
-        const data = await response.json()
-        setProfile(data)
+        const data = await response.json();
+        setProfile(data);
       } catch (err) {
-        setError(err.message)
+        setError(err.message);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchProfile()
-  }, [])
+    fetchProfile();
+  }, []);
 
   const handleAvatarUpload = async (event) => {
     const file = event.target.files[0];
@@ -81,13 +80,13 @@ export default function AccountPage() {
       });
 
       if (!response.ok) throw new Error('Failed to upload avatar');
-      
+
       const data = await response.json();
       setProfile(prev => ({
         ...prev,
         storeAvatar: data.storeAvatar
       }));
-      
+
       toast.dismiss(loadingToast);
       toast.success('Profile picture updated successfully!');
     } catch (error) {
@@ -118,13 +117,13 @@ export default function AccountPage() {
       });
 
       if (!response.ok) throw new Error('Failed to upload banner');
-      
+
       const data = await response.json();
       setProfile(prev => ({
         ...prev,
         storeBanner: data.storeBanner
       }));
-      
+
       toast.dismiss(loadingToast);
       toast.success('Cover image updated successfully!');
     } catch (error) {
@@ -141,21 +140,21 @@ export default function AccountPage() {
           <LinearProgress color="success" />
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
         <p className="text-red-600">Error: {error}</p>
-        <Button 
-          onClick={() => window.location.reload()} 
+        <Button
+          onClick={() => window.location.reload()}
           className="mt-4 bg-green-600 hover:bg-green-700"
         >
           Retry
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -211,8 +210,8 @@ export default function AccountPage() {
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{profile?.storeName || `${profile?.firstName} ${profile?.lastName}`}</h1>
                   {profile?.isVerified && (
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className="font-medium bg-green-600/10 text-green-600 px-2 sm:px-3 py-1 flex items-center gap-1 rounded-full text-xs sm:text-sm"
                     >
                       <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -220,7 +219,7 @@ export default function AccountPage() {
                     </Badge>
                   )}
                 </div>
-                
+
                 {/* Contact info */}
                 <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                   <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent hover:text-green-600">
@@ -229,7 +228,7 @@ export default function AccountPage() {
                   </Button>
                   <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent hover:text-green-600">
                     <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                    {profile?.businessAddress ? 
+                    {profile?.businessAddress ?
                       `${profile.businessAddress.city}, ${profile.businessAddress.country}` :
                       profile?.warehouseAddress ?
                       `${profile.warehouseAddress.city}, ${profile.warehouseAddress.country}` :
@@ -250,10 +249,15 @@ export default function AccountPage() {
                   </div>
                 </div>
               </div>
-              
-              <Button variant="outline" size="icon" className="rounded-full hover:bg-green-600/10 hover:text-green-600">
-                <MoreVertical className="h-4 w-4" />
-                <span className="sr-only">More options</span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="hover:bg-green-600/10 hover:text-green-600"
+                onClick={() => navigate('/dashboard/settings')}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Profile
               </Button>
             </div>
 
@@ -271,17 +275,17 @@ export default function AccountPage() {
                 { label: "Orders", value: profile?.totalOrders || 0, icon: ShoppingBag, color: "text-green-500" },
                 { label: "Following", value: profile?.followingCount || 0, icon: Users, color: "text-purple-500" },
                 { label: "Followers", value: profile?.followersCount || 0, icon: Heart, color: "text-rose-500" },
-                { 
-                  label: "Store Rating", 
+                {
+                  label: "Store Rating",
                   value: (
                     <div className="flex items-center gap-1 sm:gap-2">
-                      <span>{profile?.storeStats?.averageRating || "4.3"}</span>
+                      <span>{profile?.stats?.averageRating || "4.3"}</span>
                       <div className="flex items-center">
                         {[...Array(5)].map((_, index) => (
                           <svg
                             key={index}
                             className={`w-3 h-3 sm:w-4 sm:h-4 ${
-                              index < Math.floor(profile?.storeStats?.averageRating || 4.3)
+                              index < Math.floor(profile?.stats?.averageRating || 4.3)
                                 ? "text-yellow-400"
                                 : "text-gray-300"
                             }`}
@@ -297,7 +301,7 @@ export default function AccountPage() {
                         ))}
                       </div>
                       <span className="text-xs sm:text-sm text-muted-foreground">
-                        ({profile?.storeStats?.totalReviews || "42"})
+                        ({profile?.stats?.totalReviews || "42"})
                       </span>
                     </div>
                   ),
@@ -361,6 +365,5 @@ export default function AccountPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
