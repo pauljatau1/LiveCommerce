@@ -248,7 +248,7 @@ const CartScreen = () => {
     <SafeAreaView className={`flex-1 bg-[#121212] relative`}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
 
-      <View className="relative h-full relative">
+      <View className="relative h-full relative flex-1">
         <View className="p-[20px] pt-[30px]">
           <TouchableOpacity className="" onPress={() => router.back()}>
             <Entypo
@@ -310,7 +310,7 @@ const CartScreen = () => {
         )}
 
         {tab == "wishlist" && (
-          <View className=" pb-[80px]">
+          <View className="flex-1">
             {wishListLoading ? (
               <ActivityIndicator size="small" color={"#16783A"} />
             ) : wishList?.length > 0 ? (

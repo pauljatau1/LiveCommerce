@@ -59,7 +59,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   const renderEmptyPlaceholder = () => {
     return (
       <View className="">
-        <Text className="text-white font-LexendDeca text-[16px] text-center">
+        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
           No Products Found
         </Text>
       </View>

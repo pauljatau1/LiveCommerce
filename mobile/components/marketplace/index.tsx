@@ -101,13 +101,17 @@ const Marketplace = () => {
                 title="Explore Categories"
                 textStyle="!font-LexendDecaSemiBold text-xs"
                 className="border !w-[47%]  rounded-md border-[#EDF2F7] bg-transparent"
-                onPress={() => {}}
+                onPress={() => {
+                  router.push("/(root)/(tabs)/explore/explore");
+                }}
               />
               <CustomButton
                 title="Visit Community"
                 textStyle="!font-LexendDecaSemiBold text-xs"
                 className="!w-[47%] !bg-primary-200  rounded-md  "
-                onPress={() => {}}
+                onPress={() => {
+                  router.push("/(root)/(tabs)/connect");
+                }}
               />
             </View>
           </View>

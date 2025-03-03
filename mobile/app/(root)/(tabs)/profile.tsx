@@ -25,6 +25,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { formatDate } from "@/helpers/helpers";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
+import Favorites from "@/components/profile/favorites";
 
 const HEADER_HEIGHT = 250;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -188,7 +189,17 @@ const CollapsibleHeader = memo(
 );
 
 const TabScene = memo(
-  ({ route, scrollY, id }: { route: any; scrollY: any; id: string }) => {
+  ({
+    route,
+    scrollY,
+    id,
+    index,
+  }: {
+    route: any;
+    scrollY: any;
+    id: string;
+    index: number;
+  }) => {
     const contentContainerStyle = {
       paddingTop: HEADER_HEIGHT, // Space for the header
       minHeight: Dimensions.get("window").height + HEADER_HEIGHT,
@@ -201,26 +212,13 @@ const TabScene = memo(
           headerHeight={HEADER_HEIGHT}
           userId={id}
           type="Buyer"
+          index={index}
         />
       );
     }
 
     return (
-      <View style={contentContainerStyle}>
-        <View style={{ padding: 20 }}>
-          <Text
-            style={{
-              color: "white",
-              fontSize: 16,
-              fontFamily: "LexendDeca",
-              textAlign: "center",
-              opacity: 0.7,
-            }}
-          >
-            {route.title} coming soon
-          </Text>
-        </View>
-      </View>
+      <Favorites scrollY={scrollY} headerHeight={HEADER_HEIGHT} index={index} />
     );
   },
 );
@@ -241,7 +239,7 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>({});
   const scrollY = useRef(new Animated.Value(0)).current;
   const renderScene = ({ route }: { route: any }) => (
-    <TabScene route={route} scrollY={scrollY} id={user._id} />
+    <TabScene route={route} scrollY={scrollY} id={user._id} index={index} />
   );
 
   const renderTabBar = (props: any) => (
@@ -316,6 +314,11 @@ const Profile = () => {
   useEffect(() => {
     if (isFocused) getUserProfile();
   }, [isFocused]);
+
+  const handleIndexChange = (newIndex: number) => {
+    setIndex(newIndex);
+    scrollY.setValue(0);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
@@ -397,7 +400,7 @@ const Profile = () => {
               lazy={true}
               navigationState={{ index, routes }}
               renderScene={renderScene}
-              onIndexChange={setIndex}
+              onIndexChange={handleIndexChange}
               initialLayout={{ width: layout.width }}
               renderTabBar={renderTabBar}
             />
