@@ -110,31 +110,41 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
         },
       );
 
+      const phoneNumber =
+        response.data?.businessInfo.businessNumber ||
+        response.data?.personalInfo.phoneNumber;
+
       const pickup_address = {
         first_name: response.data?.personalInfo?.firstName,
         last_name: response.data?.personalInfo?.lastName,
-        email: response.data?.contactInformation?.businessEmail
-          ? response.data?.contactInformation?.businessEmail
-          : "bolu@gmail.com",
-        phone:
-          //   "+" + response.data?.businessInfo?.businessNumber
-          //     ? response.data?.personalInfo?.phoneNumber
-          //     :
-          "+2348083412865",
-        line1: response.data?.contactInformation?.businessAddress.addressLine1
-          ? response.data.warehouse?.address?.addressLine1
-          : "ajayi crowder way",
-        line2: response.data?.contactInformation?.businessAddress.addressLine2
-          ? response.data.warehouse?.addrress?.addressLine2
-          : "boluwa street",
-        city: response.data.warehouse.address.city || "Amuwo-Odofin",
-        state: response.data?.contactInformation?.businessAddress?.state
-          ? response.data?.warehouse?.address?.state
-          : "lagos",
+        email:
+          response.data?.contactInformation?.businessEmail ||
+          response.data?.personalInfo?.email ||
+          "bolu@auqli.com",
+        phone: phoneNumber?.includes("+") ? phoneNumber : `+${phoneNumber}`,
+        line1:
+          response.data.warehouse?.address?.addressLine1 ||
+          response.data?.contactInformation?.businessAddress.addressLine1 ||
+          response.data?.contactInformation?.sellerAddress.addressLine1,
+
+        line2:
+          response.data.warehouse?.addrress?.addressLine2 ||
+          response.data?.contactInformation?.businessAddress.addressLine2 ||
+          response.data?.contactInformation?.sellerAddress.addressLine2,
+
+        city:
+          response.data?.warehouse?.address?.city ||
+          response.data?.contactInformation?.businessAddress.city ||
+          response.data?.contactInformation?.sellerAddress.city,
+        state:
+          response.data?.warehouse?.address?.state ||
+          response.data?.contactInformation?.businessAddress?.state ||
+          response.data?.contactInformation?.sellerAddress?.state,
         country: "NG",
-        zip: response.data?.contactInformation?.businessAddress?.zipCode
-          ? response.data?.warehouse?.address?.zipCode
-          : "100001",
+        zip:
+          response.data?.warehouse?.address?.zipCode ||
+          response.data?.contactInformation?.businessAddress?.zipCode ||
+          response.data?.contactInformation?.sellerAddress?.zipCode,
       };
 
       setPickupAddress({ [`${sellerId}`]: pickup_address });
@@ -412,7 +422,7 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
               cartItem?.seller?.storeInfo?.storeName}
           </Text>
         </View>
-        <View className="flex-row gap-[16px]">
+        <View className="flex-row gap-[16px] ">
           <Image
             source={{ uri: cartItem?.images?.[0]?.url }}
             contentFit="contain"
@@ -424,8 +434,8 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
           />
           <View className="gap-[6px] relative shrink">
             <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-              {cartItem?.name.length > 20
-                ? cartItem?.name.slice(0, 20) + "..."
+              {cartItem?.name.length > 50
+                ? cartItem?.name.slice(0, 50) + "..."
                 : cartItem?.name}
             </Text>
             <Text className="text-[22px] text-[#F2F2F2] font-LexendDecaSemiBold">
@@ -442,10 +452,10 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
               )}
             </Text>
             <Text className="text-[12px] text-[#F2F2F2] font-LexendDecaLight">
-              Item ID: {cartItem?._id?.toLocaleString().slice(0, 12)}...
+              Item ID: {cartItem?._id?.toLocaleString()}
             </Text>
             <View
-              className="flex-row items-center gap-[11px] flex-wrap"
+              className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{
                 marginTop: "auto",
               }}

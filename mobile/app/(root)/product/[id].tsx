@@ -36,6 +36,7 @@ import { getProductSpecifications } from "@/helpers/helpers";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import AuthSheet from "@/components/auth/authSheet";
 import CheckoutNow from "@/components/blips/checkoutNow";
+import { formatNumber } from "@/core";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -515,7 +516,7 @@ const ProductDescription = () => {
                         </Text>
                       </View>
                       <Text className="text-[11px] text-white font-LexendDecaBold">
-                        {productDetails?.stats?.soldCount} sold
+                        {formatNumber(productDetails?.stats?.soldCount)} sold
                       </Text>
                     </View>
                   </View>
@@ -1281,7 +1282,10 @@ const AddedToCart = ({
         </TouchableOpacity>
         <TouchableOpacity
           className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
-          onPress={() => router.push("/checkout/checkout")}
+          onPress={() => {
+            closeSheet();
+            router.push("/checkout/checkout");
+          }}
         >
           <Text className="text-white font-LexendDecaBold text-[12px]">
             Checkout Now

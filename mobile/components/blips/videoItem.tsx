@@ -28,7 +28,7 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Shadow, ShadowProps } from "react-native-shadow-2";
 import BottomSheet from "../global/bottom-sheet";
-import { timeFromNow } from "@/helpers/helpers";
+import { formatNumber, timeFromNow } from "@/helpers/helpers";
 import { TextInput } from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import moment from "moment";
@@ -283,7 +283,7 @@ const VideoItem = ({
                 className="text-white text-[12px] font-LexendDecaMedium"
                 style={styles.text}
               >
-                {likes}
+                {formatNumber(likes)}
               </Text>
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
@@ -297,7 +297,7 @@ const VideoItem = ({
                 className="text-white text-[12px] font-LexendDecaMedium"
                 style={styles.text}
               >
-                {comments}
+                {formatNumber(comments)}
               </Text>
             </View>
             {/* <View className="items-center gap-2 max-w-[60px] self-end">
@@ -582,7 +582,8 @@ const CommentsSheet = ({
       ) : (
         <View className="h-full pb-[50px] w-full">
           <Text className="text-white text-center mb-[30px]">
-            {commentCount || "No"} {commentCount > 1 ? "comments" : "comment"}
+            {formatNumber(commentCount) || "No"}{" "}
+            {commentCount > 1 ? "comments" : "comment"}
           </Text>
           <FlatList
             data={comments.slice().reverse()}

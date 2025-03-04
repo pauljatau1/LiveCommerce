@@ -22,7 +22,7 @@ import Feather from "@expo/vector-icons/Feather";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import axios from "axios";
 import { useIsFocused } from "@react-navigation/native";
-import { formatDate } from "@/helpers/helpers";
+import { formatDate, formatNumber } from "@/helpers/helpers";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
 import Favorites from "@/components/profile/favorites";
@@ -86,7 +86,7 @@ const CollapsibleHeader = memo(
               <View className="flex-row items-center justify-between w-full shrink">
                 <View className="gap-[4px] items-center">
                   <Text className="text-[18px] text-[#ccc] font-LexendDeca">
-                    {info?.postsCount}
+                    {formatNumber(info?.postsCount)}
                   </Text>
                   <Text className="text-[12px] text-[#ccc] font-LexendDeca">
                     Posts
@@ -105,7 +105,7 @@ const CollapsibleHeader = memo(
                   }
                 >
                   <Text className="text-[18px] text-[#ccc] font-LexendDeca">
-                    {info?.followingCount}
+                    {formatNumber(info?.followingCount)}
                   </Text>
                   <Text className="text-[12px] text-[#ccc] font-LexendDeca">
                     Following
@@ -124,7 +124,7 @@ const CollapsibleHeader = memo(
                   }
                 >
                   <Text className="text-[18px] text-[#ccc] font-LexendDeca">
-                    {info?.followersCount}
+                    {formatNumber(info?.followersCount)}
                   </Text>
                   <Text className="text-[12px] text-[#ccc] font-LexendDeca">
                     Followers

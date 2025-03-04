@@ -6,7 +6,7 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   useDeepSearchProductsQuery,
   useGetAllProductsQuery,
@@ -16,23 +16,44 @@ import CatalogCard from "./catalogCard";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import BottomSheet from "../global/bottom-sheet";
-import { catalogSort } from "@/helpers/helpers";
+import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
+import FilterSheet from "./filterSheet";
 
 const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   const { data, isLoading, isFetching, isError } = useDeepSearchProductsQuery({
     query: searchQuery,
   });
   const [filter, setFilter] = useState<string>("None");
+  const [selectedFilters, setSelectedFilters] = useState<any>();
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
 
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
+  const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
     setFilter(type);
     const sortedProducts = catalogSort(products, type);
     setFilteredProducts(sortedProducts);
+  };
+
+  const handleFilter = (filters: any) => {
+    let appliedFilters = products?.slice();
+    if (filters.price) {
+      appliedFilters = catalogFilterPrice(appliedFilters, filters.price);
+    }
+    if (filters.condition) {
+      appliedFilters = appliedFilters.filter(
+        (product) =>
+          product?.condition ==
+          filters.condition.toLowerCase().replace(" ", "-"),
+      );
+    }
+
+    setFilteredProducts(appliedFilters);
+    setShowFilterSheet(false);
+    setSelectedFilters(filters);
   };
 
   const renderProducts = (item: any) => {
@@ -63,6 +84,16 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
     );
   };
 
+  const renderEmptyPlaceholder = useCallback(() => {
+    return (
+      <View className="">
+        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
+          No Products
+        </Text>
+      </View>
+    );
+  }, []);
+
   useEffect(() => {
     setProducts(data);
     setFilteredProducts(data);
@@ -82,7 +113,7 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
               style={{
                 backgroundColor: "rgba(204, 204, 204, 0.25)",
               }}
-              //   onPress={() => setFilter("icon")}
+              onPress={() => setShowFilterSheet(true)}
             >
               <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
             </TouchableOpacity>
@@ -119,6 +150,7 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
               paddingBottom: 80,
             }}
             showsVerticalScrollIndicator={false}
+            ListEmptyComponent={renderEmptyPlaceholder}
           />
         </View>
       )}
@@ -136,6 +168,21 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
         <SortSheet
           selectSortType={handleSelectSortType}
           currentSelection={filter}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={showFilterSheet}
+        titleColor="!text-white"
+        onRequestClose={() => setShowFilterSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <FilterSheet
+          selectFilterType={handleFilter}
+          currentSelection={selectedFilters}
         />
       </BottomSheet>
     </View>

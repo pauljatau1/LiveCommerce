@@ -29,7 +29,7 @@ import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { timeFromNow } from "@/helpers/helpers";
+import { formatNumber, timeFromNow } from "@/helpers/helpers";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -258,7 +258,7 @@ const MorePostInfo = () => {
                     fontFamily: "LexendDeca",
                   }}
                 >
-                  {reactionCount} Reactions
+                  {formatNumber(reactionCount)} Reactions
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -277,7 +277,7 @@ const MorePostInfo = () => {
                     fontFamily: "LexendDeca",
                   }}
                 >
-                  {comments?.length} Comments
+                  {formatNumber(comments?.length)} Comments
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity

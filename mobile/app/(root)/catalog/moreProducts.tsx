@@ -12,7 +12,7 @@ import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router, useGlobalSearchParams } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import CatalogCard from "@/components/catalog/catalogCard";
-import { catalogSort } from "@/helpers/helpers";
+import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import {
   useGetForYouQuery,
   useGetNewAuqliQuery,
@@ -25,6 +25,7 @@ import { ActivityIndicator } from "react-native-paper";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken } from "@/store/features/auth/utils";
+import FilterSheet from "@/components/catalog/filterSheet";
 
 const MoreProducts = () => {
   const { name } = useGlobalSearchParams();
@@ -42,6 +43,8 @@ const MoreProducts = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
+  const [selectedFilters, setSelectedFilters] = useState<any>();
+  const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
 
   const handleGetProductData = async () => {
     let endpoint = "";
@@ -82,8 +85,24 @@ const MoreProducts = () => {
     setFilter(type);
     const sortedProducts = catalogSort(products, type);
     return console.log(sortedProducts);
+  };
 
-    setFilteredProducts(sortedProducts);
+  const handleFilter = (filters: any) => {
+    let appliedFilters = products?.slice();
+    if (filters.price) {
+      appliedFilters = catalogFilterPrice(appliedFilters, filters.price);
+    }
+    if (filters.condition) {
+      appliedFilters = appliedFilters.filter(
+        (product) =>
+          product?.condition ==
+          filters.condition.toLowerCase().replace(" ", "-"),
+      );
+    }
+
+    setFilteredProducts(appliedFilters);
+    setShowFilterSheet(false);
+    setSelectedFilters(filters);
   };
 
   const renderProducts = (item: any) => {
@@ -114,16 +133,20 @@ const MoreProducts = () => {
     );
   };
 
+  const renderEmptyPlaceholder = useCallback(() => {
+    return (
+      <View className="">
+        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
+          No Products
+        </Text>
+      </View>
+    );
+  }, []);
+
   useEffect(() => {
     handleGetProductData();
-  }, [name]);
+  }, []);
 
-  // useEffect(() => {
-  //   if (data?.data || data?.products) {
-  //     setProducts(data?.data || data?.products);
-  //     setFilteredProducts(data?.data || data?.products);
-  //   }
-  // }, [data]);
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -159,7 +182,7 @@ const MoreProducts = () => {
                   style={{
                     backgroundColor: "rgba(204, 204, 204, 0.25)",
                   }}
-                  //   onPress={() => setFilter("icon")}
+                  onPress={() => setShowFilterSheet(true)}
                 >
                   <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
                 </TouchableOpacity>
@@ -193,6 +216,7 @@ const MoreProducts = () => {
                   marginBottom: 8,
                 }}
                 showsVerticalScrollIndicator={false}
+                ListEmptyComponent={renderEmptyPlaceholder}
               />
             </View>
           )}
@@ -210,6 +234,21 @@ const MoreProducts = () => {
             <SortSheet
               selectSortType={handleSelectSortType}
               currentSelection={filter}
+            />
+          </BottomSheet>
+
+          <BottomSheet
+            bgColor="#121212"
+            childrenStyle="!px-[11px]"
+            showCloseIcon={false}
+            show={showFilterSheet}
+            titleColor="!text-white"
+            onRequestClose={() => setShowFilterSheet(false)}
+            keyboardBehavior="interactive"
+          >
+            <FilterSheet
+              selectFilterType={handleFilter}
+              currentSelection={selectedFilters}
             />
           </BottomSheet>
         </View>

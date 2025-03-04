@@ -22,7 +22,7 @@ import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Entypo from "@expo/vector-icons/Entypo";
 import Octicons from "@expo/vector-icons/Octicons";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { timeFromNow } from "@/helpers/helpers";
+import { formatNumber, timeFromNow } from "@/helpers/helpers";
 import { router } from "expo-router";
 import BottomSheet from "../global/bottom-sheet";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -536,7 +536,7 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
                 fontFamily: "LexendDeca",
               }}
             >
-              {reactions?.length} Reactions
+              {formatNumber(reactions?.length)} Reactions
             </Text>
           </TouchableOpacity>
         </GestureDetector>
@@ -571,7 +571,7 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
               fontFamily: "LexendDeca",
             }}
           >
-            {comments} Comments
+            {formatNumber(comments)} Comments
           </Text>
         </TouchableOpacity>
         {/* <TouchableOpacity
@@ -788,7 +788,8 @@ const CommentsSheet = memo(
       ) : ( */}
         <View className="h-full pb-[50px] w-full">
           <Text className="text-white text-center mb-[30px]">
-            {commentsCount || "No"} {commentsCount > 1 ? "comments" : "comment"}
+            {formatNumber(commentsCount) || "No"}{" "}
+            {commentsCount > 1 ? "comments" : "comment"}
           </Text>
           <View
             style={{

@@ -9,16 +9,19 @@ import WatchFriends from "./watching-friends";
 import ExploreMoreSection from "./expore-more";
 import { useLivestream } from "../../../contexts/livestreamContext";
 import { useEffect, useState } from "react";
+import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 
 const AuqliLive = () => {
   const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } =
     useLivestream();
   const [filteredActiveLivestream, setFilteredActiveLivestream] = useState([]);
+  const [liveStreamLoading, setLiveStreamLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchData = async () => {
       const response = await fetchAllActiveLiveStreams();
       setFilteredActiveLivestream(response);
+      setLiveStreamLoading(false);
     };
 
     fetchData();
@@ -26,6 +29,9 @@ const AuqliLive = () => {
 
   return (
     <View className="w-full pt-1">
+      {liveStreamLoading && (
+        <HomepageSkeleton numOfLoaders={6} height={220} padding={16} />
+      )}
       {filteredActiveLivestream.length > 0 && <PopularCard />}
       <SpotLight />
       <Sellers />

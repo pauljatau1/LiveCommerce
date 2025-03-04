@@ -18,12 +18,7 @@ const Homepage = () => {
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView
-        className="h-full flex-1 bg-[#121212]"
-        style={{
-          minHeight: height,
-        }}
-      >
+      <SafeAreaView className="h-full flex-1 bg-[#121212]">
         <Home />
       </SafeAreaView>
     </>

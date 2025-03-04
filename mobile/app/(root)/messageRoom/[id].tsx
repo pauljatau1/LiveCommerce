@@ -535,12 +535,12 @@ const MessageRoom = () => {
               </View>
             )}
             <View
-              className="gap-[12px] flex-col items-center"
+              className="gap-[12px] flex-col items-center pb-[12px]"
               style={{
                 alignSelf: "baseline",
               }}
             >
-              <View className="flex-row items-center gap-[12px] pt-[12px] border-t-[0.5px] border-t-[#888787] px-[17px]">
+              <View className="flex-row items-center gap-[12px] pt-[12px]  border-t-[0.5px] border-t-[#888787] px-[17px]">
                 <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink  bg-[#2e2e2e]">
                   <TextInput
                     placeholder="Type a message..."
