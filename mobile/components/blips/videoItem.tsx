@@ -226,45 +226,61 @@ const VideoItem = ({
           isMuted={false}
         />
         <View
-          className="px-[16px] py-[16px] gap-[8px] flex-row items-center"
+          className="px-[10px] py-[16px] gap-[8px] flex-row items-center justify-between"
           style={{
             marginTop: statusBarHeight,
           }}
         >
-          <Image
-            source={{ uri: seller?.storeAvatar?.url }}
-            resizeMode="cover"
-            style={[
-              {
-                height: 31,
-                width: 31,
-                borderRadius: 31,
-              },
-              styles.imageShadow,
-            ]}
-          />
+          <View className="flex-row items-center gap-[8px] ">
+            <Image
+              source={{ uri: seller?.storeAvatar?.url }}
+              resizeMode="cover"
+              style={[
+                {
+                  height: 31,
+                  width: 31,
+                  borderRadius: 31,
+                },
+                styles.imageShadow,
+              ]}
+            />
 
-          <View className="space-between mr-2">
-            <Text
-              className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
-              style={styles.text}
-            >
-              {seller.storeName || seller?.firstName + " " + seller?.lastName}
-            </Text>
-            <View className="flex-row items-center gap-[4px]">
-              <AntDesign name="star" size={12} color="#FFD700" />
-              <Text className="text-white text-[12px]" style={styles.text}>
-                4.7
+            <View className="space-between mr-2">
+              <Text
+                className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
+                style={styles.text}
+              >
+                {seller.storeName || seller?.firstName + " " + seller?.lastName}
               </Text>
+              <View className="flex-row items-center gap-[4px]">
+                <AntDesign name="star" size={12} color="#FFD700" />
+                <Text className="text-white text-[12px]" style={styles.text}>
+                  4.7
+                </Text>
+              </View>
             </View>
-          </View>
 
-          {/* <Pressable
+            {/* <Pressable
             className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
             style={styles.buttonShadow}
           >
             <Text className="text-white text-[10px]">+ Follow</Text>
           </Pressable> */}
+          </View>
+          <View
+            className="flex-row items-center justify-center px-[4px] py-[2px] gap-[4px] rounded-[8px]"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.8)",
+            }}
+          >
+            <Ionicons name="eye-outline" size={16} color="#EFF0FA" />
+            <Text
+              className="font-LexendDeca text-[12px]"
+              style={{ color: "#EFF0FA" }}
+            >
+              {formatNumber(engagement?.views || 0)}
+            </Text>
+          </View>
         </View>
         <View className="p-[10px]">
           <View className="gap-2 mb-[16px]">

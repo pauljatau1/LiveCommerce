@@ -108,6 +108,7 @@ const Blips = () => {
       engagement={{
         likes: item?.blipEngagement?.likesCount,
         comments: item?.blipEngagement?.commentsCount,
+        views: item?.blipEngagement?.viewCount,
       }}
       product={{
         id: item._id,
