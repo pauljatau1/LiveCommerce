@@ -1940,4 +1940,100 @@ exports.dislikePost = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Get replies for a specific comment
+exports.getCommentReplies = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Populate the replies with author and tagged entities information
+    await Post.populate(comment, [
+      {
+        path: 'replies.author.userId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar username',
+        refPath: 'replies.author.userModel'
+      },
+      {
+        path: 'replies.taggedSellers.sellerId',
+        select: 'storeName businessName storeAvatar',
+        model: 'Seller'
+      },
+      {
+        path: 'replies.taggedProducts.productId',
+        select: 'name images price',
+        model: 'Product'
+      }
+    ]);
+
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedReplies = comment.replies.slice(startIndex, endIndex);
+
+    // Format replies for response
+    const formattedReplies = paginatedReplies.map(reply => {
+      const replyProfileImageUrl = reply.author.userModel === 'Seller' 
+        ? reply.author.userId?.storeAvatar?.url || reply.author.userId?.profileImage?.url
+        : reply.author.userId?.profileImage?.url;
+
+      // Format reply tagged sellers
+      const replyFormattedTaggedSellers = reply.taggedSellers?.map(tag => ({
+        id: tag.sellerId._id,
+        storeName: tag.sellerId.storeName || tag.storeName,
+        businessName: tag.sellerId.businessName,
+        image: tag.sellerId.storeAvatar?.url || null,
+        taggedAt: tag.taggedAt
+      })) || [];
+
+      // Format reply tagged products
+      const replyFormattedTaggedProducts = reply.taggedProducts?.map(tag => ({
+        id: tag.productId._id,
+        name: tag.productId.name || tag.name,
+        image: tag.productId.images?.[0]?.url || null,
+        price: tag.productId.price,
+        taggedAt: tag.taggedAt
+      })) || [];
+
+      return {
+        id: reply._id,
+        content: reply.content,
+        createdAt: reply.createdAt,
+        author: {
+          id: reply.author.userId?._id || reply.author.userId,
+          name: reply.author.userId?.storeName || 
+                reply.author.userId?.username || 
+                `${reply.author.userId?.firstName || reply.author.firstName} ${reply.author.userId?.lastName || reply.author.lastName}`,
+          image: replyProfileImageUrl || null,
+          type: reply.author.userModel
+        },
+        likes: reply.likes?.length || 0,
+        taggedSellers: replyFormattedTaggedSellers,
+        taggedProducts: replyFormattedTaggedProducts
+      };
+    });
+
+    res.json({
+      replies: formattedReplies,
+      totalReplies: comment.replies.length,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(comment.replies.length / limit)
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch comment replies',
+      error: error.message
+    });
+  }
 }; 

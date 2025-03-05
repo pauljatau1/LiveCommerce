@@ -545,86 +545,6 @@ router.get('/:postId/comments',
 
 /**
  * @swagger
- * /api/posts:
- *   get:
- *     summary: Get all posts with pagination
- *     tags: [Posts]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         description: Number of posts per page
- *     responses:
- *       200:
- *         description: List of posts retrieved successfully
- */
-router.get('/',
-  postController.getPosts
-);
-
-/**
- * @swagger
- * /api/posts/seller-feed:
- *   get:
- *     summary: Get posts from followers and followed sellers
- *     tags: [Posts]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         description: Number of posts per page
- *     responses:
- *       200:
- *         description: Feed retrieved successfully
- *       401:
- *         description: Unauthorized - Only sellers can access this endpoint
- */
-router.get('/seller-feed',
-  authMiddleware.verifyToken,
-  authMiddleware.isSeller,
-  postController.getSellerFeed
-);
-
-/**
- * @swagger
- * /api/posts/buyer-feed:
- *   get:
- *     summary: Get posts from followed sellers and public buyer posts
- *     tags: [Posts]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- */
-router.get('/buyer-feed',
-  authMiddleware.verifyToken,
-  authMiddleware.isBuyer,
-  postController.getBuyerFeed
-);
-
-/**
- * @swagger
  * /api/posts/user/{userType}/{userId}:
  *   get:
  *     summary: Get all posts from a specific user
@@ -1517,6 +1437,201 @@ router.delete('/:postId/comments/:commentId/replies/:replyId',
 router.delete('/:postId/comments/:commentId',
   authMiddleware.verifyToken,
   postController.deleteComment
+);
+
+/**
+ * @swagger
+ * /api/posts/{postId}/comments/{commentId}/replies:
+ *   get:
+ *     summary: Get replies for a specific comment
+ *     tags: [Posts, Comments]
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the post containing the comment
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment to get replies for
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of replies per page
+ *     responses:
+ *       200:
+ *         description: Replies retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 replies:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       content:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       author:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           image:
+ *                             type: string
+ *                             nullable: true
+ *                           type:
+ *                             type: string
+ *                             enum: [Buyer, Seller]
+ *                       likes:
+ *                         type: integer
+ *                       taggedSellers:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                             storeName:
+ *                               type: string
+ *                             businessName:
+ *                               type: string
+ *                             image:
+ *                               type: string
+ *                               nullable: true
+ *                             taggedAt:
+ *                               type: string
+ *                               format: date-time
+ *                       taggedProducts:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                             name:
+ *                               type: string
+ *                             image:
+ *                               type: string
+ *                               nullable: true
+ *                             price:
+ *                               type: number
+ *                             taggedAt:
+ *                               type: string
+ *                               format: date-time
+ *                 totalReplies:
+ *                   type: integer
+ *                 currentPage:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *       404:
+ *         description: Post or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:postId/comments/:commentId/replies',
+  postController.getCommentReplies
+);
+
+/**
+ * @swagger
+ * /api/posts:
+ *   get:
+ *     summary: Get all posts with pagination
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of posts per page
+ *     responses:
+ *       200:
+ *         description: List of posts retrieved successfully
+ */
+router.get('/',
+  postController.getPosts
+);
+
+/**
+ * @swagger
+ * /api/posts/seller-feed:
+ *   get:
+ *     summary: Get posts from followers and followed sellers
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of posts per page
+ *     responses:
+ *       200:
+ *         description: Feed retrieved successfully
+ *       401:
+ *         description: Unauthorized - Only sellers can access this endpoint
+ */
+router.get('/seller-feed',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  postController.getSellerFeed
+);
+
+/**
+ * @swagger
+ * /api/posts/buyer-feed:
+ *   get:
+ *     summary: Get posts from followed sellers and public buyer posts
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ */
+router.get('/buyer-feed',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  postController.getBuyerFeed
 );
 
 module.exports = router; 
