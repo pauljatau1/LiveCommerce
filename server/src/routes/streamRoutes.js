@@ -208,10 +208,112 @@ router.post('/bid',
  *             schema:
  *               type: object
  *               properties:
+ *                 message:
+ *                   type: string
  *                 channelName:
  *                   type: string
  *                 token:
  *                   type: string
+ *                 uid:
+ *                   type: number
+ *                   description: User ID for Agora
+ *                 role:
+ *                   type: number
+ *                   description: Role in the stream (1 for host, 2 for audience)
+ *                 tokenExpiration:
+ *                   type: number
+ *                   description: Timestamp when the token expires
+ *                 stream:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     seller:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         storeName:
+ *                           type: string
+ *                         businessName:
+ *                           type: string
+ *                         storeAvatar:
+ *                           type: object
+ *                         rating:
+ *                           type: number
+ *                     title:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     coverImage:
+ *                       type: object
+ *                     category:
+ *                       type: string
+ *                     tags:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     products:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           product:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               description:
+ *                                 type: string
+ *                               images:
+ *                                 type: array
+ *                               price:
+ *                                 type: number
+ *                               stock:
+ *                                 type: number
+ *                               sku:
+ *                                 type: string
+ *                               variants:
+ *                                 type: array
+ *                           minBid:
+ *                             type: number
+ *                           maxBid:
+ *                             type: number
+ *                           currentBid:
+ *                             type: number
+ *                           currentBidder:
+ *                             type: object
+ *                     status:
+ *                       type: string
+ *                       enum: [scheduled, live, ended, expired]
+ *                     channelName:
+ *                       type: string
+ *                     scheduledStartTime:
+ *                       type: string
+ *                       format: date-time
+ *                     actualStartTime:
+ *                       type: string
+ *                       format: date-time
+ *                     endTime:
+ *                       type: string
+ *                       format: date-time
+ *                     viewers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     type:
+ *                       type: string
+ *                       enum: [auction, open_show]
+ *                     bids:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     viewerCount:
+ *                       type: number
+ *                     isLive:
+ *                       type: boolean
  *       401:
  *         description: Unauthorized
  *       404:

@@ -411,7 +411,7 @@ exports.joinStream = async (req, res) => {
 
     const token = agoraService.generateToken(
       stream.channelName,
-      tokenUid, 
+      isSeller ? req.user.agoraUid : tokenUid, 
       role
     );
 
@@ -442,7 +442,7 @@ exports.joinStream = async (req, res) => {
       message: 'Successfully joined stream',
       channelName: stream.channelName,
       token,
-      uid: tokenUid, // Now a proper number within Agora's range
+      uid: isSeller ? req.user.agoraUid : tokenUid, // Now a proper number within Agora's range for user uid
       role,
       tokenExpiration: Date.now() + (isSeller ? 
         (3600) * 1000 :
