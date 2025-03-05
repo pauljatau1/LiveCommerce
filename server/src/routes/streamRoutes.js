@@ -190,7 +190,8 @@ router.post('/bid',
  * @swagger
  * /api/streams/{streamId}/join:
  *   post:
- *     summary: Join a live stream as a viewer
+ *     summary: Join a live stream as a buyer/viewer
+ *     description: For buyers only. Sellers should use the /join-seller endpoint instead.
  *     tags: [Streams]
  *     security:
  *       - bearerAuth: []
@@ -202,7 +203,7 @@ router.post('/bid',
  *           type: string
  *     responses:
  *       200:
- *         description: Successfully joined stream
+ *         description: Successfully joined stream as buyer/viewer
  *         content:
  *           application/json:
  *             schema:
@@ -323,6 +324,147 @@ router.post('/:streamId/join',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
   streamController.joinStream
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/join-seller:
+ *   post:
+ *     summary: Join a live stream as the seller/host
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully joined stream as seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 channelName:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *                 uid:
+ *                   type: number
+ *                   description: User ID for Agora (seller's permanent UID)
+ *                 role:
+ *                   type: number
+ *                   description: Role in the stream (1 for host/publisher)
+ *                 tokenExpiration:
+ *                   type: number
+ *                   description: Timestamp when the token expires
+ *                 stream:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     seller:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         storeName:
+ *                           type: string
+ *                         businessName:
+ *                           type: string
+ *                         storeAvatar:
+ *                           type: object
+ *                         rating:
+ *                           type: number
+ *                     title:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     coverImage:
+ *                       type: object
+ *                     category:
+ *                       type: string
+ *                     tags:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     products:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           product:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               description:
+ *                                 type: string
+ *                               images:
+ *                                 type: array
+ *                               price:
+ *                                 type: number
+ *                               stock:
+ *                                 type: number
+ *                               sku:
+ *                                 type: string
+ *                               variants:
+ *                                 type: array
+ *                           minBid:
+ *                             type: number
+ *                           maxBid:
+ *                             type: number
+ *                           currentBid:
+ *                             type: number
+ *                           currentBidder:
+ *                             type: object
+ *                     status:
+ *                       type: string
+ *                       enum: [scheduled, live, ended, expired]
+ *                     channelName:
+ *                       type: string
+ *                     scheduledStartTime:
+ *                       type: string
+ *                       format: date-time
+ *                     actualStartTime:
+ *                       type: string
+ *                       format: date-time
+ *                     endTime:
+ *                       type: string
+ *                       format: date-time
+ *                     viewers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     type:
+ *                       type: string
+ *                       enum: [auction, open_show]
+ *                     bids:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     viewerCount:
+ *                       type: number
+ *                     isLive:
+ *                       type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Stream not found or you do not have permission
+ *       400:
+ *         description: Seller Agora UID not found
+ */
+router.post('/:streamId/join-seller',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  streamController.joinStreamSeller
 );
 
 /**

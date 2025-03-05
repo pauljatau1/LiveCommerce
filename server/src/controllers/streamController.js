@@ -390,33 +390,21 @@ exports.joinStream = async (req, res) => {
       return res.status(404).json({ message: 'Active stream not found' });
     }
 
-    // Determine user role based on stream ownership
-    const isSeller = stream.seller.toString() === req.user.id;
-    const role = isSeller ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
-    
-    // Generate appropriate UID
-    let tokenUid;
-    
-    if (isSeller) {
-      // For hosts, use the existing agoraUid (should be a number)
-      tokenUid = req.user.agoraUid;
-    } else {
-      // For viewers, generate a numeric UID between 1000-999999
-      // Create a deterministic but unique value based on user ID and stream ID
-      const userIdNum = parseInt(req.user.id.substring(0, 8), 16);
-      const streamIdNum = parseInt(stream._id.toString().substring(0, 8), 16);
-      // Combine and constrain to be within Agora's allowed range, but high enough not to collide with host UIDs
-      tokenUid = ((userIdNum ^ streamIdNum) % 999000) + 1000;
-    }
+    // Generate appropriate UID for viewer
+    // Create a deterministic but unique value based on user ID and stream ID
+    const userIdNum = parseInt(req.user.id.substring(0, 8), 16);
+    const streamIdNum = parseInt(stream._id.toString().substring(0, 8), 16);
+    // Combine and constrain to be within Agora's allowed range
+    const tokenUid = ((userIdNum ^ streamIdNum) % 999000) + 1000;
 
     const token = agoraService.generateToken(
       stream.channelName,
-      isSeller ? req.user.agoraUid : tokenUid, 
-      role
+      tokenUid, 
+      RtcRole.SUBSCRIBER
     );
 
-    // Add user to viewers if not already there and not the seller
-    if (!isSeller && !stream.viewers.some(viewer => viewer._id.toString() === req.user.id)) {
+    // Add user to viewers if not already there
+    if (!stream.viewers.some(viewer => viewer._id.toString() === req.user.id)) {
       // Since we're using lean(), we need to update the database separately
       await Stream.updateOne(
         { _id: req.params.streamId },
@@ -424,13 +412,11 @@ exports.joinStream = async (req, res) => {
       );
     }
 
-    if (!isSeller) {
-      req.io.to(stream.channelName).emit('viewerJoined', {
-        streamId: stream._id,
-        viewer: req.user.id,
-        viewerName: req.user.firstName + " " + req.user.lastName
-      });
-    }
+    req.io.to(stream.channelName).emit('viewerJoined', {
+      streamId: stream._id,
+      viewer: req.user.id,
+      viewerName: req.user.firstName + " " + req.user.lastName
+    });
 
     console.log('agoraUid', tokenUid);
     console.log('token', token);
@@ -442,12 +428,9 @@ exports.joinStream = async (req, res) => {
       message: 'Successfully joined stream',
       channelName: stream.channelName,
       token,
-      uid: isSeller ? req.user.agoraUid : tokenUid, // Now a proper number within Agora's range for user uid
-      role,
-      tokenExpiration: Date.now() + (isSeller ? 
-        (3600) * 1000 :
-        (14400) * 1000
-      ),
+      uid: tokenUid,
+      role: RtcRole.SUBSCRIBER,
+      tokenExpiration: Date.now() + (14400) * 1000,
       stream: {
         ...streamData,
         viewerCount: stream.viewers.length,
@@ -464,6 +447,71 @@ exports.joinStream = async (req, res) => {
     console.error('Join stream error:', error);
     res.status(500).json({
       message: 'Failed to join stream',
+      error: error.message
+    });
+  }
+};
+
+exports.joinStreamSeller = async (req, res) => {
+  try {
+    const stream = await Stream.findOne({
+      _id: req.params.streamId,
+      seller: req.user.id,
+      status: 'live'
+    })
+    .populate('seller', 'storeName businessName storeAvatar rating')
+    .populate('products.product', 'name description images price stock sku variants')
+    .populate('products.currentBidder', 'firstName lastName username email')
+    .populate('viewers', 'firstName lastName username avatarUrl')
+    .populate('bids.buyer', 'firstName lastName username')
+    .populate('bids.product', 'name price')
+    .lean(); // Convert to plain JavaScript object
+
+    if (!stream) {
+      return res.status(404).json({ message: 'Active stream not found or you do not have permission' });
+    }
+
+    // For sellers, use their agoraUid
+    const seller = await Seller.findById(req.user.id).select('agoraUid');
+    if (!seller || !seller.agoraUid) {
+      return res.status(400).json({ message: 'Seller Agora UID not found' });
+    }
+
+    const token = agoraService.generateToken(
+      stream.channelName,
+      seller.agoraUid, 
+      RtcRole.PUBLISHER
+    );
+
+    console.log('agoraUid (seller)', seller.agoraUid);
+    console.log('token', token);
+
+    // Remove sensitive fields
+    const { __v, ...streamData } = stream;
+    
+    res.json({
+      message: 'Successfully joined stream as seller',
+      channelName: stream.channelName,
+      token,
+      uid: seller.agoraUid,
+      role: RtcRole.PUBLISHER,
+      tokenExpiration: Date.now() + (3600) * 1000,
+      stream: {
+        ...streamData,
+        viewerCount: stream.viewers.length,
+        isLive: stream.status === 'live',
+        products: stream.products.map(product => ({
+          ...product,
+          currentBid: product.currentBid,
+          minBid: product.minBid,
+          maxBid: product.maxBid
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Join stream as seller error:', error);
+    res.status(500).json({
+      message: 'Failed to join stream as seller',
       error: error.message
     });
   }
