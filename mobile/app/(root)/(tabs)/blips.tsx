@@ -102,6 +102,7 @@ const Blips = () => {
   const renderVideo = ({ item, index }: { item: any; index: number }) => (
     <VideoItem
       id={item.blipId}
+      item={item}
       videoUrl={item.blipUrl}
       isVisible={index === currentIndex}
       seller={item.seller}

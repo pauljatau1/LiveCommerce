@@ -262,9 +262,8 @@ const SingleOrder = () => {
                     {order?.items?.map((item: any, index: number) => {
                       return (
                         <OrderItem
-                          key={index}
-                          orderItem={item}
                           key={item._id}
+                          orderItem={item}
                           orderStatus={order?.shipping?.tracking?.status}
                           seller={order.seller}
                           buyer={order.buyer}

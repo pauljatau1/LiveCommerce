@@ -244,6 +244,11 @@ const MessageRoom = () => {
         },
       );
 
+      socket.emit("new_message", {
+        conversationId,
+        message: response.data.message,
+      });
+
       console.log("http media message sent ", response.data);
     } catch (e) {
       setMessages((prevData) => {
@@ -270,13 +275,21 @@ const MessageRoom = () => {
   const handleSendProduct = async () => {
     const productPayload = {
       sender: { id: userId },
-      product: { id: selectedProduct },
+      product: {
+        id: selectedProduct._id,
+        image: selectedProduct?.images[0]?.url,
+        description: selectedProduct?.description,
+        name: selectedProduct?.name,
+        price: selectedProduct?.price,
+      },
       messageType: "product",
       content: "",
       createdAt: new Date().toISOString(),
       error: "",
       conversationId: conversationId,
     };
+    // return console.log(selectedProduct);
+
     setMessages([...messages, productPayload]);
     scrollToBottom();
     try {
@@ -295,6 +308,10 @@ const MessageRoom = () => {
           },
         },
       );
+      socket.emit("new_message", {
+        conversationId,
+        message: response.data.message,
+      });
 
       console.log("http product message sent ", response.data);
     } catch (e) {
@@ -401,7 +418,7 @@ const MessageRoom = () => {
         media={item?.media || null}
       />
     ),
-    [],
+    [selectedProduct],
   );
   const keyExtractor = useCallback(
     (item: any, index: number) => item?._id || index.toString(),
@@ -656,6 +673,8 @@ const MediaItem = memo(({ item }: { item: any }) => {
 });
 
 const ProductItem = memo(({ item }: { item: any }) => {
+  console.log("logging item product ", item);
+
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -668,7 +687,7 @@ const ProductItem = memo(({ item }: { item: any }) => {
     >
       <View>
         <Image
-          source={{ uri: item?.image }}
+          source={{ uri: item?.image || item?.images?.[0]?.url }}
           contentFit="contain"
           style={{ width: 100, height: 100, borderRadius: 10 }}
         />

@@ -52,6 +52,7 @@ import { toast } from "@/core/toast";
 import OptionsSheet from "./optionsSheet";
 import ReportPostSheet from "./reportPostSheet";
 import ReportUserSheet from "./reportUserSheet";
+import CommentsSheet from "./commentsSheet";
 
 const { width } = Dimensions.get("window");
 
@@ -602,10 +603,10 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
         title=""
         show={showComments}
         titleColor="!text-white"
-        snapPoints={["60%"]}
+        snapPoints={["70%"]}
         enableDynamicSizing={false}
         onRequestClose={() => setShowComments(false)}
-        keyboardBehavior="interactive"
+        keyboardBehavior="extend"
       >
         <CommentsSheet
           handleIncreaseCommentCount={handleIncreaseCommentCount}
@@ -688,142 +689,6 @@ const PostItem2 = ({ item, deletePost }: { item: any; deletePost: any }) => {
     </Pressable>
   );
 };
-
-const CommentsSheet = memo(
-  ({
-    handleIncreaseCommentCount,
-    allComments,
-    commentsCount,
-    handleAddComment,
-    id,
-    handleCantComment,
-  }: {
-    handleIncreaseCommentCount: () => void;
-    allComments: any;
-    commentsCount: number;
-    handleAddComment: any;
-    id: string;
-    handleCantComment: any;
-  }) => {
-    const [commentPost, { isLoading }] = useCommentPostMutation({});
-    const [comments, setComments] = useState<any[]>(allComments);
-    const [comment, setComment] = useState<string>("");
-    const [page, setPage] = useState<number>(1);
-    const [loading, setLoading] = useState<boolean>(true);
-
-    const handleCreateComment = async () => {
-      const token = await getToken();
-      if (!token) {
-        return handleCantComment();
-      }
-      const user = await getUser();
-
-      const constructComment = {
-        author: {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          profileImage: {
-            url: user?.profileImage?.url,
-          },
-        },
-        content: comment,
-        createdAt: moment().toISOString(),
-      };
-      setComments([...comments, constructComment]);
-      setComment("");
-      handleIncreaseCommentCount();
-      handleAddComment(constructComment);
-      try {
-        const result = await commentPost({
-          id,
-          content: comment,
-        }).unwrap();
-        // setComments(response.data.comments);
-        setPage(1);
-        setLoading(false);
-      } catch (e: any) {
-        console.log("error creating comment ", e.response.data);
-      }
-    };
-
-    //   useEffect(() => {
-    //     setComments(data);
-    //   }, [data]);
-
-    const renderComments = useCallback(({ item }: { item: any }) => {
-      return (
-        <View className="flex-row gap-2 mb-[16px]">
-          <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
-            {item?.author?.profileImage?.url ? (
-              <Image
-                source={{ uri: item?.author?.profileImage?.url }}
-                className="w-full h-full"
-                contentFit="cover"
-              />
-            ) : (
-              <Text className="text-white text-[10px]">
-                {item.author.firstName.charAt(0).toUpperCase() +
-                  item.author.lastName.charAt(0).toUpperCase()}
-              </Text>
-            )}
-          </View>
-          <View className="shrink">
-            <Text className="text-[#ccc] mb-[4px]">
-              {item.author.firstName + " " + item.author.lastName}
-            </Text>
-            <Text className="text-white leading-20 font-[400] mb-[12px]">
-              {item?.content}
-            </Text>
-            <Text className="text-[#f2f2f2] text-[12px] opacity-50">
-              {timeFromNow(item.createdAt)}
-            </Text>
-          </View>
-        </View>
-      );
-    }, []);
-    return (
-      <View className="px-[10px] w-full h-full items-center">
-        {/* {isLoading ? (
-        <ActivityIndicator size={"small"} color={"white"} />
-      ) : ( */}
-        <View className="h-full pb-[50px] w-full">
-          <Text className="text-white text-center mb-[30px]">
-            {formatNumber(commentsCount) || "No"}{" "}
-            {commentsCount > 1 ? "comments" : "comment"}
-          </Text>
-          <View
-            style={{
-              paddingBottom: 60,
-            }}
-          >
-            <FlatList
-              data={comments.slice().reverse()}
-              renderItem={renderComments}
-              keyExtractor={(item, index) => item?._id}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
-        </View>
-        {/* )} */}
-        <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 mx-auto">
-          <BottomSheetTextInput
-            placeholder="Add comment..."
-            placeholderTextColor={"#ccc"}
-            style={{
-              fontSize: 15,
-              color: "#fff",
-              padding: 0,
-            }}
-            returnKeyType="send"
-            value={comment}
-            onChangeText={(text) => setComment(text)}
-            onSubmitEditing={handleCreateComment}
-          />
-        </View>
-      </View>
-    );
-  },
-);
 
 const styles = StyleSheet.create({
   container: {
