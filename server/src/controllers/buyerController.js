@@ -156,7 +156,7 @@ exports.login = async (req, res) => {
   const { email, password, expoPushToken, googleToken } = req.body;
   if(googleToken)
   {
-    return googleLoginMobile(req.body)
+    return await googleLoginMobile(req.body,res)
   }
   if (!email || !password) {
     return res.status(400).json({
@@ -186,13 +186,17 @@ exports.login = async (req, res) => {
   }
 };
 
-async function googleLoginMobile(data)
+async function googleLoginMobile(data,res)
 {
-  const {email,googleToken} = data
+  const {email,googleToken,expoPushToken} = data
   try {
     const buyer = await Buyer.findOne({ email });
     if (!buyer) {
-      return googleRegisterMobile(data)
+      return await googleRegisterMobile(data,res)
+    }
+
+    if (!(await buyer.comparePassword(googleToken))) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
     // Only save token if provided
@@ -203,11 +207,11 @@ async function googleLoginMobile(data)
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
   } catch (error) {
-    res.status(500).json({ message: 'Login failed', error: error.message });
+    res.status(500).json({ message: 'google Login failed', error: error.message });
   }
 }
 
-async function googleRegisterMobile(data)
+async function googleRegisterMobile(data,res)
 {
   const {firstName,lastName,username,email,country,phoneNumber,googleToken,profileImage,expoPushToken} = data
   const otp = generateOTP();
@@ -245,7 +249,7 @@ async function googleRegisterMobile(data)
   }
   catch(error)
   {
-    res.status(500).json({ message: 'Login failed', error: error.message });
+    res.status(500).json({ message: 'google register Login failed', error: error.message });
   }
   
 }
