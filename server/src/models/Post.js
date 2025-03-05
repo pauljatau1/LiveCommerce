@@ -88,8 +88,79 @@ const commentSchema = new mongoose.Schema({
     userModel: { 
       type: String, 
       enum: ['Buyer', 'Seller'] 
-    }
+    },
+    createdAt: { type: Date, default: Date.now }
   }],
+  taggedSellers: [{
+    sellerId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Seller'
+    },
+    storeName: String,
+    taggedAt: { type: Date, default: Date.now }
+  }],
+  taggedProducts: [{
+    productId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Product'
+    },
+    name: String,
+    taggedAt: { type: Date, default: Date.now }
+  }],
+  replies: [
+    {
+      content: { type: String, required: true },
+      author: {
+        userId: { 
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+          refPath: 'author.userModel'
+        },
+        userModel: { 
+          type: String, 
+          enum: ['Buyer', 'Seller'], 
+          required: true 
+        },
+        firstName: String,
+        lastName: String,
+        profileImage: {
+          url: String,
+          public_id: String
+        },
+        storeName: String,
+        username: String
+      },
+      likes: [{ 
+        userId: { 
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: 'likes.userModel'
+        },
+        userModel: { 
+          type: String, 
+          enum: ['Buyer', 'Seller'] 
+        },
+        createdAt: { type: Date, default: Date.now }
+      }],
+      taggedSellers: [{
+        sellerId: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: 'Seller'
+        },
+        storeName: String,
+        taggedAt: { type: Date, default: Date.now }
+      }],
+      taggedProducts: [{
+        productId: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: 'Product'
+        },
+        name: String,
+        taggedAt: { type: Date, default: Date.now }
+      }],
+      createdAt: { type: Date, default: Date.now },
+      updatedAt: { type: Date }
+    }
+  ],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date }
 });

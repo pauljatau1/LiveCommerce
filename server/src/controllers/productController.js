@@ -1268,6 +1268,10 @@ exports.getWishlist = async (req, res) => {
 exports.getAllBlips = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
+  
+  // Check if user is authenticated
+  const buyerId = req.user?.id;
+  const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
 
   try {
     console.log('Starting getAllBlips aggregation...');
@@ -1296,14 +1300,42 @@ exports.getAllBlips = async (req, res) => {
           productId: '$_id',
           productName: '$name',
           price: '$price',
-          discountedPrice: '$discountedPrice',
+          // Include stock information
+          stock: '$stock',
+          // Include discount information
+          discount: {
+            isActive: '$discount.isActive',
+            type: '$discount.type',
+            value: '$discount.value',
+            startDate: '$discount.startDate',
+            endDate: '$discount.endDate',
+            couponName: '$discount.couponName',
+            discountedPrice: {
+              $cond: {
+                if: '$discount.isActive',
+                then: {
+                  $cond: {
+                    if: { $eq: ['$discount.type', 'percentage'] },
+                    then: { $round: [{ $multiply: ['$price', { $subtract: [1, { $divide: ['$discount.value', 100] }] }] }, 0] },
+                    else: { $subtract: ['$price', '$discount.value'] }
+                  }
+                },
+                else: '$price'
+              }
+            }
+          },
           seller: {
             _id: '$sellerInfo._id',
             firstName: '$sellerInfo.firstName',
             lastName: '$sellerInfo.lastName',
             storeName: '$sellerInfo.storeName',
             storeAvatar: '$sellerInfo.storeAvatar',
-            aboutStore: '$sellerInfo.aboutStore'
+            aboutStore: '$sellerInfo.aboutStore',
+            // Include seller store rating
+            storeRating: '$sellerInfo.stats.averageRating',
+            totalStoreReviews: '$sellerInfo.stats.totalReviews',
+            // Include followers array for later processing
+            followers: '$sellerInfo.followers'
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -1353,6 +1385,30 @@ exports.getAllBlips = async (req, res) => {
 
     console.log(`Found ${blips.length} blips`);
 
+    // Process blips to add isFollowing property
+    const processedBlips = blips.map(blip => {
+      // Create a new object without the followers array
+      const { seller, ...rest } = blip;
+      const { followers, ...sellerRest } = seller;
+      
+      // Check if the buyer is following this seller
+      let isFollowing = false;
+      if (isAuthenticated && Array.isArray(followers)) {
+        isFollowing = followers.some(
+          follower => follower.buyerId && follower.buyerId.toString() === buyerId
+        );
+      }
+      
+      // Return the processed blip with isFollowing property
+      return {
+        ...rest,
+        seller: {
+          ...sellerRest,
+          isFollowing
+        }
+      };
+    });
+
     const total = await Product.countDocuments({
       blips: { $exists: true, $ne: [] }
     });
@@ -1360,7 +1416,7 @@ exports.getAllBlips = async (req, res) => {
     console.log(`Total blips count: ${total}`);
 
     res.json({
-      blips,
+      blips: processedBlips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalBlips: total
@@ -1376,6 +1432,10 @@ exports.getSellerBlips = async (req, res) => {
   const { sellerId } = req.params;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
+  
+  // Check if user is authenticated
+  const buyerId = req.user?.id;
+  const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
 
   try {
     console.log(`Starting getSellerBlips for seller: ${sellerId}`);
@@ -1392,7 +1452,9 @@ exports.getSellerBlips = async (req, res) => {
       businessName: 1,
       storeName: 1,
       storeAvatar: 1,
-      aboutStore: 1
+      aboutStore: 1,
+      stats: 1, // Include stats for store rating
+      followers: 1 // Include followers to check if buyer is following
     });
 
     if (!seller) {
@@ -1400,6 +1462,14 @@ exports.getSellerBlips = async (req, res) => {
     }
 
     console.log('Found seller:', seller.storeName);
+
+    // Check if buyer is following this seller
+    let isFollowing = false;
+    if (isAuthenticated && Array.isArray(seller.followers)) {
+      isFollowing = seller.followers.some(
+        follower => follower.buyerId && follower.buyerId.toString() === buyerId
+      );
+    }
 
     // Check if seller has any blips before aggregation
     const hasBlips = await Product.exists({
@@ -1409,9 +1479,23 @@ exports.getSellerBlips = async (req, res) => {
 
     if (!hasBlips) {
       console.log('No blips found for seller');
+      
+      // Create seller object with isFollowing property
+      const sellerResponse = {
+        _id: seller._id,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        storeName: seller.storeName,
+        storeAvatar: seller.storeAvatar,
+        aboutStore: seller.aboutStore,
+        storeRating: seller.stats ? seller.stats.averageRating : 0,
+        totalStoreReviews: seller.stats ? seller.stats.totalReviews : 0,
+        isFollowing
+      };
+      
       return res.json({
         message: 'Seller has no blips',
-        seller,
+        seller: sellerResponse,
         blips: [],
         currentPage: page,
         totalPages: 0,
@@ -1438,14 +1522,41 @@ exports.getSellerBlips = async (req, res) => {
           productId: '$_id',
           productName: '$name',
           price: '$price',
-          discountedPrice: '$discountedPrice',
+          // Include stock information
+          stock: '$stock',
+          // Include discount information
+          discount: {
+            isActive: '$discount.isActive',
+            type: '$discount.type',
+            value: '$discount.value',
+            startDate: '$discount.startDate',
+            endDate: '$discount.endDate',
+            couponName: '$discount.couponName',
+            discountedPrice: {
+              $cond: {
+                if: '$discount.isActive',
+                then: {
+                  $cond: {
+                    if: { $eq: ['$discount.type', 'percentage'] },
+                    then: { $round: [{ $multiply: ['$price', { $subtract: [1, { $divide: ['$discount.value', 100] }] }] }, 0] },
+                    else: { $subtract: ['$price', '$discount.value'] }
+                  }
+                },
+                else: '$price'
+              }
+            }
+          },
           seller: {
             _id: seller._id,
             firstName: seller.firstName,
             lastName: seller.lastName,
             storeName: seller.storeName,
             storeAvatar: seller.storeAvatar,
-            aboutStore: seller.aboutStore
+            aboutStore: seller.aboutStore,
+            // Include seller store rating
+            storeRating: seller.stats ? seller.stats.averageRating : 0,
+            totalStoreReviews: seller.stats ? seller.stats.totalReviews : 0,
+            isFollowing: isFollowing
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -1502,8 +1613,21 @@ exports.getSellerBlips = async (req, res) => {
 
     console.log(`Total blips count for seller: ${total}`);
 
+    // Create seller object with isFollowing property
+    const sellerResponse = {
+      _id: seller._id,
+      firstName: seller.firstName,
+      lastName: seller.lastName,
+      storeName: seller.storeName,
+      storeAvatar: seller.storeAvatar,
+      aboutStore: seller.aboutStore,
+      storeRating: seller.stats ? seller.stats.averageRating : 0,
+      totalStoreReviews: seller.stats ? seller.stats.totalReviews : 0,
+      isFollowing
+    };
+
     res.json({
-      seller,
+      seller: sellerResponse,
       blips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
