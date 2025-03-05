@@ -279,6 +279,7 @@ router.get('/sellers', async (req, res) => {
       personalInfo: {
         firstName: seller.firstName,
         lastName: seller.lastName,
+        email: seller.email,
         phoneNumber: seller.phoneNumber
       },
       businessInfo: {
@@ -451,7 +452,7 @@ router.get('/sellers/:id', async (req, res) => {
         followers storeVisits shippingOptions warehouseDetails
         firstName lastName phoneNumber businessNumber taxInformation
         accountType verificationDocuments emailVerified isNew
-        activityFeed customers sellerAddress
+        activityFeed customers sellerAddress email
       `);
     
     if (!seller) {
@@ -467,6 +468,7 @@ router.get('/sellers/:id', async (req, res) => {
         firstName: seller.firstName,
         lastName: seller.lastName,
         phoneNumber: seller.phoneNumber,
+        email: seller.email,
         emailVerified: seller.emailVerified
       },
       businessInfo: {

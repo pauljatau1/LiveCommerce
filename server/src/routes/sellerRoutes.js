@@ -1880,7 +1880,7 @@ router.put('/notification-preferences', authMiddleware.verifyToken, sellerContro
  * @swagger
  * /api/seller/reviews:
  *   get:
- *     summary: Get seller's reviews
+ *     summary: Get seller's reviews with optional filtering and pagination
  *     tags: [Seller]
  *     security:
  *       - bearerAuth: []
@@ -1889,41 +1889,188 @@ router.put('/notification-preferences', authMiddleware.verifyToken, sellerContro
  *         name: page
  *         schema:
  *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *           default: 10
+ *         description: Number of reviews per page
  *       - in: query
  *         name: sort
  *         schema:
  *           type: string
  *           enum: [recent, rating-high, rating-low]
+ *           default: recent
+ *         description: Sort order for reviews
  *     responses:
  *       200:
- *         description: Reviews retrieved successfully
+ *         description: List of reviews retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reviews:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       buyer:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           profileImage:
+ *                             type: object
+ *                             properties:
+ *                               url:
+ *                                 type: string
+ *                       rating:
+ *                         type: number
+ *                       comment:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       isVerifiedPurchase:
+ *                         type: boolean
+ *                       reply:
+ *                         type: object
+ *                         properties:
+ *                           content:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalReviews:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     averageRating:
+ *                       type: number
+ *                     totalReviews:
+ *                       type: number
+ *                     ratingDistribution:
+ *                       type: object
+ *                       properties:
+ *                         1:
+ *                           type: number
+ *                         2:
+ *                           type: number
+ *                         3:
+ *                           type: number
+ *                         4:
+ *                           type: number
+ *                         5:
+ *                           type: number
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
  */
-router.get('/reviews',
-  authMiddleware.verifyToken,
-  authMiddleware.isSeller,
+router.get('/reviews', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
   sellerController.getSellerReviews
 );
 
 /**
  * @swagger
- * /api/seller/reviews/stats:
- *   get:
- *     summary: Get seller's review statistics
+ * /api/seller/reviews/{reviewId}/reply:
+ *   post:
+ *     summary: Reply to a review
  *     tags: [Seller]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the review to reply to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: The reply content
  *     responses:
  *       200:
- *         description: Review statistics retrieved successfully
+ *         description: Reply added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 review:
+ *                   type: object
+ *                   properties:
+ *                     buyer:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                     rating:
+ *                       type: number
+ *                     comment:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     reply:
+ *                       type: object
+ *                       properties:
+ *                         content:
+ *                           type: string
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                         updatedAt:
+ *                           type: string
+ *                           format: date-time
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Seller or review not found
+ *       500:
+ *         description: Server error
  */
-router.get('/reviews/stats',
-  authMiddleware.verifyToken,
-  authMiddleware.isSeller,
-  sellerController.getReviewStats
+router.post('/reviews/:reviewId/reply', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  sellerController.replyToReview
 );
 
 /**

@@ -4,6 +4,7 @@ const productController = require('../controllers/productController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
+const jwt = require('jsonwebtoken');
 
 /**
  * @swagger
@@ -125,9 +126,26 @@ const upload = multer({ storage: multer.memoryStorage() });
  */
 
 // Public routes for blips
-router.get('/blips', productController.getAllBlips);
-router.get('/seller/:sellerId/blips', productController.getSellerBlips);
+// First, create an optional auth middleware
+const optionalAuth = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+    }
+    
+    next();
+  } catch (error) {
+    // If token is invalid, just continue without setting req.user
+    next();
+  }
+};
 
+// Use optional auth middleware for blips routes
+router.get('/blips', optionalAuth, productController.getAllBlips);
+router.get('/seller/:sellerId/blips', optionalAuth, productController.getSellerBlips);
 
 /**
  * @swagger
@@ -535,9 +553,6 @@ router.get('/trending', productController.getTrendingProducts);
  *                   type: string
  */
 router.get('/:id', productController.getProduct);
-
-
-
 
 /**
  * @swagger
@@ -1167,8 +1182,6 @@ router.put('/:id',
   authMiddleware.isSeller,
   productController.updateProduct
 );
-
-
 
 /**
  * @swagger

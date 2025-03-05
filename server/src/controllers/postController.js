@@ -316,7 +316,7 @@ exports.addReaction = async (req, res) => {
 exports.addComment = async (req, res) => {
   try {
     const { postId } = req.params;
-    const { content } = req.body;
+    const { content, taggedSellers, taggedProducts } = req.body;
     const userId = req.user.id;
     const userModel = req.user.role;
 
@@ -339,6 +339,42 @@ exports.addComment = async (req, res) => {
       ? user.storeAvatar?.url || user.profileImage?.url
       : user.profileImage?.url;
 
+    // Process tagged sellers
+    let processedTaggedSellers = [];
+    if (taggedSellers && taggedSellers.length > 0) {
+      // Fetch seller details for each tagged seller
+      const sellerIds = Array.isArray(taggedSellers) 
+        ? taggedSellers 
+        : JSON.parse(taggedSellers);
+      
+      const sellers = await Seller.find({ _id: { $in: sellerIds } })
+        .select('_id storeName');
+      
+      processedTaggedSellers = sellers.map(seller => ({
+        sellerId: seller._id,
+        storeName: seller.storeName,
+        taggedAt: new Date()
+      }));
+    }
+
+    // Process tagged products
+    let processedTaggedProducts = [];
+    if (taggedProducts && taggedProducts.length > 0) {
+      // Fetch product details for each tagged product
+      const productIds = Array.isArray(taggedProducts) 
+        ? taggedProducts 
+        : JSON.parse(taggedProducts);
+      
+      const products = await Product.find({ _id: { $in: productIds } })
+        .select('_id name');
+      
+      processedTaggedProducts = products.map(product => ({
+        productId: product._id,
+        name: product.name,
+        taggedAt: new Date()
+      }));
+    }
+
     // Add comment with user details including profile image
     const newComment = {
       content,
@@ -351,6 +387,8 @@ exports.addComment = async (req, res) => {
         storeName: userModel === 'Seller' ? user.storeName : undefined,
         username: userModel === 'Buyer' ? user.username : undefined
       },
+      taggedSellers: processedTaggedSellers,
+      taggedProducts: processedTaggedProducts,
       createdAt: new Date()
     };
 
@@ -389,6 +427,31 @@ exports.getComments = async (req, res) => {
         path: 'comments.author.userId',
         select: 'firstName lastName storeName businessName profileImage storeAvatar username',
         refPath: 'comments.author.userModel'
+      })
+      .populate({
+        path: 'comments.replies.author.userId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar username',
+        refPath: 'comments.replies.author.userModel'
+      })
+      .populate({
+        path: 'comments.taggedSellers.sellerId',
+        select: 'storeName businessName storeAvatar',
+        model: 'Seller'
+      })
+      .populate({
+        path: 'comments.taggedProducts.productId',
+        select: 'name images price',
+        model: 'Product'
+      })
+      .populate({
+        path: 'comments.replies.taggedSellers.sellerId',
+        select: 'storeName businessName storeAvatar',
+        model: 'Seller'
+      })
+      .populate({
+        path: 'comments.replies.taggedProducts.productId',
+        select: 'name images price',
+        model: 'Product'
       });
 
     if (!post) {
@@ -405,6 +468,66 @@ exports.getComments = async (req, res) => {
         ? comment.author.userId?.storeAvatar?.url || comment.author.userId?.profileImage?.url
         : comment.author.userId?.profileImage?.url;
 
+      // Format tagged sellers
+      const formattedTaggedSellers = comment.taggedSellers?.map(tag => ({
+        id: tag.sellerId._id,
+        storeName: tag.sellerId.storeName || tag.storeName,
+        businessName: tag.sellerId.businessName,
+        image: tag.sellerId.storeAvatar?.url || null,
+        taggedAt: tag.taggedAt
+      })) || [];
+
+      // Format tagged products
+      const formattedTaggedProducts = comment.taggedProducts?.map(tag => ({
+        id: tag.productId._id,
+        name: tag.productId.name || tag.name,
+        image: tag.productId.images?.[0]?.url || null,
+        price: tag.productId.price,
+        taggedAt: tag.taggedAt
+      })) || [];
+
+      // Process replies
+      const enhancedReplies = comment.replies.map(reply => {
+        const replyProfileImageUrl = reply.author.userModel === 'Seller' 
+          ? reply.author.userId?.storeAvatar?.url || reply.author.userId?.profileImage?.url
+          : reply.author.userId?.profileImage?.url;
+
+        // Format reply tagged sellers
+        const replyFormattedTaggedSellers = reply.taggedSellers?.map(tag => ({
+          id: tag.sellerId._id,
+          storeName: tag.sellerId.storeName || tag.storeName,
+          businessName: tag.sellerId.businessName,
+          image: tag.sellerId.storeAvatar?.url || null,
+          taggedAt: tag.taggedAt
+        })) || [];
+
+        // Format reply tagged products
+        const replyFormattedTaggedProducts = reply.taggedProducts?.map(tag => ({
+          id: tag.productId._id,
+          name: tag.productId.name || tag.name,
+          image: tag.productId.images?.[0]?.url || null,
+          price: tag.productId.price,
+          taggedAt: tag.taggedAt
+        })) || [];
+
+        return {
+          id: reply._id,
+          content: reply.content,
+          createdAt: reply.createdAt,
+          author: {
+            id: reply.author.userId?._id || reply.author.userId,
+            name: reply.author.userId?.storeName || 
+                  reply.author.userId?.username || 
+                  `${reply.author.userId?.firstName || reply.author.firstName} ${reply.author.userId?.lastName || reply.author.lastName}`,
+            image: replyProfileImageUrl || null,
+            type: reply.author.userModel
+          },
+          likes: reply.likes?.length || 0,
+          taggedSellers: replyFormattedTaggedSellers,
+          taggedProducts: replyFormattedTaggedProducts
+        };
+      });
+
       return {
         id: comment._id,
         content: comment.content,
@@ -417,7 +540,11 @@ exports.getComments = async (req, res) => {
           image: profileImageUrl || null,
           type: comment.author.userModel
         },
-        likes: comment.likes?.length || 0
+        likes: comment.likes?.length || 0,
+        replies: enhancedReplies,
+        repliesCount: comment.replies?.length || 0,
+        taggedSellers: formattedTaggedSellers,
+        taggedProducts: formattedTaggedProducts
       };
     });
 
@@ -904,10 +1031,10 @@ exports.deleteComment = async (req, res) => {
   }
 };
 
-// Like/Unlike a post
-exports.likePost = async (req, res) => {
+// Like or unlike a comment
+exports.likeComment = async (req, res) => {
   try {
-    const { postId } = req.params;
+    const { postId, commentId } = req.params;
     const userId = req.user.id;
     const userModel = req.user.role;
 
@@ -916,65 +1043,162 @@ exports.likePost = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Get user information
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Check if user has already liked the comment
+    const likeIndex = comment.likes.findIndex(
+      like => like.userId.toString() === userId && like.userModel === userModel
+    );
+
+    if (likeIndex === -1) {
+      // User hasn't liked the comment yet, add like
+      comment.likes.push({
+        userId,
+        userModel,
+        createdAt: new Date()
+      });
+      await post.save();
+      return res.json({ 
+        message: 'Comment liked successfully',
+        liked: true,
+        likesCount: comment.likes.length
+      });
+    } else {
+      // User already liked the comment, remove like
+      comment.likes.splice(likeIndex, 1);
+      await post.save();
+      return res.json({ 
+        message: 'Comment unliked successfully',
+        liked: false,
+        likesCount: comment.likes.length
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to like/unlike comment',
+      error: error.message
+    });
+  }
+};
+
+// Reply to a comment
+exports.replyToComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { content, taggedSellers, taggedProducts } = req.body;
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Get user information with profile image
     const UserModel = mongoose.model(userModel);
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(userId)
+      .select('firstName lastName storeName businessName profileImage storeAvatar username');
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Initialize reactions array if it doesn't exist
-    if (!post.reactions) {
-      post.reactions = [];
+    // Get the appropriate profile image based on user type
+    const profileImageUrl = userModel === 'Seller' 
+      ? user.storeAvatar?.url || user.profileImage?.url
+      : user.profileImage?.url;
+
+    // Process tagged sellers
+    let processedTaggedSellers = [];
+    if (taggedSellers && taggedSellers.length > 0) {
+      // Fetch seller details for each tagged seller
+      const sellerIds = Array.isArray(taggedSellers) 
+        ? taggedSellers 
+        : JSON.parse(taggedSellers);
+      
+      const sellers = await Seller.find({ _id: { $in: sellerIds } })
+        .select('_id storeName');
+      
+      processedTaggedSellers = sellers.map(seller => ({
+        sellerId: seller._id,
+        storeName: seller.storeName,
+        taggedAt: new Date()
+      }));
     }
 
-    // Check if already liked
-    const existingReactionIndex = post.reactions.findIndex(
-      reaction => 
-        reaction.user.userId.toString() === userId.toString() && 
-        reaction.user.userModel === userModel
-    );
-
-    if (existingReactionIndex > -1) {
-      // Remove existing reaction
-      post.reactions.splice(existingReactionIndex, 1);
-    } else {
-      // Add new reaction
-      post.reactions.push({
-        type: 'like',
-        emoji: REACTION_TYPES['like'].emoji,
-        user: {
-          userId,
-          userModel,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          profileImage: user.profileImage,
-          storeName: userModel === 'Seller' ? user.storeName : undefined,
-          username: userModel === 'Buyer' ? user.username : undefined
-        },
-        createdAt: new Date()
-      });
+    // Process tagged products
+    let processedTaggedProducts = [];
+    if (taggedProducts && taggedProducts.length > 0) {
+      // Fetch product details for each tagged product
+      const productIds = Array.isArray(taggedProducts) 
+        ? taggedProducts 
+        : JSON.parse(taggedProducts);
+      
+      const products = await Product.find({ _id: { $in: productIds } })
+        .select('_id name');
+      
+      processedTaggedProducts = products.map(product => ({
+        productId: product._id,
+        name: product.name,
+        taggedAt: new Date()
+      }));
     }
 
+    // Create new reply
+    const newReply = {
+      content,
+      author: {
+        userId,
+        userModel,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImage: { url: profileImageUrl },
+        storeName: userModel === 'Seller' ? user.storeName : undefined,
+        username: userModel === 'Buyer' ? user.username : undefined
+      },
+      taggedSellers: processedTaggedSellers,
+      taggedProducts: processedTaggedProducts,
+      createdAt: new Date()
+    };
+
+    // Add reply to comment
+    comment.replies.push(newReply);
     await post.save();
 
     res.json({
-      message: existingReactionIndex > -1 ? 'Post unliked' : 'Post liked',
-      likeCount: post.reactions.filter(r => r.type === 'like').length
+      message: 'Reply added successfully',
+      reply: {
+        ...newReply,
+        author: {
+          id: userId,
+          name: userModel === 'Seller' ? user.storeName : 
+                `${user.firstName} ${user.lastName}`,
+          image: profileImageUrl || null,
+          type: userModel
+        },
+        likes: 0
+      }
     });
   } catch (error) {
-    console.error('Like post error:', error);
     res.status(500).json({
-      message: 'Failed to like/unlike post',
+      message: 'Failed to add reply',
       error: error.message
     });
   }
 };
 
-// Dislike a post
-exports.dislikePost = async (req, res) => {
+// Like or unlike a reply
+exports.likeReply = async (req, res) => {
   try {
-    const { postId } = req.params;
+    const { postId, commentId, replyId } = req.params;
     const userId = req.user.id;
     const userModel = req.user.role;
 
@@ -983,40 +1207,95 @@ exports.dislikePost = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Check if already disliked
-    const alreadyDisliked = post.dislikes.some(dislike => 
-      dislike.userId.equals(userId) && dislike.userModel === userModel
-    );
-
-    if (alreadyDisliked) {
-      // Remove dislike
-      post.dislikes = post.dislikes.filter(dislike => 
-        !(dislike.userId.equals(userId) && dislike.userModel === userModel)
-      );
-    } else {
-      // Remove from likes if exists
-      post.likes = post.likes.filter(like => 
-        !(like.userId.equals(userId) && like.userModel === userModel)
-      );
-      // Add dislike
-      post.dislikes.push({ userId, userModel });
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
     }
 
-    await post.save();
+    const reply = comment.replies.id(replyId);
+    if (!reply) {
+      return res.status(404).json({ message: 'Reply not found' });
+    }
 
-    res.json({
-      message: alreadyDisliked ? 'Post undisliked' : 'Post disliked',
-      likes: post.stats.likeCount,
-      dislikes: post.stats.dislikeCount
-    });
+    // Check if user has already liked the reply
+    const likeIndex = reply.likes.findIndex(
+      like => like.userId.toString() === userId && like.userModel === userModel
+    );
+
+    if (likeIndex === -1) {
+      // User hasn't liked the reply yet, add like
+      reply.likes.push({
+        userId,
+        userModel,
+        createdAt: new Date()
+      });
+      await post.save();
+      return res.json({ 
+        message: 'Reply liked successfully',
+        liked: true,
+        likesCount: reply.likes.length
+      });
+    } else {
+      // User already liked the reply, remove like
+      reply.likes.splice(likeIndex, 1);
+      await post.save();
+      return res.json({ 
+        message: 'Reply unliked successfully',
+        liked: false,
+        likesCount: reply.likes.length
+      });
+    }
   } catch (error) {
     res.status(500).json({
-      message: 'Failed to dislike/undislike post',
+      message: 'Failed to like/unlike reply',
       error: error.message
     });
   }
 };
 
+// Delete a reply
+exports.deleteReply = async (req, res) => {
+  try {
+    const { postId, commentId, replyId } = req.params;
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const reply = comment.replies.id(replyId);
+    if (!reply) {
+      return res.status(404).json({ message: 'Reply not found' });
+    }
+
+    // Check if user is reply author, comment author, or post author
+    const isReplyAuthor = reply.author.userId.equals(userId) && reply.author.userModel === userModel;
+    const isCommentAuthor = comment.author.userId.equals(userId) && comment.author.userModel === userModel;
+    const isPostAuthor = post.author.userId.equals(userId) && post.author.userModel === userModel;
+    
+    if (!(isReplyAuthor || isCommentAuthor || isPostAuthor)) {
+      return res.status(403).json({ message: 'Unauthorized to delete this reply' });
+    }
+
+    reply.remove();
+    await post.save();
+
+    res.json({ message: 'Reply deleted successfully' });
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to delete reply',
+      error: error.message
+    });
+  }
+};
 
 exports.getTrendingPosts = async (req, res) => {
   try {
@@ -1519,6 +1798,241 @@ exports.reportPost = async (req, res) => {
     console.error('Report post error:', error);
     res.status(500).json({
       message: 'Failed to report post',
+      error: error.message
+    });
+  }
+};
+
+// Like a post
+exports.likePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Get user information
+    const UserModel = mongoose.model(userModel);
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize reactions array if it doesn't exist
+    if (!post.reactions) {
+      post.reactions = [];
+    }
+
+    // Check if already liked
+    const existingReactionIndex = post.reactions.findIndex(
+      reaction => 
+        reaction.user.userId.toString() === userId.toString() && 
+        reaction.user.userModel === userModel
+    );
+
+    if (existingReactionIndex > -1) {
+      // Remove existing reaction
+      post.reactions.splice(existingReactionIndex, 1);
+    } else {
+      // Add new reaction
+      post.reactions.push({
+        type: 'like',
+        emoji: REACTION_TYPES['like'].emoji,
+        user: {
+          userId,
+          userModel,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImage: user.profileImage,
+          storeName: userModel === 'Seller' ? user.storeName : undefined,
+          username: userModel === 'Buyer' ? user.username : undefined
+        },
+        createdAt: new Date()
+      });
+    }
+
+    await post.save();
+
+    res.json({
+      message: existingReactionIndex > -1 ? 'Post unliked' : 'Post liked',
+      likeCount: post.reactions.filter(r => r.type === 'like').length
+    });
+  } catch (error) {
+    console.error('Like post error:', error);
+    res.status(500).json({
+      message: 'Failed to like/unlike post',
+      error: error.message
+    });
+  }
+};
+
+// Dislike a post
+exports.dislikePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Get user information
+    const UserModel = mongoose.model(userModel);
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize reactions array if it doesn't exist
+    if (!post.reactions) {
+      post.reactions = [];
+    }
+
+    // Check if already has a reaction
+    const existingReactionIndex = post.reactions.findIndex(
+      reaction => 
+        reaction.user.userId.toString() === userId.toString() && 
+        reaction.user.userModel === userModel
+    );
+
+    if (existingReactionIndex > -1) {
+      // If the existing reaction is not 'angry', change it to 'angry'
+      if (post.reactions[existingReactionIndex].type !== 'angry') {
+        post.reactions[existingReactionIndex].type = 'angry';
+        post.reactions[existingReactionIndex].emoji = REACTION_TYPES['angry'].emoji;
+      } else {
+        // If it's already 'angry', remove it
+        post.reactions.splice(existingReactionIndex, 1);
+      }
+    } else {
+      // Add new 'angry' reaction
+      post.reactions.push({
+        type: 'angry',
+        emoji: REACTION_TYPES['angry'].emoji,
+        user: {
+          userId,
+          userModel,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImage: user.profileImage,
+          storeName: userModel === 'Seller' ? user.storeName : undefined,
+          username: userModel === 'Buyer' ? user.username : undefined
+        },
+        createdAt: new Date()
+      });
+    }
+
+    await post.save();
+
+    res.json({
+      message: 'Reaction updated successfully',
+      reactionCounts: post.stats.reactions
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to update reaction',
+      error: error.message
+    });
+  }
+};
+
+// Get replies for a specific comment
+exports.getCommentReplies = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Populate the replies with author and tagged entities information
+    await Post.populate(comment, [
+      {
+        path: 'replies.author.userId',
+        select: 'firstName lastName storeName businessName profileImage storeAvatar username',
+        refPath: 'replies.author.userModel'
+      },
+      {
+        path: 'replies.taggedSellers.sellerId',
+        select: 'storeName businessName storeAvatar',
+        model: 'Seller'
+      },
+      {
+        path: 'replies.taggedProducts.productId',
+        select: 'name images price',
+        model: 'Product'
+      }
+    ]);
+
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedReplies = comment.replies.slice(startIndex, endIndex);
+
+    // Format replies for response
+    const formattedReplies = paginatedReplies.map(reply => {
+      const replyProfileImageUrl = reply.author.userModel === 'Seller' 
+        ? reply.author.userId?.storeAvatar?.url || reply.author.userId?.profileImage?.url
+        : reply.author.userId?.profileImage?.url;
+
+      // Format reply tagged sellers
+      const replyFormattedTaggedSellers = reply.taggedSellers?.map(tag => ({
+        id: tag.sellerId._id,
+        storeName: tag.sellerId.storeName || tag.storeName,
+        businessName: tag.sellerId.businessName,
+        image: tag.sellerId.storeAvatar?.url || null,
+        taggedAt: tag.taggedAt
+      })) || [];
+
+      // Format reply tagged products
+      const replyFormattedTaggedProducts = reply.taggedProducts?.map(tag => ({
+        id: tag.productId._id,
+        name: tag.productId.name || tag.name,
+        image: tag.productId.images?.[0]?.url || null,
+        price: tag.productId.price,
+        taggedAt: tag.taggedAt
+      })) || [];
+
+      return {
+        id: reply._id,
+        content: reply.content,
+        createdAt: reply.createdAt,
+        author: {
+          id: reply.author.userId?._id || reply.author.userId,
+          name: reply.author.userId?.storeName || 
+                reply.author.userId?.username || 
+                `${reply.author.userId?.firstName || reply.author.firstName} ${reply.author.userId?.lastName || reply.author.lastName}`,
+          image: replyProfileImageUrl || null,
+          type: reply.author.userModel
+        },
+        likes: reply.likes?.length || 0,
+        taggedSellers: replyFormattedTaggedSellers,
+        taggedProducts: replyFormattedTaggedProducts
+      };
+    });
+
+    res.json({
+      replies: formattedReplies,
+      totalReplies: comment.replies.length,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(comment.replies.length / limit)
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to fetch comment replies',
       error: error.message
     });
   }

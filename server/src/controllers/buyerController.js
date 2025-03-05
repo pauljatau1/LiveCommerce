@@ -153,8 +153,11 @@ exports.register = async (req, res) => {
 
 // Login a buyer
 exports.login = async (req, res) => {
-  const { email, password, expoPushToken } = req.body;
-
+  const { email, password, expoPushToken, googleToken } = req.body;
+  if(googleToken)
+  {
+    return await googleLoginMobile(req.body,res)
+  }
   if (!email || !password) {
     return res.status(400).json({
       message: 'Email and password are required.',
@@ -182,6 +185,74 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Login failed', error: error.message });
   }
 };
+
+async function googleLoginMobile(data,res)
+{
+  const {email,googleToken,expoPushToken} = data
+  try {
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return await googleRegisterMobile(data,res)
+    }
+
+    if (!(await buyer.comparePassword(googleToken))) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(buyer._id, expoPushToken);
+    }
+
+    const token = generateToken(buyer._id);
+    res.json({ user: buyer, token });
+  } catch (error) {
+    res.status(500).json({ message: 'google Login failed', error: error.message });
+  }
+}
+
+async function googleRegisterMobile(data,res)
+{
+  const {firstName,lastName,username,email,country,phoneNumber,googleToken,profileImage,expoPushToken} = data
+  const otp = generateOTP();
+  try
+  {
+    const newBuyer = new Buyer({
+      firstName,
+      lastName,
+      username,
+      email,
+      country,
+      phoneNumber,
+      password:googleToken,
+      otp,
+      expoPushToken // This will be undefined if not provided, which is fine
+    });
+
+    if(profileImage)
+    {
+      newBuyer.profileImage = {
+        url: profileImage,
+        public_id: profileImage,
+      };
+    }
+
+
+    await newBuyer.save();
+    
+    // Only save token if provided
+    if (expoPushToken) {
+      await saveToken(newBuyer._id, expoPushToken);
+    }
+    const token = generateToken(newBuyer._id);
+    res.status(201).json({ user: newBuyer, token });
+  }
+  catch(error)
+  {
+    res.status(500).json({ message: 'google register Login failed', error: error.message });
+  }
+  
+}
 
 
 exports.checkToken = async (req, res) => {
@@ -225,6 +296,7 @@ exports.getProfile = async (req, res) => {
         preferredCurrency: 1,
         preferredLanguage: 1,
         role: 1,
+        wallet: 1,
         bio: 1,
         notificationPreferences: {
           orderUpdates: 1,
@@ -2246,6 +2318,149 @@ exports.reportUser = async (req, res) => {
     console.error('Report user error:', error);
     res.status(500).json({
       message: 'Failed to submit report',
+      error: error.message
+    });
+  }
+};
+
+// Generate unique payment reference
+const generatePaymentReference = () => {
+  const timestamp = Date.now().toString();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `PAY-${timestamp}-${random}`;
+};
+
+// Get wallet balance
+exports.getWalletBalance = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.status(200).json({
+      balance: buyer.wallet.balance,
+      currency: buyer.wallet.currency
+    });
+  } catch (error) {
+    console.error('Get wallet balance error:', error);
+    res.status(500).json({
+      message: 'Failed to get wallet balance',
+      error: error.message
+    });
+  }
+};
+
+// Top up wallet
+exports.topUpWallet = async (req, res) => {
+  try {
+    const { amount, description = 'Wallet top up' } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        message: 'Invalid amount. Amount must be greater than 0.'
+      });
+    }
+
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    const transaction = {
+      type: 'credit',
+      amount,
+      paymentReference: generatePaymentReference(),
+      description,
+      status: 'completed',
+      createdAt: new Date()
+    };
+
+    // Add transaction to history and update balance
+    buyer.wallet.transactions.push(transaction);
+    buyer.wallet.balance += amount;
+
+    await buyer.save();
+
+    res.status(200).json({
+      message: 'Wallet topped up successfully',
+      transaction,
+      newBalance: buyer.wallet.balance
+    });
+  } catch (error) {
+    console.error('Top up wallet error:', error);
+    res.status(500).json({
+      message: 'Failed to top up wallet',
+      error: error.message
+    });
+  }
+};
+
+// Get wallet transactions
+exports.getWalletTransactions = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      type,
+      startDate,
+      endDate
+    } = req.query;
+
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Build filter
+    let filter = {};
+    if (type) {
+      filter.type = type;
+    }
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Get total count for pagination
+    const total = buyer.wallet.transactions.filter(t => {
+      if (type && t.type !== type) return false;
+      if (startDate && new Date(t.createdAt) < new Date(startDate)) return false;
+      if (endDate && new Date(t.createdAt) > new Date(endDate)) return false;
+      return true;
+    }).length;
+
+    // Get paginated transactions
+    const transactions = buyer.wallet.transactions
+      .filter(t => {
+        if (type && t.type !== type) return false;
+        if (startDate && new Date(t.createdAt) < new Date(startDate)) return false;
+        if (endDate && new Date(t.createdAt) > new Date(endDate)) return false;
+        return true;
+      })
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice((page - 1) * limit, page * limit);
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      transactions,
+      pagination: {
+        total,
+        pages: totalPages,
+        current: parseInt(page),
+        hasMore: page < totalPages
+      }
+    });
+  } catch (error) {
+    console.error('Get wallet transactions error:', error);
+    res.status(500).json({
+      message: 'Failed to get wallet transactions',
       error: error.message
     });
   }

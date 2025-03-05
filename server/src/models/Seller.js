@@ -37,6 +37,11 @@ const reviewSchema = new mongoose.Schema({
   isVerifiedPurchase: {
     type: Boolean,
     default: false
+  },
+  reply: {
+    content: { type: String },
+    createdAt: { type: Date },
+    updatedAt: { type: Date }
   }
 });
 
