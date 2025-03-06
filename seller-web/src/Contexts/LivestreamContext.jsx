@@ -26,7 +26,8 @@ export const LivestreamProvider = ({ children }) => {
         fetchedLiveStreams: [],
         liveStreamDetails: null,
         hasLiveStreamStarted: false,
-        hasLiveStreamEnded: false
+        hasLiveStreamEnded: false,
+        joinLiveStreamData: null
     };
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -116,6 +117,11 @@ export const LivestreamProvider = ({ children }) => {
                     }
 
 
+                }
+            case 'SET_JOIN_LIVE_STREAM_DATA':
+                return {
+                    ...state,
+                    joinLiveStreamData: action.payload
                 }
             default:
                 return state;
@@ -363,6 +369,29 @@ export const LivestreamProvider = ({ children }) => {
         }
     }
 
+    const joinLiveStreamAsHost = async (streamId) => {
+        try {
+            dispatch({ type: 'SET_LOADING', payload: true });
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            const response = await axios.post(`${BASE_URL}/streams/${streamId}/join-seller`, {}, {
+                headers: {
+                    Authorization: `Bearer ${tokenData.data}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (response.status === 200) {
+                dispatch({ type: 'SET_JOIN_LIVE_STREAM_DATA', payload: response.data });
+                return response.data;
+            }
+            
+        } catch (error) {
+            console.error('Error joining live stream as host', error);
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+    }
+
 
 
     return (
@@ -374,6 +403,7 @@ export const LivestreamProvider = ({ children }) => {
             startLiveStream,
             getLiveStreamFullDetails,
             endLiveStream,
+            joinLiveStreamAsHost,
             dispatch
         }}>
             {children}

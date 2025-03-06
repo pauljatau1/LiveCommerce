@@ -23,11 +23,15 @@ const client = AgoraRTC.createClient({
     role: 'host'
 });
 
+// Add this outside the component to create a module-level lock
+// This ensures the lock persists even when the component remounts
+let globalReconnectionInProgress = false;
+
 const LivestreamStudio = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { setHideSidebar, setFullScreenMode, setHeaderName, setNavName, setShowBackButton } = useOutletContext();
-    const { activeStreams, startLiveStream, endLiveStream, fetchedLiveStreams, getLiveStreamFullDetails, isLoading, liveStreamDetails, hasLiveStreamStarted, hasLiveStreamEnded } = useLivestreamContext();
+    const { activeStreams, startLiveStream, endLiveStream, fetchedLiveStreams, getLiveStreamFullDetails, isLoading, liveStreamDetails, hasLiveStreamStarted, hasLiveStreamEnded, joinLiveStreamAsHost } = useLivestreamContext();
     const [localTracks, setLocalTracks] = useState([]);
     const [isStreaming, setIsStreaming] = useState(false);
     const [showChat, setShowChat] = useState(true);
@@ -49,6 +53,9 @@ const LivestreamStudio = () => {
 
     const socket = useSocket();
     const existingLivestream = JSON.parse(localStorage.getItem(`stream_connected_${id}`));
+
+    // Keep the ref for component-level tracking
+    const reconnectionInProgress = useRef(false);
 
     useEffect(() => {
         setHideSidebar(true);
@@ -165,21 +172,52 @@ const LivestreamStudio = () => {
 
     const cleanupAgoraResources = async () => {
         try {
-            // Clean up preview stream
+            // Clean up preview stream if it exists
             if (previewMediaStream) {
-                previewMediaStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                setPreviewMediaStream(null);
+                try {
+                    previewMediaStream.getTracks().forEach(track => {
+                        track.stop();
+                    });
+                    setPreviewMediaStream(null);
+                } catch (previewError) {
+                    console.error("Error cleaning up preview stream:", previewError);
+                }
             }
 
-            // Clean up Agora resources
-            await client.leave();
-            localTracks.forEach(track => {
-                track.stop();
-                track.close();
-            });
-            setLocalTracks([]);
+            // Check current client state - only attempt cleanup if not already disconnected
+            const currentConnectionState = client.connectionState;
+            console.log(`Current connection state before cleanup: ${currentConnectionState}`);
+
+            // Clean up tracks first
+            if (localTracks.length > 0) {
+                try {
+                    // Unpublish if currently connected
+                    if (currentConnectionState === 'CONNECTED') {
+                        await client.unpublish(localTracks);
+                    }
+                    
+                    // Stop and close each track
+                    localTracks.forEach(track => {
+                        track.stop();
+                        track.close();
+                    });
+                    setLocalTracks([]);
+                } catch (trackError) {
+                    console.error("Track cleanup error:", trackError);
+                }
+            }
+
+            // Then leave the channel if appropriate
+            if (currentConnectionState !== 'DISCONNECTED') {
+                try {
+                    await client.leave();
+                    
+                    // Wait a moment for the leave operation to complete
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                } catch (leaveError) {
+                    console.error("Error leaving Agora channel:", leaveError);
+                }
+            }
         } catch (cleanupError) {
             console.error("Cleanup error:", cleanupError);
         }
@@ -306,8 +344,15 @@ const LivestreamStudio = () => {
             });
             await client.publish([audioTrack, videoTrack]);
 
-            // Set localStorage AFTER successful stream initialization
-            localStorage.setItem(`stream_connected_${id}`, JSON.stringify(true));
+            // Store complete stream credentials in localStorage for reconnection
+            const streamCredentialsForStorage = {
+                streamId: _id,
+                channelName: streamCredentials.channelName,
+                agoraToken: streamCredentials.agoraToken,
+                agoraUid: seller.agoraUid,
+                timestamp: new Date().getTime()
+            };
+            localStorage.setItem(`stream_connected_${id}`, JSON.stringify(streamCredentialsForStorage));
 
             // Update tracks and start timer
             setLocalTracks([audioTrack, videoTrack]);
@@ -380,7 +425,7 @@ const LivestreamStudio = () => {
                 }
             }
 
-            // 4. Reset states and clear storage
+            // 4. Reset states and clear storage - clear ALL stream data, not just the flag
             setIsStreaming(false);
             stopTimer();
             localStorage.removeItem(`stream_connected_${id}`);
@@ -495,86 +540,6 @@ const LivestreamStudio = () => {
     }, []);
 
 
-    useEffect(() => {
-        const handleConnectionStateChange = async (curState, prevState) => {
-            console.log("Connection state:", prevState, "→", curState);
-
-            // Handle disconnection or initial page load
-            const isConnected = JSON.parse(localStorage.getItem(`stream_connected_${id}`));
-            console.log('curState', curState);
-            console.log('prevState', prevState);
-            console.log('isConnected', isConnected);
-            if ((curState === 'DISCONNECTED' && isConnected) ||
-                (prevState === null && isConnected)) {
-                try {
-                    setIsLiveStreamStarting(true);
-                    // Get fresh details including LATEST token
-                    const { 
-                        status: livestreamStatus,
-                        agoraToken, // Backend ensures this is always fresh
-                        channelName: currentChannel 
-                    } = await getLiveStreamFullDetails(id);
-
-                    console.log('livestreamStatus', livestreamStatus)
-
-                    // Check if stream is no longer active
-                    if (livestreamStatus !== 'live' && livestreamStatus !== 'scheduled') {
-                        localStorage.removeItem(`stream_connected_${id}`);
-                        setIsStreaming(false);
-                        toast.error("This stream has ended");
-                        return; // Stop execution here
-                    }
-
-                    // Rest of reconnection logic only runs if stream is still active
-                    await cleanupAgoraResources();
-                    await client.setClientRole("host");
-                    setIsStreaming(true);
-
-                    await client.join(
-                        "6170309cbdb94a6dbdda39aa8a4143d1",
-                        currentChannel,
-                        agoraToken, // Now using backend-managed fresh token
-                        seller.agoraUid
-                    );
-
-                    toast.success("Reconnecting to existing stream");
-
-                    const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-
-                    await new Promise(resolve => {
-                        const check = () => videoContainerRef.current ? resolve() : requestAnimationFrame(check);
-                        requestAnimationFrame(check);
-                    });
-
-                    videoTrack.play(videoContainerRef.current);
-                    await client.publish([audioTrack, videoTrack]);
-                    setLocalTracks([audioTrack, videoTrack]);
-                    startTimer();
-
-                    toast.success("Reconnected to stream");
-
-                } catch (error) {
-                    console.error("Reconnection failed:", error);
-                    if (error.code === 'INVALID_OPERATION') {
-                        toast.error("Connection error - please refresh the page");
-                    }
-                    setIsStreaming(false);
-                } finally {
-                    setIsLiveStreamStarting(false);
-                }
-            }
-        };
-
-
-        // Check for existing stream on mount
-        const isConnected = JSON.parse(localStorage.getItem(`stream_connected_${id}`));
-        if (isConnected) {
-            handleConnectionStateChange('DISCONNECTED', null);
-        }
-
-        client.on('connection-state-change', handleConnectionStateChange);
-        return () => client.off('connection-state-change', handleConnectionStateChange);
-    }, [channelName, agoraToken, id]);
 
     // Add this new useEffect for connection state monitoring
     useEffect(() => {
@@ -640,9 +605,9 @@ const LivestreamStudio = () => {
                 });
             }
         };
-    }, [isStreaming, channelName, id, seller.agoraUid, socket]);
+    }, [isStreaming, channelName, id, seller.agoraUid, socket]); 
 
-    // Listen for token expiring event
+    {/*// Listen for token expiring event
     useEffect(() => {
         client.on('token-privilege-will-expire', async () => {
             try {
@@ -664,7 +629,274 @@ const LivestreamStudio = () => {
         return () => {
             client.off('token-privilege-will-expire');
         };
-    }, [client, id]);
+    }, [client, id]);*/}
+
+    // Check for any existing livestream and reconnect
+    const checkForExistingStream = async () => {
+        console.log('🔄 [RECONNECT 1/18] Starting reconnection process check');
+        
+        // Use both global and local locks for extra safety
+        if (globalReconnectionInProgress) {
+            console.log('🛑 [RECONNECT] Global reconnection already in progress, skipping duplicate attempt');
+            return;
+        }
+        
+        if (reconnectionInProgress.current) {
+            console.log('🛑 [RECONNECT] Local reconnection already in progress, skipping duplicate attempt');
+            return;
+        }
+        
+        // Set both locks
+        globalReconnectionInProgress = true;
+        reconnectionInProgress.current = true;
+        
+        console.log('🔄 [RECONNECT 2/18] Set reconnection locks to prevent concurrent attempts');
+        
+        try {
+            // Force cleanup first - always ensure we're starting with a clean slate
+            console.log('🔄 [RECONNECT 3/18] Cleaning up any existing Agora resources');
+            await cleanupAgoraResources();
+            console.log('🔄 [RECONNECT 4/18] Agora resources cleanup completed');
+            
+            // Check all localStorage items for any with stream_connected_ prefix
+            console.log('🔄 [RECONNECT 5/18] Searching localStorage for existing stream sessions');
+            const streamKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('stream_connected_')) {
+                    streamKeys.push(key);
+                }
+            }
+            console.log(`🔄 [RECONNECT 6/18] Found ${streamKeys.length} stream keys in localStorage`);
+            
+            // If no existing streams found, return
+            if (streamKeys.length === 0) {
+                console.log('🔄 [RECONNECT] No existing streams found, ending reconnection process');
+                globalReconnectionInProgress = false;
+                reconnectionInProgress.current = false;
+                return;
+            }
+            
+            // Get the most recent stream (in case there are multiple)
+            console.log('🔄 [RECONNECT 7/18] Finding most recent stream from stored sessions');
+            let mostRecentStream = null;
+            let mostRecentTimestamp = 0;
+
+            for (const key of streamKeys) {
+                const streamData = JSON.parse(localStorage.getItem(key));
+                if (streamData && streamData.timestamp > mostRecentTimestamp) {
+                    mostRecentStream = streamData;
+                    mostRecentTimestamp = streamData.timestamp;
+                }
+            }
+
+            if (!mostRecentStream) {
+                console.log('🔄 [RECONNECT] No valid stream data found, ending reconnection process');
+                globalReconnectionInProgress = false;
+                reconnectionInProgress.current = false;
+                return;
+            }
+
+            console.log('🔄 [RECONNECT 8/18] Found most recent stream session:', 
+                  { id: mostRecentStream.streamId, channelName: mostRecentStream.channelName, timestamp: new Date(mostRecentTimestamp).toLocaleString() });
+
+            // Get fresh stream data
+            console.log('🔄 [RECONNECT 9/18] Fetching fresh stream data from server');
+            const streamId = mostRecentStream.streamId;
+            const freshData = await joinLiveStreamAsHost(streamId);
+            
+            if (!freshData) {
+                console.error('❌ [RECONNECT] Failed to get fresh stream data from server');
+                // Clean up old stream data as it might be invalid
+                localStorage.removeItem(`stream_connected_${streamId}`);
+                globalReconnectionInProgress = false;
+                reconnectionInProgress.current = false;
+                return;
+            }
+            console.log('🔄 [RECONNECT 10/18] Successfully fetched fresh stream data');
+
+            // Check permissions
+            console.log('🔄 [RECONNECT 11/18] Checking device permissions');
+            const previewStream = await checkDevicePermissions();
+            if (!previewStream) {
+                console.error('❌ [RECONNECT] Device permission check failed');
+                globalReconnectionInProgress = false;
+                reconnectionInProgress.current = false;
+                return;
+            }
+            console.log('🔄 [RECONNECT 12/18] Device permissions granted');
+
+            // Prepare stream credentials with fresh token
+            console.log('🔄 [RECONNECT 13/18] Preparing stream credentials with fresh token');
+            const streamCredentials = {
+                channelName: freshData?.channelName,
+                agoraToken: freshData?.token
+            };
+
+            if (!streamCredentials.channelName || !streamCredentials.agoraToken) {
+                console.error('❌ [RECONNECT] Missing channel credentials for reconnection');
+                throw new Error('Missing channel credentials for reconnection');
+            }
+            console.log('🔄 [RECONNECT 14/18] Stream credentials prepared');
+
+            // Verify client is in disconnected state before proceeding
+            console.log(`🔄 [RECONNECT 15/18] Current client state: ${client ? client.connectionState : 'client not initialized'}`);
+            if (client && client.connectionState !== 'DISCONNECTED') {
+                console.log(`🔄 [RECONNECT] Client in ${client.connectionState} state, forcing disconnect`);
+                try {
+                    await client.leave();
+                    
+                    // Add a small delay to ensure the disconnect completes
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    console.log('🔄 [RECONNECT] Forced disconnect completed');
+                } catch (error) {
+                    console.warn('⚠️ [RECONNECT] Error during forced disconnect:', error);
+                }
+            }
+
+            // Set client role
+            console.log('🔄 [RECONNECT 16/18] Setting client role to host');
+            await setClientRole();
+
+            // Set streaming state to render video container
+            console.log('🔄 [RECONNECT 17/18] Setting streaming state to true to render video container');
+            setIsStreaming(true);
+
+            // Add a delay to ensure UI is updated before joining
+            console.log('🔄 [RECONNECT] Waiting for UI to update before joining channel');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Join channel with fresh token
+            console.log('🔄 [RECONNECT 18/18] Joining channel with fresh token. Client state:', client.connectionState);
+            await client.join(
+                "6170309cbdb94a6dbdda39aa8a4143d1",
+                streamCredentials.channelName,
+                streamCredentials.agoraToken,
+                mostRecentStream.agoraUid,
+            );
+            console.log('✅ [RECONNECT] Successfully joined channel');
+
+            // Create tracks after setting isStreaming
+            console.log('🔄 [TRACK 1/6] Creating audio and video tracks');
+            const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+                {
+                    encoderConfig: {
+                        sampleRate: 48000,
+                        stereo: true,
+                        bitrate: 128,
+                        AEC: true,
+                        ANS: true,
+                        AGC: true
+                    }
+                },
+                {
+                    encoderConfig: {
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 1080, min: 720 },
+                        frameRate: 60,
+                        bitrateMin: 1500,
+                        bitrateMax: 4000,
+                        optimizationMode: 'motion',
+                        mirror: true
+                    },
+                    facingMode: "user",
+                    mediaStreamTrack: previewStream.getVideoTracks()[0],
+                },
+                { 
+                    timeout: 60000,
+                    retry: 3
+                }
+            );
+            console.log('🔄 [TRACK 2/6] Successfully created audio and video tracks');
+
+            // Wait for video container to be ready
+            console.log('🔄 [TRACK 3/6] Waiting for video container to be ready');
+            await new Promise((resolve, reject) => {
+                const checkInterval = setInterval(() => {
+                    if (videoContainerRef.current) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100);
+
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    reject(new Error('Video container not found after 5 seconds'));
+                }, 5000);
+            });
+            console.log('🔄 [TRACK 4/6] Video container is ready');
+
+            // Play and publish
+            console.log('🔄 [TRACK 5/6] Playing video track in container');
+            videoTrack.play(videoContainerRef.current, { 
+                fit: 'cover', 
+                mirror: true
+            });
+            console.log('🔄 [TRACK 6/6] Publishing audio and video tracks to channel');
+            await client.publish([audioTrack, videoTrack]);
+            console.log('✅ [TRACK] Successfully published tracks to channel');
+
+            // Update stream credentials in localStorage with new token
+            console.log('🔄 [FINALIZE 1/3] Updating stream credentials in localStorage');
+            const streamCredentialsForStorage = {
+                streamId: streamId,
+                channelName: streamCredentials.channelName,
+                agoraToken: streamCredentials.agoraToken,
+                agoraUid: mostRecentStream.agoraUid,
+                timestamp: new Date().getTime()
+            };
+            localStorage.setItem(`stream_connected_${streamId}`, JSON.stringify(streamCredentialsForStorage));
+
+            // Update tracks and start timer
+            console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
+            setLocalTracks([audioTrack, videoTrack]);
+            console.log('🔄 [FINALIZE 3/3] Starting stream timer');
+            startTimer();
+
+            console.log('✅ [RECONNECT] Reconnection process completed successfully');
+            toast.success('Successfully reconnected to your livestream');
+
+        } catch (error) {
+            console.log('❌ [RECONNECT ERROR] Reconnection error:', error);
+            console.log('❌ [RECONNECT ERROR] Error name:', error.name);
+            console.log('❌ [RECONNECT ERROR] Error message:', error.message);
+            console.log('❌ [RECONNECT ERROR] Error stack:', error.stack);
+            
+            if (error.code) {
+                console.log('❌ [RECONNECT ERROR] Error code:', error.code);
+            }
+            
+            handleAgoraError(error);
+            
+            console.log('🔄 [RECONNECT ERROR] Cleaning up resources after error');
+            await cleanupAgoraResources();
+            setIsStreaming(false);
+            
+            // Don't automatically clean up stream data on failure to allow retry
+            toast.error('Failed to reconnect to previous stream session');
+        } finally {
+            // Clear both locks
+            console.log('🔄 [RECONNECT COMPLETE] Resetting reconnection locks');
+            globalReconnectionInProgress = false;
+            reconnectionInProgress.current = false;
+        }
+    };
+    
+    useEffect(() => {
+        console.log('🔄 [MOUNT] Component mounted, checking for existing stream');
+        
+        // Add a small delay to ensure we don't have race conditions with other effects
+        const timeoutId = setTimeout(() => {
+            checkForExistingStream();
+        }, 300);
+        
+        return () => {
+            console.log('🔄 [UNMOUNT] Component unmounting, resetting reconnection locks');
+            clearTimeout(timeoutId);
+            globalReconnectionInProgress = false;
+            reconnectionInProgress.current = false;
+        };
+    }, []);
 
     // Pre-stream DESKTOP UI
     if (!isStreaming) {
@@ -860,7 +1092,7 @@ const LivestreamStudio = () => {
                                                     ) : (
                                                         existingLivestream ? (
                                                             <button
-                                                                onClick={handleStartStream}
+                                                                onClick={() => {handleStartStream()}}
                                                                 className="bg-[#14AE5C] hover:bg-[#14AE5C]/90 text-white px-8 py-2 rounded-lg font-inter text-sm xl:text-base font-medium transition-all duration-300"
                                                             >
                                                                 Reconnect Stream
@@ -904,7 +1136,7 @@ const LivestreamStudio = () => {
                                                     ) : (
                                                         existingLivestream ? (
                                                             <button
-                                                                onClick={handleStartStream}
+                                                                onClick={() => {handleStartStream()}}
                                                                 className="bg-[#14AE5C] hover:bg-[#14AE5C]/90 text-white px-8 py-2 rounded-lg font-inter text-sm xl:text-base font-medium transition-all duration-300"
                                                             >
                                                                 Reconnect Stream
@@ -969,9 +1201,9 @@ const LivestreamStudio = () => {
                                                         <div className="w-16 xl:w-24 h-16 xl:h-24 mx-auto">
                                                             <img src={ChatEmpty} alt="Chat" className="w-full h-full" />
                                                         </div>
-                                                        <h3 className="text-[#EFF0FA] font-inter font-medium">Start a livestream</h3>
+                                                        <h3 className="text-[#EFF0FA] font-inter font-medium">Start a conversation</h3>
                                                         <p className="text-[#7A828A] text-sm font-inter">
-                                                            There are no messages here yet. Start a livestream to send a message.
+                                                            There are no messages here yet. Start a conversation by sending a message.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -1181,7 +1413,7 @@ const LivestreamStudio = () => {
 
                                                         <div className="mt-8">
                                                             <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Products</h2>
-                                                            <div className="space-y-4 max-h-[calc(100vh-500px)] overflow-x-hidden overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+                                                            <div className="space-y-4 max-h-[calc(100vh-500px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                                                                 {
                                                                     products?.length > 0 ? (
                                                                         products?.map((item) => (
