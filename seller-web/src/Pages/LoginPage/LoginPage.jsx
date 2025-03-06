@@ -203,7 +203,7 @@ const LoginPage = () => {
                 create
               </Link>
             </div>
-            <div className="flex justify-center gap-4">
+            {/* <div className="flex justify-center gap-4">
               <button
                 type="button"
                 className="p-2 border rounded-full hover:bg-gray-50 transition-colors"
@@ -222,7 +222,7 @@ const LoginPage = () => {
               >
                 <img src="https://cdn.cdnlogo.com/logos/f/91/facebook-icon.svg" alt="Facebook" className="w-6 h-6" />
               </button>
-            </div>
+            </div> */}
           </form>
         </div>
         {/* jsjs */}
