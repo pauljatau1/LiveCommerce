@@ -3301,3 +3301,83 @@ exports.getSellerProductCategories = async (req, res) => {
   }
 };
 
+// Get replies for a specific blip comment
+exports.getBlipCommentReplies = async (req, res) => {
+  try {
+    const { productId, blipId, commentId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    const comment = blip.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Get total number of replies
+    const totalReplies = comment.replies ? comment.replies.length : 0;
+    const totalPages = Math.ceil(totalReplies / limit);
+
+    // Calculate pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+
+    // Get paginated replies
+    const replies = comment.replies
+      ? comment.replies.slice(startIndex, endIndex)
+      : [];
+
+    // Populate user information for each reply
+    const populatedReplies = await Promise.all(
+      replies.map(async (reply) => {
+        let userInfo;
+        if (reply.userType === 'Buyer') {
+          userInfo = await Buyer.findById(reply.user).select('firstName lastName avatar');
+        } else {
+          userInfo = await Seller.findById(reply.user).select('storeName storeAvatar');
+        }
+
+        return {
+          _id: reply._id,
+          user: {
+            _id: userInfo._id,
+            name: reply.userType === 'Buyer' 
+              ? `${userInfo.firstName} ${userInfo.lastName}`
+              : userInfo.storeName,
+            avatar: reply.userType === 'Buyer' 
+              ? userInfo.avatar
+              : userInfo.storeAvatar
+          },
+          userType: reply.userType,
+          comment: reply.comment,
+          createdAt: reply.createdAt,
+          likes: reply.likes,
+          likesCount: reply.likesCount
+        };
+      })
+    );
+
+    return res.json({
+      replies: populatedReplies,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalReplies
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting blip comment replies:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
