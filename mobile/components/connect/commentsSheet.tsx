@@ -62,8 +62,8 @@ const CommentsSheet = memo(
     const [page, setPage] = useState<number>(1);
     const [loading, setLoading] = useState<boolean>(true);
     const [replyPlaceholder, setReplyPlaceholder] = useState<string>("");
-    const [replyId, setReplyId] = useState<string>("");
     const [tempReplyId, setTempReplyId] = useState<string>("");
+    const [replyId, setReplyId] = useState<string>("");
     const [newReply, setNewReply] = useState<any>();
     const handleCreateComment = async () => {
       const token = await getToken();
@@ -104,7 +104,7 @@ const CommentsSheet = memo(
       }
     };
 
-    const commentInputRef = useRef<TextInput>(null);
+    const commentInputRef = useRef<TextInput | any>(null);
 
     const handleRequestReply = useCallback(
       (id: string, placeholder: string) => {
