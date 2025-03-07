@@ -130,6 +130,7 @@ const orderSchema = new mongoose.Schema({
       }]
     },
     shipment_id: String,
+    fez_order_number: String,
     shipment_purpose: String,
     documents: {
       shippingLabel: String,
@@ -147,7 +148,6 @@ const orderSchema = new mongoose.Schema({
   paymentInfo: {
     method: {
       type: String,
-   
       default: 'paystack'
     },
     status: {
@@ -155,7 +155,11 @@ const orderSchema = new mongoose.Schema({
       default: 'pending'
     },
     transactionId: String,
-    paidAt: Date
+    paidAt: Date,
+    isCashOnDelivery: {
+      type: Boolean,
+      default: false
+    }
   },
   discount: {
     code: String,

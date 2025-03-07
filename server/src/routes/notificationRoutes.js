@@ -97,10 +97,10 @@ router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.
 
 /**
  * @swagger
- * /api/notifications/simulate-shipment-webhook:
+ * /api/notifications/simulate-fez-webhook:
  *   post:
- *     summary: Simulate Terminal Africa shipment webhook events
- *     description: Test endpoint to simulate different shipment status webhook events
+ *     summary: Simulate Fez Delivery order webhook events
+ *     description: Test endpoint to simulate different order status webhook events from Fez Delivery
  *     tags: [Notifications]
  *     security:
  *       - bearerAuth: []
@@ -111,22 +111,17 @@ router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.
  *           schema:
  *             type: object
  *             required:
- *               - shipment_id
+ *               - orderNumber
  *               - status
- *               - tracking_number
  *             properties:
- *               shipment_id:
+ *               orderNumber:
  *                 type: string
- *                 description: Terminal Africa shipment ID
- *                 example: "SH-KT355QFI31PZY4GX"
+ *                 description: Fez Delivery order number
+ *                 example: "D0QR05032515"
  *               status:
  *                 type: string
- *                 enum: [created, in-transit, delivered, cancelled]
- *                 description: Shipment status to simulate
- *               tracking_number:
- *                 type: string
- *                 description: Shipment tracking number
- *                 example: "7247322121"
+ *                 enum: [Pending Pick-Up, Picked-Up, Dispatched, Delivered, Cancelled]
+ *                 description: Order status to simulate
  *     responses:
  *       200:
  *         description: Webhook event simulated successfully
@@ -134,12 +129,14 @@ router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.
  *         description: Invalid request parameters
  *       401:
  *         description: Unauthorized
+ *       404:
+ *         description: Order not found
  *       500:
  *         description: Server error
  */
-router.post('/simulate-shipment-webhook', 
+router.post('/simulate-fez-webhook', 
   authMiddleware.verifyToken, 
-  notificationController.simulateShipmentWebhook
+  notificationController.simulateFezWebhook
 );
 
 /**

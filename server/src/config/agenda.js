@@ -71,6 +71,37 @@ agenda.define('closeOrder', async (job) => {
   }
 });
 
+// Define job for sending order notifications
+agenda.define('send-order-notifications', async (job) => {
+  try {
+    const { orderId, buyerId, sellerId } = job.attrs.data;
+    
+    const Order = mongoose.model('Order');
+    const Buyer = mongoose.model('Buyer');
+    const Seller = mongoose.model('Seller');
+    const notificationController = require('../controllers/notificationController');
+    
+    // Fetch the necessary data
+    const [order, buyer, seller] = await Promise.all([
+      Order.findById(orderId),
+      Buyer.findById(buyerId),
+      Seller.findById(sellerId)
+    ]);
+    
+    if (!order || !buyer || !seller) {
+      console.error('Missing data for order notifications:', { orderId, buyerId, sellerId });
+      return;
+    }
+    
+    // Send notifications and emails
+    await notificationController.handleOrderCreationNotifications(order, buyer, seller);
+    
+    console.log(`Order notifications sent for order: ${order.order_id}`);
+  } catch (error) {
+    console.error('Error in send-order-notifications job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();

@@ -94,7 +94,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-app.use('/webhooks', webhookRoutes);
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/streams', streamRoutes);
 app.use('/api/coupons', couponRoutes);

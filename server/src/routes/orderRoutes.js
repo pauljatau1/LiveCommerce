@@ -8,8 +8,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  * @swagger
  * /api/order:
  *   post:
- *     summary: Create a new order with Fez Delivery shipping
- *     description: Creates an order and shipping information through Fez Delivery
+ *     summary: Create new order(s) with Fez Delivery shipping
+ *     description: Creates orders for multiple items, potentially from different sellers, with shipping through Fez Delivery
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -22,7 +22,6 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *             required:
  *               - items
  *               - shippingAddress
- *               - parcel
  *               - paymentMethod
  *             properties:
  *               items:
@@ -36,10 +35,16 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                   properties:
  *                     productId:
  *                       type: string
+ *                       description: ID of the product
  *                     quantity:
  *                       type: number
+ *                       description: Quantity of the product
  *                     price:
  *                       type: number
+ *                       description: Price of the product
+ *                     weight:
+ *                       type: number
+ *                       description: Weight of the item in kg
  *                     specifications:
  *                       type: object
  *                       properties:
@@ -49,6 +54,42 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                           type: string
  *                         material:
  *                           type: string
+ *                     seller:
+ *                       type: object
+ *                       description: Seller-specific information for this item
+ *                       properties:
+ *                         sellerId:
+ *                           type: string
+ *                           description: ID of the seller (if different from product's seller)
+ *                         senderInfo:
+ *                           type: object
+ *                           description: Sender information specific to this seller
+ *                           properties:
+ *                             senderName:
+ *                               type: string
+ *                               description: Name of the sender/seller
+ *                             senderAddress:
+ *                               type: string
+ *                               description: Address of the sender/seller
+ *                             senderPhone:
+ *                               type: string
+ *                               description: Phone number of the sender/seller
+ *                             senderEmail:
+ *                               type: string
+ *                               description: Email of the sender/seller
+ *                             pickUpState:
+ *                               type: string
+ *                               description: State for pickup (must be one of the 36 states or FCT)
+ *                         shippingFee:
+ *                           type: number
+ *                           description: Specific shipping fee for this seller's items
+ *                         parcelInfo:
+ *                           type: object
+ *                           description: Parcel information specific to this seller's items
+ *                           properties:
+ *                             itemDescription:
+ *                               type: string
+ *                               description: Description of the items from this seller
  *               shippingAddress:
  *                 type: object
  *                 required:
@@ -74,7 +115,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                     description: State of delivery (must be one of the 36 states or FCT)
  *               senderInfo:
  *                 type: object
- *                 description: Optional sender information (if not provided, seller details from database will be used)
+ *                 description: Default sender information (used if not specified at item level)
  *                 properties:
  *                   senderName:
  *                     type: string
@@ -85,32 +126,36 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                   senderPhone:
  *                     type: string
  *                     description: Phone number of the sender/seller
+ *                   senderEmail:
+ *                     type: string
+ *                     description: Email of the sender/seller
  *                   pickUpState:
  *                     type: string
  *                     description: State for pickup (must be one of the 36 states or FCT)
  *               parcel:
  *                 type: object
- *                 required:
- *                   - weight
- *                   - valueOfItem
+ *                 description: Default parcel information (optional, can be specified at item level)
  *                 properties:
  *                   weight:
  *                     type: number
- *                     description: Weight of the parcel in kg
+ *                     description: Default weight of the parcel in kg (if not specified at item level)
  *                   valueOfItem:
  *                     type: string
- *                     description: Value of the items being shipped
+ *                     description: Default value of the items being shipped
  *                   itemDescription:
  *                     type: string
- *                     description: Description of the items
+ *                     description: Default description of the items
  *               paymentMethod:
  *                 type: string
- *                 enum: [paystack, card, bank_transfer]
+ *                 enum: [paystack, card, bank_transfer, wallet]
  *                 description: Payment method for the order
  *               isItemCod:
  *                 type: boolean
- *                 description: Whether the item is to be paid for on delivery
+ *                 description: Whether the item is to be paid for on delivery (Cash on Delivery)
  *                 default: false
+ *               shippingFee:
+ *                 type: number
+ *                 description: Global shipping fee to be distributed among sellers
  *               additionalDetails:
  *                 type: string
  *                 description: Additional details like landmarks or extra contact information
@@ -118,9 +163,13 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 type: string
  *                 format: date
  *                 description: Requested date for pickup from seller
+ *               paidFromWallet:
+ *                 type: boolean
+ *                 description: Whether to pay for the order using the buyer's wallet balance
+ *                 default: false
  *     responses:
  *       201:
- *         description: Order created successfully with shipping details
+ *         description: Orders created successfully with shipping details
  *         content:
  *           application/json:
  *             schema:
@@ -132,22 +181,62 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 orders:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Order'
- *                 shipping:
+ *                     type: object
+ *                     properties:
+ *                       orderId:
+ *                         type: string
+ *                         description: MongoDB ID of the order
+ *                       order_id:
+ *                         type: string
+ *                         description: Human-readable order ID
+ *                       seller:
+ *                         type: string
+ *                         description: ID of the seller
+ *                       items:
+ *                         type: number
+ *                         description: Number of items in the order
+ *                       itemsTotal:
+ *                         type: number
+ *                         description: Total cost of items (excluding shipping)
+ *                       shippingFee:
+ *                         type: number
+ *                         description: Shipping fee for this order
+ *                       orderTotal:
+ *                         type: number
+ *                         description: Total cost including shipping
+ *                       fezOrderNo:
+ *                         type: string
+ *                         description: Fez Delivery order number
+ *                 totals:
  *                   type: object
  *                   properties:
- *                     batchId:
- *                       type: string
- *                     orderNos:
- *                       type: object
- *                       additionalProperties:
- *                         type: string
+ *                     itemsTotal:
+ *                       type: number
+ *                       description: Total cost of all items
+ *                     shippingTotal:
+ *                       type: number
+ *                       description: Total shipping fees
+ *                     grandTotal:
+ *                       type: number
+ *                       description: Grand total (items + shipping)
+ *                     orderCount:
+ *                       type: number
+ *                       description: Number of orders created
+ *                     sellerEarnings:
+ *                       type: number
+ *                       description: Total earnings for sellers (excluding shipping)
+ *                     shippingCost:
+ *                       type: number
+ *                       description: Total shipping cost (goes to Fez Delivery)
+ *                 fezResponse:
+ *                   type: object
+ *                   description: Response from Fez Delivery API
  *       400:
- *         description: Invalid request body or address validation failed
+ *         description: Invalid request body or validation failed
  *       401:
  *         description: Unauthorized
  *       500:
- *         description: Server error or shipping creation failed
+ *         description: Server error or order creation failed
  */
 router.post('/', authMiddleware.verifyToken, orderController.createOrder);
 
@@ -1058,5 +1147,181 @@ router.post('/:orderId/cancel-shipment',
   authMiddleware.verifyToken, 
   orderController.cancelShipment
 );
+
+/**
+ * @swagger
+ * /api/order/delivery-cost:
+ *   post:
+ *     summary: Get delivery cost from Fez Delivery
+ *     description: Fetches the cost of delivery based on destination state, pickup state, and weight
+ *     tags: [Order]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               state:
+ *                 type: string
+ *                 description: The destination state to deliver to (if not provided, costs for all states will be returned)
+ *               pickUpState:
+ *                 type: string
+ *                 description: The state from which the item is being shipped (optional)
+ *               weight:
+ *                 type: number
+ *                 description: Weight of the parcel in kg (optional, defaults to 0-5kg range)
+ *     responses:
+ *       200:
+ *         description: Delivery costs retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "Success"
+ *                 description:
+ *                   type: string
+ *                   example: "Cost Fetched Successfully"
+ *                 Cost:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       state:
+ *                         type: string
+ *                         example: "Lagos"
+ *                       cost:
+ *                         type: string
+ *                         example: "900"
+ *       400:
+ *         description: Invalid request parameters
+ *       500:
+ *         description: Server error or Fez API error
+ */
+router.post('/delivery-cost', orderController.getDeliveryCost);
+
+/**
+ * @swagger
+ * /api/order/track/{orderNo}:
+ *   get:
+ *     summary: Track an order using Fez Delivery
+ *     description: Get tracking information for an order using the Fez Delivery API
+ *     tags: [Order]
+ *     parameters:
+ *       - in: path
+ *         name: orderNo
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The Fez order number to track
+ *     responses:
+ *       200:
+ *         description: Order tracking information retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 tracking:
+ *                   type: object
+ *                   properties:
+ *                     orderNo:
+ *                       type: string
+ *                       example: 1T7002122309
+ *                     orderStatus:
+ *                       type: string
+ *                       example: Dispatched
+ *                     recipientName:
+ *                       type: string
+ *                       example: John Doe
+ *                     recipientAddress:
+ *                       type: string
+ *                       example: 123 Main St
+ *                     recipientState:
+ *                       type: string
+ *                       example: Lagos
+ *                     senderName:
+ *                       type: string
+ *                       example: KIDS PLACE
+ *                     senderAddress:
+ *                       type: string
+ *                       example: 3A SULAIMON SHODERU STREET
+ *                     createdAt:
+ *                       type: string
+ *                       example: 2023-12-02 06:14:09
+ *                     history:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           orderStatus:
+ *                             type: string
+ *                             example: Dispatched
+ *                           statusCreationDate:
+ *                             type: string
+ *                             example: 2023-12-02 13:14:40
+ *                           statusDescription:
+ *                             type: string
+ *                             example: Your package is on its way to the delivery address
+ *       400:
+ *         description: Bad request, missing or invalid order number
+ *       500:
+ *         description: Server error
+ */
+router.get('/track/:orderNo', orderController.trackOrderFez);
+
+/**
+ * @swagger
+ * /api/order/delivery-time-estimate:
+ *   post:
+ *     summary: Get estimated delivery time
+ *     description: Get estimated delivery time for an order using the Fez Delivery API
+ *     tags: [Order]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - delivery_type
+ *               - pick_up_state
+ *               - drop_off_state
+ *             properties:
+ *               delivery_type:
+ *                 type: string
+ *                 enum: [import, export, local]
+ *                 description: Type of delivery (import, export, or local)
+ *               pick_up_state:
+ *                 type: string
+ *                 description: State for pickup (must be a valid state in Nigeria)
+ *               drop_off_state:
+ *                 type: string
+ *                 description: State for delivery (must be a valid state in Nigeria)
+ *     responses:
+ *       200:
+ *         description: Delivery time estimate retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 estimate:
+ *                   type: string
+ *                   example: 2 - 5 day(s)
+ *       400:
+ *         description: Bad request, missing or invalid parameters
+ *       500:
+ *         description: Server error
+ */
+router.post('/delivery-time-estimate', orderController.getDeliveryTimeEstimate);
 
 module.exports = router;
