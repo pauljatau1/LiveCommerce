@@ -71,7 +71,7 @@ const SingleExplore = () => {
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="h-full relative">
+        <View className="h-full relative flex-1">
           <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
             <TouchableOpacity
               className="absolute left-[12px]"
@@ -111,10 +111,10 @@ const SingleExplore = () => {
             </TouchableOpacity>
           </View>
           <ScrollView
-            className="w-full h-[100%]"
+            className="flex-1"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingBottom: 20,
+              paddingBottom: 80,
             }}
           >
             <FavouriteExplore />
@@ -142,7 +142,7 @@ const SingleExplore = () => {
               )}
             </View>
 
-            <View className="pb-[50px]">
+            <View className="">
               <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
                 Still Searching
               </Text>
@@ -161,24 +161,24 @@ const SingleExplore = () => {
                 />
               </View>
             </View>
-            <View className="pb-[50px] flex-row justify-around w-[260px] mx-auto">
-              <CustomButton
-                title="Live Show"
-                textStyle="!text-[#141B34]"
-                className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
-                onPress={() => {
-                  router.push("/(root)/(tabs)/home/home");
-                }}
-              />
-              <CustomButton
-                title="Markets"
-                className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
-                onPress={() => {
-                  router.push("/(root)/(tabs)/home/marketplace");
-                }}
-              />
-            </View>
           </ScrollView>
+          <View className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center">
+            <CustomButton
+              title="Live Show"
+              textStyle="!text-[#141B34]"
+              className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
+              onPress={() => {
+                router.push("/(root)/(tabs)/home/home");
+              }}
+            />
+            <CustomButton
+              title="Markets"
+              className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
+              onPress={() => {
+                router.push("/(root)/(tabs)/home/marketplace");
+              }}
+            />
+          </View>
         </View>
       </SafeAreaView>
     </>

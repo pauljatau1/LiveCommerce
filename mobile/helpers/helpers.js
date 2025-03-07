@@ -14,6 +14,27 @@ export function validateEmail(email) {
   return emailPattern.test(email);
 }
 
+export function formatNumber(num = 0) {
+  if (num >= 1000000000) {
+    const formatted = (num / 1000000000).toFixed(1);
+    return formatted.endsWith(".0")
+      ? formatted.slice(0, -2) + "B"
+      : formatted + "B"; // Billions
+  } else if (num >= 1000000) {
+    const formatted = (num / 1000000).toFixed(1);
+    return formatted.endsWith(".0")
+      ? formatted.slice(0, -2) + "M"
+      : formatted + "M"; // Millions
+  } else if (num >= 1000) {
+    const formatted = (num / 1000).toFixed(1);
+    return formatted.endsWith(".0")
+      ? formatted.slice(0, -2) + "K"
+      : formatted + "K"; // Thousands
+  } else {
+    return num.toString(); // Small numbers
+  }
+}
+
 export function formatDate(date, format) {
   let rawDate = moment(date);
   const formattedDate = rawDate.format(format);
@@ -89,6 +110,19 @@ export function catalogSort(items, criteria) {
         return 0;
     }
   });
+}
+
+export function catalogFilterPrice(items, criteria) {
+  if (items?.length < 1) return [];
+  return items?.filter(
+    (item) =>
+      getPrice(item) >= (criteria.min || 0) &&
+      getPrice(item) <= (criteria.max || 999999999),
+  );
+}
+
+function getPrice(item) {
+  return item.discount?.isActive ? item.discount?.discountedPrice : item.price;
 }
 
 export const getProductSpecifications = (obj, prefix) => {

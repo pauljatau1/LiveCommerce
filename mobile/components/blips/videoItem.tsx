@@ -28,7 +28,7 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Shadow, ShadowProps } from "react-native-shadow-2";
 import BottomSheet from "../global/bottom-sheet";
-import { timeFromNow } from "@/helpers/helpers";
+import { formatNumber, timeFromNow } from "@/helpers/helpers";
 import { TextInput } from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import moment from "moment";
@@ -36,6 +36,7 @@ import CheckoutNow from "./checkoutNow";
 import ProductPreview from "./productPreview";
 import BlipsShop from "./blipsShop";
 import AuthSheet from "../auth/authSheet";
+import { data } from "@/constants";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -44,6 +45,7 @@ const VideoItem = ({
   seller,
   engagement,
   product,
+  item,
 }: {
   id: string;
   videoUrl: string;
@@ -51,6 +53,7 @@ const VideoItem = ({
   seller: any;
   engagement: any;
   product: any;
+  item: any;
 }) => {
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -69,6 +72,9 @@ const VideoItem = ({
   const [showProduct, setShowProduct] = useState<boolean>(false);
   const [showShop, setShowShop] = useState<boolean>(false);
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+  const [following, setFollowing] = useState<boolean>(
+    item?.seller?.isFollowing || false,
+  );
 
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
@@ -168,13 +174,13 @@ const VideoItem = ({
     }
   }, [isFocused]);
 
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.unloadAsync();
-      }
-    };
-  }, []);
+  // useEffect(() => {
+  //   return () => {
+  //     if (videoRef.current) {
+  //       videoRef.current.unloadAsync();
+  //     }
+  //   };
+  // }, []);
 
   const tabBarHeight = useBottomTabBarHeight();
 
@@ -183,6 +189,33 @@ const VideoItem = ({
     if (!token) return setShowAuthSheet(true);
     setShowCheckout(true);
   }, []);
+
+  const handleFollow = async (action: string) => {
+    let method = "";
+    if (action == "follow") {
+      setFollowing(true);
+      method = "POST";
+    } else {
+      setFollowing(false);
+      method = "DELETE";
+    }
+    const token = await getToken();
+    const config = {
+      url:
+        process.env.EXPO_PUBLIC_API_URL +
+        `api/buyer/follow/${item?.seller?._id}`,
+      method,
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+      data: {},
+    };
+    try {
+      const response = await axios(config);
+    } catch (error) {
+      console.error("Error following seller:", error);
+    }
+  };
 
   return (
     <TouchableWithoutFeedback
@@ -226,45 +259,94 @@ const VideoItem = ({
           isMuted={false}
         />
         <View
-          className="px-[16px] py-[16px] gap-[8px] flex-row items-center"
+          className="px-[10px] py-[16px] gap-[8px] flex-row items-center justify-between"
           style={{
             marginTop: statusBarHeight,
           }}
         >
-          <Image
-            source={{ uri: seller?.storeAvatar?.url }}
-            resizeMode="cover"
-            style={[
-              {
-                height: 31,
-                width: 31,
-                borderRadius: 31,
-              },
-              styles.imageShadow,
-            ]}
-          />
-
-          <View className="space-between mr-2">
-            <Text
-              className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
-              style={styles.text}
+          <View className="flex-row items-center gap-[8px] ">
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/(root)/sellerProfile",
+                  params: {
+                    sellerId: seller?._id,
+                    sellerAvatar: seller?.storeAvatar?.url,
+                  },
+                })
+              }
             >
-              {seller.storeName || seller?.firstName + " " + seller?.lastName}
-            </Text>
-            <View className="flex-row items-center gap-[4px]">
-              <AntDesign name="star" size={12} color="#FFD700" />
-              <Text className="text-white text-[12px]" style={styles.text}>
-                4.7
-              </Text>
-            </View>
-          </View>
+              <Image
+                source={{ uri: seller?.storeAvatar?.url }}
+                resizeMode="cover"
+                style={[
+                  {
+                    height: 31,
+                    width: 31,
+                    borderRadius: 31,
+                  },
+                  styles.imageShadow,
+                ]}
+              />
+            </Pressable>
 
-          {/* <Pressable
-            className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
-            style={styles.buttonShadow}
+            <View className="space-between mr-2">
+              <Text
+                className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
+                style={styles.text}
+              >
+                {seller.storeName || seller?.firstName + " " + seller?.lastName}
+              </Text>
+              <View className="flex-row items-center gap-[4px]">
+                <AntDesign name="star" size={12} color="#FFD700" />
+                <Text
+                  className="text-white text-[12px] font-LexendDecaMedium"
+                  style={styles.text}
+                >
+                  {item?.seller?.storeRating}
+                </Text>
+              </View>
+            </View>
+
+            {following ? (
+              <Pressable
+                className="py-[4px] px-[8px] rounded-[4px] items-center justify-center border-[#16783A] border-[1px]"
+                // style={styles.buttonShadow}
+                onPress={() => handleFollow("unfollow")}
+              >
+                <Text
+                  className="text-[#16783A] font-LexendDecaMedium text-[10px]"
+                  style={styles.text}
+                >
+                  following
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
+                style={styles.buttonShadow}
+                onPress={() => handleFollow("follow")}
+              >
+                <Text className="text-white text-[10px] font-LexendDecaMedium">
+                  + Follow
+                </Text>
+              </Pressable>
+            )}
+          </View>
+          <View
+            className="flex-row items-center justify-center px-[4px] py-[2px] gap-[4px] rounded-[8px]"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.8)",
+            }}
           >
-            <Text className="text-white text-[10px]">+ Follow</Text>
-          </Pressable> */}
+            <Ionicons name="eye-outline" size={16} color="#EFF0FA" />
+            <Text
+              className="font-LexendDeca text-[12px]"
+              style={{ color: "#EFF0FA" }}
+            >
+              {formatNumber(engagement?.views || 0)}
+            </Text>
+          </View>
         </View>
         <View className="p-[10px]">
           <View className="gap-2 mb-[16px]">
@@ -283,7 +365,7 @@ const VideoItem = ({
                 className="text-white text-[12px] font-LexendDecaMedium"
                 style={styles.text}
               >
-                {likes}
+                {formatNumber(likes)}
               </Text>
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
@@ -297,10 +379,10 @@ const VideoItem = ({
                 className="text-white text-[12px] font-LexendDecaMedium"
                 style={styles.text}
               >
-                {comments}
+                {formatNumber(comments)}
               </Text>
             </View>
-            {/* <View className="items-center gap-2 max-w-[60px] self-end">
+            <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center">
                 <Ionicons name="arrow-redo-sharp" size={18} color="#14AE5C" />
               </TouchableOpacity>
@@ -310,7 +392,7 @@ const VideoItem = ({
               >
                 Share
               </Text>
-            </View> */}
+            </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
                 className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
@@ -347,18 +429,32 @@ const VideoItem = ({
                 <Text className="text-[12px] text-[#000] font-LexendDecaSemiBold shrink">
                   {product?.name}
                 </Text>
-                <Text className="text-[18px] text-[#000] font-LexendDecaMedium shrink">
-                  {product?.discount?.isActive ? (
-                    <Text className="text-[#16783A]">
-                      ₦{product?.discount?.value}
-                      {product?.discount?.type == "percentage" && "%"} off
+                <View className="flex-row items-end gap-[8px] justify-between w-full shrink">
+                  <View className="flex-row items-end gap-[8px] flex-wrap shrink">
+                    <Text className="text-[18px] text-[#000] font-LexendDecaMedium">
+                      ₦
+                      {item?.discount?.isActive
+                        ? item?.discount?.discountedPrice?.toLocaleString() || 0
+                        : item?.price?.toLocaleString()}
                     </Text>
-                  ) : (
-                    <Text className="text-[#16783A]">
-                      ₦{product?.price?.toLocaleString()}
+                    <Text className="text-[12px] text-[#000] font-LexendDecaMedium shrink">
+                      {item?.discount?.isActive ? (
+                        <Text className="text-[#16783A]">
+                          ₦{item?.discount?.value}
+                          {item?.discount?.type == "percentage" && "%"} off
+                        </Text>
+                      ) : null}
                     </Text>
-                  )}
-                </Text>
+                    {item?.discount?.isActive ? (
+                      <Text className="text-[12px] text-[#16783A] font-LexendDecaMedium line-through">
+                        ₦{item?.price?.toLocaleString()}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text className="text-[14px] text-[#000] font-LexendDecaMedium ">
+                    {formatNumber(item.stock)} left
+                  </Text>
+                </View>
               </View>
             </Pressable>
             <TouchableOpacity
@@ -582,7 +678,8 @@ const CommentsSheet = ({
       ) : (
         <View className="h-full pb-[50px] w-full">
           <Text className="text-white text-center mb-[30px]">
-            {commentCount || "No"} {commentCount > 1 ? "comments" : "comment"}
+            {formatNumber(commentCount) || "No"}{" "}
+            {commentCount > 1 ? "comments" : "comment"}
           </Text>
           <FlatList
             data={comments.slice().reverse()}

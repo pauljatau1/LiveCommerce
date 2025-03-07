@@ -184,6 +184,14 @@ const Checkout = () => {
         }
         console.log("seller cart info", cart?.seller);
 
+        const phoneNumber =
+          cart.seller.businessInfo?.businessNumber ||
+          cart.seller.phoneNumber ||
+          cart.seller.shippingInfo?.warehouseDetails?.contactNumber ||
+          cart.seller.personalInfo?.phoneNumber;
+
+        console.log("phone number", phoneNumber);
+
         const pickup_address = {
           first_name:
             cart.seller.personalInfo?.firstName || cart.seller.firstName,
@@ -192,9 +200,7 @@ const Checkout = () => {
             cart.seller.businessInfo?.businessEmail ||
             cart.seller.personalInfo?.email ||
             cart?.seller?.email,
-          phone: cart.seller.phoneNumber?.includes("+")
-            ? cart.seller.phoneNumber
-            : `+${cart.seller.phoneNumber}`,
+          phone: phoneNumber?.includes("+") ? phoneNumber : `+${phoneNumber}`,
           line1:
             cart.seller.businessInfo?.businessAddress?.addressLine1 ||
             cart.seller.businessAddress?.addressLine1 ||
@@ -561,8 +567,8 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
           </View>
           <View className="gap-[6px] relative shrink">
             <Text className="text-[14px] text-[#16783A] font-LexendDecaSemiBold">
-              {cartItem?.name.length > 20
-                ? cartItem?.name.slice(0, 20) + "..."
+              {cartItem?.name.length > 50
+                ? cartItem?.name.slice(0, 50) + "..."
                 : cartItem?.name}
             </Text>
             <Text className="text-[22px] text-[#F2F2F2] font-LexendDecaSemiBold">
@@ -582,7 +588,7 @@ const CartItem = ({ cartItem }: { cartItem: any }) => {
               Item ID: {cartItem._id}
             </Text>
             <View
-              className="flex-row items-center gap-[11px] flex-wrap"
+              className="flex-row items-center justify-between gap-[8px] flex-wrap"
               style={{
                 marginTop: "auto",
               }}

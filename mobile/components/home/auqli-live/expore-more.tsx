@@ -7,7 +7,7 @@ import { router } from "expo-router";
 
 const ExploreMoreSection = () => {
   return (
-    <View className="pt-[30px] w-[100%] pb-[50px]">
+    <View className="pt-[30px] w-[100%]">
       <SectionHeader title="Explore More Shows" />
       <View
         style={{

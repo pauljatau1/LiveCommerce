@@ -94,73 +94,29 @@ const Home = () => {
       <ScrollView
         className=""
         contentContainerStyle={{
-          paddingBottom: 120,
+          paddingBottom: 80,
         }}
         showsVerticalScrollIndicator={false}
       >
         {renderContent()}
-        <View className="pb-[50px] flex-row justify-around w-[260px] mx-auto">
-          <CustomButton
-            title="Live Show"
-            className="!w-[130px] !bg-primary-200 rounded-tr-none rounded-br-none"
-            onPress={() => {
-              router.push("/(root)/(tabs)/home/home");
-            }}
-          />
-          <CustomButton
-            title="Markets"
-            textStyle="!text-[#141B34]"
-            className="!w-[130px] !rounded-tl-none !rounded-bl-none !rounded-[40px]  !bg-[#F2F2F2]"
-            onPress={() => {
-              router.push("/(root)/(tabs)/home/marketplace");
-            }}
-          />
-        </View>
       </ScrollView>
-
-      {/* <TabView
-        animationEnabled={true}
-        swipeEnabled={false}
-        renderTabBar={(props) => (
-          <TabBar
-            {...props}
-            scrollEnabled={true}
-            activeColor="#16783A"
-            inactiveColor="#ccc"
-            tabStyle={{
-              width: "auto",
-              paddingHorizontal: 10,
-            }}
-            style={{
-              backgroundColor: "#121212",
-              marginLeft: 23,
-              borderBottomColor: "#ccc",
-              borderBottomWidth: 0.3,
-              marginTop: 20,
-            }}
-            contentContainerStyle={{}}
-            indicatorStyle={{
-              backgroundColor: "#16783A",
-            }}
-            indicatorContainerStyle={{
-              backgroundColor: "#121212",
-            }}
-            renderTabBarItem={(props) => (
-              <TabBarItem
-                {...props}
-                labelStyle={{
-                  fontSize: 12,
-                  fontFamily: "LexendDeca",
-                }}
-              />
-            )}
-          />
-        )}
-        navigationState={{ index, routes }}
-        renderScene={renderScene}
-        onIndexChange={setIndex}
-        initialLayout={{ width: layout.width }}
-      /> */}
+      <View className=" flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center">
+        <CustomButton
+          title="Live Show"
+          className="!w-[130px] !bg-primary-200 rounded-tr-none rounded-br-none"
+          onPress={() => {
+            router.push("/(root)/(tabs)/home/home");
+          }}
+        />
+        <CustomButton
+          title="Markets"
+          textStyle="!text-[#141B34]"
+          className="!w-[130px] !rounded-tl-none !rounded-bl-none !rounded-[40px]  !bg-[#F2F2F2]"
+          onPress={() => {
+            router.push("/(root)/(tabs)/home/marketplace");
+          }}
+        />
+      </View>
     </View>
   );
 };

@@ -36,6 +36,17 @@ export const posts = createApi({
     getNewPosts: builder.query({
       query: (credentials) => getRequest(`/posts/new`, credentials),
     }),
+    getComments: builder.query({
+      query: (credentials) =>
+        getRequest(`/posts/${credentials.id}/comments`, credentials),
+    }),
+    getReplies: builder.query({
+      query: (credentials) =>
+        getRequest(
+          `/posts/${credentials.id}/comments/${credentials.commentId}/replies`,
+          credentials,
+        ),
+    }),
     createPost: builder.mutation<any, any>({
       query: (credentials) => postRequest("/posts", credentials),
       invalidatesTags: ["createPost"],
@@ -53,6 +64,20 @@ export const posts = createApi({
       query: (credentials) =>
         postRequest(`/posts/${credentials.id}/like`, credentials),
     }),
+    likeComment: builder.mutation<any, any>({
+      query: (credentials) =>
+        postRequest(
+          `/posts/${credentials.id}/comments/${credentials.commentId}/like`,
+          credentials,
+        ),
+    }),
+    likeReply: builder.mutation<any, any>({
+      query: (credentials) =>
+        postRequest(
+          `/posts/${credentials.id}/comments/${credentials.commentId}/replies/${credentials.replyId}/like`,
+          credentials,
+        ),
+    }),
     dislikePost: builder.mutation<any, any>({
       query: (credentials) =>
         postRequest(`/posts/${credentials.id}/dislike`, credentials),
@@ -64,6 +89,13 @@ export const posts = createApi({
     commentPost: builder.mutation<any, any>({
       query: (credentials) =>
         postRequest(`/posts/${credentials.id}/comments`, credentials),
+    }),
+    replyComment: builder.mutation<any, any>({
+      query: (credentials) =>
+        postRequest(
+          `/posts/${credentials.id}/comments/${credentials.commentId}/replies`,
+          credentials,
+        ),
     }),
     deleteComment: builder.mutation<any, any>({
       query: (credentials) =>
@@ -80,12 +112,17 @@ export const {
   useGetUserPostsQuery,
   useGetTrendingPostsQuery,
   useGetNewPostsQuery,
+  useGetCommentsQuery,
+  useGetRepliesQuery,
   useCreatePostMutation,
   useUpdatePostMutation,
   useDeletePostMutation,
   useLikePostMutation,
+  useLikeCommentMutation,
+  useLikeReplyMutation,
   useDislikePostMutation,
   useReactPostMutation,
   useCommentPostMutation,
+  useReplyCommentMutation,
   useDeleteCommentMutation,
 } = posts;
