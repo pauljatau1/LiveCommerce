@@ -25,6 +25,7 @@ const {
   createBuyerNotification 
 } = require('../controllers/notificationController');
 const Category = require('../models/Category');
+const { v4: uuidv4 } = require('uuid');
 
 
 
@@ -37,6 +38,11 @@ const paystack = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+// Initialize Fez API configuration
+const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
+const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY;
 
 // At the top with other initializations
 const initializeTerminalWebhook = async () => {
@@ -103,513 +109,256 @@ const initializeTerminalWebhook = async () => {
 // Call this when your app starts
 initializeTerminalWebhook();
 
-// Helper function to validate address format
-const validateAddress = (address) => {
-  const requiredFields = ['first_name', 'last_name', 'email', 'phone', 'line1', 'city', 'state', 'country', 'zip'];
-  const missingFields = requiredFields.filter(field => !address[field]);
-  if (missingFields.length > 0) {
-    throw new Error(`Missing required address fields: ${missingFields.join(', ')}`);
+
+
+
+// For Fez Delivery address validation
+const validateFezAddress = (address) => {
+  if (!address.recipientName || !address.recipientPhone || 
+      !address.recipientAddress || !address.recipientState) {
+    return { valid: false, message: 'Missing required address fields' };
   }
-  return true;
+  return { valid: true };
 };
 
-// Helper function to validate parcel data
-const validateParcel = (parcel) => {
-  if (!parcel.weight) {
-    throw new Error('Parcel weight is required');
+// For Fez Delivery parcel validation
+const validateFezParcel = (parcel) => {
+  if (!parcel.weight || !parcel.valueOfItem) {
+    return { valid: false, message: 'Missing required parcel fields' };
   }
-
-  // Validate weight is a positive number
-  if (parcel.weight <= 0) {
-    throw new Error('Parcel weight must be greater than 0');
-  }
-
-  return true;
+  return { valid: true };
 };
 
-// Helper function to validate item data
-const validateItems = (items) => {
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new Error('Items must be a non-empty array');
+// For Fez Delivery items validation
+const validateFezItems = (items) => {
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return { valid: false, message: 'Items must be a non-empty array' };
   }
-
-  items.forEach((item, index) => {
-    const requiredFields = ['name', 'description', 'quantity', 'weight', 'price'];
-    const missingFields = requiredFields.filter(field => !item[field]);
-    
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required fields for item at index ${index}: ${missingFields.join(', ')}`);
+  
+  for (const item of items) {
+    if (!item.productId || !item.quantity || !item.price) {
+      return { valid: false, message: 'Each item must have productId, quantity, and price' };
     }
-
-    if (item.weight <= 0) {
-      throw new Error(`Invalid weight for item at index ${index}`);
-    }
-    
-    if (item.quantity <= 0) {
-      throw new Error(`Invalid quantity for item at index ${index}`);
-    }
-  });
-
-  return true;
+  }
+  
+  return { valid: true };
 };
 
-// create an order
+// Create order with Fez Delivery
 exports.createOrder = async (req, res) => {
-  console.log('Starting createOrder with user:', {
-    userId: req.user.id,
-    userRole: req.user.role
-  });
-
-  // Verify user is a buyer
-  if (req.user.role !== 'Buyer') {
-    return res.status(403).json({
-      message: 'Only buyers can create orders',
-      currentRole: req.user.role
-    });
-  }
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const {
-      items,
-      pickup_addresses,
-      delivery_address,
-      parcel,
-      paymentMethod,
-      channel = 'marketplace'
+    const { 
+      items, 
+      shippingAddress, 
+      parcel, 
+      paymentMethod, 
+      isItemCod, 
+      additionalDetails, 
+      pickUpDate,
+      senderInfo 
     } = req.body;
-
-    console.log('Starting order creation with items:', items);
-    console.log('Pickup addresses:', pickup_addresses);
-
-    // Validate delivery address and all pickup addresses
-    validateAddress(delivery_address);
-    if (pickup_addresses) {
-      Object.values(pickup_addresses).forEach(addr => validateAddress(addr));
+    
+    // Validate inputs
+    const itemsValidation = validateFezItems(items);
+    if (!itemsValidation.valid) {
+      return res.status(400).json({ message: itemsValidation.message });
     }
-
-    // Group items by seller and create orders
-    const itemsBySeller = {};
-    const orders = [];
-    const shipments = [];
-
-    // First, group items by seller and validate products
-    for (const item of items) {
-      console.log('Processing item:', item);
-
-      const product = await Product.findById(item.productId)
-        .populate('seller', 'warehouseAddress firstName lastName email phone');
-
-      console.log('Found product:', product);
-
+    
+    const addressValidation = validateFezAddress(shippingAddress);
+    if (!addressValidation.valid) {
+      return res.status(400).json({ message: addressValidation.message });
+    }
+    
+    const parcelValidation = validateFezParcel(parcel);
+    if (!parcelValidation.valid) {
+      return res.status(400).json({ message: parcelValidation.message });
+    }
+    
+    // Get buyer from token
+    const buyerId = req.user.id;
+    const Buyer = mongoose.model('Buyer');
+    const buyer = await Buyer.findById(buyerId);
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+    
+    // Fetch products and calculate total
+    const Product = mongoose.model('Product');
+    const productIds = items.map(item => item.productId);
+    const products = await Product.find({ _id: { $in: productIds } }).populate('seller');
+    
+    if (products.length !== productIds.length) {
+      return res.status(400).json({ message: 'One or more products not found' });
+    }
+    
+    // Create a map for quick product lookup
+    const productMap = {};
+    products.forEach(product => {
+      productMap[product._id.toString()] = product;
+    });
+    
+    // Group items by seller
+    const sellerItems = {};
+    let totalAmount = 0;
+    
+    items.forEach(item => {
+      const product = productMap[item.productId];
       if (!product) {
-        throw new Error(`Product not found: ${item.productId}`);
+        return;
       }
-
+      
       const sellerId = product.seller._id.toString();
-      console.log('Seller ID:', sellerId);
-
-      if (!itemsBySeller[sellerId]) {
-        // Get pickup address for this seller
-        let pickup_address;
-        if (pickup_addresses && pickup_addresses[sellerId]) {
-          console.log('Using provided pickup address for seller:', sellerId);
-          pickup_address = pickup_addresses[sellerId];
-        } else {
-          console.log('Using warehouse address for seller:', sellerId);
-          pickup_address = {
-            first_name: product.seller.firstName,
-            last_name: product.seller.lastName,
-            email: product.seller.email,
-            phone: product.seller.phone,
-            ...product.seller.warehouseAddress
-          };
-        }
-
-        console.log('Final pickup address:', pickup_address);
-
-        itemsBySeller[sellerId] = {
+      if (!sellerItems[sellerId]) {
+        sellerItems[sellerId] = {
           items: [],
-          seller: product.seller,
-          pickup_address
+          seller: product.seller
         };
       }
-
-      itemsBySeller[sellerId].items.push({
+      
+      const itemTotal = item.price * item.quantity;
+      totalAmount += itemTotal;
+      
+      sellerItems[sellerId].items.push({
         product: product._id,
         productName: product.name,
-        seller: sellerId,
+        seller: product.seller._id,
         quantity: item.quantity,
         price: item.price,
-        name: item.name,
-        description: item.description,
-        weight: item.weight,
-        status: 'pending',
-        specifications: {
-          color: item.specifications?.color,
-          size: item.specifications?.size,
-          material: item.specifications?.material
-        }
+        specifications: item.specifications || {}
       });
-    }
-
-    console.log('Items grouped by seller:', itemsBySeller);
-
-    // Create shipments and orders for each seller
-    for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
-      console.log('Creating shipment for seller:', sellerId);
-      console.log('Seller data:', sellerData);
-
-      // Calculate total weight for this seller's items
-      const totalWeight = sellerData.items.reduce((sum, item) => {
-        console.log('Calculating weight for item:', {
-          name: item.name,
-          weight: item.weight,
-          quantity: item.quantity,
-          itemTotalWeight: item.weight * item.quantity
-        });
-        return sum + (item.weight * item.quantity);
-      }, 0);
-
-      console.log('Total calculated weight for seller:', {
-        sellerId,
-        totalWeight,
-        items: sellerData.items.length
-      });
-
-      // Prepare shipping data for Terminal Africa
-      const shippingData = {
-        pickup_address: sellerData.pickup_address,
-        delivery_address,
-        parcel: {
-          weight: totalWeight, 
-          weight_unit: 'kg',
-          description: "Auqli Order Items",
-          items: sellerData.items.map(item => ({
-            name: item.name,
-            description: item.description,
-            quantity: item.quantity,
-            weight: item.weight,
-            weight_unit: 'kg',
-            value: item.price,
-            currency: 'NGN',
-            type: 'parcel'
-          }))
-        },
-        shipment_purpose: "commercial",
-        metadata: {
-          seller_id: sellerId,
-          channel
-        }
-      };
-
-      console.log('Prepared shipping data:', {
-        sellerId,
-        parcelWeight: shippingData.parcel.weight,
-        itemsCount: shippingData.parcel.items.length,
-        items: shippingData.parcel.items.map(item => ({
-          name: item.name,
-          weight: item.weight,
-          quantity: item.quantity,
-          totalWeight: item.weight * item.quantity
-        }))
-      });
-
-      // Create shipment with Terminal Africa
-      const shipmentResponse = await terminalAPI.post('/shipments/quick', shippingData);
-      console.log('Terminal Africa response:', shipmentResponse.data);
-
-      if (!shipmentResponse.data.status) {
-        throw new Error(shipmentResponse.data.message || 'Failed to create shipment');
-      }
-
-      shipments.push(shipmentResponse.data.data);
-
-      // Create order for this seller with safe carrier access
-      const orderData = {
-        buyer: req.user.id,
+    });
+    
+    // Create a batch ID for Fez Delivery
+    const batchId = `AUQLI-${uuidv4().substring(0, 8)}`;
+    
+    // Create orders for each seller
+    const orders = [];
+    const fezRequests = [];
+    
+    for (const sellerId in sellerItems) {
+      const sellerData = sellerItems[sellerId];
+      const sellerItemsList = sellerData.items;
+      const seller = sellerData.seller;
+      
+      const sellerTotal = sellerItemsList.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      // Generate a unique order ID
+      const uniqueOrderId = `AUQLI-${uuidv4().substring(0, 8)}`;
+      
+      // Create order in database
+      const order = new Order({
+        order_id: uniqueOrderId,
+        buyer: buyerId,
         seller: sellerId,
-        items: sellerData.items.map(item => ({
-          ...item,
-          seller: sellerId,  // Add seller ID to each item
-          specifications: {
-            color: item.specifications?.color,
-            size: item.specifications?.size,
-            material: item.specifications?.material
-          }
-        })),
-        delivery_address,
-        pickup_address: sellerData.pickup_address,
-        shipping: {
-          method: 'Terminal Africa',
-          carrier: {
-            name: 'Terminal Africa',
-            reference: shipmentResponse.data.data.rate_id
-          },
-          fee: {
-            amount: shipmentResponse.data.data.shipment_cost || 0,
-            currency: 'NGN'
-          },
-          rate_id: shipmentResponse.data.data.rate_id,
-          shipment_id: shipmentResponse.data.data.shipment_id,
-          tracking: {
-            number: shipmentResponse.data.data.tracking_number,
-            url: shipmentResponse.data.data.tracking_url,
-            status: 'pending'
-          }
+        items: sellerItemsList,
+        totalAmount: sellerTotal,
+        delivery_address: {
+          first_name: shippingAddress.recipientName.split(' ')[0],
+          last_name: shippingAddress.recipientName.split(' ').slice(1).join(' ') || '',
+          email: shippingAddress.recipientEmail,
+          phone: shippingAddress.recipientPhone,
+          line1: shippingAddress.recipientAddress,
+          city: '',
+          state: shippingAddress.recipientState,
+          country: 'NG',
+          zip: ''
         },
-        paymentMethod,
-        totalAmount: sellerData.items.reduce((total, item) => total + item.price * item.quantity, 0)
+        paymentInfo: {
+          method: paymentMethod,
+          status: 'pending'
+        }
+      });
+      
+      await order.save();
+      orders.push(order);
+      
+      // Create Fez Delivery request with sender information
+      const fezRequest = {
+        recipientAddress: shippingAddress.recipientAddress,
+        recipientState: shippingAddress.recipientState,
+        recipientName: shippingAddress.recipientName,
+        recipientPhone: shippingAddress.recipientPhone,
+        recipientEmail: shippingAddress.recipientEmail || '',
+        uniqueID: order.order_id,
+        BatchID: batchId,
+        valueOfItem: parcel.valueOfItem.toString(),
+        weight: parseInt(parcel.weight),
+        itemDescription: parcel.itemDescription || `Order ${order.order_id}`,
+        additionalDetails: additionalDetails || '',
+        isItemCod: isItemCod || false,
+        // Include sender information (use provided info or seller details from database)
+        thirdparty: "true",
+        senderName: senderInfo?.senderName || `${seller.firstName} ${seller.lastName}`,
+        senderAddress: senderInfo?.senderAddress || seller.address || 'Not provided',
+        senderPhone: senderInfo?.senderPhone || seller.phone || 'Not provided',
       };
-
-      const order = new Order(orderData);
-      const savedOrder = await order.save({ session });
-      orders.push(savedOrder);
-
-      // Create notification for seller
-      await createNotification(
-        savedOrder.seller,
-        'new_order',
-        {
-          order_id: savedOrder.order_id,
-          amount: savedOrder.totalAmount,
-          items: savedOrder.items.length
-        }
-      );
-
-      // After order is created, notify both parties
-      await Promise.all([
-        // Existing seller notification
-        createNotification(
-          savedOrder.seller,
-          'new_order',
-          {
-            order_id: savedOrder.order_id,
-            amount: savedOrder.totalAmount,
-            items: savedOrder.items.length
-          }
-        ),
-        // New buyer notification
-        createBuyerNotification(
-          savedOrder.buyer,
-          'order_created',
-          {
-            orderId: savedOrder._id,
-            order_id: savedOrder.order_id,
-            totalAmount: savedOrder.totalAmount,
-            items: savedOrder.items.map(item => ({
-              name: item.productName,
-              quantity: item.quantity
-            })),
-            sellerName: savedOrder.seller.businessName || 'Seller'
-          }
-        )
-      ]);
+      
+      // Add optional fields if provided
+      if (pickUpDate) {
+        fezRequest.pickUpDate = pickUpDate;
+      }
+      
+      if (senderInfo?.pickUpState) {
+        fezRequest.pickUpState = senderInfo.pickUpState;
+      } else if (seller.state) {
+        fezRequest.pickUpState = seller.state;
+      }
+      
+      fezRequests.push(fezRequest);
     }
-
-    // Add this code after orders are created but before final response
-    for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
-      try {
-        console.log('Processing seller-buyer relationship for:', {
-          sellerId,
-          buyerId: req.user.id
-        });
-
-        const seller = await Seller.findById(sellerId);
-        const buyer = await Buyer.findById(req.user.id);
-
-        console.log('Found seller:', {
-          sellerId: seller?._id,
-          sellerEmail: seller?.email,
-          exists: !!seller
-        });
-
-        console.log('Found buyer:', {
-          buyerId: buyer?._id,
-          buyerEmail: buyer?.email,
-          exists: !!buyer
-        });
-
-        if (!seller || !buyer) {
-          console.error('Missing user data:', {
-            sellerExists: !!seller,
-            buyerExists: !!buyer,
-            requestedSellerId: sellerId,
-            requestedBuyerId: req.user.id
-          });
-          throw new Error(`Seller or Buyer not found - Seller: ${!!seller}, Buyer: ${!!buyer}`);
+    
+    // Make API call to Fez Delivery
+    const fezResponse = await axios.post(`${FEZ_API_URL}/order`, fezRequests, {
+      headers: {
+        'Authorization': `Bearer TEYRWY3NDX82RQEPFKY6551M31ZWXFD9-000`,
+        'secret-key': 'jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Update orders with Fez tracking information
+    if (fezResponse.data && fezResponse.data.status === 'Success') {
+      const orderNos = fezResponse.data.orderNos;
+      
+      for (const order of orders) {
+        const fezOrderNo = orderNos[order.order_id];
+        if (fezOrderNo) {
+          order.shipping = {
+            shipment_id: fezOrderNo,
+            tracking: {
+              number: fezOrderNo,
+              status: 'pending'
+            },
+            carrier: {
+              name: 'Fez Delivery',
+              reference: batchId
+            },
+            fee: {
+              amount: 0, // This will be updated when we get the actual fee
+              currency: 'NGN'
+            }
+          };
+          await order.save();
         }
-
-        // Check if buyer already exists in seller's followers
-        const isFollowing = seller.followers?.some(
-          follower => follower.buyerId?.toString() === buyer._id.toString()
-        );
-
-        console.log('Follower status:', {
-          isFollowing,
-          followersCount: seller.followers?.length || 0
-        });
-
-        if (!isFollowing) {
-          // Get buyer's main address
-          const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
-            ? {
-                country: buyer.shippingAddresses[0].country,
-                city: buyer.shippingAddresses[0].city,
-                address1: buyer.shippingAddresses[0].addressLine1,
-                address2: buyer.shippingAddresses[0].addressLine2,
-                zipCode: buyer.shippingAddresses[0].zipCode
-              }
-            : null;
-
-          console.log('Adding new follower with address:', mainAddress);
-
-          // Add buyer to seller's followers
-          seller.followers.push({
-            buyerId: buyer._id,
-            firstName: buyer.firstName,
-            lastName: buyer.lastName,
-            email: buyer.email,
-            followDate: new Date(),
-            totalOrders: 1,
-            mainAddress
-          });
-
-          // Add to buyer's activity feed
-          buyer.activityFeed.push({
-            type: 'follow',
-            content: `Started following ${seller.storeName || seller.businessName}`,
-            reference: seller._id,
-            referenceModel: 'Seller',
-            createdAt: new Date()
-          });
-
-          await Promise.all([seller.save(), buyer.save()]);
-        } else {
-          // Update existing follower's order count
-          const followerIndex = seller.followers.findIndex(
-            f => f.buyerId?.toString() === buyer._id.toString()
-          );
-          if (followerIndex !== -1) {
-            seller.followers[followerIndex].totalOrders += 1;
-            await seller.save();
-          }
-        }
-      } catch (error) {
-        console.error('Error processing seller-buyer relationship:', {
-          error: error.message,
-          sellerId,
-          buyerId: req.user.id,
-          stack: error.stack
-        });
-        throw error; // Re-throw to be caught by the main try-catch
       }
     }
-
-    await session.commitTransaction();
-
-    // Send emails for each order
-    for (const order of orders) {
-      const populatedOrder = await Order.findById(order._id)
-        .populate('buyer', 'email firstName lastName')
-        .populate('seller', 'email firstName lastName businessName')
-        .populate('items.product', 'name');
-
-      // Buyer email
-      const buyerEmail = {
-        to: populatedOrder.buyer.email,
-        from: 'Auqli Orders <joseph@auqli.com>',
-        subject: 'Order Confirmation - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Order Confirmation</h2>
-            <p>Dear ${populatedOrder.buyer.firstName},</p>
-            <p>Thank you for your order! Here are your order details:</p>
-            <p><strong>Order ID:</strong> ${populatedOrder.order_id}</p>
-            <p><strong>Items:</strong></p>
-            <ul>
-              ${populatedOrder.items.map(item => `
-                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
-              `).join('')}
-            </ul>
-            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
-            <p><strong>Shipping Address:</strong><br>
-              ${populatedOrder.delivery_address.line1}<br>
-              ${populatedOrder.delivery_address.line2 || ''}<br>
-              ${populatedOrder.delivery_address.city}, ${populatedOrder.delivery_address.state}<br>
-              ${populatedOrder.delivery_address.country}
-            </p>
-            <p>We'll notify you once your order is confirmed and ready for shipping.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-
-      // Seller email
-      const sellerEmail = {
-        to: populatedOrder.seller.email,
-        from: 'Auqli Orders <joseph@auqli.com>',
-        subject: 'New Order Received - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>New Order Received</h2>
-            <p>Dear ${populatedOrder.seller.firstName},</p>
-            <p>You have received a new order:</p>
-            <p><strong>Order ID:</strong> ${populatedOrder.order_id}</p>
-            <p><strong>Items:</strong></p>
-            <ul>
-              ${populatedOrder.items.map(item => `
-                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
-              `).join('')}
-            </ul>
-            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
-            <p><strong>Shipping Details:</strong><br>
-              ${populatedOrder.delivery_address.first_name} ${populatedOrder.delivery_address.last_name}<br>
-              ${populatedOrder.delivery_address.line1}<br>
-              ${populatedOrder.delivery_address.line2 || ''}<br>
-              ${populatedOrder.delivery_address.city}, ${populatedOrder.delivery_address.state}<br>
-              ${populatedOrder.delivery_address.country}
-            </p>
-            <p>Please prepare the items for shipping.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-
-      await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
-      ]);
-    }
-
-    res.status(201).json({
+    
+    return res.status(201).json({
       message: 'Orders created successfully',
-      orders: orders.map(order => ({
-        orderId: order._id,
-        seller: order.seller,
-        shipment_id: order.shipping.shipment_id,
-        items: order.items
-      })),
-      shipments: shipments.map(shipment => ({
-        shipment_id: shipment.shipment_id,
-        tracking_number: shipment.tracking_number,
-        carrier: 'Terminal Africa'
-      }))
+      orders,
+      shipping: {
+        batchId,
+        orderNos: fezResponse.data.orderNos
+      }
     });
-
+    
   } catch (error) {
-    console.error('Detailed error:', error);
-    console.error('Error stack:', error.stack);
-    await session.abortTransaction();
-    res.status(error.response?.status || 500).json({
-      message: 'Failed to create order',
-      error: error.message,
-      details: error.response?.data
+    console.error('Error creating order:', error);
+    return res.status(500).json({ 
+      message: 'Failed to create order', 
+      error: error.message 
     });
-  } finally {
-    session.endSession();
   }
 };
 

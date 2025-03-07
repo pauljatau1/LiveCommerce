@@ -289,3 +289,8 @@ product
   },
   "paymentMethod": "paystack"
 }
+
+
+
+
+JWT_REDACTED

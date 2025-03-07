@@ -5,16 +5,16 @@ const Seller = require('./Seller');
 
 // Define the address schema to match Terminal Africa's format
 const addressSchema = new mongoose.Schema({
-  first_name: { type: String, required: true },
-  last_name: { type: String, required: true },
-  email: { type: String, required: true },
-  phone: { type: String, required: true },
-  line1: { type: String, required: true },
+  first_name: { type: String },
+  last_name: { type: String },
+  email: { type: String },
+  phone: { type: String },
+  line1: { type: String },
   line2: { type: String },
-  city: { type: String, required: true },
-  state: { type: String, required: true },
-  country: { type: String, required: true }, 
-  zip: { type: String, required: true }
+  city: { type: String },
+  state: { type: String },
+  country: { type: String }, 
+  zip: { type: String }
 });
 
 const orderItemSchema = new mongoose.Schema({

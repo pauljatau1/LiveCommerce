@@ -8,8 +8,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  * @swagger
  * /api/order:
  *   post:
- *     summary: Create a new order with Terminal Africa shipping
- *     description: Creates an order and shipping information through Terminal Africa
+ *     summary: Create a new order with Fez Delivery shipping
+ *     description: Creates an order and shipping information through Fez Delivery
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -22,7 +22,6 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *             required:
  *               - items
  *               - shippingAddress
- *               - pickupAddress
  *               - parcel
  *               - paymentMethod
  *             properties:
@@ -33,20 +32,11 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                   required:
  *                     - productId
  *                     - quantity
- *                     - name
- *                     - description
- *                     - weight
  *                     - price
  *                   properties:
  *                     productId:
  *                       type: string
  *                     quantity:
- *                       type: number
- *                     name:
- *                       type: string
- *                     description:
- *                       type: string
- *                     weight:
  *                       type: number
  *                     price:
  *                       type: number
@@ -59,90 +49,75 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                           type: string
  *                         material:
  *                           type: string
- *               pickupAddress:
- *                 type: object
- *                 required:
- *                   - first_name
- *                   - last_name
- *                   - email
- *                   - phone
- *                   - line1
- *                   - city
- *                   - state
- *                   - country
- *                   - zip
- *                 properties:
- *                   first_name:
- *                     type: string
- *                   last_name:
- *                     type: string
- *                   email:
- *                     type: string
- *                   phone:
- *                     type: string
- *                     description: International phone number without + symbol
- *                   line1:
- *                     type: string
- *                     description: Street address
- *                   line2:
- *                     type: string
- *                   city:
- *                     type: string
- *                   state:
- *                     type: string
- *                   country:
- *                     type: string
- *                     description: ISO 2 country code (e.g., NG)
- *                   zip:
- *                     type: string
  *               shippingAddress:
  *                 type: object
  *                 required:
- *                   - first_name
- *                   - last_name
- *                   - email
- *                   - phone
- *                   - line1
- *                   - city
- *                   - state
- *                   - country
- *                   - zip
+ *                   - recipientName
+ *                   - recipientPhone
+ *                   - recipientAddress
+ *                   - recipientState
  *                 properties:
- *                   first_name:
+ *                   recipientName:
  *                     type: string
- *                   last_name:
+ *                     description: Full name of the recipient
+ *                   recipientPhone:
  *                     type: string
- *                   email:
+ *                     description: Phone number of the recipient
+ *                   recipientEmail:
  *                     type: string
- *                   phone:
+ *                     description: Email of the recipient
+ *                   recipientAddress:
  *                     type: string
- *                     description: International phone number without + symbol
- *                   line1:
+ *                     description: Delivery address
+ *                   recipientState:
  *                     type: string
- *                     description: Street address
- *                   line2:
+ *                     description: State of delivery (must be one of the 36 states or FCT)
+ *               senderInfo:
+ *                 type: object
+ *                 description: Optional sender information (if not provided, seller details from database will be used)
+ *                 properties:
+ *                   senderName:
  *                     type: string
- *                   city:
+ *                     description: Name of the sender/seller
+ *                   senderAddress:
  *                     type: string
- *                   state:
+ *                     description: Address of the sender/seller
+ *                   senderPhone:
  *                     type: string
- *                   country:
+ *                     description: Phone number of the sender/seller
+ *                   pickUpState:
  *                     type: string
- *                     description: ISO 2 country code (e.g., NG)
- *                   zip:
- *                     type: string
+ *                     description: State for pickup (must be one of the 36 states or FCT)
  *               parcel:
  *                 type: object
  *                 required:
  *                   - weight
+ *                   - valueOfItem
  *                 properties:
  *                   weight:
  *                     type: number
  *                     description: Weight of the parcel in kg
+ *                   valueOfItem:
+ *                     type: string
+ *                     description: Value of the items being shipped
+ *                   itemDescription:
+ *                     type: string
+ *                     description: Description of the items
  *               paymentMethod:
  *                 type: string
  *                 enum: [paystack, card, bank_transfer]
  *                 description: Payment method for the order
+ *               isItemCod:
+ *                 type: boolean
+ *                 description: Whether the item is to be paid for on delivery
+ *                 default: false
+ *               additionalDetails:
+ *                 type: string
+ *                 description: Additional details like landmarks or extra contact information
+ *               pickUpDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Requested date for pickup from seller
  *     responses:
  *       201:
  *         description: Order created successfully with shipping details
@@ -161,17 +136,12 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *                 shipping:
  *                   type: object
  *                   properties:
- *                     shipment_id:
+ *                     batchId:
  *                       type: string
- *                     tracking_number:
- *                       type: string
- *                     carrier:
+ *                     orderNos:
  *                       type: object
- *                       properties:
- *                         name:
- *                           type: string
- *                     amount:
- *                       type: number
+ *                       additionalProperties:
+ *                         type: string
  *       400:
  *         description: Invalid request body or address validation failed
  *       401:
