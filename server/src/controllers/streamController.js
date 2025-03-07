@@ -159,13 +159,14 @@ exports.startStream = async (req, res) => {
     const stream = await Stream.findOne({
       _id: req.params.streamId,
       seller: req.user.id
-    });
+    }).populate('seller');
 
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
-    const seller = await Seller.findById(req.user.id).select('agoraUid');
+    // Get seller with store name
+    const seller = await Seller.findById(req.user.id).select('agoraUid storeName');
     const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid, RtcRole.PUBLISHER);
     console.log('start stream uid', seller.agoraUid);
 
@@ -174,6 +175,19 @@ exports.startStream = async (req, res) => {
     stream.agoraUid = seller.agoraUid;
     stream.agoraToken = freshToken;
     await stream.save();
+
+    // Send WebSocket notification
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      io.to('stream_notifications').emit('stream_notification', {
+        message: 'Host started stream',
+        streamId: stream._id,
+        sellerId: req.user.id,
+        storeName: seller.storeName || 'Unknown Store',
+        title: stream.title,
+        timestamp: new Date()
+      });
+    }
 
     res.json({
       message: 'Stream started successfully',
@@ -415,11 +429,25 @@ exports.joinStream = async (req, res) => {
       );
     }
 
+    // Send notification to stream channel
     req.io.to(stream.channelName).emit('viewerJoined', {
       streamId: stream._id,
       viewer: req.user.id,
       viewerName: req.user.firstName + " " + req.user.lastName
     });
+
+    // Broadcast to all subscribers of stream notifications
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      io.to('stream_notifications').emit('viewer_joined_stream', {
+        message: `${req.user.firstName} joined room`,
+        buyerId: req.user.id,
+        streamId: stream._id,
+        sellerName: stream.seller.storeName || stream.seller.businessName,
+        sellerId: stream.seller._id,
+        timestamp: new Date()
+      });
+    }
 
     console.log('agoraUid', tokenUid);
     console.log('token', token);
@@ -485,6 +513,20 @@ exports.joinStreamSeller = async (req, res) => {
       seller.agoraUid, 
       RtcRole.PUBLISHER
     );
+
+    // Broadcast a notification that the seller has rejoined their stream
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      
+      // Send rejoined notification
+      io.to('stream_notifications').emit('seller_rejoined_stream', {
+        message: `Host rejoined room`,
+        sellerId: req.user.id,
+        streamId: stream._id,
+        sellerName: stream.seller.storeName || stream.seller.businessName,
+        timestamp: new Date()
+      });
+    }
 
     console.log('agoraUid (seller)', seller.agoraUid);
     console.log('token', token);

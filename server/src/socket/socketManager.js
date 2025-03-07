@@ -71,6 +71,12 @@ function initializeSocket(server) {
       io.to(`stream_${data.streamId}`).emit('connection_state', data);
     });
 
+    // Handler for stream notifications
+    socket.on('stream_notification_subscribe', () => {
+      socket.join('stream_notifications');
+      console.log(`User ${socket.user.id} subscribed to stream notifications`);
+    });
+
     socket.on('leave_stream_monitor', (data) => {
       socket.leave(`stream_${data.streamId}`);
       console.log(`Stopped monitoring stream: ${data.streamId}`);
