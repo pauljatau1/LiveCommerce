@@ -1054,4 +1054,76 @@ router.get('/', streamController.getStreamsByStatus);
  */
 router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStatus);
 
+/**
+ * @swagger
+ * /api/streams/category/{category}:
+ *   get:
+ *     summary: Get streams by category
+ *     description: Retrieve all streams for a specific category with optional filtering by status and type
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name to filter streams by
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of streams in the specified category
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/category/:category', (req, res, next) => {
+  console.log(`[DEBUG] /category/${req.params.category} route matched`);
+  next();
+}, streamController.getStreamsByCategory);
+
 module.exports = router; 

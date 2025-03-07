@@ -1022,4 +1022,58 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
       error: error.message
     });
   }
+};
+
+exports.getStreamsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { status, type, page = 1, limit = 10 } = req.query;
+    
+    // Build query with case-insensitive category matching
+    const query = { 
+      category: { $regex: new RegExp(`^${category}$`, 'i') }  // '^' and '$' ensure exact match, 'i' flag makes it case-insensitive
+    };
+
+    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
+      query.status = status;
+    }
+
+    if (type && ['auction', 'open_show'].includes(type)) {
+      query.type = type;
+    }
+
+    // Find streams for the given category
+    const streams = await Stream.find(query)
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+      .sort({ scheduledStartTime: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = streams.map(stream => {
+      const streamObj = stream.toObject();
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      return streamObj;
+    });
+
+    const total = await Stream.countDocuments(query);
+
+    res.json({
+      streams: streamsWithViewerCount,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    console.error('Get streams by category error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch streams by category',
+      error: error.message
+    });
+  }
 }; 
