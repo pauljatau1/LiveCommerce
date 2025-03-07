@@ -10,13 +10,16 @@ const Seller = require('../models/Seller')
 const Product = require('../models/Product');
 const Post = require('../models/Post');
 const Stream = require('../models/Stream');
-const { saveToken } = require('../../Firebase');
+const { saveToken, getToken } = require('../../Firebase');
+const { Expo } = require('expo-server-sdk');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
 sgMail.setApiKey('SG.REDACTED');
 // Load environment variables from a .env file
 require('dotenv').config();
+
+const expo = new Expo();
 
 // Helper function to generate JWT
 const generateToken = (id) => {
@@ -84,7 +87,7 @@ exports.register = async (req, res) => {
     });
 
     await newBuyer.save();
-    
+
     // Only save token if provided
     if (expoPushToken) {
       await saveToken(newBuyer._id, expoPushToken);
@@ -154,9 +157,8 @@ exports.register = async (req, res) => {
 // Login a buyer
 exports.login = async (req, res) => {
   const { email, password, expoPushToken, googleToken } = req.body;
-  if(googleToken)
-  {
-    return await googleLoginMobile(req.body,res)
+  if (googleToken) {
+    return await googleLoginMobile(req.body, res)
   }
   if (!email || !password) {
     return res.status(400).json({
@@ -179,6 +181,15 @@ exports.login = async (req, res) => {
       await saveToken(buyer._id, expoPushToken);
     }
 
+    const userToken = await getToken(buyer._id);
+    if (userToken) {
+      await expo.sendPushNotificationsAsync([{
+        to: userToken.token,
+        title: `Welcome to Auqli`,
+        body: `You have successfully logged in to your account`
+      }]);
+    }
+
     const token = generateToken(buyer._id);
     res.json({ user: buyer, token });
   } catch (error) {
@@ -186,13 +197,12 @@ exports.login = async (req, res) => {
   }
 };
 
-async function googleLoginMobile(data,res)
-{
-  const {email,googleToken,expoPushToken} = data
+async function googleLoginMobile(data, res) {
+  const { email, googleToken, expoPushToken } = data
   try {
     const buyer = await Buyer.findOne({ email });
     if (!buyer) {
-      return await googleRegisterMobile(data,res)
+      return await googleRegisterMobile(data, res)
     }
 
     if (!(await buyer.comparePassword(googleToken))) {
@@ -211,12 +221,10 @@ async function googleLoginMobile(data,res)
   }
 }
 
-async function googleRegisterMobile(data,res)
-{
-  const {firstName,lastName,username,email,country,phoneNumber,googleToken,profileImage,expoPushToken} = data
+async function googleRegisterMobile(data, res) {
+  const { firstName, lastName, username, email, country, phoneNumber, googleToken, profileImage, expoPushToken } = data
   const otp = generateOTP();
-  try
-  {
+  try {
     const newBuyer = new Buyer({
       firstName,
       lastName,
@@ -224,13 +232,12 @@ async function googleRegisterMobile(data,res)
       email,
       country,
       phoneNumber,
-      password:googleToken,
+      password: googleToken,
       otp,
       expoPushToken // This will be undefined if not provided, which is fine
     });
 
-    if(profileImage)
-    {
+    if (profileImage) {
       newBuyer.profileImage = {
         url: profileImage,
         public_id: profileImage,
@@ -239,7 +246,7 @@ async function googleRegisterMobile(data,res)
 
 
     await newBuyer.save();
-    
+
     // Only save token if provided
     if (expoPushToken) {
       await saveToken(newBuyer._id, expoPushToken);
@@ -247,11 +254,10 @@ async function googleRegisterMobile(data,res)
     const token = generateToken(newBuyer._id);
     res.status(201).json({ user: newBuyer, token });
   }
-  catch(error)
-  {
+  catch (error) {
     res.status(500).json({ message: 'google register Login failed', error: error.message });
   }
-  
+
 }
 
 
@@ -1998,7 +2004,7 @@ exports.forgotPassword = async (req, res) => {
 
     await sgMail.send(msg);
 
-    res.json({ 
+    res.json({
       message: 'Password reset code sent successfully',
       validFor: '10 minutes'
     });
@@ -2017,21 +2023,21 @@ exports.resetPassword = async (req, res) => {
   const { email, otp, newPassword } = req.body;
 
   if (!email || !otp || !newPassword) {
-    return res.status(400).json({ 
-      message: 'Email, OTP, and new password are required' 
+    return res.status(400).json({
+      message: 'Email, OTP, and new password are required'
     });
   }
 
   try {
-    const buyer = await Buyer.findOne({ 
+    const buyer = await Buyer.findOne({
       email,
       resetPasswordOTP: otp,
       resetPasswordOTPExpires: { $gt: Date.now() }
     });
 
     if (!buyer) {
-      return res.status(400).json({ 
-        message: 'Invalid or expired reset code' 
+      return res.status(400).json({
+        message: 'Invalid or expired reset code'
       });
     }
 
@@ -2041,8 +2047,8 @@ exports.resetPassword = async (req, res) => {
     buyer.resetPasswordOTPExpires = undefined;
     await buyer.save();
 
-    res.json({ 
-      message: 'Password reset successfully' 
+    res.json({
+      message: 'Password reset successfully'
     });
 
   } catch (error) {
@@ -2102,7 +2108,7 @@ exports.requestAccountDeletion = async (req, res) => {
 
     await sgMail.send(msg);
 
-    res.json({ 
+    res.json({
       message: 'Account deletion verification code sent to your email',
       validFor: '10 minutes'
     });
