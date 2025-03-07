@@ -5,6 +5,18 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Add these debugging logs at the top of your file
+console.log("Loading streamRoutes.js");
+
+// First, define a debugging middleware to log all requests
+const debugMiddleware = (req, res, next) => {
+  console.log(`[DEBUG] Request received: ${req.method} ${req.originalUrl}`);
+  next();
+};
+
+// Apply this middleware to all routes
+router.use(debugMiddleware);
+
 /**
  * @swagger
  * /api/streams/create:
@@ -489,6 +501,240 @@ router.get('/active',
 
 /**
  * @swagger
+ * /api/streams/popular:
+ *   get:
+ *     summary: Get popular streams based on viewer count
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of popular streams
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/popular', (req, res, next) => {
+  console.log('[DEBUG] /popular route matched');
+  next();
+}, streamController.getPopularStreams);
+
+/**
+ * @swagger
+ * /api/streams/spotlight:
+ *   get:
+ *     summary: Get streams from featured sellers (spotlight)
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of spotlight streams from featured sellers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/spotlight', (req, res, next) => {
+  console.log('[DEBUG] /spotlight route matched');
+  next();
+}, streamController.getSpotlightStreams);
+
+/**
+ * @swagger
+ * /api/streams/favorite-sellers:
+ *   get:
+ *     summary: Get streams from sellers that the buyer follows
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of streams from followed sellers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/favorite-sellers', 
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.getStreamsFromFavoriteSellers
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/refresh-token:
+ *   get:
+ *     summary: Refresh viewer token and get stream details
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Stream details with refreshed token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/StreamWithToken'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Seller cannot use viewer token
+ *       404:
+ *         description: Stream not found
+ */
+router.get('/:streamId/refresh-token',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.getStreamWithRefreshedToken
+);
+
+/**
+ * @swagger
  * /api/streams/{streamId}:
  *   get:
  *     summary: Get details of a specific stream
@@ -509,9 +755,10 @@ router.get('/active',
  *       404:
  *         description: Stream not found
  */
-router.get('/:streamId',
-  streamController.getStreamDetails
-);
+router.get('/:streamId', (req, res, next) => {
+  console.log(`[DEBUG] /:streamId route matched with streamId = ${req.params.streamId}`);
+  next();
+}, streamController.getStreamDetails);
 
 /**
  * @swagger
@@ -809,36 +1056,74 @@ router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStat
 
 /**
  * @swagger
- * /api/streams/{streamId}/refresh-token:
+ * /api/streams/category/{category}:
  *   get:
- *     summary: Refresh viewer token and get stream details
+ *     summary: Get streams by category
+ *     description: Retrieve all streams for a specific category with optional filtering by status and type
  *     tags: [Streams]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: streamId
+ *         name: category
  *         required: true
  *         schema:
  *           type: string
+ *         description: Category name to filter streams by
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
  *     responses:
  *       200:
- *         description: Stream details with refreshed token
+ *         description: List of streams in the specified category
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/StreamWithToken'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Seller cannot use viewer token
- *       404:
- *         description: Stream not found
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
  */
-router.get('/:streamId/refresh-token',
-  authMiddleware.verifyToken,
-  authMiddleware.isBuyer,
-  streamController.getStreamWithRefreshedToken
-);
+router.get('/category/:category', (req, res, next) => {
+  console.log(`[DEBUG] /category/${req.params.category} route matched`);
+  next();
+}, streamController.getStreamsByCategory);
 
 module.exports = router; 

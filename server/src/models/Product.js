@@ -114,7 +114,25 @@ const blipSchema = new mongoose.Schema({
   comments: [{
     buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
     comment: { type: String },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    likes: [{ 
+      user: { type: mongoose.Schema.Types.ObjectId, refPath: 'comments.likes.userType' },
+      userType: { type: String, enum: ['Buyer', 'Seller'] },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    likesCount: { type: Number, default: 0 },
+    replies: [{
+      user: { type: mongoose.Schema.Types.ObjectId, refPath: 'comments.replies.userType' },
+      userType: { type: String, enum: ['Buyer', 'Seller'] },
+      comment: { type: String },
+      createdAt: { type: Date, default: Date.now },
+      likes: [{ 
+        user: { type: mongoose.Schema.Types.ObjectId, refPath: 'comments.replies.likes.userType' },
+        userType: { type: String, enum: ['Buyer', 'Seller'] },
+        createdAt: { type: Date, default: Date.now }
+      }],
+      likesCount: { type: Number, default: 0 }
+    }]
   }],
   commentsCount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
@@ -1077,6 +1095,18 @@ productSchema.pre('save', async function (next) {
       this.blips.forEach(blip => {
         blip.likesCount = blip.likes.length;
         blip.commentsCount = blip.comments.length;
+        
+        // Update comment likes count
+        blip.comments.forEach(comment => {
+          comment.likesCount = comment.likes ? comment.likes.length : 0;
+          
+          // Update reply likes count
+          if (comment.replies) {
+            comment.replies.forEach(reply => {
+              reply.likesCount = reply.likes ? reply.likes.length : 0;
+            });
+          }
+        });
       });
     }
 

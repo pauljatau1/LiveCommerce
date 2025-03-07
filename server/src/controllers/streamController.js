@@ -7,6 +7,7 @@ const { s3 } = require('../config/awsConfig');
 const jwtDecode = require('jwt-decode');
 const Seller = require('../models/Seller');
 const { RtcRole } = require('agora-access-token');
+const Buyer = require('../models/Buyer');
 
 exports.createStream = async (req, res) => {
   try {
@@ -340,6 +341,7 @@ exports.getActiveStreams = async (req, res) => {
 };
 
 exports.getStreamDetails = async (req, res) => {
+  console.log(`[DEBUG] getStreamDetails called with streamId: ${req.params.streamId}`);
   try {
     let stream = await Stream.findById(req.params.streamId)
       .populate('seller', 'storeName businessName storeAvatar rating')
@@ -365,6 +367,7 @@ exports.getStreamDetails = async (req, res) => {
     }
     res.json(stream);
   } catch (error) {
+    console.error(`[DEBUG] Error in getStreamDetails:`, error);
     res.status(500).json({
       message: 'Failed to fetch stream details',
       error: error.message
@@ -825,6 +828,251 @@ exports.getStreamWithRefreshedToken = async (req, res) => {
     console.error('Refresh stream token error:', error);
     res.status(500).json({
       message: 'Failed to refresh stream token',
+      error: error.message
+    });
+  }
+};
+
+exports.getPopularStreams = async (req, res) => {
+  console.log(`[DEBUG] getPopularStreams called`);
+  try {
+    const { status, type, page = 1, limit = 10 } = req.query;
+    const query = {};
+
+    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
+      query.status = status;
+    }
+
+    if (type && ['auction', 'open_show'].includes(type)) {
+      query.type = type;
+    }
+
+    // Find streams and sort by viewer count (descending)
+    const streams = await Stream.find(query)
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+      // Sort by number of viewers (descending)
+      .sort({ 'viewers.length': -1, actualStartTime: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = streams.map(stream => {
+      const streamObj = stream.toObject();
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      return streamObj;
+    });
+
+    const total = await Stream.countDocuments(query);
+
+    res.json({
+      streams: streamsWithViewerCount,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    console.error(`[DEBUG] Error in getPopularStreams:`, error);
+    res.status(500).json({
+      message: 'Failed to fetch popular streams',
+      error: error.message
+    });
+  }
+};
+
+exports.getSpotlightStreams = async (req, res) => {
+  try {
+    const { status, type, page = 1, limit = 10 } = req.query;
+    
+    // First, get all featured sellers
+    const featuredSellers = await Seller.find({ isFeatured: true }).select('_id');
+    const featuredSellerIds = featuredSellers.map(seller => seller._id);
+    
+    if (featuredSellerIds.length === 0) {
+      return res.json({
+        streams: [],
+        pagination: {
+          total: 0,
+          pages: 0,
+          currentPage: parseInt(page),
+          hasMore: false
+        }
+      });
+    }
+
+    // Build query for streams from featured sellers
+    const query = {
+      seller: { $in: featuredSellerIds }
+    };
+
+    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
+      query.status = status;
+    }
+
+    if (type && ['auction', 'open_show'].includes(type)) {
+      query.type = type;
+    }
+
+    // Find streams from featured sellers
+    const streams = await Stream.find(query)
+      .populate('seller', 'storeName businessName storeAvatar rating isFeatured')
+      .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = streams.map(stream => {
+      const streamObj = stream.toObject();
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      return streamObj;
+    });
+
+    const total = await Stream.countDocuments(query);
+
+    res.json({
+      streams: streamsWithViewerCount,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    console.error('Get spotlight streams error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch spotlight streams',
+      error: error.message
+    });
+  }
+};
+
+exports.getStreamsFromFavoriteSellers = async (req, res) => {
+  try {
+    const { status, type, page = 1, limit = 10 } = req.query;
+    
+    // Get the current buyer
+    const buyer = await Buyer.findById(req.user.id).select('followers');
+    
+    if (!buyer || !buyer.followers || buyer.followers.length === 0) {
+      return res.json({
+        streams: [],
+        pagination: {
+          total: 0,
+          pages: 0,
+          currentPage: parseInt(page),
+          hasMore: false
+        }
+      });
+    }
+
+    // Extract seller IDs from the buyer's followers
+    const followedSellerIds = buyer.followers.map(follower => follower.sellerId);
+    
+    // Build query for streams from followed sellers
+    const query = {
+      seller: { $in: followedSellerIds }
+    };
+
+    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
+      query.status = status;
+    }
+
+    if (type && ['auction', 'open_show'].includes(type)) {
+      query.type = type;
+    }
+
+    // Find streams from followed sellers
+    const streams = await Stream.find(query)
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+      .sort({ scheduledStartTime: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = streams.map(stream => {
+      const streamObj = stream.toObject();
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      return streamObj;
+    });
+
+    const total = await Stream.countDocuments(query);
+
+    res.json({
+      streams: streamsWithViewerCount,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    console.error('Get streams from favorite sellers error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch streams from favorite sellers',
+      error: error.message
+    });
+  }
+};
+
+exports.getStreamsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { status, type, page = 1, limit = 10 } = req.query;
+    
+    // Build query with case-insensitive category matching
+    const query = { 
+      category: { $regex: new RegExp(`^${category}$`, 'i') }  // '^' and '$' ensure exact match, 'i' flag makes it case-insensitive
+    };
+
+    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
+      query.status = status;
+    }
+
+    if (type && ['auction', 'open_show'].includes(type)) {
+      query.type = type;
+    }
+
+    // Find streams for the given category
+    const streams = await Stream.find(query)
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+      .sort({ scheduledStartTime: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = streams.map(stream => {
+      const streamObj = stream.toObject();
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      return streamObj;
+    });
+
+    const total = await Stream.countDocuments(query);
+
+    res.json({
+      streams: streamsWithViewerCount,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    console.error('Get streams by category error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch streams by category',
       error: error.message
     });
   }

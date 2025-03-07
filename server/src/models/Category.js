@@ -28,7 +28,12 @@ const categorySchema = new mongoose.Schema({
       pending: { type: Number, default: 0 },
       sold: { type: Number, default: 0 }
     },
-    totalProducts: { type: Number, default: 0 }
+    totalProducts: { type: Number, default: 0 },
+    streams: {
+      active: { type: Number, default: 0 },
+      scheduled: { type: Number, default: 0 },
+      ended: { type: Number, default: 0 }
+    }
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

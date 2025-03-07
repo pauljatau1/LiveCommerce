@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const webhookController = require('../controllers/WebhookController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const orderController = require('../controllers/orderController');
 
 /**
  * @swagger
@@ -123,5 +124,46 @@ router.post('/:webhookId/toggle',
 );
 
 router.post('/paystack', express.raw({ type: 'application/json' }), webhookController.handlePaystackWebhook);
+
+/**
+ * @swagger
+ * /api/webhooks/fez:
+ *   post:
+ *     summary: Fez Delivery webhook endpoint
+ *     description: Receives webhook events from Fez Delivery for order status updates
+ *     tags: [Webhooks]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderNumber
+ *               - status
+ *             properties:
+ *               orderNumber:
+ *                 type: string
+ *                 description: The Fez order number
+ *                 example: D0QR05032515
+ *               status:
+ *                 type: string
+ *                 description: The new status of the order
+ *                 enum:
+ *                   - Pending Pick-Up
+ *                   - Picked-Up
+ *                   - Dispatched
+ *                   - Delivered
+ *                   - Cancelled
+ *                 example: Delivered
+ *     responses:
+ *       200:
+ *         description: Webhook received and processed
+ *       400:
+ *         description: Invalid webhook payload
+ *       500:
+ *         description: Server error
+ */
+router.post('/fez', orderController.handleFezWebhook);
 
 module.exports = router;

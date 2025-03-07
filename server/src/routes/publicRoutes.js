@@ -37,7 +37,10 @@ router.get('/categories', async (req, res) => {
         'statistics.orders.completed': 0,
         'statistics.items.pending': 0,
         'statistics.items.sold': 0,
-        'statistics.totalProducts': 0
+        'statistics.totalProducts': 0,
+        'statistics.streams.active': 0,
+        'statistics.streams.scheduled': 0,
+        'statistics.streams.ended': 0
       }
     }, { session });
 
@@ -58,10 +61,39 @@ router.get('/categories', async (req, res) => {
       }
     ]);
 
+    // Get stream counts per category
+    const Stream = mongoose.model('Stream');
+    const streamCounts = await Stream.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          active: { 
+            $sum: { $cond: [{ $eq: ['$status', 'live'] }, 1, 0] } 
+          },
+          scheduled: { 
+            $sum: { $cond: [{ $eq: ['$status', 'scheduled'] }, 1, 0] } 
+          },
+          ended: { 
+            $sum: { $cond: [{ $eq: ['$status', 'ended'] }, 1, 0] } 
+          }
+        }
+      }
+    ]);
+
     // Create maps to store statistics
     const categoryStats = {};
     const productCountMap = productCounts.reduce((acc, item) => {
       acc[item._id] = item.totalProducts;
+      return acc;
+    }, {});
+    
+    // Create map for stream statistics
+    const streamCountMap = streamCounts.reduce((acc, item) => {
+      acc[item._id] = {
+        active: item.active,
+        scheduled: item.scheduled,
+        ended: item.ended
+      };
       return acc;
     }, {});
 
@@ -99,7 +131,10 @@ router.get('/categories', async (req, res) => {
             'statistics.orders.completed': stats.completed.orders,
             'statistics.items.pending': stats.pending.items,
             'statistics.items.sold': stats.completed.items,
-            'statistics.totalProducts': productCountMap[categoryName] || 0
+            'statistics.totalProducts': productCountMap[categoryName] || 0,
+            'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
+            'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
+            'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
           }
         },
         { session }
@@ -113,7 +148,27 @@ router.get('/categories', async (req, res) => {
           { name: categoryName },
           {
             $set: {
-              'statistics.totalProducts': totalProducts
+              'statistics.totalProducts': totalProducts,
+              'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
+              'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
+              'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
+            }
+          },
+          { session }
+        );
+      }
+    }
+
+    // Update categories that might have streams but no products or orders
+    for (const [categoryName, streamStats] of Object.entries(streamCountMap)) {
+      if (!categoryStats[categoryName] && !productCountMap[categoryName]) {
+        await Category.findOneAndUpdate(
+          { name: categoryName },
+          {
+            $set: {
+              'statistics.streams.active': streamStats.active || 0,
+              'statistics.streams.scheduled': streamStats.scheduled || 0,
+              'statistics.streams.ended': streamStats.ended || 0
             }
           },
           { session }

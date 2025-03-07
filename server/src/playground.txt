@@ -289,3 +289,78 @@ product
   },
   "paymentMethod": "paystack"
 }
+
+
+JWT_REDACTED\
+
+
+
+
+
+
+
+{
+  "items": [
+    {
+      "productId": "678c1bcbdb92f522edacd425",
+      "quantity": 2,
+      "price": 1400000,
+      "weight": 1.2, 
+      "specifications": {
+        "color": "red",
+        "size": "medium",
+        "material": "aluminum"
+      },
+      "seller": {
+        "sellerId": "6757fc4e814b66b9f8cdc3e3",
+        "senderInfo": {
+          "senderName": "Tech Gadgets Store",
+          "senderAddress": "15 Marina Road, Ikeja",
+          "senderPhone": "+2348012345678",
+          "senderEmail": "bolu@auqli.com",
+          "pickUpState": "Lagos"
+        },
+        "shippingFee": 2500,
+        "parcelInfo": {
+          "itemDescription": "iPhone 14 Pro Max"
+        }
+      }
+    },
+    {
+      "productId": "6790119d004a17308c9663e2",
+      "quantity": 1,
+      "price": 75000,
+      "weight": 0.8,
+      "specifications": {
+        "color": "black",
+        "size": "large",
+        "material": "leather"
+      },
+      "seller": {
+        "sellerId": "67900f78004a17308c966218",
+        "senderInfo": {
+          "senderName": "Luxury Leather Goods",
+          "senderAddress": "25 Broad Street, Victoria Island",
+          "senderPhone": "+2349087654321",
+          "senderEmail": "bolu@falconaero.org",
+          "pickUpState": "Lagos"
+        },
+        "parcelInfo": {
+          "itemDescription": "Premium Leather shoe"
+        }
+      }
+    }
+  ],
+  "shippingAddress": {
+    "recipientName": "Bolu Ajayi",
+    "recipientPhone": "+2349124634152",
+    "recipientEmail": "boluaj16@gmail.com",
+    "recipientAddress": "123 Main Street, Lekki",
+    "recipientState": "Lagos"
+  },
+  "paymentMethod": "paystack",
+  "isItemCod": false,
+  "shippingFee": 3500,
+  "additionalDetails": "Please handle with care",
+  "paidFromWallet": false
+}

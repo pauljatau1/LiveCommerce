@@ -1711,4 +1711,254 @@ router.post('/:id/blips/:blipId/view',
   productController.recordBlipView
 );
 
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/replies:
+ *   post:
+ *     summary: Add a reply to a blip comment
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - comment
+ *             properties:
+ *               comment:
+ *                 type: string
+ *                 description: The reply text
+ *     responses:
+ *       201:
+ *         description: Reply added successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips/:blipId/comments/:commentId/replies', 
+  authMiddleware.verifyToken,
+  productController.addReplyToBlipComment
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/like:
+ *   post:
+ *     summary: Like or unlike a blip comment
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *     responses:
+ *       200:
+ *         description: Comment liked or unliked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 liked:
+ *                   type: boolean
+ *                 likesCount:
+ *                   type: number
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips/:blipId/comments/:commentId/like', authMiddleware.verifyToken, productController.likeBlipComment);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/replies/{replyId}/like:
+ *   post:
+ *     summary: Like or unlike a reply to a blip comment
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *       - in: path
+ *         name: replyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the reply
+ *     responses:
+ *       200:
+ *         description: Reply liked or unliked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 liked:
+ *                   type: boolean
+ *                 likesCount:
+ *                   type: number
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Product, blip, comment, or reply not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips/:blipId/comments/:commentId/replies/:replyId/like', authMiddleware.verifyToken, productController.likeBlipCommentReply);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/category/{category}:
+ *   get:
+ *     summary: Get products by seller and category
+ *     description: Retrieve all products for a specific seller filtered by category
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name to filter products by
+ *     responses:
+ *       200:
+ *         description: List of products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/category/:category', optionalAuth, productController.getProductsBySellerAndCategory);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/categories:
+ *   get:
+ *     summary: Get categories where a seller has products
+ *     description: Retrieve all categories for a specific seller where they have products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *     responses:
+ *       200:
+ *         description: List of categories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Category'
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: No products found for this seller
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/categories', productController.getSellerProductCategories);
+
 module.exports = router;

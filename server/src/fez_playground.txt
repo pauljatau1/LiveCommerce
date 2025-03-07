@@ -1,0 +1,218 @@
+AUTHENTICATE
+
+https://apisandbox.fezdelivery.co/v1/user/authenticate
+
+POST
+{
+  "user_id": "bolu@auqli.com",
+  "password": "Bolu@123"
+}
+ response 
+ {
+	"status": "Success",
+	"description": "Login Successfull",
+	"authDetails": {
+		"authToken": "V3Z2S04MPJA5YUUNIZ4AIOKZ7DEU6Z8F-591",
+		"expireToken": "2025-03-05 23:23:11"
+	},
+	"states": [
+		"Kano",
+		"Lagos",
+		"Kaduna",
+		"Katsina",
+		"Oyo",
+		"Rivers",
+		"Bauchi",
+		"Jigawa",
+		"Benue",
+		"Anambra",
+		"Borno",
+		"Delta",
+		"Imo",
+		"Niger",
+		"Akwa Ibom",
+		"Ogun",
+		"Sokoto",
+		"Ondo",
+		"Osun",
+		"Kogi",
+		"Zamfara",
+		"Enugu",
+		"Kebbi",
+		"Edo",
+		"Plateau",
+		"Adamawa",
+		"Cross River",
+		"Abia",
+		"Ekiti",
+		"Kwara",
+		"Gombe",
+		"Yobe",
+		"Taraba",
+		"Ebonyi",
+		"Nasarawa",
+		"Bayelsa",
+		"FCT"
+	],
+	"userDetails": {
+		"twoFA": 0,
+		"userEmail": "bolu@auqli.com",
+		"userID": "G-FZ3Z-pfnz3",
+		"role": "admin",
+		"Full Name": "Bolu",
+		"Username": "G-FZ3Z-pfnz3",
+		"subOrganization": null,
+		"tempPassword": false
+	},
+	"orgDetails": {
+		"secret-key": "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+		"Org Full Name": "Auqli Limited",
+		"signedTerms": 0,
+		"orgId": 9387,
+		"orgCode": "C-88604-045",
+		"orgAddress": "17 Olutola Street, Ireposdun Estate, Ojodu, Lagos.",
+		"orgPhone": "08107922578",
+		"orgBusinessType": "Ecommerce",
+		"orgLogo": null,
+		"orgEmail": "paul@auqli.com",
+		"orgState": "Lagos",
+		"isMultiTenant": 0,
+		"canPayOffline": 0,
+		"multiTenantToken": null,
+		"emailNotification": 1,
+		"smsNotification": 1,
+		"appNotification": 1,
+		"canViewInvoice": true
+	},
+	"platformIntegrations": [],
+	"webhooks": [],
+	"subOrganizations": []
+}
+
+
+
+CREATE AN ORDER 
+post  -  https://apisandbox.fezdelivery.co/v1/order
+
+req
+[
+  {
+    "recipientAddress": "test address",
+    "recipientState": "Lagos",
+    "recipientName": "bolu",
+    "recipientPhone": "+2349124634152",
+    "recipientEmail": "boluaj16@gmail.com",
+    "uniqueID": "bolu-1234",
+    "BatchID": "KingOne-1",
+    "itemDescription": "Electronic gadget",
+    "additionalDetails": "Landmark: Near the big tree",
+    "valueOfItem": "20000",
+    "weight": 5,
+    "pickUpState": "Lagos",
+    "pickUpDate": "2025-03-25",
+    "thirdparty": "true",
+    "senderName": "bolus ego",
+    "senderAddress": "testing",
+    "senderPhone": "+2349124634152"
+  }
+]
+
+response 
+{
+	"status": "Success",
+	"description": "Order Successfully Created",
+	"orderNos": {
+		"bolu-1234": "D0QR05032515"
+	}
+}
+
+
+GET ORDER
+https://apisandbox.fezdelivery.co/v1/orders/D0QR05032515
+
+req 
+
+res 
+{
+	"status": "Success",
+	"description": "Details Fetched Successfully",
+	"orderDetails": [
+		{
+			"id": 25564,
+			"clientAddress": "testing",
+			"orderNo": "D0QR05032515",
+			"delivery_OTP": null,
+			"pickUpDate": "2025-03-25 00:00:00",
+			"quantity": null,
+			"dispatchDate": null,
+			"recipientName": "bolu",
+			"recipientAddress": "test address",
+			"recipientEmail": "boluaj16@gmail.com",
+			"recipient_phone": "+2349124634152",
+			"recipientPhone": "+2349124634152",
+			"itemDescription": "Electronic gadget",
+			"statusDescription": null,
+			"orderStatus": "Pending Pick-Up",
+			"deliveryDate": null,
+			"paymentMode": null,
+			"paymentStatus": "unpaid",
+			"cost": "100",
+			"dropZoneName": "Default",
+			"returnReason": null,
+			"returnDate": null,
+			"recievedBySignature": null,
+			"additionalNote": "Landmark: Near the big tree",
+			"orderVerified": "pending",
+			"thirdparty": "true",
+			"thirdparty_sendersName": "bolus ego",
+			"thirdparty_sendersPhone": "+2349124634152",
+			"recipientState": "Lagos",
+			"created_at": "2025-03-05T19:49:15.000000Z",
+			"recipientAlternatePhone": null,
+			"createdBy": "C-88604-045",
+			"OrgRep": "G-FZ3Z-pfnz3",
+			"orderDate": "2025-03-05 20:49:15",
+			"weight": "5",
+			"sub_organization_id": null,
+			"manifest": {
+				"orderNo": "D0QR05032515",
+				"requestType": "local",
+				"pickUpState": "Lagos",
+				"dropOffState": "Lagos",
+				"pickUpZone": "Default",
+				"dropOffZone": "Default",
+				"displayZone": false,
+				"PickUpHub": "Lagoswa",
+				"DropOffHub": "Lagoswa",
+				"recipientName": "bolu",
+				"recipientPhone": "+2349124634152 ",
+				"recipientAddress": "test address",
+				"description": "Electronic gadget",
+				"sendersName": "bolus ego"
+			},
+			"organizationUser": {
+				"fullname": "Bolu",
+				"user_id": "G-FZ3Z-pfnz3"
+			},
+			"subOrganization": null,
+			"cps": null,
+			"currency": "NGN",
+			"currencySymbol": "₦",
+			"client": {
+				"id": 9387,
+				"clientId": "C-88604-045",
+				"fullName": "Auqli Limited",
+				"address": "17 Olutola Street, Ireposdun Estate, Ojodu, Lagos.",
+				"phone": "08107922578",
+				"email": "paul@auqli.com",
+				"status": "",
+				"type": "business",
+				"logo": null,
+				"businessType": {
+					"id": 3,
+					"name": "Ecommerce"
+				}
+			}
+		}
+	]
+}
