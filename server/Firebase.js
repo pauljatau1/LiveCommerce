@@ -7,14 +7,15 @@ const { initializeApp } = require('firebase/app');
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
     apiKey: "AIza_REDACTED",
-    authDomain: "auqli-mobile-app.firebaseapp.com",
-    databaseURL: "https://auqli-mobile-app-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "auqli-mobile-app",
-    storageBucket: "auqli-mobile-app.firebasestorage.app",
-    messagingSenderId: "95041167196",
-    appId: "1:95041167196:web:46e7d0b0f872247cd2ab99",
-    measurementId: "G-8WT7XMRDGR",
+    authDomain: "auqli-app.firebaseapp.com",
+    databaseURL: "https://auqli-app-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "auqli-app",
+    storageBucket: "auqli-app.firebasestorage.app",
+    messagingSenderId: "558100397953",
+    appId: "1:558100397953:web:0014fb72dfcd1aa3933280",
+    measurementId: "G-MEYRS0CCTB"
 };
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
