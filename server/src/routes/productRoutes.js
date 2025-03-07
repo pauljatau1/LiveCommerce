@@ -1961,4 +1961,88 @@ router.get('/seller/:sellerId/category/:category', optionalAuth, productControll
  */
 router.get('/seller/:sellerId/categories', productController.getSellerProductCategories);
 
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/replies:
+ *   get:
+ *     summary: Get replies for a specific blip comment
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of replies per page
+ *         default: 10
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved comment replies
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 replies:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       user:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                       comment:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       likes:
+ *                         type: array
+ *                       likesCount:
+ *                         type: number
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalReplies:
+ *                       type: integer
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:productId/blips/:blipId/comments/:commentId/replies', productController.getBlipCommentReplies);
+
 module.exports = router;
