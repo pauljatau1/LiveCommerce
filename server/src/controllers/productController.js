@@ -3341,28 +3341,36 @@ exports.getBlipCommentReplies = async (req, res) => {
       replies.map(async (reply) => {
         let userInfo;
         if (reply.userType === 'Buyer') {
-          userInfo = await Buyer.findById(reply.user).select('firstName lastName avatar');
+          userInfo = await Buyer.findById(reply.user).select('firstName lastName avatar profileImage');
+          return {
+            _id: reply._id,
+            user: {
+              _id: userInfo._id,
+              name: `${userInfo.firstName} ${userInfo.lastName}`,
+              avatar: userInfo.profileImage?.url || userInfo.avatar // Include profile image, fallback to avatar
+            },
+            userType: reply.userType,
+            comment: reply.comment,
+            createdAt: reply.createdAt,
+            likes: reply.likes,
+            likesCount: reply.likesCount
+          };
         } else {
           userInfo = await Seller.findById(reply.user).select('storeName storeAvatar');
+          return {
+            _id: reply._id,
+            user: {
+              _id: userInfo._id,
+              name: userInfo.storeName,
+              avatar: userInfo.storeAvatar?.url // Include store avatar
+            },
+            userType: reply.userType,
+            comment: reply.comment,
+            createdAt: reply.createdAt,
+            likes: reply.likes,
+            likesCount: reply.likesCount
+          };
         }
-
-        return {
-          _id: reply._id,
-          user: {
-            _id: userInfo._id,
-            name: reply.userType === 'Buyer' 
-              ? `${userInfo.firstName} ${userInfo.lastName}`
-              : userInfo.storeName,
-            avatar: reply.userType === 'Buyer' 
-              ? userInfo.avatar
-              : userInfo.storeAvatar
-          },
-          userType: reply.userType,
-          comment: reply.comment,
-          createdAt: reply.createdAt,
-          likes: reply.likes,
-          likesCount: reply.likesCount
-        };
       })
     );
 
