@@ -61,6 +61,8 @@ const getNotificationTitle = (type) => {
       return 'Return Pickup Arranged';
     case 'return_request':
       return 'New Return Request';
+    case 'order_placed':
+      return 'Order Placed Successfully';
     default:
       return 'Notification';
   }
@@ -70,7 +72,27 @@ const getNotificationTitle = (type) => {
 const getNotificationMessage = (type, data) => {
   switch (type) {
     case 'new_order':
-      return `You have received a new order #${data.order_id} worth ${data.amount}. ${data.items} item(s) to be fulfilled.`;
+      // Format the items properly
+      let itemsText = '';
+      if (Array.isArray(data.items)) {
+        const itemCount = data.items.length;
+        const itemNames = data.items.map(item => item.productName).join(', ');
+        itemsText = `${itemCount} item${itemCount > 1 ? 's' : ''} (${itemNames})`;
+      } else if (typeof data.items === 'number') {
+        itemsText = `${data.items} item${data.items > 1 ? 's' : ''}`;
+      }
+      
+      // Format delivery address
+      let deliveryInfo = '';
+      if (data.deliveryAddress) {
+        const address = data.deliveryAddress;
+        deliveryInfo = `Delivery to ${address.recipientName} in ${address.recipientState}.`;
+      }
+      
+      // Include payment method
+      const paymentInfo = data.paymentMethod ? `Payment via ${data.paymentMethod}.` : '';
+      
+      return `You have received a new order #${data.order_id} worth ${data.amount}. ${itemsText} to be fulfilled. ${deliveryInfo} ${paymentInfo}`;
     case 'order_paid':
       return `Payment of ${data.amount} received for order #${data.order_id} via ${data.paymentMethod}.`;
     case 'pickup_arranged':
@@ -125,6 +147,29 @@ const getNotificationMessage = (type, data) => {
       return `Return pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${new Date(data.pickupDate).toLocaleDateString()}.`;
     case 'return_request':
       return `New return request received from ${data.buyerName} for order #${data.order_id}.`;
+    case 'order_placed':
+      // Format the items properly
+      let orderItemsText = '';
+      if (Array.isArray(data.items)) {
+        const itemCount = data.items.length;
+        const itemNames = data.items.map(item => item.productName).join(', ');
+        orderItemsText = `${itemCount} item${itemCount > 1 ? 's' : ''} (${itemNames})`;
+      } else if (typeof data.items === 'number') {
+        orderItemsText = `${data.items} item${data.items > 1 ? 's' : ''}`;
+      }
+      
+      // Format delivery address
+      let buyerDeliveryInfo = '';
+      if (data.deliveryAddress) {
+        const address = data.deliveryAddress;
+        buyerDeliveryInfo = `Delivery to ${address.recipientAddress}, ${address.recipientState}.`;
+      }
+      
+      // Include payment method and shipping fee
+      const buyerPaymentInfo = data.paymentMethod ? `Payment via ${data.paymentMethod}.` : '';
+      const shippingInfo = data.shippingFee ? `Shipping fee: ${data.shippingFee}.` : '';
+      
+      return `Your order #${data.order_id} has been placed successfully for ${data.amount}. ${orderItemsText} from ${data.sellerName}. ${buyerDeliveryInfo} ${buyerPaymentInfo} ${shippingInfo}`;
     default:
       return 'You have a new notification.';
   }
@@ -160,18 +205,323 @@ exports.createNotification = async (sellerId, type, data) => {
 
 // Helper function to send email notification
 exports.sendEmailNotification = async (seller, notification) => {
+  const orderData = notification.data || {};
+  
+  // Format the items list if available
+  let itemsHtml = '';
+  if (orderData.items && Array.isArray(orderData.items)) {
+    itemsHtml = `
+      <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+        <thead>
+          <tr style="background-color: #f2f2f2;">
+            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Product</th>
+            <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quantity</th>
+            <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Price</th>
+            <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${orderData.items.map(item => `
+            <tr>
+              <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.productName || 'Product'}</td>
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.quantity || 1}</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(item.price || 0).toLocaleString()}</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="background-color: #f9f9f9;">
+            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Subtotal:</strong></td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.amount || '0'}</td>
+          </tr>
+          ${orderData.shippingFee ? `
+          <tr style="background-color: #f9f9f9;">
+            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Shipping Fee:</strong></td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.shippingFee}</td>
+          </tr>
+          <tr style="background-color: #f9f9f9;">
+            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Total:</strong></td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${
+              (() => {
+                try {
+                  const amount = parseFloat(orderData.amount.replace(/[^\d.-]/g, '')) || 0;
+                  const shipping = parseFloat(orderData.shippingFee.replace(/[^\d.-]/g, '')) || 0;
+                  return (amount + shipping).toLocaleString();
+                } catch (e) {
+                  return orderData.amount || '0';
+                }
+              })()
+            }</td>
+          </tr>
+          ` : ''}
+        </tfoot>
+      </table>
+    `;
+  } else if (typeof orderData.items === 'number') {
+    // Handle case where items is just a number (count)
+    itemsHtml = `<p><strong>Number of Items:</strong> ${orderData.items}</p>`;
+  }
+  
+  // Delivery information
+  let deliveryInfoHtml = '';
+  if (orderData.deliveryAddress) {
+    deliveryInfoHtml = `
+      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+        <h3 style="margin-top: 0;">Delivery Information</h3>
+        <p><strong>Recipient:</strong> ${orderData.deliveryAddress.recipientName || ''}</p>
+        <p><strong>Address:</strong> ${orderData.deliveryAddress.recipientAddress || ''}</p>
+        <p><strong>State:</strong> ${orderData.deliveryAddress.recipientState || ''}</p>
+        <p><strong>Phone:</strong> ${orderData.deliveryAddress.recipientPhone || ''}</p>
+        <p><strong>Email:</strong> ${orderData.deliveryAddress.recipientEmail || ''}</p>
+      </div>
+    `;
+  }
+  
   const msg = {
     to: seller.email,
     from: 'Auqli Seller <joseph@auqli.com>',
     subject: notification.title,
-    text: notification.message,
-    html: `<strong>${notification.message}</strong>`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #333;">New Order Received</h2>
+        </div>
+        <p>Hello ${seller.firstName || 'Seller'},</p>
+        <p>You have received a new order from ${orderData.buyerName || 'a customer'}.</p>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <p><strong>Order ID:</strong> ${orderData.order_id || ''}</p>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Payment Method:</strong> ${orderData.paymentMethod || 'Online Payment'}</p>
+        </div>
+        
+        <h3>Order Details</h3>
+        ${itemsHtml}
+        
+        ${deliveryInfoHtml}
+        
+        <p>Please log in to your Auqli seller dashboard to process this order.</p>
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="https://seller.auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order Details</a>
+        </div>
+        <p style="margin-top: 20px;">Thank you for selling with Auqli!</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `,
   };
 
   try {
     await sgMail.send(msg);
   } catch (error) {
     console.error('Email sending failed:', error);
+  }
+};
+
+// Helper function to send email notification to buyer
+exports.sendEmailToBuyer = async (buyer, notification) => {
+  const orderData = notification.data || {};
+  
+  // Format the items list if available
+  let itemsHtml = '';
+  if (orderData.items && Array.isArray(orderData.items)) {
+    itemsHtml = `
+      <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+        <thead>
+          <tr style="background-color: #f2f2f2;">
+            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Product</th>
+            <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quantity</th>
+            <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Price</th>
+            <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${orderData.items.map(item => `
+            <tr>
+              <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.productName || 'Product'}</td>
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.quantity || 1}</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(item.price || 0).toLocaleString()}</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="background-color: #f9f9f9;">
+            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Subtotal:</strong></td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.amount || '0'}</td>
+          </tr>
+          ${orderData.shippingFee ? `
+          <tr style="background-color: #f9f9f9;">
+            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Shipping Fee:</strong></td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.shippingFee}</td>
+          </tr>
+          <tr style="background-color: #f9f9f9;">
+            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Total:</strong></td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${
+              (() => {
+                try {
+                  const amount = parseFloat(orderData.amount.replace(/[^\d.-]/g, '')) || 0;
+                  const shipping = parseFloat(orderData.shippingFee.replace(/[^\d.-]/g, '')) || 0;
+                  return (amount + shipping).toLocaleString();
+                } catch (e) {
+                  return orderData.amount || '0';
+                }
+              })()
+            }</td>
+          </tr>
+          ` : ''}
+        </tfoot>
+      </table>
+    `;
+  } else if (typeof orderData.items === 'number') {
+    // Handle case where items is just a number (count)
+    itemsHtml = `<p><strong>Number of Items:</strong> ${orderData.items}</p>`;
+  }
+  
+  // Delivery information
+  let deliveryInfoHtml = '';
+  if (orderData.deliveryAddress) {
+    deliveryInfoHtml = `
+      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+        <h3 style="margin-top: 0;">Delivery Information</h3>
+        <p><strong>Recipient:</strong> ${orderData.deliveryAddress.recipientName || ''}</p>
+        <p><strong>Address:</strong> ${orderData.deliveryAddress.recipientAddress || ''}</p>
+        <p><strong>State:</strong> ${orderData.deliveryAddress.recipientState || ''}</p>
+        <p><strong>Phone:</strong> ${orderData.deliveryAddress.recipientPhone || ''}</p>
+      </div>
+    `;
+  }
+  
+  const msg = {
+    to: buyer.email,
+    from: 'Auqli <support@auqli.com>',
+    subject: notification.title,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #333;">Order Confirmation</h2>
+        </div>
+        <p>Hello ${buyer.firstName || 'Customer'},</p>
+        <p>Thank you for your order! We're pleased to confirm that your order has been received and is being processed.</p>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <p><strong>Order ID:</strong> ${orderData.order_id || ''}</p>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Seller:</strong> ${orderData.sellerName || 'Seller'}</p>
+          <p><strong>Payment Method:</strong> ${orderData.paymentMethod || 'Online Payment'}</p>
+        </div>
+        
+        <h3>Order Details</h3>
+        ${itemsHtml}
+        
+        ${deliveryInfoHtml}
+        
+        <p>You can track the status of your order by logging into your Auqli account.</p>
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="https://auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Track Your Order</a>
+        </div>
+        <p style="margin-top: 20px;">If you have any questions about your order, please contact our customer service team.</p>
+        <p>Thank you for shopping with Auqli!</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `,
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Email sent to buyer: ${buyer.email}`);
+  } catch (error) {
+    console.error('Email sending to buyer failed:', error);
+  }
+};
+
+// Function to handle order creation notifications
+exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
+  try {
+    // Validate input parameters
+    if (!order || !buyer || !seller) {
+      console.error('Missing required parameters for order notifications:', {
+        orderProvided: !!order,
+        buyerProvided: !!buyer,
+        sellerProvided: !!seller
+      });
+      throw new Error('Missing required parameters for order notifications');
+    }
+    
+    // Log the input parameters for debugging
+    console.log('handleOrderCreationNotifications called with:', {
+      orderId: order._id,
+      orderNumber: order.order_id,
+      buyerId: buyer._id,
+      buyerName: `${buyer.firstName} ${buyer.lastName}`,
+      sellerId: seller._id,
+      sellerName: seller.businessName || `${seller.firstName} ${seller.lastName}`
+    });
+    
+    // Get detailed product information
+    const items = order.items.map(item => ({
+      productName: item.productName || 'Product',
+      quantity: item.quantity,
+      price: item.price
+    }));
+    
+    // Get shipping fee
+    const shippingFee = order.shipping && order.shipping.fee ? 
+      order.shipping.fee.amount.toLocaleString() : '0';
+    
+    // Get payment method
+    const paymentMethod = order.paymentInfo && order.paymentInfo.method ? 
+      order.paymentInfo.method.charAt(0).toUpperCase() + order.paymentInfo.method.slice(1) : 
+      'Online Payment';
+    
+    // Get delivery address
+    const deliveryAddress = {
+      recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
+      recipientAddress: order.delivery_address.line1,
+      recipientState: order.delivery_address.state,
+      recipientPhone: order.delivery_address.phone,
+      recipientEmail: order.delivery_address.email
+    };
+    
+    // Create notification for seller
+    const sellerNotification = await exports.createNotification(
+      seller._id,
+      'new_order',
+      {
+        order_id: order.order_id,
+        amount: `₦${order.totalAmount.toLocaleString()}`,
+        items: items,
+        buyerName: `${buyer.firstName} ${buyer.lastName}`,
+        shippingFee: shippingFee,
+        paymentMethod: paymentMethod,
+        deliveryAddress: deliveryAddress
+      }
+    );
+    
+    // Send email to seller
+    await exports.sendEmailNotification(seller, sellerNotification);
+    
+    // Create notification for buyer
+    const buyerNotification = await exports.createBuyerNotification(
+      buyer._id,
+      'order_placed',
+      {
+        order_id: order.order_id,
+        amount: `₦${order.totalAmount.toLocaleString()}`,
+        items: items,
+        sellerName: seller.businessName || `${seller.firstName} ${seller.lastName}`,
+        shippingFee: shippingFee,
+        paymentMethod: paymentMethod,
+        deliveryAddress: deliveryAddress
+      }
+    );
+    
+    // Send email to buyer
+    await exports.sendEmailToBuyer(buyer, buyerNotification);
+    
+    console.log(`Order creation notifications sent for order: ${order.order_id}`);
+    return { sellerNotification, buyerNotification };
+  } catch (error) {
+    console.error('Error handling order creation notifications:', error);
+    throw error;
   }
 };
 
@@ -366,364 +716,72 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
   }
 };
 
-// Add these webhook handler functions
-const handleShipmentCreated = async (webhookData) => {
+// Add a new function to simulate Fez webhook events
+exports.simulateFezWebhook = async (req, res) => {
   try {
-    const order = await Order.findOne({ 'shipping.shipment_id': webhookData.shipment_id })
-      .populate('buyer', 'email firstName lastName')
-      .populate('seller', 'email firstName lastName businessName');
+    const { orderNumber, status } = req.body;
 
-    if (!order) {
-      console.log('Order not found for shipment:', webhookData.shipment_id);
-      return;
-    }
-
-    // Update order shipping information
-    const shippingUpdate = {
-      $set: {
-        'shipping.tracking.number': webhookData.tracking_number,
-        'shipping.tracking.url': webhookData.carrier_tracking_url,
-        'shipping.tracking.status': 'pickup_arranged',
-        'shipping.tracking.lastUpdate': new Date(),
-        'shipping.documents.shippingLabel': webhookData.shipping_label_url,
-        'shipping.documents.commercialInvoice': webhookData.commercial_invoice_url
-      },
-      $push: {
-        'shipping.tracking.history': {
-          status: 'pickup_arranged',
-          timestamp: new Date(),
-          location: webhookData.events[0]?.location || 'Unknown',
-          description: webhookData.events[0]?.description || 'Shipment created'
-        }
-      }
-    };
-
-    await Order.findByIdAndUpdate(order._id, shippingUpdate);
-
-    // Send email to buyer
-    const buyerEmail = {
-      to: order.buyer.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
-      subject: 'Your Order Has Been Shipped - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your Order is Being Prepared for Shipping!</h2>
-          <p>Dear ${order.buyer.firstName},</p>
-          <p>Great news! Your order #${order.order_id} is being prepared for shipping by ${order.seller.businessName || order.seller.firstName}.</p>
-          <p><strong>Tracking Details:</strong></p>
-          <ul>
-            <li>Tracking Number: ${webhookData.tracking_number}</li>
-            <li>Carrier: ${webhookData.carrier_name}</li>
-          </ul>
-          <p>You can track your shipment here: <a href="${webhookData.carrier_tracking_url}">Track Shipment</a></p>
-          <p>We'll keep you updated on your shipment's progress.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
-
-    // Send email to seller
-    const sellerEmail = {
-      to: order.seller.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
-      subject: 'Shipment Created Successfully - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Shipment Created Successfully</h2>
-          <p>Dear ${order.seller.firstName},</p>
-          <p>A shipment has been created for order #${order.order_id}.</p>
-          <p><strong>Shipping Details:</strong></p>
-          <ul>
-            <li>Tracking Number: ${webhookData.tracking_number}</li>
-            <li>Carrier: ${webhookData.carrier_name}</li>
-          </ul>
-          <p><strong>Important Documents:</strong></p>
-          <ul>
-            <li><a href="${webhookData.shipping_label_url}">Download Shipping Label</a></li>
-            <li><a href="${webhookData.commercial_invoice_url}">Download Commercial Invoice</a></li>
-          </ul>
-          <p>Please ensure the package is ready for pickup.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
-
-    // Send emails
-    await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail)
-    ]);
-
-    // Create notification for seller
-    await exports.createNotification(order.seller, 'shipment_created', {
-      orderId: order._id,
-      order_id: order.order_id,
-      tracking_number: webhookData.tracking_number
-    });
-
-  } catch (error) {
-    console.error('Error handling shipment.created webhook:', error);
-    throw error;
-  }
-};
-
-const handleShipmentInTransit = async (webhookData) => {
-  try {
-    const order = await Order.findOne({ 'shipping.shipment_id': webhookData.shipment_id })
-      .populate('buyer', 'email firstName lastName')
-      .populate('seller', 'email firstName lastName businessName');
-
-    if (!order) {
-      console.log('Order not found for shipment:', webhookData.shipment_id);
-      return;
-    }
-
-    // Update order shipping information
-    const shippingUpdate = {
-      $set: {
-        'shipping.tracking.status': 'in-transit',
-        'shipping.tracking.lastUpdate': new Date()
-      },
-      $push: {
-        'shipping.tracking.history': {
-          status: 'in-transit',
-          timestamp: new Date(),
-          location: webhookData.events[0]?.location || 'Unknown',
-          description: webhookData.events[0]?.description || 'Shipment in transit'
-        }
-      }
-    };
-
-    await Order.findByIdAndUpdate(order._id, shippingUpdate);
-
-    // Send email to buyer
-    const buyerEmail = {
-      to: order.buyer.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
-      subject: 'Your Order is On the Way - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your Order is On the Move!</h2>
-          <p>Dear ${order.buyer.firstName},</p>
-          <p>Your order #${order.order_id} from ${order.seller.businessName || order.seller.firstName} is now in transit!</p>
-          <p><strong>Latest Update:</strong></p>
-          <ul>
-            <li>Status: In Transit</li>
-            <li>Location: ${webhookData.events[0]?.location || 'Unknown'}</li>
-            <li>Tracking Number: ${webhookData.tracking_number}</li>
-          </ul>
-          <p>Track your shipment: <a href="${webhookData.carrier_tracking_url}">Click here</a></p>
-          <p>We'll notify you when your package is delivered.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
-
-    // Send email to seller
-    const sellerEmail = {
-      to: order.seller.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
-      subject: 'Order In Transit - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Order Now In Transit</h2>
-          <p>Dear ${order.seller.firstName},</p>
-          <p>Order #${order.order_id} is now in transit to the customer.</p>
-          <p><strong>Shipping Update:</strong></p>
-          <ul>
-            <li>Status: In Transit</li>
-            <li>Location: ${webhookData.events[0]?.location || 'Unknown'}</li>
-            <li>Tracking Number: ${webhookData.tracking_number}</li>
-          </ul>
-          <p>Track the shipment: <a href="${webhookData.carrier_tracking_url}">Click here</a></p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
-
-    // Send emails
-    await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail)
-    ]);
-
-    // Create notification for seller
-    await exports.createNotification(order.seller, 'shipment_in_transit', {
-      orderId: order._id,
-      order_id: order.order_id,
-      tracking_number: webhookData.tracking_number
-    });
-
-  } catch (error) {
-    console.error('Error handling shipment.in-transit webhook:', error);
-    throw error;
-  }
-};
-
-const handleShipmentDelivered = async (webhookData) => {
-  try {
-    const order = await Order.findOne({ 'shipping.shipment_id': webhookData.shipment_id })
-      .populate('buyer', 'email firstName lastName')
-      .populate('seller', 'email firstName lastName businessName');
-
-    if (!order) {
-      console.log('Order not found for shipment:', webhookData.shipment_id);
-      return;
-    }
-
-    // Update order shipping information
-    const shippingUpdate = {
-      $set: {
-        'shipping.tracking.status': 'delivered',
-        'shipping.tracking.lastUpdate': new Date(),
-        'shipping.delivery.actualDate': new Date()
-      },
-      $push: {
-        'shipping.tracking.history': {
-          status: 'delivered',
-          timestamp: new Date(),
-          location: webhookData.events[0]?.location || 'Unknown',
-          description: webhookData.events[0]?.description || 'Shipment delivered'
-        }
-      }
-    };
-
-    // Update order and mark items as delivered
-    const updatedOrder = await Order.findByIdAndUpdate(
-      order._id,
-      {
-        ...shippingUpdate,
-        // Mark all items as delivered
-        $set: {
-          'items.$[].status': 'delivered'
-        }
-      },
-      { new: true }
-    );
-
-    // Send immediate delivery notification emails
-    const buyerDeliveryEmail = {
-      to: order.buyer.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
-      subject: 'Your Order Has Been Delivered - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your Order Has Been Delivered!</h2>
-          <p>Dear ${order.buyer.firstName},</p>
-          <p>Great news! Your order #${order.order_id} from ${order.seller.businessName || order.seller.firstName} has been delivered.</p>
-          <p><strong>Delivery Details:</strong></p>
-          <ul>
-            <li>Delivered on: ${new Date().toLocaleDateString()}</li>
-            <li>Location: ${webhookData.events[0]?.location || 'Delivery Address'}</li>
-          </ul>
-          <p>We hope you enjoy your purchase! The order will be automatically closed in 2 days if no issues are reported.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
-
-    const sellerDeliveryEmail = {
-      to: order.seller.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
-      subject: 'Order Delivered Successfully - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Order Delivered Successfully</h2>
-          <p>Dear ${order.seller.firstName},</p>
-          <p>Order #${order.order_id} has been successfully delivered to the customer.</p>
-          <p><strong>Delivery Details:</strong></p>
-          <ul>
-            <li>Delivered on: ${new Date().toLocaleDateString()}</li>
-            <li>Location: ${webhookData.events[0]?.location || 'Delivery Address'}</li>
-          </ul>
-          <p>The order will be automatically closed and payment will be released in 2 days if no issues are reported.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
-
-    // Send immediate delivery emails
-    await Promise.all([
-      sgMail.send(buyerDeliveryEmail),
-      sgMail.send(sellerDeliveryEmail)
-    ]);
-
-    // Schedule order closure job for 2 days - this will trigger the pre-save middleware
-    // that handles all transaction calculations and notifications
-    await agenda.schedule('in 2 days', 'closeOrder', { orderId: order._id });
-
-  } catch (error) {
-    console.error('Error in handleShipmentDelivered:', error);
-  }
-};
-
-// Update the simulateShipmentWebhook function to use these handlers
-exports.simulateShipmentWebhook = async (req, res) => {
-  try {
-    const { shipment_id, status, tracking_number } = req.body;
-
-    console.log('Simulating shipment webhook:', {
-      shipment_id,
-      status,
-      tracking_number
+    console.log('🚚 Simulating Fez webhook:', {
+      orderNumber,
+      status
     });
 
     // Validate required fields
-    if (!shipment_id || !status || !tracking_number) {
+    if (!orderNumber || !status) {
       return res.status(400).json({
-        message: 'Missing required fields: shipment_id, status, and tracking_number are required'
+        message: 'Missing required fields: orderNumber and status are required'
       });
     }
 
     // Validate status
-    const validStatuses = ['created', 'in-transit', 'delivered', 'cancelled'];
+    const validStatuses = [
+      'Pending Pick-Up', 
+      'Picked-Up', 
+      'Dispatched', 
+      'Delivered', 
+      'Cancelled'
+    ];
+    
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
       });
     }
 
-    // Create mock webhook data
-    const mockWebhookData = {
-      shipment_id,
-      status,
-      tracking_number,
-      carrier_name: "DHL Express",
-      carrier_tracking_url: `https://www.dhl.com/global-en/home/tracking.html?tracking-id=${tracking_number}`,
-      shipping_label_url: `https://sandbox.terminal.africa/v1/shipments/label/${shipment_id}.pdf`,
-      commercial_invoice_url: `https://sandbox.terminal.africa/v1/shipments/commercial-invoice/${shipment_id}.pdf`,
-      events: [{
-        location: "Lagos, NG",
-        description: `Shipment ${status}`,
-        created_at: new Date()
-      }]
-    };
-
-    // Handle different webhook events
-    switch (status) {
-      case 'in-transit':
-        await handleShipmentInTransit(mockWebhookData);
-        break;
-      case 'delivered':
-        await handleShipmentDelivered(mockWebhookData);
-        break;
-      case 'cancelled':
-        // Implement cancelled handler if needed
-        console.log('Shipment cancelled:', mockWebhookData);
-        break;
-      default:
-        await handleShipmentCreated(mockWebhookData);
+    // Find the order by Fez order number
+    const mongoose = require('mongoose');
+    const Order = mongoose.model('Order');
+    const order = await Order.findOne({ 'shipping.fez_order_number': orderNumber });
+    
+    if (!order) {
+      return res.status(404).json({
+        message: `Order with Fez order number ${orderNumber} not found`
+      });
     }
 
+    // Create mock webhook data
+    const mockWebhookData = {
+      orderNumber,
+      status,
+      location: "Lagos, NG",
+      timestamp: new Date().toISOString()
+    };
+
+    // Import the handler dynamically to avoid circular dependencies
+    const { handleOrderStatusUpdate } = require('../webhooks/fezWebhook');
+    
+    // Process the webhook
+    await handleOrderStatusUpdate(mockWebhookData);
+
     res.json({
-      message: `Webhook event '${status}' simulated successfully`,
+      message: `Fez webhook event '${status}' simulated successfully`,
       data: mockWebhookData
     });
 
   } catch (error) {
-    console.error('Error in simulateShipmentWebhook:', error);
+    console.error('Error in simulateFezWebhook:', error);
     res.status(500).json({ 
-      message: 'Failed to simulate webhook event',
+      message: 'Failed to simulate Fez webhook event',
       error: error.message 
     });
   }

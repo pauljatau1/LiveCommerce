@@ -22,9 +22,12 @@ const {
 } = require('../webhooks/terminalWebhook');
 const { 
   createNotification, 
-  createBuyerNotification 
+  createBuyerNotification,
+  handleOrderCreationNotifications
 } = require('../controllers/notificationController');
 const Category = require('../models/Category');
+const { v4: uuidv4 } = require('uuid');
+const { agenda } = require('../config/agenda');
 
 
 
@@ -37,6 +40,56 @@ const paystack = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+// Initialize Fez API configuration
+const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
+const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY;
+
+// Initialize Fez Webhook
+const initializeFezWebhook = async () => {
+  try {
+    console.log('🔄 Initializing Fez Delivery webhook...');
+    
+    // Get a fresh authentication token
+    const authToken = await getFezAuthToken();
+    
+    // Define the webhook URL based on environment
+    const webhookUrl = process.env.NODE_ENV === 'production' 
+      ? `${process.env.BASE_URL}/api/webhooks/fez`
+      : `${process.env.WEBHOOK_URL || 'https://auqli.com'}/api/webhooks/fez`;
+    
+    console.log(`📡 Registering Fez webhook at: ${webhookUrl}`);
+    
+    // Register the webhook with Fez
+    const response = await axios.post(`${FEZ_API_URL}/webhooks/store`, 
+      { webhook: webhookUrl },
+      {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (response.data && response.data.status === 'Success') {
+      console.log('✅ Fez webhook registered successfully:', {
+        webhook: response.data.data.webhook,
+        webhooks: response.data.data.webhooks
+      });
+    } else {
+      console.error('❌ Failed to register Fez webhook:', response.data);
+    }
+  } catch (error) {
+    console.error('❌ Error initializing Fez webhook:', error.message);
+    
+    if (error.response) {
+      console.error(`Response status: ${error.response.status}`);
+      console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
+    }
+  }
+};
 
 // At the top with other initializations
 const initializeTerminalWebhook = async () => {
@@ -102,514 +155,532 @@ const initializeTerminalWebhook = async () => {
 
 // Call this when your app starts
 initializeTerminalWebhook();
+initializeFezWebhook();
 
-// Helper function to validate address format
-const validateAddress = (address) => {
-  const requiredFields = ['first_name', 'last_name', 'email', 'phone', 'line1', 'city', 'state', 'country', 'zip'];
-  const missingFields = requiredFields.filter(field => !address[field]);
-  if (missingFields.length > 0) {
-    throw new Error(`Missing required address fields: ${missingFields.join(', ')}`);
+
+
+
+// For Fez Delivery address validation
+const validateFezAddress = (address) => {
+  if (!address.recipientName || !address.recipientPhone || 
+      !address.recipientAddress || !address.recipientState) {
+    return { valid: false, message: 'Missing required address fields' };
   }
-  return true;
+  return { valid: true };
 };
 
-// Helper function to validate parcel data
-const validateParcel = (parcel) => {
-  if (!parcel.weight) {
-    throw new Error('Parcel weight is required');
+// For Fez Delivery parcel validation
+const validateFezParcel = (parcel) => {
+  // If parcel is not provided or empty, return valid
+  if (!parcel || Object.keys(parcel).length === 0) {
+    return { valid: true };
   }
-
-  // Validate weight is a positive number
-  if (parcel.weight <= 0) {
-    throw new Error('Parcel weight must be greater than 0');
+  
+  // Check required fields
+  if (!parcel.valueOfItem) {
+    return { valid: false, message: 'Parcel value is required' };
   }
-
-  return true;
+  
+  // Weight is optional now as we can get it from items
+  
+  return { valid: true };
 };
 
-// Helper function to validate item data
-const validateItems = (items) => {
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new Error('Items must be a non-empty array');
+// For Fez Delivery items validation
+const validateFezItems = (items) => {
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return { valid: false, message: 'Items must be a non-empty array' };
   }
-
-  items.forEach((item, index) => {
-    const requiredFields = ['name', 'description', 'quantity', 'weight', 'price'];
-    const missingFields = requiredFields.filter(field => !item[field]);
-    
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required fields for item at index ${index}: ${missingFields.join(', ')}`);
+  
+  for (const item of items) {
+    if (!item.productId || !item.quantity || !item.price) {
+      return { valid: false, message: 'Each item must have productId, quantity, and price' };
     }
-
-    if (item.weight <= 0) {
-      throw new Error(`Invalid weight for item at index ${index}`);
-    }
-    
-    if (item.quantity <= 0) {
-      throw new Error(`Invalid quantity for item at index ${index}`);
-    }
-  });
-
-  return true;
+  }
+  
+  return { valid: true };
 };
 
-// create an order
+// Create order with Fez Delivery
 exports.createOrder = async (req, res) => {
-  console.log('Starting createOrder with user:', {
-    userId: req.user.id,
-    userRole: req.user.role
-  });
-
-  // Verify user is a buyer
-  if (req.user.role !== 'Buyer') {
-    return res.status(403).json({
-      message: 'Only buyers can create orders',
-      currentRole: req.user.role
-    });
-  }
-
   const session = await mongoose.startSession();
   session.startTransaction();
-
+  
+  // Create an array to store notification data outside the try block
+  const orderNotifications = [];
+  
   try {
-    const {
-      items,
-      pickup_addresses,
-      delivery_address,
-      parcel,
-      paymentMethod,
-      channel = 'marketplace'
+    const { 
+      items, 
+      shippingAddress, 
+      parcel = {}, // Default to empty object if not provided
+      paymentMethod, 
+      isItemCod = false, // Default to false if not provided
+      shippingFee,
+      additionalDetails, 
+      pickUpDate,
+      senderInfo,
+      paidFromWallet = false // New parameter for wallet payment
     } = req.body;
-
-    console.log('Starting order creation with items:', items);
-    console.log('Pickup addresses:', pickup_addresses);
-
-    // Validate delivery address and all pickup addresses
-    validateAddress(delivery_address);
-    if (pickup_addresses) {
-      Object.values(pickup_addresses).forEach(addr => validateAddress(addr));
+    
+    // Validate inputs
+    const itemsValidation = validateFezItems(items);
+    if (!itemsValidation.valid) {
+      return res.status(400).json({ message: itemsValidation.message });
     }
-
-    // Group items by seller and create orders
-    const itemsBySeller = {};
-    const orders = [];
-    const shipments = [];
-
-    // First, group items by seller and validate products
-    for (const item of items) {
-      console.log('Processing item:', item);
-
-      const product = await Product.findById(item.productId)
-        .populate('seller', 'warehouseAddress firstName lastName email phone');
-
-      console.log('Found product:', product);
-
-      if (!product) {
-        throw new Error(`Product not found: ${item.productId}`);
+    
+    const addressValidation = validateFezAddress(shippingAddress);
+    if (!addressValidation.valid) {
+      return res.status(400).json({ message: addressValidation.message });
+    }
+    
+    // Only validate parcel if it's provided
+    if (Object.keys(parcel).length > 0) {
+      const parcelValidation = validateFezParcel(parcel);
+      if (!parcelValidation.valid) {
+        return res.status(400).json({ message: parcelValidation.message });
       }
-
+    }
+    
+    // Get buyer from token
+    const buyerId = req.user.id;
+    const Buyer = mongoose.model('Buyer');
+    const buyer = await Buyer.findById(buyerId);
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+    
+    // Fetch products and calculate total
+    const Product = mongoose.model('Product');
+    const productIds = items.map(item => item.productId);
+    const products = await Product.find({ _id: { $in: productIds } }).populate('seller');
+    
+    if (products.length !== productIds.length) {
+      return res.status(400).json({ message: 'One or more products not found' });
+    }
+    
+    // Create a map for quick product lookup
+    const productMap = {};
+    products.forEach(product => {
+      productMap[product._id.toString()] = product;
+    });
+    
+    // Group items by seller
+    const sellerItems = {};
+    let totalAmount = 0;
+    
+    items.forEach(item => {
+      const product = productMap[item.productId];
+      if (!product) {
+        return;
+      }
+      
       const sellerId = product.seller._id.toString();
-      console.log('Seller ID:', sellerId);
-
-      if (!itemsBySeller[sellerId]) {
-        // Get pickup address for this seller
-        let pickup_address;
-        if (pickup_addresses && pickup_addresses[sellerId]) {
-          console.log('Using provided pickup address for seller:', sellerId);
-          pickup_address = pickup_addresses[sellerId];
-        } else {
-          console.log('Using warehouse address for seller:', sellerId);
-          pickup_address = {
-            first_name: product.seller.firstName,
-            last_name: product.seller.lastName,
-            email: product.seller.email,
-            phone: product.seller.phone,
-            ...product.seller.warehouseAddress
-          };
-        }
-
-        console.log('Final pickup address:', pickup_address);
-
-        itemsBySeller[sellerId] = {
+      if (!sellerItems[sellerId]) {
+        sellerItems[sellerId] = {
           items: [],
           seller: product.seller,
-          pickup_address
+          totalAmount: 0,
+          // Store seller-specific sender information if provided
+          senderInfo: item.seller?.senderInfo || null,
+          // Generate a unique batch ID for each seller
+          batchId: `AUQLI-${sellerId.substring(0, 4)}-${uuidv4().substring(0, 8)}`,
+          // Initialize shipping fee and weight for each seller
+          shippingFee: 0,
+          totalWeight: 0,
+          // Initialize seller-specific parcel information
+          parcelInfo: {
+            valueOfItem: 0,
+            weight: 0,
+            itemDescription: item.seller?.parcelInfo?.itemDescription || ''
+          }
         };
       }
-
-      itemsBySeller[sellerId].items.push({
+      
+      const itemTotal = item.price * item.quantity;
+      totalAmount += itemTotal;
+      sellerItems[sellerId].totalAmount += itemTotal;
+      
+      // Add item weight to seller's total weight (default to product weight or a minimum value)
+      // Use the weight provided in the item, or fall back to product weight or default
+      const itemWeight = (item.weight || product.weight || 0.1) * item.quantity;
+      sellerItems[sellerId].totalWeight += itemWeight;
+      sellerItems[sellerId].parcelInfo.weight += itemWeight;
+      
+      // Add item value to seller's parcel value
+      sellerItems[sellerId].parcelInfo.valueOfItem += itemTotal;
+      
+      // Collect item descriptions for the parcel
+      if (product.description && !sellerItems[sellerId].parcelInfo.itemDescription.includes(product.name)) {
+        if (sellerItems[sellerId].parcelInfo.itemDescription) {
+          sellerItems[sellerId].parcelInfo.itemDescription += `, ${product.name}`;
+        } else {
+          sellerItems[sellerId].parcelInfo.itemDescription = product.name;
+        }
+      }
+      
+      sellerItems[sellerId].items.push({
         product: product._id,
         productName: product.name,
-        seller: sellerId,
+        seller: product.seller._id,
         quantity: item.quantity,
         price: item.price,
-        name: item.name,
-        description: item.description,
-        weight: item.weight,
-        status: 'pending',
-        specifications: {
-          color: item.specifications?.color,
-          size: item.specifications?.size,
-          material: item.specifications?.material
+        weight: itemWeight,
+        specifications: item.specifications || {}
+      });
+    });
+    
+    // Calculate shipping fee for each seller based on their items' total weight
+    // This is a simplified calculation - you may want to use a more sophisticated algorithm
+    // or call a shipping rate API for each seller
+    let totalShippingFee = 0;
+    for (const sellerId in sellerItems) {
+      const sellerData = sellerItems[sellerId];
+      
+      // Calculate shipping fee based on weight
+      // This is a simple example - replace with your actual calculation logic
+      const baseShippingFee = 1000; // Base fee in Naira
+      const weightFactor = 500; // Additional fee per kg
+      
+      // If a specific shipping fee was provided for this seller in the request, use that
+      // Check if any of the items from this seller has shipping fee info
+      let sellerShippingFeeProvided = false;
+      
+      // Check all items for this seller to find shipping fee
+      for (const itemData of sellerData.items) {
+        const productId = itemData.product.toString();
+        // Find the original item in the request that has seller info
+        const originalItem = items.find(item => item.productId === productId);
+        if (originalItem?.seller?.shippingFee) {
+          sellerData.shippingFee = originalItem.seller.shippingFee;
+          sellerShippingFeeProvided = true;
+          break;
         }
-      });
-    }
-
-    console.log('Items grouped by seller:', itemsBySeller);
-
-    // Create shipments and orders for each seller
-    for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
-      console.log('Creating shipment for seller:', sellerId);
-      console.log('Seller data:', sellerData);
-
-      // Calculate total weight for this seller's items
-      const totalWeight = sellerData.items.reduce((sum, item) => {
-        console.log('Calculating weight for item:', {
-          name: item.name,
-          weight: item.weight,
-          quantity: item.quantity,
-          itemTotalWeight: item.weight * item.quantity
-        });
-        return sum + (item.weight * item.quantity);
-      }, 0);
-
-      console.log('Total calculated weight for seller:', {
-        sellerId,
-        totalWeight,
-        items: sellerData.items.length
-      });
-
-      // Prepare shipping data for Terminal Africa
-      const shippingData = {
-        pickup_address: sellerData.pickup_address,
-        delivery_address,
-        parcel: {
-          weight: totalWeight, 
-          weight_unit: 'kg',
-          description: "Auqli Order Items",
-          items: sellerData.items.map(item => ({
-            name: item.name,
-            description: item.description,
-            quantity: item.quantity,
-            weight: item.weight,
-            weight_unit: 'kg',
-            value: item.price,
-            currency: 'NGN',
-            type: 'parcel'
-          }))
-        },
-        shipment_purpose: "commercial",
-        metadata: {
-          seller_id: sellerId,
-          channel
-        }
-      };
-
-      console.log('Prepared shipping data:', {
-        sellerId,
-        parcelWeight: shippingData.parcel.weight,
-        itemsCount: shippingData.parcel.items.length,
-        items: shippingData.parcel.items.map(item => ({
-          name: item.name,
-          weight: item.weight,
-          quantity: item.quantity,
-          totalWeight: item.weight * item.quantity
-        }))
-      });
-
-      // Create shipment with Terminal Africa
-      const shipmentResponse = await terminalAPI.post('/shipments/quick', shippingData);
-      console.log('Terminal Africa response:', shipmentResponse.data);
-
-      if (!shipmentResponse.data.status) {
-        throw new Error(shipmentResponse.data.message || 'Failed to create shipment');
       }
-
-      shipments.push(shipmentResponse.data.data);
-
-      // Create order for this seller with safe carrier access
-      const orderData = {
-        buyer: req.user.id,
+      
+      // If no shipping fee was provided, calculate based on weight
+      if (!sellerShippingFeeProvided) {
+        sellerData.shippingFee = Math.round(baseShippingFee + (sellerData.totalWeight * weightFactor));
+      }
+      
+      // Add to total shipping fee
+      totalShippingFee += sellerData.shippingFee;
+    }
+    
+    // If a global shipping fee was provided, distribute it proportionally among sellers
+    if (shippingFee) {
+      const totalWeight = Object.values(sellerItems).reduce((sum, seller) => sum + seller.totalWeight, 0);
+      
+      for (const sellerId in sellerItems) {
+        const sellerData = sellerItems[sellerId];
+        // Distribute the shipping fee proportionally based on weight
+        const weightRatio = sellerData.totalWeight / totalWeight;
+        sellerData.shippingFee = Math.round(shippingFee * weightRatio);
+      }
+      
+      // Ensure the sum of distributed fees equals the original total
+      // (might be off by a few naira due to rounding)
+      const distributedTotal = Object.values(sellerItems).reduce((sum, seller) => sum + seller.shippingFee, 0);
+      
+      // Adjust the first seller's fee to make up any difference
+      if (distributedTotal !== shippingFee && Object.keys(sellerItems).length > 0) {
+        const firstSellerId = Object.keys(sellerItems)[0];
+        sellerItems[firstSellerId].shippingFee += (shippingFee - distributedTotal);
+      }
+    }
+    
+    // Calculate grand total (items + shipping)
+    let grandTotal = totalAmount + totalShippingFee;
+    
+    // Check wallet balance if using wallet payment
+    if (paidFromWallet) {
+      if (buyer.wallet.balance < grandTotal) {
+        return res.status(400).json({ 
+          message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${buyer.wallet.balance}` 
+        });
+      }
+      
+      // Deduct from buyer's wallet
+      const transaction = {
+        type: 'debit',
+        amount: grandTotal,
+        paymentReference: `ORDER-BATCH-${Date.now()}`,
+        description: `Payment for multiple orders (Items: ₦${totalAmount}, Shipping: ₦${totalShippingFee})`,
+        status: 'completed',
+        createdAt: new Date()
+      };
+      
+      await Buyer.findByIdAndUpdate(
+        buyerId,
+        {
+          $inc: { 'wallet.balance': -grandTotal },
+          $push: { 'wallet.transactions': transaction }
+        },
+        { session }
+      );
+    }
+    
+    // Create a batch ID for Fez Delivery
+    const batchId = `AUQLI-${uuidv4().substring(0, 8)}`;
+    
+    // Create orders for each seller
+    const orders = [];
+    const fezRequests = [];
+    
+    for (const sellerId in sellerItems) {
+      const sellerData = sellerItems[sellerId];
+      const sellerItemsList = sellerData.items;
+      const seller = sellerData.seller;
+      // Use seller-specific sender info if available, otherwise fall back to the global one
+      const sellerSenderInfo = sellerData.senderInfo || senderInfo || {};
+      // Use the seller-specific batch ID
+      const sellerBatchId = sellerData.batchId;
+      // Use seller-specific shipping fee
+      const sellerShippingFee = sellerData.shippingFee;
+      // Use seller-specific weight
+      const sellerWeight = sellerData.totalWeight;
+      // Use seller-specific parcel info
+      const sellerParcelInfo = sellerData.parcelInfo;
+      
+      const sellerTotal = sellerItemsList.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      // Generate a unique order ID
+      const uniqueOrderId = `AUQLI-${uuidv4().substring(0, 8)}`;
+      
+      // Create order in database
+      const order = new Order({
+        order_id: uniqueOrderId,
+        buyer: buyerId,
         seller: sellerId,
-        items: sellerData.items.map(item => ({
-          ...item,
-          seller: sellerId,  // Add seller ID to each item
-          specifications: {
-            color: item.specifications?.color,
-            size: item.specifications?.size,
-            material: item.specifications?.material
-          }
-        })),
-        delivery_address,
-        pickup_address: sellerData.pickup_address,
+        items: sellerItemsList,
+        totalAmount: sellerTotal, // Only items total, not including shipping fee
+        delivery_address: {
+          first_name: shippingAddress.recipientName.split(' ')[0],
+          last_name: shippingAddress.recipientName.split(' ').slice(1).join(' ') || '',
+          email: shippingAddress.recipientEmail,
+          phone: shippingAddress.recipientPhone,
+          line1: shippingAddress.recipientAddress,
+          city: '',
+          state: shippingAddress.recipientState,
+          country: 'NG',
+          zip: ''
+        },
         shipping: {
-          method: 'Terminal Africa',
           carrier: {
-            name: 'Terminal Africa',
-            reference: shipmentResponse.data.data.rate_id
+            name: 'Fez Delivery',
+            reference: sellerBatchId // Use seller-specific batch ID
           },
           fee: {
-            amount: shipmentResponse.data.data.shipment_cost || 0,
+            amount: sellerShippingFee, // Use seller-specific shipping fee
             currency: 'NGN'
           },
-          rate_id: shipmentResponse.data.data.rate_id,
-          shipment_id: shipmentResponse.data.data.shipment_id,
           tracking: {
-            number: shipmentResponse.data.data.tracking_number,
-            url: shipmentResponse.data.data.tracking_url,
+            number: uniqueOrderId,
             status: 'pending'
-          }
+          },
+          shipment_id: uniqueOrderId
         },
-        paymentMethod,
-        totalAmount: sellerData.items.reduce((total, item) => total + item.price * item.quantity, 0)
-      };
-
-      const order = new Order(orderData);
-      const savedOrder = await order.save({ session });
-      orders.push(savedOrder);
-
-      // Create notification for seller
-      await createNotification(
-        savedOrder.seller,
-        'new_order',
-        {
-          order_id: savedOrder.order_id,
-          amount: savedOrder.totalAmount,
-          items: savedOrder.items.length
+        paid: !isItemCod || paidFromWallet,
+        paymentInfo: {
+          method: paidFromWallet ? 'wallet' : paymentMethod,
+          status: isItemCod && !paidFromWallet ? 'awaiting_cod' : 'paid',
+          isCashOnDelivery: isItemCod && !paidFromWallet,
+          ...(isItemCod && !paidFromWallet ? {} : { paidAt: new Date() })
         }
-      );
-
-      // After order is created, notify both parties
-      await Promise.all([
-        // Existing seller notification
-        createNotification(
-          savedOrder.seller,
-          'new_order',
-          {
-            order_id: savedOrder.order_id,
-            amount: savedOrder.totalAmount,
-            items: savedOrder.items.length
+      });
+      
+      await order.save({ session });
+      orders.push(order);
+      
+      // Create transaction record for seller earnings (if not COD)
+      if (!isItemCod || paidFromWallet) {
+        // Only create transaction for the product amount (not including shipping)
+        const Transaction = mongoose.model('Transaction');
+        const transaction = new Transaction({
+          seller: sellerId,
+          orderId: order._id, // Changed from 'order' to 'orderId' to match the model
+          amount: sellerTotal, // Only the items total, not shipping
+          type: 'order_payment', // Changed from 'sale' to 'order_payment' to match enum values
+          status: 'completed',
+          description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
+          metadata: {
+            itemTotal: sellerTotal,
+            processingFeePercent: 0, // Set to 0 or the appropriate value
+            categoryName: sellerItemsList[0]?.productName || 'Mixed',
+            categoryFee: 0 // Set to 0 or the appropriate value
           }
-        ),
-        // New buyer notification
-        createBuyerNotification(
-          savedOrder.buyer,
-          'order_created',
-          {
-            orderId: savedOrder._id,
-            order_id: savedOrder.order_id,
-            totalAmount: savedOrder.totalAmount,
-            items: savedOrder.items.map(item => ({
-              name: item.productName,
-              quantity: item.quantity
-            })),
-            sellerName: savedOrder.seller.businessName || 'Seller'
-          }
-        )
-      ]);
-    }
-
-    // Add this code after orders are created but before final response
-    for (const [sellerId, sellerData] of Object.entries(itemsBySeller)) {
-      try {
-        console.log('Processing seller-buyer relationship for:', {
+        });
+        
+        await transaction.save({ session });
+        
+        // Update seller's balance
+        await Seller.findByIdAndUpdate(
           sellerId,
-          buyerId: req.user.id
-        });
-
-        const seller = await Seller.findById(sellerId);
-        const buyer = await Buyer.findById(req.user.id);
-
-        console.log('Found seller:', {
-          sellerId: seller?._id,
-          sellerEmail: seller?.email,
-          exists: !!seller
-        });
-
-        console.log('Found buyer:', {
-          buyerId: buyer?._id,
-          buyerEmail: buyer?.email,
-          exists: !!buyer
-        });
-
-        if (!seller || !buyer) {
-          console.error('Missing user data:', {
-            sellerExists: !!seller,
-            buyerExists: !!buyer,
-            requestedSellerId: sellerId,
-            requestedBuyerId: req.user.id
-          });
-          throw new Error(`Seller or Buyer not found - Seller: ${!!seller}, Buyer: ${!!buyer}`);
-        }
-
-        // Check if buyer already exists in seller's followers
-        const isFollowing = seller.followers?.some(
-          follower => follower.buyerId?.toString() === buyer._id.toString()
+          { $inc: { 'wallet.balance': sellerTotal } },
+          { session }
         );
-
-        console.log('Follower status:', {
-          isFollowing,
-          followersCount: seller.followers?.length || 0
-        });
-
-        if (!isFollowing) {
-          // Get buyer's main address
-          const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
-            ? {
-                country: buyer.shippingAddresses[0].country,
-                city: buyer.shippingAddresses[0].city,
-                address1: buyer.shippingAddresses[0].addressLine1,
-                address2: buyer.shippingAddresses[0].addressLine2,
-                zipCode: buyer.shippingAddresses[0].zipCode
-              }
-            : null;
-
-          console.log('Adding new follower with address:', mainAddress);
-
-          // Add buyer to seller's followers
-          seller.followers.push({
-            buyerId: buyer._id,
-            firstName: buyer.firstName,
-            lastName: buyer.lastName,
-            email: buyer.email,
-            followDate: new Date(),
-            totalOrders: 1,
-            mainAddress
-          });
-
-          // Add to buyer's activity feed
-          buyer.activityFeed.push({
-            type: 'follow',
-            content: `Started following ${seller.storeName || seller.businessName}`,
-            reference: seller._id,
-            referenceModel: 'Seller',
-            createdAt: new Date()
-          });
-
-          await Promise.all([seller.save(), buyer.save()]);
-        } else {
-          // Update existing follower's order count
-          const followerIndex = seller.followers.findIndex(
-            f => f.buyerId?.toString() === buyer._id.toString()
+      }
+      
+      // Prepare seller-specific parcel details for Fez
+      const sellerParcel = {
+        valueOfItem: sellerParcelInfo.valueOfItem.toString(),
+        weight: sellerWeight,
+        itemDescription: sellerParcelInfo.itemDescription || 
+                        (parcel.itemDescription ? parcel.itemDescription : `Order from ${seller.businessName || 'Seller'}`)
+      };
+      
+      // Create Fez Delivery request with sender information and seller-specific parcel details
+      const fezRequest = {
+        recipientAddress: shippingAddress.recipientAddress,
+        recipientState: shippingAddress.recipientState,
+        recipientName: shippingAddress.recipientName,
+        recipientPhone: shippingAddress.recipientPhone,
+        recipientEmail: shippingAddress.recipientEmail || '',
+        uniqueID: order.order_id, // Unique ID for each order
+        BatchID: sellerBatchId, // Seller-specific batch ID
+        valueOfItem: sellerParcel.valueOfItem,
+        weight: Math.max(1, Math.round(sellerParcel.weight)), // Ensure minimum weight of 1kg for Fez
+        itemDescription: sellerParcel.itemDescription,
+        additionalDetails: additionalDetails || '',
+        isItemCod: isItemCod && !paidFromWallet,
+        thirdparty: "true",
+        senderName: sellerSenderInfo.senderName || `${seller.firstName} ${seller.lastName}`,
+        senderAddress: sellerSenderInfo.senderAddress || seller.address || 'Not provided',
+        senderPhone: sellerSenderInfo.senderPhone || seller.phone || 'Not provided',
+        senderEmail: sellerSenderInfo.senderEmail || seller.email || '',
+      };
+      
+      // Add optional fields if provided
+      if (pickUpDate) {
+        fezRequest.pickUpDate = pickUpDate;
+      } else {
+        // Set a default pickup date (tomorrow)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        fezRequest.pickUpDate = tomorrow.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      }
+      
+      if (sellerSenderInfo.pickUpState) {
+        fezRequest.pickUpState = sellerSenderInfo.pickUpState;
+      } else if (seller.state) {
+        fezRequest.pickUpState = seller.state;
+      } else {
+        // Default to Lagos if no pickup state is provided
+        fezRequest.pickUpState = "Lagos";
+      }
+      
+      fezRequests.push(fezRequest);
+      
+      // Queue the notification for after the transaction is committed
+      // Store the order ID, buyer ID, and seller ID for processing after transaction commit
+      const notificationData = {
+        orderId: order._id,
+        buyerId: buyerId,
+        sellerId: sellerId // Ensure this is the correct seller ID
+      };
+      
+      // Add to our local array
+      orderNotifications.push(notificationData);
+      
+      // Log the notification data for debugging
+      console.log('Prepared notification data:', {
+        orderId: order._id.toString(),
+        buyerId: buyerId,
+        sellerId: sellerId,
+        orderIdValid: !!order._id,
+        buyerIdValid: !!buyerId,
+        sellerIdValid: !!sellerId
+      });
+    }
+    
+    // Get a fresh authentication token for Fez Delivery
+    const authToken = await getFezAuthToken();
+    console.log('Using fresh token for order creation:', authToken.substring(0, 10) + '...');
+    
+    // Make API call to Fez Delivery with fresh token
+    const fezResponse = await axios.post(`${FEZ_API_URL}/order`, fezRequests, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Update orders with Fez tracking information
+    if (fezResponse.data && fezResponse.data.status === 'Success') {
+      const orderNos = fezResponse.data.orderNos;
+      
+      for (const order of orders) {
+        const fezOrderNo = orderNos[order.order_id];
+        if (fezOrderNo) {
+          await Order.findByIdAndUpdate(
+            order._id,
+            { 
+              $set: { 
+                'shipping.tracking.number': fezOrderNo,
+                'shipping.fez_order_number': fezOrderNo,
+                'shipping.tracking.carrier': 'Fez Delivery'
+              } 
+            },
+            { session }
           );
-          if (followerIndex !== -1) {
-            seller.followers[followerIndex].totalOrders += 1;
-            await seller.save();
-          }
         }
-      } catch (error) {
-        console.error('Error processing seller-buyer relationship:', {
-          error: error.message,
-          sellerId,
-          buyerId: req.user.id,
-          stack: error.stack
-        });
-        throw error; // Re-throw to be caught by the main try-catch
       }
     }
-
+    
+    // Commit the transaction before making external API calls
     await session.commitTransaction();
-
-    // Send emails for each order
-    for (const order of orders) {
-      const populatedOrder = await Order.findById(order._id)
-        .populate('buyer', 'email firstName lastName')
-        .populate('seller', 'email firstName lastName businessName')
-        .populate('items.product', 'name');
-
-      // Buyer email
-      const buyerEmail = {
-        to: populatedOrder.buyer.email,
-        from: 'Auqli Orders <joseph@auqli.com>',
-        subject: 'Order Confirmation - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Order Confirmation</h2>
-            <p>Dear ${populatedOrder.buyer.firstName},</p>
-            <p>Thank you for your order! Here are your order details:</p>
-            <p><strong>Order ID:</strong> ${populatedOrder.order_id}</p>
-            <p><strong>Items:</strong></p>
-            <ul>
-              ${populatedOrder.items.map(item => `
-                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
-              `).join('')}
-            </ul>
-            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
-            <p><strong>Shipping Address:</strong><br>
-              ${populatedOrder.delivery_address.line1}<br>
-              ${populatedOrder.delivery_address.line2 || ''}<br>
-              ${populatedOrder.delivery_address.city}, ${populatedOrder.delivery_address.state}<br>
-              ${populatedOrder.delivery_address.country}
-            </p>
-            <p>We'll notify you once your order is confirmed and ready for shipping.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-
-      // Seller email
-      const sellerEmail = {
-        to: populatedOrder.seller.email,
-        from: 'Auqli Orders <joseph@auqli.com>',
-        subject: 'New Order Received - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>New Order Received</h2>
-            <p>Dear ${populatedOrder.seller.firstName},</p>
-            <p>You have received a new order:</p>
-            <p><strong>Order ID:</strong> ${populatedOrder.order_id}</p>
-            <p><strong>Items:</strong></p>
-            <ul>
-              ${populatedOrder.items.map(item => `
-                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
-              `).join('')}
-            </ul>
-            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
-            <p><strong>Shipping Details:</strong><br>
-              ${populatedOrder.delivery_address.first_name} ${populatedOrder.delivery_address.last_name}<br>
-              ${populatedOrder.delivery_address.line1}<br>
-              ${populatedOrder.delivery_address.line2 || ''}<br>
-              ${populatedOrder.delivery_address.city}, ${populatedOrder.delivery_address.state}<br>
-              ${populatedOrder.delivery_address.country}
-            </p>
-            <p>Please prepare the items for shipping.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-
-      await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
-      ]);
-    }
-
-    res.status(201).json({
-      message: 'Orders created successfully',
-      orders: orders.map(order => ({
-        orderId: order._id,
-        seller: order.seller,
-        shipment_id: order.shipping.shipment_id,
-        items: order.items
-      })),
-      shipments: shipments.map(shipment => ({
-        shipment_id: shipment.shipment_id,
-        tracking_number: shipment.tracking_number,
-        carrier: 'Terminal Africa'
-      }))
-    });
-
-  } catch (error) {
-    console.error('Detailed error:', error);
-    console.error('Error stack:', error.stack);
-    await session.abortTransaction();
-    res.status(error.response?.status || 500).json({
-      message: 'Failed to create order',
-      error: error.message,
-      details: error.response?.data
-    });
-  } finally {
     session.endSession();
+    
+    // Schedule notifications for all orders
+    if (orderNotifications.length > 0) {
+      for (const notificationData of orderNotifications) {
+        agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+      }
+    }
+    
+    // Prepare response with detailed order information
+    const orderDetails = orders.map(order => {
+      const sellerInfo = sellerItems[order.seller.toString()];
+      return {
+        orderId: order._id,
+        order_id: order.order_id,
+        seller: order.seller,
+        items: order.items.length,
+        itemsTotal: order.totalAmount, // This is just the items total
+        shippingFee: sellerInfo.shippingFee,
+        orderTotal: order.totalAmount + sellerInfo.shippingFee, // Total including shipping
+        fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null
+      };
+    });
+    
+    // Calculate and include totals in response
+    const responseTotals = {
+      itemsTotal: totalAmount,
+      shippingTotal: totalShippingFee,
+      grandTotal: grandTotal,
+      orderCount: orders.length,
+      sellerEarnings: totalAmount, // Only the items total goes to sellers
+      shippingCost: totalShippingFee // This goes to Fez Delivery
+    };
+    
+    return res.status(201).json({
+      message: 'Orders created successfully',
+      orders: orderDetails,
+      totals: responseTotals,
+      fezResponse: fezResponse.data
+    });
+    
+  } catch (error) {
+    // Only abort if the session is still active
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    
+    console.error('Error creating order:', error);
+    return res.status(500).json({ message: 'Failed to create order', error: error.message });
   }
 };
 
@@ -666,6 +737,9 @@ exports.markAsPaid = async (req, res) => {
 
     // Group orders by buyer to validate wallet balance
     const ordersByBuyer = {};
+    // Group orders by seller for processing
+    const ordersBySeller = {};
+    
     for (const orderData of orders) {
       const order = await Order.findById(orderData.orderId);
       if (!order) {
@@ -681,6 +755,19 @@ exports.markAsPaid = async (req, res) => {
       }
       ordersByBuyer[buyerId].orders.push({ ...orderData, order });
       ordersByBuyer[buyerId].totalAmount += orderData.amount;
+      
+      // Group by seller
+      const sellerId = order.seller.toString();
+      if (!ordersBySeller[sellerId]) {
+        ordersBySeller[sellerId] = {
+          orders: [],
+          totalAmount: 0,
+          totalShippingFee: 0
+        };
+      }
+      ordersBySeller[sellerId].orders.push({ ...orderData, order });
+      ordersBySeller[sellerId].totalAmount += orderData.amount;
+      ordersBySeller[sellerId].totalShippingFee += orderData.shipping_fee || 0;
     }
 
     // Validate wallet balances if using wallet payment
@@ -700,267 +787,210 @@ exports.markAsPaid = async (req, res) => {
       }
     }
 
-    for (const orderData of orders) {
-      const { 
-        orderId, 
-        amount, 
-        carrier_reference, 
-        shipping_fee, 
-        carrier_name, 
-        rate_id,
-        estimatedDeliveryDate,
-        estimatedPickupDate,
-        paidFromWallet = false
-      } = orderData;
-
-      console.log('Processing order:', orderId);
-
-      const order = await Order.findById(orderId);
-      if (!order) {
-        console.log('Order not found:', orderId);
-        throw new Error(`Order not found: ${orderId}`);
+    // Process orders by seller
+    for (const sellerId in ordersBySeller) {
+      const sellerOrders = ordersBySeller[sellerId];
+      console.log(`Processing ${sellerOrders.orders.length} orders for seller ${sellerId}`);
+      
+      // Get seller information for notifications and processing
+      const seller = await Seller.findById(sellerId);
+      if (!seller) {
+        throw new Error(`Seller not found: ${sellerId}`);
       }
+      
+      // Process each order for this seller
+      for (const orderData of sellerOrders.orders) {
+        const { 
+          orderId, 
+          amount, 
+          carrier_reference, 
+          shipping_fee, 
+          carrier_name, 
+          rate_id,
+          estimatedDeliveryDate,
+          estimatedPickupDate,
+          paidFromWallet = false,
+          order
+        } = orderData;
 
-      // If using wallet payment, deduct from buyer's wallet
-      if (paidFromWallet) {
-        const buyer = await Buyer.findById(order.buyer);
-        
-        // Create wallet transaction
-        const transaction = {
-          type: 'debit',
-          amount,
-          paymentReference: `ORDER-${order.order_id}`,
-          description: `Payment for order #${order.order_id}`,
-          status: 'completed',
-          createdAt: new Date()
+        console.log('Processing order:', orderId);
+
+        // If using wallet payment, deduct from buyer's wallet
+        if (paidFromWallet) {
+          const buyer = await Buyer.findById(order.buyer);
+          
+          // Create wallet transaction
+          const transaction = {
+            type: 'debit',
+            amount,
+            paymentReference: `ORDER-${order.order_id}`,
+            description: `Payment for order #${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+
+          // Update buyer's wallet
+          await Buyer.findByIdAndUpdate(
+            order.buyer,
+            {
+              $inc: { 'wallet.balance': -amount },
+              $push: { 'wallet.transactions': transaction }
+            },
+            { session }
+          );
+        }
+
+        // Rest of the existing code remains the same
+        console.log('Found order:', {
+          orderId: order._id,
+          items: order.items,
+          totalAmount: order.totalAmount
+        });
+
+        if (amount !== order.totalAmount) {
+          console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
+          throw new Error(`Payment amount does not match order total for order ${orderId}`);
+        }
+
+        if (!estimatedDeliveryDate || !estimatedPickupDate) {
+          throw new Error(`Estimated delivery and pickup dates are required for order ${orderId}`);
+        }
+
+        if (new Date(estimatedPickupDate) >= new Date(estimatedDeliveryDate)) {
+          throw new Error(`Estimated pickup date must be before delivery date for order ${orderId}`);
+        }
+
+        // Update product inventory
+        for (const item of order.items) {
+          console.log('Processing item:', {
+            productId: item.product,
+            quantity: item.quantity
+          });
+
+          const productBefore = await Product.findById(item.product);
+          console.log('Product before update:', {
+            productId: productBefore._id,
+            currentStock: productBefore.stock,
+            currentInventoryQuantity: productBefore.inventory.quantity,
+            currentSoldCount: productBefore.stats.soldCount
+          });
+
+          const updateResult = await Product.findByIdAndUpdate(
+            item.product,
+            { 
+              $inc: { 
+                'stats.soldCount': item.quantity,
+                'stock': -item.quantity,
+                'inventory.quantity': -item.quantity 
+              }
+            },
+            { new: true, session }
+          );
+
+          console.log('Product after update:', {
+            productId: updateResult._id,
+            newStock: updateResult.stock,
+            newInventoryQuantity: updateResult.inventory.quantity,
+            newSoldCount: updateResult.stats.soldCount,
+            updateSuccessful: !!updateResult
+          });
+        }
+
+        const tracking = {
+          status: 'pending',
+          history: [],
+          carrier: carrier_name,
+          ...(order.shipping.tracking || {})
         };
 
-        // Update buyer's wallet
-        await Buyer.findByIdAndUpdate(
-          order.buyer,
-          {
-            $inc: { 'wallet.balance': -amount },
-            $push: { 'wallet.transactions': transaction }
+        order.shipping = {
+          ...order.shipping,
+          method: order.shipping.method || 'standard',
+          carrier: {
+            name: carrier_name,
+            reference: carrier_reference
           },
-          { session }
-        );
-      }
+          fee: {
+            amount: shipping_fee,
+            currency: 'NGN'
+          },
+          rate_id: rate_id,
+          estimatedDeliveryDate: new Date(estimatedDeliveryDate),
+          estimatedPickupDate: estimatedPickupDate,
+          tracking: tracking,
+          documents: order.shipping.documents || {
+            shippingLabel: null,
+            commercialInvoice: null
+          }
+        };
 
-      // Rest of the existing code remains the same
-      console.log('Found order:', {
-        orderId: order._id,
-        items: order.items,
-        totalAmount: order.totalAmount
-      });
-
-      if (amount !== order.totalAmount) {
-        console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
-        throw new Error(`Payment amount does not match order total for order ${orderId}`);
-      }
-
-      if (!estimatedDeliveryDate || !estimatedPickupDate) {
-        throw new Error(`Estimated delivery and pickup dates are required for order ${orderId}`);
-      }
-
-      if (new Date(estimatedPickupDate) >= new Date(estimatedDeliveryDate)) {
-        throw new Error(`Estimated pickup date must be before delivery date for order ${orderId}`);
-      }
-
-      // Update product inventory
-      for (const item of order.items) {
-        console.log('Processing item:', {
-          productId: item.product,
-          quantity: item.quantity
-        });
-
-        const productBefore = await Product.findById(item.product);
-        console.log('Product before update:', {
-          productId: productBefore._id,
-          currentStock: productBefore.stock,
-          currentInventoryQuantity: productBefore.inventory.quantity,
-          currentSoldCount: productBefore.stats.soldCount
-        });
-
-        const updateResult = await Product.findByIdAndUpdate(
-          item.product,
-          { 
-            $inc: { 
-              'stats.soldCount': item.quantity,
-              'stock': -item.quantity,
-              'inventory.quantity': -item.quantity 
+        const updatedOrder = await Order.findByIdAndUpdate(
+          orderId,
+          {
+            $set: {
+              paid: true,
+              paymentInfo: {
+                ...order.paymentInfo,
+                status: 'paid',
+                paidAt: new Date(),
+                method: paidFromWallet ? 'wallet' : order.paymentInfo.method
+              },
+              shipping: order.shipping
             }
           },
-          { new: true, session }
+          { new: true, runValidators: true, session }
         );
 
-        console.log('Product after update:', {
-          productId: updateResult._id,
-          newStock: updateResult.stock,
-          newInventoryQuantity: updateResult.inventory.quantity,
-          newSoldCount: updateResult.stats.soldCount,
-          updateSuccessful: !!updateResult
-        });
+        processedOrders.push(updatedOrder);
+        totalAmount += amount;
+        totalShippingFee += shipping_fee;
+
+        // Create notifications
+        await Promise.all([
+          createNotification(
+            order.seller,
+            'order_paid',
+            {
+              order_id: order.order_id,
+              amount: order.totalAmount,
+              paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method
+            }
+          ),
+          createBuyerNotification(
+            order.buyer,
+            'order_paid',
+            {
+              orderId: order._id,
+              order_id: order.order_id,
+              amount: order.totalAmount,
+              paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method,
+              sellerName: seller.businessName || 'Seller'
+            }
+          )
+        ]);
       }
-
-      const tracking = {
-        status: 'pending',
-        history: [],
-        carrier: carrier_name,
-        ...(order.shipping.tracking || {})
-      };
-
-      order.shipping = {
-        ...order.shipping,
-        method: order.shipping.method || 'standard',
-        carrier: {
-          name: carrier_name,
-          reference: carrier_reference
-        },
-        fee: {
-          amount: shipping_fee,
-          currency: 'NGN'
-        },
-        rate_id: rate_id,
-        estimatedDeliveryDate: new Date(estimatedDeliveryDate),
-        estimatedPickupDate: estimatedPickupDate,
-        tracking: tracking,
-        documents: order.shipping.documents || {
-          shippingLabel: null,
-          commercialInvoice: null
-        }
-      };
-
-      const updatedOrder = await Order.findByIdAndUpdate(
-        orderId,
-        {
-          $set: {
-            paid: true,
-            paymentInfo: {
-              ...order.paymentInfo,
-              status: 'paid',
-              paidAt: new Date(),
-              method: paidFromWallet ? 'wallet' : order.paymentInfo.method
-            },
-            shipping: order.shipping
-          }
-        },
-        { new: true, runValidators: true, session }
-      );
-
-      processedOrders.push(updatedOrder);
-      totalAmount += amount;
-      totalShippingFee += shipping_fee;
-
-      // Create notifications
-      await Promise.all([
-        createNotification(
-          order.seller,
-          'order_paid',
-          {
-            order_id: order.order_id,
-            amount: order.totalAmount,
-            paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method
-          }
-        ),
-        createBuyerNotification(
-          order.buyer,
-          'order_paid',
-          {
-            orderId: order._id,
-            order_id: order.order_id,
-            amount: order.totalAmount,
-            paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method,
-            sellerName: order.seller.businessName || 'Seller'
-          }
-        )
-      ]);
     }
 
     await session.commitTransaction();
-
-    // Send emails for each order
-    for (const order of processedOrders) {
-      const populatedOrder = await Order.findById(order._id)
-        .populate('buyer', 'email firstName lastName')
-        .populate('seller', 'email firstName lastName businessName')
-        .populate('items.product', 'name');
-
-      const paymentMethod = order.paymentInfo.method === 'wallet' ? 'Wallet Balance' : 'Online Payment';
-
-      const buyerEmail = {
-        to: populatedOrder.buyer.email,
-        from: 'Auqli Payments <joseph@auqli.com>',
-        subject: 'Payment Confirmed - Auqli Order',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Payment Confirmed</h2>
-            <p>Dear ${populatedOrder.buyer.firstName},</p>
-            <p>Your payment has been confirmed for order #${populatedOrder.order_id}.</p>
-            <p><strong>Payment Method:</strong> ${paymentMethod}</p>
-            <p><strong>Order Details:</strong></p>
-            <ul>
-              ${populatedOrder.items.map(item => `
-                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
-              `).join('')}
-            </ul>
-            <p><strong>Total Amount Paid:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
-            <p><strong>Shipping Fee:</strong> ₦${populatedOrder.shipping.fee.amount.toLocaleString()}</p>
-            <p>We'll notify you once your order is ready for shipping.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-
-      const sellerEmail = {
-        to: populatedOrder.seller.email,
-        from: 'Auqli Payments <joseph@auqli.com>',
-        subject: 'Payment Received - Auqli Order',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Payment Received</h2>
-            <p>Dear ${populatedOrder.seller.firstName},</p>
-            <p>Payment has been received for order #${populatedOrder.order_id}.</p>
-            <p><strong>Payment Method:</strong> ${paymentMethod}</p>
-            <p><strong>Order Details:</strong></p>
-            <ul>
-              ${populatedOrder.items.map(item => `
-                <li>${item.product.name} x ${item.quantity} - ₦${item.price.toLocaleString()}</li>
-              `).join('')}
-            </ul>
-            <p><strong>Total Amount:</strong> ₦${populatedOrder.totalAmount.toLocaleString()}</p>
-            <p>Please prepare the order for shipping.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-
-      await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
-      ]);
-    }
-
-    console.log('Orders marked as paid successfully');
-
-    res.json({
+    session.endSession();
+    
+    res.status(200).json({
       message: 'Orders marked as paid successfully',
-      totalAmount,
-      totalShippingFee,
-      orders: processedOrders.map(order => ({
-        _id: order._id,
-        paid: order.paid,
-        paymentInfo: order.paymentInfo,
-        shipping: {
-          carrier: order.shipping.carrier,
-          fee: order.shipping.fee,
-          rate_id: order.shipping.rate_id,
-          tracking: order.shipping.tracking
-        }
-      }))
+      orders: processedOrders,
+      totals: {
+        totalAmount,
+        totalShippingFee,
+        grandTotal: totalAmount + totalShippingFee
+      }
     });
 
   } catch (error) {
-    await session.abortTransaction();
+    // Only abort if the session is still active
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    
     console.error('Error in markAsPaid:', {
       error: error.message,
       stack: error.stack
@@ -969,8 +999,6 @@ exports.markAsPaid = async (req, res) => {
       message: 'Failed to mark orders as paid',
       error: error.message
     });
-  } finally {
-    session.endSession();
   }
 };
 
@@ -2261,21 +2289,37 @@ exports.cancelShipment = async (req, res) => {
       });
     }
 
-    // Only attempt to cancel with Terminal if order is paid and has shipment_id
-    if (order.paid && order.shipping.shipment_id) {
+    // Only attempt to cancel with Fez if order is paid and has tracking number
+    if (order.paid && order.shipping.tracking.number) {
       try {
-        // Cancel shipment with Terminal Africa
-        const cancelResponse = await terminalAPI.post('/shipments/cancel', {
-          shipment_id: order.shipping.shipment_id
+        // Get a fresh authentication token for Fez Delivery
+        const authToken = await getFezAuthToken();
+        console.log('Using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
+        
+        // Cancel shipment with Fez Delivery
+        const cancelResponse = await axios.delete(`${FEZ_API_URL}/order`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+            'Content-Type': 'application/json'
+          },
+          data: {
+            orderNo: order.shipping.tracking.number
+          }
         });
 
-        if (!cancelResponse.data.status) {
-          console.log('Terminal API cancellation failed:', cancelResponse.data.message);
-          // Continue with local cancellation despite Terminal API error
+        if (cancelResponse.data && cancelResponse.data.status === 'Success') {
+          console.log('Fez API cancellation successful:', cancelResponse.data.description);
+        } else {
+          console.log('Fez API cancellation failed:', cancelResponse.data);
+          // Continue with local cancellation despite Fez API error
         }
-      } catch (terminalError) {
-        console.log('Terminal API error:', terminalError.message);
-        // Continue with local cancellation despite Terminal API error
+      } catch (fezError) {
+        console.log('Fez API error:', fezError.message);
+        if (fezError.response) {
+          console.log('Fez API error response:', fezError.response.data);
+        }
+        // Continue with local cancellation despite Fez API error
       }
     }
 
@@ -2371,6 +2415,332 @@ exports.cancelShipment = async (req, res) => {
     console.error('Error updating order open status:', error);
     res.status(500).json({ 
       message: 'Error updating order status', 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Authenticates with Fez Delivery API and returns a valid auth token
+ * @returns {Promise<string>} The authentication token
+ */
+const getFezAuthToken = async () => {
+  try {
+    console.log('🔑 Attempting to authenticate with Fez Delivery API...');
+    
+    const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+    const authData = {
+      user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
+      password: process.env.FEZ_PASSWORD || "Bolu@123"
+    };
+    
+    console.log(`📤 Auth request to: ${authUrl}`);
+    console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
+    
+    const response = await axios.post(authUrl, authData);
+    
+    console.log(`📥 Auth response status: ${response.status}`);
+    console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
+    console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
+    
+    if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+      console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);
+      return response.data.authDetails.authToken;
+    } else {
+      console.error('❌ Authentication failed: Invalid response format');
+      console.error(`Response data: ${JSON.stringify(response.data, null, 2)}`);
+      throw new Error('Failed to authenticate with Fez Delivery: Invalid response format');
+    }
+  } catch (error) {
+    console.error('❌ Fez authentication error:', error.message);
+    
+    if (error.response) {
+      console.error(`Response status: ${error.response.status}`);
+      console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
+    } else if (error.request) {
+      console.error('No response received from server');
+      console.error(`Request details: ${JSON.stringify(error.request, null, 2)}`);
+    } else {
+      console.error(`Error details: ${error.stack}`);
+    }
+    
+    throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+  }
+};
+
+// Get delivery cost from Fez Delivery
+exports.getDeliveryCost = async (req, res) => {
+  try {
+    console.log('🚚 Starting delivery cost calculation request...');
+    const { state, pickUpState, weight } = req.body;
+    
+    console.log(`📦 Request parameters: state=${state}, pickUpState=${pickUpState}, weight=${weight}`);
+    
+    // Get a fresh authentication token
+    console.log('🔄 Getting fresh authentication token...');
+    const authToken = await getFezAuthToken();
+    console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
+    
+    // Prepare the request URL and headers - FIXED URL PATH
+    const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
+    const headers = {
+      'Authorization': `Bearer ${authToken}`,
+      'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+      'Content-Type': 'application/json'
+    };
+    
+    console.log(`📤 Cost request URL: ${url}`);
+    console.log(`📤 Cost request headers: ${JSON.stringify(headers, null, 2)}`);
+    console.log(`📤 Cost request payload: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
+    
+    // Make the API request to Fez Delivery with timeout
+    const axiosConfig = { 
+      headers,
+      timeout: 30000, // 30 seconds timeout
+    };
+    
+    console.log('📤 Sending cost request to Fez API...');
+    const response = await axios.post(url, {
+      state,
+      pickUpState,
+      weight
+    }, axiosConfig);
+    
+    console.log(`📥 Cost response status: ${response.status}`);
+    console.log(`📥 Cost response headers: ${JSON.stringify(response.headers, null, 2)}`);
+    console.log(`📥 Cost response data: ${JSON.stringify(response.data, null, 2)}`);
+    
+    console.log('✅ Successfully retrieved delivery cost');
+    return res.status(200).json(response.data);
+  } catch (error) {
+    console.error('❌ Error fetching delivery cost:');
+    
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error(`Response status: ${error.response.status}`);
+      console.error(`Response headers: ${JSON.stringify(error.response.headers, null, 2)}`);
+      console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
+      
+      return res.status(error.response.status).json({
+        status: 'Error',
+        description: 'Failed to fetch delivery cost',
+        error: error.response.data,
+        details: {
+          status: error.response.status,
+          statusText: error.response.statusText
+        }
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('No response received from server');
+      console.error(`Request details: ${JSON.stringify({
+        method: 'POST',
+        url: url,
+        data: { state, pickUpState, weight: req.body.weight }
+      }, null, 2)}`);
+      
+      return res.status(500).json({
+        status: 'Error',
+        description: 'No response received from Fez Delivery',
+        error: 'Service unavailable',
+        details: {
+          message: error.message,
+          code: error.code
+        }
+      });
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error(`Error message: ${error.message}`);
+      console.error(`Error stack: ${error.stack}`);
+      
+      return res.status(500).json({
+        status: 'Error',
+        description: 'Failed to fetch delivery cost',
+        error: error.message,
+        details: {
+          stack: error.stack.split('\n').slice(0, 3).join('\n')
+        }
+      });
+    }
+  }
+};
+
+/**
+ * Track an order using Fez Delivery API
+ * This endpoint doesn't require authentication
+ */
+exports.trackOrderFez = async (req, res) => {
+  try {
+    const { orderNo } = req.params;
+    
+    if (!orderNo) {
+      return res.status(400).json({ 
+        message: 'Order number is required' 
+      });
+    }
+    
+    console.log(`🔍 Tracking order with Fez: ${orderNo}`);
+    
+    // Get a fresh authentication token for Fez Delivery
+    const authToken = await getFezAuthToken();
+    console.log('Using fresh token for order tracking:', authToken.substring(0, 10) + '...');
+    
+    // Track order with Fez Delivery
+    const trackingResponse = await axios.get(`${FEZ_API_URL}/order/track/${orderNo}`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+      }
+    });
+    
+    if (trackingResponse.data && trackingResponse.data.status === 'Success') {
+      console.log('Fez tracking successful:', trackingResponse.data.description);
+      
+      // Return the tracking information
+      return res.json({
+        status: 'success',
+        tracking: {
+          orderNo: trackingResponse.data.order.orderNo,
+          orderStatus: trackingResponse.data.order.orderStatus,
+          recipientName: trackingResponse.data.order.recipientName,
+          recipientAddress: trackingResponse.data.order.recipientAddress,
+          recipientState: trackingResponse.data.order.recipientState,
+          senderName: trackingResponse.data.order.senderName,
+          senderAddress: trackingResponse.data.order.senderAddress,
+          createdAt: trackingResponse.data.order.createdAt,
+          history: trackingResponse.data.history
+        }
+      });
+    } else {
+      console.log('Fez tracking failed:', trackingResponse.data);
+      return res.status(400).json({ 
+        message: 'Failed to track order',
+        details: trackingResponse.data
+      });
+    }
+  } catch (error) {
+    console.error('Error tracking order with Fez:', error.message);
+    
+    if (error.response) {
+      console.error('Fez API error response:', error.response.data);
+      return res.status(error.response.status).json({
+        message: 'Error tracking order',
+        details: error.response.data
+      });
+    }
+    
+    return res.status(500).json({ 
+      message: 'Error tracking order',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get estimated delivery time from Fez Delivery API
+ * This endpoint doesn't require authentication
+ */
+exports.getDeliveryTimeEstimate = async (req, res) => {
+  try {
+    const { delivery_type, pick_up_state, drop_off_state } = req.body;
+    
+    // Validate required fields
+    if (!delivery_type || !pick_up_state || !drop_off_state) {
+      return res.status(400).json({ 
+        message: 'delivery_type, pick_up_state, and drop_off_state are required' 
+      });
+    }
+    
+    // Validate delivery_type
+    const validDeliveryTypes = ['import', 'export', 'local'];
+    if (!validDeliveryTypes.includes(delivery_type)) {
+      return res.status(400).json({ 
+        message: 'delivery_type must be one of: import, export, local' 
+      });
+    }
+    
+    console.log(`⏱️ Getting delivery time estimate: ${delivery_type} from ${pick_up_state} to ${drop_off_state}`);
+    
+    // Get a fresh authentication token for Fez Delivery
+    const authToken = await getFezAuthToken();
+    console.log('Using fresh token for delivery time estimate:', authToken.substring(0, 10) + '...');
+    
+    // Get delivery time estimate from Fez Delivery
+    const estimateResponse = await axios.post(`${FEZ_API_URL}/delivery-time-estimate`, {
+      delivery_type,
+      pick_up_state,
+      drop_off_state
+    }, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (estimateResponse.data && estimateResponse.data.status === 'Success') {
+      console.log('Fez delivery time estimate successful:', estimateResponse.data.description);
+      
+      // Return the delivery time estimate
+      return res.json({
+        status: 'success',
+        estimate: estimateResponse.data.data.eta
+      });
+    } else {
+      console.log('Fez delivery time estimate failed:', estimateResponse.data);
+      return res.status(400).json({ 
+        message: 'Failed to get delivery time estimate',
+        details: estimateResponse.data
+      });
+    }
+  } catch (error) {
+    console.error('Error getting delivery time estimate from Fez:', error.message);
+    
+    if (error.response) {
+      console.error('Fez API error response:', error.response.data);
+      return res.status(error.response.status).json({
+        message: 'Error getting delivery time estimate',
+        details: error.response.data
+      });
+    }
+    
+    return res.status(500).json({ 
+      message: 'Error getting delivery time estimate',
+      error: error.message
+    });
+  }
+};
+
+// Handle Fez webhook
+exports.handleFezWebhook = async (req, res) => {
+  try {
+    console.log('📦 Received Fez webhook:', req.body);
+    
+    // Validate the webhook payload
+    const { orderNumber, status } = req.body;
+    
+    if (!orderNumber || !status) {
+      console.error('❌ Invalid webhook payload: Missing required fields');
+      return res.status(400).json({ 
+        message: 'Invalid webhook payload: Missing required fields' 
+      });
+    }
+    
+    // Import the handler dynamically to avoid circular dependencies
+    const { handleOrderStatusUpdate } = require('../webhooks/fezWebhook');
+    
+    // Process the webhook
+    await handleOrderStatusUpdate(req.body);
+    
+    // Respond to Fez
+    return res.status(200).json({ 
+      message: 'Webhook received and processed successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Error handling Fez webhook:', error);
+    return res.status(500).json({ 
+      message: 'Error processing webhook',
       error: error.message 
     });
   }
