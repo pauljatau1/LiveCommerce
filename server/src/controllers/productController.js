@@ -1335,7 +1335,8 @@ exports.getAllBlips = async (req, res) => {
             storeRating: '$sellerInfo.stats.averageRating',
             totalStoreReviews: '$sellerInfo.stats.totalReviews',
             // Include followers array for later processing
-            followers: '$sellerInfo.followers'
+            followers: '$sellerInfo.followers',
+            isFeatured: '$sellerInfo.isFeatured' // Add this line to include the isFeatured field
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -1404,7 +1405,8 @@ exports.getAllBlips = async (req, res) => {
         ...rest,
         seller: {
           ...sellerRest,
-          isFollowing
+          isFollowing,
+          isFeatured: seller.isFeatured || false // Add the isFeatured property
         }
       };
     });
@@ -1556,7 +1558,8 @@ exports.getSellerBlips = async (req, res) => {
             // Include seller store rating
             storeRating: seller.stats ? seller.stats.averageRating : 0,
             totalStoreReviews: seller.stats ? seller.stats.totalReviews : 0,
-            isFollowing: isFollowing
+            isFollowing: isFollowing,
+            isFeatured: seller.isFeatured // Add this line to include the isFeatured field
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -2791,51 +2794,142 @@ exports.addBlipComment = async (req, res) => {
   }
 };
 
-// Get blip comments
+// Get comments for a product blip
 exports.getBlipComments = async (req, res) => {
   try {
-    const { id, blipId } = req.params;
+    console.log('Fetching blip comments for product:', req.params.id, 'blip:', req.params.blipId);
+    const { id: productId, blipId } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    const product = await Product.findById(id);
+    const product = await Product.findById(productId);
     if (!product) {
+      console.log('Product not found with ID:', productId);
       return res.status(404).json({ message: 'Product not found' });
     }
 
     const blip = product.blips.id(blipId);
     if (!blip) {
+      console.log('Blip not found with ID:', blipId, 'in product:', productId);
       return res.status(404).json({ message: 'Blip not found' });
     }
 
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
+    console.log('Found blip with', blip.comments.length, 'comments');
 
-    const comments = await Product.findOne(
-      { _id: id, 'blips._id': blipId },
-      { 'blips.$': 1 }
-    ).populate({
-      path: 'blips.comments.buyer',
-      select: 'firstName lastName profileImage'
-    });
+    // Get total comments count
+    const totalComments = blip.comments.length;
+    const totalPages = Math.ceil(totalComments / limit);
 
-    const paginatedComments = comments.blips[0].comments
-      .slice(startIndex, endIndex);
+    // Get paginated comments
+    const comments = blip.comments
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(skip, skip + limit);
 
-    res.json({
-      comments: paginatedComments,
+    console.log('Processing', comments.length, 'comments after pagination');
+
+    // Populate buyer information for each comment and their replies
+    const populatedComments = await Promise.all(
+      comments.map(async (comment) => {
+        console.log('Processing comment ID:', comment._id);
+        let populatedComment = comment.toObject();
+        
+        // Populate comment author
+        if (comment.buyer) {
+          console.log('Fetching buyer info for comment:', comment._id);
+          try {
+            const buyer = await mongoose.model('Buyer').findById(comment.buyer)
+              .select('firstName lastName profileImage');
+            
+            if (buyer) {
+              console.log('Found buyer for comment:', buyer.firstName, buyer.lastName);
+              populatedComment.buyer = buyer;
+            } else {
+              console.log('Buyer not found for comment with buyer ID:', comment.buyer);
+            }
+          } catch (err) {
+            console.error('Error fetching buyer for comment:', err);
+          }
+        } else {
+          console.log('No buyer ID for comment:', comment._id);
+        }
+        
+        // Populate reply authors
+        if (comment.replies && comment.replies.length > 0) {
+          console.log('Processing', comment.replies.length, 'replies for comment:', comment._id);
+          
+          populatedComment.replies = await Promise.all(
+            comment.replies.map(async (reply) => {
+              console.log('Processing reply ID:', reply._id);
+              let populatedReply = reply.toObject ? reply.toObject() : {...reply};
+              
+              // Handle both new structure (with user field) and old structure
+              const userId = reply.user || reply.buyer; // Try both fields
+              const userType = reply.userType || 'Buyer'; // Default to Buyer for old data
+              
+              if (userId) {
+                console.log('Fetching user info for reply:', reply._id, 'user type:', userType);
+                try {
+                  const UserModel = mongoose.model(userType);
+                  const user = await UserModel.findById(userId)
+                    .select('firstName lastName profileImage storeName');
+                  
+                  if (user) {
+                    console.log('Found user for reply:', user.firstName, user.lastName);
+                    populatedReply.user = {
+                      _id: user._id,
+                      firstName: user.firstName,
+                      lastName: user.lastName,
+                      profileImage: user.profileImage
+                    };
+                    
+                    if (userType === 'Seller' && user.storeName) {
+                      populatedReply.user.storeName = user.storeName;
+                    }
+                  } else {
+                    console.log('User not found for reply with user ID:', userId);
+                  }
+                } catch (err) {
+                  console.error('Error fetching user for reply:', err);
+                }
+              } else {
+                console.log('No user ID for reply:', reply._id);
+                
+                // For existing data without user info, try to add a placeholder
+                populatedReply.user = {
+                  _id: null,
+                  firstName: "Unknown",
+                  lastName: "User"
+                };
+              }
+              
+              return populatedReply;
+            })
+          );
+        } else {
+          console.log('No replies for comment:', comment._id);
+        }
+        
+        return populatedComment;
+      })
+    );
+
+    console.log('Successfully processed all comments and replies');
+    
+    return res.status(200).json({
+      productId,
+      blipId,
+      comments: populatedComments,
       pagination: {
-        total: blip.comments.length,
-        pages: Math.ceil(blip.comments.length / limit),
+        total: totalComments,
+        pages: totalPages,
         currentPage: page,
-        hasMore: endIndex < blip.comments.length
+        hasMore: page < totalPages
       }
     });
   } catch (error) {
-    res.status(500).json({
-      message: 'Failed to get comments',
-      error: error.message
-    });
+    console.error('Error getting blip comments:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -2889,6 +2983,320 @@ exports.recordBlipView = async (req, res) => {
     res.status(500).json({
       message: 'Failed to record view',
       error: error.message
+    });
+  }
+};
+
+// Add reply to a blip comment
+exports.addReplyToBlipComment = async (req, res) => {
+  try {
+    console.log('Adding reply to blip comment, params:', req.params);
+    const { productId, blipId, commentId } = req.params;
+    const { comment } = req.body;
+    
+    // Check if user is authenticated
+    if (!req.user) {
+      console.log('User not authenticated');
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    // Extract user information from the request
+    // The structure might vary based on your auth middleware
+    const userId = req.user._id || req.user.id;
+    
+    // Determine user type - this depends on your authentication system
+    // You might need to adjust this based on how your auth middleware works
+    let userType;
+    if (req.user.role) {
+      userType = req.user.role === 'seller' ? 'Seller' : 'Buyer';
+    } else if (req.userType) {
+      userType = req.userType;
+    } else {
+      // Try to determine from the user object structure
+      userType = req.user.storeName ? 'Seller' : 'Buyer';
+    }
+    
+    console.log('User info:', { userId, userType });
+
+    if (!userId || !userType) {
+      console.log('Could not determine user ID or type');
+      return res.status(400).json({ message: 'User information is missing' });
+    }
+
+    if (!comment) {
+      return res.status(400).json({ message: 'Comment text is required' });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      console.log('Product not found:', productId);
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      console.log('Blip not found:', blipId);
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    const blipComment = blip.comments.id(commentId);
+    if (!blipComment) {
+      console.log('Comment not found:', commentId);
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Initialize replies array if it doesn't exist
+    if (!blipComment.replies) {
+      blipComment.replies = [];
+    }
+
+    // Get user details to include in response
+    const UserModel = mongoose.model(userType);
+    const userDetails = await UserModel.findById(userId)
+      .select('firstName lastName profileImage storeName');
+
+    console.log('Found user details:', userDetails);
+
+    if (!userDetails) {
+      console.log('User details not found for ID:', userId);
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Add the reply with proper user field
+    const newReply = {
+      user: userId,
+      userType: userType,
+      comment: comment,
+      createdAt: new Date(),
+      likes: [],
+      likesCount: 0
+    };
+    
+    blipComment.replies.push(newReply);
+    console.log('Added new reply:', newReply);
+
+    await product.save();
+    console.log('Product saved with new reply');
+
+    // Format the response with user details
+    const replyResponse = {
+      ...newReply,
+      _id: blipComment.replies[blipComment.replies.length - 1]._id, // Get the generated ID
+      user: {
+        _id: userDetails._id,
+        firstName: userDetails.firstName,
+        lastName: userDetails.lastName,
+        profileImage: userDetails.profileImage,
+        ...(userType === 'Seller' && { storeName: userDetails.storeName })
+      }
+    };
+
+    return res.status(201).json({
+      message: 'Reply added successfully',
+      reply: replyResponse
+    });
+  } catch (error) {
+    console.error('Error adding reply to blip comment:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Like a blip comment
+exports.likeBlipComment = async (req, res) => {
+  try {
+    const { productId, blipId, commentId } = req.params;
+    const userId = req.user._id;
+    const userType = req.userType;
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    const comment = blip.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Initialize likes array if it doesn't exist
+    if (!comment.likes) {
+      comment.likes = [];
+    }
+
+    // Check if user already liked the comment
+    const existingLike = comment.likes.find(
+      like => like.user.toString() === userId.toString() && like.userType === userType
+    );
+
+    if (existingLike) {
+      // Unlike if already liked
+      comment.likes = comment.likes.filter(
+        like => !(like.user.toString() === userId.toString() && like.userType === userType)
+      );
+      comment.likesCount = comment.likes.length;
+      await product.save();
+      return res.json({ message: 'Comment unliked successfully', liked: false, likesCount: comment.likesCount });
+    } else {
+      // Add like
+      comment.likes.push({
+        user: userId,
+        userType: userType,
+        createdAt: new Date()
+      });
+      comment.likesCount = comment.likes.length;
+      await product.save();
+      return res.json({ message: 'Comment liked successfully', liked: true, likesCount: comment.likesCount });
+    }
+  } catch (error) {
+    console.error('Error liking blip comment:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Like a reply to a blip comment
+exports.likeBlipCommentReply = async (req, res) => {
+  try {
+    const { productId, blipId, commentId, replyId } = req.params;
+    const userId = req.user._id;
+    const userType = req.userType;
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ message: 'Blip not found' });
+    }
+
+    const comment = blip.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    if (!comment.replies) {
+      return res.status(404).json({ message: 'No replies found' });
+    }
+
+    const reply = comment.replies.id(replyId);
+    if (!reply) {
+      return res.status(404).json({ message: 'Reply not found' });
+    }
+
+    // Initialize likes array if it doesn't exist
+    if (!reply.likes) {
+      reply.likes = [];
+    }
+
+    // Check if user already liked the reply
+    const existingLike = reply.likes.find(
+      like => like.user.toString() === userId.toString() && like.userType === userType
+    );
+
+    if (existingLike) {
+      // Unlike if already liked
+      reply.likes = reply.likes.filter(
+        like => !(like.user.toString() === userId.toString() && like.userType === userType)
+      );
+      reply.likesCount = reply.likes.length;
+      await product.save();
+      return res.json({ message: 'Reply unliked successfully', liked: false, likesCount: reply.likesCount });
+    } else {
+      // Add like
+      reply.likes.push({
+        user: userId,
+        userType: userType,
+        createdAt: new Date()
+      });
+      reply.likesCount = reply.likes.length;
+      await product.save();
+      return res.json({ message: 'Reply liked successfully', liked: true, likesCount: reply.likesCount });
+    }
+  } catch (error) {
+    console.error('Error liking blip comment reply:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+/**
+ * Get products by seller and category
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} - JSON response with products
+ */
+exports.getProductsBySellerAndCategory = async (req, res) => {
+  try {
+    const { sellerId, category } = req.params;
+    
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
+    }
+    
+    // Find products that match both seller and category (case insensitive)
+    const products = await Product.find({ 
+      seller: sellerId,
+      category: { $regex: new RegExp(`^${category}$`, 'i') }
+    }).sort({ createdAt: -1 });
+    // Check if seller exists
+    const seller = await mongoose.model('Seller').findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Seller not found' });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products
+    });
+  } catch (error) {
+    console.error('Error fetching seller products by category:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Get all categories where a seller has products
+exports.getSellerProductCategories = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ message: 'Invalid seller ID format' });
+    }
+
+    // Find all products by this seller
+    const products = await Product.find({ seller: sellerId });
+    
+    if (!products || products.length === 0) {
+      return res.status(404).json({ message: 'No products found for this seller' });
+    }
+
+    // Extract unique categories from the products
+    const categories = [...new Set(products.map(product => product.category))];
+    
+    // Get full category details from the Category model
+    const categoryDetails = await Category.find({ name: { $in: categories } });
+    
+    return res.status(200).json({
+      success: true,
+      count: categoryDetails.length,
+      data: categoryDetails
+    });
+  } catch (error) {
+    console.error('Error fetching seller product categories:', error);
+    return res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message 
     });
   }
 };
