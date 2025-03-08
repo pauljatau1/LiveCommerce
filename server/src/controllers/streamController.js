@@ -179,7 +179,9 @@ exports.startStream = async (req, res) => {
     // Send WebSocket notification
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
-      io.to('stream_notifications').emit('stream_notification', {
+      
+      // Create notification object
+      const notificationObj = {
         id: Date.now().toString(),
         type: 'start',
         user: seller.storeName || 'Host',
@@ -193,7 +195,17 @@ exports.startStream = async (req, res) => {
           title: stream.title
         },
         timestamp: new Date()
-      });
+      };
+      
+      // Send notification via WebSocket
+      io.to('stream_notifications').emit('stream_notification', notificationObj);
+      
+      // Add to stream's chatInteractions array
+      await Stream.findByIdAndUpdate(
+        stream._id,
+        { $push: { chatInteractions: notificationObj } },
+        { new: true }
+      );
     }
 
     res.json({
@@ -452,7 +464,9 @@ exports.joinStream = async (req, res) => {
     // Broadcast to all subscribers of stream notifications
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
-      io.to('stream_notifications').emit('viewer_joined_stream', {
+      
+      // Create notification object
+      const notificationObj = {
         id: Date.now().toString(),
         type: 'join',
         user: buyer.firstName || buyer.username || 'Viewer',
@@ -469,7 +483,17 @@ exports.joinStream = async (req, res) => {
           sellerId: stream.seller._id
         },
         timestamp: new Date()
-      });
+      };
+      
+      // Send notification via WebSocket
+      io.to('stream_notifications').emit('viewer_joined_stream', notificationObj);
+      
+      // Add to stream's chatInteractions array
+      await Stream.findByIdAndUpdate(
+        stream._id,
+        { $push: { chatInteractions: notificationObj } },
+        { new: true }
+      );
     }
 
     console.log('agoraUid', tokenUid);
@@ -541,8 +565,8 @@ exports.joinStreamSeller = async (req, res) => {
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
       
-      // Send rejoined notification
-      io.to('stream_notifications').emit('seller_rejoined_stream', {
+      // Create notification object
+      const notificationObj = {
         id: Date.now().toString(),
         type: 'join',
         user: stream.seller.storeName || 'Host',
@@ -555,7 +579,17 @@ exports.joinStreamSeller = async (req, res) => {
           sellerName: stream.seller.storeName || stream.seller.businessName
         },
         timestamp: new Date()
-      });
+      };
+      
+      // Send notification via WebSocket
+      io.to('stream_notifications').emit('seller_rejoined_stream', notificationObj);
+      
+      // Add to stream's chatInteractions array
+      await Stream.findByIdAndUpdate(
+        stream._id,
+        { $push: { chatInteractions: notificationObj } },
+        { new: true }
+      );
     }
 
     console.log('agoraUid (seller)', seller.agoraUid);
