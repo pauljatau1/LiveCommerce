@@ -31,12 +31,8 @@ export const auth = createApi({
     },
   }),
   endpoints: (builder) => ({
-    login: builder.mutation<LoginResponse, LoginRequest>({
-      query: (credentials) => postRequest("/buyer/login", {
-        email: credentials.email,
-        password: credentials.password,
-        expoPushToken: credentials.expoPushToken,
-      }),
+    login: builder.mutation<LoginResponse, any>({
+      query: (credentials) => postRequest("/buyer/login", credentials),
     }),
     signUp: builder.mutation<SignUpResponse, SignUpRequest>({
       query: (credentials) => postRequest("/buyer/register", credentials),
@@ -71,7 +67,7 @@ export const auth = createApi({
       query: (credentials) =>
         postRequest("/buyer/delete-account/confirm", credentials),
     }),
-  })
+  }),
 });
 
 export const {

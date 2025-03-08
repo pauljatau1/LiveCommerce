@@ -748,8 +748,8 @@ const LivestreamStudio = () => {
 
                 {/* Top Actions - Only show when video is playing */}
                 {shouldShowUI && (
-                    <SafeAreaView>
-                        <View className={`flex-row justify-between items-center px-4 pt-${Platform.OS === 'ios' ? '8' : '2'}`}>
+                    <SafeAreaView style={{flex: 1, marginTop: Platform.OS === 'ios' ? 16 : 14 }}>
+                        <View className={`flex-row justify-between items-center px-4`}>
                             <View className="flex-row items-center gap-2">
                                 <Image
                                     source={storeInfo.avatar}

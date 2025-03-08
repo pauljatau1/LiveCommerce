@@ -18,6 +18,7 @@ import DeleteSheet from "@/components/settings/deleteSheet";
 import LoadingModal from "@/components/global/loading-modal";
 import { useRequestDeleteMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 const { width, height } = Dimensions.get("window");
 
@@ -100,6 +101,18 @@ const Settings = () => {
               onPress={() => router.push("/settings/addresses")}
             >
               <Text style={styles.sectionText}>Addresses</Text>
+              <Entypo
+                name="chevron-right"
+                size={18}
+                color="rgba(204, 204, 204, 0.8)"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sectionRow]}
+              activeOpacity={0.5}
+              onPress={() => router.push("/settings/updateCategories")}
+            >
+              <Text style={styles.sectionText}>Change Product Preference</Text>
               <Entypo
                 name="chevron-right"
                 size={18}
@@ -203,7 +216,8 @@ const Settings = () => {
             <TouchableOpacity
               style={styles.sectionRow}
               activeOpacity={0.5}
-              onPress={() => {
+              onPress={async () => {
+                await GoogleSignin.signOut();
                 dispatch(signOut());
                 router.push("/(root)/(auth)/sign-in");
               }}
