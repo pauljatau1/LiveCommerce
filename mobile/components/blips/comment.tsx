@@ -49,7 +49,7 @@ const Comment = ({
         } else {
           setReplies((prevReplies) => [
             ...prevReplies,
-            response.data.replies?.filter((cm: any) => cm?.user?.name),
+            ...response.data.replies?.filter((cm: any) => cm?.user?.name),
           ]);
         }
 
@@ -197,7 +197,10 @@ const Comment = ({
               />
             )}
 
-            <View className="flex-row items-center gap-[20px]">
+            <View
+              className="flex-row items-center gap-[20px]"
+              style={{ marginBottom: 5 }}
+            >
               <View className="h-[1.5px] w-[20px] bg-[#2e2e2e]"></View>
               {!hasReachedEnd ? (
                 <Pressable

@@ -32,11 +32,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toast } from "@/core/toast";
 import moment from "moment";
 import { useIsFocused } from "@react-navigation/native";
-import { getProductSpecifications } from "@/helpers/helpers";
+import { formatNumber, getProductSpecifications } from "@/helpers/helpers";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import AuthSheet from "@/components/auth/authSheet";
 import CheckoutNow from "@/components/blips/checkoutNow";
-import { formatNumber } from "@/core";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,

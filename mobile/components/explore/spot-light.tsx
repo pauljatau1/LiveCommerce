@@ -1,27 +1,57 @@
-import { View, Text, FlatList } from "react-native";
-import React from "react";
+import { View, FlatList, Text } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
+import { useCallback, useEffect } from "react";
+import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
+import { useLivestream } from "@/contexts/livestreamContext";
+import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 
 const SpotLightExplore = () => {
-  return (
-    <View className="mt-[9px] w-[100%] bg-[#3A3A3A]  pb-[15.5px]">
-      <Text className="text-white text-[14px] font-LexendDecaBold px-[16px] pt-[12px]">
-        Popular Shows
-      </Text>
+  const {
+    isLoading,
+    activeLivestream,
+    isDataReady,
+    fetchAllActiveLiveStreams,
+  } = useLivestream();
+
+  const renderEmptyStreams = useCallback(() => {
+    return (
       <View
         style={{
-          paddingHorizontal: 16,
+          marginVertical: 40,
+          width: "100%",
         }}
       >
-        <FlatList
-          data={[1, 2, 3, 4, 5, 6, 7]}
-          renderItem={(item) => <LiveProductCard {...item} showBtn={false} />}
-          keyExtractor={(item) => item.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="pt-[14px]"
-          pagingEnabled
-        />
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Active Streams
+        </Text>
+      </View>
+    );
+  }, [activeLivestream]);
+
+  return (
+    <View className="pt-[16px] mb-5 w-full">
+      <SectionHeader title="Popular Now" btnText="View All" />
+      <View className="w-full">
+        {isLoading ? (
+          <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
+        ) : activeLivestream?.length > 0 ? (
+          <FlatList
+            data={activeLivestream}
+            renderItem={({ item }) => (
+              <LiveProductCard item={item} showLive={true} showBtn={true} />
+            )}
+            keyExtractor={(item) => item._id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingTop: 14,
+              gap: 12,
+            }}
+          />
+        ) : (
+          renderEmptyStreams()
+        )}
       </View>
     </View>
   );

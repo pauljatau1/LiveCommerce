@@ -7,6 +7,7 @@ import Comment from "./comment";
 import axios from "axios";
 import moment from "moment";
 import { getToken, getUser } from "@/store/features/auth/utils";
+import LottieView from "lottie-react-native";
 
 const CommentsSheet = ({
   handleIncreaseCommentCount,
@@ -75,7 +76,9 @@ const CommentsSheet = ({
         data: null,
       };
       const response = await axios(config);
-      setComments(response.data.comments?.filter((cm: any) => cm?.buyer));
+      setComments(
+        response.data.comments?.filter((cm: any) => cm?.buyer?.firstName),
+      );
       setPage(page + 1);
       setLoading(false);
     } catch (e: any) {
@@ -162,7 +165,15 @@ const CommentsSheet = ({
   return (
     <View className="px-[12px] h-full items-center">
       {loading ? (
-        <ActivityIndicator size={"small"} color={"white"} />
+        <LottieView
+          source={require("../../assets/lottie/dots-loading.json")}
+          autoPlay
+          loop
+          style={{
+            width: 50,
+            height: 30,
+          }}
+        />
       ) : (
         <View className="h-full pb-[50px] ">
           <Text className="text-white text-center mb-[30px] font-LexendDecaMedium">
@@ -175,7 +186,7 @@ const CommentsSheet = ({
             keyExtractor={(item, index) => item._id || index.toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              gap: 20,
+              gap: 0,
             }}
           />
         </View>

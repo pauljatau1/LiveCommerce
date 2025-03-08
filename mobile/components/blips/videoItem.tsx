@@ -299,14 +299,30 @@ const VideoItem = ({
               >
                 {seller.storeName || seller?.firstName + " " + seller?.lastName}
               </Text>
-              <View className="flex-row items-center gap-[4px]">
-                <AntDesign name="star" size={12} color="#FFD700" />
-                <Text
-                  className="text-white text-[12px] font-LexendDecaMedium"
-                  style={styles.text}
-                >
-                  {item?.seller?.storeRating}
-                </Text>
+              <View className="flex-row items-center gap-[8px]">
+                {seller?.isFeatured && (
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 3,
+                      borderRadius: 2.5,
+                      backgroundColor: "#E8C300",
+                    }}
+                  >
+                    <Text className="font-LexendDecaMedium text-[6px] ">
+                      Top seller
+                    </Text>
+                  </View>
+                )}
+                <View className="flex-row items-center gap-[4px]">
+                  <AntDesign name="star" size={12} color="#FFD700" />
+                  <Text
+                    className="text-white text-[12px] font-LexendDecaMedium"
+                    style={styles.text}
+                  >
+                    {item?.seller?.storeRating}
+                  </Text>
+                </View>
               </View>
             </View>
 
