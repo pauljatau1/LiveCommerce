@@ -414,6 +414,12 @@ exports.joinStream = async (req, res) => {
       return res.status(404).json({ message: 'Active stream not found' });
     }
 
+    // Fetch complete buyer details
+    const buyer = await Buyer.findById(req.user.id).select('firstName lastName username avatarUrl profileImage');
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
     // Generate appropriate UID for viewer
     // Create a deterministic but unique value based on user ID and stream ID
     const userIdNum = parseInt(req.user.id.substring(0, 8), 16);
@@ -440,7 +446,7 @@ exports.joinStream = async (req, res) => {
     req.io.to(stream.channelName).emit('viewerJoined', {
       streamId: stream._id,
       viewer: req.user.id,
-      viewerName: req.user.firstName + " " + req.user.lastName
+      viewerName: buyer.firstName + " " + buyer.lastName
     });
 
     // Broadcast to all subscribers of stream notifications
@@ -449,12 +455,15 @@ exports.joinStream = async (req, res) => {
       io.to('stream_notifications').emit('viewer_joined_stream', {
         id: Date.now().toString(),
         type: 'join',
-        user: req.user.firstName || 'Viewer',
-        avatar: req.user.profileImage?.url || '',
-        content: `${req.user.firstName} joined room`,
+        user: buyer.firstName || buyer.username || 'Viewer',
+        avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
+        content: `${buyer.firstName || buyer.username} joined room`,
         data: {
-          message: `${req.user.firstName} joined room`,
+          message: `${buyer.firstName || buyer.username} joined room`,
           buyerId: req.user.id,
+          buyerName: buyer.firstName + " " + buyer.lastName,
+          buyerUsername: buyer.username,
+          buyerAvatar: buyer.profileImage?.url || buyer.avatarUrl || '',
           streamId: stream._id,
           sellerName: stream.seller.storeName || stream.seller.businessName,
           sellerId: stream.seller._id
