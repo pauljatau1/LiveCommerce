@@ -12,7 +12,7 @@ const SpotLight = () => {
   const fetchSpotlightLiveStreams = async () => {
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/streams/spotlight`,
+        process.env.EXPO_PUBLIC_API_URL + `api/streams/spotlight?status=live`,
       );
       if (response.status === 200) {
         console.log("spotlight streams", response.data?.streams?.length);

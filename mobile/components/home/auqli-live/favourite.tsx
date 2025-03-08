@@ -13,7 +13,8 @@ const Favourite = () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/streams/favorite-sellers`,
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams/favorite-sellers?status=live`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
