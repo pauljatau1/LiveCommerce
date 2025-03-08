@@ -13,230 +13,13 @@ import axios from 'axios';
 import moment from 'moment';
 import { timeFromNow } from '@/helpers/helpers';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { StreamConfig, ProductImage, Product, StreamProduct, StreamDetails, LivestreamContextType } from '@/types/streams/livestreamStudio';
+import { streamEngine } from './streamEngine';
+import { LiveShowProductCard } from './liveShowProductCard';
+import { initializeSocket, disconnectSocket, StreamNotification } from './socketHandler';
+import { SOCKET_EVENTS } from '@/constants/api';
 
 const { width, height } = Dimensions.get('window');
-
-const getHtmlContent = (appId: string, channel: string, token: string, uid: string) => `
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.21.0.js"></script>
-    <style>
-      body { margin: 0; padding: 0; background: black; }
-      #video-container { width: 100vw; height: 100vh; position: relative; }
-      #host-video { width: 100%; height: 100%; }
-    </style>
-  </head>
-  <body>
-    <div id="video-container">
-      <div id="host-video"></div>
-    </div>
-    <script>
-      // Global references to important objects
-      let client;
-      let remoteUsers = {};
-      
-      async function joinAsAudience() {
-        try {
-          // Create Agora client
-          client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
-          
-          // Set role to audience
-          await client.setClientRole("audience");
-          
-          window.ReactNativeWebView.postMessage('initializing');
-          
-          // Register all user events BEFORE joining
-          registerEvents();
-          
-          // Join the channel with token
-          await client.join("${appId}", "${channel}", "${token}", ${uid});
-          window.ReactNativeWebView.postMessage('joined_channel');
-          
-          // After joining, log all users currently in the channel
-          window.ReactNativeWebView.postMessage('users_in_channel:' + client.remoteUsers.length);
-          client.remoteUsers.forEach(user => {
-            window.ReactNativeWebView.postMessage('remote_user:' + user.uid);
-            
-            // Auto-subscribe to existing users
-            subscribeToUser(user);
-          });
-        } catch (error) {
-          console.error("Error joining:", error);
-          window.ReactNativeWebView.postMessage("error:" + error.message);
-        }
-      }
-      
-      function registerEvents() {
-        // When remote user publishes a stream
-        client.on("user-published", async (user, mediaType) => {
-          window.ReactNativeWebView.postMessage("user_published:" + user.uid + ":" + mediaType);
-          
-          // Save remote user to our object
-          remoteUsers[user.uid] = user;
-          
-          // Subscribe to the remote user
-          await subscribeToUser(user);
-        });
-        
-        // When remote user stops publishing
-        client.on("user-unpublished", (user, mediaType) => {
-          window.ReactNativeWebView.postMessage("user_unpublished:" + user.uid + ":" + mediaType);
-        });
-        
-        // When remote user joins
-        client.on("user-joined", (user) => {
-          window.ReactNativeWebView.postMessage("user_joined:" + user.uid);
-          remoteUsers[user.uid] = user;
-        });
-        
-        // When remote user leaves
-        client.on("user-left", (user) => {
-          window.ReactNativeWebView.postMessage("user_left:" + user.uid);
-          delete remoteUsers[user.uid];
-        });
-        
-        // Connection state changes
-        client.on("connection-state-change", (newState) => {
-          window.ReactNativeWebView.postMessage("connection:" + newState);
-        });
-      }
-      
-      async function subscribeToUser(user) {
-        try {
-          // Subscribe to the video/audio tracks
-          await client.subscribe(user, "video");
-          window.ReactNativeWebView.postMessage("subscribed_video:" + user.uid);
-          
-          await client.subscribe(user, "audio");
-          window.ReactNativeWebView.postMessage("subscribed_audio:" + user.uid);
-          
-          // Play audio immediately
-          if (user.audioTrack) {
-            user.audioTrack.play();
-            window.ReactNativeWebView.postMessage("audio_playing:" + user.uid);
-          }
-          
-          // Play video onto the host-video div
-          if (user.videoTrack) {
-            // Create a guaranteed unique ID
-            const playerDiv = document.getElementById("host-video");
-            if (playerDiv) {
-              // Play the video - use cover to fill container
-              user.videoTrack.play(playerDiv, { fit: "cover" });
-              window.ReactNativeWebView.postMessage("video_playing:" + user.uid);
-            } else {
-              window.ReactNativeWebView.postMessage("error:video_container_missing");
-            }
-          }
-        } catch (err) {
-          window.ReactNativeWebView.postMessage("error:subscribe:" + err.message);
-        }
-      }
-      
-      // Start everything
-      joinAsAudience();
-    </script>
-  </body>
-</html>
-`;
-
-interface StreamConfig {
-    appId: string;
-    channel: string;
-    token: string;
-    uid: string;
-}
-
-interface ProductImage {
-    url: string;
-    _id: string;
-    id: string;
-}
-
-interface Product {
-    _id: string;
-    name: string;
-    description: string;
-    price: number;
-    discountedPrice: number;
-    images: ProductImage[];
-    seller: {
-        storeName: string;
-        businessName: string;
-        storeAvatar: {
-            url: string;
-        };
-    };
-    id: string;
-}
-
-interface StreamProduct {
-    product: Product;
-    currentBid: number;
-    _id: string;
-}
-
-interface StreamDetails {
-    channelName: string;
-    token: string;
-    uid: string;
-    title?: string;
-    category?: string;
-    viewers?: Array<any>;
-    likes?: number;
-    comments?: number;
-    products?: StreamProduct[];
-    seller?: {
-        storeName: string;
-        businessName: string;
-        storeAvatar: {
-            url: string;
-        };
-        _id?: string;
-    };
-    stream?: {
-        title: string;
-        products: StreamProduct[];
-        seller: {
-            _id: string;
-            businessName: string;
-            storeAvatar: {
-                url: string;
-            };
-            storeName: string;
-        };
-        coverImage?: {
-            url: string;
-        };
-        _id?: string;
-        actualStartTime?: string;
-        agoraToken?: string;
-        agoraUid?: number;
-        bids?: any[];
-        cancelledStream?: boolean;
-        category?: string;
-        channelName?: string;
-        createdAt?: string;
-        description?: string;
-        isLive?: boolean;
-        scheduledStartTime?: string;
-        status?: string;
-        tags?: string[];
-        type?: string;
-        updatedAt?: string;
-        viewerCount?: number;
-        viewers?: any[];
-    };
-}
-
-interface LivestreamContextType {
-    activeStreamDetails: StreamDetails | null;
-    joinStream: (streamId: string) => Promise<StreamDetails>;
-    fetchActiveStreamDetails: (streamId: string) => Promise<StreamDetails>;
-    // Add other properties as needed
-}
 
 const LivestreamStudio = () => {
     const { id } = useLocalSearchParams();
@@ -250,6 +33,7 @@ const LivestreamStudio = () => {
     const [liked, setLiked] = useState(false);
     const [comments, setComments] = useState(1200);
     const [showComments, setShowComments] = useState(false);
+    const [comment, setComment] = useState('');
     const [streamProducts, setStreamProducts] = useState<StreamProduct[]>([]);
     const [currentProductIndex, setCurrentProductIndex] = useState(0);
     const [storeInfo, setStoreInfo] = useState({
@@ -257,11 +41,6 @@ const LivestreamStudio = () => {
         username: '@username',
         avatar: require('@/assets/icons/animoji.png')
     });
-
-    const { width: screenWidth } = Dimensions.get('window');
-
-    const [comment, setComment] = useState('');
-
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
         id: string;
@@ -273,13 +52,12 @@ const LivestreamStudio = () => {
     }>>([]);
     const [commentInput, setCommentInput] = useState('');
     const commentsListRef = useRef<FlatList>(null);
-
     // Add a new state to track if video is actually playing
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-
     // Add keyboard height tracking
     const [keyboardHeight, setKeyboardHeight] = useState(0);
-
+    const { width: screenWidth } = Dimensions.get('window');
+    
     useEffect(() => {
         setupLivestream();
 
@@ -318,45 +96,9 @@ const LivestreamStudio = () => {
                 timestamp: new Date(Date.now() - 2000)
             }
         ];
+        
+        // Initialize with sample data
         setLiveComments(sampleEvents);
-
-        // Simulate new comments/events coming in
-        const interval = setInterval(() => {
-            const randomEvents = [
-                {
-                    id: Date.now().toString(),
-                    type: 'comment' as const,
-                    user: 'User' + Math.floor(Math.random() * 100),
-                    avatar: require('@/assets/icons/animoji.png'),
-                    content: 'I love this product! Do you ship internationally?',
-                    timestamp: new Date()
-                },
-                {
-                    id: Date.now().toString(),
-                    type: 'join' as const,
-                    user: 'User' + Math.floor(Math.random() * 100),
-                    avatar: require('@/assets/icons/animoji.png'),
-                    content: 'joined the stream',
-                    timestamp: new Date()
-                }
-            ];
-
-            const newEvent = randomEvents[Math.floor(Math.random() * randomEvents.length)];
-
-            setLiveComments(prev => {
-                // Keep only the last 10 comments to avoid cluttering the UI
-                const updated = [...prev, newEvent];
-                if (updated.length > 10) {
-                    return updated.slice(updated.length - 10);
-                }
-                return updated;
-            });
-
-            // Scroll to the end to show new comments
-            if (commentsListRef.current) {
-                commentsListRef.current.scrollToEnd({ animated: true });
-            }
-        }, 15000); // Add a new comment every 15 seconds
 
         // Add keyboard listeners with height information
         const keyboardDidShowListener = Keyboard.addListener(
@@ -379,7 +121,9 @@ const LivestreamStudio = () => {
             // Clean up listeners
             keyboardDidShowListener.remove();
             keyboardDidHideListener.remove();
-            clearInterval(interval);
+            
+            // Disconnect socket when component unmounts
+            disconnectSocket();
         };
     }, [id]);
 
@@ -455,11 +199,53 @@ const LivestreamStudio = () => {
                 token: streamDetails?.token || '',
                 uid: streamDetails?.uid || ''
             });
+
+            // Initialize socket connection for real-time chat
+            const userToken = await getToken();
+            if (userToken) {
+                initializeSocket(userToken, handleStreamNotification);
+            }
         } catch (error) {
             console.error('Error setting up livestream:', error);
             setStatus('Error: ' + (error as Error).message);
         }
     };
+
+    // Handler for WebSocket notifications (joins, comments, purchases)
+    const handleStreamNotification = useCallback((notification: StreamNotification) => {
+        console.log('Received notification:', notification);
+        
+        // Process notification based on type
+        switch (notification.type) {
+            case 'join':
+                console.log('User joined stream:', notification.user);
+                // Update UI to show join event - add to liveComments without slicing
+                setLiveComments(prev => [...prev, notification]);
+                break;
+                
+            case 'comment':
+                console.log('New comment received:', notification.content);
+                // Update UI to show comment - add to liveComments without slicing
+                setLiveComments(prev => [...prev, notification]);
+                // Increment comment count
+                setComments(prev => prev + 1);
+                break;
+                
+            case 'purchase':
+                console.log('New purchase made:', notification.content);
+                // Update UI to show purchase - add to liveComments without slicing
+                setLiveComments(prev => [...prev, notification]);
+                break;
+                
+            default:
+                console.warn('Unknown notification type:', notification.type);
+        }
+        
+        // Scroll to the end to show new notification
+        if (commentsListRef.current) {
+            commentsListRef.current.scrollToEnd({ animated: true });
+        }
+    }, []);
 
     const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
         const message = event.nativeEvent.data;
@@ -496,89 +282,15 @@ const LivestreamStudio = () => {
         }
     };
 
-    const handleLike = () => {
-        if (!liked) {
-            setLikes(likes + 1);
-            setLiked(true);
-            // Here you would typically call an API to update the like count
-        } else {
-            setLikes(likes - 1);
-            setLiked(false);
-            // Here you would typically call an API to update the like count
-        }
-    };
-
     const handleShare = () => {
         // Implement share functionality
         console.log('Share stream');
     };
 
-    const formatCount = (count: number): string => {
-        if (count >= 1000) {
-            return (count / 1000).toFixed(1) + 'k';
-        }
-        return count.toString();
-    };
-
-    const formatPrice = (price: number): string => {
-        return `$${(price / 100).toFixed(2)}`;
-    };
-
-    const handleNextProduct = () => {
-        if (streamProducts.length > 0) {
-            setCurrentProductIndex((prevIndex) =>
-                prevIndex === streamProducts.length - 1 ? 0 : prevIndex + 1
-            );
-        }
-    };
-
-    const handlePrevProduct = () => {
-        if (streamProducts.length > 0) {
-            setCurrentProductIndex((prevIndex) =>
-                prevIndex === 0 ? streamProducts.length - 1 : prevIndex - 1
-            );
-        }
-    };
-
-    const getCurrentProduct = () => {
-        if (streamProducts.length === 0) return null;
-        return streamProducts[currentProductIndex].product;
-    };
-
-    const currentProduct = getCurrentProduct();
-
-    const renderProductCard = useCallback(({ item, index }) => {
-        const product = item.product;
-
-        return (
-            <TouchableOpacity className="bg-white/10 backdrop-blur-lg p-3 rounded-lg flex-row items-center mx-1">
-                <Image
-                    source={{ uri: product.images[0]?.url }}
-                    className="w-16 h-16 rounded-lg"
-                    resizeMode="cover"
-                />
-                <View className="flex-1 ml-3">
-                    <Text numberOfLines={2} className="text-white capitalize font-LexendDecaMedium w-[100px] ">
-                        {product.name}
-                    </Text>
-                    <Text className="text-white text-lg font-LexendDecaBold">
-                        ₦{product?.price?.toLocaleString()}
-                    </Text>
-                </View>
-                <TouchableOpacity className="bg-[#16783A] px-4 py-2 rounded-lg">
-                    <Text className="text-white font-LexendDecaMedium">Buy Now</Text>
-                </TouchableOpacity>
-            </TouchableOpacity>
-        );
-    }, []);
-
-    const handleIncreaseCommentCount = () => {
-        setComments(comments + 1);
-    };
-
-    const handleCantComment = () => {
-        setShowComments(false);
-        // Handle auth flow if needed
+    // Product buy handler
+    const handleBuyNow = (product: Product) => {
+        // Implement buy functionality
+        console.log('Buy product:', product.name);
     };
 
     // Render a comment or event item to match the reference image
@@ -701,6 +413,15 @@ const LivestreamStudio = () => {
         padding: 16,
     };
 
+    const handleIncreaseCommentCount = () => {
+        setComments(comments + 1);
+    };
+
+    const handleCantComment = () => {
+        setShowComments(false);
+        // Handle auth flow if needed
+    };
+
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -711,7 +432,7 @@ const LivestreamStudio = () => {
                         <>
                             <WebView
                                 source={{
-                                    html: getHtmlContent(
+                                    html: streamEngine(
                                         streamConfig?.appId || '',
                                         streamConfig?.channel || '',
                                         streamConfig?.token || '',
@@ -855,7 +576,13 @@ const LivestreamStudio = () => {
                             data={streamProducts}
                             scrollAnimationDuration={500}
                             onSnapToItem={(index) => setCurrentProductIndex(index)}
-                            renderItem={renderProductCard}
+                            renderItem={({item, index}) => (
+                                <LiveShowProductCard 
+                                    item={item} 
+                                    index={index}
+                                    onBuyNow={handleBuyNow}
+                                />
+                            )}
                             defaultIndex={currentProductIndex}
                         />
                     </View>
@@ -934,7 +661,6 @@ const styles = StyleSheet.create({
     },
     commentUser: {
         color: '#fff',
-        fontWeight: 'bold',
         fontSize: 14,
     },
     // Join comment specific styles (green background)
@@ -955,6 +681,7 @@ const styles = StyleSheet.create({
         color: '#FFEB3B', // Yellow text for "joined the stream"
         fontSize: 12,
         fontFamily: 'LexendDeca',
+        fontWeight: 'bold',
     },
     // Purchase comment specific styles (red background)
     purchaseCommentItem: {
@@ -972,6 +699,7 @@ const styles = StyleSheet.create({
     purchaseCommentText: {
         color: '#16783A',
         fontSize: 12,
+        fontWeight: 'bold',
     },
     // Regular comment specific styles (dark background)
     regularCommentItem: {
@@ -989,6 +717,7 @@ const styles = StyleSheet.create({
     regularCommentText: {
         color: '#fff',
         fontSize: 12,
+        fontWeight: 'bold',
     },
     // Comment input styling to match reference image
     commentInputContainer: {
@@ -1008,7 +737,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         fontSize: 14,
         borderRadius: 10,
-        backgroundColor: 'rgba(50, 50, 50, 0.5)', // Semi-transparent background
+        backgroundColor: 'rgba(50, 50, 50, 0.2)', // Semi-transparent background
     },
     playButtonOverlay: {
         ...StyleSheet.absoluteFillObject,

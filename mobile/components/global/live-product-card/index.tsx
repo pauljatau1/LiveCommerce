@@ -38,7 +38,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         <Image
           source={{ uri: item?.coverImage?.url }}
           resizeMode="cover"
-          className="h-[240px] w-[170px] rounded-lg"
+          className="h-[240px] w-[160px] rounded-lg"
         />
         <View className="absolute top-2 left-2">
           <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
