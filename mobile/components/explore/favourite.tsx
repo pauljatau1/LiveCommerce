@@ -1,44 +1,74 @@
 import { View, Text, FlatList } from "react-native";
-import React from "react";
-import SectionHeader from "@/components/global/section-header";
+import React, { useCallback, useEffect, useState } from "react";
+import LiveCardTemp from "@/components/global/live-product-card/LiveCardTemp";
+import axios from "axios";
 import LiveProductCard from "@/components/global/live-product-card";
+import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 
-const FavouriteExplore = () => {
-  const numColumns = 2;
-  const sellers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const FavouriteExplore = ({ category }: any) => {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [spotLight, setSpotLight] = useState<any[]>([]);
+  const fetchSpotlightLiveStreams = async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/streams/category/${category}`,
+      );
+      if (response.status === 200) {
+        console.log("spotlight streams", response.data?.streams?.length);
+        setSpotLight(response.data?.streams);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const groupedSellers = sellers.reduce((rows, seller, index) => {
-    if (index % numColumns === 0) rows.push([]);
-    rows[rows.length - 1].push(seller);
-    return rows;
-  }, [] as any[][]);
+  useEffect(() => {
+    fetchSpotlightLiveStreams();
+  }, []);
 
-  const lastSeller = sellers[sellers.length - 1];
+  const renderEmptyStreams = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+        }}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Spotlight Streams
+        </Text>
+      </View>
+    );
+  }, [spotLight]);
 
   return (
-    <View className="w-[100%]">
-      <View style={{ paddingLeft: 16 }}>
-        <FlatList
-          data={groupedSellers}
-          renderItem={({ item: row }) => (
-            <View className="space-x-4 space-y-4 mb-[5.54px]">
-              {row.map((seller) => (
-                <LiveProductCard
-                  key={seller}
-                  {...seller}
-                  showLive={true}
-                  lastSeller={lastSeller}
-                  showBtn={true}
-                />
-              ))}
-            </View>
-          )}
-          keyExtractor={(item, index) => `group-${index}`}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="pt-[5px]"
-        />
-      </View>
+    <View className=" w-[100%] pb-[15.5px]">
+      {loading ? (
+        <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
+      ) : spotLight?.length > 0 ? (
+        <View
+          style={{
+            paddingHorizontal: 16,
+          }}
+        >
+          <FlatList
+            data={spotLight}
+            renderItem={({ item }) => (
+              <View className="w-1/2 py-2 shrink">
+                <LiveProductCard item={item} />
+              </View>
+            )}
+            keyExtractor={(item, index) => item?._id || index.toString()}
+            numColumns={2}
+            columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
+            scrollEnabled={false}
+          />
+        </View>
+      ) : (
+        renderEmptyStreams()
+      )}
     </View>
   );
 };

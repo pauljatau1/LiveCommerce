@@ -1,9 +1,10 @@
-import { View, FlatList } from "react-native";
+import { View, FlatList, Text } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
 import { useLivestream } from "../../../contexts/livestreamContext";
+import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 
 const PopularCard = () => {
   const {
@@ -13,13 +14,28 @@ const PopularCard = () => {
     fetchAllActiveLiveStreams,
   } = useLivestream();
 
+  const renderEmptyStreams = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+        }}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Active Streams
+        </Text>
+      </View>
+    );
+  }, [activeLivestream]);
+
   return (
     <View className="pt-[16px] mb-5 w-full">
       <SectionHeader title="Popular Now" btnText="View All" />
-      <View className="pl-[16px]">
+      <View className="w-full">
         {isLoading ? (
-          <ActivityIndicator size="small" color="#16783A" />
-        ) : (
+          <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
+        ) : activeLivestream?.length > 0 ? (
           <FlatList
             data={activeLivestream}
             renderItem={({ item }) => (
@@ -33,6 +49,8 @@ const PopularCard = () => {
               gap: 12,
             }}
           />
+        ) : (
+          renderEmptyStreams()
         )}
       </View>
     </View>

@@ -37,6 +37,8 @@ import ProductPreview from "./productPreview";
 import BlipsShop from "./blipsShop";
 import AuthSheet from "../auth/authSheet";
 import { data } from "@/constants";
+import Comment from "./comment";
+import CommentsSheet from "./commentsSheet";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -297,14 +299,30 @@ const VideoItem = ({
               >
                 {seller.storeName || seller?.firstName + " " + seller?.lastName}
               </Text>
-              <View className="flex-row items-center gap-[4px]">
-                <AntDesign name="star" size={12} color="#FFD700" />
-                <Text
-                  className="text-white text-[12px] font-LexendDecaMedium"
-                  style={styles.text}
-                >
-                  {item?.seller?.storeRating}
-                </Text>
+              <View className="flex-row items-center gap-[8px]">
+                {seller?.isFeatured && (
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 3,
+                      borderRadius: 2.5,
+                      backgroundColor: "#E8C300",
+                    }}
+                  >
+                    <Text className="font-LexendDecaMedium text-[6px] ">
+                      Top seller
+                    </Text>
+                  </View>
+                )}
+                <View className="flex-row items-center gap-[4px]">
+                  <AntDesign name="star" size={12} color="#FFD700" />
+                  <Text
+                    className="text-white text-[12px] font-LexendDecaMedium"
+                    style={styles.text}
+                  >
+                    {item?.seller?.storeRating}
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -467,7 +485,7 @@ const VideoItem = ({
           </View>
         </View>
         {loading && Platform.OS == "ios" && (
-          <View style={styles.loaderContainer}>
+          <View style={[styles.loaderContainer, { bottom: tabBarHeight }]}>
             <View
               style={{
                 width: 50,
@@ -483,13 +501,13 @@ const VideoItem = ({
           </View>
         )}
         {paused && (
-          <View style={styles.loaderContainer}>
+          <View style={[styles.loaderContainer, { bottom: tabBarHeight }]}>
             <Entypo
               name="controller-play"
               size={100}
               color="#ccc"
               style={{
-                opacity: 1,
+                opacity: 0.4,
               }}
             />
           </View>
@@ -497,15 +515,15 @@ const VideoItem = ({
 
         <BottomSheet
           bgColor="#121212"
-          childrenStyle="!px-[11px]"
+          childrenStyle="!px-[0px]"
           showCloseIcon={false}
           title=""
           show={showComments}
           titleColor="!text-white"
-          snapPoints={["60%"]}
+          snapPoints={["70%"]}
           enableDynamicSizing={false}
           onRequestClose={() => setShowComments(false)}
-          keyboardBehavior="interactive"
+          keyboardBehavior="extend"
         >
           <CommentsSheet
             handleIncreaseCommentCount={handleIncreaseCommentCount}
@@ -582,156 +600,6 @@ const VideoItem = ({
         </BottomSheet>
       </View>
     </TouchableWithoutFeedback>
-  );
-};
-
-const CommentsSheet = ({
-  handleIncreaseCommentCount,
-  product,
-  id,
-  commentCount,
-  handleCantComment,
-}: {
-  handleIncreaseCommentCount: () => void;
-  product: any;
-  id: string;
-  commentCount: number;
-  handleCantComment: any;
-}) => {
-  const [comments, setComments] = useState<any[]>([]);
-  const [comment, setComment] = useState<string>("");
-  const [page, setPage] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  const handleGetComments = async () => {
-    const token = await getToken();
-    try {
-      const config = {
-        method: "GET",
-        url:
-          process.env.EXPO_PUBLIC_API_URL +
-          `api/products/${product.id}/blips/${id}/comments?page=${page}&limit=20`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        data: null,
-      };
-      const response = await axios(config);
-      setComments(response.data.comments?.filter((cm: any) => cm?.buyer));
-      setPage(page + 1);
-      setLoading(false);
-    } catch (e: any) {
-      console.log("error retrieving comment ", e.response.data);
-    }
-  };
-
-  const handleCreateComment = async () => {
-    const token = await getToken();
-    const user = await getUser();
-    if (!token) {
-      return handleCantComment();
-    }
-    const constructComment = {
-      buyer: {
-        firstName: user?.firstName,
-        lastName: user?.lastName,
-        profileImage: {
-          url: user?.profileImage?.url,
-        },
-      },
-      comment: comment,
-      createdAt: moment().toISOString(),
-    };
-    setComments([...comments, constructComment]);
-    setComment("");
-    handleIncreaseCommentCount();
-    try {
-      const config = {
-        method: "POST",
-        url:
-          process.env.EXPO_PUBLIC_API_URL +
-          `api/products/${product.id}/blips/${id}/comments`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        data: {
-          comment,
-        },
-      };
-      const response = await axios(config);
-      // setComments(response.data.comments);
-      setPage(1);
-      setLoading(false);
-    } catch (e: any) {
-      console.log("error creating comment ", e.response.data);
-    }
-  };
-
-  useEffect(() => {
-    handleGetComments();
-  }, [id, product]);
-
-  return (
-    <View className="px-[10px] w-full h-full items-center">
-      {loading ? (
-        <ActivityIndicator size={"small"} color={"white"} />
-      ) : (
-        <View className="h-full pb-[50px] w-full">
-          <Text className="text-white text-center mb-[30px]">
-            {formatNumber(commentCount) || "No"}{" "}
-            {commentCount > 1 ? "comments" : "comment"}
-          </Text>
-          <FlatList
-            data={comments.slice().reverse()}
-            renderItem={({ item, index }) => (
-              <View key={index} className="flex-row gap-2 mb-[16px]">
-                <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
-                  {item.buyer?.profileImage?.url ? (
-                    <Image
-                      source={{ uri: item.buyer?.profileImage?.url }}
-                      className="w-full h-full"
-                    />
-                  ) : (
-                    <Text className="text-white text-[10px]">
-                      {item?.buyer?.firstName.charAt(0).toUpperCase() +
-                        item?.buyer?.lastName.charAt(0).toUpperCase()}
-                    </Text>
-                  )}
-                </View>
-                <View className="shrink">
-                  <Text className="text-[#ccc] mb-[4px]">
-                    {item?.buyer?.firstName + " " + item?.buyer?.lastName}
-                  </Text>
-                  <Text className="text-white leading-20 font-[400] mb-[12px]">
-                    {item?.comment}
-                  </Text>
-                  <Text className="text-[#f2f2f2] text-[12px] opacity-50">
-                    {timeFromNow(item?.createdAt)}
-                  </Text>
-                </View>
-              </View>
-            )}
-            keyExtractor={(item, index) => index.toString()}
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
-      )}
-      <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 left-2 ">
-        <BottomSheetTextInput
-          placeholder="Add comment..."
-          placeholderTextColor={"#ccc"}
-          style={{
-            fontSize: 15,
-            color: "#fff",
-            padding: 0,
-          }}
-          returnKeyType="send"
-          value={comment}
-          onChangeText={(text) => setComment(text)}
-          onSubmitEditing={handleCreateComment}
-        />
-      </View>
-    </View>
   );
 };
 

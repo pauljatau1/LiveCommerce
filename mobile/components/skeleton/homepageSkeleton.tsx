@@ -25,7 +25,7 @@ const HomepageSkeleton = ({
             <View className="flex-row gap-[6px] items-center">
               <Skeleton
                 style={{
-                  backgroundColor: "#000",
+                  backgroundColor: "#2e2e2e",
                   borderRadius: 12.5,
                 }}
                 skeletonStyle={{
@@ -38,7 +38,7 @@ const HomepageSkeleton = ({
               />
               <Skeleton
                 style={{
-                  backgroundColor: "#000",
+                  backgroundColor: "#2e2e2e",
                   borderRadius: 4,
                 }}
                 skeletonStyle={{
@@ -53,7 +53,7 @@ const HomepageSkeleton = ({
 
             <Skeleton
               style={{
-                backgroundColor: "#000",
+                backgroundColor: "#2e2e2e",
                 borderRadius: 8,
               }}
               skeletonStyle={{
