@@ -180,11 +180,18 @@ exports.startStream = async (req, res) => {
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
       io.to('stream_notifications').emit('stream_notification', {
-        message: 'Host started stream',
-        streamId: stream._id,
-        sellerId: req.user.id,
-        storeName: seller.storeName || 'Unknown Store',
-        title: stream.title,
+        id: Date.now().toString(),
+        type: 'start',
+        user: seller.storeName || 'Host',
+        avatar: stream.seller.storeAvatar?.url || '',
+        content: 'Host started stream',
+        data: {
+          message: 'Host started stream',
+          streamId: stream._id,
+          sellerId: req.user.id,
+          storeName: seller.storeName || 'Unknown Store',
+          title: stream.title
+        },
         timestamp: new Date()
       });
     }
@@ -440,11 +447,18 @@ exports.joinStream = async (req, res) => {
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
       io.to('stream_notifications').emit('viewer_joined_stream', {
-        message: `${req.user.firstName} joined room`,
-        buyerId: req.user.id,
-        streamId: stream._id,
-        sellerName: stream.seller.storeName || stream.seller.businessName,
-        sellerId: stream.seller._id,
+        id: Date.now().toString(),
+        type: 'join',
+        user: req.user.firstName || 'Viewer',
+        avatar: req.user.profileImage?.url || '',
+        content: `${req.user.firstName} joined room`,
+        data: {
+          message: `${req.user.firstName} joined room`,
+          buyerId: req.user.id,
+          streamId: stream._id,
+          sellerName: stream.seller.storeName || stream.seller.businessName,
+          sellerId: stream.seller._id
+        },
         timestamp: new Date()
       });
     }
@@ -520,10 +534,17 @@ exports.joinStreamSeller = async (req, res) => {
       
       // Send rejoined notification
       io.to('stream_notifications').emit('seller_rejoined_stream', {
-        message: `Host rejoined room`,
-        sellerId: req.user.id,
-        streamId: stream._id,
-        sellerName: stream.seller.storeName || stream.seller.businessName,
+        id: Date.now().toString(),
+        type: 'join',
+        user: stream.seller.storeName || 'Host',
+        avatar: stream.seller.storeAvatar?.url || '',
+        content: 'Host rejoined room',
+        data: {
+          message: 'Host rejoined room',
+          sellerId: req.user.id,
+          streamId: stream._id,
+          sellerName: stream.seller.storeName || stream.seller.businessName
+        },
         timestamp: new Date()
       });
     }
