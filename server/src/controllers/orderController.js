@@ -28,18 +28,9 @@ const {
 const Category = require('../models/Category');
 const { v4: uuidv4 } = require('uuid');
 const { agenda } = require('../config/agenda');
+const crypto = require('crypto');
 
 
-
-// Initialize Paystack
-const paystackSecretKey = "sk_test_REDACTED";
-const paystack = axios.create({
-  baseURL: 'https://api.paystack.co',
-  headers: {
-    Authorization: `Bearer ${paystackSecretKey}`,
-    'Content-Type': 'application/json'
-  }
-});
 
 // Initialize Fez API configuration
 const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
@@ -481,20 +472,22 @@ exports.createOrder = async (req, res) => {
           },
           shipment_id: uniqueOrderId
         },
-        paid: !isItemCod || paidFromWallet,
+        paid: (paymentMethod !== 'paystack' || isItemCod || paidFromWallet) ? (!isItemCod || paidFromWallet) : false,
         paymentInfo: {
           method: paidFromWallet ? 'wallet' : paymentMethod,
-          status: isItemCod && !paidFromWallet ? 'awaiting_cod' : 'paid',
+          status: isItemCod && !paidFromWallet ? 'awaiting_cod' : 
+                 (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) ? 'pending' : 'paid',
           isCashOnDelivery: isItemCod && !paidFromWallet,
-          ...(isItemCod && !paidFromWallet ? {} : { paidAt: new Date() })
+          ...(isItemCod && !paidFromWallet ? {} : 
+             (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) ? {} : { paidAt: new Date() })
         }
       });
       
       await order.save({ session });
       orders.push(order);
       
-      // Create transaction record for seller earnings (if not COD)
-      if (!isItemCod || paidFromWallet) {
+      // Create transaction record for seller earnings (if not COD and not pending Paystack payment)
+      if ((!isItemCod || paidFromWallet) && !(paymentMethod === 'paystack' && !isItemCod && !paidFromWallet)) {
         // Only create transaction for the product amount (not including shipping)
         const Transaction = mongoose.model('Transaction');
         const transaction = new Transaction({
@@ -718,289 +711,7 @@ exports.getShippingRates = async (req, res) => {
   }
 };
 
-// Mark multiple orders as paid
-exports.markAsPaid = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
 
-  try {
-    const { orders } = req.body;
-    console.log('Starting markAsPaid process for orders:', orders);
-
-    if (!Array.isArray(orders) || orders.length === 0) {
-      return res.status(400).json({ message: 'Orders array is required' });
-    }
-
-    const processedOrders = [];
-    let totalAmount = 0;
-    let totalShippingFee = 0;
-
-    // Group orders by buyer to validate wallet balance
-    const ordersByBuyer = {};
-    // Group orders by seller for processing
-    const ordersBySeller = {};
-    
-    for (const orderData of orders) {
-      const order = await Order.findById(orderData.orderId);
-      if (!order) {
-        throw new Error(`Order not found: ${orderData.orderId}`);
-      }
-      
-      const buyerId = order.buyer.toString();
-      if (!ordersByBuyer[buyerId]) {
-        ordersByBuyer[buyerId] = {
-          orders: [],
-          totalAmount: 0
-        };
-      }
-      ordersByBuyer[buyerId].orders.push({ ...orderData, order });
-      ordersByBuyer[buyerId].totalAmount += orderData.amount;
-      
-      // Group by seller
-      const sellerId = order.seller.toString();
-      if (!ordersBySeller[sellerId]) {
-        ordersBySeller[sellerId] = {
-          orders: [],
-          totalAmount: 0,
-          totalShippingFee: 0
-        };
-      }
-      ordersBySeller[sellerId].orders.push({ ...orderData, order });
-      ordersBySeller[sellerId].totalAmount += orderData.amount;
-      ordersBySeller[sellerId].totalShippingFee += orderData.shipping_fee || 0;
-    }
-
-    // Validate wallet balances if using wallet payment
-    for (const buyerId in ordersByBuyer) {
-      const buyerOrders = ordersByBuyer[buyerId];
-      const anyWalletPayment = buyerOrders.orders.some(o => o.paidFromWallet);
-      
-      if (anyWalletPayment) {
-        const buyer = await Buyer.findById(buyerId);
-        if (!buyer) {
-          throw new Error(`Buyer not found: ${buyerId}`);
-        }
-        
-        if (buyer.wallet.balance < buyerOrders.totalAmount) {
-          throw new Error(`Insufficient wallet balance for buyer ${buyerId}. Required: ${buyerOrders.totalAmount}, Available: ${buyer.wallet.balance}`);
-        }
-      }
-    }
-
-    // Process orders by seller
-    for (const sellerId in ordersBySeller) {
-      const sellerOrders = ordersBySeller[sellerId];
-      console.log(`Processing ${sellerOrders.orders.length} orders for seller ${sellerId}`);
-      
-      // Get seller information for notifications and processing
-      const seller = await Seller.findById(sellerId);
-      if (!seller) {
-        throw new Error(`Seller not found: ${sellerId}`);
-      }
-      
-      // Process each order for this seller
-      for (const orderData of sellerOrders.orders) {
-        const { 
-          orderId, 
-          amount, 
-          carrier_reference, 
-          shipping_fee, 
-          carrier_name, 
-          rate_id,
-          estimatedDeliveryDate,
-          estimatedPickupDate,
-          paidFromWallet = false,
-          order
-        } = orderData;
-
-        console.log('Processing order:', orderId);
-
-        // If using wallet payment, deduct from buyer's wallet
-        if (paidFromWallet) {
-          const buyer = await Buyer.findById(order.buyer);
-          
-          // Create wallet transaction
-          const transaction = {
-            type: 'debit',
-            amount,
-            paymentReference: `ORDER-${order.order_id}`,
-            description: `Payment for order #${order.order_id}`,
-            status: 'completed',
-            createdAt: new Date()
-          };
-
-          // Update buyer's wallet
-          await Buyer.findByIdAndUpdate(
-            order.buyer,
-            {
-              $inc: { 'wallet.balance': -amount },
-              $push: { 'wallet.transactions': transaction }
-            },
-            { session }
-          );
-        }
-
-        // Rest of the existing code remains the same
-        console.log('Found order:', {
-          orderId: order._id,
-          items: order.items,
-          totalAmount: order.totalAmount
-        });
-
-        if (amount !== order.totalAmount) {
-          console.log('Amount mismatch:', { expected: order.totalAmount, received: amount });
-          throw new Error(`Payment amount does not match order total for order ${orderId}`);
-        }
-
-        if (!estimatedDeliveryDate || !estimatedPickupDate) {
-          throw new Error(`Estimated delivery and pickup dates are required for order ${orderId}`);
-        }
-
-        if (new Date(estimatedPickupDate) >= new Date(estimatedDeliveryDate)) {
-          throw new Error(`Estimated pickup date must be before delivery date for order ${orderId}`);
-        }
-
-        // Update product inventory
-        for (const item of order.items) {
-          console.log('Processing item:', {
-            productId: item.product,
-            quantity: item.quantity
-          });
-
-          const productBefore = await Product.findById(item.product);
-          console.log('Product before update:', {
-            productId: productBefore._id,
-            currentStock: productBefore.stock,
-            currentInventoryQuantity: productBefore.inventory.quantity,
-            currentSoldCount: productBefore.stats.soldCount
-          });
-
-          const updateResult = await Product.findByIdAndUpdate(
-            item.product,
-            { 
-              $inc: { 
-                'stats.soldCount': item.quantity,
-                'stock': -item.quantity,
-                'inventory.quantity': -item.quantity 
-              }
-            },
-            { new: true, session }
-          );
-
-          console.log('Product after update:', {
-            productId: updateResult._id,
-            newStock: updateResult.stock,
-            newInventoryQuantity: updateResult.inventory.quantity,
-            newSoldCount: updateResult.stats.soldCount,
-            updateSuccessful: !!updateResult
-          });
-        }
-
-        const tracking = {
-          status: 'pending',
-          history: [],
-          carrier: carrier_name,
-          ...(order.shipping.tracking || {})
-        };
-
-        order.shipping = {
-          ...order.shipping,
-          method: order.shipping.method || 'standard',
-          carrier: {
-            name: carrier_name,
-            reference: carrier_reference
-          },
-          fee: {
-            amount: shipping_fee,
-            currency: 'NGN'
-          },
-          rate_id: rate_id,
-          estimatedDeliveryDate: new Date(estimatedDeliveryDate),
-          estimatedPickupDate: estimatedPickupDate,
-          tracking: tracking,
-          documents: order.shipping.documents || {
-            shippingLabel: null,
-            commercialInvoice: null
-          }
-        };
-
-        const updatedOrder = await Order.findByIdAndUpdate(
-          orderId,
-          {
-            $set: {
-              paid: true,
-              paymentInfo: {
-                ...order.paymentInfo,
-                status: 'paid',
-                paidAt: new Date(),
-                method: paidFromWallet ? 'wallet' : order.paymentInfo.method
-              },
-              shipping: order.shipping
-            }
-          },
-          { new: true, runValidators: true, session }
-        );
-
-        processedOrders.push(updatedOrder);
-        totalAmount += amount;
-        totalShippingFee += shipping_fee;
-
-        // Create notifications
-        await Promise.all([
-          createNotification(
-            order.seller,
-            'order_paid',
-            {
-              order_id: order.order_id,
-              amount: order.totalAmount,
-              paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method
-            }
-          ),
-          createBuyerNotification(
-            order.buyer,
-            'order_paid',
-            {
-              orderId: order._id,
-              order_id: order.order_id,
-              amount: order.totalAmount,
-              paymentMethod: paidFromWallet ? 'wallet' : order.paymentInfo.method,
-              sellerName: seller.businessName || 'Seller'
-            }
-          )
-        ]);
-      }
-    }
-
-    await session.commitTransaction();
-    session.endSession();
-    
-    res.status(200).json({
-      message: 'Orders marked as paid successfully',
-      orders: processedOrders,
-      totals: {
-        totalAmount,
-        totalShippingFee,
-        grandTotal: totalAmount + totalShippingFee
-      }
-    });
-
-  } catch (error) {
-    // Only abort if the session is still active
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    session.endSession();
-    
-    console.error('Error in markAsPaid:', {
-      error: error.message,
-      stack: error.stack
-    });
-    res.status(500).json({
-      message: 'Failed to mark orders as paid',
-      error: error.message
-    });
-  }
-};
 
 // Get all orders
 exports.getAllOrders = async (req, res) => {
@@ -2472,16 +2183,23 @@ const getFezAuthToken = async () => {
 exports.getDeliveryCost = async (req, res) => {
   try {
     console.log('🚚 Starting delivery cost calculation request...');
-    const { state, pickUpState, weight } = req.body;
+    const { state, pickupLocations } = req.body;
     
-    console.log(`📦 Request parameters: state=${state}, pickUpState=${pickUpState}, weight=${weight}`);
-    
+    // Validate input
+    if (!Array.isArray(pickupLocations)) {
+      return res.status(400).json({
+        status: 'Error',
+        description: 'pickupLocations must be an array',
+        error: 'Invalid input'
+      });
+    }
+
     // Get a fresh authentication token
     console.log('🔄 Getting fresh authentication token...');
     const authToken = await getFezAuthToken();
     console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
     
-    // Prepare the request URL and headers - FIXED URL PATH
+    // Prepare the request URL and headers
     const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
     const headers = {
       'Authorization': `Bearer ${authToken}`,
@@ -2489,80 +2207,71 @@ exports.getDeliveryCost = async (req, res) => {
       'Content-Type': 'application/json'
     };
     
-    console.log(`📤 Cost request URL: ${url}`);
-    console.log(`📤 Cost request headers: ${JSON.stringify(headers, null, 2)}`);
-    console.log(`📤 Cost request payload: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
-    
-    // Make the API request to Fez Delivery with timeout
-    const axiosConfig = { 
-      headers,
-      timeout: 30000, // 30 seconds timeout
-    };
-    
-    console.log('📤 Sending cost request to Fez API...');
-    const response = await axios.post(url, {
-      state,
-      pickUpState,
-      weight
-    }, axiosConfig);
-    
-    console.log(`📥 Cost response status: ${response.status}`);
-    console.log(`📥 Cost response headers: ${JSON.stringify(response.headers, null, 2)}`);
-    console.log(`📥 Cost response data: ${JSON.stringify(response.data, null, 2)}`);
-    
-    console.log('✅ Successfully retrieved delivery cost');
-    return res.status(200).json(response.data);
+    // Make parallel requests for each pickup location
+    const costPromises = pickupLocations.map(async (location) => {
+      const { pickUpState, weight, sellerId } = location;
+      
+      console.log(`📤 Cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
+      
+      try {
+        const response = await axios.post(url, {
+          state,
+          pickUpState,
+          weight
+        }, { 
+          headers,
+          timeout: 30000 // 30 seconds timeout
+        });
+
+        return {
+          sellerId,
+          pickUpState,
+          weight,
+          ...response.data
+        };
+      } catch (error) {
+        console.error(`Error fetching cost for seller ${sellerId}:`, error.message);
+        return {
+          sellerId,
+          pickUpState,
+          weight,
+          error: error.message,
+          status: 'Error'
+        };
+      }
+    });
+
+    // Wait for all requests to complete
+    const results = await Promise.all(costPromises);
+
+    // Calculate total shipping cost
+    const successfulResults = results.filter(r => r.status === 'Success');
+    const totalCost = successfulResults.reduce((sum, r) => sum + Number(r.Cost?.cost || 0), 0);
+
+    console.log('✅ Successfully retrieved delivery costs');
+    return res.status(200).json({
+      status: 'Success',
+      description: 'Costs Fetched Successfully',
+      costs: results.map(result => ({
+        sellerId: result.sellerId,
+        pickUpState: result.pickUpState,
+        weight: result.weight,
+        cost: result.Cost?.cost || null,
+        status: result.status,
+        error: result.error || null
+      })),
+      totalCost
+    });
+
   } catch (error) {
-    console.error('❌ Error fetching delivery cost:');
+    console.error('❌ Error fetching delivery costs:', error);
     
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error(`Response status: ${error.response.status}`);
-      console.error(`Response headers: ${JSON.stringify(error.response.headers, null, 2)}`);
-      console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
-      
-      return res.status(error.response.status).json({
-        status: 'Error',
-        description: 'Failed to fetch delivery cost',
-        error: error.response.data,
-        details: {
-          status: error.response.status,
-          statusText: error.response.statusText
-        }
-      });
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('No response received from server');
-      console.error(`Request details: ${JSON.stringify({
-        method: 'POST',
-        url: url,
-        data: { state, pickUpState, weight: req.body.weight }
-      }, null, 2)}`);
-      
-      return res.status(500).json({
-        status: 'Error',
-        description: 'No response received from Fez Delivery',
-        error: 'Service unavailable',
-        details: {
-          message: error.message,
-          code: error.code
-        }
-      });
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error(`Error message: ${error.message}`);
-      console.error(`Error stack: ${error.stack}`);
-      
-      return res.status(500).json({
-        status: 'Error',
-        description: 'Failed to fetch delivery cost',
-        error: error.message,
-        details: {
-          stack: error.stack.split('\n').slice(0, 3).join('\n')
-        }
-      });
-    }
+    return res.status(500).json({
+      status: 'Error',
+      description: 'Failed to fetch delivery costs',
+      error: error.message,
+      details: error.response?.data || error.stack?.split('\n').slice(0, 3).join('\n')
+    });
   }
 };
 
@@ -2745,5 +2454,372 @@ exports.handleFezWebhook = async (req, res) => {
     });
   }
 };
+
+// Verify Paystack transaction status
+const verifyPaystackTransaction = async (reference) => {
+  try {
+    const response = await paystack.get(`/transaction/verify/${reference}`);
+    return {
+      success: response.data.status === 'success',
+      data: response.data.data
+    };
+  } catch (error) {
+    console.error('Error verifying Paystack transaction:', error);
+    return {
+      success: false,
+      error: error.response?.data || error.message
+    };
+  }
+};
+
+// Mark order as paid (for Paystack payments)
+exports.markOrderAsPaid = async (req, res) => {
+  const { id } = req.params;
+  const { transactionId, paymentReference } = req.body;
+
+  if (!transactionId && !paymentReference) {
+    return res.status(400).json({ 
+      message: 'Either transactionId or paymentReference is required' 
+    });
+  }
+
+  try {
+    const order = await Order.findById(id).populate('seller');
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Verify this is a Paystack order that's not already paid
+    if (order.paymentInfo.method !== 'paystack' || order.paid) {
+      return res.status(400).json({ 
+        message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
+      });
+    }
+
+    // If payment reference is provided, verify with Paystack
+    let verificationResult = { success: true };
+    if (paymentReference) {
+      verificationResult = await verifyPaystackTransaction(paymentReference);
+      
+      if (!verificationResult.success) {
+        return res.status(400).json({ 
+          message: 'Payment verification failed', 
+          error: verificationResult.error 
+        });
+      }
+      
+      // Use the transaction ID from Paystack if available
+      if (verificationResult.data && verificationResult.data.id) {
+        transactionId = verificationResult.data.id.toString();
+      }
+    }
+
+    // Update order payment status
+    order.paid = true;
+    order.paymentInfo.status = 'paid';
+    order.paymentInfo.transactionId = transactionId;
+    order.paymentInfo.paymentReference = paymentReference || null;
+    order.paymentInfo.paidAt = new Date();
+
+    const updatedOrder = await order.save();
+
+    // Create transaction record for seller earnings
+    const Transaction = mongoose.model('Transaction');
+    const transaction = new Transaction({
+      seller: order.seller._id,
+      orderId: order._id,
+      amount: order.totalAmount,
+      type: 'order_payment',
+      status: 'completed',
+      description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
+      metadata: {
+        itemTotal: order.totalAmount,
+        processingFeePercent: 0,
+        categoryName: order.items[0]?.productName || 'Mixed',
+        categoryFee: 0,
+        paymentReference: paymentReference || null
+      }
+    });
+    
+    await transaction.save();
+    
+    // Update seller's balance
+    await Seller.findByIdAndUpdate(
+      order.seller._id,
+      { $inc: { 'wallet.balance': order.totalAmount } }
+    );
+
+    // Create notifications
+    const notificationData = {
+      orderId: order._id,
+      buyerId: order.buyer,
+      sellerId: order.seller._id
+    };
+    
+    agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+
+    res.status(200).json({ 
+      message: 'Order marked as paid successfully', 
+      order: updatedOrder,
+      verificationDetails: paymentReference ? verificationResult.data : null
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to mark order as paid', error: error.message });
+  }
+};
+
+// Verify payment by reference
+exports.verifyPaymentByReference = async (req, res) => {
+  const { reference, orderId } = req.body;
+
+  if (!reference) {
+    return res.status(400).json({ message: 'Payment reference is required' });
+  }
+
+  try {
+    // Verify with Paystack
+    const verificationResult = await verifyPaystackTransaction(reference);
+    
+    if (!verificationResult.success) {
+      return res.status(400).json({ 
+        message: 'Payment verification failed', 
+        error: verificationResult.error 
+      });
+    }
+
+    // If order ID is provided, mark that specific order as paid
+    if (orderId) {
+      const order = await Order.findById(orderId).populate('seller');
+      
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+
+      // Check if this is a Paystack order that's not already paid
+      if (order.paymentInfo.method !== 'paystack' || order.paid) {
+        return res.status(400).json({ 
+          message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
+        });
+      }
+
+      // Update order payment status
+      order.paid = true;
+      order.paymentInfo.status = 'paid';
+      order.paymentInfo.transactionId = verificationResult.data.id.toString();
+      order.paymentInfo.paymentReference = reference;
+      order.paymentInfo.paidAt = new Date();
+
+      const updatedOrder = await order.save();
+
+      // Create transaction record for seller earnings
+      const Transaction = mongoose.model('Transaction');
+      const transaction = new Transaction({
+        seller: order.seller._id,
+        orderId: order._id,
+        amount: order.totalAmount,
+        type: 'order_payment',
+        status: 'completed',
+        description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
+        metadata: {
+          itemTotal: order.totalAmount,
+          processingFeePercent: 0,
+          categoryName: order.items[0]?.productName || 'Mixed',
+          categoryFee: 0,
+          paymentReference: reference
+        }
+      });
+      
+      await transaction.save();
+      
+      // Update seller's balance
+      await Seller.findByIdAndUpdate(
+        order.seller._id,
+        { $inc: { 'wallet.balance': order.totalAmount } }
+      );
+
+      // Create notifications
+      const notificationData = {
+        orderId: order._id,
+        buyerId: order.buyer,
+        sellerId: order.seller._id
+      };
+      
+      agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+
+      return res.status(200).json({ 
+        message: 'Order marked as paid successfully', 
+        order: updatedOrder,
+        verificationDetails: verificationResult.data
+      });
+    }
+
+    // If no order ID is provided, just return the verification result
+    return res.status(200).json({
+      message: 'Payment verification successful',
+      verificationDetails: verificationResult.data
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to verify payment', error: error.message });
+  }
+};
+
+// Handle Paystack webhook
+exports.handlePaystackWebhook = async (req, res) => {
+  // Verify the event is from Paystack
+  const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || paystackSecretKey)
+                    .update(JSON.stringify(req.body))
+                    .digest('hex');
+                    
+  if (hash !== req.headers['x-paystack-signature']) {
+    return res.status(400).json({ message: 'Invalid signature' });
+  }
+
+  const event = req.body;
+
+  // Handle successful charge event
+  if (event.event === 'charge.success') {
+    const { reference, metadata } = event.data;
+    
+    // If there's no metadata, just acknowledge the webhook
+    if (!metadata) {
+      return res.status(200).json({ message: 'Webhook received, but no metadata' });
+    }
+
+    try {
+      // Check if this is a wallet top-up
+      if (metadata.transactionType === 'wallet_topup' && metadata.buyerId) {
+        return await handleWalletTopUp(event.data, res);
+      }
+      
+      // Check if this is an order payment
+      if (metadata.orderId) {
+        return await handleOrderPayment(event.data, res);
+      }
+
+      // If we can't determine the type, just acknowledge
+      return res.status(200).json({ message: 'Webhook received, but transaction type unknown' });
+    } catch (error) {
+      console.error('Error processing Paystack webhook:', error);
+      // Still return 200 to acknowledge the webhook
+      return res.status(200).json({ message: 'Error processing webhook, but acknowledging receipt' });
+    }
+  }
+
+  // For other events, just acknowledge receipt
+  return res.status(200).json({ message: 'Webhook received' });
+};
+
+// Helper function to handle order payments
+async function handleOrderPayment(paymentData, res) {
+  const { reference, metadata } = paymentData;
+  const orderId = metadata.orderId;
+  
+  const order = await Order.findById(orderId).populate('seller');
+  
+  if (!order) {
+    return res.status(200).json({ message: 'Order not found, but acknowledging webhook' });
+  }
+
+  // Check if order is already paid
+  if (order.paid) {
+    return res.status(200).json({ message: 'Order already marked as paid' });
+  }
+
+  // Update order payment status
+  order.paid = true;
+  order.paymentInfo.status = 'paid';
+  order.paymentInfo.transactionId = paymentData.id.toString();
+  order.paymentInfo.paymentReference = reference;
+  order.paymentInfo.paidAt = new Date();
+
+  await order.save();
+
+  // Create transaction record for seller earnings
+  const Transaction = mongoose.model('Transaction');
+  const transaction = new Transaction({
+    seller: order.seller._id,
+    orderId: order._id,
+    amount: order.totalAmount,
+    type: 'order_payment',
+    status: 'completed',
+    description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
+    metadata: {
+      itemTotal: order.totalAmount,
+      processingFeePercent: 0,
+      categoryName: order.items[0]?.productName || 'Mixed',
+      categoryFee: 0,
+      paymentReference: reference
+    }
+  });
+  
+  await transaction.save();
+  
+  // Update seller's balance
+  await Seller.findByIdAndUpdate(
+    order.seller._id,
+    { $inc: { 'wallet.balance': order.totalAmount } }
+  );
+
+  // Create notifications
+  const notificationData = {
+    orderId: order._id,
+    buyerId: order.buyer,
+    sellerId: order.seller._id
+  };
+  
+  agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+
+  return res.status(200).json({ message: 'Order marked as paid via webhook' });
+}
+
+// Helper function to handle wallet top-ups
+async function handleWalletTopUp(paymentData, res) {
+  const { reference, metadata } = paymentData;
+  const buyerId = metadata.buyerId;
+  
+  const Buyer = mongoose.model('Buyer');
+  const buyer = await Buyer.findById(buyerId);
+  
+  if (!buyer) {
+    return res.status(200).json({ message: 'Buyer not found, but acknowledging webhook' });
+  }
+
+  // Check if transaction is already completed
+  const existingTransaction = buyer.wallet.transactions.find(
+    t => t.paymentReference === reference
+  );
+
+  if (existingTransaction && existingTransaction.status === 'completed') {
+    return res.status(200).json({ message: 'Payment already processed' });
+  }
+
+  // If transaction exists but is pending, update it
+  if (existingTransaction && existingTransaction.status === 'pending') {
+    existingTransaction.status = 'completed';
+    buyer.wallet.balance += existingTransaction.amount;
+    await buyer.save();
+    return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
+  }
+
+  // If no transaction found, create a new one
+  const amount = paymentData.amount / 100; // Convert from kobo to naira
+  
+  const newTransaction = {
+    type: 'credit',
+    amount,
+    paymentReference: reference,
+    description: metadata.description || 'Wallet top up via Paystack',
+    status: 'completed',
+    createdAt: new Date()
+  };
+
+  buyer.wallet.transactions.push(newTransaction);
+  buyer.wallet.balance += amount;
+  
+  await buyer.save();
+  
+  return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
+}
 
 

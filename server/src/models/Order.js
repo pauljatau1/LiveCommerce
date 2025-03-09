@@ -155,6 +155,7 @@ const orderSchema = new mongoose.Schema({
       default: 'pending'
     },
     transactionId: String,
+    paymentReference: String,
     paidAt: Date,
     isCashOnDelivery: {
       type: Boolean,

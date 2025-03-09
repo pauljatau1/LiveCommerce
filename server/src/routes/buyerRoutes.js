@@ -1873,9 +1873,66 @@ router.get('/wallet/balance',
 
 /**
  * @swagger
+ * /api/buyer/wallet/topup/verify:
+ *   get:
+ *     summary: Verify a wallet top-up payment
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: reference
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Paystack payment reference
+ *     responses:
+ *       200:
+ *         description: Wallet topped up successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Wallet topped up successfully
+ *                 transaction:
+ *                   type: object
+ *                   properties:
+ *                     paymentReference:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     type:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                 newBalance:
+ *                   type: number
+ *       400:
+ *         description: Invalid payment reference or verification failed
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/wallet/topup/verify',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.verifyWalletTopUp
+);
+
+/**
+ * @swagger
  * /api/buyer/wallet/topup:
  *   post:
- *     summary: Top up buyer's wallet
+ *     summary: Direct wallet top-up (admin only)
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
@@ -1895,6 +1952,10 @@ router.get('/wallet/balance',
  *               description:
  *                 type: string
  *                 example: Wallet top up
+ *               bypassPaystack:
+ *                 type: boolean
+ *                 description: Whether to bypass Paystack (admin only)
+ *                 default: false
  *     responses:
  *       200:
  *         description: Wallet topped up successfully
@@ -1926,6 +1987,8 @@ router.get('/wallet/balance',
  *         description: Invalid amount
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - direct top-up not allowed
  *       404:
  *         description: Buyer not found
  *       500:

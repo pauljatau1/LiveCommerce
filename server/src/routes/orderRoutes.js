@@ -352,107 +352,6 @@ router.post('/', authMiddleware.verifyToken, orderController.createOrder);
 router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderController.getShippingRates);
 
 
-/**
- * @swagger
- * /api/order/mark-as-paid:
- *   post:
- *     summary: Mark multiple orders as paid
- *     description: Updates the payment status for multiple orders and processes related updates. Can optionally use buyer's wallet balance for payment.
- *     tags: [Order]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - orders
- *             properties:
- *               orders:
- *                 type: array
- *                 items:
- *                   type: object
- *                   required:
- *                     - orderId
- *                     - amount
- *                     - carrier_reference
- *                     - shipping_fee
- *                     - carrier_name
- *                     - rate_id
- *                     - estimatedDeliveryDate
- *                     - estimatedPickupDate
- *                   properties:
- *                     orderId:
- *                       type: string
- *                       description: ID of the order to mark as paid
- *                     amount:
- *                       type: number
- *                       description: Payment amount for this order
- *                     carrier_reference:
- *                       type: string
- *                       description: Reference ID from the shipping carrier
- *                     shipping_fee:
- *                       type: number
- *                       description: Shipping fee for this order
- *                     carrier_name:
- *                       type: string
- *                       description: Name of the shipping carrier
- *                     rate_id:
- *                       type: string
- *                     estimatedDeliveryDate:
- *                       type: string
- *                       format: date-time
- *                       description: Expected delivery date for the order
- *                     estimatedPickupDate:
- *                       type: string
- *                       format: date-time
- *                       description: Expected pickup date from seller
- *                     paidFromWallet:
- *                       type: boolean
- *                       description: Whether to deduct the payment from buyer's wallet balance
- *                       default: false
- *     responses:
- *       200:
- *         description: Orders marked as paid successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 totalAmount:
- *                   type: number
- *                 totalShippingFee:
- *                   type: number
- *                 orders:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                       paid:
- *                         type: boolean
- *                       paymentInfo:
- *                         type: object
- *                       shipping:
- *                         type: object
- *       400:
- *         description: Invalid request, order validation failed, or insufficient wallet balance
- *       404:
- *         description: One or more orders not found
- *       500:
- *         description: Server error
- */
-router.post('/mark-as-paid', authMiddleware.verifyToken, orderController.markAsPaid);
-
-
-
-
-
 
 /**
  * @swagger
@@ -1323,5 +1222,131 @@ router.get('/track/:orderNo', orderController.trackOrderFez);
  *         description: Server error
  */
 router.post('/delivery-time-estimate', orderController.getDeliveryTimeEstimate);
+
+/**
+ * @swagger
+ * /api/order/{id}/mark-as-paid:
+ *   patch:
+ *     summary: Mark a Paystack order as paid
+ *     description: Updates the payment status of a Paystack order from pending to paid. Can verify payment with Paystack using a reference.
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               transactionId:
+ *                 type: string
+ *                 description: Paystack transaction ID
+ *               paymentReference:
+ *                 type: string
+ *                 description: Paystack payment reference for verification
+ *             oneOf:
+ *               - required: [transactionId]
+ *               - required: [paymentReference]
+ *     responses:
+ *       200:
+ *         description: Order marked as paid successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 order:
+ *                   type: object
+ *                 verificationDetails:
+ *                   type: object
+ *                   description: Details from Paystack verification (if paymentReference was provided)
+ *       400:
+ *         description: Invalid order status or payment verification failed
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:id/mark-as-paid', authMiddleware.verifyToken, orderController.markOrderAsPaid);
+
+/**
+ * @swagger
+ * /api/order/verify-payment:
+ *   post:
+ *     summary: Verify a Paystack payment by reference
+ *     description: Verifies a payment with Paystack using the payment reference. Can optionally mark an order as paid if orderId is provided.
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reference
+ *             properties:
+ *               reference:
+ *                 type: string
+ *                 description: Paystack payment reference
+ *               orderId:
+ *                 type: string
+ *                 description: Order ID to mark as paid (optional)
+ *     responses:
+ *       200:
+ *         description: Payment verification successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 order:
+ *                   type: object
+ *                   description: Order details (if orderId was provided)
+ *                 verificationDetails:
+ *                   type: object
+ *                   description: Details from Paystack verification
+ *       400:
+ *         description: Invalid request or payment verification failed
+ *       404:
+ *         description: Order not found (if orderId was provided)
+ *       500:
+ *         description: Server error
+ */
+router.post('/verify-payment', authMiddleware.verifyToken, orderController.verifyPaymentByReference);
+
+/**
+ * @swagger
+ * /api/order/paystack-webhook:
+ *   post:
+ *     summary: Paystack webhook endpoint
+ *     description: Receives and processes Paystack payment notifications
+ *     tags: [Order]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ *       400:
+ *         description: Invalid signature
+ */
+router.post('/paystack-webhook', orderController.handlePaystackWebhook);
 
 module.exports = router;

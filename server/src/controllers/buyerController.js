@@ -15,11 +15,23 @@ const { Expo } = require('expo-server-sdk');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 sgMail.setApiKey('SG.REDACTED');
 // Load environment variables from a .env file
 require('dotenv').config();
 
 const expo = new Expo();
+
+// Initialize Paystack
+const axios = require('axios');
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
+const paystack = axios.create({
+  baseURL: 'https://api.paystack.co',
+  headers: {
+    Authorization: `Bearer ${paystackSecretKey}`,
+    'Content-Type': 'application/json'
+  }
+});
 
 // Helper function to generate JWT
 const generateToken = (id) => {
@@ -2357,10 +2369,116 @@ exports.getWalletBalance = async (req, res) => {
   }
 };
 
-// Top up wallet
+// Initiate wallet top-up - Removed: Now handled on the frontend directly with Paystack
+
+// Verify and complete wallet top-up
+exports.verifyWalletTopUp = async (req, res) => {
+  try {
+    const { reference } = req.query;
+
+    if (!reference) {
+      return res.status(400).json({ message: 'Payment reference is required' });
+    }
+
+    // Verify with Paystack
+    const verificationResponse = await paystack.get(`/transaction/verify/${reference}`);
+    
+    if (verificationResponse.data.status !== 'success' || verificationResponse.data.data.status !== 'success') {
+      return res.status(400).json({ 
+        message: 'Payment verification failed', 
+        error: verificationResponse.data 
+      });
+    }
+
+    const paymentData = verificationResponse.data.data;
+    const metadata = paymentData.metadata;
+    
+    // For frontend-initiated payments, metadata might not have transactionType
+    // So we'll check if buyerId exists and assume it's a wallet top-up
+    if (!metadata || !metadata.buyerId) {
+      return res.status(400).json({ message: 'Invalid payment metadata. Missing buyerId.' });
+    }
+
+    const buyerId = metadata.buyerId;
+    const buyer = await Buyer.findById(buyerId);
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if transaction is already completed
+    const existingTransaction = buyer.wallet.transactions.find(
+      t => t.paymentReference === reference
+    );
+
+    if (existingTransaction) {
+      if (existingTransaction.status === 'completed') {
+        return res.status(200).json({
+          message: 'Payment already processed',
+          transaction: existingTransaction,
+          currentBalance: buyer.wallet.balance
+        });
+      } else if (existingTransaction.status === 'pending') {
+        // Update the existing transaction
+        existingTransaction.status = 'completed';
+        
+        // Update wallet balance
+        buyer.wallet.balance += existingTransaction.amount;
+        
+        await buyer.save();
+        
+        return res.status(200).json({
+          message: 'Wallet topped up successfully',
+          transaction: existingTransaction,
+          newBalance: buyer.wallet.balance
+        });
+      }
+    }
+
+    // If no transaction found, create a new one
+    const amount = paymentData.amount / 100; // Convert from kobo to naira
+    
+    const newTransaction = {
+      type: 'credit',
+      amount,
+      paymentReference: reference,
+      description: metadata.description || 'Wallet top up via Paystack',
+      status: 'completed',
+      createdAt: new Date()
+    };
+
+    buyer.wallet.transactions.push(newTransaction);
+    buyer.wallet.balance += amount;
+    
+    await buyer.save();
+    
+    return res.status(200).json({
+      message: 'Wallet topped up successfully',
+      transaction: newTransaction,
+      newBalance: buyer.wallet.balance
+    });
+  } catch (error) {
+    console.error('Verify wallet top-up error:', error);
+    res.status(500).json({
+      message: 'Failed to verify wallet top-up',
+      error: error.response?.data || error.message
+    });
+  }
+};
+
+// Handle Paystack webhook for wallet top-up - Removed: Now consolidated in orderController.handlePaystackWebhook
+
+// Legacy direct top-up method (for admin use or testing)
 exports.topUpWallet = async (req, res) => {
   try {
-    const { amount, description = 'Wallet top up' } = req.body;
+    const { amount, description = 'Wallet top up', bypassPaystack = false } = req.body;
+
+    // Only allow bypass for admin users or in development environment
+    if (bypassPaystack && (!req.user.isAdmin && process.env.NODE_ENV !== 'development')) {
+      return res.status(403).json({
+        message: 'Direct wallet top-up is not allowed'
+      });
+    }
 
     if (!amount || amount <= 0) {
       return res.status(400).json({
@@ -2377,7 +2495,7 @@ exports.topUpWallet = async (req, res) => {
       type: 'credit',
       amount,
       paymentReference: generatePaymentReference(),
-      description,
+      description: description + (bypassPaystack ? ' (Direct)' : ''),
       status: 'completed',
       createdAt: new Date()
     };
