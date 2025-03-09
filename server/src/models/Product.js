@@ -249,7 +249,11 @@ const productSchema = new mongoose.Schema({
     deliveryTime: { type: String },
   },
   warehouseLocation: { type: String },
-  status: { type: String, enum: ['draft', 'active'], default: 'draft' },
+  status: { 
+    type: String, 
+    enum: ['draft', 'active', 'offline_auction'], 
+    default: 'draft' 
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   inventory: {
@@ -287,11 +291,6 @@ const productSchema = new mongoose.Schema({
     metaDescription: { type: String },
     metaKeywords: [{ type: String }],
     slug: { type: String, unique: true },
-  },
-  status: {
-    type: String,
-    enum: ['draft', 'active', 'archived', 'out_of_stock'],
-    default: 'draft'
   },
   visibility: {
     type: String,
@@ -1059,6 +1058,115 @@ const productSchema = new mongoose.Schema({
   gaming_weightCapacity: {
     type: String,
     default: ''
+  },
+  // Add offline auction fields
+  auction: {
+    minBid: {
+      type: Number,
+      required: function() {
+        return this.status === 'offline_auction';
+      }
+    },
+    maxBid: {
+      type: Number,
+      required: function() {
+        return this.status === 'offline_auction';
+      },
+      validate: {
+        validator: function(value) {
+          if (this.status === 'offline_auction') {
+            return value > this.auction.minBid;
+          }
+          return true;
+        },
+        message: 'Max bid must be greater than min bid'
+      }
+    },
+    endOnMaxBid: {
+      type: Boolean,
+      default: false,
+      required: function() {
+        return this.status === 'offline_auction';
+      }
+    },
+    startDate: {
+      type: Date,
+      required: function() {
+        return this.status === 'offline_auction';
+      }
+    },
+    endDate: {
+      type: Date,
+      required: function() {
+        return this.status === 'offline_auction';
+      },
+      validate: {
+        validator: function(value) {
+          if (this.status === 'offline_auction') {
+            return value > this.auction.startDate;
+          }
+          return true;
+        },
+        message: 'End date must be after start date'
+      }
+    },
+    status: {
+      type: String,
+      enum: ['scheduled', 'ongoing', 'ended'],
+      default: 'scheduled'
+    },
+    daysLeft: {
+      type: Number,
+      default: null
+    },
+    bids: [{
+      buyer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Buyer',
+        required: true
+      },
+      amount: {
+        type: Number,
+        required: true,
+        validate: {
+          validator: function(value) {
+            const product = this.parent().parent();
+            // Only validate minimum bid
+            if (value < product.auction.minBid) {
+              return false;
+            }
+            return true;
+          },
+          message: 'Bid amount must be at least the minimum bid value'
+        }
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      },
+      status: {
+        type: String,
+        enum: ['active', 'outbid', 'won', 'lost'],
+        default: 'active'
+      }
+    }],
+    currentHighestBid: {
+      amount: { type: Number, default: null },
+      buyer: { 
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Buyer',
+        default: null
+      }
+    },
+    winner: {
+      buyer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Buyer',
+        default: null
+      },
+      bidAmount: { type: Number, default: null },
+      winningDate: { type: Date }
+    }
   }
 });
 
@@ -1108,6 +1216,23 @@ productSchema.pre('save', async function (next) {
           }
         });
       });
+    }
+
+    // Only process if it's an offline auction
+    if (this.status === 'offline_auction') {
+      const now = new Date();
+      
+      // Calculate auction status and days left
+      if (this.auction.startDate > now) {
+        this.auction.status = 'scheduled';
+        this.auction.daysLeft = Math.ceil((this.auction.startDate - now) / (1000 * 60 * 60 * 24));
+      } else if (this.auction.endDate > now) {
+        this.auction.status = 'ongoing';
+        this.auction.daysLeft = Math.ceil((this.auction.endDate - now) / (1000 * 60 * 60 * 24));
+      } else {
+        this.auction.status = 'ended';
+        this.auction.daysLeft = 0;
+      }
     }
 
     next();
@@ -1165,5 +1290,101 @@ productSchema.methods.isLowStock = function () {
 
 // Add this after the schema definition
 productSchema.plugin(require('mongoose-autopopulate'));
+
+// Add validation for price requirement on regular products
+productSchema.pre('validate', function(next) {
+  if (this.status === 'active' && !this.price) {
+    this.invalidate('price', 'Price is required for active products');
+  }
+  next();
+});
+
+// Add this before module.exports
+productSchema.methods.placeBid = async function(buyerId, bidAmount) {
+  if (this.status !== 'offline_auction') {
+    throw new Error('This product is not an auction item');
+  }
+
+  const now = new Date();
+  if (now < this.auction.startDate) {
+    throw new Error('Auction has not started yet');
+  }
+  if (now > this.auction.endDate) {
+    throw new Error('Auction has ended');
+  }
+
+  if (bidAmount < this.auction.minBid) {
+    throw new Error('Bid amount is below minimum bid');
+  }
+
+  // Check if this is higher than current highest bid
+  if (this.auction.currentHighestBid.amount && bidAmount <= this.auction.currentHighestBid.amount) {
+    throw new Error('Bid amount must be higher than current highest bid');
+  }
+
+  // Mark previous highest bid as outbid if it exists
+  if (this.auction.currentHighestBid.buyer) {
+    const previousHighestBid = this.auction.bids.find(
+      bid => bid.buyer.toString() === this.auction.currentHighestBid.buyer.toString() && 
+      bid.status === 'active'
+    );
+    if (previousHighestBid) {
+      previousHighestBid.status = 'outbid';
+    }
+  }
+
+  // Add new bid
+  this.auction.bids.push({
+    buyer: buyerId,
+    amount: bidAmount,
+    status: 'active'
+  });
+
+  // Update current highest bid
+  this.auction.currentHighestBid = {
+    amount: bidAmount,
+    buyer: buyerId
+  };
+
+  // Check if we should end the auction (max bid reached and endOnMaxBid is true)
+  if (this.auction.endOnMaxBid && bidAmount >= this.auction.maxBid) {
+    await this.endAuction(true); // Pass true to indicate it's ending due to max bid
+    return { ...this.auction.currentHighestBid, auctionEnded: true };
+  }
+
+  await this.save();
+  return { ...this.auction.currentHighestBid, auctionEnded: false };
+};
+
+// Add this before module.exports
+productSchema.methods.endAuction = async function(maxBidReached = false) {
+  if (this.status !== 'offline_auction' || 
+      (this.auction.status !== 'ongoing' && !maxBidReached)) {
+    throw new Error('Cannot end auction - invalid status');
+  }
+
+  this.auction.status = 'ended';
+  
+  if (this.auction.currentHighestBid.buyer) {
+    // Set the winner
+    this.auction.winner = {
+      buyer: this.auction.currentHighestBid.buyer,
+      bidAmount: this.auction.currentHighestBid.amount,
+      winningDate: new Date()
+    };
+
+    // Update bid statuses
+    this.auction.bids.forEach(bid => {
+      if (bid.buyer.toString() === this.auction.winner.buyer.toString()) {
+        bid.status = 'won';
+      } else {
+        bid.status = 'lost';
+      }
+    });
+  }
+
+  await this.save();
+  return this.auction.winner;
+};
 
 module.exports = mongoose.model('Product', productSchema);

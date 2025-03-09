@@ -1657,7 +1657,7 @@ exports.getOrderDetails = async (req, res) => {
 
     // Calculate payment breakdown
     let paymentBreakdown = null;
-    if (order.paid || !order.isOpen) {  // Calculate if paid or closed
+    if (order.paid || !order.isOpen || order.paymentInfo.status === 'awaiting_cod') {  // Calculate if paid or closed
       // Get unique category names
       const categoryNames = [...new Set(order.items.map(item => 
         item.product?.category || null

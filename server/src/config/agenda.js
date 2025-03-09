@@ -102,6 +102,53 @@ agenda.define('send-order-notifications', async (job) => {
   }
 });
 
+// Add auction status update job
+agenda.define('update-auction-status', async (job) => {
+  try {
+    const { productId, newStatus } = job.attrs.data;
+    const Product = mongoose.model('Product');
+
+    const product = await Product.findById(productId);
+    if (!product || product.status !== 'offline_auction') return;
+
+    product.auction.status = newStatus;
+    await product.save();
+
+    // If starting the auction, notify followers
+    if (newStatus === 'ongoing') {
+      const Seller = mongoose.model('Seller');
+      const seller = await Seller.findById(product.seller).populate('followers.buyerId', 'email firstName');
+      
+      if (seller && seller.followers.length > 0) {
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+        const notifications = seller.followers.map(follower => ({
+          to: follower.buyerId.email,
+          from: 'Auqli Auctions <joseph@auqli.com>',
+          subject: 'New Auction Started! - Auqli',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>New Auction Started!</h2>
+              <p>Dear ${follower.buyerId.firstName},</p>
+              <p>A new auction has started for "${product.name}" by ${seller.businessName}.</p>
+              <p>Starting bid: $${product.auction.minBid}</p>
+              <p>Don't miss out on this opportunity!</p>
+              <p><a href="${process.env.FRONTEND_URL}/products/${product._id}">View Auction</a></p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        }));
+
+        await sgMail.send(notifications);
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in update-auction-status job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();

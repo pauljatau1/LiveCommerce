@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
 const { createNotification, getNotificationMessage } = require('../controllers/notificationController');
-
+const agenda = require('../config/agenda').agenda;
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
@@ -247,6 +247,22 @@ exports.createProduct = async (req, res) => {
     // Populate seller details
     const populatedProduct = await Product.findById(newProduct._id)
       .populate('seller', 'name avatarUrl about');
+
+    // Schedule auction end if it's an auction product
+    if (newProduct.status === 'offline_auction') {
+      const agenda = require('../config/agenda').agenda;
+      
+      // Schedule auction start
+      await agenda.schedule(newProduct.auction.startDate, 'update-auction-status', {
+        productId: newProduct._id,
+        newStatus: 'ongoing'
+      });
+
+      // Schedule auction end
+      await agenda.schedule(newProduct.auction.endDate, 'end-auction', {
+        productId: newProduct._id
+      });
+    }
 
     res.status(201).json(populatedProduct);
   } catch (error) {
@@ -3386,6 +3402,536 @@ exports.getBlipCommentReplies = async (req, res) => {
   } catch (error) {
     console.error('Error getting blip comment replies:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Add auction bid controller functions
+exports.placeBid = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { amount } = req.body;
+    const buyerId = req.user.id;
+
+    console.log('Debug - Incoming request data:', {
+      productId,
+      amount,
+      buyerId,
+      user: req.user
+    });
+
+    // Validate bid amount
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid bid amount' });
+    }
+
+    const product = await Product.findById(productId);
+    console.log('Debug - Found product:', {
+      productId: product?._id,
+      status: product?.status,
+      auctionStatus: product?.auction?.status
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    if (product.status !== 'offline_auction') {
+      return res.status(400).json({ message: 'This product is not an auction item' });
+    }
+
+    // Check if auction has started
+    const now = new Date();
+    if (now < product.auction.startDate) {
+      return res.status(400).json({ message: 'Auction has not started yet' });
+    }
+
+    // Check if auction has ended
+    if (now > product.auction.endDate) {
+      return res.status(400).json({ message: 'Auction has ended' });
+    }
+
+    // Check minimum bid
+    if (amount < product.auction.minBid) {
+      return res.status(400).json({ 
+        message: `Bid amount must be at least ${product.auction.minBid}` 
+      });
+    }
+
+    // Check if bid is higher than current highest bid
+    if (product.auction.currentHighestBid.amount && amount <= product.auction.currentHighestBid.amount) {
+      return res.status(400).json({ 
+        message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}` 
+      });
+    }
+
+    // Convert buyerId to ObjectId properly
+    const buyerObjectId = new mongoose.Types.ObjectId(buyerId);
+
+    console.log('Debug - Current auction state:', {
+      currentHighestBid: product.auction.currentHighestBid,
+      bidsCount: product.auction.bids?.length,
+      buyerObjectId
+    });
+
+    // Mark previous highest bid as outbid if it exists
+    if (product.auction.currentHighestBid.buyer) {
+      const previousHighestBid = product.auction.bids.find(
+        bid => bid.buyer.toString() === product.auction.currentHighestBid.buyer.toString() && 
+        bid.status === 'active'
+      );
+      if (previousHighestBid) {
+        previousHighestBid.status = 'outbid';
+      }
+    }
+
+    // Add new bid
+    const newBid = {
+      buyer: buyerObjectId,
+      amount: amount,
+      status: 'active'
+    };
+
+    console.log('Debug - New bid to be added:', newBid);
+
+    product.auction.bids.push(newBid);
+
+    // Update current highest bid
+    product.auction.currentHighestBid = {
+      amount: amount,
+      buyer: buyerObjectId
+    };
+
+    // Check if auction should end (max bid reached and endOnMaxBid is true)
+    let auctionEnded = false;
+    if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
+      product.auction.status = 'ended';
+      product.auction.winner = {
+        buyer: buyerObjectId,
+        bidAmount: amount,
+        winningDate: now
+      };
+      auctionEnded = true;
+
+      // Update all other bids to 'lost'
+      product.auction.bids.forEach(bid => {
+        if (bid.buyer.toString() !== buyerObjectId.toString()) {
+          bid.status = 'lost';
+        } else if (bid.amount === amount) {
+          bid.status = 'won';
+        }
+      });
+    }
+
+    console.log('Debug - Before saving product:', {
+      bidsCount: product.auction.bids.length,
+      lastBid: product.auction.bids[product.auction.bids.length - 1],
+      currentHighestBid: product.auction.currentHighestBid
+    });
+
+    await product.save();
+
+    console.log('Debug - Product saved successfully');
+
+    // If auction ended, send notifications
+    if (auctionEnded) {
+      // Send winner notification
+      const winner = await Buyer.findById(buyerObjectId);
+      const seller = await Seller.findById(product.seller);
+      
+      // Send notifications using SendGrid
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+      // Send winner notification
+      await sgMail.send({
+        to: winner.email,
+        from: 'Auqli Auctions <joseph@auqli.com>',
+        subject: 'Congratulations! You Won the Auction!',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Auction Won!</h2>
+            <p>Dear ${winner.firstName},</p>
+            <p>Congratulations! You have won the auction for "${product.name}" with a bid of $${amount}.</p>
+            <p>The seller will be in touch with you shortly regarding payment and delivery details.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+
+      // Send seller notification
+      await sgMail.send({
+        to: seller.email,
+        from: 'Auqli Auctions <joseph@auqli.com>',
+        subject: 'Your Auction Has Ended!',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Auction Ended!</h2>
+            <p>Dear ${seller.firstName},</p>
+            <p>Your auction for "${product.name}" has ended. The winning bid was $${amount}.</p>
+            <p>The winner is ${winner.firstName} ${winner.lastName}. Please contact them to arrange payment and delivery.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+    } else {
+      // If there was a previous highest bidder, notify them that they've been outbid
+      if (product.auction.bids.length > 1) {
+        const previousBidder = await Buyer.findById(
+          product.auction.bids[product.auction.bids.length - 2].buyer
+        );
+        
+        if (previousBidder) {
+          const sgMail = require('@sendgrid/mail');
+          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+          
+          await sgMail.send({
+            to: previousBidder.email,
+            from: 'Auqli Auctions <joseph@auqli.com>',
+            subject: 'You\'ve Been Outbid!',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>New Highest Bid!</h2>
+                <p>Dear ${previousBidder.firstName},</p>
+                <p>Someone has placed a higher bid of $${amount} on "${product.name}".</p>
+                <p>There's still time to place a new bid if you're interested!</p>
+                <p><a href="${process.env.FRONTEND_URL}/products/${product._id}">View Auction</a></p>
+                <p>Best regards,<br>The Auqli Team</p>
+              </div>
+            `
+          });
+        }
+      }
+    }
+
+    res.json({
+      message: 'Bid placed successfully',
+      bid: {
+        amount: amount,
+        buyer: buyerObjectId,
+        auctionEnded
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in placeBid:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      errors: error.errors,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      message: 'Error placing bid', 
+      error: error.message 
+    });
+  }
+};
+
+exports.getAuctionBids = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const product = await Product.findById(productId)
+      .populate({
+        path: 'auction.bids.buyer',
+        select: 'firstName lastName email profileImage'
+      })
+      .populate({
+        path: 'auction.currentHighestBid.buyer',
+        select: 'firstName lastName email profileImage'
+      })
+      .populate({
+        path: 'auction.winner.buyer',
+        select: 'firstName lastName email profileImage'
+      });
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Calculate days left
+    const now = new Date();
+    let daysLeft = 0;
+    if (product.auction.status === 'scheduled') {
+      daysLeft = Math.ceil((product.auction.startDate - now) / (1000 * 60 * 60 * 24));
+    } else if (product.auction.status === 'ongoing') {
+      daysLeft = Math.ceil((product.auction.endDate - now) / (1000 * 60 * 60 * 24));
+    }
+
+    // Format the response
+    const formattedBids = product.auction.bids.map(bid => ({
+      _id: bid._id,
+      buyer: {
+        _id: bid.buyer._id,
+        firstName: bid.buyer.firstName,
+        lastName: bid.buyer.lastName,
+        profileImage: bid.buyer.profileImage
+      },
+      amount: bid.amount,
+      status: bid.status,
+      createdAt: bid.createdAt
+    }));
+
+    const response = {
+      bids: formattedBids,
+      currentHighestBid: product.auction.currentHighestBid ? {
+        amount: product.auction.currentHighestBid.amount,
+        buyer: {
+          _id: product.auction.currentHighestBid.buyer._id,
+          firstName: product.auction.currentHighestBid.buyer.firstName,
+          lastName: product.auction.currentHighestBid.buyer.lastName,
+          profileImage: product.auction.currentHighestBid.buyer.profileImage
+        }
+      } : null,
+      winner: product.auction.winner ? {
+        buyer: {
+          _id: product.auction.winner.buyer._id,
+          firstName: product.auction.winner.buyer.firstName,
+          lastName: product.auction.winner.buyer.lastName,
+          profileImage: product.auction.winner.buyer.profileImage
+        },
+        bidAmount: product.auction.winner.bidAmount,
+        winningDate: product.auction.winner.winningDate
+      } : null,
+      status: product.auction.status,
+      daysLeft
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error in getAuctionBids:', error);
+    res.status(500).json({ 
+      message: 'Error retrieving auction bids', 
+      error: error.message 
+    });
+  }
+};
+
+exports.getBuyerBids = async (req, res) => {
+  try {
+    const buyerId = req.user._id;
+    
+    const products = await Product.find({
+      status: 'offline_auction',
+      'auction.bids.buyer': buyerId
+    })
+    .populate('seller', 'businessName storeName')
+    .select('name auction.bids auction.currentHighestBid auction.winner auction.status auction.daysLeft images');
+
+    const bids = products.map(product => {
+      const buyerBids = product.auction.bids.filter(
+        bid => bid.buyer.toString() === buyerId.toString()
+      );
+      
+      return {
+        productId: product._id,
+        productName: product.name,
+        productImage: product.images[0],
+        seller: product.seller,
+        bids: buyerBids,
+        isHighestBidder: product.auction.currentHighestBid.buyer?.toString() === buyerId.toString(),
+        isWinner: product.auction.winner?.buyer?.toString() === buyerId.toString(),
+        auctionStatus: product.auction.status,
+        daysLeft: product.auction.daysLeft
+      };
+    });
+
+    res.status(200).json(bids);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching buyer bids', error: error.message });
+  }
+};
+
+// Add this to the existing agenda.define section in config/agenda.js
+agenda.define('end-auction', async (job) => {
+  try {
+    const { productId } = job.attrs.data;
+    const Product = mongoose.model('Product');
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    const product = await Product.findById(productId)
+      .populate('seller', 'email firstName businessName')
+      .populate('auction.currentHighestBid.buyer', 'email firstName lastName');
+
+    if (!product || product.auction.status !== 'ongoing') return;
+
+    const winner = await product.endAuction();
+
+    if (winner) {
+      // Send winner notification
+      const winnerEmail = {
+        to: product.auction.currentHighestBid.buyer.email,
+        from: 'Auqli Auctions <joseph@auqli.com>',
+        subject: 'Congratulations! You Won the Auction - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Congratulations! You Won!</h2>
+            <p>Dear ${product.auction.currentHighestBid.buyer.firstName},</p>
+            <p>You have won the auction for "${product.name}" with a bid of $${winner.bidAmount}!</p>
+            <p>The seller will contact you shortly with payment details.</p>
+            <p><a href="${process.env.FRONTEND_URL}/products/${product._id}">View Product</a></p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      // Send seller notification
+      const sellerEmail = {
+        to: product.seller.email,
+        from: 'Auqli Auctions <joseph@auqli.com>',
+        subject: 'Your Auction Has Ended - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Auction Ended Successfully</h2>
+            <p>Dear ${product.seller.firstName},</p>
+            <p>Your auction for "${product.name}" has ended.</p>
+            <p>Winning bid: $${winner.bidAmount}</p>
+            <p>Winner: ${product.auction.currentHighestBid.buyer.firstName} ${product.auction.currentHighestBid.buyer.lastName}</p>
+            <p>Please contact the buyer to arrange payment and delivery.</p>
+            <p><a href="${process.env.FRONTEND_URL}/dashboard/products/${product._id}">View Details</a></p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+
+      await Promise.all([
+        sgMail.send(winnerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+    }
+
+  } catch (error) {
+    console.error('Error in end-auction job:', error);
+  }
+});
+
+// Get all auction products
+exports.getAuctionProducts = async (req, res) => {
+  try {
+    const { status, sort = 'endDate', page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build query
+    const query = { status: 'offline_auction' };
+    if (status) {
+      query['auction.status'] = status;
+    }
+
+    // Build sort object
+    let sortObj = {};
+    switch (sort) {
+      case 'endDate':
+        sortObj = { 'auction.endDate': 1 };
+        break;
+      case 'startDate':
+        sortObj = { 'auction.startDate': 1 };
+        break;
+      case 'currentBid':
+        sortObj = { 'auction.currentHighestBid.amount': -1 };
+        break;
+      default:
+        sortObj = { 'auction.endDate': 1 };
+    }
+
+    // Execute query with pagination
+    const [products, totalProducts] = await Promise.all([
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('seller', 'businessName storeName storeAvatar storeBanner stats firstName lastName email phoneNumber isVerified createdAt aboutStore')
+        .populate({
+          path: 'auction.bids.buyer',
+          select: 'firstName lastName country profileImage -_id'
+        })
+        .populate({
+          path: 'auction.currentHighestBid.buyer',
+          select: 'firstName lastName country profileImage -_id'
+        })
+        .populate({
+          path: 'auction.winner.buyer',
+          select: 'firstName lastName country profileImage -_id'
+        })
+        .select('name description images auction seller'),
+      Product.countDocuments(query)
+    ]);
+
+    // Calculate total pages
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    // Update days left and clean up buyer data
+    const now = new Date();
+    const cleanedProducts = products.map(product => {
+      const cleanedProduct = product.toObject();
+
+      // Calculate days left
+      if (cleanedProduct.auction.status === 'scheduled') {
+        cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.startDate - now) / (1000 * 60 * 60 * 24));
+      } else if (cleanedProduct.auction.status === 'ongoing') {
+        cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.endDate - now) / (1000 * 60 * 60 * 24));
+      } else {
+        cleanedProduct.auction.daysLeft = 0;
+      }
+
+      // Clean up bids
+      if (cleanedProduct.auction.bids) {
+        cleanedProduct.auction.bids = cleanedProduct.auction.bids.map(bid => ({
+          _id: bid._id,
+          amount: bid.amount,
+          status: bid.status,
+          createdAt: bid.createdAt,
+          buyer: bid.buyer ? {
+            firstName: bid.buyer.firstName,
+            lastName: bid.buyer.lastName,
+            country: bid.buyer.country,
+            profileImage: bid.buyer.profileImage
+          } : null
+        }));
+      }
+
+      // Clean up current highest bid
+      if (cleanedProduct.auction.currentHighestBid && cleanedProduct.auction.currentHighestBid.buyer) {
+        cleanedProduct.auction.currentHighestBid = {
+          amount: cleanedProduct.auction.currentHighestBid.amount,
+          buyer: {
+            firstName: cleanedProduct.auction.currentHighestBid.buyer.firstName,
+            lastName: cleanedProduct.auction.currentHighestBid.buyer.lastName,
+            country: cleanedProduct.auction.currentHighestBid.buyer.country,
+            profileImage: cleanedProduct.auction.currentHighestBid.buyer.profileImage
+          }
+        };
+      }
+
+      // Clean up winner
+      if (cleanedProduct.auction.winner && cleanedProduct.auction.winner.buyer) {
+        cleanedProduct.auction.winner = {
+          bidAmount: cleanedProduct.auction.winner.bidAmount,
+          buyer: {
+            firstName: cleanedProduct.auction.winner.buyer.firstName,
+            lastName: cleanedProduct.auction.winner.buyer.lastName,
+            country: cleanedProduct.auction.winner.buyer.country,
+            profileImage: cleanedProduct.auction.winner.buyer.profileImage
+          }
+        };
+      }
+
+      return cleanedProduct;
+    });
+
+    res.json({
+      products: cleanedProducts,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalProducts
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getAuctionProducts:', error);
+    res.status(500).json({ message: 'Error retrieving auction products', error: error.message });
   }
 };
 
