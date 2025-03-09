@@ -1349,4 +1349,40 @@ router.post('/verify-payment', authMiddleware.verifyToken, orderController.verif
  */
 router.post('/paystack-webhook', orderController.handlePaystackWebhook);
 
+/**
+ * @swagger
+ * /api/order/simple-mark-paid/{id}:
+ *   post:
+ *     summary: Simple method to mark an order as paid (fallback)
+ *     description: A simplified endpoint to mark an order as paid without complex verification
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reference:
+ *                 type: string
+ *                 description: Payment reference
+ *     responses:
+ *       200:
+ *         description: Order marked as paid successfully
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/simple-mark-paid/:id', authMiddleware.verifyToken, orderController.simpleMarkPaid);
+
 module.exports = router;

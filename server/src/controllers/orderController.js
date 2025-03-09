@@ -30,7 +30,15 @@ const { v4: uuidv4 } = require('uuid');
 const { agenda } = require('../config/agenda');
 const crypto = require('crypto');
 
-
+// Initialize Paystack
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
+const paystack = axios.create({
+  baseURL: 'https://api.paystack.co',
+  headers: {
+    Authorization: `Bearer ${paystackSecretKey}`,
+    'Content-Type': 'application/json'
+  }
+});
 
 // Initialize Fez API configuration
 const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
@@ -852,6 +860,17 @@ exports.updateOrder = async (req, res) => {
         }
       )
     ]);
+
+    // Send order confirmation email
+    try {
+      const buyer = await Buyer.findById(order.buyer);
+      if (buyer) {
+        await sendOrderConfirmationEmail(order, buyer);
+      }
+    } catch (emailError) {
+      console.error('Error sending order confirmation email:', emailError);
+      // Continue processing even if email fails
+    }
 
   } catch (error) {
     res.status(500).json({ message: 'Failed to update order', error: error.message });
@@ -2460,7 +2479,8 @@ const verifyPaystackTransaction = async (reference) => {
   try {
     const response = await paystack.get(`/transaction/verify/${reference}`);
     return {
-      success: response.data.status === 'success',
+      // Fix: Paystack returns status as boolean (true) not string ("success")
+      success: response.data.status === true && response.data.data.status === 'success',
       data: response.data.data
     };
   } catch (error) {
@@ -2475,7 +2495,7 @@ const verifyPaystackTransaction = async (reference) => {
 // Mark order as paid (for Paystack payments)
 exports.markOrderAsPaid = async (req, res) => {
   const { id } = req.params;
-  const { transactionId, paymentReference } = req.body;
+  let { transactionId, paymentReference } = req.body;
 
   if (!transactionId && !paymentReference) {
     return res.status(400).json({ 
@@ -2799,6 +2819,22 @@ async function handleWalletTopUp(paymentData, res) {
     existingTransaction.status = 'completed';
     buyer.wallet.balance += existingTransaction.amount;
     await buyer.save();
+    
+    // Send confirmation email
+    try {
+      // Import the sendWalletTopUpEmail function from buyerController
+      const buyerController = require('./buyerController');
+      if (typeof buyerController.sendWalletTopUpEmail === 'function') {
+        await buyerController.sendWalletTopUpEmail(buyer, existingTransaction);
+      } else {
+        // Fallback to sending a simple email if the function is not available
+        await sendSimpleTopUpEmail(buyer, existingTransaction);
+      }
+    } catch (emailError) {
+      console.error('Error sending wallet top-up email:', emailError);
+      // Continue processing even if email fails
+    }
+    
     return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
   }
 
@@ -2819,7 +2855,213 @@ async function handleWalletTopUp(paymentData, res) {
   
   await buyer.save();
   
+  // Send confirmation email
+  try {
+    // Import the sendWalletTopUpEmail function from buyerController
+    const buyerController = require('./buyerController');
+    if (typeof buyerController.sendWalletTopUpEmail === 'function') {
+      await buyerController.sendWalletTopUpEmail(buyer, newTransaction);
+    } else {
+      // Fallback to sending a simple email if the function is not available
+      await sendSimpleTopUpEmail(buyer, newTransaction);
+    }
+  } catch (emailError) {
+    console.error('Error sending wallet top-up email:', emailError);
+    // Continue processing even if email fails
+  }
+  
   return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
 }
+
+// Simple email function as fallback
+async function sendSimpleTopUpEmail(buyer, transaction) {
+  const formattedAmount = transaction.amount.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN'
+  });
+  
+  const msg = {
+    to: buyer.email,
+    from: {
+      email: 'support@auqli.com',
+      name: 'Auqli Support'
+    },
+    subject: 'Wallet Top-Up Confirmation',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2>Wallet Top-Up Confirmation</h2>
+        <p>Hello ${buyer.firstName},</p>
+        <p>Your wallet has been successfully topped up with ${formattedAmount}.</p>
+        <p>Transaction ID: ${transaction.paymentReference}</p>
+        <p>Current Balance: ${buyer.wallet.balance.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}</p>
+        <p>Thank you for using Auqli!</p>
+      </div>
+    `
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log('Simple wallet top-up confirmation email sent to:', buyer.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending simple wallet top-up email:', error);
+    return false;
+  }
+}
+
+// Send order confirmation email
+exports.sendOrderConfirmationEmail = async (order, buyer) => {
+  // Format currency values
+  const formattedTotal = order.totalAmount.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2
+  });
+  
+  const formattedShipping = order.shipping.fee.amount.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2
+  });
+  
+  // Create items HTML
+  const itemsHtml = order.items.map(item => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.productName}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₦${item.price.toLocaleString()}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₦${(item.price * item.quantity).toLocaleString()}</td>
+    </tr>
+  `).join('');
+  
+  const msg = {
+    to: buyer.email,
+    from: {
+      email: 'orders@auqli.com',
+      name: 'Auqli Orders'
+    },
+    subject: `Order Confirmation - #${order.order_id}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+        </div>
+        
+        <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
+          <h2 style="color: #333; margin-bottom: 20px; text-align: center;">Order Confirmation</h2>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${buyer.firstName},</p>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Thank you for your order! We've received your payment and your order is now being processed.</p>
+          
+          <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 18px;">Order Summary</h3>
+            
+            <p style="margin-bottom: 10px;"><strong>Order ID:</strong> ${order.order_id}</p>
+            <p style="margin-bottom: 10px;"><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
+            <p style="margin-bottom: 10px;"><strong>Payment Method:</strong> ${order.paymentInfo.method}</p>
+            <p style="margin-bottom: 20px;"><strong>Payment Status:</strong> <span style="color: #4CAF50;">Paid</span></p>
+            
+            <h4 style="margin-bottom: 10px;">Items</h4>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background-color: #f5f5f5;">
+                  <th style="padding: 10px; text-align: left;">Product</th>
+                  <th style="padding: 10px; text-align: center;">Qty</th>
+                  <th style="padding: 10px; text-align: right;">Price</th>
+                  <th style="padding: 10px; text-align: right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3" style="padding: 10px; text-align: right;"><strong>Subtotal:</strong></td>
+                  <td style="padding: 10px; text-align: right;">₦${order.totalAmount.toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="padding: 10px; text-align: right;"><strong>Shipping:</strong></td>
+                  <td style="padding: 10px; text-align: right;">₦${order.shipping.fee.amount.toLocaleString()}</td>
+                </tr>
+                <tr style="font-weight: bold;">
+                  <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #eee;"><strong>Total:</strong></td>
+                  <td style="padding: 10px; text-align: right; border-top: 2px solid #eee;">₦${(order.totalAmount + order.shipping.fee.amount).toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          
+          <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 18px;">Shipping Information</h3>
+            
+            <p style="margin-bottom: 5px;"><strong>Name:</strong> ${order.delivery_address.first_name} ${order.delivery_address.last_name}</p>
+            <p style="margin-bottom: 5px;"><strong>Address:</strong> ${order.delivery_address.line1}</p>
+            <p style="margin-bottom: 5px;"><strong>City/State:</strong> ${order.delivery_address.city || ''}, ${order.delivery_address.state}</p>
+            <p style="margin-bottom: 5px;"><strong>Country:</strong> ${order.delivery_address.country}</p>
+            <p style="margin-bottom: 5px;"><strong>Phone:</strong> ${order.delivery_address.phone}</p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+            <a href="https://auqli.com/account/orders/${order._id}" style="background-color: #4CAF50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Order</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #777; margin-top: 30px;">If you have any questions about your order, please contact our customer support team.</p>
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
+          <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          <p>
+            <a href="https://auqli.com/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+            <a href="https://auqli.com/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log('Order confirmation email sent to:', buyer.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending order confirmation email:', error);
+    return false;
+  }
+};
+
+// Simple mark order as paid (fallback method)
+exports.simpleMarkPaid = async (req, res) => {
+  const { id } = req.params;
+  const { reference } = req.body;
+
+  try {
+    const order = await Order.findById(id);
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Simple update without verification
+    order.paid = true;
+    order.paymentInfo.status = 'paid';
+    order.paymentInfo.paymentReference = reference || 'manual-update';
+    order.paymentInfo.paidAt = new Date();
+
+    const updatedOrder = await order.save();
+
+    // Return success response
+    res.status(200).json({
+      message: 'Order marked as paid successfully (simple method)',
+      order: updatedOrder
+    });
+  } catch (error) {
+    console.error('Error in simple mark paid:', error);
+    res.status(500).json({
+      message: 'Failed to mark order as paid (simple method)',
+      error: error.message
+    });
+  }
+};
 
 

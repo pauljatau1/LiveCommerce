@@ -2371,6 +2371,106 @@ exports.getWalletBalance = async (req, res) => {
 
 // Initiate wallet top-up - Removed: Now handled on the frontend directly with Paystack
 
+// Send wallet top-up confirmation email
+exports.sendWalletTopUpEmail = async (buyer, transaction) => {
+  const formattedAmount = transaction.amount.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2
+  });
+  
+  const formattedBalance = buyer.wallet.balance.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2
+  });
+  
+  const formattedDate = new Date(transaction.createdAt).toLocaleString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const msg = {
+    to: buyer.email,
+    from: {
+      email: 'support@auqli.com',
+      name: 'Auqli Support'
+    },
+    subject: 'Wallet Top-Up Confirmation',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+        </div>
+        
+        <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
+          <h2 style="color: #333; margin-bottom: 20px; text-align: center;">Wallet Top-Up Confirmation</h2>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${buyer.firstName},</p>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Your wallet has been successfully topped up with ${formattedAmount}.</p>
+          
+          <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 18px;">Transaction Details</h3>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #777; width: 40%;">Amount:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedAmount}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Transaction ID:</td>
+                <td style="padding: 8px 0; color: #333;">${transaction.paymentReference}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Date & Time:</td>
+                <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Status:</td>
+                <td style="padding: 8px 0; color: #333;">
+                  <span style="color: #4CAF50; font-weight: bold;">Completed</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Current Balance:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedBalance}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">You can now use your wallet balance to make purchases on Auqli.</p>
+          
+        
+          
+      
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
+          <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          <p>
+            <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+            <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log('Wallet top-up confirmation email sent to:', buyer.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending wallet top-up confirmation email:', error);
+    return false;
+  }
+};
+
 // Verify and complete wallet top-up
 exports.verifyWalletTopUp = async (req, res) => {
   try {
@@ -2383,7 +2483,8 @@ exports.verifyWalletTopUp = async (req, res) => {
     // Verify with Paystack
     const verificationResponse = await paystack.get(`/transaction/verify/${reference}`);
     
-    if (verificationResponse.data.status !== 'success' || verificationResponse.data.data.status !== 'success') {
+    // Fix: Paystack returns status as boolean (true) not string ("success")
+    if (!verificationResponse.data.status || verificationResponse.data.data.status !== 'success') {
       return res.status(400).json({ 
         message: 'Payment verification failed', 
         error: verificationResponse.data 
@@ -2427,6 +2528,9 @@ exports.verifyWalletTopUp = async (req, res) => {
         
         await buyer.save();
         
+        // Send confirmation email
+        exports.sendWalletTopUpEmail(buyer, existingTransaction);
+        
         return res.status(200).json({
           message: 'Wallet topped up successfully',
           transaction: existingTransaction,
@@ -2452,6 +2556,9 @@ exports.verifyWalletTopUp = async (req, res) => {
     
     await buyer.save();
     
+    // Send confirmation email
+    exports.sendWalletTopUpEmail(buyer, newTransaction);
+    
     return res.status(200).json({
       message: 'Wallet topped up successfully',
       transaction: newTransaction,
@@ -2471,7 +2578,7 @@ exports.verifyWalletTopUp = async (req, res) => {
 // Legacy direct top-up method (for admin use or testing)
 exports.topUpWallet = async (req, res) => {
   try {
-    const { amount, description = 'Wallet top up', bypassPaystack = false } = req.body;
+    const { amount, description = 'Wallet top up', bypassPaystack = false, paymentReference } = req.body;
 
     // Only allow bypass for admin users or in development environment
     if (bypassPaystack && (!req.user.isAdmin && process.env.NODE_ENV !== 'development')) {
@@ -2491,10 +2598,43 @@ exports.topUpWallet = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
+    // Check if this is a fallback verification with an existing payment reference
+    if (paymentReference) {
+      // Check if transaction with this reference already exists
+      const existingTransaction = buyer.wallet.transactions.find(
+        t => t.paymentReference === paymentReference
+      );
+
+      if (existingTransaction) {
+        if (existingTransaction.status === 'completed') {
+          return res.status(200).json({
+            message: 'Payment already processed',
+            transaction: existingTransaction,
+            newBalance: buyer.wallet.balance
+          });
+        } else if (existingTransaction.status === 'pending') {
+          // Update the existing transaction
+          existingTransaction.status = 'completed';
+          buyer.wallet.balance += existingTransaction.amount;
+          
+          await buyer.save();
+          
+          // Send confirmation email
+          exports.sendWalletTopUpEmail(buyer, existingTransaction);
+          
+          return res.status(200).json({
+            message: 'Wallet topped up successfully',
+            transaction: existingTransaction,
+            newBalance: buyer.wallet.balance
+          });
+        }
+      }
+    }
+
     const transaction = {
       type: 'credit',
       amount,
-      paymentReference: generatePaymentReference(),
+      paymentReference: paymentReference || generatePaymentReference(),
       description: description + (bypassPaystack ? ' (Direct)' : ''),
       status: 'completed',
       createdAt: new Date()
@@ -2505,6 +2645,9 @@ exports.topUpWallet = async (req, res) => {
     buyer.wallet.balance += amount;
 
     await buyer.save();
+
+    // Send confirmation email
+    exports.sendWalletTopUpEmail(buyer, transaction);
 
     res.status(200).json({
       message: 'Wallet topped up successfully',
