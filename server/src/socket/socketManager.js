@@ -1,6 +1,9 @@
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Conversation = require('../models/Conversation');
+const Stream = require('../models/Stream');
+const Buyer = require('../models/Buyer');
+const Seller = require('../models/Seller');
 
 function initializeSocket(server) {
   const io = socketIO(server, {
@@ -75,6 +78,108 @@ function initializeSocket(server) {
     socket.on('stream_notification_subscribe', () => {
       socket.join('stream_notifications');
       console.log(`User ${socket.user.id} subscribed to stream notifications`);
+    });
+
+    // Handler for stream chat comments
+    socket.on('stream_comment', async (data) => {
+      try {
+        console.log(`Received comment from ${socket.user.id} for stream ${data.streamId}`);
+        
+        // Ensure streamId is provided
+        if (!data.streamId) {
+          console.error('Missing streamId in stream_comment event');
+          return;
+        }
+
+        // Find the stream
+        const stream = await Stream.findById(data.streamId);
+        if (!stream) {
+          console.error(`Stream not found: ${data.streamId}`);
+          return;
+        }
+
+        // Get user details based on role (buyer or seller)
+        let userDetails;
+        let userRole = socket.user.role || 'buyer'; // Default to buyer if role not specified
+
+        if (userRole === 'seller') {
+          userDetails = await Seller.findById(socket.user.id).select('storeName storeAvatar');
+          
+          if (!userDetails) {
+            console.error(`Seller not found: ${socket.user.id}`);
+            return;
+          }
+
+          // Create notification object
+          const notificationObj = {
+            id: Date.now().toString(),
+            type: 'comment',
+            user: userDetails.storeName || 'Host',
+            avatar: userDetails.storeAvatar?.url || '',
+            content: data.content,
+            data: {
+              message: data.content,
+              sellerId: socket.user.id,
+              sellerName: userDetails.storeName || 'Host',
+              streamId: data.streamId,
+              isHost: true
+            }
+          };
+
+          // Store in database
+          await Stream.findByIdAndUpdate(
+            data.streamId,
+            { $push: { chatInteractions: notificationObj } }
+          );
+
+          // Add timestamp for the WebSocket payload
+          notificationObj.timestamp = new Date();
+          
+          // Broadcast to all subscribers
+          io.to('stream_notifications').emit('stream_notification', notificationObj);
+          
+        } else {
+          // Assume buyer
+          userDetails = await Buyer.findById(socket.user.id).select('firstName lastName username profileImage avatarUrl');
+          
+          if (!userDetails) {
+            console.error(`Buyer not found: ${socket.user.id}`);
+            return;
+          }
+
+          // Create notification object
+          const notificationObj = {
+            id: Date.now().toString(),
+            type: 'comment',
+            user: userDetails.firstName || userDetails.username || 'Viewer',
+            avatar: userDetails.profileImage?.url || userDetails.avatarUrl || '',
+            content: data.content,
+            data: {
+              message: data.content,
+              buyerId: socket.user.id,
+              buyerName: userDetails.firstName + " " + userDetails.lastName,
+              buyerUsername: userDetails.username,
+              streamId: data.streamId,
+              isHost: false
+            }
+          };
+
+          // Store in database
+          await Stream.findByIdAndUpdate(
+            data.streamId,
+            { $push: { chatInteractions: notificationObj } }
+          );
+
+          // Add timestamp for the WebSocket payload
+          notificationObj.timestamp = new Date();
+          
+          // Broadcast to all subscribers
+          io.to('stream_notifications').emit('stream_notification', notificationObj);
+        }
+        
+      } catch (error) {
+        console.error('Error handling stream comment:', error);
+      }
     });
 
     socket.on('leave_stream_monitor', (data) => {

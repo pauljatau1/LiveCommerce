@@ -1126,4 +1126,31 @@ router.get('/category/:category', (req, res, next) => {
   next();
 }, streamController.getStreamsByCategory);
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/chat:
+ *   get:
+ *     summary: Get chat interactions for a stream
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved chat interactions
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/chat',
+  authMiddleware.verifyToken,
+  streamController.getChatInteractions
+);
+
 module.exports = router; 

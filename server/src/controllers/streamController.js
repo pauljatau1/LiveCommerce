@@ -1196,4 +1196,35 @@ exports.getStreamsByCategory = async (req, res) => {
       error: error.message
     });
   }
+};
+
+exports.getChatInteractions = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    
+    // Find the stream with the given ID
+    const stream = await Stream.findById(streamId);
+    
+    if (!stream) {
+      return res.status(404).json({ message: 'Stream not found' });
+    }
+    
+    // Sort chat interactions by timestamp (newest first)
+    const chatInteractions = stream.chatInteractions || [];
+    
+    // Optional: limit the number of chat interactions returned
+    // const limit = parseInt(req.query.limit) || 100;
+    // chatInteractions = chatInteractions.slice(-limit);
+
+    res.json({
+      success: true,
+      chatInteractions
+    });
+  } catch (error) {
+    console.error('Error getting chat interactions:', error);
+    res.status(500).json({
+      message: 'Failed to get chat interactions',
+      error: error.message
+    });
+  }
 }; 
