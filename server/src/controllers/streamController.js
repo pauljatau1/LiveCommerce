@@ -191,20 +191,27 @@ exports.startStream = async (req, res) => {
         sellerId: req.user.id.toString(),
         storeName: seller.storeName || 'Unknown Store',
         title: stream.title
-      },
-      timestamp: new Date()
+      }
+      // timestamp will be added automatically by the schema default
     };
     
-    // Use a direct update operation without reading the stream document again
-    await Stream.updateOne(
-      { _id: stream._id },
-      { $push: { chatInteractions: notificationObj } }
-    );
-    
-    // Send WebSocket notification if IO is available
-    if (req.app && req.app.get('io')) {
-      const io = req.app.get('io');
-      io.to('stream_notifications').emit('stream_notification', notificationObj);
+    try {
+      // Create a new chat interaction document
+      await Stream.findByIdAndUpdate(
+        stream._id,
+        { $push: { chatInteractions: notificationObj } }
+      );
+      
+      // Send WebSocket notification if IO is available
+      if (req.app && req.app.get('io')) {
+        const io = req.app.get('io');
+        // Add timestamp for the WebSocket payload
+        notificationObj.timestamp = new Date();
+        io.to('stream_notifications').emit('stream_notification', notificationObj);
+      }
+    } catch (error) {
+      console.error('Failed to save chat interaction:', error);
+      // Continue with the response even if saving the chat interaction fails
     }
 
     res.json({
@@ -476,25 +483,27 @@ exports.joinStream = async (req, res) => {
         streamId: stream._id.toString(),
         sellerName: stream.seller.storeName || stream.seller.businessName,
         sellerId: stream.seller._id.toString()
-      },
-      timestamp: new Date()
+      }
+      // timestamp will be added automatically by the schema default
     };
     
-    // Use a direct update operation without reading the stream document again
     try {
-      await Stream.updateOne(
-        { _id: stream._id },
+      // Add the notification to the stream's chat interactions
+      await Stream.findByIdAndUpdate(
+        stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
+      
+      // Broadcast to all subscribers of stream notifications
+      if (req.app && req.app.get('io')) {
+        const io = req.app.get('io');
+        // Add timestamp for the WebSocket payload
+        notificationObj.timestamp = new Date();
+        io.to('stream_notifications').emit('viewer_joined_stream', notificationObj);
+      }
     } catch (error) {
-      console.error('Failed to update chat interactions:', error);
-      // Continue execution even if storing the chat interaction fails
-    }
-    
-    // Broadcast to all subscribers of stream notifications
-    if (req.app && req.app.get('io')) {
-      const io = req.app.get('io');
-      io.to('stream_notifications').emit('viewer_joined_stream', notificationObj);
+      console.error('Failed to save chat interaction:', error);
+      // Continue even if saving the chat interaction fails
     }
 
     console.log('agoraUid', tokenUid);
@@ -574,25 +583,27 @@ exports.joinStreamSeller = async (req, res) => {
         sellerId: req.user.id.toString(),
         streamId: stream._id.toString(),
         sellerName: stream.seller.storeName || stream.seller.businessName
-      },
-      timestamp: new Date()
+      }
+      // timestamp will be added automatically by the schema default
     };
     
-    // Use a direct update operation without reading the stream document again
     try {
-      await Stream.updateOne(
-        { _id: stream._id },
+      // Add the notification to the stream's chat interactions
+      await Stream.findByIdAndUpdate(
+        stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
+      
+      // Broadcast a notification that the seller has rejoined their stream
+      if (req.app && req.app.get('io')) {
+        const io = req.app.get('io');
+        // Add timestamp for the WebSocket payload
+        notificationObj.timestamp = new Date();
+        io.to('stream_notifications').emit('seller_rejoined_stream', notificationObj);
+      }
     } catch (error) {
-      console.error('Failed to update chat interactions:', error);
-      // Continue execution even if storing the chat interaction fails
-    }
-    
-    // Broadcast a notification that the seller has rejoined their stream
-    if (req.app && req.app.get('io')) {
-      const io = req.app.get('io');
-      io.to('stream_notifications').emit('seller_rejoined_stream', notificationObj);
+      console.error('Failed to save chat interaction:', error);
+      // Continue even if saving the chat interaction fails
     }
 
     console.log('agoraUid (seller)', seller.agoraUid);

@@ -1,5 +1,22 @@
 const mongoose = require('mongoose');
 
+// Define a separate schema for chat interactions
+const chatInteractionSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  type: { type: String, required: true },
+  user: { type: String, required: true },
+  avatar: { type: String },
+  content: { type: String, required: true },
+  data: { 
+    type: mongoose.Schema.Types.Mixed,
+    required: true 
+  },
+  timestamp: { 
+    type: Date,
+    default: Date.now 
+  }
+});
+
 const streamSchema = new mongoose.Schema({
   seller: {
     type: mongoose.Schema.Types.ObjectId,
@@ -89,23 +106,7 @@ const streamSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  chatInteractions: {
-    type: [
-      {
-        id: String,
-        type: String, 
-        user: String,
-        avatar: String,
-        content: String,
-        data: mongoose.Schema.Types.Mixed,
-        timestamp: {
-          type: Date,
-          default: Date.now
-        }
-      }
-    ],
-    default: []
-  }
+  chatInteractions: [chatInteractionSchema]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Stream', streamSchema); 
