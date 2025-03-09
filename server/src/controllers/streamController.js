@@ -174,38 +174,39 @@ exports.startStream = async (req, res) => {
     stream.actualStartTime = new Date();
     stream.agoraUid = seller.agoraUid;
     stream.agoraToken = freshToken;
+    
+    // Create notification object
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'start',
+      user: seller.storeName || 'Host',
+      avatar: stream.seller.storeAvatar?.url || '',
+      content: 'Host started stream',
+      data: {
+        message: 'Host started stream',
+        streamId: stream._id.toString(),
+        sellerId: req.user.id.toString(),
+        storeName: seller.storeName || 'Unknown Store',
+        title: stream.title
+      },
+      timestamp: new Date()
+    };
+    
+    // Initialize chatInteractions array if it doesn't exist
+    if (!stream.chatInteractions) {
+      stream.chatInteractions = [];
+    }
+    
+    // Add new notification to chatInteractions array
+    stream.chatInteractions.push(notificationObj);
+    
+    // Save the updated stream
     await stream.save();
-
-    // Send WebSocket notification
+    
+    // Send WebSocket notification if IO is available
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
-      
-      // Create notification object
-      const notificationObj = {
-        id: Date.now().toString(),
-        type: 'start',
-        user: seller.storeName || 'Host',
-        avatar: stream.seller.storeAvatar?.url || '',
-        content: 'Host started stream',
-        data: {
-          message: 'Host started stream',
-          streamId: stream._id,
-          sellerId: req.user.id,
-          storeName: seller.storeName || 'Unknown Store',
-          title: stream.title
-        },
-        timestamp: new Date()
-      };
-      
-      // Send notification via WebSocket
       io.to('stream_notifications').emit('stream_notification', notificationObj);
-      
-      // Add to stream's chatInteractions array
-      await Stream.findByIdAndUpdate(
-        stream._id,
-        { $push: { chatInteractions: notificationObj } },
-        { new: true }
-      );
     }
 
     res.json({
@@ -461,39 +462,36 @@ exports.joinStream = async (req, res) => {
       viewerName: buyer.firstName + " " + buyer.lastName
     });
 
+    // Create notification object for chat interactions
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'join',
+      user: buyer.firstName || buyer.username || 'Viewer',
+      avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
+      content: `${buyer.firstName || buyer.username} joined room`,
+      data: {
+        message: `${buyer.firstName || buyer.username} joined room`,
+        buyerId: req.user.id.toString(),
+        buyerName: buyer.firstName + " " + buyer.lastName,
+        buyerUsername: buyer.username,
+        buyerAvatar: buyer.profileImage?.url || buyer.avatarUrl || '',
+        streamId: stream._id.toString(),
+        sellerName: stream.seller.storeName || stream.seller.businessName,
+        sellerId: stream.seller._id.toString()
+      },
+      timestamp: new Date()
+    };
+    
+    // Add the notification to the stream's chat interactions
+    await Stream.updateOne(
+      { _id: stream._id },
+      { $push: { chatInteractions: notificationObj } }
+    );
+    
     // Broadcast to all subscribers of stream notifications
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
-      
-      // Create notification object
-      const notificationObj = {
-        id: Date.now().toString(),
-        type: 'join',
-        user: buyer.firstName || buyer.username || 'Viewer',
-        avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-        content: `${buyer.firstName || buyer.username} joined room`,
-        data: {
-          message: `${buyer.firstName || buyer.username} joined room`,
-          buyerId: req.user.id,
-          buyerName: buyer.firstName + " " + buyer.lastName,
-          buyerUsername: buyer.username,
-          buyerAvatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-          streamId: stream._id,
-          sellerName: stream.seller.storeName || stream.seller.businessName,
-          sellerId: stream.seller._id
-        },
-        timestamp: new Date()
-      };
-      
-      // Send notification via WebSocket
       io.to('stream_notifications').emit('viewer_joined_stream', notificationObj);
-      
-      // Add to stream's chatInteractions array
-      await Stream.findByIdAndUpdate(
-        stream._id,
-        { $push: { chatInteractions: notificationObj } },
-        { new: true }
-      );
     }
 
     console.log('agoraUid', tokenUid);
@@ -561,35 +559,32 @@ exports.joinStreamSeller = async (req, res) => {
       RtcRole.PUBLISHER
     );
 
+    // Create notification object for chat interactions
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'join',
+      user: stream.seller.storeName || 'Host',
+      avatar: stream.seller.storeAvatar?.url || '',
+      content: 'Host rejoined room',
+      data: {
+        message: 'Host rejoined room',
+        sellerId: req.user.id.toString(),
+        streamId: stream._id.toString(),
+        sellerName: stream.seller.storeName || stream.seller.businessName
+      },
+      timestamp: new Date()
+    };
+    
+    // Add the notification to the stream's chat interactions
+    await Stream.updateOne(
+      { _id: stream._id },
+      { $push: { chatInteractions: notificationObj } }
+    );
+    
     // Broadcast a notification that the seller has rejoined their stream
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
-      
-      // Create notification object
-      const notificationObj = {
-        id: Date.now().toString(),
-        type: 'join',
-        user: stream.seller.storeName || 'Host',
-        avatar: stream.seller.storeAvatar?.url || '',
-        content: 'Host rejoined room',
-        data: {
-          message: 'Host rejoined room',
-          sellerId: req.user.id,
-          streamId: stream._id,
-          sellerName: stream.seller.storeName || stream.seller.businessName
-        },
-        timestamp: new Date()
-      };
-      
-      // Send notification via WebSocket
       io.to('stream_notifications').emit('seller_rejoined_stream', notificationObj);
-      
-      // Add to stream's chatInteractions array
-      await Stream.findByIdAndUpdate(
-        stream._id,
-        { $push: { chatInteractions: notificationObj } },
-        { new: true }
-      );
     }
 
     console.log('agoraUid (seller)', seller.agoraUid);
