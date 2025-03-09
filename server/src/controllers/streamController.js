@@ -175,6 +175,9 @@ exports.startStream = async (req, res) => {
     stream.agoraUid = seller.agoraUid;
     stream.agoraToken = freshToken;
     
+    // Save stream first with basic updates
+    await stream.save();
+    
     // Create notification object
     const notificationObj = {
       id: Date.now().toString(),
@@ -192,16 +195,11 @@ exports.startStream = async (req, res) => {
       timestamp: new Date()
     };
     
-    // Initialize chatInteractions array if it doesn't exist
-    if (!stream.chatInteractions) {
-      stream.chatInteractions = [];
-    }
-    
-    // Add new notification to chatInteractions array
-    stream.chatInteractions.push(notificationObj);
-    
-    // Save the updated stream
-    await stream.save();
+    // Use a direct update operation without reading the stream document again
+    await Stream.updateOne(
+      { _id: stream._id },
+      { $push: { chatInteractions: notificationObj } }
+    );
     
     // Send WebSocket notification if IO is available
     if (req.app && req.app.get('io')) {
@@ -482,11 +480,16 @@ exports.joinStream = async (req, res) => {
       timestamp: new Date()
     };
     
-    // Add the notification to the stream's chat interactions
-    await Stream.updateOne(
-      { _id: stream._id },
-      { $push: { chatInteractions: notificationObj } }
-    );
+    // Use a direct update operation without reading the stream document again
+    try {
+      await Stream.updateOne(
+        { _id: stream._id },
+        { $push: { chatInteractions: notificationObj } }
+      );
+    } catch (error) {
+      console.error('Failed to update chat interactions:', error);
+      // Continue execution even if storing the chat interaction fails
+    }
     
     // Broadcast to all subscribers of stream notifications
     if (req.app && req.app.get('io')) {
@@ -575,11 +578,16 @@ exports.joinStreamSeller = async (req, res) => {
       timestamp: new Date()
     };
     
-    // Add the notification to the stream's chat interactions
-    await Stream.updateOne(
-      { _id: stream._id },
-      { $push: { chatInteractions: notificationObj } }
-    );
+    // Use a direct update operation without reading the stream document again
+    try {
+      await Stream.updateOne(
+        { _id: stream._id },
+        { $push: { chatInteractions: notificationObj } }
+      );
+    } catch (error) {
+      console.error('Failed to update chat interactions:', error);
+      // Continue execution even if storing the chat interaction fails
+    }
     
     // Broadcast a notification that the seller has rejoined their stream
     if (req.app && req.app.get('io')) {

@@ -89,18 +89,23 @@ const streamSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  chatInteractions: [{
-    id: String,
-    type: String, 
-    user: String,
-    avatar: String,
-    content: String,
-    data: mongoose.Schema.Types.Mixed,
-    timestamp: {
-      type: Date,
-      default: Date.now
-    }
-  }]
+  chatInteractions: {
+    type: [
+      {
+        id: String,
+        type: String, 
+        user: String,
+        avatar: String,
+        content: String,
+        data: mongoose.Schema.Types.Mixed,
+        timestamp: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
+    default: []
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Stream', streamSchema); 
