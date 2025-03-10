@@ -6,6 +6,7 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const passport = require('../config/passport');
 const jwt = require('jsonwebtoken');
+const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 
 
 /**
@@ -2089,6 +2090,105 @@ router.get('/wallet/transactions',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
   buyerController.getWalletTransactions
+);
+
+/**
+ * @swagger
+ * /api/buyer/sellers:
+ *   get:
+ *     summary: Get list of sellers that can be followed
+ *     description: Returns a list of sellers. If authenticated, excludes already followed sellers.
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of sellers per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for store name or business name
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category name
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [rating, followers, newest]
+ *           default: rating
+ *         description: Sort criteria
+ *     responses:
+ *       200:
+ *         description: List of sellers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sellers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                       businessName:
+ *                         type: string
+ *                       aboutStore:
+ *                         type: string
+ *                       storeAvatar:
+ *                         type: object
+ *                         properties:
+ *                           url:
+ *                             type: string
+ *                       categories:
+ *                         type: array
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           averageRating:
+ *                             type: number
+ *                           totalReviews:
+ *                             type: number
+ *                       followerCount:
+ *                         type: number
+ *                       isVerified:
+ *                         type: boolean
+ *                       isFeatured:
+ *                         type: boolean
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     current:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/sellers', 
+  optionalAuthMiddleware, // This middleware will make authentication optional
+  buyerController.getSellersToFollow
 );
 
 module.exports = router;

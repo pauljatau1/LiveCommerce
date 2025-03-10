@@ -2733,3 +2733,117 @@ exports.getWalletTransactions = async (req, res) => {
   }
 };
 
+// Get sellers that can be followed
+exports.getSellersToFollow = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      search = '', 
+      category = '', 
+      sort = 'rating' 
+    } = req.query;
+
+    // Build base query
+    let query = { isDisabled: false };
+
+    // Add search filter if provided
+    if (search) {
+      query.$or = [
+        { storeName: { $regex: search, $options: 'i' } },
+        { businessName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add category filter if provided
+    if (category) {
+      query['categories.name'] = { $regex: category, $options: 'i' };
+    }
+
+    // If authenticated, exclude sellers the buyer is already following
+    if (req.user?.id) {
+      const buyer = await Buyer.findById(req.user.id);
+      if (buyer) {
+        const followedSellerIds = await Seller.find({
+          'followers.buyerId': req.user.id
+        }).distinct('_id');
+        
+        if (followedSellerIds.length > 0) {
+          query._id = { $nin: followedSellerIds };
+        }
+      }
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sort) {
+      case 'rating':
+        sortOptions = { 'stats.averageRating': -1 };
+        break;
+      case 'followers':
+        // Using $size of followers array for sorting
+        sortOptions = { 'followers': -1 };
+        break;
+      case 'newest':
+        sortOptions = { createdAt: -1 };
+        break;
+      default:
+        sortOptions = { 'stats.averageRating': -1 };
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query with pagination
+    const [sellers, total] = await Promise.all([
+      Seller.find(query)
+        .select(`
+          storeName businessName aboutStore storeAvatar 
+          categories stats followers isVerified isFeatured 
+          createdAt
+        `)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Seller.countDocuments(query)
+    ]);
+
+    // Transform seller data
+    const transformedSellers = sellers.map(seller => ({
+      _id: seller._id,
+      storeName: seller.storeName || seller.businessName || "Shop", // Default to "Shop" if no name available
+      businessName: seller.businessName,
+      aboutStore: seller.aboutStore,
+      storeAvatar: seller.storeAvatar,
+      categories: seller.categories,
+      stats: {
+        averageRating: seller.stats?.averageRating || 0,
+        totalReviews: seller.stats?.totalReviews || 0
+      },
+      followerCount: seller.followers?.length || 0,
+      isVerified: seller.isVerified,
+      isFeatured: seller.isFeatured,
+      createdAt: seller.createdAt
+    }));
+
+    // Return response with pagination
+    res.json({
+      sellers: transformedSellers,
+      pagination: {
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+        current: parseInt(page),
+        hasMore: skip + transformedSellers.length < total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getSellersToFollow:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve sellers',
+      error: error.message
+    });
+  }
+};
+

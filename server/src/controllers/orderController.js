@@ -180,6 +180,11 @@ const validateFezParcel = (parcel) => {
     return { valid: false, message: 'Parcel value is required' };
   }
   
+  // Check itemDescription length (Fez API limit is 200 characters)
+  if (parcel.itemDescription && parcel.itemDescription.length > 200) {
+    return { valid: false, message: 'Item description must not exceed 200 characters' };
+  }
+  
   // Weight is optional now as we can get it from items
   
   return { valid: true };
@@ -312,11 +317,19 @@ exports.createOrder = async (req, res) => {
       
       // Collect item descriptions for the parcel
       if (product.description && !sellerItems[sellerId].parcelInfo.itemDescription.includes(product.name)) {
-        if (sellerItems[sellerId].parcelInfo.itemDescription) {
-          sellerItems[sellerId].parcelInfo.itemDescription += `, ${product.name}`;
-        } else {
-          sellerItems[sellerId].parcelInfo.itemDescription = product.name;
+        // Check if adding the product name would exceed the 200 character limit
+        const currentDesc = sellerItems[sellerId].parcelInfo.itemDescription;
+        const separator = currentDesc ? ', ' : '';
+        const newDesc = currentDesc + separator + product.name;
+        
+        if (newDesc.length <= 200) {
+          // If within limit, add the full product name
+          sellerItems[sellerId].parcelInfo.itemDescription = newDesc;
+        } else if (currentDesc.length < 197) {
+          // If adding would exceed limit but we have space for ellipsis, truncate
+          sellerItems[sellerId].parcelInfo.itemDescription = currentDesc + separator + product.name.substring(0, 197 - currentDesc.length - separator.length) + '...';
         }
+        // If already at or near limit, don't add more to the description
       }
       
       sellerItems[sellerId].items.push({
@@ -530,6 +543,12 @@ exports.createOrder = async (req, res) => {
         itemDescription: sellerParcelInfo.itemDescription || 
                         (parcel.itemDescription ? parcel.itemDescription : `Order from ${seller.businessName || 'Seller'}`)
       };
+      
+      // Ensure itemDescription doesn't exceed 200 characters (Fez API limit)
+      if (sellerParcel.itemDescription && sellerParcel.itemDescription.length > 200) {
+        sellerParcel.itemDescription = sellerParcel.itemDescription.substring(0, 197) + '...';
+        console.log(`⚠️ Truncated item description for order ${order.order_id} to fit Fez API limit`);
+      }
       
       // Create Fez Delivery request with sender information and seller-specific parcel details
       const fezRequest = {
