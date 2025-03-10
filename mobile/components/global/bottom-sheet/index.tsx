@@ -1,6 +1,7 @@
 /* eslint-disable max-lines-per-function */
 import { icons } from "@/constants";
 import { cn } from "@/lib/utils";
+import { AntDesign } from "@expo/vector-icons";
 import type {
   BottomSheetBackdropProps,
   BottomSheetFooterProps,
@@ -118,7 +119,7 @@ const BottomSheet = ({
             }}
             className="flex-row justify-end px-4"
           >
-            <View className="rounded-full border border-stroke p-1">X</View>
+            <AntDesign name="closecircle" size={30} color="#F9C7B3" />
           </Pressable>
         )}
         {title && (

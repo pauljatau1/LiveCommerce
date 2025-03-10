@@ -54,18 +54,20 @@ const ExploreMoreSection = () => {
       ) : moreStreams.length > 0 ? (
         <View
           style={{
-            paddingLeft: 16,
+            paddingHorizontal: 16,
           }}
         >
           <FlatList
             data={moreStreams}
-            renderItem={({ item }) => <LiveProductCard item={item} />}
+            renderItem={({ item }) => (
+              <View className="w-1/2 py-2 shrink">
+                <LiveProductCard item={item} />
+              </View>
+            )}
             keyExtractor={(item, index) => item?._id || index.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              gap: 14,
-            }}
+            numColumns={2}
+            columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
+            showsVerticalScrollIndicator={false}
             className="pt-[14px]"
           />
         </View>

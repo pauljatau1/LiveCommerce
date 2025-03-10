@@ -51,7 +51,7 @@ const Sellers = () => {
         <FlatList
           data={sellers}
           renderItem={({ item }) => (
-            <View className="space-x-4">
+            <View className="space-x-4 w-[150px]">
               <FollowCard item={item._id} data={item} />
             </View>
           )}

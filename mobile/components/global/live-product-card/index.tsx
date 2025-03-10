@@ -1,10 +1,12 @@
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import { View, Text, Image, TouchableOpacity, Dimensions } from "react-native";
 import React from "react";
 import { icons, images } from "@/constants";
 import CustomButton from "../button/CustomButton";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import { useLivestream } from "../../../contexts/livestreamContext";
 import { Link, useRouter } from "expo-router";
+
+const { width } = Dimensions.get("window");
 
 const LiveProductCard = ({ item, showBtn, showLive }: any) => {
   const router = useRouter();
@@ -15,7 +17,12 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
       onPress={() =>
         router.push(`/livestream/livestreamStudio?id=${item?._id}`)
       }
-      className="mr-2 w-[170px] rounded-lg"
+      className=" rounded-lg"
+      style={{
+        width: "100%",
+        maxWidth: (width - 32) / 2 - 6,
+        // maxWidth: 240,
+      }}
     >
       {/* Seller Info */}
 
@@ -24,10 +31,11 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
           <Image
             source={{ uri: item?.seller?.storeAvatar?.url }}
             className="w-8 h-8 rounded-full"
+            resizeMode="cover"
           />
           <Text
             numberOfLines={1}
-            className="text-gray-200 text-sm font-medium capitalize font-LexendDeca"
+            className="text-gray-200 text-sm font-medium capitalize font-LexendDecaMedium"
           >
             {item?.seller?.storeName}
           </Text>
@@ -38,7 +46,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         <Image
           source={{ uri: item?.coverImage?.url }}
           resizeMode="cover"
-          className="h-[240px] w-[170px] rounded-lg"
+          className="h-[240px] w-[100%] rounded-lg"
         />
         <View className="absolute top-2 left-2">
           <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
@@ -77,6 +85,10 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
             {item?.category} • {item?.tags?.join(", ")}
           </Text>
         </View>
+
+        <Text className="text-[#425466] text-[8px] font-LexendDeca mt-1">
+          Lagos, Nigeria
+        </Text>
       </View>
     </TouchableOpacity>
   );
