@@ -29,13 +29,13 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
             resizeMode="cover"
             className="relative rounded-full w-[60px] h-[60px] "
           />
-          <Text className="text-[#CCCCCCCC] text-[12.28px] font-LexendDecaBold pt-1">
+          <Text className="text-[#CCCCCCCC] text-[12.28px] text-center font-LexendDecaBold pt-1">
             {data.storeName || data.businessName}
           </Text>
           <Text className="text-[#CCCCCCCC] text-[7.67px] pt-1 font-LexendDecaLight">
             {data?.metrics?.followers} followers
           </Text>
-          <View className="flex-row items-center pt-1">
+          <View className="flex-row items-center pt-1 mb-2">
             <Image source={icons.starIcon} />
             <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[6px] font-LexendDecaBold">
               4.7

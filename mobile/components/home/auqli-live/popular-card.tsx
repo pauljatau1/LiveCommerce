@@ -1,10 +1,12 @@
-import { View, FlatList, Text } from "react-native";
+import { View, FlatList, Text, Dimensions } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import { useCallback, useEffect } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
 import { useLivestream } from "../../../contexts/livestreamContext";
 import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
+
+const { width } = Dimensions.get("window");
 
 const PopularCard = () => {
   const {
@@ -32,14 +34,24 @@ const PopularCard = () => {
   return (
     <View className="pt-[16px] mb-5 w-full">
       <SectionHeader title="Popular Now" btnText="View All" />
-      <View className="w-full">
-        {isLoading ? (
-          <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
-        ) : activeLivestream?.length > 0 ? (
+      {isLoading ? (
+        <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
+      ) : activeLivestream?.length > 0 ? (
+        <View
+          style={{
+            paddingLeft: 16,
+          }}
+        >
           <FlatList
             data={activeLivestream}
             renderItem={({ item }) => (
-              <LiveProductCard item={item} showLive={true} showBtn={true} />
+              <View
+                style={{
+                  width: (width - 32) / 2 - 6,
+                }}
+              >
+                <LiveProductCard item={item} showLive={true} showBtn={true} />
+              </View>
             )}
             keyExtractor={(item) => item._id}
             horizontal
@@ -49,10 +61,10 @@ const PopularCard = () => {
               gap: 12,
             }}
           />
-        ) : (
-          renderEmptyStreams()
-        )}
-      </View>
+        </View>
+      ) : (
+        renderEmptyStreams()
+      )}
     </View>
   );
 };

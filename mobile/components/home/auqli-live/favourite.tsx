@@ -1,10 +1,12 @@
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, Dimensions } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCardTemplate from "@/components/global/live-product-card/LiveProductCardTemplate";
 import axios from "axios";
 import LiveProductCard from "@/components/global/live-product-card";
 import { getToken } from "@/store/features/auth/utils";
+
+const { width } = Dimensions.get("window");
 
 const Favourite = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -13,7 +15,8 @@ const Favourite = () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/streams/favorite-sellers`,
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams/favorite-sellers?status=live`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -62,7 +65,11 @@ const Favourite = () => {
           <FlatList
             data={favoriteSellersStream}
             renderItem={({ item }) => (
-              <View className="space-x-4 space-y-4 mb-[5.54px]">
+              <View
+                style={{
+                  width: (width - 32) / 2 - 6,
+                }}
+              >
                 <LiveProductCard item={item} />
               </View>
             )}
@@ -71,6 +78,7 @@ const Favourite = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{
               paddingHorizontal: 16,
+              gap: 12,
             }}
             className="pt-[5px]"
           />
