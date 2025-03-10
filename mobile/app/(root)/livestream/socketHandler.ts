@@ -3,19 +3,22 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'join' | 'comment' | 'purchase';
+  type: 'comment' | 'join' | 'purchase';
   user: string;
-  avatar: string;
+  avatar?: string;
   content: string;
   data?: {
     message?: string;
-    buyerId?: string;
-    streamId?: string;
-    sellerName?: string;
     sellerId?: string;
+    sellerName?: string;
+    buyerId?: string;
+    buyerName?: string;
+    buyerUsername?: string;
     productId?: string;
     productName?: string;
     price?: number;
+    streamId: string;
+    isHost: boolean;
   };
   timestamp: Date;
 }
@@ -49,6 +52,18 @@ export const initializeSocket = (token: string, onNotification: (notification: S
     console.log('Socket connected');
     // Subscribe to stream notifications
     currentSocket.emit('stream_notification_subscribe');
+  });
+
+  // Handle general stream notifications (including comments from other users)
+  currentSocket.on('stream_notification', (data: StreamNotification) => {
+    console.log('Received stream notification:', data);
+    
+    // Convert string timestamp to Date object if needed
+    if (typeof data.timestamp === 'string') {
+      data.timestamp = new Date(data.timestamp);
+    }
+    
+    onNotification(data);
   });
 
   currentSocket.on('disconnect', (reason) => {

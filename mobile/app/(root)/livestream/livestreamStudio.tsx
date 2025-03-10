@@ -16,8 +16,9 @@ import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { StreamConfig, ProductImage, Product, StreamProduct, StreamDetails, LivestreamContextType } from '@/types/streams/livestreamStudio';
 import { streamEngine } from './streamEngine';
 import { LiveShowProductCard } from './liveShowProductCard';
-import { initializeSocket, disconnectSocket, StreamNotification } from './socketHandler';
+import { initializeSocket, disconnectSocket, getSocket, StreamNotification } from './socketHandler';
 import { SOCKET_EVENTS } from '@/constants/api';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,7 +58,7 @@ const LivestreamStudio = () => {
     // Add keyboard height tracking
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const { width: screenWidth } = Dimensions.get('window');
-    
+
     useEffect(() => {
         setupLivestream();
 
@@ -67,7 +68,7 @@ const LivestreamStudio = () => {
                 id: '1',
                 type: 'join' as const,
                 user: 'Ahmed',
-                avatar: require('@/assets/icons/animoji.png'),
+                avatar: null, // Test fallback avatar
                 content: 'joined the stream',
                 timestamp: new Date(Date.now() - 5000)
             },
@@ -75,7 +76,7 @@ const LivestreamStudio = () => {
                 id: '2',
                 type: 'comment' as const,
                 user: 'Jessica',
-                avatar: require('@/assets/icons/animoji.png'),
+                avatar: require('@/assets/icons/animoji.png'), // With image
                 content: 'This blue shirt looks amazing!',
                 timestamp: new Date(Date.now() - 15000)
             },
@@ -83,7 +84,7 @@ const LivestreamStudio = () => {
                 id: '3',
                 type: 'purchase' as const,
                 user: 'Michael',
-                avatar: require('@/assets/icons/animoji.png'),
+                avatar: null, // Test fallback avatar
                 content: 'purchased Blue Polo Shirt',
                 timestamp: new Date(Date.now() - 30000)
             },
@@ -91,14 +92,35 @@ const LivestreamStudio = () => {
                 id: '4',
                 type: 'join' as const,
                 user: 'User1638',
-                avatar: require('@/assets/icons/animoji.png'),
+                avatar: null, // Test fallback avatar
                 content: 'joined the stream',
                 timestamp: new Date(Date.now() - 2000)
-            }
+            },
+            {
+                id: '5',
+                type: 'comment' as const,
+                user: 'User1638',
+                avatar: null, // Test fallback avatar
+                content: 'This blue shirt looks amazing!',
+                timestamp: new Date(Date.now() - 10000)
+            },
+            {
+                id: '6',
+                type: 'comment' as const,
+                user: 'User1638',
+                avatar: null, // Test fallback avatar
+                content: 'This blue shirt looks amazing!',
+                timestamp: new Date(Date.now() - 10000)
+            },
         ];
-        
+
         // Initialize with sample data
-        setLiveComments(sampleEvents);
+        //setLiveComments(sampleEvents);
+
+        // Scroll to the end to show new comment
+        if (commentsListRef.current) {
+            commentsListRef.current.scrollToEnd({ animated: true });
+        }
 
         // Add keyboard listeners with height information
         const keyboardDidShowListener = Keyboard.addListener(
@@ -121,7 +143,7 @@ const LivestreamStudio = () => {
             // Clean up listeners
             keyboardDidShowListener.remove();
             keyboardDidHideListener.remove();
-            
+
             // Disconnect socket when component unmounts
             disconnectSocket();
         };
@@ -131,6 +153,8 @@ const LivestreamStudio = () => {
         if (!id) return;
         try {
             setStatus('Joining stream...');
+
+            // Join the stream using the stream ID from route parameters
             const streamDetails = await joinStream(id as string);
             console.log('Stream details:', streamDetails);
 
@@ -193,12 +217,24 @@ const LivestreamStudio = () => {
                 }
             }
 
+
             setStreamConfig({
                 appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || '',
                 channel: streamDetails?.channelName || '',
                 token: streamDetails?.token || '',
                 uid: streamDetails?.uid || ''
             });
+
+            // Initialize with chat interactions from the stream
+
+            // Directly use the chat interactions from the server
+            const chatInteractions = (streamDetails.stream as any).chatInteractions || [];
+
+            // Set the live comments with the server data
+            setLiveComments(chatInteractions);
+
+            console.log(`Loaded ${chatInteractions.length} chat interactions from server`);
+
 
             // Initialize socket connection for real-time chat
             const userToken = await getToken();
@@ -214,37 +250,54 @@ const LivestreamStudio = () => {
     // Handler for WebSocket notifications (joins, comments, purchases)
     const handleStreamNotification = useCallback((notification: StreamNotification) => {
         console.log('Received notification:', notification);
-        
+
+        // Check if this is our own comment coming back (avoid duplicates)
+        const isDuplicate = liveComments.some(comment =>
+            comment.type === notification.type &&
+            comment.content === notification.content &&
+            Math.abs(new Date(comment.timestamp).getTime() - new Date(notification.timestamp).getTime()) < 5000
+        );
+
+        if (isDuplicate) {
+            console.log('Ignoring duplicate notification');
+            return;
+        }
+
         // Process notification based on type
         switch (notification.type) {
             case 'join':
                 console.log('User joined stream:', notification.user);
-                // Update UI to show join event - add to liveComments without slicing
+                // Update UI to show join event
                 setLiveComments(prev => [...prev, notification]);
                 break;
-                
+
             case 'comment':
                 console.log('New comment received:', notification.content);
-                // Update UI to show comment - add to liveComments without slicing
+                // Update UI to show comment
                 setLiveComments(prev => [...prev, notification]);
                 // Increment comment count
                 setComments(prev => prev + 1);
                 break;
-                
+
             case 'purchase':
                 console.log('New purchase made:', notification.content);
-                // Update UI to show purchase - add to liveComments without slicing
+                // Update UI to show purchase
                 setLiveComments(prev => [...prev, notification]);
                 break;
-                
+
             default:
                 console.warn('Unknown notification type:', notification.type);
         }
-        
-        // Scroll to the end to show new notification
-        if (commentsListRef.current) {
-            commentsListRef.current.scrollToEnd({ animated: true });
-        }
+
+        // Use requestAnimationFrame to ensure UI has updated before scrolling
+        requestAnimationFrame(() => {
+            // Use setTimeout to give the FlatList a moment to update its layout
+            setTimeout(() => {
+                if (commentsListRef.current) {
+                    commentsListRef.current.scrollToEnd({ animated: true });
+                }
+            }, 100);
+        });
     }, []);
 
     const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
@@ -295,26 +348,91 @@ const LivestreamStudio = () => {
 
     // Render a comment or event item to match the reference image
     const renderCommentItem = ({ item }: { item: any }) => {
+        // Check if avatar exists and is a valid source
+        const hasValidAvatar = item.avatar &&
+            (typeof item.avatar === 'string' || typeof item.avatar === 'number' || item.avatar.uri);
+
+        // Generate a consistent color based on the user's name
+        const getAvatarColor = (username: string) => {
+            // Array of vibrant background colors for letter avatars
+            const colors = [
+                '#FF5733', // Red-Orange
+                '#33A1FF', // Blue
+                '#33FF57', // Green
+                '#BD33FF', // Purple
+                '#FFD133', // Yellow
+                '#33FFBD', // Turquoise
+                '#FF33BD', // Pink
+                '#7D33FF', // Indigo
+                '#FF7D33', // Orange
+                '#33FF7D', // Mint
+                '#FF3333', // Red
+                '#33A8FF', // Light Blue
+                "#000000"
+            ];
+
+            // Use the sum of character codes to select a color
+            const charSum = username.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+            return colors[charSum % colors.length];
+        };
+
+        // Render avatar - either an image or a fallback letter avatar
+        const renderAvatar = () => {
+            if (hasValidAvatar) {
+                // If avatar exists, format it correctly based on its type
+                let avatarSource;
+                if (typeof item.avatar === 'string') {
+                    avatarSource = { uri: item.avatar };
+                } else {
+                    avatarSource = item.avatar; // It's already a require() or imported image
+                }
+
+                return (
+                    <Image
+                        source={avatarSource}
+                        style={styles.commentAvatar}
+                    />
+                );
+            } else {
+                // Use first letter of username with a random background color
+                const firstLetter = item.user && item.user.length > 0 ? item.user.charAt(0).toUpperCase() : '?';
+                const backgroundColor = getAvatarColor(item.user || '');
+
+                return (
+                    <View style={[
+                        styles.commentAvatar,
+                        {
+                            backgroundColor,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                        }
+                    ]}>
+                        <Text style={{
+                            color: '#FFFFFF',
+                            fontWeight: 'bold',
+                            fontSize: 16,
+                        }}>
+                            {firstLetter}
+                        </Text>
+                    </View>
+                );
+            }
+        };
+
         if (item.type === 'join') {
             return (
                 <View style={styles.joinCommentItem}>
-                    <Image
-                        source={item.avatar}
-                        style={styles.commentAvatar}
-                    />
+                    {renderAvatar()}
                     <View style={styles.joinCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
-                        <Text style={styles.joinCommentText}>{item.content}</Text>
+                        <Text style={styles.joinCommentText}>{item.content}👋</Text>
                     </View>
                 </View>
             );
         } else if (item.type === 'purchase') {
             return (
                 <View style={styles.purchaseCommentItem}>
-                    <Image
-                        source={item.avatar}
-                        style={styles.commentAvatar}
-                    />
+                    {renderAvatar()}
                     <View style={styles.purchaseCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
                         <Text style={styles.purchaseCommentText}>{item.content}</Text>
@@ -324,10 +442,7 @@ const LivestreamStudio = () => {
         } else {
             return (
                 <View style={styles.regularCommentItem}>
-                    <Image
-                        source={item.avatar}
-                        style={styles.commentAvatar}
-                    />
+                    {renderAvatar()}
                     <View style={styles.regularCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
                         <Text style={styles.regularCommentText}>{item.content}</Text>
@@ -349,29 +464,24 @@ const LivestreamStudio = () => {
                 return;
             }
 
-            // Create a new comment
-            const newComment = {
+            // Clear input immediately for better UX
+            const commentContent = commentInput.trim();
+            setCommentInput('');
+
+            // Create a local comment for immediate display
+            const localComment = {
                 id: Date.now().toString(),
                 type: 'comment' as const,
                 user: user.firstName || 'User',
-                avatar: require('@/assets/icons/animoji.png'),
-                content: commentInput.trim(),
+                avatar: user.profileImage?.url || require('@/assets/icons/animoji.png'),
+                content: commentContent,
                 timestamp: new Date()
             };
 
-            // Add to local state
-            setLiveComments(prev => {
-                const updated = [...prev, newComment];
-                if (updated.length > 10) {
-                    return updated.slice(updated.length - 10);
-                }
-                return updated;
-            });
+            // Add to local state for immediate feedback
+            //setLiveComments(prev => [...prev, localComment]);
 
-            // Clear input
-            setCommentInput('');
-
-            // Increment comment count
+            // Increment comment count locally
             setComments(prev => prev + 1);
 
             // Scroll to the end to show new comment
@@ -379,8 +489,22 @@ const LivestreamStudio = () => {
                 commentsListRef.current.scrollToEnd({ animated: true });
             }
 
-            // Here you would typically call an API to save the comment
-            // const response = await axios.post(...);
+            // Send the comment to the server via WebSocket
+            const socketInstance = getSocket();
+            if (socketInstance) {
+                // Get the stream ID from the route parameters
+                const streamId = id as string;
+
+                // Emit the stream_comment event to the server
+                socketInstance.emit('stream_comment', {
+                    streamId,
+                    content: commentContent
+                });
+
+                console.log('Comment sent to server via WebSocket');
+            } else {
+                console.error('Socket not connected, comment only saved locally');
+            }
         } catch (error) {
             console.error('Error sending comment:', error);
         }
@@ -392,7 +516,7 @@ const LivestreamStudio = () => {
     // Calculate positions based on keyboard height
     const commentsContainerStyle = {
         ...styles.commentsContainer,
-        bottom: keyboardHeight > 0 ? keyboardHeight + 90 : 210, // Move comments up when keyboard is visible
+        bottom: keyboardHeight > 0 ? keyboardHeight + 90 : 200, // Move comments up when keyboard is visible
     };
 
     const rightActionsContainerStyle = {
@@ -421,6 +545,14 @@ const LivestreamStudio = () => {
         setShowComments(false);
         // Handle auth flow if needed
     };
+
+    // Clean up socket connection when component unmounts
+    useEffect(() => {
+        return () => {
+            console.log('Disconnecting socket on component unmount');
+            disconnectSocket();
+        };
+    }, []);
 
     return (
         <>
@@ -469,7 +601,7 @@ const LivestreamStudio = () => {
 
                 {/* Top Actions - Only show when video is playing */}
                 {shouldShowUI && (
-                    <SafeAreaView style={{flex: 1, marginTop: Platform.OS === 'ios' ? 16 : 14 }}>
+                    <SafeAreaView style={{ flex: 1, marginTop: Platform.OS === 'ios' ? 16 : 14 }}>
                         <View className={`flex-row justify-between items-center px-4`}>
                             <View className="flex-row items-center gap-2">
                                 <Image
@@ -490,48 +622,48 @@ const LivestreamStudio = () => {
 
                 {/* Right Side Actions - Only show when video is playing */}
                 {shouldShowUI && (
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center'}} style={rightActionsContainerStyle}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }} style={rightActionsContainerStyle}>
                         <View style={styles.actionItem}>
                             <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
                                 <SimpleLineIcons name="share-alt" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Share</Text>
-                            </View>
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Share</Text>
+                        </View>
 
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Ionicons name="information-circle-outline" size={28} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Info</Text>
-                            </View>
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <Ionicons name="information-circle-outline" size={28} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Info</Text>
+                        </View>
 
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <FontAwesome name="credit-card" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Pay</Text>
-                            </View>
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <FontAwesome name="credit-card" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Pay</Text>
+                        </View>
 
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Entypo name="box" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Orders</Text>
-                            </View>
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <Entypo name="box" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Orders</Text>
+                        </View>
 
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Feather name="shopping-bag" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Shop</Text>
-                            </View>
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <Feather name="shopping-bag" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>Shop</Text>
+                        </View>
 
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <AntDesign name="like2" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>React</Text>
-                            </View>
+                        <View style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionButton}>
+                                <AntDesign name="like2" size={24} color="white" />
+                            </TouchableOpacity>
+                            <Text style={styles.actionText}>React</Text>
+                        </View>
                     </ScrollView>
                 )}
 
@@ -545,6 +677,13 @@ const LivestreamStudio = () => {
                             keyExtractor={item => item.id}
                             showsVerticalScrollIndicator={false}
                             contentContainerStyle={styles.commentsList}
+                            fadingEdgeLength={350} // Add fading edge effect for Android
+                            onContentSizeChange={() => {
+                                // This triggers whenever content size changes, including when new items are added
+                                if (commentsListRef.current && liveComments.length > 0) {
+                                    commentsListRef.current.scrollToEnd({ animated: false });
+                                }
+                            }}
                         />
                     </View>
                 )}
@@ -576,9 +715,9 @@ const LivestreamStudio = () => {
                             data={streamProducts}
                             scrollAnimationDuration={500}
                             onSnapToItem={(index) => setCurrentProductIndex(index)}
-                            renderItem={({item, index}) => (
-                                <LiveShowProductCard 
-                                    item={item} 
+                            renderItem={({ item, index }) => (
+                                <LiveShowProductCard
+                                    item={item}
                                     index={index}
                                     onBuyNow={handleBuyNow}
                                 />
@@ -644,19 +783,21 @@ const styles = StyleSheet.create({
     commentsContainer: {
         position: 'absolute',
         bottom: 210, // Position higher to avoid overlap with product card
-        left: 10,
+        left: 5,
         width: '70%',
         maxHeight: 200,
         zIndex: 10,
     },
     commentsList: {
-        paddingVertical: 5,
+        paddingHorizontal: 8,
+        paddingTop: 10, // More padding at top to account for the fade effect
+        paddingBottom: 0,
     },
     // Base comment item styles
     commentAvatar: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
+        width: 35,
+        height: 35,
+        borderRadius: 35,
         marginRight: 8,
     },
     commentUser: {
