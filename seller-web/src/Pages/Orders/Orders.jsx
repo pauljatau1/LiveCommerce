@@ -344,10 +344,12 @@ export default function OrdersDashboard() {
                               ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
                               : order.paymentInfo.status === "pending"
                                 ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
-                                : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
+                                : order.paymentInfo.status === "awaiting_cod"
+                                  ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
+                                  : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
                           }
                         >
-                          {order.paymentInfo.status}
+                          {order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>

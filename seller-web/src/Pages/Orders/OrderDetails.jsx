@@ -352,6 +352,35 @@ export default function OrderDetails() {
             </CardHeader>
             <CardContent className="p-4">
               <div className="space-y-4">
+                {/* Always show Order Placed */}
+                <div className="flex gap-3 relative">
+                  <div className="absolute left-[5px] top-6 bottom-0 w-[1px] bg-gray-200" />
+                  <div className="w-3 h-3 rounded-full bg-blue-500 mt-1.5 z-10" />
+                  <div className="flex-1 text-sm">
+                    <p className="font-medium text-gray-700">Order Placed Successfully</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <Calendar className="h-3 w-3" />
+                      {order?.createdAt ? new Date(order.createdAt).toLocaleString() : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Show Order Paid if payment status is 'paid' */}
+                {order?.paymentInfo?.status === 'paid' && (
+                  <div className="flex gap-3 relative">
+                    <div className="absolute left-[5px] top-6 bottom-0 w-[1px] bg-gray-200" />
+                    <div className="w-3 h-3 rounded-full bg-blue-500 mt-1.5 z-10" />
+                    <div className="flex-1 text-sm">
+                      <p className="font-medium text-gray-700">Order Paid</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <Calendar className="h-3 w-3" />
+                        {order?.paymentInfo?.paidAt ? new Date(order.paymentInfo.paidAt).toLocaleString() : ''}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show shipping tracking history if available */}
                 {shipping?.tracking?.history?.map((event, index) => (
                   <div key={index} className="flex gap-3 relative">
                     <div className="absolute left-[5px] top-6 bottom-0 w-[1px] bg-gray-200" />
@@ -362,12 +391,6 @@ export default function OrderDetails() {
                         <Calendar className="h-3 w-3" />
                         {event?.timestamp ? new Date(event.timestamp).toLocaleString() : ''}
                       </p>
-                      {/* {event?.location && (
-                        <p className="text-xs text-gray-600 mt-1">Location: {event.location}</p>
-                      )}
-                      {event?.description && (
-                        <p className="text-xs text-gray-600 mt-1">{event.description}</p>
-                      )} */}
                     </div>
                   </div>
                 ))}
@@ -384,7 +407,7 @@ export default function OrderDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              {order?.paymentInfo?.status === 'paid' ? (
+          
                 <div className="space-y-4">
                   {/* Order Items Breakdown */}
                   {order?.paymentBreakdown?.items?.map((item, index) => (
@@ -434,10 +457,10 @@ export default function OrderDetails() {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <Badge className={getStatusColor(order?.paymentInfo?.status)}>
-                        {order?.paymentInfo?.status}
+                        {order?.paymentInfo?.status === 'awaiting_cod' ? 'Payment on Delivery' : order?.paymentInfo?.status}
                       </Badge>
                       <span className="text-sm text-gray-600">
-                        via {order?.paymentInfo?.method}
+                        {order?.paymentInfo?.status === 'awaiting_cod' ? '' : `via ${order?.paymentInfo?.method}`}
                       </span>
                     </div>
                     {order?.paymentInfo?.paidAt && (
@@ -447,13 +470,7 @@ export default function OrderDetails() {
                     )}
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">Payment Pending</p>
-                  <p className="text-sm text-gray-500 mt-1">Payment breakdown will be available once the order is paid.</p>
-                </div>
-              )}
+            
             </CardContent>
           </Card>
         </div>
@@ -489,19 +506,23 @@ export default function OrderDetails() {
 
               {/* Pickup Address */}
               <div>
-                <h3 className="font-inter font-semibold mb-2">Pickup Address</h3>
+                <h3 className="font-inter font-semibold mb-2 flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-blue-500" />
+                  Warehouse/Pickup Location
+                </h3>
                 <div className="text-sm space-y-1">
-                  <p className="font-medium">
-                    {addresses?.pickup?.first_name} {addresses?.pickup?.last_name}
+                  <p className="font-medium text-gray-800">
+                    {items[0]?.product?.seller?.warehouseDetails?.name}
                   </p>
-                  <p>{maskPhoneNumber(addresses?.pickup?.phone)}</p>
-                  <p>{maskEmail(addresses?.pickup?.email)}</p>
-                  <p>{addresses?.pickup?.line1}</p>
-                  {addresses?.pickup?.line2 && <p>{addresses?.pickup?.line2}</p>}
-                  <p>
-                    {addresses?.pickup?.city}, {addresses?.pickup?.state} {addresses?.pickup?.zip}
+                  <p className="text-gray-600">{maskPhoneNumber(items[0]?.product?.seller?.warehouseDetails?.contactNumber)}</p>
+                  <p className="text-gray-600">{items[0]?.product?.seller?.warehouseDetails?.address?.addressLine1}</p>
+                  {items[0]?.product?.seller?.warehouseDetails?.address?.addressLine2 && (
+                    <p className="text-gray-600">{items[0]?.product?.seller?.warehouseDetails?.address?.addressLine2}</p>
+                  )}
+                  <p className="text-gray-600">
+                    {items[0]?.product?.seller?.warehouseDetails?.address?.city}, {items[0]?.product?.seller?.warehouseDetails?.address?.state} {items[0]?.product?.seller?.warehouseDetails?.address?.zipCode}
                   </p>
-                  <p>{addresses?.pickup?.country}</p>
+                  <p className="text-gray-600">{items[0]?.product?.seller?.warehouseDetails?.address?.country}</p>
                 </div>
               </div>
             </CardContent>
@@ -516,28 +537,118 @@ export default function OrderDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Add discount information if available */}
+              {items[0]?.product?.discount?.isActive && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-100 mb-4">
+                  <h4 className="font-medium text-green-800 flex items-center gap-2 mb-2">
+                    <Tag className="h-4 w-4" />
+                    Applied Discount
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <p className="text-green-700">
+                      {items[0].product.discount.couponName && (
+                        <span className="font-medium">Coupon: {items[0].product.discount.couponName}</span>
+                      )}
+                    </p>
+                    <p className="text-green-700">
+                      Discount: {items[0].product.discount.value}% off
+                    </p>
+                    {/* <p className="text-green-700">
+                      Original Price: ₦{items[0].product.originalPrice.toLocaleString()}
+                    </p> */}
+                    <p className="text-green-700 font-medium">
+                      Discounted Price: ₦{items[0].price.toLocaleString()}
+                    </p>
+                    {items[0].product.discount.startDate && (
+                      <p className="text-green-700">
+                        Valid from: {new Date(items[0].product.discount.startDate).toLocaleDateString()}
+                      </p>
+                    )}
+                    {items[0].product.discount.endDate && (
+                      <p className="text-green-700">
+                        Valid until: {new Date(items[0].product.discount.endDate).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <p className="font-medium">Method: {shipping?.method}</p>
-                <p>Carrier: {shipping?.carrier?.name}</p>
-                <p>Carrier Reference: {shipping?.carrier?.reference}</p>
-                <p>Tracking Number: {shipping?.tracking?.number}</p>
-                <p>Shipment ID: {shipping?.shipment_id}</p>
-                <p>Rate ID: {shipping?.rate_id}</p>
-                <p>Purpose: {shipping?.shipment_purpose}</p>
-                <p className="text-gray-600">
-                  Estimated Delivery: {shipping?.estimatedDeliveryDate ? 
-                    new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 'Not available'}
-                </p>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Truck className="h-4 w-4 text-blue-500" />
+                  <p>Carrier: {shipping?.carrier?.name}</p>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Tag className="h-4 w-4 text-blue-500" />
+                  <p>Carrier Reference: {shipping?.carrier?.reference}</p>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Package className="h-4 w-4 text-blue-500" />
+                  <p>Tracking Number: {shipping?.tracking?.number}</p>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Box className="h-4 w-4 text-blue-500" />
+                  <p>Fez Order ID: {shipping?.shipment_id}</p>
+                </div>
+                
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Calendar className="h-4 w-4 text-blue-500" />
+                  <p>
+                    Estimated Delivery: {shipping?.estimatedDeliveryDate ? 
+                      new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 'Not available'}
+                  </p>
+                </div>
+
+                {/* Shipping Status Badge */}
+                <div className="mt-4">
+                  <Badge 
+                    className={`${
+                      shipping?.tracking?.status === 'delivered' 
+                        ? 'bg-green-100 text-green-800' 
+                        : shipping?.tracking?.status === 'in_transit'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    } px-3 py-2 text-sm capitalize flex items-center gap-2 w-fit`}
+                  >
+                    {shipping?.tracking?.status === 'delivered' ? (
+                      <Check className="h-4 w-4" />
+                    ) : shipping?.tracking?.status === 'in_transit' ? (
+                      <Truck className="h-4 w-4" />
+                    ) : (
+                      <Clock className="h-4 w-4" />
+                    )}
+                    {shipping?.tracking?.status?.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
               </div>
 
               {/* Shipping Documents */}
               {(shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && (
                 <div className="mt-6 space-y-3">
-                  <h4 className="font-medium">Shipping Documents</h4>
+                  <h4 className="font-medium flex items-center gap-2 text-gray-800">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-blue-500"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Shipping Documents
+                  </h4>
                   <div className="flex flex-col gap-2">
                     {shipping.documents.shippingLabel && (
                       <Button
-                        
                         className="w-full flex items-center font-inter bg-gray-800 hover:bg-gray-900 transition-all duration-300 justify-center gap-2"
                         onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
                       >
@@ -556,13 +667,13 @@ export default function OrderDetails() {
                           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                           <rect x="6" y="14" width="12" height="8"></rect>
                         </svg>
-                         Track Shipment
+                        Track Shipment
                       </Button>
                     )}
                     {shipping.documents.commercialInvoice && (
                       <Button
                         variant="outline"
-                        className="w-full flex items-center font-inter justify-center gap-2"
+                        className="w-full flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-gray-50"
                         onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
                       >
                         <svg
@@ -575,6 +686,7 @@ export default function OrderDetails() {
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
+                          className="text-gray-600"
                         >
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                           <polyline points="14 2 14 8 20 8"></polyline>

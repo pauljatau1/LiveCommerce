@@ -266,8 +266,8 @@ const ProductCard = ({ item, setIsStockUpdated }) => {
                     <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${status.class}`}>
                         {status.text}
                     </span>
-                    <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${uploadStatus.class}`}>
-                        {uploadStatus.text}
+                    <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${uploadStatus?.class}`}>
+                        {uploadStatus?.text}
                     </span>
                 </div>
             </div>
@@ -333,8 +333,8 @@ const ProductCard = ({ item, setIsStockUpdated }) => {
                 <p className="text-sm text-[#05031F] truncate">{item?.category}</p>
             </div>
             <div className="truncate">
-                <p className={`text-sm px-3 py-1 rounded-full w-fit text-[#05031F] truncate ${uploadStatus.class}`}>
-                    {uploadStatus.text}
+                <p className={`text-sm px-3 py-1 rounded-full w-fit text-[#05031F] truncate ${uploadStatus?.class}`}>
+                    {uploadStatus?.text || 'offline auction'}
                 </p>
             </div>
             <div>

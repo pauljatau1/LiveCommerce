@@ -83,6 +83,63 @@ const formatMessageTime = (timestamp) => {
   });
 };
 
+// Move QuickReplyDialog outside of ChatInterface
+const QuickReplyDialog = ({
+  open,
+  onOpenChange,
+  title,
+  setTitle,
+  content,
+  setContent,
+  onCreateReply,
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>Create Quick Reply</DialogTitle>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Title</label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="E.g., Greeting, Thank you, etc."
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Message Content</label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Type your message template..."
+            className="w-full min-h-[100px] p-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/20"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => {
+            onOpenChange(false);
+            setTitle("");
+            setContent("");
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={onCreateReply}
+          className="bg-green-600 text-white hover:bg-green-700"
+          disabled={!title.trim() || !content.trim()}
+        >
+          Create Reply
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
 export default function ChatInterface() {
   const { setHeaderName, setNavName } = useOutletContext()
   const [conversations, setConversations] = useState([]);
@@ -109,6 +166,10 @@ export default function ChatInterface() {
   const [buyerDetails, setBuyerDetails] = useState(null);
   const [initialLoad, setInitialLoad] = useState(true);
   const messagesContainerRef = useRef(null);
+  const [quickReplies, setQuickReplies] = useState([]);
+  const [newQuickReplyOpen, setNewQuickReplyOpen] = useState(false);
+  const [quickReplyTitle, setQuickReplyTitle] = useState("");
+  const [quickReplyContent, setQuickReplyContent] = useState("");
 
   useEffect(() => {
     setHeaderName('Messages')
@@ -999,13 +1060,58 @@ export default function ChatInterface() {
           </ScrollArea>
         </TabsContent>
         <TabsContent value="replies" className="flex-1 p-4 m-0">
-          <div className="text-center py-8">
-            <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No quick replies available yet.</p>
-            <Button variant="outline" size="sm" className="mt-4">
-              Create Quick Reply
-            </Button>
-          </div>
+          <QuickReplyDialog 
+            open={newQuickReplyOpen}
+            onOpenChange={setNewQuickReplyOpen}
+            title={quickReplyTitle}
+            setTitle={setQuickReplyTitle}
+            content={quickReplyContent}
+            setContent={setQuickReplyContent}
+            onCreateReply={handleCreateQuickReply}
+          />
+          {quickReplies.length > 0 ? (
+            <ScrollArea className="h-full">
+              <div className="space-y-3">
+                {quickReplies.map((reply) => (
+                  <Card key={reply.id} className="p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="text-sm font-medium">{reply.title}</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handleDeleteQuickReply(reply.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">{reply.content}</p>
+                    <Button
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={() => handleSendQuickReply(reply.content)}
+                      disabled={!currentConversation}
+                    >
+                      Use Reply
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="text-center py-8">
+              <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No quick replies available yet.</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-4"
+                onClick={() => setNewQuickReplyOpen(true)}
+              >
+                Create Quick Reply
+              </Button>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
@@ -1341,6 +1447,48 @@ export default function ChatInterface() {
       )}
     </div>
   );
+
+  // Load quick replies from localStorage on component mount
+  useEffect(() => {
+    const savedReplies = localStorage.getItem('quickReplies');
+    if (savedReplies) {
+      setQuickReplies(JSON.parse(savedReplies));
+    }
+  }, []);
+
+  // Save quick replies to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('quickReplies', JSON.stringify(quickReplies));
+  }, [quickReplies]);
+
+  const handleCreateQuickReply = () => {
+    if (!quickReplyTitle.trim() || !quickReplyContent.trim()) {
+      toast.error('Please fill in both title and content');
+      return;
+    }
+
+    const newReply = {
+      id: Date.now(),
+      title: quickReplyTitle,
+      content: quickReplyContent
+    };
+
+    setQuickReplies(prev => [...prev, newReply]);
+    setNewQuickReplyOpen(false);
+    setQuickReplyTitle("");
+    setQuickReplyContent("");
+    toast.success('Quick reply created successfully');
+  };
+
+  const handleDeleteQuickReply = (id) => {
+    setQuickReplies(prev => prev.filter(reply => reply.id !== id));
+    toast.success('Quick reply deleted');
+  };
+
+  const handleSendQuickReply = (content) => {
+    setMessageInput(content);
+    handleSendMessage();
+  };
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col ">

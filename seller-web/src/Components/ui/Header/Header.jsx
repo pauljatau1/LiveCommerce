@@ -210,7 +210,10 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
         )}
       </button>
       {desktopNotificationsButton}
-      <div className="flex items-center">
+      <div 
+        onClick={() => navigate('/dashboard/account')}
+        className="flex items-center cursor-pointer hover:opacity-80 transition-all duration-300"
+      >
         <div className="flex-shrink-0">
           {renderAvatar()}
         </div>
@@ -220,7 +223,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           </p>
           {seller?.storeName && (
             <p className="text-xs text-gray-500">
-              {seller.storeName}
+              {seller.storeName || seller.businessName}
             </p>
           )}
         </div>

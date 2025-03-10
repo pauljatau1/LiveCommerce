@@ -386,7 +386,7 @@ const HomePage = () => {
                       <div key={notification._id} className="p-4 border gap-2 flex-wrap flex items-center justify-between rounded-lg cursor-pointer border-gray-200 hover:bg-gray-50 hover:shadow-md transition-colors">
                         <div>
                           <h4 className="text-sm xl:text-base font-inter font-semibold text-[#27272E]">{notification.title}</h4>
-                          <p className="text-sm text-[#425466] max-w-[420px] font-inter mt-1">{notification.message}</p>
+                          <p className="text-sm text-[#425466] max-w-[420px] font-inter mt-1">{notification.message.slice(0, 70)}...</p>
                         </div>
                         <Dialog>
                           <DialogTrigger asChild>

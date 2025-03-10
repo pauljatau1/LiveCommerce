@@ -35,7 +35,7 @@ function Customers() {
   const [followers, setFollowers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
+  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' })
   const [filteredFollowers, setFilteredFollowers] = useState([])
 
   const { setHeaderName, setNavName } = useOutletContext()
@@ -132,7 +132,6 @@ function Customers() {
 
     const tableColumn = [
       'Customer Name', 
-      'Email', 
       'Location', 
       'Total Orders', 
       'Total Spent (₦)',
@@ -141,7 +140,6 @@ function Customers() {
 
     const tableRows = filteredFollowers.map(follower => [
       follower.firstName ? `${follower.firstName} ${follower.lastName}` : follower.name,
-      follower.email || 'N/A',
       follower.mainAddress ? 
         `${follower.mainAddress.city}, ${follower.mainAddress.country}` : 
         'N/A',

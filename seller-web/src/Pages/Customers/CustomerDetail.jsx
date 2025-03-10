@@ -146,7 +146,29 @@ function CustomerDetail() {
   }
 
   if (!customerData) {
-    return <div className="flex justify-center items-center h-screen">Customer not found</div>
+    return (
+      <div className="flex flex-col justify-center items-center h-[80vh] px-4">
+        <img 
+          src={NotFoundIcon} 
+          alt="Customer Not Found" 
+          className="w-32 h-32 mb-6 opacity-80"
+        />
+        <h2 className="text-2xl font-semibold text-slate-800 mb-3 text-center">
+          Customer Not Found
+        </h2>
+        <p className="text-slate-600 text-center max-w-md mb-6">
+          This customer profile may have been deactivated, deleted, or is temporarily unavailable. Please verify the customer ID or try again later.
+        </p>
+        <Button
+          variant="outline"
+          className="border-slate-300 hover:bg-slate-50"
+          onClick={() => navigate(-1)}
+        >
+          <Icon icon="heroicons:arrow-left" className="w-4 h-4 mr-2" />
+          Go Back
+        </Button>
+      </div>
+    )
   }
 
   return (

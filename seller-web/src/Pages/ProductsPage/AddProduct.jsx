@@ -31,6 +31,7 @@ import VariantCombinations from '../../Components/ui/VariantComponents/VariantCo
 import VariantImageUpload from '../../Components/ui/VariantComponents/VariantImageUpload';
 import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
+import { Checkbox } from "../../Components/ui/checkbox";
 
 const AddProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -63,6 +64,13 @@ const AddProduct = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [productStatus, setProductStatus] = useState('active');
+    const [auctionDetails, setAuctionDetails] = useState({
+        minBid: null,
+        maxBid: null,
+        endOnMaxBid: false,
+        startDate: null,
+        endDate: null
+    });
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedSubCategory, setSelectedSubCategory] = useState('');
     const [skuNumber, setSkuNumber] = useState('');
@@ -422,6 +430,17 @@ const AddProduct = () => {
                 });
             }
 
+            // Add auction details if product is an offline auction
+            if (productStatus === 'offline_auction') {
+                productData.auction = {
+                    minBid: Number(auctionDetails.minBid),
+                    maxBid: Number(auctionDetails.maxBid),
+                    endOnMaxBid: auctionDetails.endOnMaxBid,
+                    startDate: new Date(auctionDetails.startDate).toISOString(),
+                    endDate: new Date(auctionDetails.endDate).toISOString()
+                };
+            }
+
             console.log('submit product data', productData);
             
             // Validate all required fields and collect missing fields
@@ -437,6 +456,32 @@ const AddProduct = () => {
             if (!selectedCategory) missingFields.push('Product category');
             if (!selectedSubCategory) missingFields.push('Product sub-category');
             if (!brand) missingFields.push('Product brand');
+
+            // Add auction-specific validations
+            if (productStatus === 'offline_auction') {
+                if (!auctionDetails.minBid) missingFields.push('Minimum bid amount');
+                if (!auctionDetails.maxBid) missingFields.push('Maximum bid amount');
+                if (!auctionDetails.startDate) missingFields.push('Auction start date');
+                if (!auctionDetails.endDate) missingFields.push('Auction end date');
+                
+                // Validate min bid is less than max bid
+                if (Number(auctionDetails.minBid) >= Number(auctionDetails.maxBid)) {
+                    toast.error('Maximum bid must be greater than minimum bid');
+                    return;
+                }
+
+                // Validate start date is in the future
+                if (new Date(auctionDetails.startDate) <= new Date()) {
+                    toast.error('Auction start date must be in the future');
+                    return;
+                }
+
+                // Validate end date is after start date
+                if (new Date(auctionDetails.endDate) <= new Date(auctionDetails.startDate)) {
+                    toast.error('Auction end date must be after start date');
+                    return;
+                }
+            }
 
             // Submit if no missing fields, otherwise show specific error messages
             if (missingFields.length === 0) {
@@ -521,6 +566,13 @@ const AddProduct = () => {
         setVideos([]);
         setProductStatus('active');
         setProductSpecs({}); // Reset specifications
+        setAuctionDetails({
+            minBid: null,
+            maxBid: null,
+            endOnMaxBid: false,
+            startDate: null,
+            endDate: null
+        });
     };
 
     // Move conditions outside of the callback to prevent recreating on every render
@@ -882,36 +934,113 @@ const AddProduct = () => {
                                             {/* Shipping & Pricing */}
                                             <Card>
                                                 <CardHeader>
-                                                    <CardTitle className='text-base lg:text-lg font-cabin font-medium mb-5'>Shipping & Pricing</CardTitle>
+                                                    <CardTitle className='text-base lg:text-lg font-cabin font-medium mb-5'>
+                                                        {productStatus === 'offline_auction' ? 'Auction Details & Shipping' : 'Shipping & Pricing'}
+                                                    </CardTitle>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
                                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                                                        <div>
-                                                            <RequiredLabel>Pricing</RequiredLabel>
-                                                            <div className="relative space-y-2">
-                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                                <Input
-                                                                    type="number"
-                                                                    className="pl-8"
-                                                                    placeholder="0.00"
-                                                                    value={shippingDetails.pricing}
-                                                                    onChange={(e) => handleShippingChange('pricing', e.target.value)}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        {/*<div>
-                                                            <Label>On Sale Price</Label>
-                                                            <div className="relative space-y-2">
-                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                                <Input
-                                                                    type="number"
-                                                                    className="pl-8"
-                                                                    placeholder="0.00"
-                                                                    value={shippingDetails.salePrice}
-                                                                    onChange={(e) => handleShippingChange('salePrice', e.target.value)}
-                                                                />
-                                                            </div>
-                                                        </div>*/}
+                                                        {productStatus === 'offline_auction' ? (
+                                                            <>
+                                                                <div>
+                                                                    <RequiredLabel>Minimum Bid</RequiredLabel>
+                                                                    <div className="relative space-y-2">
+                                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="pl-8"
+                                                                            placeholder="0.00"
+                                                                            value={auctionDetails.minBid}
+                                                                            onChange={(e) => {
+                                                                                setAuctionDetails(prev => ({
+                                                                                    ...prev,
+                                                                                    minBid: e.target.value
+                                                                                }));
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <RequiredLabel>Maximum Bid</RequiredLabel>
+                                                                    <div className="relative space-y-2">
+                                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="pl-8"
+                                                                            placeholder="0.00"
+                                                                            value={auctionDetails.maxBid}
+                                                                            onChange={(e) => {
+                                                                                const value = e.target.value;
+                                                                                setAuctionDetails(prev => ({
+                                                                                    ...prev,
+                                                                                    maxBid: value
+                                                                                }));
+                                                                                setShippingDetails(prev => ({
+                                                                                    ...prev,
+                                                                                    pricing: value
+                                                                                }));
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <RequiredLabel>Start Date & Time</RequiredLabel>
+                                                                    <Input
+                                                                        type="datetime-local"
+                                                                        value={auctionDetails.startDate}
+                                                                        onChange={(e) => setAuctionDetails(prev => ({
+                                                                            ...prev,
+                                                                            startDate: e.target.value
+                                                                        }))}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <RequiredLabel>End Date & Time</RequiredLabel>
+                                                                    <Input
+                                                                        type="datetime-local"
+                                                                        value={auctionDetails.endDate}
+                                                                        onChange={(e) => setAuctionDetails(prev => ({
+                                                                            ...prev,
+                                                                            endDate: e.target.value
+                                                                        }))}
+                                                                    />
+                                                                </div>
+                                                                <div className="xl:col-span-4">
+                                                                    <div className="flex items-center space-x-2">
+                                                                        <Checkbox
+                                                                            id="endOnMaxBid"
+                                                                            checked={auctionDetails.endOnMaxBid}
+                                                                            onCheckedChange={(checked) => setAuctionDetails(prev => ({
+                                                                                ...prev,
+                                                                                endOnMaxBid: checked
+                                                                            }))}
+                                                                        />
+                                                                        <label
+                                                                            htmlFor="endOnMaxBid"
+                                                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                                        >
+                                                                            End auction when maximum bid is reached
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div>
+                                                                    <RequiredLabel>Pricing</RequiredLabel>
+                                                                    <div className="relative space-y-2">
+                                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="pl-8"
+                                                                            placeholder="0.00"
+                                                                            value={shippingDetails.pricing}
+                                                                            onChange={(e) => handleShippingChange('pricing', e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </>
+                                                        )}
                                                         <div className="space-y-2">
                                                             <Label>Weight (Optional)</Label>
                                                             <div className="flex gap-2">
@@ -1121,6 +1250,12 @@ const AddProduct = () => {
                                                         <div className="flex items-center gap-2">
                                                             <span className="w-2 h-2 rounded-full bg-orange-500" />
                                                             Draft
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="offline_auction">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2 h-2 rounded-full bg-purple-500" />
+                                                            Offline Auction
                                                         </div>
                                                     </SelectItem>
                                                 </SelectContent>

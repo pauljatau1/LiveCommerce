@@ -68,6 +68,7 @@ import theme from './lib/theme';
 import mixpanel from "mixpanel-browser";
 import IntercomWrapper from './Components/IntercomProvider';
 import IntercomInitializer from './Components/IntercomInitializer';
+import TestTopup from './Pages/google/google';
 // Create a wrapper component that provides both Router and Auth contexts
 
 
@@ -93,10 +94,12 @@ const router = createBrowserRouter([
       {
         path: '/',
         element: <Navigate to="/login" replace />,
+        // element: <TestTopup />
       },
       {
         path: '/login',
         element: <LoginPage />,
+        // element: <TestTopup />,
         loader: () => new Promise(resolve => setTimeout(resolve, 500)),
         errorElement: <NotFoundPage />
       },
