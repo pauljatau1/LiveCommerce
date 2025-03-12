@@ -14,8 +14,9 @@ import CatalogCard from "../catalog/catalogCard";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import BottomSheet from "../global/bottom-sheet";
-import { catalogSort } from "@/helpers/helpers";
+import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import ShopCard from "./shopItem";
+import FilterSheet from "../catalog/filterSheet";
 
 const Shops = ({
   sellerId,
@@ -41,13 +42,34 @@ const Shops = ({
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
+  const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
+  const [selectedFilters, setSelectedFilters] = useState<any>();
   const flatListRef = useRef<FlatList>(null);
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
     setFilter(type);
-    const sortedProducts = catalogSort(products, type);
-    setFilteredProducts(sortedProducts);
+    handleFilter(selectedFilters, type);
+    // const sortedProducts = catalogSort(products, type);
+    // setFilteredProducts(sortedProducts);
+  };
+
+  const handleFilter = (filters: any, sortType = "") => {
+    let appliedFilters = products?.slice();
+    if (filters?.price) {
+      appliedFilters = catalogFilterPrice(appliedFilters, filters?.price);
+    }
+    if (filters?.condition) {
+      appliedFilters = appliedFilters.filter(
+        (product) =>
+          product?.condition ==
+          filters?.condition?.toLowerCase()?.replace(" ", "-"),
+      );
+    }
+    appliedFilters = catalogSort(appliedFilters, sortType || filter);
+    setFilteredProducts(appliedFilters);
+    setShowFilterSheet(false);
+    setSelectedFilters(filters);
   };
 
   const renderProducts = (item: any) => {
@@ -112,7 +134,7 @@ const Shops = ({
           style={{
             backgroundColor: "rgba(204, 204, 204, 0.25)",
           }}
-          //   onPress={() => setFilter("icon")}
+          onPress={() => setShowFilterSheet(true)}
         >
           <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
         </TouchableOpacity>
@@ -142,7 +164,11 @@ const Shops = ({
   return (
     <View style={{ flex: 1, paddingHorizontal: 16 }}>
       {isLoading ? (
-        <View>
+        <View
+          style={{
+            paddingTop: headerHeight + 12,
+          }}
+        >
           <ActivityIndicator size={"small"} color="#16783A" />
         </View>
       ) : (
@@ -185,6 +211,20 @@ const Shops = ({
         <SortSheet
           selectSortType={handleSelectSortType}
           currentSelection={filter}
+        />
+      </BottomSheet>
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={showFilterSheet}
+        titleColor="!text-white"
+        onRequestClose={() => setShowFilterSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <FilterSheet
+          selectFilterType={handleFilter}
+          currentSelection={selectedFilters}
         />
       </BottomSheet>
     </View>

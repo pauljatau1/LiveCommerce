@@ -12,6 +12,8 @@ import { useGetSellerProductsQuery } from "@/services/products";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import CatalogCard from "../catalog/catalogCard";
 import ShopCard from "../sellerProfile/shopItem";
+import { getToken } from "@/store/features/auth/utils";
+import axios from "axios";
 
 const tabs = ["Auctions", "Buy Now", "Categories"];
 
@@ -23,6 +25,7 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [products, setProducts] = useState<any[]>([]);
+  const [seller, setSeller] = useState<any>();
 
   const fetchMoreProducts = useCallback(() => {
     if (!isFetching && !hasReachedEnd) {
@@ -30,11 +33,32 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
     }
   }, [isFetching, hasReachedEnd]);
 
+  const getSellerProfile = useCallback(async () => {
+    const token = await getToken();
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/seller/${id}`,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setSeller(response.data);
+    } catch (error) {
+      console.error("Error fetching blips:", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (data?.products) {
       setProducts([...products, ...data.products]);
     }
   }, [data]);
+
+  useEffect(() => {
+    getSellerProfile();
+  }, []);
 
   const renderShopProducts = useCallback(
     (item: any) => {
@@ -136,22 +160,22 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
   }, [tab]);
 
   return (
-    <View className="p-[8px] pb-[28px] h-full">
+    <View className="pt-[8px] pb-[28px] h-full">
       {isLoading ? (
         <ActivityIndicator size={"small"} color="#16783A" />
       ) : (
         <View className="h-[100%]">
           <View
             className="w-full flex-row items-center justify-between "
-            style={{ marginBottom: 10 }}
+            style={{ marginBottom: 10, paddingHorizontal: 16 }}
           >
             <Pressable
               onPress={closeSheet}
               className="flex-end "
               style={{ marginLeft: "auto" }}
             >
-              <View className="bg-[#EE571C] w-[30px] h-[30px] rounded-[50%]">
-                <AntDesign name="closecircle" size={30} color="#F9C7B3" />
+              <View className="bg-[#16783A] w-[30px] h-[30px] rounded-[50%]">
+                <AntDesign name="closecircle" size={30} color="#fff" />
               </View>
             </Pressable>
           </View>
@@ -181,6 +205,7 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
               }}
               contentContainerStyle={{
                 paddingBottom: 10,
+                paddingHorizontal: 16,
               }}
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled={true}

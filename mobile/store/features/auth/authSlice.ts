@@ -29,6 +29,8 @@ var initialState: AuthState = {
 };
 
 const setInitialState = async () => {
+  console.log("setting");
+
   const token = await getToken();
   const user = await getUser();
 
@@ -39,6 +41,7 @@ const setInitialState = async () => {
     signIn: null,
     signOut: null,
   };
+  return initialState;
 };
 
 setInitialState();

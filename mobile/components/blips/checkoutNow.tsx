@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import { toast } from "@/core/toast";
@@ -25,6 +25,24 @@ const mockDeliveryOtions = [
     name: "Standard Delivery",
     description:
       "Guaranteed delivery within 3 business days.Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ",
+  },
+];
+
+const paymentOptions = [
+  {
+    icon: require("../../assets/icons/paystack.png"),
+    name: "Paystack",
+    description: "Secure payment via card, bank transfer, e-Wallets",
+  },
+  {
+    icon: require("../../assets/icons/wallet.png"),
+    name: "Auqli Wallet",
+    description: "",
+  },
+  {
+    icon: require("../../assets/icons/cod.png"),
+    name: "Cash on Delivery",
+    description: "Pay with cash on Delivery",
   },
 ];
 
@@ -60,6 +78,8 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
   const [showPaystack, setShowPaystack] = useState(false);
   const [payLoading, setPayLoading] = useState<boolean>(false);
   const [orderId, setOrderId] = useState<string>("");
+  const [selectedPayment, setSelectedPayment] = useState<number>(0);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   const generateReference = () => {
     const prefix = "ORDER";
@@ -73,6 +93,23 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       : product?.price;
     return price;
   }, [product]);
+
+  const getWalletBalance = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setWalletBalance(response.data?.balance);
+    } catch (e) {
+      console.log("error fetching buyer wallet balance ", e);
+    }
+  };
 
   const getAddresses = async () => {
     try {
@@ -198,6 +235,12 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       return toast.error("error getting delivery fee");
     }
 
+    if (selectedPayment == 1) {
+      if (walletBalance < deliveryFee + productTotal) {
+        return toast.error("Insufficient Wallet Balance");
+      }
+    }
+
     const order = {
       items: [
         {
@@ -223,11 +266,11 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
         },
       ],
       shippingAddress: selectedAddress,
-      paymentMethod: "paystack",
-      isItemCod: false,
+      paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
+      isItemCod: selectedPayment == 2,
       shippingFee: deliveryFee,
       additionalDetails: "Please handle with care",
-      paidFromWallet: false,
+      paidFromWallet: selectedPayment == 1,
     };
 
     console.log(order);
@@ -253,7 +296,14 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
           JSON.stringify(response.data.orders),
         );
         await AsyncStorage.removeItem("buyNow");
-        setShowPaystack(true);
+        if (selectedPayment == 0) {
+          setShowPaystack(true);
+        } else if (selectedPayment == 2) {
+          closeSheet();
+          router.replace("/(root)/orders/orders");
+        } else {
+          router.replace("/(root)/orders/orders");
+        }
       }
     } catch (e: any) {
       console.log("could not create order", e?.response);
@@ -317,6 +367,8 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       setUser(user);
     }
     getUserInfo();
+    getWalletBalance();
+
     // getCart();
   }, []);
 
@@ -342,6 +394,83 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       setCart(product);
     }
   }, [products]);
+
+  const renderPaymentOptions = useCallback(
+    (item: any, index: number) => {
+      return (
+        <Pressable
+          key={index}
+          className="rounded-[16px] border-[1px] border-[#f2f2f2] p-[16px] flex-row items-center justify-between gap-[8px] min-h-[100px]"
+          style={{
+            backgroundColor: selectedPayment == index ? "#BEF3D2" : "#121212",
+            borderColor:
+              selectedPayment == index
+                ? "#BEF3D2"
+                : "rgba(242, 242, 242, 0.30)",
+          }}
+          onPress={() => setSelectedPayment(index)}
+        >
+          <View className="flex-row items-center gap-[16px] shrink">
+            <View
+              className="w-[50px] h-[50px] rounded-[10px] flex-row items-center justify-center bg-[#FFFFFF] "
+              style={{
+                backgroundColor: index !== 0 ? "#CFCFCF" : "#ffffff",
+              }}
+            >
+              <Image
+                source={item.icon}
+                contentFit="contain"
+                style={{
+                  width: 25,
+                  height: 25,
+                }}
+              />
+            </View>
+            <View className="shrink">
+              <Text
+                className="text-[16px] font-LexendDecaSemiBold text-[#ccc]"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {item.name}
+              </Text>
+              <Text
+                className="text-[12px] font-LexendDeca text-[#ccc] leading-[19.5px] shrink"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {index == 1
+                  ? "₦" +
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : item.description}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+            style={{
+              borderColor: selectedPayment == index ? "#16783A" : "#f2f2f2",
+              borderWidth: 2,
+            }}
+          >
+            <View
+              className="w-[12px] h-[12px] rounded-[12px]"
+              style={{
+                backgroundColor: selectedPayment == index ? "#16783A" : "",
+              }}
+            ></View>
+          </View>
+        </Pressable>
+      );
+    },
+    [selectedPayment, walletBalance],
+  );
   return (
     <View className="p-[8px] pb-[16px]">
       <ScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
@@ -461,10 +590,10 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                   <Text className="text-[#16783A] text-[12px]">Edit</Text>
                 </Pressable>
               </View>
-              <View>
-                <Text className="text-[14px] text-[#ccc] font-LexendDecaSemiBold">
-                  Paystack
-                </Text>
+              <View className="gap-[16px] mt-[10px]">
+                {paymentOptions.map((option: any, index: number) =>
+                  renderPaymentOptions(option, index),
+                )}
               </View>
             </View>
 
@@ -490,7 +619,11 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                   Merchandise Subtotal
                 </Text>
                 <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                  ₦{productTotal?.toLocaleString()}
+                  ₦
+                  {productTotal?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center">
@@ -498,7 +631,13 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                   Shipping Fee
                 </Text>
                 <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                  {deliveryFee ? "₦" + deliveryFee?.toLocaleString() : "-"}
+                  {deliveryFee
+                    ? "₦" +
+                      deliveryFee?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "-"}
                 </Text>
               </View>
               <View className="flex-row justify-between items-center">
@@ -507,7 +646,11 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                 </Text>
                 <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
                   {deliveryFee && productTotal
-                    ? "₦" + (deliveryFee + productTotal)?.toLocaleString()
+                    ? "₦" +
+                      (deliveryFee + productTotal)?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
                     : "-"}
                 </Text>
               </View>
@@ -521,12 +664,15 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                 <ActivityIndicator size={"small"} color="white" />
               ) : (
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
-                  Pay{" "}
-                  {deliveryFee && productTotal
-                    ? "( ₦" +
-                      (deliveryFee + productTotal)?.toLocaleString() +
-                      " )"
-                    : ""}
+                  Pay (
+                  {deliveryFee && productId
+                    ? "₦" +
+                      (deliveryFee + productTotal)?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "-"}
+                  )
                 </Text>
               )}
             </TouchableOpacity>
