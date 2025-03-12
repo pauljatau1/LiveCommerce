@@ -740,7 +740,7 @@ const LivestreamStudio = () => {
 
                 {/* Bottom Product Card - Only show when video is playing */}
                 {shouldShowUI && streamProducts.length > 0 && (
-                    <View className="absolute bottom-0 left-0 right-0 p-4">
+                    <View style={{ position: 'sticky', bottom: 88, left: 0, right: 0, zIndex: 10, padding: 16 }}>
                         <Carousel
                             loop
                             autoPlay={true}
