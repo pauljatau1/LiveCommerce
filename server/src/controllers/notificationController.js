@@ -2,6 +2,8 @@ const Notification = require('../models/Notification');
 const sgMail = require('@sendgrid/mail');
 const Order = require('../models/Order');
 const { agenda } = require('../config/agenda');
+const { Expo } = require('expo-server-sdk');
+const expo = new Expo();
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Helper function to get notification title
@@ -41,6 +43,10 @@ const getNotificationTitle = (type) => {
       return 'Back in Stock';
     case 'seller_message':
       return 'New Message from Seller';
+    case 'buyer_message':
+      return 'New Message from Buyer';
+    case 'new_message':
+      return 'New Message';
     case 'order_reminder':
       return 'Order Action Required';
     case 'review_reminder':
@@ -170,6 +176,10 @@ const getNotificationMessage = (type, data) => {
       const shippingInfo = data.shippingFee ? `Shipping fee: ${data.shippingFee}.` : '';
       
       return `Your order #${data.order_id} has been placed successfully for ${data.amount}. ${orderItemsText} from ${data.sellerName}. ${buyerDeliveryInfo} ${buyerPaymentInfo} ${shippingInfo}`;
+    case 'new_message':
+      return `${data.senderName} sent you a message: "${data.messagePreview}"`;
+    case 'buyer_message':
+      return `${data.buyerName} sent you a message: "${data.messagePreview}"`;
     default:
       return 'You have a new notification.';
   }
@@ -787,12 +797,49 @@ exports.simulateFezWebhook = async (req, res) => {
   }
 };
 
-// Create a new function for buyer notifications
+// Helper function to send push notification
+const sendPushNotification = async (expoPushToken, title, body, data = {}) => {
+  try {
+    if (!Expo.isExpoPushToken(expoPushToken)) {
+      console.error('Invalid Expo push token:', expoPushToken);
+      return;
+    }
+
+    const message = {
+      to: expoPushToken,
+      sound: 'default',
+      title: title,
+      body: body,
+      data: data,
+      priority: 'high',
+    };
+
+    const chunks = expo.chunkPushNotifications([message]);
+    const tickets = [];
+
+    for (let chunk of chunks) {
+      try {
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        tickets.push(...ticketChunk);
+        console.log('Push notification sent successfully:', ticketChunk);
+      } catch (error) {
+        console.error('Error sending push notification chunk:', error);
+      }
+    }
+
+    return tickets;
+  } catch (error) {
+    console.error('Error in sendPushNotification:', error);
+  }
+};
+
+// Modify createBuyerNotification to include push notification
 exports.createBuyerNotification = async (buyerId, type, data) => {
   try {
     const title = getNotificationTitle(type);
     const message = getNotificationMessage(type, data);
 
+    // Create notification in database
     const notification = new Notification({
       buyer: buyerId,
       recipient: 'buyer',
@@ -803,6 +850,25 @@ exports.createBuyerNotification = async (buyerId, type, data) => {
     });
 
     await notification.save();
+
+    // Find buyer's expo push token
+    const Buyer = require('../models/Buyer');
+    const buyer = await Buyer.findById(buyerId);
+
+    if (buyer && buyer.expoPushToken) {
+      // Send push notification
+      await sendPushNotification(
+        buyer.expoPushToken,
+        title,
+        message,
+        {
+          type,
+          notificationId: notification._id,
+          ...data
+        }
+      );
+    }
+
     return notification;
   } catch (error) {
     console.error('Error creating buyer notification:', error);

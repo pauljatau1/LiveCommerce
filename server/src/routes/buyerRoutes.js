@@ -2191,4 +2191,94 @@ router.get('/sellers',
   buyerController.getSellersToFollow
 );
 
+/**
+ * @swagger
+ * /api/buyer/public-profile/{buyerId}:
+ *   get:
+ *     summary: Get public profile information of a buyer
+ *     description: Retrieves publicly available information about a buyer including their basic info, activity stats, and recent public activities
+ *     tags: [Buyer]
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer to fetch profile for
+ *     responses:
+ *       200:
+ *         description: Buyer public profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 basicInfo:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     profileImage:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                     bio:
+ *                       type: string
+ *                     country:
+ *                       type: string
+ *                     joinedDate:
+ *                       type: string
+ *                       format: date-time
+ *                     isIdentityVerified:
+ *                       type: boolean
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalPosts:
+ *                       type: integer
+ *                     totalReviews:
+ *                       type: integer
+ *                     totalFollowers:
+ *                       type: integer
+ *                     totalFollowing:
+ *                       type: integer
+ *                 recentActivity:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       type:
+ *                         type: string
+ *                         enum: [post, product_review, product_purchase, follow]
+ *                       content:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 selectedCategories:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                       subCategories:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/public-profile/:buyerId', buyerController.getPublicProfile);
+
 module.exports = router;

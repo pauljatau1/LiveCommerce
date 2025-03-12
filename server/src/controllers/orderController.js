@@ -29,6 +29,7 @@ const Category = require('../models/Category');
 const { v4: uuidv4 } = require('uuid');
 const { agenda } = require('../config/agenda');
 const crypto = require('crypto');
+const notificationController = require('../controllers/notificationController');
 
 // Initialize Paystack
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
@@ -3079,6 +3080,137 @@ exports.simpleMarkPaid = async (req, res) => {
     res.status(500).json({
       message: 'Failed to mark order as paid (simple method)',
       error: error.message
+    });
+  }
+};
+
+// Cancel order by seller
+exports.cancelOrderBySeller = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+    const sellerId = req.user.id;
+
+    // Find the order and populate necessary fields
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Verify this is the seller's order
+    if (order.seller._id.toString() !== sellerId) {
+      return res.status(403).json({ message: 'Not authorized to cancel this order' });
+    }
+
+    // Check if order is already cancelled
+    if (order.items.some(item => item.status === 'cancelled')) {
+      return res.status(400).json({ 
+        message: 'This order has already been cancelled' 
+      });
+    }
+
+    // Check if order is in pending status
+    if (!order.items.every(item => item.status === 'pending')) {
+      return res.status(400).json({ 
+        message: 'Only pending orders can be cancelled' 
+      });
+    }
+
+    // Update all items status to cancelled
+    order.items.forEach(item => {
+      item.status = 'cancelled';
+      item.statusHistory.push({
+        status: 'cancelled',
+        timestamp: new Date(),
+        note: reason || 'Cancelled by seller'
+      });
+    });
+
+    // Update shipping status to cancelled
+    if (order.shipping && order.shipping.tracking) {
+      order.shipping.tracking.status = 'cancelled';
+      if (!order.shipping.tracking.history) {
+        order.shipping.tracking.history = [];
+      }
+      order.shipping.tracking.history.push({
+        status: 'cancelled',
+        timestamp: new Date(),
+        description: reason || 'Order cancelled by seller'
+      });
+    }
+
+    // Save the order
+    await order.save();
+
+    // Send email notifications
+    const buyerEmail = {
+      to: order.buyer.email,
+      from: 'Auqli Orders <joseph@auqli.com>',
+      subject: 'Order Cancelled - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Cancellation Notice</h2>
+          <p>Dear ${order.buyer.firstName},</p>
+          <p>Your order #${order.order_id} has been cancelled by the seller.</p>
+          <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
+          <p><strong>Seller:</strong> ${order.seller.businessName}</p>
+          <p>If you have any questions, please contact our support team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    const sellerEmail = {
+      to: order.seller.email,
+      from: 'Auqli Orders <joseph@auqli.com>',
+      subject: 'Order Cancellation Confirmation - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Cancellation Confirmation</h2>
+          <p>Dear ${order.seller.firstName},</p>
+          <p>You have successfully cancelled order #${order.order_id}.</p>
+          <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
+          <p><strong>Buyer:</strong> ${order.buyer.firstName} ${order.buyer.lastName}</p>
+          <p>The buyer has been notified of this cancellation.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    try {
+      await Promise.all([
+        sgMail.send(buyerEmail),
+        sgMail.send(sellerEmail)
+      ]);
+    } catch (emailError) {
+      console.error('Error sending emails:', emailError);
+      // Continue execution despite email error
+    }
+
+    res.json({ 
+      message: 'Order cancelled successfully',
+      order: {
+        _id: order._id,
+        order_id: order.order_id,
+        isOpen: order.isOpen,
+        items: order.items.map(item => ({
+          status: item.status,
+          statusHistory: item.statusHistory
+        })),
+        shipping: {
+          tracking: order.shipping?.tracking
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({ 
+      message: 'Error cancelling order', 
+      error: error.message 
     });
   }
 };

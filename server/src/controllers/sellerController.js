@@ -3900,31 +3900,40 @@ exports.updateStorePolicy = async (req, res) => {
   }
 };
 
-// const calculateCustomerMetrics = (customers) => {
-//   // Add null check before mapping
-//   if (!customers || !Array.isArray(customers)) {
-//     return {
-//       totalCustomers: 0,
-//       averageOrdersPerCustomer: 0,
-//       customerLifetimeValue: 0,
-//       topCustomers: []
-//     };
-//   }
 
-//   const validCustomers = customers.filter(customer => customer && customer.buyerId); // Filter out null/invalid customers
 
-//   return {
-//     totalCustomers: validCustomers.length,
-//     averageOrdersPerCustomer: validCustomers.reduce((acc, curr) => acc + (curr.totalOrders || 0), 0) / validCustomers.length || 0,
-//     customerLifetimeValue: validCustomers.reduce((acc, curr) => acc + (curr.totalSpent || 0), 0) / validCustomers.length || 0,
-//     topCustomers: validCustomers
-//       .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
-//       .slice(0, 5)
-//       .map(customer => ({
-//         id: customer.buyerId?._id || customer.buyerId,
-//         name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
-//         totalOrders: customer.totalOrders || 0,
-//         totalSpent: customer.totalSpent || 0
-//       }))
-//   };
-// };
+/**
+ * Update seller's social media information
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.updateSocialMedia = async (req, res) => {
+  try {
+    const { instagram, facebook, tiktok } = req.body;
+    const sellerId = req.user.id;
+
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+
+    // Update social media information
+    seller.socialMedia = {
+      instagram: instagram || seller.socialMedia?.instagram,
+      facebook: facebook || seller.socialMedia?.facebook,
+      tiktok: tiktok || seller.socialMedia?.tiktok
+    };
+
+    // Save the updated seller
+    await seller.save();
+
+    res.status(200).json({
+      message: 'Social media information updated successfully',
+      socialMedia: seller.socialMedia
+    });
+  } catch (error) {
+    console.error('Error updating social media information:', error);
+    res.status(500).json({ message: 'Error updating social media information', error: error.message });
+  }
+};

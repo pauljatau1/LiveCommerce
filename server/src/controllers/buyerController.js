@@ -1459,7 +1459,12 @@ exports.getSellerProfile = async (req, res) => {
         bio: seller.aboutStore,
         isFollowing: seller.followers?.some(
           follower => follower.buyerId?.toString() === req.user.id
-        ) || false
+        ) || false,
+        socialMedia: {
+          instagram: seller.socialMedia?.instagram || null,
+          facebook: seller.socialMedia?.facebook || null,
+          tiktok: seller.socialMedia?.tiktok || null
+        }
       },
       businessInfo: {
         businessName: seller.businessName,
@@ -1469,6 +1474,28 @@ exports.getSellerProfile = async (req, res) => {
           business: seller.businessAddress,
           warehouse: seller.warehouseDetails,
           seller: seller.sellerAddress
+        }
+      },
+      storePolicies: {
+        delivery: {
+          processingTime: seller.storePolicy?.processingTime || null,
+          deliveryTimes: seller.storePolicy?.deliveryTimes || null,
+          freeShippingPolicy: seller.storePolicy?.freeShippingPolicy || null,
+          allowsCod: seller.storePolicy?.allowsCod || true, // Add this line
+        },
+        returns: {
+          returnWindow: seller.storePolicy?.returnWindow || 14,
+          returnCondition: seller.storePolicy?.returnCondition || null,
+          returnShipping: seller.storePolicy?.returnShipping || null,
+          nonRefundableItems: seller.storePolicy?.nonRefundableItems || [],
+        },
+        refunds: {
+          refundPolicy: seller.storePolicy?.refundPolicy || null,
+          refundMethod: seller.storePolicy?.refundMethod || null,
+          lostOrDamagedPolicy: seller.storePolicy?.lostOrDamagedPolicy || null,
+        },
+        exchange: {
+          exchangePolicy: seller.storePolicy?.exchangePolicy || null,
         }
       },
       stats: {
@@ -1482,8 +1509,6 @@ exports.getSellerProfile = async (req, res) => {
         averageRating: parseFloat(reviewStats.averageRating),
         totalReviews: reviewStats.totalReviews,
         ratingDistribution: reviewStats.ratingDistribution,
-
-
       }
     };
 
@@ -2846,4 +2871,142 @@ exports.getSellersToFollow = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get public profile information for a buyer
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getPublicProfile = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    console.log('Fetching profile for buyerId:', buyerId);
+
+    // First, get the post count directly from the Post model
+    const postCount = await Post.countDocuments({
+      'author.userId': buyerId,
+      'author.userModel': 'Buyer',
+      visibility: 'public'
+    });
+    console.log('Direct post count from Post collection:', postCount);
+
+    // Find the buyer and populate necessary fields
+    const buyer = await Buyer.findById(buyerId)
+      .select([
+        'firstName',
+        'lastName',
+        'username',
+        'profileImage',
+        'bio',
+        'country',
+        'createdAt',
+        'isIdentityVerified',
+        'selectedCategories',
+        'activityFeed',
+        'posts',
+        'followers',
+        'following'
+      ])
+      .populate([
+        {
+          path: 'activityFeed',
+          options: { 
+            sort: { createdAt: -1 },
+            limit: 10
+          }
+        },
+        {
+          path: 'posts',
+          match: { visibility: 'public' }
+        }
+      ]);
+
+    if (!buyer) {
+      console.log('Buyer not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    console.log('Raw buyer data:', {
+      activityFeedLength: buyer.activityFeed?.length,
+      postsLength: buyer.posts?.length,
+      postsIds: buyer.posts?.map(p => p._id),
+      followersLength: buyer.followers?.length,
+      followingLength: buyer.following?.length
+    });
+
+    // Calculate total reviews from activity feed
+    const totalReviews = buyer.activityFeed ? 
+      buyer.activityFeed.filter(activity => {
+        console.log('Activity type:', activity.type);
+        return activity.type === 'product_review';
+      }).length : 0;
+    console.log('Total reviews:', totalReviews);
+
+    // Calculate following count (number of follow activities)
+    const totalFollowing = buyer.activityFeed ? 
+      buyer.activityFeed.filter(activity => {
+        console.log('Checking follow activity:', activity.type);
+        return activity.type === 'follow';
+      }).length : 0;
+    console.log('Total following:', totalFollowing);
+
+    // Calculate followers count
+    const totalFollowers = buyer.followers ? buyer.followers.length : 0;
+    console.log('Total followers:', totalFollowers);
+
+    // Use the direct post count instead of the populated posts length
+    const totalPosts = postCount;
+    console.log('Total posts:', totalPosts);
+
+    // Format the response
+    const publicProfile = {
+      basicInfo: {
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        username: buyer.username,
+        profileImage: buyer.profileImage,
+        bio: buyer.bio,
+        country: buyer.country,
+        joinedDate: buyer.createdAt,
+        isIdentityVerified: buyer.isIdentityVerified
+      },
+      stats: {
+        totalPosts,
+        totalReviews,
+        totalFollowers,
+        totalFollowing
+      },
+      recentActivity: buyer.activityFeed?.map(activity => ({
+        type: activity.type,
+        content: activity.content,
+        createdAt: activity.createdAt
+      })) || [],
+      selectedCategories: buyer.selectedCategories?.map(category => ({
+        name: category.name,
+        subCategories: category.subCategories?.map(sub => ({
+          name: sub.name
+        }))
+      })) || []
+    };
+
+    console.log('Final stats:', publicProfile.stats);
+
+    res.status(200).json({
+      success: true,
+      data: publicProfile
+    });
+
+  } catch (error) {
+    console.error('Error in getPublicProfile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching buyer profile',
+      error: error.message
+    });
+  }
+};
+
 

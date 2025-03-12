@@ -1385,4 +1385,84 @@ router.post('/paystack-webhook', orderController.handlePaystackWebhook);
  */
 router.post('/simple-mark-paid/:id', authMiddleware.verifyToken, orderController.simpleMarkPaid);
 
+/**
+ * @swagger
+ * /api/order/{orderId}/cancel:
+ *   post:
+ *     summary: Cancel an order (seller only)
+ *     description: Allows a seller to cancel their order that is in pending status
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the order to cancel
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Order cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Order cancelled successfully
+ *                 order:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     order_id:
+ *                       type: string
+ *                     isOpen:
+ *                       type: boolean
+ *                     closedAt:
+ *                       type: string
+ *                       format: date-time
+ *                     closedBy:
+ *                       type: string
+ *                     closedReason:
+ *                       type: string
+ *                     items:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           status:
+ *                             type: string
+ *                           statusHistory:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *       400:
+ *         description: Order cannot be cancelled (not in pending status)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Not authorized to cancel this order
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/cancel',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  orderController.cancelOrderBySeller
+);
+
 module.exports = router;
