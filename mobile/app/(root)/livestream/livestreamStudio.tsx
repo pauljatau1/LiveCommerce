@@ -536,8 +536,8 @@ const LivestreamStudio = () => {
 
     // Update the animated style functions to use the ref directly
     const getCommentContainerStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 250;
-        const KEYBOARD_OFFSET = 80;
+        const DEFAULT_BOTTOM = 200;
+        const KEYBOARD_OFFSET = 60;
 
         return {
             ...styles.commentsContainer,
@@ -548,8 +548,8 @@ const LivestreamStudio = () => {
     }, []);
 
     const getRightActionsStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 250;
-        const KEYBOARD_OFFSET = 220;
+        const DEFAULT_BOTTOM = 200;
+        const KEYBOARD_OFFSET = 200;
 
         return {
             ...styles.rightActionsContainer,
@@ -560,13 +560,13 @@ const LivestreamStudio = () => {
     }, []);
 
     const getCommentInputStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 120;
+        const DEFAULT_BOTTOM = 100;
         const GAP_SIZE = 15;
 
         return {
             ...styles.commentInputContainer,
             bottom: keyboardVisibleRef.current 
-                ? keyboardHeightRef.current + 20 
+                ? keyboardHeightRef.current - 15 
                 : DEFAULT_BOTTOM
         };
     }, []);
