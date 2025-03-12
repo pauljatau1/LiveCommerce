@@ -30,17 +30,17 @@ import { signIn, signInAsGuest } from "@/store/features/auth/authSlice";
 import { API_URL } from "@env";
 import { toast } from "@/core/toast";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
-import {
-  GoogleSignin,
-  isErrorWithCode,
-  isSuccessResponse,
-} from "@react-native-google-signin/google-signin";
+// import {
+//   GoogleSignin,
+//   isErrorWithCode,
+//   isSuccessResponse,
+// } from "@react-native-google-signin/google-signin";
 
-GoogleSignin.configure({
-  webClientId:
-    "95041167196-22r5o9uv5dm7a2nmc0k0hdvsouu01vln.apps.googleusercontent.com",
-  scopes: ["https://www.googleapis.com/auth/user.phonenumbers.read"],
-});
+// GoogleSignin.configure({
+//   webClientId:
+//     "95041167196-22r5o9uv5dm7a2nmc0k0hdvsouu01vln.apps.googleusercontent.com",
+//   scopes: ["https://www.googleapis.com/auth/user.phonenumbers.read"],
+// });
 
 const statusCodes = {
   PLAY_SERVICES_NOT_AVAILABLE: "404",
@@ -139,35 +139,35 @@ const Login = () => {
     }
   };
 
-  const GoogleSignIn = async () => {
-    try {
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-      if (isSuccessResponse(response)) {
-        setState({ userInfo: response.data });
-        handleGoogleAuth(response.data);
-      } else {
-        console.log(response?.data || response);
-      }
-    } catch (error) {
-      if (isErrorWithCode(error)) {
-        console.log(error.cause);
+  // const GoogleSignIn = async () => {
+  //   try {
+  //     await GoogleSignin.hasPlayServices();
+  //     const response = await GoogleSignin.signIn();
+  //     if (isSuccessResponse(response)) {
+  //       setState({ userInfo: response.data });
+  //       handleGoogleAuth(response.data);
+  //     } else {
+  //       console.log(response?.data || response);
+  //     }
+  //   } catch (error) {
+  //     if (isErrorWithCode(error)) {
+  //       console.log(error.cause);
 
-        switch (error.code) {
-          case statusCodes.IN_PROGRESS:
-            // operation (eg. sign in) already in progress
-            break;
-          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-            // Android only, play services not available or outdated
-            break;
-          default:
-          // some other error happened
-        }
-      } else {
-        // an error that's not related to google sign in occurred
-      }
-    }
-  };
+  //       switch (error.code) {
+  //         case statusCodes.IN_PROGRESS:
+  //           // operation (eg. sign in) already in progress
+  //           break;
+  //         case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+  //           // Android only, play services not available or outdated
+  //           break;
+  //         default:
+  //         // some other error happened
+  //       }
+  //     } else {
+  //       // an error that's not related to google sign in occurred
+  //     }
+  //   }
+  // };
 
   useEffect(() => {}, []);
 
@@ -247,7 +247,7 @@ const Login = () => {
                       textVariant="success"
                       title="Continue with Google"
                       className=" mt-[18px] !rounded border border-primary items-center justify-center !bg-white !text-black-100"
-                      onPress={GoogleSignIn}
+                      // onPress={GoogleSignIn}
                       IconLeft={() => (
                         <Image
                           source={icons.google}

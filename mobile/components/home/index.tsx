@@ -1,4 +1,10 @@
-import { View, Text, FlatList, useWindowDimensions } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  useWindowDimensions,
+  Platform,
+} from "react-native";
 import React, { useState } from "react";
 import HomeHeader from "./home-header";
 import Tags from "../global/tags";
@@ -22,24 +28,23 @@ const Home = () => {
   const [selected, setSelected] = useState("Auqli Live");
   const [routes] = useState([
     { key: "Auqli Live", title: "Auqli Live" },
-    { key: "For You", title: "For You" },
-    { key: "Auctions", title: "Auctions" },
+    { key: "Live Auctions", title: "Auctions" },
     { key: "Featured", title: "Featured" },
-    { key: "Coming", title: "Coming" },
+    { key: "Upcoming", title: "Coming" },
   ]);
-  const tags = ["Auqli Live", "For You", "Auctions", "Featured", "Coming"];
+  const tags = ["Auqli Live", "Live Auctions", "Featured", "Upcoming"];
 
   const renderContent = () => {
     switch (selected) {
       case "Auqli Live":
         return <AuqliLive />;
-      case "For You":
-        return <ForYou />;
-      case "Auctions":
+      // case "For You":
+      //   return <ForYou />;
+      case "Live Auctions":
         return <Auctions />;
       case "Featured":
         return <Featured />;
-      case "Coming":
+      case "Upcoming":
         return <Coming />;
       default:
         return <Text className="text-white">No Content Available</Text>;
@@ -94,73 +99,44 @@ const Home = () => {
       <ScrollView
         className=""
         contentContainerStyle={{
-          paddingBottom: 120,
+          paddingBottom: 80,
         }}
         showsVerticalScrollIndicator={false}
       >
         {renderContent()}
-        <View className="pb-[50px] flex-row justify-around w-[260px] mx-auto">
-          <CustomButton
-            title="Live Show"
-            className="!w-[130px] !bg-primary-200 rounded-tr-none rounded-br-none"
-            onPress={() => {
-              router.push("/(root)/(tabs)/home/home");
-            }}
-          />
-          <CustomButton
-            title="Markets"
-            textStyle="!text-[#141B34]"
-            className="!w-[130px] !rounded-tl-none !rounded-bl-none !rounded-[40px]  !bg-[#F2F2F2]"
-            onPress={() => {
-              router.push("/(root)/(tabs)/home/marketplace");
-            }}
-          />
-        </View>
       </ScrollView>
-
-      {/* <TabView
-        animationEnabled={true}
-        swipeEnabled={false}
-        renderTabBar={(props) => (
-          <TabBar
-            {...props}
-            scrollEnabled={true}
-            activeColor="#16783A"
-            inactiveColor="#ccc"
-            tabStyle={{
-              width: "auto",
-              paddingHorizontal: 10,
-            }}
-            style={{
-              backgroundColor: "#121212",
-              marginLeft: 23,
-              borderBottomColor: "#ccc",
-              borderBottomWidth: 0.3,
-              marginTop: 20,
-            }}
-            contentContainerStyle={{}}
-            indicatorStyle={{
-              backgroundColor: "#16783A",
-            }}
-            indicatorContainerStyle={{
-              backgroundColor: "#121212",
-            }}
-            renderTabBarItem={(props) => (
-              <TabBarItem
-                {...props}
-                labelStyle={{
-                  fontSize: 12,
-                  fontFamily: "LexendDeca",
-                }}
-              />
-            )}
-          />
-        )}
-        navigationState={{ index, routes }}
-        renderScene={renderScene}
-        onIndexChange={setIndex}
-        initialLayout={{ width: layout.width }}
-      /> */}
+      <View
+        className=" flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
+        style={{
+          ...Platform.select({
+            ios: {
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.4,
+              shadowRadius: 4,
+            },
+            android: {
+              elevation: 5,
+            },
+          }),
+        }}
+      >
+        <CustomButton
+          title="Live Show"
+          className="!w-[130px] !bg-primary-200 rounded-tr-none rounded-br-none"
+          onPress={() => {
+            router.push("/(root)/(tabs)/home/home");
+          }}
+        />
+        <CustomButton
+          title="Markets"
+          textStyle="!text-[#141B34]"
+          className="!w-[130px] !rounded-tl-none !rounded-bl-none !rounded-[40px]  !bg-[#F2F2F2]"
+          onPress={() => {
+            router.push("/(root)/(tabs)/home/marketplace");
+          }}
+        />
+      </View>
     </View>
   );
 };

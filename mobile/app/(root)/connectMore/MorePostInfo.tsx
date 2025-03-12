@@ -29,7 +29,7 @@ import { router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { timeFromNow } from "@/helpers/helpers";
+import { formatNumber, timeFromNow } from "@/helpers/helpers";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -37,21 +37,33 @@ import { ResizeMode, Video } from "expo-av";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import moment from "moment";
-import { useCommentPostMutation, useReactPostMutation } from "@/services/posts";
+import {
+  useCommentPostMutation,
+  useGetCommentsQuery,
+  useReactPostMutation,
+  useReplyCommentMutation,
+} from "@/services/posts";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
 import { ActivityIndicator } from "react-native-paper";
+import Comment from "@/components/connect/comment";
+import { useIsFocused } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 const offset = 20;
 
 const MorePostInfo = () => {
+  const isFocused = useIsFocused();
+
   const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const [commentPost, { isLoading }] = useCommentPostMutation({});
+  const [replyComment, { isLoading: isLoadingReplyComment }] =
+    useReplyCommentMutation({});
   const [reactPost, { isLoading: isLoadingReactions }] = useReactPostMutation(
     {},
   );
+
   const [post, setPost] = useState<any>(null);
   const [media, setMedia] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
@@ -65,6 +77,24 @@ const MorePostInfo = () => {
   const [token, setToken] = useState<string>("");
 
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+
+  const [replyPlaceholder, setReplyPlaceholder] = useState<string>("");
+  const [replyId, setReplyId] = useState<string>("");
+  const [tempReplyId, setTempReplyId] = useState<string>("");
+  const [newReply, setNewReply] = useState<any>();
+
+  const commentInputRef = useRef<TextInput>(null);
+
+  const {
+    data: commentsQuery,
+    isLoading: isCommentsLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useGetCommentsQuery({
+    id: post?._id,
+    limit: 50,
+  });
 
   const getAuthUser = useCallback(async () => {
     const authToken = await getToken();
@@ -82,6 +112,13 @@ const MorePostInfo = () => {
       setKeyboardOffset(0);
     });
   }, []);
+
+  useEffect(() => {
+    console.log("got comments ", commentsQuery?.author);
+    if (commentsQuery) {
+      setComments(commentsQuery.comments);
+    }
+  }, [commentsQuery]);
 
   const handleReact = async () => {
     if (!token) {
@@ -111,7 +148,7 @@ const MorePostInfo = () => {
     setPost(parsedPost);
     setMedia([...(parsedPost?.images || []), ...(parsedPost?.videos || [])]);
     setReactions(parsedPost?.reactions);
-    setComments(parsedPost?.comments);
+    // setComments(parsedPost?.comments);
     setReactionCount(parsedPost?.reactions?.length);
   };
 
@@ -131,22 +168,30 @@ const MorePostInfo = () => {
   }, [post]);
 
   const handleSendComment = async () => {
+    if (!newComment) {
+      return;
+    }
     const user = await getUser();
 
     const constructComment = {
       author: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profileImage: {
-          url: user?.profileImage?.url,
-        },
+        name: user.username || user.firstName + " " + user.lastName,
+        id: user.id,
+        image: user?.profileImage?.url,
       },
       content: newComment,
       createdAt: moment().toISOString(),
     };
-    setComments([...comments, constructComment]);
-    setNewComment("");
+
     try {
+      if (replyId) {
+        await handleReplyComment(replyId, newComment);
+        setNewComment("");
+        setNewReply({ ...constructComment, id: replyId + "-reply" });
+        return setReplyId("");
+      }
+      setComments([...comments, constructComment]);
+      setNewComment("");
       const result = await commentPost({
         id: post._id,
         content: newComment,
@@ -157,9 +202,34 @@ const MorePostInfo = () => {
     }
   };
 
-  useEffect(() => {
-    getPost();
+  const handleRequestReply = useCallback((id: string, placeholder: string) => {
+    setReplyId(id);
+    setReplyPlaceholder(placeholder);
+    commentInputRef?.current?.focus();
   }, []);
+
+  const handleReplyComment = useCallback(
+    async (replyId: string, comment: string) => {
+      try {
+        const result = await replyComment({
+          id: post._id,
+          commentId: replyId,
+          content: comment,
+        }).unwrap;
+        console.log("reply result", result);
+      } catch (e) {
+        console.log("could not reply comment ", e);
+      }
+    },
+    [replyId],
+  );
+
+  useEffect(() => {
+    if (isFocused) {
+      getPost();
+      refetch();
+    }
+  }, [isFocused]);
 
   if (!post?._id) {
     return (
@@ -258,7 +328,7 @@ const MorePostInfo = () => {
                     fontFamily: "LexendDeca",
                   }}
                 >
-                  {reactionCount} Reactions
+                  {formatNumber(reactionCount)} Reactions
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -277,7 +347,7 @@ const MorePostInfo = () => {
                     fontFamily: "LexendDeca",
                   }}
                 >
-                  {comments?.length} Comments
+                  {formatNumber(comments?.length)} Comments
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -307,9 +377,15 @@ const MorePostInfo = () => {
                     ?.slice()
                     ?.reverse()
                     ?.map((comment, index) => (
-                      <SingleComment
-                        item={comment}
-                        key={comment._id || index}
+                      <Comment
+                        item={{ ...comment, postId: post?._id }}
+                        key={comment.id || index}
+                        handleRequestReply={handleRequestReply}
+                        newReply={
+                          newReply?.id?.split("-")?.[0] == comment?.id
+                            ? newReply
+                            : null
+                        }
                       />
                     ))
                 : null}
@@ -322,12 +398,16 @@ const MorePostInfo = () => {
           >
             <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink border-[1px] border-[#ccc]">
               <TextInput
-                placeholder="Add a comment..."
+                ref={commentInputRef}
+                placeholder={
+                  replyId ? `replying to ${replyPlaceholder}` : "Add comment..."
+                }
                 placeholderTextColor={"rgba(204,204,204,0.25)"}
                 className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
                 value={newComment}
                 multiline
                 onChangeText={(text) => setNewComment(text)}
+                onBlur={() => setReplyId("")}
               />
               <Pressable onPress={handleSendComment}>
                 <MaterialCommunityIcons

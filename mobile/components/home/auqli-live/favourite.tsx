@@ -1,47 +1,82 @@
 import { View, Text, FlatList } from "react-native";
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCardTemplate from "@/components/global/live-product-card/LiveProductCardTemplate";
+import axios from "axios";
+import LiveProductCard from "@/components/global/live-product-card";
+import { getToken } from "@/store/features/auth/utils";
 
 const Favourite = () => {
-  const numColumns = 2;
-  const sellers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const [loading, setLoading] = useState<boolean>(true);
+  const [favoriteSellersStream, setFavoriteSellersStream] = useState<any[]>([]);
+  const fetchFavoriteSellersStreams = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/streams/favorite-sellers`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (response.status === 200) {
+        console.log("favorite sellers streams", response.data?.streams?.length);
+        setFavoriteSellersStream(response.data?.streams);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const groupedSellers = sellers.reduce((rows, seller, index) => {
-    if (index % numColumns === 0) rows.push([]);
-    rows[rows?.length - 1].push(seller);
-    return rows;
-  }, [] as any[][]);
+  const renderEmptyStreams = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+        }}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Favorite Streams
+        </Text>
+      </View>
+    );
+  }, [favoriteSellersStream]);
 
-  const lastSeller = sellers[sellers?.length - 1];
+  useEffect(() => {
+    fetchFavoriteSellersStreams();
+  }, []);
 
   return (
     <View className="w-[100%] pt-[30px]">
       <SectionHeader title="Your Favourite sellers" />
-      <View style={{}}>
-        <FlatList
-          data={groupedSellers}
-          renderItem={({ item: row }) => (
-            <View className="space-x-4 space-y-4 mb-[5.54px]">
-              {row.map((seller) => (
-                <LiveProductCardTemplate
-                  key={seller}
-                  {...seller}
-                  showLive={true}
-                  lastSeller={lastSeller}
-                  showBtn={true}
-                />
-              ))}
-            </View>
-          )}
-          keyExtractor={(item, index) => `group-${index}`}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-          }}
-          className="pt-[5px]"
-        />
+      <View
+        style={{
+          width: "100%",
+        }}
+      >
+        {favoriteSellersStream?.length > 0 ? (
+          <FlatList
+            data={favoriteSellersStream}
+            renderItem={({ item }) => (
+              <View className="space-x-4 space-y-4 mb-[5.54px]">
+                <LiveProductCard item={item} />
+              </View>
+            )}
+            keyExtractor={(item, index) => `group-${index}`}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+            }}
+            className="pt-[5px]"
+          />
+        ) : (
+          renderEmptyStreams()
+        )}
       </View>
     </View>
   );

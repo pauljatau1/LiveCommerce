@@ -26,12 +26,16 @@ const Explore = () => {
   //   }, [data]);
 
   const renderCategories = (category: any, index: number) => {
+    const subCats = category?.subCategories?.map((sub: any) => sub?.name);
     return (
       <Pressable
         onPress={() =>
           router.push({
             pathname: `../explore/${category._id}`,
-            params: { name: category.name },
+            params: {
+              name: category.name,
+              subCategories: subCats,
+            },
           })
         }
         style={{
@@ -91,6 +95,7 @@ const Explore = () => {
       }
       return 0;
     });
+
     setCategoriesData(tempData);
   }, [data, filter]);
 

@@ -102,12 +102,14 @@ const Blips = () => {
   const renderVideo = ({ item, index }: { item: any; index: number }) => (
     <VideoItem
       id={item.blipId}
+      item={item}
       videoUrl={item.blipUrl}
       isVisible={index === currentIndex}
       seller={item.seller}
       engagement={{
         likes: item?.blipEngagement?.likesCount,
         comments: item?.blipEngagement?.commentsCount,
+        views: item?.blipEngagement?.viewCount,
       }}
       product={{
         id: item._id,

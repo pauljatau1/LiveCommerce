@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
@@ -19,21 +20,24 @@ import CustomButton from "@/components/global/button/CustomButton";
 import Favourite from "@/components/home/auqli-live/favourite";
 import FavouriteExplore from "@/components/explore/favourite";
 import SpotLightExplore from "@/components/explore/spot-light";
+import SectionHeader from "@/components/global/section-header";
 
 const SingleExplore = () => {
-  const { id, name: categoryName } = useGlobalSearchParams();
+  const { id, name: categoryName, subCategories } = useGlobalSearchParams();
   const { data, error, isLoading } = useGetAllProductsQuery({
     category: categoryName || "fake",
   });
   const [tabOption, setTabOption] = useState<string>("");
+  const [parsedSubCats, setParsedSubCats] = useState<Array<string>>();
+  const [subCategory, setSubCategory] = useState<string>("");
 
   const [products, setProducts] = useState<any[]>([]);
 
   const numColumns = data?.data?.products?.length <= 2 ? 1 : 2;
 
-  //   useEffect(() => {
-  //     setProducts(data?.data?.products);
-  //   }, [data]);
+  useEffect(() => {
+    setParsedSubCats(subCategories?.toString().split(","));
+  }, [subCategories]);
 
   useEffect(() => {
     const groupedforYouProducts = data?.data?.products?.reduce(
@@ -67,12 +71,28 @@ const SingleExplore = () => {
     );
   };
 
+  const renderSubCategory = (name: string) => {
+    return (
+      <TouchableOpacity
+        className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
+        style={{
+          marginRight: 10,
+        }}
+        onPress={() => setSubCategory(name)}
+      >
+        <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
+          {name}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <SafeAreaView className="h-full flex-1 bg-[#121212]">
-        <View className="h-full relative">
-          <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
+        <View className="h-full relative flex-1">
+          <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] mb-[24px] mt-[30px] relative">
             <TouchableOpacity
               className="absolute left-[12px]"
               onPress={() => router.back()}
@@ -87,6 +107,18 @@ const SingleExplore = () => {
             <Text className="text-white font-LexendDecaMedium text-[24px]">
               {categoryName}
             </Text>
+          </View>
+          <View className="w-full mb-[16px]">
+            <FlatList
+              data={parsedSubCats}
+              renderItem={({ item }) => renderSubCategory(item)}
+              keyExtractor={(item) => item.toString()}
+              horizontal
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+              }}
+              showsHorizontalScrollIndicator={false}
+            />
           </View>
           <View className="flex-row items-center gap-[8px] mb-[17px] mx-[16px]">
             <TouchableOpacity
@@ -111,15 +143,16 @@ const SingleExplore = () => {
             </TouchableOpacity>
           </View>
           <ScrollView
-            className="w-full h-[100%]"
+            className="flex-1"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               paddingBottom: 20,
             }}
           >
-            <FavouriteExplore />
+            <FavouriteExplore category={categoryName} />
             <SpotLightExplore />
-            <View style={{ paddingHorizontal: 16 }}>
+            <View>
+              <SectionHeader title="Products" btnText="" />
               {isLoading ? (
                 <ActivityIndicator
                   color="#16783A"
@@ -127,7 +160,10 @@ const SingleExplore = () => {
                   style={{ marginTop: 20 }}
                 />
               ) : products?.length < 1 ? (
-                <Text className="text-white text-[14px] self-center m-[20px] font-LexendDecaBold">
+                <Text
+                  className="text-[#ccc] text-[14px] self-center m-[20px] my-[40px] font-LexendDecaBold"
+                  style={{ marginVertical: 40 }}
+                >
                   No Products Found
                 </Text>
               ) : (
@@ -137,12 +173,15 @@ const SingleExplore = () => {
                   keyExtractor={(item, index) => `group-${index}`}
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingHorizontal: 16,
+                  }}
                   className="pt-[14px]"
                 />
               )}
             </View>
 
-            <View className="pb-[50px]">
+            {/* <View className="">
               <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
                 Still Searching
               </Text>
@@ -151,34 +190,53 @@ const SingleExplore = () => {
                   title="Explore Categories"
                   textStyle="!font-LexendDecaSemiBold text-xs"
                   className="border !w-[175px]  rounded-md border-[#EDF2F7] bg-transparent"
-                  onPress={() => {}}
+                  onPress={() => {
+                    router.push("/(root)/(tabs)/explore/explore");
+                  }}
                 />
                 <CustomButton
                   title="Visit Community"
                   textStyle="!font-LexendDecaSemiBold text-xs"
                   className="!w-[175px] !bg-primary-200  rounded-md  "
-                  onPress={() => {}}
+                  onPress={() => {
+                    router.push("/(root)/(tabs)/connect");
+                  }}
                 />
               </View>
-            </View>
-            <View className="pb-[50px] flex-row justify-around w-[260px] mx-auto">
-              <CustomButton
-                title="Live Show"
-                textStyle="!text-[#141B34]"
-                className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
-                onPress={() => {
-                  router.push("/(root)/(tabs)/home/home");
-                }}
-              />
-              <CustomButton
-                title="Markets"
-                className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
-                onPress={() => {
-                  router.push("/(root)/(tabs)/home/marketplace");
-                }}
-              />
-            </View>
+            </View> */}
           </ScrollView>
+          {/* <View
+            className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
+            style={{
+              ...Platform.select({
+                ios: {
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 4,
+                },
+                android: {
+                  elevation: 5,
+                },
+              }),
+            }}
+          >
+            <CustomButton
+              title="Live Show"
+              textStyle="!text-[#141B34]"
+              className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
+              onPress={() => {
+                router.push("/(root)/(tabs)/home/home");
+              }}
+            />
+            <CustomButton
+              title="Markets"
+              className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
+              onPress={() => {
+                router.push("/(root)/(tabs)/home/marketplace");
+              }}
+            />
+          </View> */}
         </View>
       </SafeAreaView>
     </>

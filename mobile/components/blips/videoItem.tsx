@@ -28,7 +28,7 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Shadow, ShadowProps } from "react-native-shadow-2";
 import BottomSheet from "../global/bottom-sheet";
-import { timeFromNow } from "@/helpers/helpers";
+import { formatNumber, timeFromNow } from "@/helpers/helpers";
 import { TextInput } from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import moment from "moment";
@@ -36,6 +36,9 @@ import CheckoutNow from "./checkoutNow";
 import ProductPreview from "./productPreview";
 import BlipsShop from "./blipsShop";
 import AuthSheet from "../auth/authSheet";
+import { data } from "@/constants";
+import Comment from "./comment";
+import CommentsSheet from "./commentsSheet";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -44,6 +47,7 @@ const VideoItem = ({
   seller,
   engagement,
   product,
+  item,
 }: {
   id: string;
   videoUrl: string;
@@ -51,6 +55,7 @@ const VideoItem = ({
   seller: any;
   engagement: any;
   product: any;
+  item: any;
 }) => {
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -69,6 +74,9 @@ const VideoItem = ({
   const [showProduct, setShowProduct] = useState<boolean>(false);
   const [showShop, setShowShop] = useState<boolean>(false);
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+  const [following, setFollowing] = useState<boolean>(
+    item?.seller?.isFollowing || false,
+  );
 
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
@@ -168,13 +176,13 @@ const VideoItem = ({
     }
   }, [isFocused]);
 
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.unloadAsync();
-      }
-    };
-  }, []);
+  // useEffect(() => {
+  //   return () => {
+  //     if (videoRef.current) {
+  //       videoRef.current.unloadAsync();
+  //     }
+  //   };
+  // }, []);
 
   const tabBarHeight = useBottomTabBarHeight();
 
@@ -183,6 +191,33 @@ const VideoItem = ({
     if (!token) return setShowAuthSheet(true);
     setShowCheckout(true);
   }, []);
+
+  const handleFollow = async (action: string) => {
+    let method = "";
+    if (action == "follow") {
+      setFollowing(true);
+      method = "POST";
+    } else {
+      setFollowing(false);
+      method = "DELETE";
+    }
+    const token = await getToken();
+    const config = {
+      url:
+        process.env.EXPO_PUBLIC_API_URL +
+        `api/buyer/follow/${item?.seller?._id}`,
+      method,
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+      data: {},
+    };
+    try {
+      const response = await axios(config);
+    } catch (error) {
+      console.error("Error following seller:", error);
+    }
+  };
 
   return (
     <TouchableWithoutFeedback
@@ -226,45 +261,110 @@ const VideoItem = ({
           isMuted={false}
         />
         <View
-          className="px-[16px] py-[16px] gap-[8px] flex-row items-center"
+          className="px-[10px] py-[16px] gap-[8px] flex-row items-center justify-between"
           style={{
             marginTop: statusBarHeight,
           }}
         >
-          <Image
-            source={{ uri: seller?.storeAvatar?.url }}
-            resizeMode="cover"
-            style={[
-              {
-                height: 31,
-                width: 31,
-                borderRadius: 31,
-              },
-              styles.imageShadow,
-            ]}
-          />
-
-          <View className="space-between mr-2">
-            <Text
-              className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
-              style={styles.text}
+          <View className="flex-row items-center gap-[8px] ">
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/(root)/sellerProfile",
+                  params: {
+                    sellerId: seller?._id,
+                    sellerAvatar: seller?.storeAvatar?.url,
+                  },
+                })
+              }
             >
-              {seller.storeName || seller?.firstName + " " + seller?.lastName}
-            </Text>
-            <View className="flex-row items-center gap-[4px]">
-              <AntDesign name="star" size={12} color="#FFD700" />
-              <Text className="text-white text-[12px]" style={styles.text}>
-                4.7
-              </Text>
-            </View>
-          </View>
+              <Image
+                source={{ uri: seller?.storeAvatar?.url }}
+                resizeMode="cover"
+                style={[
+                  {
+                    height: 31,
+                    width: 31,
+                    borderRadius: 31,
+                  },
+                  styles.imageShadow,
+                ]}
+              />
+            </Pressable>
 
-          {/* <Pressable
-            className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
-            style={styles.buttonShadow}
+            <View className="space-between mr-2">
+              <Text
+                className="text-[#fff] text-[14px] font-LexendDecaSemiBold"
+                style={styles.text}
+              >
+                {seller.storeName || seller?.firstName + " " + seller?.lastName}
+              </Text>
+              <View className="flex-row items-center gap-[8px]">
+                {seller?.isFeatured && (
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 3,
+                      borderRadius: 2.5,
+                      backgroundColor: "#E8C300",
+                    }}
+                  >
+                    <Text className="font-LexendDecaMedium text-[6px] ">
+                      Top seller
+                    </Text>
+                  </View>
+                )}
+                <View className="flex-row items-center gap-[4px]">
+                  <AntDesign name="star" size={12} color="#FFD700" />
+                  <Text
+                    className="text-white text-[12px] font-LexendDecaMedium"
+                    style={styles.text}
+                  >
+                    {item?.seller?.storeRating}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {following ? (
+              <Pressable
+                className="py-[4px] px-[8px] rounded-[4px] items-center justify-center border-[#16783A] border-[1px]"
+                // style={styles.buttonShadow}
+                onPress={() => handleFollow("unfollow")}
+              >
+                <Text
+                  className="text-[#16783A] font-LexendDecaMedium text-[10px]"
+                  style={styles.text}
+                >
+                  following
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
+                style={styles.buttonShadow}
+                onPress={() => handleFollow("follow")}
+              >
+                <Text className="text-white text-[10px] font-LexendDecaMedium">
+                  + Follow
+                </Text>
+              </Pressable>
+            )}
+          </View>
+          <View
+            className="flex-row items-center justify-center px-[4px] py-[2px] gap-[4px] rounded-[8px]"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.8)",
+            }}
           >
-            <Text className="text-white text-[10px]">+ Follow</Text>
-          </Pressable> */}
+            <Ionicons name="eye-outline" size={16} color="#EFF0FA" />
+            <Text
+              className="font-LexendDeca text-[12px]"
+              style={{ color: "#EFF0FA" }}
+            >
+              {formatNumber(engagement?.views || 0)}
+            </Text>
+          </View>
         </View>
         <View className="p-[10px]">
           <View className="gap-2 mb-[16px]">
@@ -283,7 +383,7 @@ const VideoItem = ({
                 className="text-white text-[12px] font-LexendDecaMedium"
                 style={styles.text}
               >
-                {likes}
+                {formatNumber(likes)}
               </Text>
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
@@ -297,10 +397,10 @@ const VideoItem = ({
                 className="text-white text-[12px] font-LexendDecaMedium"
                 style={styles.text}
               >
-                {comments}
+                {formatNumber(comments)}
               </Text>
             </View>
-            {/* <View className="items-center gap-2 max-w-[60px] self-end">
+            <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center">
                 <Ionicons name="arrow-redo-sharp" size={18} color="#14AE5C" />
               </TouchableOpacity>
@@ -310,7 +410,7 @@ const VideoItem = ({
               >
                 Share
               </Text>
-            </View> */}
+            </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
               <TouchableOpacity
                 className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
@@ -347,18 +447,32 @@ const VideoItem = ({
                 <Text className="text-[12px] text-[#000] font-LexendDecaSemiBold shrink">
                   {product?.name}
                 </Text>
-                <Text className="text-[18px] text-[#000] font-LexendDecaMedium shrink">
-                  {product?.discount?.isActive ? (
-                    <Text className="text-[#16783A]">
-                      ₦{product?.discount?.value}
-                      {product?.discount?.type == "percentage" && "%"} off
+                <View className="flex-row items-end gap-[8px] justify-between w-full shrink">
+                  <View className="flex-row items-end gap-[8px] flex-wrap shrink">
+                    <Text className="text-[18px] text-[#000] font-LexendDecaMedium">
+                      ₦
+                      {item?.discount?.isActive
+                        ? item?.discount?.discountedPrice?.toLocaleString() || 0
+                        : item?.price?.toLocaleString()}
                     </Text>
-                  ) : (
-                    <Text className="text-[#16783A]">
-                      ₦{product?.price?.toLocaleString()}
+                    <Text className="text-[12px] text-[#000] font-LexendDecaMedium shrink">
+                      {item?.discount?.isActive ? (
+                        <Text className="text-[#16783A]">
+                          ₦{item?.discount?.value}
+                          {item?.discount?.type == "percentage" && "%"} off
+                        </Text>
+                      ) : null}
                     </Text>
-                  )}
-                </Text>
+                    {item?.discount?.isActive ? (
+                      <Text className="text-[12px] text-[#16783A] font-LexendDecaMedium line-through">
+                        ₦{item?.price?.toLocaleString()}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text className="text-[14px] text-[#000] font-LexendDecaMedium ">
+                    {formatNumber(item.stock)} left
+                  </Text>
+                </View>
               </View>
             </Pressable>
             <TouchableOpacity
@@ -371,7 +485,7 @@ const VideoItem = ({
           </View>
         </View>
         {loading && Platform.OS == "ios" && (
-          <View style={styles.loaderContainer}>
+          <View style={[styles.loaderContainer, { bottom: tabBarHeight }]}>
             <View
               style={{
                 width: 50,
@@ -387,13 +501,13 @@ const VideoItem = ({
           </View>
         )}
         {paused && (
-          <View style={styles.loaderContainer}>
+          <View style={[styles.loaderContainer, { bottom: tabBarHeight }]}>
             <Entypo
               name="controller-play"
               size={100}
               color="#ccc"
               style={{
-                opacity: 1,
+                opacity: 0.4,
               }}
             />
           </View>
@@ -401,15 +515,15 @@ const VideoItem = ({
 
         <BottomSheet
           bgColor="#121212"
-          childrenStyle="!px-[11px]"
+          childrenStyle="!px-[0px]"
           showCloseIcon={false}
           title=""
           show={showComments}
           titleColor="!text-white"
-          snapPoints={["60%"]}
+          snapPoints={["70%"]}
           enableDynamicSizing={false}
           onRequestClose={() => setShowComments(false)}
-          keyboardBehavior="interactive"
+          keyboardBehavior="extend"
         >
           <CommentsSheet
             handleIncreaseCommentCount={handleIncreaseCommentCount}
@@ -486,155 +600,6 @@ const VideoItem = ({
         </BottomSheet>
       </View>
     </TouchableWithoutFeedback>
-  );
-};
-
-const CommentsSheet = ({
-  handleIncreaseCommentCount,
-  product,
-  id,
-  commentCount,
-  handleCantComment,
-}: {
-  handleIncreaseCommentCount: () => void;
-  product: any;
-  id: string;
-  commentCount: number;
-  handleCantComment: any;
-}) => {
-  const [comments, setComments] = useState<any[]>([]);
-  const [comment, setComment] = useState<string>("");
-  const [page, setPage] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  const handleGetComments = async () => {
-    const token = await getToken();
-    try {
-      const config = {
-        method: "GET",
-        url:
-          process.env.EXPO_PUBLIC_API_URL +
-          `api/products/${product.id}/blips/${id}/comments?page=${page}&limit=20`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        data: null,
-      };
-      const response = await axios(config);
-      setComments(response.data.comments?.filter((cm: any) => cm?.buyer));
-      setPage(page + 1);
-      setLoading(false);
-    } catch (e: any) {
-      console.log("error retrieving comment ", e.response.data);
-    }
-  };
-
-  const handleCreateComment = async () => {
-    const token = await getToken();
-    const user = await getUser();
-    if (!token) {
-      return handleCantComment();
-    }
-    const constructComment = {
-      buyer: {
-        firstName: user?.firstName,
-        lastName: user?.lastName,
-        profileImage: {
-          url: user?.profileImage?.url,
-        },
-      },
-      comment: comment,
-      createdAt: moment().toISOString(),
-    };
-    setComments([...comments, constructComment]);
-    setComment("");
-    handleIncreaseCommentCount();
-    try {
-      const config = {
-        method: "POST",
-        url:
-          process.env.EXPO_PUBLIC_API_URL +
-          `api/products/${product.id}/blips/${id}/comments`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        data: {
-          comment,
-        },
-      };
-      const response = await axios(config);
-      // setComments(response.data.comments);
-      setPage(1);
-      setLoading(false);
-    } catch (e: any) {
-      console.log("error creating comment ", e.response.data);
-    }
-  };
-
-  useEffect(() => {
-    handleGetComments();
-  }, [id, product]);
-
-  return (
-    <View className="px-[10px] w-full h-full items-center">
-      {loading ? (
-        <ActivityIndicator size={"small"} color={"white"} />
-      ) : (
-        <View className="h-full pb-[50px] w-full">
-          <Text className="text-white text-center mb-[30px]">
-            {commentCount || "No"} {commentCount > 1 ? "comments" : "comment"}
-          </Text>
-          <FlatList
-            data={comments.slice().reverse()}
-            renderItem={({ item, index }) => (
-              <View key={index} className="flex-row gap-2 mb-[16px]">
-                <View className="rounded-[50%] bg-[#16783a] justify-center items-center w-[24px] h-[24px] overflow-hidden">
-                  {item.buyer?.profileImage?.url ? (
-                    <Image
-                      source={{ uri: item.buyer?.profileImage?.url }}
-                      className="w-full h-full"
-                    />
-                  ) : (
-                    <Text className="text-white text-[10px]">
-                      {item?.buyer?.firstName.charAt(0).toUpperCase() +
-                        item?.buyer?.lastName.charAt(0).toUpperCase()}
-                    </Text>
-                  )}
-                </View>
-                <View className="shrink">
-                  <Text className="text-[#ccc] mb-[4px]">
-                    {item?.buyer?.firstName + " " + item?.buyer?.lastName}
-                  </Text>
-                  <Text className="text-white leading-20 font-[400] mb-[12px]">
-                    {item?.comment}
-                  </Text>
-                  <Text className="text-[#f2f2f2] text-[12px] opacity-50">
-                    {timeFromNow(item?.createdAt)}
-                  </Text>
-                </View>
-              </View>
-            )}
-            keyExtractor={(item, index) => index.toString()}
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
-      )}
-      <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e] absolute bottom-2 left-2 ">
-        <BottomSheetTextInput
-          placeholder="Add comment..."
-          placeholderTextColor={"#ccc"}
-          style={{
-            fontSize: 15,
-            color: "#fff",
-            padding: 0,
-          }}
-          returnKeyType="send"
-          value={comment}
-          onChangeText={(text) => setComment(text)}
-          onSubmitEditing={handleCreateComment}
-        />
-      </View>
-    </View>
   );
 };
 

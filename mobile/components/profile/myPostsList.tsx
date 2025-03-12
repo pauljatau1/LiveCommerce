@@ -25,6 +25,7 @@ import {
 import PostItem2 from "../connect/post-item2";
 import { StyleSheet } from "nativewind";
 import { toast } from "@/core/toast";
+import { router } from "expo-router";
 
 interface Props {
   scrollY: any;
@@ -160,6 +161,7 @@ const AllPostsList = ({
               paddingHorizontal: 30,
               borderRadius: 30,
             }}
+            onPress={() => router.push("/createPosts/createPost")}
           >
             <Text className="text-[#ccc] text-[16px] font-LexendDeca">
               Make First Post

@@ -88,11 +88,12 @@ const Marketplace = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingTop: 20,
+          paddingBottom: 80,
         }}
       >
         {selected && renderContent()}
         <View>
-          <View className="w-full relative px-[23px] pb-[50px]">
+          <View className="w-full relative px-[23px] ">
             <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
               Still Searching
             </Text>
@@ -115,25 +116,26 @@ const Marketplace = () => {
               />
             </View>
           </View>
-          <View className="pb-[50px] flex-row justify-around w-[260px] mx-auto">
-            <CustomButton
-              title="Live Show"
-              textStyle="!text-[#141B34]"
-              className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
-              onPress={() => {
-                router.push("/(root)/(tabs)/home/home");
-              }}
-            />
-            <CustomButton
-              title="Markets"
-              className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
-              onPress={() => {
-                router.push("/(root)/(tabs)/home/marketplace");
-              }}
-            />
-          </View>
         </View>
       </ScrollView>
+
+      <View className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center">
+        <CustomButton
+          title="Live Show"
+          textStyle="!text-[#141B34]"
+          className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
+          onPress={() => {
+            router.push("/(root)/(tabs)/home/home");
+          }}
+        />
+        <CustomButton
+          title="Markets"
+          className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
+          onPress={() => {
+            router.push("/(root)/(tabs)/home/marketplace");
+          }}
+        />
+      </View>
     </View>
   );
 };

@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, FlatList, Animated } from "react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { ActivityIndicator } from "react-native-paper";
@@ -30,7 +30,6 @@ const Favorites = ({ scrollY, headerHeight, index }: Props) => {
       );
 
       setWishList(response.data.map((wh: any) => wh.product));
-      console.log(response.data);
     } catch (e) {
       console.log(e);
     } finally {
@@ -70,6 +69,16 @@ const Favorites = ({ scrollY, headerHeight, index }: Props) => {
     );
   };
 
+  const renderEmptyPlaceholder = useCallback(() => {
+    return (
+      <View className="">
+        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
+          No Favorites
+        </Text>
+      </View>
+    );
+  }, []);
+
   useEffect(() => {
     if (flatListRef.current) {
       flatListRef?.current?.scrollToOffset({ offset: 0, animated: false });
@@ -101,6 +110,7 @@ const Favorites = ({ scrollY, headerHeight, index }: Props) => {
               [{ nativeEvent: { contentOffset: { y: scrollY } } }],
               { useNativeDriver: true },
             )}
+            ListEmptyComponent={renderEmptyPlaceholder}
           />
         </View>
       )}

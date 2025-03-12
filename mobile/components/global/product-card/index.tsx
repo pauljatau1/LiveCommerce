@@ -471,20 +471,26 @@ const AddedToCart = ({
         </View>
       </View>
 
-      <View className="flex-row items-center justify-center">
+      <View className="flex-row items-center justify-between">
         <TouchableOpacity
-          className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px]"
+          className="w-full py-[12px] bg-white rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
           onPress={closeSheet}
         >
-          <Text className="text-white font-LexendDecaBold text-[12px]">
+          <Text className="text-[#16783A] font-LexendDecaBold text-[12px]">
             Continue Shopping
           </Text>
         </TouchableOpacity>
-        {/* <TouchableOpacity className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]">
+        <TouchableOpacity
+          className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
+          onPress={() => {
+            closeSheet();
+            router.push("/checkout/checkout");
+          }}
+        >
           <Text className="text-white font-LexendDecaBold text-[12px]">
             Checkout Now
           </Text>
-        </TouchableOpacity> */}
+        </TouchableOpacity>
       </View>
     </View>
   );
