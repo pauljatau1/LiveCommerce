@@ -9,7 +9,7 @@ import {
   Dimensions,
   Image,
 } from "react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
 import LoadingModal from "@/components/global/loading-modal";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -22,6 +22,14 @@ import { Paystack } from "react-native-paystack-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
+
+const paymentOptions = [
+  {
+    icon: require("../../../assets/icons/paystack.png"),
+    name: "Paystack",
+    description: "Secure payment via card, bank transfer, e-Wallets",
+  },
+];
 
 const CheckoutSummary = () => {
   const { id } = useGlobalSearchParams();
@@ -39,6 +47,8 @@ const CheckoutSummary = () => {
   const [selectedProviders, setSelectedProviders] = useState<any>(null);
   const [selectedProviderName, setSelectedProviderName] = useState<string>("");
   const [shippingFee, setShippingFee] = useState<number>(0);
+  const [selectedPayment, setSelectedPayment] = useState<number>(0);
+  const [orderId, setOrderId] = useState<string>("");
 
   const getOrderInfo = async (orderId: string) => {
     try {
@@ -54,7 +64,10 @@ const CheckoutSummary = () => {
       setSubtotal((prevState) => prevState + response.data.order.totalAmount);
       setAddresses(response.data.addresses);
       setOrder(response.data.order);
-      getShippingInfo(response.data.shipping.shipment_id);
+      setOrderId(response.data.order?.orderId);
+      // getShippingInfo(response.data.shipping.shipment_id);
+      setShippingFee(response.data.shipping.fee.amount);
+      setLoading(false);
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
     }
@@ -89,14 +102,14 @@ const CheckoutSummary = () => {
 
   const handlePayOrder = async () => {
     if (payLoading) return;
-    if (total < 1) {
-      return toast.info("select shipping provider");
+    if (!(shippingFee && subtotal)) {
+      return toast.error("Cannot complete payment");
     }
-    if (selectedProviders) {
+    if (shippingFee && subtotal) {
       setPayLoading(true);
       setShowPaystack(true);
     } else {
-      toast.info("select shipping provider");
+      toast.error("payment cant be processed");
     }
   };
 
@@ -105,40 +118,38 @@ const CheckoutSummary = () => {
     return total;
   };
 
-  const onPaystackSuccess = async (response: any) => {
+  const onPaystackSuccess = async (paystackResponse: any) => {
     setShowPaystack(false);
     try {
       const token = await getToken();
-      const payload = selectedProviders.map(
-        (selectedProvider: any, index: number) => ({
-          orderId: orders[index]?.orderId,
-          amount: calculateOrderTotal(orders[index]?.items),
-          carrier_reference: selectedProvider.carrier_reference,
-          shipping_fee: selectedProvider.amount,
-          carrier_name: selectedProvider.carrier_name,
-          rate_id: selectedProvider.rate_id,
-          estimatedDeliveryDate: selectedProvider.delivery_date,
-          estimatedPickupDate: selectedProvider.pickup_time,
-        }),
-      );
+      const payload = {
+        paymentReference: paystackResponse.data.transactionRef.reference,
+      };
       const config = {
-        method: "POST",
-        url: process.env.EXPO_PUBLIC_API_URL + `api/order/mark-as-paid`,
+        method: "PATCH",
+        url:
+          process.env.EXPO_PUBLIC_API_URL +
+          `api/order/${order?._id}/mark-as-paid`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
         },
-        data: { orders: payload },
+        data: payload,
       };
 
       const response = await axios(config);
       console.log("order payment Response ==> ", response.data);
+      return router.push("/(root)/orders/orders");
+
       if (response.status == 200) {
         await AsyncStorage.removeItem("order");
         toast.success("Order paid successfully");
         router.replace(`/`);
       }
     } catch (e: any) {
+      if (e?.response.status == 400) {
+        return router.push("/(root)/orders/orders");
+      }
       console.log("could not Pay for  order", e?.response?.message);
       toast.error("Could not Pay for order");
     } finally {
@@ -152,6 +163,12 @@ const CheckoutSummary = () => {
     toast.info("Payment Cancelled");
   };
 
+  const generateReference = () => {
+    const prefix = "ORDER";
+    const newReference = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    return newReference;
+  };
+
   useEffect(() => {
     async function getUserInfo() {
       const user = await getUser();
@@ -160,15 +177,8 @@ const CheckoutSummary = () => {
       setUser(user);
     }
     getUserInfo();
+    getOrderInfo(id?.toString());
   }, []);
-
-  useEffect(() => {
-    if (orders?.length > 0) {
-      orders.forEach((order) => {
-        getOrderInfo(order.orderId);
-      });
-    }
-  }, [orders]);
 
   const total = useMemo(() => {
     if (selectedProviders?.length > 0) {
@@ -194,6 +204,74 @@ const CheckoutSummary = () => {
     // console.log("selected provider", selectedProvider);
     setSelectedProviders(selectedProvider);
   }, [selectedProviderName]);
+
+  const renderPaymentOptions = useCallback(
+    (item: any, index: number) => {
+      return (
+        <Pressable
+          key={index}
+          className="rounded-[16px] border-[1px] border-[#f2f2f2] p-[16px] flex-row items-center justify-between gap-[8px] min-h-[100px]"
+          style={{
+            backgroundColor: selectedPayment == index ? "#BEF3D2" : "#121212",
+            borderColor:
+              selectedPayment == index
+                ? "#BEF3D2"
+                : "rgba(242, 242, 242, 0.30)",
+          }}
+          onPress={() => setSelectedPayment(index)}
+        >
+          <View className="flex-row items-center gap-[16px] shrink">
+            <View
+              className="w-[50px] h-[50px] rounded-[10px] flex-row items-center justify-center bg-[#FFFFFF] "
+              style={{
+                backgroundColor: index !== 0 ? "#CFCFCF" : "#ffffff",
+              }}
+            >
+              <Image
+                source={item.icon}
+                resizeMode="contain"
+                className="w-[25px] h-[25px]"
+              />
+            </View>
+            <View className="shrink">
+              <Text
+                className="text-[16px] font-LexendDecaSemiBold text-[#ccc]"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {item.name}
+              </Text>
+              <Text
+                className="text-[12px] font-LexendDeca text-[#ccc] leading-[19.5px] shrink"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {item.description}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+            style={{
+              borderColor: selectedPayment == index ? "#16783A" : "#f2f2f2",
+              borderWidth: 2,
+            }}
+          >
+            <View
+              className="w-[12px] h-[12px] rounded-[12px]"
+              style={{
+                backgroundColor: selectedPayment == index ? "#16783A" : "",
+              }}
+            ></View>
+          </View>
+        </Pressable>
+      );
+    },
+    [selectedPayment],
+  );
   return (
     <>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -259,7 +337,9 @@ const CheckoutSummary = () => {
                       Total:
                     </Text>
                     <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                      {total <= subtotal ? "-" : "₦" + total?.toLocaleString()}
+                      {!(subtotal && shippingFee)
+                        ? "-"
+                        : "₦" + (subtotal + shippingFee)?.toLocaleString()}
                     </Text>
                   </View>
                 </View>
@@ -285,7 +365,7 @@ const CheckoutSummary = () => {
                   </View>
                 </Pressable>
 
-                <View
+                {/* <View
                   className="p-[20px] rounded-[16px] gap-[10px] mb-[10px]"
                   style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
                 >
@@ -332,7 +412,7 @@ const CheckoutSummary = () => {
                         </Pressable>
                       ))}
                   </View>
-                </View>
+                </View> */}
 
                 <View
                   className="p-[20px] rounded-[16px] gap-[10px] mb-[10px]"
@@ -343,10 +423,10 @@ const CheckoutSummary = () => {
                       Payment
                     </Text>
                   </View>
-                  <View>
-                    <Text className="text-[14px] text-[#ccc] font-LexendDecaSemiBold">
-                      Paystack
-                    </Text>
+                  <View className="gap-[16px] mt-[10px]">
+                    {paymentOptions.map((option: any, index: number) =>
+                      renderPaymentOptions(option, index),
+                    )}
                   </View>
                 </View>
               </View>
@@ -358,7 +438,7 @@ const CheckoutSummary = () => {
       </SafeAreaView>
       {loading ? null : (
         <View
-          className={`absolute w-full bottom-0 left-0 p-[16px] bg-[#121212] ${total <= subtotal ? "opacity-50" : " "}`}
+          className={`absolute w-full bottom-0 left-0 p-[16px] bg-[#121212] ${!(shippingFee && subtotal) ? "opacity-50" : " "}`}
         >
           <TouchableOpacity
             className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A] "
@@ -368,9 +448,7 @@ const CheckoutSummary = () => {
               <ActivityIndicator size={"small"} color="white" />
             ) : (
               <Text className="text-white text-[16px] font-LexendDecaMedium">
-                {total <= subtotal
-                  ? "Select Shipping Provider"
-                  : `Pay ₦${total?.toLocaleString()}`}
+                {`Pay ₦${(subtotal + shippingFee)?.toLocaleString()}`}
               </Text>
             )}
           </TouchableOpacity>
@@ -379,14 +457,37 @@ const CheckoutSummary = () => {
 
       {showPaystack && (
         <Paystack
+          refNumber={generateReference()}
           paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
-          amount={100}
+          amount={shippingFee! + subtotal}
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}
           onSuccess={onPaystackSuccess}
           onCancel={onPaystackClose}
           activityIndicatorColor="#16783A"
           autoStart={true}
+          metadata={JSON.stringify({
+            orderId: orderId,
+            buyerId: user?._id,
+            transactionType: "order_payment",
+            custom_fields: [
+              {
+                display_name: "Order ID",
+                variable_name: "order_id",
+                value: orderId,
+              },
+              {
+                display_name: "Buyer ID",
+                variable_name: "buyer_id",
+                value: user?._id,
+              },
+              {
+                display_name: "Transaction Type",
+                variable_name: "transaction_type",
+                value: "order_payment",
+              },
+            ],
+          })}
         />
       )}
     </>

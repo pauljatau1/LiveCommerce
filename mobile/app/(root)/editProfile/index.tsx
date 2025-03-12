@@ -140,6 +140,12 @@ const EditProfile = () => {
           },
         },
       );
+      const user = await getUser();
+
+      await setUser({
+        ...user,
+        ...payload,
+      });
       router.back();
 
       setLoading(false);
@@ -297,10 +303,7 @@ const EditProfile = () => {
             </View>
           </View>
 
-          <Pressable
-            style={styles.updateBtn}
-            onPress={() => setShowPasswordValidation(true)}
-          >
+          <Pressable style={styles.updateBtn} onPress={handleUpdateProfile}>
             <Text style={styles.updateBtnText}>Update</Text>
           </Pressable>
         </ScrollView>

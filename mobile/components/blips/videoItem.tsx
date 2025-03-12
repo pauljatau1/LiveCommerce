@@ -573,7 +573,7 @@ const VideoItem = ({
 
         <BottomSheet
           bgColor="#121212"
-          childrenStyle="!px-[11px]"
+          childrenStyle="!px-[0px]"
           showCloseIcon={false}
           title=""
           show={showShop}

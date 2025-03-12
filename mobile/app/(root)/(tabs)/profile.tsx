@@ -27,7 +27,7 @@ import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
 import Favorites from "@/components/profile/favorites";
 
-const HEADER_HEIGHT = 250;
+const HEADER_HEIGHT = 220;
 const AnimatedScrollView = Animated.createAnimatedComponent(
   Animated.ScrollView,
 );
@@ -173,7 +173,7 @@ const CollapsibleHeader = memo(
               {info?.bio?.split("\n")?.slice(0, 4)?.join("\n")}
             </Text>
           </View>
-          <Pressable className="mt-[16px] py-[8px] px-[16px] rounded-[6px] border-[1px] border-[#16783A] flex-row items-center justify-between">
+          {/* <Pressable className="mt-[16px] py-[8px] px-[16px] rounded-[6px] border-[1px] border-[#16783A] flex-row items-center justify-between">
             <View className="flex-row items-center gap-[12px]">
               <Feather name="share-2" size={20} color="#fff" />
               <Text className="text-[#fff] text-[8.5px] font-LexendDeca">
@@ -181,7 +181,7 @@ const CollapsibleHeader = memo(
               </Text>
             </View>
             <AntDesign name="arrowright" size={20} color="#ccc" />
-          </Pressable>
+          </Pressable> */}
         </View>
       </Animated.View>
     );
@@ -207,13 +207,36 @@ const TabScene = memo(
 
     if (route.title == "Posts") {
       return (
-        <AllPostsList
-          scrollY={scrollY}
-          headerHeight={HEADER_HEIGHT}
-          userId={id}
-          type="Buyer"
-          index={index}
-        />
+        <View style={contentContainerStyle}>
+          <View
+            style={{
+              alignItems: "center",
+              paddingTop: 50,
+              paddingHorizontal: 40,
+            }}
+          >
+            <Image
+              source={require("../../../assets/images/posts-coming-soon.png")}
+              contentFit="contain"
+              style={{
+                width: 250,
+                height: 250,
+                marginBottom: 20,
+                flexShrink: 1,
+              }}
+            />
+            <Text className="text-[24px] text-[#ccc] font-LexendDecaSemiBold opacity-80">
+              Posts is coming soon!
+            </Text>
+          </View>
+        </View>
+        // <AllPostsList
+        //   scrollY={scrollY}
+        //   headerHeight={HEADER_HEIGHT}
+        //   userId={id}
+        //   type="Buyer"
+        //   index={index}
+        // />
       );
     }
 
@@ -360,9 +383,25 @@ const Profile = () => {
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                gap: 23,
+                gap: 21,
               }}
             >
+              <TouchableOpacity
+                onPress={() => router.push("/(root)/wallet")}
+                className="items-center gap-[2px]"
+                style={{
+                  marginRight: 4,
+                }}
+              >
+                <Image
+                  source={require("../../../assets/icons/walletIcon.png")}
+                  style={{ width: 20, height: 20 }}
+                  contentFit="contain"
+                />
+                <Text className="font-LexendDecaLight text-[8px] text-[#ccc] ">
+                  Wallet
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.push("/(root)/orders/orders")}
                 className="items-center gap-[2px]"

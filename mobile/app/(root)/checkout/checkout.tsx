@@ -11,7 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -39,6 +39,24 @@ const mockDeliveryOtions = [
   },
 ];
 
+const paymentOptions = [
+  {
+    icon: require("../../../assets/icons/paystack.png"),
+    name: "Paystack",
+    description: "Secure payment via card, bank transfer, e-Wallets",
+  },
+  {
+    icon: require("../../../assets/icons/wallet.png"),
+    name: "Auqli Wallet",
+    description: "",
+  },
+  {
+    icon: require("../../../assets/icons/cod.png"),
+    name: "Cash on Delivery",
+    description: "Pay with cash on Delivery",
+  },
+];
+
 const Checkout = () => {
   const isFocused = useIsFocused();
   const [loading, setLoading] = useState<boolean>(true);
@@ -61,6 +79,9 @@ const Checkout = () => {
   const [orderId, setOrderId] = useState<string>("");
 
   const [showAddressSheet, setShowAddressSheet] = useState<boolean>(false);
+  const [selectedPayment, setSelectedPayment] = useState<number>(0);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
       recipientName: user.firstName + " " + user.lastName,
@@ -85,6 +106,23 @@ const Checkout = () => {
       }
     });
     setCartTotal(total);
+  };
+
+  const getWalletBalance = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setWalletBalance(response.data?.balance);
+    } catch (e) {
+      console.log("error fetching buyer wallet balance ", e);
+    }
   };
   const getAddresses = async () => {
     try {
@@ -185,9 +223,15 @@ const Checkout = () => {
   };
 
   const getShippingFee = async () => {
+    console.log(cart[0]?.weight);
+
     const payload = cart?.map((ct: any) => {
       return {
-        pickUpState: ct?.seller?.warehouseDetails?.state,
+        pickUpState:
+          ct?.seller?.warehouseDetails?.state ||
+          ct?.seller?.warehouseDetails?.address?.state ||
+          ct?.seller?.addresses?.sellerAddress?.state ||
+          ct?.seller?.addresses?.warehouseAddress?.state,
         weight: ct.weight * ct.quantity,
         sellerId: ct.seller._id,
       };
@@ -278,6 +322,12 @@ const Checkout = () => {
       return toast.error("error getting delivery fee");
     }
 
+    if (selectedPayment == 1) {
+      if (walletBalance < deliveryFee + cartTotal) {
+        return toast.error("Insufficient Wallet Balance");
+      }
+    }
+
     const order = {
       items: cart?.map((item) => {
         return {
@@ -313,11 +363,11 @@ const Checkout = () => {
         };
       }),
       shippingAddress: selectedAddress,
-      paymentMethod: "paystack",
-      isItemCod: false,
+      paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
+      isItemCod: selectedPayment == 2,
       shippingFee: deliveryFee,
       additionalDetails: "Please handle with care",
-      paidFromWallet: false,
+      paidFromWallet: selectedPayment == 1,
     };
 
     // const order = {};
@@ -354,7 +404,14 @@ const Checkout = () => {
         } else {
           await AsyncStorage.setItem("cart", JSON.stringify(newCart));
         }
-        setShowPaystack(true);
+
+        if (selectedPayment == 0) {
+          setShowPaystack(true);
+        } else if (selectedPayment == 2) {
+          router.replace("/(root)/orders/orders");
+        } else {
+          router.replace("/(root)/orders/orders");
+        }
         // router.replace(`/checkout/${response.data.orders[0].orderId}`);
       }
     } catch (e: any) {
@@ -371,6 +428,7 @@ const Checkout = () => {
     }
     getUserInfo();
     getCart();
+    getWalletBalance();
   }, []);
 
   useEffect(() => {
@@ -380,6 +438,80 @@ const Checkout = () => {
   useEffect(() => {
     handleCalculateTotal();
   }, [uniqueSellers, cart]);
+
+  const renderPaymentOptions = useCallback(
+    (item: any, index: number) => {
+      return (
+        <Pressable
+          key={index}
+          className="rounded-[16px] border-[1px] border-[#f2f2f2] p-[16px] flex-row items-center justify-between gap-[8px] min-h-[100px]"
+          style={{
+            backgroundColor: selectedPayment == index ? "#BEF3D2" : "#121212",
+            borderColor:
+              selectedPayment == index
+                ? "#BEF3D2"
+                : "rgba(242, 242, 242, 0.30)",
+          }}
+          onPress={() => setSelectedPayment(index)}
+        >
+          <View className="flex-row items-center gap-[16px] shrink">
+            <View
+              className="w-[50px] h-[50px] rounded-[10px] flex-row items-center justify-center bg-[#FFFFFF] "
+              style={{
+                backgroundColor: index !== 0 ? "#CFCFCF" : "#ffffff",
+              }}
+            >
+              <Image
+                source={item.icon}
+                resizeMode="contain"
+                className="w-[25px] h-[25px]"
+              />
+            </View>
+            <View className="shrink">
+              <Text
+                className="text-[16px] font-LexendDecaSemiBold text-[#ccc]"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {item.name}
+              </Text>
+              <Text
+                className="text-[12px] font-LexendDeca text-[#ccc] leading-[19.5px] shrink"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {index == 1
+                  ? "₦" +
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : item.description}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+            style={{
+              borderColor: selectedPayment == index ? "#16783A" : "#f2f2f2",
+              borderWidth: 2,
+            }}
+          >
+            <View
+              className="w-[12px] h-[12px] rounded-[12px]"
+              style={{
+                backgroundColor: selectedPayment == index ? "#16783A" : "",
+              }}
+            ></View>
+          </View>
+        </Pressable>
+      );
+    },
+    [selectedPayment, walletBalance],
+  );
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "padding"}
@@ -479,7 +611,7 @@ const Checkout = () => {
                 : null}
 
               <View className="gap-[8px] mb-[10px]">
-                <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold">
+                <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
                   Auqli Buyer Protection
                 </Text>
                 <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
@@ -492,7 +624,7 @@ const Checkout = () => {
               </View>
 
               <View className="gap-[20px] mb-[10px]">
-                <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold">
+                <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
                   Delivery Options
                 </Text>
                 <Pressable
@@ -531,17 +663,17 @@ const Checkout = () => {
                 style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
               >
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-[18px] text-white font-LexendDecaSemiBold">
-                    Select Payment methods
+                  <Text className="text-[16px] text-white font-LexendDecaMedium">
+                    Select Payment Method
                   </Text>
-                  <Pressable>
+                  {/* <Pressable>
                     <Text className="text-[#16783A] text-[12px]">Edit</Text>
-                  </Pressable>
+                  </Pressable> */}
                 </View>
-                <View>
-                  <Text className="text-[14px] text-[#ccc] font-LexendDecaSemiBold">
-                    Paystack
-                  </Text>
+                <View className="gap-[16px] mt-[10px]">
+                  {paymentOptions.map((option: any, index: number) =>
+                    renderPaymentOptions(option, index),
+                  )}
                 </View>
               </View>
 
@@ -567,7 +699,11 @@ const Checkout = () => {
                     Merchandise Subtotal
                   </Text>
                   <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                    ₦{cartTotal.toLocaleString()}
+                    ₦
+                    {cartTotal?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </Text>
                 </View>
                 <View className="flex-row justify-between items-center">
@@ -575,16 +711,26 @@ const Checkout = () => {
                     Shipping Fee
                   </Text>
                   <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                    {deliveryFee ? "₦" + deliveryFee?.toLocaleString() : "-"}
+                    {deliveryFee
+                      ? "₦" +
+                        deliveryFee?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "-"}
                   </Text>
                 </View>
                 <View className="flex-row justify-between items-center">
                   <Text className="text-white text-[16px] font-LexendDecaSemiBold">
-                    Total
+                    Net Total
                   </Text>
                   <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
                     {deliveryFee && cartTotal
-                      ? "₦" + (deliveryFee + cartTotal)?.toLocaleString()
+                      ? "₦" +
+                        (deliveryFee + cartTotal)?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
                       : "-"}
                   </Text>
                 </View>
@@ -595,7 +741,15 @@ const Checkout = () => {
                 onPress={handleCompleteOrder}
               >
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
-                  Complete Order
+                  Pay (
+                  {deliveryFee && cartTotal
+                    ? "₦" +
+                      (deliveryFee + cartTotal)?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "-"}
+                  )
                 </Text>
               </TouchableOpacity>
             </View>

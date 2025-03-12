@@ -21,6 +21,7 @@ export interface User {
   phoneNumber: string;
   phoneVerified: boolean;
   posts: any[];
+  profileImage: any;
   selectedCategories: any[];
   shippingAddresses: any[];
   username: string;

@@ -109,34 +109,38 @@ const CancelledOrders = ({
         </Text>
       </View>
 
-      <View
-        className="rounded-[16px]"
-        style={{
-          paddingHorizontal: 24,
-          paddingVertical: 8,
-          marginBottom: 30,
-          gap: 8,
-          backgroundColor: "rgba(41, 41, 41, 0.81)",
-        }}
-      >
-        <Text className="font-LexendDecaMedium text-[#fff] text-[16px]">
-          Refund Details
-        </Text>
-        <View className="flex-row items-center justify-between">
-          <Text className="font-LexendDeca text-[12px] text-[#ccc]">
-            Total Refund
+      {order?.paid && (
+        <View
+          className="rounded-[16px]"
+          style={{
+            paddingHorizontal: 24,
+            paddingVertical: 8,
+            marginBottom: 30,
+            gap: 8,
+            backgroundColor: "rgba(41, 41, 41, 0.81)",
+          }}
+        >
+          <Text className="font-LexendDecaMedium text-[#fff] text-[16px]">
+            Refund Details
           </Text>
-          <Text className="font-LexendDecaBold text-[12px] text-[#ccc]">
-            ₦{order?.order?.totalAmount.toLocaleString()}
-          </Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="font-LexendDeca text-[12px] text-[#ccc]">
+              Total Refund
+            </Text>
+            <Text className="font-LexendDecaBold text-[12px] text-[#ccc]">
+              ₦{order?.order?.totalAmount.toLocaleString()}
+            </Text>
+          </View>
+          <View className="flex-row items-center justify-between gap-[50px]">
+            <Text className="font-LexendDeca text-[12px] text-[#ccc]">
+              Note
+            </Text>
+            <Text className="font-LexendDecaBold text-[12px] text-[#ccc] shrink">
+              Your refund is being processed and you will be refunded shortly
+            </Text>
+          </View>
         </View>
-        <View className="flex-row items-center justify-between gap-[50px]">
-          <Text className="font-LexendDeca text-[12px] text-[#ccc]">Note</Text>
-          <Text className="font-LexendDecaBold text-[12px] text-[#ccc] shrink">
-            Your refund is being processed and you will be refunded shortly
-          </Text>
-        </View>
-      </View>
+      )}
 
       <View>
         {order?.items?.map((orderItem: any, index: number) => (
