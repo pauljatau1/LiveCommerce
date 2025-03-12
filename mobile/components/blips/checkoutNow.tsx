@@ -50,9 +50,15 @@ interface Props {
   sellerId: string;
   productId: string;
   closeSheet: () => void;
+  channel: string;
 }
 
-const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
+const CheckoutNow = ({
+  productId,
+  sellerId,
+  closeSheet,
+  channel = "marketplace",
+}: Props) => {
   const {
     data: product,
     error,
@@ -271,6 +277,7 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       shippingFee: deliveryFee,
       additionalDetails: "Please handle with care",
       paidFromWallet: selectedPayment == 1,
+      channel,
     };
 
     console.log(order);
