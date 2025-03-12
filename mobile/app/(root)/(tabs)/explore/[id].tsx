@@ -21,6 +21,10 @@ import Favourite from "@/components/home/auqli-live/favourite";
 import FavouriteExplore from "@/components/explore/favourite";
 import SpotLightExplore from "@/components/explore/spot-light";
 import SectionHeader from "@/components/global/section-header";
+import { MaterialIcons } from "@expo/vector-icons";
+import BottomSheet from "@/components/global/bottom-sheet";
+import SortSheet from "@/components/explore/exploreSortSheet";
+import { catalogSort } from "@/helpers/helpers";
 
 const SingleExplore = () => {
   const { id, name: categoryName, subCategories } = useGlobalSearchParams();
@@ -51,25 +55,25 @@ const SingleExplore = () => {
     setProducts(groupedforYouProducts);
   }, [data]);
 
-  const renderContent = (row: any[]) => {
-    return (
-      <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-        {row?.map((item) => (
-          <ProductCard
-            key={item._id}
-            id={item._id}
-            title={item.name}
-            price={item.price}
-            category={item.category}
-            sellerName={item.seller?.storeName}
-            imageUrl={item.images}
-            sellerRating={item.stats?.averageRating}
-            moreDetails={item}
-          />
-        ))}
-      </View>
-    );
-  };
+  // const renderContent = (row: any[]) => {
+  //   return (
+  //     <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
+  //       {row?.map((item) => (
+  //         <ProductCard
+  //           key={item._id}
+  //           id={item._id}
+  //           title={item.name}
+  //           price={item.price}
+  //           category={item.category}
+  //           sellerName={item.seller?.storeName}
+  //           imageUrl={item.images}
+  //           sellerRating={item.stats?.averageRating}
+  //           moreDetails={item}
+  //         />
+  //       ))}
+  //     </View>
+  //   );
+  // };
 
   const renderSubCategory = (name: string) => {
     return (
@@ -104,7 +108,7 @@ const SingleExplore = () => {
               />
             </TouchableOpacity>
 
-            <Text className="text-white font-LexendDecaMedium text-[24px]">
+            <Text className="text-white font-LexendDecaMedium text-[20px]">
               {categoryName}
             </Text>
           </View>
@@ -120,38 +124,17 @@ const SingleExplore = () => {
               showsHorizontalScrollIndicator={false}
             />
           </View>
-          <View className="flex-row items-center gap-[8px] mb-[17px] mx-[16px]">
-            <TouchableOpacity
-              className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
-              style={{
-                backgroundColor: "rgba(204, 204, 204, 0.25)",
-              }}
-            >
-              <FontAwesome6 name="sliders" size={12.5} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              className={` rounded-[4px] py-[8px] px-[12px] justify-center items-center`}
-              style={{
-                backgroundColor: "rgba(204, 204, 204, 0.25)",
-              }}
-            >
-              <Text
-                className={`text-[#cccccc]  text-[10px] font-LexendDecaMedium`}
-              >
-                Sort
-              </Text>
-            </TouchableOpacity>
-          </View>
+
           <ScrollView
             className="flex-1"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingBottom: 20,
+              paddingBottom: 80,
             }}
           >
             <FavouriteExplore category={categoryName} />
             <SpotLightExplore />
-            <View>
+            {/* <View>
               <SectionHeader title="Products" btnText="" />
               {isLoading ? (
                 <ActivityIndicator
@@ -179,7 +162,7 @@ const SingleExplore = () => {
                   className="pt-[14px]"
                 />
               )}
-            </View>
+            </View> */}
 
             {/* <View className="">
               <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
@@ -205,7 +188,7 @@ const SingleExplore = () => {
               </View>
             </View> */}
           </ScrollView>
-          {/* <View
+          <View
             className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
             style={{
               ...Platform.select({
@@ -223,20 +206,20 @@ const SingleExplore = () => {
           >
             <CustomButton
               title="Live Show"
-              textStyle="!text-[#141B34]"
-              className="!w-[130px] !bg-[#F2F2F2]  rounded-tr-none rounded-br-none"
+              className="!w-[130px]   rounded-tr-none rounded-br-none !bg-primary-200"
               onPress={() => {
                 router.push("/(root)/(tabs)/home/home");
               }}
             />
             <CustomButton
               title="Markets"
-              className="!w-[130px] rounded-tl-none rounded-bl-none rounded-[40px] !bg-primary-200 "
+              textStyle="!text-[#141B34]"
+              className="!w-[130px] rounded-tl-none rounded-bl-none !bg-[#F2F2F2] rounded-[40px]  "
               onPress={() => {
                 router.push("/(root)/(tabs)/home/marketplace");
               }}
             />
-          </View> */}
+          </View>
         </View>
       </SafeAreaView>
     </>

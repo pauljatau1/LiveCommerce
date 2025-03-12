@@ -83,23 +83,24 @@ const MoreProducts = () => {
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
     setFilter(type);
-    const sortedProducts = catalogSort(products, type);
-    return console.log(sortedProducts);
+    handleFilter(selectedFilters, type);
+    // const sortedProducts = catalogSort(products, type);
+    // setFilteredProducts(sortedProducts);
   };
 
-  const handleFilter = (filters: any) => {
+  const handleFilter = (filters: any, sortType = "") => {
     let appliedFilters = products?.slice();
-    if (filters.price) {
-      appliedFilters = catalogFilterPrice(appliedFilters, filters.price);
+    if (filters?.price) {
+      appliedFilters = catalogFilterPrice(appliedFilters, filters?.price);
     }
-    if (filters.condition) {
+    if (filters?.condition) {
       appliedFilters = appliedFilters.filter(
         (product) =>
           product?.condition ==
-          filters.condition.toLowerCase().replace(" ", "-"),
+          filters?.condition?.toLowerCase()?.replace(" ", "-"),
       );
     }
-
+    appliedFilters = catalogSort(appliedFilters, sortType || filter);
     setFilteredProducts(appliedFilters);
     setShowFilterSheet(false);
     setSelectedFilters(filters);

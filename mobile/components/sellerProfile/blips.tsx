@@ -84,11 +84,11 @@ const Blips = ({
       if (newVideos.length > 0) {
         console.log("generating");
 
-        generateThumbnail(newVideos);
+        // generateThumbnail(newVideos);
         setPage((prevPage) => prevPage + 1);
-        // setVideos((prevVideos) => {
-        //   return [...prevVideos, ...newVideos];
-        // });
+        setVideos((prevVideos) => {
+          return [...prevVideos, ...newVideos];
+        });
       }
 
       if (response.data.currentPage == response.data.totalPages) {
@@ -103,32 +103,32 @@ const Blips = ({
     }
   };
 
-  const generateThumbnail = async (newVideos: any[]) => {
-    try {
-      const newImages = [] as any;
-      console.log("generating thumbnail");
+  // const generateThumbnail = async (newVideos: any[]) => {
+  //   try {
+  //     const newImages = [] as any;
+  //     console.log("generating thumbnail");
 
-      for (const video of newVideos) {
-        const { uri } = await VideoThumbnails.getThumbnailAsync(
-          video?.blipUrl,
-          {
-            time: 1000,
-          },
-        );
-        newImages.push({
-          uri,
-          views: video.blipEngagement.viewCount || 0,
-          ...video,
-        });
-        console.log("new images uri", uri);
-      }
-      setImages((prevImages) => {
-        return [...prevImages, ...newImages];
-      });
-    } catch (e) {
-      console.warn(e);
-    }
-  };
+  //     for (const video of newVideos) {
+  //       const { uri } = await VideoThumbnails.getThumbnailAsync(
+  //         video?.blipUrl,
+  //         {
+  //           time: 1000,
+  //         },
+  //       );
+  //       newImages.push({
+  //         uri,
+  //         views: video.blipEngagement.viewCount || 0,
+  //         ...video,
+  //       });
+  //       console.log("new images uri", uri);
+  //     }
+  //     setImages((prevImages) => {
+  //       return [...prevImages, ...newImages];
+  //     });
+  //   } catch (e) {
+  //     console.warn(e);
+  //   }
+  // };
 
   useEffect(() => {
     fetchMoreVideos();
@@ -148,10 +148,10 @@ const Blips = ({
         </View>
       ) : (
         <View>
-          {images?.length > 0 && (
+          {videos?.length > 0 && (
             <Animated.FlatList
               ref={flatListRef}
-              data={images}
+              data={videos}
               renderItem={({ item, index }) => renderBlips(item)}
               keyExtractor={(item, index) => index.toString()}
               numColumns={2}
@@ -186,7 +186,7 @@ const VideoCard = memo(({ item }: { item: any }) => {
       onPress={() => setModalVisible(true)}
     >
       <Image
-        source={{ uri: item.uri }}
+        source={{ uri: item.images }}
         style={{
           width: "100%",
           height: "100%",

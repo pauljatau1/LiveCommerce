@@ -328,7 +328,7 @@ const VideoItem = ({
 
             {following ? (
               <Pressable
-                className="py-[4px] px-[8px] rounded-[4px] items-center justify-center border-[#16783A] border-[1px]"
+                className="py-[4px] px-[8px] rounded-[8px] items-center justify-center border-[#16783A] border-[1px]"
                 // style={styles.buttonShadow}
                 onPress={() => handleFollow("unfollow")}
               >
@@ -341,7 +341,7 @@ const VideoItem = ({
               </Pressable>
             ) : (
               <Pressable
-                className="py-[4px] px-[8px] rounded-[4px] items-center justify-center bg-[#16783A]"
+                className="py-[4px] px-[8px] rounded-[8px] items-center justify-center bg-[#16783A]"
                 style={styles.buttonShadow}
                 onPress={() => handleFollow("follow")}
               >
@@ -464,12 +464,14 @@ const VideoItem = ({
                       ) : null}
                     </Text>
                     {item?.discount?.isActive ? (
-                      <Text className="text-[12px] text-[#16783A] font-LexendDecaMedium line-through">
+                      <Text className="text-[12px] text-[#FF0A0A] font-LexendDecaMedium line-through">
                         ₦{item?.price?.toLocaleString()}
                       </Text>
                     ) : null}
                   </View>
-                  <Text className="text-[14px] text-[#000] font-LexendDecaMedium ">
+                  <Text
+                    className={`text-[14px] ${item?.stock < 10 ? "text-[#FF6652]" : "text-[#000]"} font-LexendDecaMedium `}
+                  >
                     {formatNumber(item.stock)} left
                   </Text>
                 </View>
@@ -571,7 +573,7 @@ const VideoItem = ({
 
         <BottomSheet
           bgColor="#121212"
-          childrenStyle="!px-[11px]"
+          childrenStyle="!px-[0px]"
           showCloseIcon={false}
           title=""
           show={showShop}

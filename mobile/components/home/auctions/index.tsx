@@ -8,7 +8,9 @@ const Auctions = () => {
   const dispatch = useDispatch();
   return (
     <View className="p-[30px]">
-      <Text className="text-white mx-auto">Auctions</Text>
+      <Text className="text-white mx-auto font-LexendDecaMedium">
+        Auctions Coming Soon
+      </Text>
       {/* <CustomButton
         title="Logout"
         onPress={() => {

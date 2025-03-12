@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import { toast } from "@/core/toast";
@@ -17,6 +17,8 @@ import axios from "axios";
 import { products, useGetSingleProductQuery } from "@/services/products";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
+import { Paystack } from "react-native-paystack-webview";
+import LoadingModal from "../global/loading-modal";
 
 const mockDeliveryOtions = [
   {
@@ -26,13 +28,37 @@ const mockDeliveryOtions = [
   },
 ];
 
+const paymentOptions = [
+  {
+    icon: require("../../assets/icons/paystack.png"),
+    name: "Paystack",
+    description: "Secure payment via card, bank transfer, e-Wallets",
+  },
+  {
+    icon: require("../../assets/icons/wallet.png"),
+    name: "Auqli Wallet",
+    description: "",
+  },
+  {
+    icon: require("../../assets/icons/cod.png"),
+    name: "Cash on Delivery",
+    description: "Pay with cash on Delivery",
+  },
+];
+
 interface Props {
   sellerId: string;
   productId: string;
   closeSheet: () => void;
+  channel: string;
 }
 
-const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
+const CheckoutNow = ({
+  productId,
+  sellerId,
+  closeSheet,
+  channel = "marketplace",
+}: Props) => {
   const {
     data: product,
     error,
@@ -52,6 +78,20 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
   );
   const [cartTotal, setCartTotal] = useState<number>(0);
   const [orderLoading, setOrderloading] = useState<boolean>(false);
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [deliveryFeeObject, setDeliveryFeeObject] = useState<any[]>([]);
+
+  const [showPaystack, setShowPaystack] = useState(false);
+  const [payLoading, setPayLoading] = useState<boolean>(false);
+  const [orderId, setOrderId] = useState<string>("");
+  const [selectedPayment, setSelectedPayment] = useState<number>(0);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+
+  const generateReference = () => {
+    const prefix = "ORDER";
+    const newReference = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    return newReference;
+  };
 
   const productTotal = useMemo(() => {
     const price = product?.discount?.isActive
@@ -59,6 +99,23 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       : product?.price;
     return price;
   }, [product]);
+
+  const getWalletBalance = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setWalletBalance(response.data?.balance);
+    } catch (e) {
+      console.log("error fetching buyer wallet balance ", e);
+    }
+  };
 
   const getAddresses = async () => {
     try {
@@ -75,18 +132,14 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       setAddresses(response.data);
       if (response.data.length > 0) {
         const delivery_address = {
-          first_name: user.firstName,
-          last_name: user.lastName,
-          email: user.email,
-          phone: user.phoneNumber,
-          line1: response.data[0].addressLine1,
-          line2: response.data[0].addressLine2
-            ? response.data[0].addressLine2
-            : response.data[0].addressLine1,
-          city: response.data[0].city,
-          state: response.data[0].state,
-          country: response.data[0].country,
-          zip: response.data[0].zipCode,
+          recipientName: user.firstName + " " + user.lastName,
+          recipientEmail: user.email,
+          recipientPhone:
+            user.phoneNumber.replaceAll("-", "")?.length > 14
+              ? user.phoneNumber.replaceAll("-", "").replace("0", "")
+              : user.phoneNumber.replaceAll("-", ""),
+          recipientAddress: response.data[0].addressLine1,
+          recipientState: response.data[0].state,
         };
 
         setSelectedAddress(delivery_address);
@@ -115,41 +168,64 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
         response.data?.personalInfo.phoneNumber;
 
       const pickup_address = {
-        first_name: response.data?.personalInfo?.firstName,
-        last_name: response.data?.personalInfo?.lastName,
-        email:
+        senderName:
+          response.data?.personalInfo?.firstName +
+          " " +
+          response.data?.personalInfo?.lastName,
+        senderEmail:
           response.data?.contactInformation?.businessEmail ||
-          response.data?.personalInfo?.email ||
-          "bolu@auqli.com",
-        phone: phoneNumber?.includes("+") ? phoneNumber : `+${phoneNumber}`,
-        line1:
+          response.data?.personalInfo?.email,
+        senderPhone: phoneNumber?.includes("+")
+          ? phoneNumber
+          : `+${phoneNumber}`,
+        senderAddress:
           response.data.warehouse?.address?.addressLine1 ||
           response.data?.contactInformation?.businessAddress.addressLine1 ||
           response.data?.contactInformation?.sellerAddress.addressLine1,
 
-        line2:
-          response.data.warehouse?.addrress?.addressLine2 ||
-          response.data?.contactInformation?.businessAddress.addressLine2 ||
-          response.data?.contactInformation?.sellerAddress.addressLine2,
-
-        city:
-          response.data?.warehouse?.address?.city ||
-          response.data?.contactInformation?.businessAddress.city ||
-          response.data?.contactInformation?.sellerAddress.city,
-        state:
+        pickUpState:
           response.data?.warehouse?.address?.state ||
           response.data?.contactInformation?.businessAddress?.state ||
           response.data?.contactInformation?.sellerAddress?.state,
-        country: "NG",
-        zip:
-          response.data?.warehouse?.address?.zipCode ||
-          response.data?.contactInformation?.businessAddress?.zipCode ||
-          response.data?.contactInformation?.sellerAddress?.zipCode,
       };
 
-      setPickupAddress({ [`${sellerId}`]: pickup_address });
+      setPickupAddress(pickup_address);
+      // await getShippingFee(pickup_address?.pickUpState);
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
+    }
+  };
+
+  const getShippingFee = async (pickupState = "") => {
+    const payload = [
+      {
+        pickUpState: pickupAddress?.pickUpState,
+        weight: product?.weight,
+        sellerId,
+      },
+    ];
+
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + "api/order/delivery-cost",
+        {
+          state: selectedAddress.recipientState,
+          pickupLocations: payload,
+        },
+
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setDeliveryFeeObject(response.data?.costs);
+      setDeliveryFee(response.data?.totalCost);
+    } catch (e) {
+      console.log("error fetching delivery fee ", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,23 +237,50 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       return toast.info("Please add a delivery address");
     }
 
+    if (!deliveryFee) {
+      return toast.error("error getting delivery fee");
+    }
+
+    if (selectedPayment == 1) {
+      if (walletBalance < deliveryFee + productTotal) {
+        return toast.error("Insufficient Wallet Balance");
+      }
+    }
+
     const order = {
       items: [
         {
-          productId: productId,
+          productId: product._id,
           quantity: 1,
-          name: product.name,
-          description: product.description,
-          weight: product.weight,
-          price: product.price,
-          sellerId: sellerId,
-          specifications: null,
+          price: product?.discount?.discountedPrice || product.price,
+          weight: product.weight?.toFixed(0) * 1,
+          seller: {
+            sellerId: product.seller._id,
+            senderInfo: pickupAddress,
+            shippingFee: deliveryFeeObject?.find(
+              (obj: any) => obj?.sellerId == product.seller?._id,
+            )?.cost,
+            parcelInfo: {
+              itemDescription: product?.name?.slice(0, 199),
+            },
+          },
+          specifications: product.specifications || {
+            color: "",
+            size: "",
+            material: "",
+          },
         },
       ],
-      pickup_addresses: pickupAddress,
-      delivery_address: selectedAddress,
-      paymentMethod: "paystack",
+      shippingAddress: selectedAddress,
+      paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
+      isItemCod: selectedPayment == 2,
+      shippingFee: deliveryFee,
+      additionalDetails: "Please handle with care",
+      paidFromWallet: selectedPayment == 1,
+      channel,
     };
+
+    console.log(order);
 
     try {
       setOrderloading(true);
@@ -194,13 +297,20 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
 
       const response = await axios(config);
       if (response.status == 201) {
+        setOrderId(response.data.orders[0]?.orderId);
         await AsyncStorage.setItem(
           "orders",
           JSON.stringify(response.data.orders),
         );
         await AsyncStorage.removeItem("buyNow");
-        closeSheet();
-        router.push(`/checkout/${response.data.orders[0].orderId}`);
+        if (selectedPayment == 0) {
+          setShowPaystack(true);
+        } else if (selectedPayment == 2) {
+          closeSheet();
+          router.replace("/(root)/orders/orders");
+        } else {
+          router.replace("/(root)/orders/orders");
+        }
       }
     } catch (e: any) {
       console.log("could not create order", e?.response);
@@ -209,6 +319,54 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       setOrderloading(false);
     }
   };
+
+  const onPaystackSuccess = async (paystackResponse: any) => {
+    setShowPaystack(false);
+    try {
+      const token = await getToken();
+      const payload = {
+        paymentReference: paystackResponse.data.transactionRef.reference,
+      };
+      const config = {
+        method: "PATCH",
+        url:
+          process.env.EXPO_PUBLIC_API_URL + `api/order/${orderId}/mark-as-paid`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        data: payload,
+      };
+
+      const response = await axios(config);
+      console.log("order payment Response ==> ", response.data);
+      closeSheet();
+
+      return router.push("/(root)/orders/orders");
+
+      if (response.status == 200) {
+        await AsyncStorage.removeItem("order");
+        toast.success("Order paid successfully");
+        router.replace(`/`);
+      }
+    } catch (e: any) {
+      if (e?.response.status == 400) {
+        closeSheet();
+
+        return router.push("/(root)/orders/orders");
+      }
+      console.log("could not Pay for  order", e?.response?.message);
+      toast.error("Could not Pay for order");
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
+  const onPaystackClose = () => {
+    setShowPaystack(false);
+    setPayLoading(false);
+    toast.info("Payment Cancelled");
+  };
   useEffect(() => {
     async function getUserInfo() {
       const user = await getUser();
@@ -216,6 +374,8 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
       setUser(user);
     }
     getUserInfo();
+    getWalletBalance();
+
     // getCart();
   }, []);
 
@@ -227,10 +387,97 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
   }, [user]);
 
   useEffect(() => {
+    if (
+      selectedAddress?.recipientState &&
+      product?._id &&
+      pickupAddress?.pickUpState
+    ) {
+      getShippingFee();
+    }
+  }, [selectedAddress, pickupAddress, product]);
+
+  useEffect(() => {
     if (product?._id) {
       setCart(product);
     }
   }, [products]);
+
+  const renderPaymentOptions = useCallback(
+    (item: any, index: number) => {
+      return (
+        <Pressable
+          key={index}
+          className="rounded-[16px] border-[1px] border-[#f2f2f2] p-[16px] flex-row items-center justify-between gap-[8px] min-h-[100px]"
+          style={{
+            backgroundColor: selectedPayment == index ? "#BEF3D2" : "#121212",
+            borderColor:
+              selectedPayment == index
+                ? "#BEF3D2"
+                : "rgba(242, 242, 242, 0.30)",
+          }}
+          onPress={() => setSelectedPayment(index)}
+        >
+          <View className="flex-row items-center gap-[16px] shrink">
+            <View
+              className="w-[50px] h-[50px] rounded-[10px] flex-row items-center justify-center bg-[#FFFFFF] "
+              style={{
+                backgroundColor: index !== 0 ? "#CFCFCF" : "#ffffff",
+              }}
+            >
+              <Image
+                source={item.icon}
+                contentFit="contain"
+                style={{
+                  width: 25,
+                  height: 25,
+                }}
+              />
+            </View>
+            <View className="shrink">
+              <Text
+                className="text-[16px] font-LexendDecaSemiBold text-[#ccc]"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {item.name}
+              </Text>
+              <Text
+                className="text-[12px] font-LexendDeca text-[#ccc] leading-[19.5px] shrink"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {index == 1
+                  ? "₦" +
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : item.description}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+            style={{
+              borderColor: selectedPayment == index ? "#16783A" : "#f2f2f2",
+              borderWidth: 2,
+            }}
+          >
+            <View
+              className="w-[12px] h-[12px] rounded-[12px]"
+              style={{
+                backgroundColor: selectedPayment == index ? "#16783A" : "",
+              }}
+            ></View>
+          </View>
+        </Pressable>
+      );
+    },
+    [selectedPayment, walletBalance],
+  );
   return (
     <View className="p-[8px] pb-[16px]">
       <ScrollView className="bg-[#121212]" showsVerticalScrollIndicator={false}>
@@ -266,10 +513,10 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                   {selectedAddress ? (
                     <View>
                       <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
-                        {selectedAddress && selectedAddress?.line1}
+                        {selectedAddress && selectedAddress?.recipientAddress}
                       </Text>
                       <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                        Country: {selectedAddress && selectedAddress?.country}
+                        Country: Nigeria
                       </Text>
                     </View>
                   ) : (
@@ -350,10 +597,10 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                   <Text className="text-[#16783A] text-[12px]">Edit</Text>
                 </Pressable>
               </View>
-              <View>
-                <Text className="text-[14px] text-[#ccc] font-LexendDecaSemiBold">
-                  Paystack
-                </Text>
+              <View className="gap-[16px] mt-[10px]">
+                {paymentOptions.map((option: any, index: number) =>
+                  renderPaymentOptions(option, index),
+                )}
               </View>
             </View>
 
@@ -379,7 +626,39 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                   Merchandise Subtotal
                 </Text>
                 <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                  ₦{productTotal?.toLocaleString()}
+                  ₦
+                  {productTotal?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                  Shipping Fee
+                </Text>
+                <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                  {deliveryFee
+                    ? "₦" +
+                      deliveryFee?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "-"}
+                </Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                  Total
+                </Text>
+                <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                  {deliveryFee && productTotal
+                    ? "₦" +
+                      (deliveryFee + productTotal)?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "-"}
                 </Text>
               </View>
             </View>
@@ -392,13 +671,57 @@ const CheckoutNow = ({ productId, sellerId, closeSheet }: Props) => {
                 <ActivityIndicator size={"small"} color="white" />
               ) : (
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
-                  Complete Order
+                  Pay (
+                  {deliveryFee && productId
+                    ? "₦" +
+                      (deliveryFee + productTotal)?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "-"}
+                  )
                 </Text>
               )}
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
+      <LoadingModal isVisible={orderLoading} />
+      {showPaystack && (
+        <Paystack
+          refNumber={generateReference()}
+          paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
+          amount={deliveryFee! + cartTotal}
+          billingEmail={user?.email}
+          billingName={`${user?.firstName + " " + user?.lastName}`}
+          onSuccess={onPaystackSuccess}
+          onCancel={onPaystackClose}
+          activityIndicatorColor="#16783A"
+          autoStart={true}
+          metadata={JSON.stringify({
+            orderId: orderId,
+            buyerId: user?._id,
+            transactionType: "order_payment",
+            custom_fields: [
+              {
+                display_name: "Order ID",
+                variable_name: "order_id",
+                value: orderId,
+              },
+              {
+                display_name: "Buyer ID",
+                variable_name: "buyer_id",
+                value: user?._id,
+              },
+              {
+                display_name: "Transaction Type",
+                variable_name: "transaction_type",
+                value: "order_payment",
+              },
+            ],
+          })}
+        />
+      )}
     </View>
   );
 };

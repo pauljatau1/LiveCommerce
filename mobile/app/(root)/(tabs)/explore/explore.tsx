@@ -15,6 +15,8 @@ import { router } from "expo-router";
 import HomeHeader from "@/components/home/home-header";
 import { useGetAllCategoriesQuery } from "@/services/categories";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { SimpleLineIcons } from "@expo/vector-icons";
+import { formatNumber } from "@/helpers/helpers";
 
 const Explore = () => {
   const { data, isLoading } = useGetAllCategoriesQuery({});
@@ -55,19 +57,27 @@ const Explore = () => {
           />
           <View className="bg-[#f2f2f2] w-full shrink flex-row items-center justify-between p-[15px]">
             <View className="gap-[2px]">
-              <Text className="text-[#3A3A3A] text-[12px] font-LexendDecaMedium">
+              <Text className="text-[#3A3A3A] text-[13px] font-LexendDecaSemiBold">
                 {category.name}
               </Text>
               <View className="flex-row gap-[4px] items-center">
-                <Image
+                <View
+                  className="rounded-[4px] p-[5px] bg-[#DEFFEE] items-center justify-center"
+                  style={{
+                    backgroundColor: "#DEFFEE",
+                  }}
+                >
+                  <SimpleLineIcons name="chart" size={10} color="#66CB9F" />
+                </View>
+                {/* <Image
                   source={require("../../../../assets/icons/explore-live-icon.png")}
                   style={{
                     width: 15,
                     height: 15,
                   }}
-                />
-                <Text className="text-[8px] text-[#3A3A3A] font-LexendDecaMedium">
-                  {category?.statistics?.totalProducts} Products
+                /> */}
+                <Text className="text-[9px] text-[#3A3A3A] font-LexendDecaMedium">
+                  {formatNumber(category?.statistics?.streams?.active)} Streams
                 </Text>
               </View>
             </View>

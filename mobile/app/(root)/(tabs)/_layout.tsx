@@ -33,6 +33,9 @@ const TabsLayout = () => {
 
   //  }
   // },[status])
+  console.log("status ===> ", status);
+  console.log("user ===> ", user);
+
   if (status === "signOut") {
     return <Redirect href="/(root)/(auth)/sign-in" />;
   }
@@ -52,7 +55,7 @@ const TabsLayout = () => {
         },
         tabBarStyle: {
           // height: Platform.OS == "android" ? 60 : 80,
-          backgroundColor: "#121212",
+          backgroundColor: "#000",
           alignItems: "center",
           borderTopWidth: 0,
           paddingVertical: 20,

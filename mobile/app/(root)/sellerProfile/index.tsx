@@ -35,6 +35,7 @@ import Shops from "@/components/sellerProfile/shops";
 import Blips from "@/components/sellerProfile/blips";
 import ReviewsPage from "../reviews/[id]";
 import SellerReviews from "@/components/sellerProfile/reviews";
+import Shows from "@/components/sellerProfile/shows";
 
 const HEADER_HEIGHT = 450;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -204,16 +205,40 @@ const CollapsibleHeader = memo(
           </Text>
           <View style={styles.policyContainer}>
             <View style={[styles.policyCard, { backgroundColor: "#DEFFEE" }]}>
-              <Text style={styles.policyTextLabel}>Free Shipping</Text>
-              <Text style={styles.policyTextValue}> Over N5000</Text>
+              <Feather name="truck" size={14} color="black" />
+              <View style={styles.policyText}>
+                <Text style={styles.policyTextLabel}>Free Shipping</Text>
+                <Text style={styles.policyTextValue}> Over N5000</Text>
+              </View>
             </View>
+
             <View style={[styles.policyCard, { backgroundColor: "#E1E8FF" }]}>
-              <Text style={styles.policyTextLabel}>Refund</Text>
-              <Text style={styles.policyTextValue}>5-10 Days</Text>
+              <Image
+                source={require("../../../assets/icons/cod.png")}
+                contentFit="contain"
+                style={{
+                  width: 14,
+                  height: 14,
+                }}
+              />
+              <View style={styles.policyText}>
+                <Text style={styles.policyTextLabel}>Pay on Delivery</Text>
+                <Text style={styles.policyTextValue}>Available</Text>
+              </View>
             </View>
             <View style={[styles.policyCard, { backgroundColor: "#FFE6E4" }]}>
-              <Text style={styles.policyTextLabel}>Return</Text>
-              <Text style={styles.policyTextValue}> Within 30 Days</Text>
+              <Image
+                source={require("../../../assets/icons/return-icon.png")}
+                contentFit="contain"
+                style={{
+                  width: 14,
+                  height: 14,
+                }}
+              />
+              <View style={styles.policyText}>
+                <Text style={styles.policyTextLabel}>Return</Text>
+                <Text style={styles.policyTextValue}> Within 30 Days</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -244,16 +269,6 @@ const TabScene = memo(
     };
 
     switch (route.title) {
-      case "Posts":
-        return (
-          <AllPostsList
-            scrollY={scrollY}
-            headerHeight={HEADER_HEIGHT}
-            userId={id}
-            type="Seller"
-            index={index}
-          />
-        );
       case "Shop":
         return (
           <Shops
@@ -266,6 +281,15 @@ const TabScene = memo(
       case "Blips":
         return (
           <Blips
+            sellerId={id}
+            scrollY={scrollY}
+            headerHeight={HEADER_HEIGHT}
+            index={index}
+          />
+        );
+      case "Shows":
+        return (
+          <Shows
             sellerId={id}
             scrollY={scrollY}
             headerHeight={HEADER_HEIGHT}
@@ -313,11 +337,11 @@ const SellerProfile = () => {
   const layout = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const [routes] = useState([
-    { key: "first", title: "Posts" },
-    { key: "second", title: "Shop" },
-    { key: "third", title: "Blips" },
-    { key: "fourth", title: "Shows" },
-    { key: "fifth", title: "Reviews" },
+    // { key: "first", title: "Posts" },
+    { key: 1, title: "Shop" },
+    { key: 2, title: "Blips" },
+    { key: 3, title: "Shows" },
+    { key: 4, title: "Reviews" },
   ]);
 
   const [seller, setSeller] = useState<any>({});
@@ -352,6 +376,7 @@ const SellerProfile = () => {
     >
       <TabBar
         {...props}
+        key={props.key}
         style={{ backgroundColor: "#121212" }}
         indicatorStyle={{ backgroundColor: "#16783A" }}
         activeColor="#16783A"
@@ -360,7 +385,6 @@ const SellerProfile = () => {
           <TabBarItem
             {...props}
             key={props.key}
-            // key={props.key}
             labelStyle={{
               fontSize: 12,
               fontFamily: "LexendDeca-Medium",
@@ -699,26 +723,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 8,
-    flexWrap: "wrap",
+    gap: 10,
+    paddingHorizontal: 16,
+    // flexWrap: "wrap",
   },
   policyCard: {
     borderRadius: 6,
     padding: 4,
-    gap: 2,
+    gap: 8,
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
     minWidth: 80,
+    flexBasis: "33%",
+    flexShrink: 1,
   },
+  policyText: {},
   policyTextLabel: {
     color: "#3A3A3A",
     fontSize: 10,
-    fontFamily: "LexendDeca",
+    fontFamily: "LexendDeca-SemiBold",
   },
   policyTextValue: {
     color: "#3A3A3A",
     fontSize: 8,
-    fontFamily: "LexendDeca-Light",
+    fontFamily: "LexendDeca",
   },
 });
 

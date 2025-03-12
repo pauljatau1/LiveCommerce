@@ -19,7 +19,7 @@ const Sellers = () => {
         setSellers(
           response.data
             .filter((seller: any) => seller.verification?.isFeatured)
-            .slice(0, 5),
+            .slice(0, 10),
         );
       }
     } catch (err) {
@@ -51,14 +51,17 @@ const Sellers = () => {
         <FlatList
           data={sellers}
           renderItem={({ item }) => (
-            <View className="space-x-4">
+            <View className="space-x-4 w-[150px]">
               <FollowCard item={item._id} data={item} />
             </View>
           )}
           keyExtractor={(item) => item._id}
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="pl-[16px] gap-4 pr-[16px]"
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+          }}
+          className=" gap-4"
         />
       )}
     </View>

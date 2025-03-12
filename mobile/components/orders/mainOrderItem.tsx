@@ -31,7 +31,12 @@ const OrderItem = ({
         borderColor: "rgba(242, 242, 242, 0.50)",
       }}
       onPress={() => {
-        if (!orderItem.paid) return;
+        if (
+          !orderItem.paid &&
+          orderItem?.paymentInfo?.method == "paystack" &&
+          orderItem.shipping.tracking.status !== "cancelled"
+        )
+          return;
         router.push({
           pathname: `../../(root)/orders/${orderItem._id}`,
           params: {
@@ -66,17 +71,22 @@ const OrderItem = ({
             style={{
               backgroundColor: orderItem.paid
                 ? statusColor[orderItem?.shipping?.tracking?.status]?.color
-                : "red",
+                : orderItem?.paymentInfo?.isCashOnDelivery
+                  ? "blue"
+                  : "red",
             }}
           >
             <Text
               className={`text-[8px] font-LexendDeca ${orderItem.paid ? null : "text-white"}`}
             >
-              {orderItem.paid && !orderItem?.orderStatus?.hasReturn
+              {(orderItem.paid && !orderItem?.orderStatus?.hasReturn) ||
+              orderItem.shipping.tracking.status == "cancelled"
                 ? statusColor[orderItem.shipping.tracking.status]?.name
                 : orderItem?.orderStatus?.hasReturn
                   ? statusColor["returned"]?.name
-                  : "Pending Payment"}
+                  : orderItem?.paymentInfo?.isCashOnDelivery
+                    ? "Cash on Delivery"
+                    : "Pending Payment"}
             </Text>
           </View>
         </View>
@@ -152,7 +162,7 @@ const OrderItem = ({
           >
             <Text className="text-white text-[10px]">Chat Seller</Text>
           </Pressable>
-          {orderItem.shipping.tracking.status == "pending" && orderItem.paid ? (
+          {orderItem.shipping.tracking.status == "pending" ? (
             <Pressable
               className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
               style={{ width: "30%" }}
@@ -182,7 +192,7 @@ const OrderItem = ({
             </Link>
           )}
 
-          {!orderItem.paid && (
+          {!orderItem.paid && orderItem?.paymentInfo?.method == "paystack" ? (
             <Pressable
               className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
               style={{ width: "30%" }}
@@ -197,7 +207,7 @@ const OrderItem = ({
             >
               <Text className="text-white text-[10px]">Pay</Text>
             </Pressable>
-          )}
+          ) : null}
         </View>
       </View>
 

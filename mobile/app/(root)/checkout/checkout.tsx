@@ -11,7 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, router } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -27,6 +27,7 @@ import { toast } from "@/core/toast";
 import LoadingModal from "@/components/global/loading-modal";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { useIsFocused } from "@react-navigation/native";
+import { Paystack } from "react-native-paystack-webview";
 
 const { width, height } = Dimensions.get("window");
 
@@ -35,6 +36,24 @@ const mockDeliveryOtions = [
     name: "Standard Delivery",
     description:
       "Guaranteed delivery within 3 business days.Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ",
+  },
+];
+
+const paymentOptions = [
+  {
+    icon: require("../../../assets/icons/paystack.png"),
+    name: "Paystack",
+    description: "Secure payment via card, bank transfer, e-Wallets",
+  },
+  {
+    icon: require("../../../assets/icons/wallet.png"),
+    name: "Auqli Wallet",
+    description: "",
+  },
+  {
+    icon: require("../../../assets/icons/cod.png"),
+    name: "Cash on Delivery",
+    description: "Pay with cash on Delivery",
   },
 ];
 
@@ -52,20 +71,24 @@ const Checkout = () => {
   );
   const [cartTotal, setCartTotal] = useState<number>(0);
   const [orderLoading, setOrderloading] = useState<boolean>(false);
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [deliveryFeeObject, setDeliveryFeeObject] = useState<any[]>([]);
+
+  const [showPaystack, setShowPaystack] = useState(false);
+  const [payLoading, setPayLoading] = useState<boolean>(false);
+  const [orderId, setOrderId] = useState<string>("");
 
   const [showAddressSheet, setShowAddressSheet] = useState<boolean>(false);
+  const [selectedPayment, setSelectedPayment] = useState<number>(0);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
-      first_name: user.firstName,
-      last_name: user.lastName,
-      email: user.email,
-      phone: user.phoneNumber,
-      line1: address.addressLine1,
-      line2: address.addressLine2 ? address.addressLine2 : address.addressLine1,
-      city: address.city,
-      state: address.state,
-      country: address.country,
-      zip: address.zipCode,
+      recipientName: user.firstName + " " + user.lastName,
+      recipientEmail: user.email,
+      recipientPhone: user.phoneNumber?.replaceAll("-", ""),
+      recipientAddress: address.addressLine1,
+      recipientState: address.state,
     };
     setSelectedAddress(delivery_address);
     setShowAddressSheet(false);
@@ -84,6 +107,23 @@ const Checkout = () => {
     });
     setCartTotal(total);
   };
+
+  const getWalletBalance = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setWalletBalance(response.data?.balance);
+    } catch (e) {
+      console.log("error fetching buyer wallet balance ", e);
+    }
+  };
   const getAddresses = async () => {
     try {
       const token = await getToken();
@@ -99,73 +139,20 @@ const Checkout = () => {
       setAddresses(response.data);
       if (response.data.length > 0) {
         const delivery_address = {
-          first_name: user.firstName,
-          last_name: user.lastName,
-          email: user.email,
-          phone: user.phoneNumber,
-          line1: response.data[0].addressLine1,
-          line2: response.data[0].addressLine2
-            ? response.data[0].addressLine2
-            : response.data[0].addressLine1,
-          city: response.data[0].city,
-          state: response.data[0].state,
-          country: response.data[0].country,
-          zip: response.data[0].zipCode,
+          recipientName: user.firstName + " " + user.lastName,
+          recipientEmail: user.email,
+          recipientPhone: user.phoneNumber.replaceAll("-", ""),
+          recipientAddress: response.data[0].addressLine1,
+          recipientState: response.data[0].state,
         };
 
         setSelectedAddress(delivery_address);
+        await getShippingFee();
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getPickupAddress = async (sellerId: string) => {
-    try {
-      const token = await getToken();
-      const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/public/sellers/${sellerId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const pickup_address = {
-        first_name: response.data.personalInfo.firstName,
-        last_name: response.data.personalInfo.lastName,
-        email: response.data.contactInformation.businessEmail
-          ? response.data.contactInformation.businessEmail
-          : "bolu@gmail.com",
-        phone:
-          "+234" +
-          (response.data.businessInfo.businessNumber
-            ? response.data.businessInfo.businessNumber
-            : "8083412865"),
-        line1: response.data.contactInformation.businessAddress.addressLine1
-          ? response.data.contactInformation.businessAddress.addressLine1
-          : "ajayi crowder way",
-        line2: response.data.contactInformation.businessAddress.addressLine2
-          ? response.data.contactInformation.businessAddress.addressLine2
-          : "boluwa street",
-        city: "Amuwo-Odofin",
-        // || response.data.contactInformation.businessAddress.city,
-        state: response.data.contactInformation.businessAddress.state
-          ? response.data.contactInformation.businessAddress.state
-          : "lagos",
-        country: response.data.contactInformation.businessAddress.country
-          ? response.data.contactInformation.businessAddress.country
-          : "NG",
-        zip: response.data.contactInformation.businessAddress.zipCode
-          ? response.data.contactInformation.businessAddress.zipCode
-          : "100001",
-      };
-      return { [`${sellerId}`]: pickup_address };
-    } catch (e) {
-      console.log("error fetching buyer addresses ", e);
     }
   };
 
@@ -235,29 +222,156 @@ const Checkout = () => {
     }
   };
 
+  const getShippingFee = async () => {
+    console.log(cart[0]?.weight);
+
+    const payload = cart?.map((ct: any) => {
+      return {
+        pickUpState:
+          ct?.seller?.warehouseDetails?.state ||
+          ct?.seller?.warehouseDetails?.address?.state ||
+          ct?.seller?.addresses?.sellerAddress?.state ||
+          ct?.seller?.addresses?.warehouseAddress?.state,
+        weight: ct.weight * ct.quantity,
+        sellerId: ct.seller._id,
+      };
+    });
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + "api/order/delivery-cost",
+        {
+          state: selectedAddress.recipientState,
+          pickupLocations: payload,
+        },
+
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setDeliveryFeeObject(response.data?.costs);
+      setDeliveryFee(response.data?.totalCost);
+    } catch (e) {
+      console.log("error fetching delivery fee ", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onPaystackSuccess = async (paystackResponse: any) => {
+    setShowPaystack(false);
+    try {
+      const token = await getToken();
+      const payload = {
+        paymentReference: paystackResponse.data.transactionRef.reference,
+      };
+      const config = {
+        method: "PATCH",
+        url:
+          process.env.EXPO_PUBLIC_API_URL + `api/order/${orderId}/mark-as-paid`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        data: payload,
+      };
+
+      const response = await axios(config);
+      console.log("order payment Response ==> ", response.data);
+      return router.push("/(root)/orders/orders");
+
+      if (response.status == 200) {
+        await AsyncStorage.removeItem("order");
+        toast.success("Order paid successfully");
+        router.replace(`/`);
+      }
+    } catch (e: any) {
+      if (e?.response.status == 400) {
+        return router.push("/(root)/orders/orders");
+      }
+      console.log("could not Pay for  order", e?.response?.message);
+      toast.error("Could not Pay for order");
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
+  const onPaystackClose = () => {
+    setShowPaystack(false);
+    setPayLoading(false);
+    toast.info("Payment Cancelled");
+  };
+
+  const generateReference = () => {
+    const prefix = "ORDER";
+    const newReference = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    return newReference;
+  };
+
+  useEffect(() => {
+    getShippingFee();
+  }, [selectedAddress]);
+
   const handleCompleteOrder = async () => {
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
-    console.log("info ", cart[0].seller);
+    if (!deliveryFee) {
+      return toast.error("error getting delivery fee");
+    }
+
+    if (selectedPayment == 1) {
+      if (walletBalance < deliveryFee + cartTotal) {
+        return toast.error("Insufficient Wallet Balance");
+      }
+    }
 
     const order = {
-      items: cart.map((item) => {
+      items: cart?.map((item) => {
         return {
           productId: item._id,
           quantity: item.quantity,
-          name: item.name,
-          description: item.description,
-          weight: item.weight * item.quantity,
           price: item?.discount?.discountedPrice || item.price,
-          sellerId: item.seller._id,
-          specifications: item.specifications,
+          weight: item.weight?.toFixed(0) * item.quantity,
+          seller: {
+            sellerId: item.seller._id,
+            senderInfo: {
+              senderName:
+                item?.seller?.firstName + " " + item?.seller?.lastName,
+              senderAddress:
+                item?.seller?.warehouseDetails?.address?.addressLine1,
+              senderPhone: item?.seller?.phoneNumber?.includes("+")
+                ? item?.seller?.phoneNumber
+                : `+${item?.seller?.phoneNumber}`,
+              senderEmail: item?.seller?.email,
+              pickUpState: item?.seller?.warehouseDetails?.address?.state,
+            },
+            shippingFee: deliveryFeeObject?.find(
+              (obj: any) => obj?.sellerId == item.seller?._id,
+            )?.cost,
+            parcelInfo: {
+              itemDescription: item?.name?.slice(0, 199),
+            },
+          },
+          specifications: item.specifications || {
+            color: "",
+            size: "",
+            material: "",
+          },
         };
       }),
-      pickup_addresses: pickupAddress,
-      delivery_address: selectedAddress,
-      paymentMethod: "paystack",
+      shippingAddress: selectedAddress,
+      paymentMethod: paymentOptions[selectedPayment]?.name?.toLowerCase(),
+      isItemCod: selectedPayment == 2,
+      shippingFee: deliveryFee,
+      additionalDetails: "Please handle with care",
+      paidFromWallet: selectedPayment == 1,
     };
+
+    // const order = {};
+    console.log(JSON.stringify(order));
 
     try {
       setOrderloading(true);
@@ -276,6 +390,7 @@ const Checkout = () => {
       const response = await axios(config);
       // console.log("order Response ==> ", response.data);
       if (response.status == 201) {
+        setOrderId(response.data.orders[0]?.orderId);
         await AsyncStorage.setItem(
           "orders",
           JSON.stringify(response.data.orders),
@@ -289,7 +404,15 @@ const Checkout = () => {
         } else {
           await AsyncStorage.setItem("cart", JSON.stringify(newCart));
         }
-        router.replace(`/checkout/${response.data.orders[0].orderId}`);
+
+        if (selectedPayment == 0) {
+          setShowPaystack(true);
+        } else if (selectedPayment == 2) {
+          router.replace("/(root)/orders/orders");
+        } else {
+          router.replace("/(root)/orders/orders");
+        }
+        // router.replace(`/checkout/${response.data.orders[0].orderId}`);
       }
     } catch (e: any) {
       console.log("could not create order", e?.response);
@@ -305,6 +428,7 @@ const Checkout = () => {
     }
     getUserInfo();
     getCart();
+    getWalletBalance();
   }, []);
 
   useEffect(() => {
@@ -314,6 +438,80 @@ const Checkout = () => {
   useEffect(() => {
     handleCalculateTotal();
   }, [uniqueSellers, cart]);
+
+  const renderPaymentOptions = useCallback(
+    (item: any, index: number) => {
+      return (
+        <Pressable
+          key={index}
+          className="rounded-[16px] border-[1px] border-[#f2f2f2] p-[16px] flex-row items-center justify-between gap-[8px] min-h-[100px]"
+          style={{
+            backgroundColor: selectedPayment == index ? "#BEF3D2" : "#121212",
+            borderColor:
+              selectedPayment == index
+                ? "#BEF3D2"
+                : "rgba(242, 242, 242, 0.30)",
+          }}
+          onPress={() => setSelectedPayment(index)}
+        >
+          <View className="flex-row items-center gap-[16px] shrink">
+            <View
+              className="w-[50px] h-[50px] rounded-[10px] flex-row items-center justify-center bg-[#FFFFFF] "
+              style={{
+                backgroundColor: index !== 0 ? "#CFCFCF" : "#ffffff",
+              }}
+            >
+              <Image
+                source={item.icon}
+                resizeMode="contain"
+                className="w-[25px] h-[25px]"
+              />
+            </View>
+            <View className="shrink">
+              <Text
+                className="text-[16px] font-LexendDecaSemiBold text-[#ccc]"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {item.name}
+              </Text>
+              <Text
+                className="text-[12px] font-LexendDeca text-[#ccc] leading-[19.5px] shrink"
+                style={{
+                  color: selectedPayment == index ? "#425466" : "#ccc",
+                }}
+              >
+                {index == 1
+                  ? "₦" +
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : item.description}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
+            style={{
+              borderColor: selectedPayment == index ? "#16783A" : "#f2f2f2",
+              borderWidth: 2,
+            }}
+          >
+            <View
+              className="w-[12px] h-[12px] rounded-[12px]"
+              style={{
+                backgroundColor: selectedPayment == index ? "#16783A" : "",
+              }}
+            ></View>
+          </View>
+        </Pressable>
+      );
+    },
+    [selectedPayment, walletBalance],
+  );
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "padding"}
@@ -381,10 +579,13 @@ const Checkout = () => {
                     {selectedAddress ? (
                       <View>
                         <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
-                          {selectedAddress && selectedAddress?.line1}
+                          {selectedAddress && selectedAddress?.recipientAddress}
+                        </Text>
+                        <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium mb-[4px]">
+                          Phone: {selectedAddress?.recipientPhone}
                         </Text>
                         <Text className="text-[#ccc] text-[10px] font-LexendDecaMedium">
-                          Country: {selectedAddress && selectedAddress?.country}
+                          Country: Nigeria
                         </Text>
                       </View>
                     ) : (
@@ -410,7 +611,7 @@ const Checkout = () => {
                 : null}
 
               <View className="gap-[8px] mb-[10px]">
-                <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold">
+                <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
                   Auqli Buyer Protection
                 </Text>
                 <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
@@ -423,7 +624,7 @@ const Checkout = () => {
               </View>
 
               <View className="gap-[20px] mb-[10px]">
-                <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold">
+                <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
                   Delivery Options
                 </Text>
                 <Pressable
@@ -462,17 +663,17 @@ const Checkout = () => {
                 style={{ backgroundColor: "rgba(41, 41, 41, 0.81)" }}
               >
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-[18px] text-white font-LexendDecaSemiBold">
-                    Select Payment methods
+                  <Text className="text-[16px] text-white font-LexendDecaMedium">
+                    Select Payment Method
                   </Text>
-                  <Pressable>
+                  {/* <Pressable>
                     <Text className="text-[#16783A] text-[12px]">Edit</Text>
-                  </Pressable>
+                  </Pressable> */}
                 </View>
-                <View>
-                  <Text className="text-[14px] text-[#ccc] font-LexendDecaSemiBold">
-                    Paystack
-                  </Text>
+                <View className="gap-[16px] mt-[10px]">
+                  {paymentOptions.map((option: any, index: number) =>
+                    renderPaymentOptions(option, index),
+                  )}
                 </View>
               </View>
 
@@ -498,7 +699,39 @@ const Checkout = () => {
                     Merchandise Subtotal
                   </Text>
                   <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                    ₦{cartTotal.toLocaleString()}
+                    ₦
+                    {cartTotal?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                    Shipping Fee
+                  </Text>
+                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    {deliveryFee
+                      ? "₦" +
+                        deliveryFee?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "-"}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-white text-[16px] font-LexendDecaSemiBold">
+                    Net Total
+                  </Text>
+                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    {deliveryFee && cartTotal
+                      ? "₦" +
+                        (deliveryFee + cartTotal)?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "-"}
                   </Text>
                 </View>
               </View>
@@ -508,12 +741,56 @@ const Checkout = () => {
                 onPress={handleCompleteOrder}
               >
                 <Text className="text-white text-[16px] font-LexendDecaMedium">
-                  Complete Order
+                  Pay (
+                  {deliveryFee && cartTotal
+                    ? "₦" +
+                      (deliveryFee + cartTotal)?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "-"}
+                  )
                 </Text>
               </TouchableOpacity>
             </View>
           )}
         </ScrollView>
+
+        {showPaystack && (
+          <Paystack
+            refNumber={generateReference()}
+            paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
+            amount={deliveryFee! + cartTotal}
+            billingEmail={user?.email}
+            billingName={`${user?.firstName + " " + user?.lastName}`}
+            onSuccess={onPaystackSuccess}
+            onCancel={onPaystackClose}
+            activityIndicatorColor="#16783A"
+            autoStart={true}
+            metadata={JSON.stringify({
+              orderId: orderId,
+              buyerId: user?._id,
+              transactionType: "order_payment",
+              custom_fields: [
+                {
+                  display_name: "Order ID",
+                  variable_name: "order_id",
+                  value: orderId,
+                },
+                {
+                  display_name: "Buyer ID",
+                  variable_name: "buyer_id",
+                  value: user?._id,
+                },
+                {
+                  display_name: "Transaction Type",
+                  variable_name: "transaction_type",
+                  value: "order_payment",
+                },
+              ],
+            })}
+          />
+        )}
 
         <LoadingModal isVisible={orderLoading} />
         <BottomSheet
