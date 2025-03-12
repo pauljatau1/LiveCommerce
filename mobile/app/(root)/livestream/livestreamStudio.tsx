@@ -55,8 +55,10 @@ const LivestreamStudio = () => {
     const commentsListRef = useRef<FlatList>(null);
     // Add a new state to track if video is actually playing
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-    // Add keyboard height tracking
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    // Replace standard state with refs for instant updates
+    const keyboardHeightRef = useRef(0);
+    const keyboardVisibleRef = useRef(false);
+    const [, forceUpdate] = useState({});
     const { width: screenWidth } = Dimensions.get('window');
 
     useEffect(() => {
@@ -122,33 +124,43 @@ const LivestreamStudio = () => {
             commentsListRef.current.scrollToEnd({ animated: true });
         }
 
-        // Add keyboard listeners with height information
-        const keyboardDidShowListener = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-            (e) => {
-                // Get keyboard height
-                const keyboardHeight = e.endCoordinates.height;
-                setKeyboardHeight(keyboardHeight);
-            }
-        );
-
-        const keyboardDidHideListener = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-            () => {
-                setKeyboardHeight(0);
-            }
-        );
-
         return () => {
-            // Clean up listeners
-            keyboardDidShowListener.remove();
-            keyboardDidHideListener.remove();
-
-            // Disconnect socket when component unmounts
             disconnectSocket();
         };
     }, [id]);
 
+    // Separate useEffect for keyboard event listeners
+    useEffect(() => {
+        // Enhanced keyboard listeners for zero-latency updates
+        const keyboardWillShow = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                keyboardVisibleRef.current = true;
+                keyboardHeightRef.current = e.endCoordinates.height;
+                // Force immediate re-render
+                forceUpdate({});
+            }
+        );
+
+        const keyboardWillHide = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            (e) => {
+                keyboardVisibleRef.current = false;
+                keyboardHeightRef.current = 0;
+                // Force immediate re-render
+                forceUpdate({});
+            }
+        );
+
+        // Cleanup keyboard listeners
+        return () => {
+            keyboardWillShow.remove();
+            keyboardWillHide.remove();
+        };
+    }, []); // Empty dependency array since we don't need any dependencies for keyboard events
+
+    console.log('keyboardHeightRef', keyboardHeightRef.current);
+    console.log('keyboardVisibleRef', keyboardVisibleRef.current);
     const setupLivestream = async () => {
         if (!id) return;
         try {
@@ -234,6 +246,15 @@ const LivestreamStudio = () => {
             setLiveComments(chatInteractions);
 
             console.log(`Loaded ${chatInteractions.length} chat interactions from server`);
+            // Use requestAnimationFrame to ensure UI has updated before scrolling
+            if (chatInteractions.length > 0) {
+                requestAnimationFrame(() => {
+
+                    if (commentsListRef.current) {
+                        commentsListRef.current.scrollToEnd({ animated: false });
+                    }
+                });
+            }
 
 
             // Initialize socket connection for real-time chat
@@ -513,29 +534,42 @@ const LivestreamStudio = () => {
     // Create a single condition to check if UI should be shown
     const shouldShowUI = streamConfig && !isLoading && isVideoPlaying;
 
-    // Calculate positions based on keyboard height
-    const commentsContainerStyle = {
-        ...styles.commentsContainer,
-        bottom: keyboardHeight > 0 ? keyboardHeight + 90 : 200, // Move comments up when keyboard is visible
-    };
+    // Update the animated style functions to use the ref directly
+    const getCommentContainerStyle = useCallback(() => {
+        const DEFAULT_BOTTOM = 250;
+        const KEYBOARD_OFFSET = 80;
 
-    const rightActionsContainerStyle = {
-        ...styles.rightActionsContainer,
-        bottom: keyboardHeight > 0 ? keyboardHeight + 80 : 200, // Move right actions up when keyboard is visible
-    };
+        return {
+            ...styles.commentsContainer,
+            bottom: keyboardVisibleRef.current 
+                ? keyboardHeightRef.current + KEYBOARD_OFFSET 
+                : DEFAULT_BOTTOM
+        };
+    }, []);
 
-    const commentInputStyle = {
-        ...styles.commentInputContainer,
-        bottom: keyboardHeight > 0 ? keyboardHeight + 20 : 120, // Move input field up when keyboard is visible
-    };
+    const getRightActionsStyle = useCallback(() => {
+        const DEFAULT_BOTTOM = 250;
+        const KEYBOARD_OFFSET = 220;
 
-    const productCarouselStyle = {
-        position: 'absolute',
-        bottom: keyboardHeight > 0 ? keyboardHeight : 0,
-        left: 0,
-        right: 0,
-        padding: 16,
-    };
+        return {
+            ...styles.rightActionsContainer,
+            bottom: keyboardVisibleRef.current 
+                ? keyboardHeightRef.current + KEYBOARD_OFFSET 
+                : DEFAULT_BOTTOM
+        };
+    }, []);
+
+    const getCommentInputStyle = useCallback(() => {
+        const DEFAULT_BOTTOM = 120;
+        const GAP_SIZE = 15;
+
+        return {
+            ...styles.commentInputContainer,
+            bottom: keyboardVisibleRef.current 
+                ? keyboardHeightRef.current + 20 
+                : DEFAULT_BOTTOM
+        };
+    }, []);
 
     const handleIncreaseCommentCount = () => {
         setComments(comments + 1);
@@ -620,88 +654,89 @@ const LivestreamStudio = () => {
                     </SafeAreaView>
                 )}
 
-                {/* Right Side Actions - Only show when video is playing */}
-                {shouldShowUI && (
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }} style={rightActionsContainerStyle}>
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                                <SimpleLineIcons name="share-alt" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Share</Text>
+                <View>
+                    {/* Right Side Actions - Only show when video is playing */}
+                    {shouldShowUI && !keyboardVisibleRef.current && (
+                        <ScrollView style={getRightActionsStyle()}>
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+                                    <SimpleLineIcons name="share-alt" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Share</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Ionicons name="information-circle-outline" size={28} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Info</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <FontAwesome name="credit-card" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Pay</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Entypo name="box" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Orders</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <Feather name="shopping-bag" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>Shop</Text>
+                            </View>
+
+                            <View style={styles.actionItem}>
+                                <TouchableOpacity style={styles.actionButton}>
+                                    <AntDesign name="like2" size={24} color="white" />
+                                </TouchableOpacity>
+                                <Text style={styles.actionText}>React</Text>
+                            </View>
+                        </ScrollView>
+                    )}
+
+                    {/* Live Comments Section */}
+                    {shouldShowUI && (
+                        <View style={getCommentContainerStyle()}>
+                            <FlatList
+                                ref={commentsListRef}
+                                data={liveComments}
+                                renderItem={renderCommentItem}
+                                keyExtractor={item => item.id}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={styles.commentsList}
+                                fadingEdgeLength={350}
+                                onContentSizeChange={() => {
+                                    if (commentsListRef.current && liveComments.length > 0) {
+                                        commentsListRef.current.scrollToEnd({ animated: false });
+                                    }
+                                }}
+                            />
                         </View>
+                    )}
 
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Ionicons name="information-circle-outline" size={28} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Info</Text>
+                    {/* Comment Input */}
+                    {shouldShowUI && (
+                        <View style={getCommentInputStyle()}>
+                            <TextInput
+                                style={styles.commentInput}
+                                placeholder="Say something..."
+                                placeholderTextColor="#999"
+                                value={commentInput}
+                                onChangeText={setCommentInput}
+                                returnKeyType="send"
+                                onSubmitEditing={handleSendComment}
+                            />
                         </View>
-
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <FontAwesome name="credit-card" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Pay</Text>
-                        </View>
-
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Entypo name="box" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Orders</Text>
-                        </View>
-
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Feather name="shopping-bag" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>Shop</Text>
-                        </View>
-
-                        <View style={styles.actionItem}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <AntDesign name="like2" size={24} color="white" />
-                            </TouchableOpacity>
-                            <Text style={styles.actionText}>React</Text>
-                        </View>
-                    </ScrollView>
-                )}
-
-                {/* Live Comments Section - Only show when video is playing */}
-                {shouldShowUI && (
-                    <View style={commentsContainerStyle}>
-                        <FlatList
-                            ref={commentsListRef}
-                            data={liveComments}
-                            renderItem={renderCommentItem}
-                            keyExtractor={item => item.id}
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={styles.commentsList}
-                            fadingEdgeLength={350} // Add fading edge effect for Android
-                            onContentSizeChange={() => {
-                                // This triggers whenever content size changes, including when new items are added
-                                if (commentsListRef.current && liveComments.length > 0) {
-                                    commentsListRef.current.scrollToEnd({ animated: false });
-                                }
-                            }}
-                        />
-                    </View>
-                )}
-
-                {/* Comment Input - Only show when video is playing */}
-                {shouldShowUI && (
-                    <View style={commentInputStyle}>
-                        <TextInput
-                            style={styles.commentInput}
-                            placeholder="Say something..."
-                            placeholderTextColor="#999"
-                            value={commentInput}
-                            onChangeText={setCommentInput}
-                            returnKeyType="send"
-                            onSubmitEditing={handleSendComment}
-                        />
-                    </View>
-                )}
+                    )}
+                </View>
 
                 {/* Bottom Product Card - Only show when video is playing */}
                 {shouldShowUI && streamProducts.length > 0 && (
@@ -759,7 +794,7 @@ const styles = StyleSheet.create({
     // Right side actions styling to match reference image
     rightActionsContainer: {
         position: 'absolute',
-        right: 15,
+        right: 13,
         bottom: 200, // Position higher to avoid overlap with product card
         maxHeight: 300,
         zIndex: 10,
@@ -783,7 +818,7 @@ const styles = StyleSheet.create({
     commentsContainer: {
         position: 'absolute',
         bottom: 210, // Position higher to avoid overlap with product card
-        left: 5,
+        left: 0,
         width: '70%',
         maxHeight: 200,
         zIndex: 10,
@@ -874,7 +909,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         borderWidth: 1,
         borderColor: '#ffffff',
-        paddingVertical: 10,
+        paddingVertical: 15,
         paddingHorizontal: 15,
         fontSize: 14,
         borderRadius: 10,
