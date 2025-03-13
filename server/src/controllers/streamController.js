@@ -16,7 +16,8 @@ exports.createStream = async (req, res) => {
       description,
       category,
       tags,
-      scheduledStartTime
+      scheduledStartTime,
+      video
     } = req.body;
 
     // Validate required fields
@@ -73,6 +74,38 @@ exports.createStream = async (req, res) => {
       }
     }
 
+    // Handle video upload
+    let videoData = {};
+    if (video) {
+      try {
+        // Parse the video data if it's a string
+        const parsedVideo = typeof video === 'string' ? JSON.parse(video) : video;
+        
+        if (parsedVideo && parsedVideo.data) {
+          const buffer = Buffer.from(parsedVideo.data, 'base64');
+          const fileKey = `stream-videos/${uuidv4()}.mp4`;
+          const params = {
+            Bucket: 'auqli-uploads',
+            Key: fileKey,
+            Body: buffer,
+            ContentType: parsedVideo.contentType || 'video/mp4',
+          };
+          
+          const uploadResult = await s3.upload(params).promise();
+          videoData = {
+            url: uploadResult.Location,
+            key: fileKey
+          };
+        }
+      } catch (videoError) {
+        console.error('Video upload error:', videoError);
+        return res.status(500).json({
+          message: 'Failed to upload video',
+          error: videoError.message
+        });
+      }
+    }
+
     // Generate unique channel name
     const channelName = `stream_${uuidv4()}`;
 
@@ -86,6 +119,7 @@ exports.createStream = async (req, res) => {
       title,
       description,
       coverImage: imageData,
+      video: videoData,
       category,
       tags: parsedTags,
       products: products.map(p => ({
@@ -473,9 +507,9 @@ exports.joinStream = async (req, res) => {
       type: 'join',
       user: buyer.firstName || buyer.username || 'Viewer',
       avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-      content: `${buyer.firstName || buyer.username} joined room`,
+      content: `${buyer.username || buyer.firstName} joined room`,
       data: {
-        message: `${buyer.firstName || buyer.username} joined room`,
+        message: `${buyer.username || buyer.firstName} joined room`,
         buyerId: req.user.id.toString(),
         buyerName: buyer.firstName + " " + buyer.lastName,
         buyerUsername: buyer.username,

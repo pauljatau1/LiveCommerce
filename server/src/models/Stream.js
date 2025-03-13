@@ -32,6 +32,10 @@ const streamSchema = new mongoose.Schema({
     url: String,
     public_id: String
   },
+  video: {
+    url: String,
+    key: String
+  },
   category: {
     type: String,
     required: true

@@ -44,6 +44,10 @@ router.use(debugMiddleware);
  *               coverImage:
  *                 type: string
  *                 format: binary
+ *               video:
+ *                 type: string
+ *                 description: Base64 encoded video data with content type
+ *                 example: '{"data":"base64string","contentType":"video/mp4"}'
  *               category:
  *                 type: string
  *               tags:
