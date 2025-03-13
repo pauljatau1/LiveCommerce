@@ -12,6 +12,44 @@ import { Switch } from "@/components/ui/switch"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 
+// Add these constants at the top of the file, after the imports
+const DELIVERY_POLICIES = {
+  LOST_DAMAGED: [
+    { value: "replace", label: "Replace item" },
+    { value: "refund", label: "Full refund" },
+    { value: "partial_refund", label: "Partial refund" },
+    { value: "case_by_case", label: "Case by case basis" }
+  ],
+  REFUND_METHODS: [
+    { value: "original_payment", label: "Original payment method" },
+    { value: "store_credit", label: "Store credit" },
+    { value: "bank_transfer", label: "Bank transfer" }
+  ],
+  REFUND_WINDOWS: [
+    { value: "3", label: "3 days" },
+    { value: "7", label: "7 days" },
+    { value: "14", label: "14 days" },
+    { value: "30", label: "30 days" },
+    { value: "no_refund", label: "No refunds" }
+  ],
+  RETURN_WINDOWS: [
+    { value: "7", label: "7 days" },
+    { value: "14", label: "14 days" },
+    { value: "30", label: "30 days" },
+    { value: "no_returns", label: "No returns accepted" }
+  ],
+  RETURN_CONDITIONS: [
+    { value: "unused", label: "Item must be unused with original tags" },
+    { value: "defective", label: "Only defective items" },
+    { value: "wrong_item", label: "Wrong item received" },
+    { value: "damaged", label: "Damaged during shipping" }
+  ],
+  FREE_SHIPPING: [
+    { value: "coupon_dependent", label: "Coupon Dependent" },
+    { value: "no_free_shipping", label: "No free shipping" }
+  ]
+};
+
 export default function StoreSettings() {
   const [formData, setFormData] = useState({
     storeName: "",
@@ -51,13 +89,19 @@ export default function StoreSettings() {
       returnWindow: 14,
       returnCondition: "",
       returnShipping: "",
-      exchangePolicy: ""
+      exchangePolicy: "",
+      allowsCod: false
     },
     accountType: "",
     businessName: "",
     businessType: "",
     firstName: "",
-    lastName: ""
+    lastName: "",
+    socialMedia: {
+      instagram: "",
+      facebook: "",
+      tiktok: ""
+    },
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +123,8 @@ export default function StoreSettings() {
     individualInfo: false,
     storeProfile: false,
     operatingHours: false,
-    storePolicy: false
+    storePolicy: false,
+    socialMedia: false,
   });
 
   // Fetch initial store data
@@ -136,13 +181,19 @@ export default function StoreSettings() {
             returnWindow: 14,
             returnCondition: "",
             returnShipping: "",
-            exchangePolicy: ""
+            exchangePolicy: "",
+            allowsCod: data.storePolicy?.allowsCod || false
           },
           accountType: data.accountType || "",
           businessName: data.businessName || "",
           businessType: data.businessType || "",
           firstName: data.firstName || "",
-          lastName: data.lastName || ""
+          lastName: data.lastName || "",
+          socialMedia: {
+            instagram: data.socialMedia?.instagram || "",
+            facebook: data.socialMedia?.facebook || "",
+            tiktok: data.socialMedia?.tiktok || ""
+          },
         });
         
         // Set store avatar if exists
@@ -275,6 +326,16 @@ export default function StoreSettings() {
       storePolicy: {
         ...prev.storePolicy,
         [field]: value
+      }
+    }));
+  };
+
+  const handleSocialMediaChange = (platform, value) => {
+    setFormData(prev => ({
+      ...prev,
+      socialMedia: {
+        ...prev.socialMedia,
+        [platform]: value
       }
     }));
   };
@@ -520,6 +581,29 @@ export default function StoreSettings() {
     }
   };
 
+  const updateSocialMedia = async () => {
+    setUpdatingSection(prev => ({ ...prev, socialMedia: true }));
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/seller/social-media`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sellerToken}`,
+        },
+        body: JSON.stringify(formData.socialMedia),
+      });
+
+      if (!response.ok) throw new Error("Failed to update social media");
+      return true;
+    } catch (error) {
+      toast.error("Error updating social media");
+      return false;
+    } finally {
+      setUpdatingSection(prev => ({ ...prev, socialMedia: false }));
+    }
+  };
+
   // Update the main handleSubmit function
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -557,6 +641,10 @@ export default function StoreSettings() {
       // Update store policy
       const storePolicySuccess = await updateStorePolicy();
       if (!storePolicySuccess) return;
+
+      // Update social media
+      const socialMediaSuccess = await updateSocialMedia();
+      if (!socialMediaSuccess) return;
 
       toast.success("All settings updated successfully");
     } catch (error) {
@@ -753,6 +841,41 @@ export default function StoreSettings() {
                   rows={4}
                 />
               </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Social Media Links</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram">Instagram</Label>
+                    <Input 
+                      id="instagram"
+                      value={formData.socialMedia.instagram}
+                      onChange={(e) => handleSocialMediaChange('instagram', e.target.value)}
+                      placeholder="https://instagram.com/yourstorename"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="facebook">Facebook</Label>
+                    <Input 
+                      id="facebook"
+                      value={formData.socialMedia.facebook}
+                      onChange={(e) => handleSocialMediaChange('facebook', e.target.value)}
+                      placeholder="https://facebook.com/yourstorename"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="tiktok">TikTok</Label>
+                    <Input 
+                      id="tiktok"
+                      value={formData.socialMedia.tiktok}
+                      onChange={(e) => handleSocialMediaChange('tiktok', e.target.value)}
+                      placeholder="https://tiktok.com/@yourstorename"
+                    />
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -857,12 +980,51 @@ export default function StoreSettings() {
                           <SelectValue placeholder="Choose policy" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All orders</SelectItem>
-                          <SelectItem value="above_amount">Orders above amount</SelectItem>
-                          <SelectItem value="none">No free shipping</SelectItem>
+                          {DELIVERY_POLICIES.FREE_SHIPPING.map((policy) => (
+                            <SelectItem key={policy.value} value={policy.value}>
+                              {policy.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                  
+                  {/* Update Cash on Delivery to use Select */}
+                  <div className="space-y-2">
+                    <Label>Cash on Delivery</Label>
+                    <Select
+                      value={formData.storePolicy.allowsCod ? "true" : "false"}
+                      onValueChange={(value) => handleStorePolicyChange('allowsCod', value === 'true')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Yes</SelectItem>
+                        <SelectItem value="false">No</SelectItem> 
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Update Lost or Damaged Policy */}
+                  <div className="space-y-2">
+                    <Label>Lost or Damaged Items Policy</Label>
+                    <Select
+                      value={formData.storePolicy.lostOrDamagedPolicy}
+                      onValueChange={(value) => handleStorePolicyChange('lostOrDamagedPolicy', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select policy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DELIVERY_POLICIES.LOST_DAMAGED.map((policy) => (
+                          <SelectItem key={policy.value} value={policy.value}>
+                            {policy.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -871,22 +1033,24 @@ export default function StoreSettings() {
                   <h3 className="text-lg font-semibold">Refund</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Processing Time</Label>
+                      <Label>Refund Window</Label>
                       <Select
-                        value={formData.storePolicy.processingTime}
-                        onValueChange={(value) => handleStorePolicyChange('processingTime', value)}
+                        value={formData.storePolicy.refundPolicy}
+                        onValueChange={(value) => handleStorePolicyChange('refundPolicy', value)}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose time" />
+                          <SelectValue placeholder="Select refund window" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="24h">24 hours</SelectItem>
-                          <SelectItem value="48h">48 hours</SelectItem>
-                          <SelectItem value="72h">72 hours</SelectItem>
-                          <SelectItem value="7d">7 days</SelectItem>
+                          {DELIVERY_POLICIES.REFUND_WINDOWS.map((window) => (
+                            <SelectItem key={window.value} value={window.value}>
+                              {window.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
+
                     <div className="space-y-2">
                       <Label>Refund Method</Label>
                       <Select
@@ -894,13 +1058,32 @@ export default function StoreSettings() {
                         onValueChange={(value) => handleStorePolicyChange('refundMethod', value)}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose method" />
+                          <SelectValue placeholder="Select refund method" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="store_credit">Store Credit</SelectItem>
-                          <SelectItem value="original_payment">Original Payment Method</SelectItem>
-                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                          <SelectItem value="both">Both Credit & Original</SelectItem>
+                          {DELIVERY_POLICIES.REFUND_METHODS.map((method) => (
+                            <SelectItem key={method.value} value={method.value}>
+                              {method.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Processing Time</Label>
+                      <Select
+                        value={formData.storePolicy.processingTime}
+                        onValueChange={(value) => handleStorePolicyChange('processingTime', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select processing time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="24h">Within 24 hours</SelectItem>
+                          <SelectItem value="48h">Within 48 hours</SelectItem>
+                          <SelectItem value="72h">Within 72 hours</SelectItem>
+                          <SelectItem value="7d">Within 7 days</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -918,15 +1101,37 @@ export default function StoreSettings() {
                         onValueChange={(value) => handleStorePolicyChange('returnWindow', parseInt(value))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose days" />
+                          <SelectValue placeholder="Select return window" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="7">7 days</SelectItem>
-                          <SelectItem value="14">14 days</SelectItem>
-                          <SelectItem value="30">30 days</SelectItem>
+                          {DELIVERY_POLICIES.RETURN_WINDOWS.map((window) => (
+                            <SelectItem key={window.value} value={window.value}>
+                              {window.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
+
+                    <div className="space-y-2">
+                      <Label>Return Condition</Label>
+                      <Select
+                        value={formData.storePolicy.returnCondition}
+                        onValueChange={(value) => handleStorePolicyChange('returnCondition', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select return condition" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DELIVERY_POLICIES.RETURN_CONDITIONS.map((condition) => (
+                            <SelectItem key={condition.value} value={condition.value}>
+                              {condition.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <div className="space-y-2">
                       <Label>Return Shipping</Label>
                       <Select
@@ -934,36 +1139,15 @@ export default function StoreSettings() {
                         onValueChange={(value) => handleStorePolicyChange('returnShipping', value)}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose policy" />
+                          <SelectValue placeholder="Select who pays return shipping" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="buyer_paid">Buyer Paid</SelectItem>
-                          <SelectItem value="seller_paid">Seller Paid</SelectItem>
-                          <SelectItem value="case_by_case">Case by Case</SelectItem>
+                          <SelectItem value="buyer">Buyer pays</SelectItem>
+                          <SelectItem value="seller">Seller pays</SelectItem>
+                          <SelectItem value="case_by_case">Case by case basis</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-                </div>
-
-                {/* Exchange Policy Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Exchange</h3>
-                  <div className="space-y-2">
-                    <Label>Exchange Policy</Label>
-                    <Select
-                      value={formData.storePolicy.exchangePolicy}
-                      onValueChange={(value) => handleStorePolicyChange('exchangePolicy', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose policy" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="allowed">Exchanges Allowed</SelectItem>
-                        <SelectItem value="not_allowed">No Exchanges</SelectItem>
-                        <SelectItem value="case_by_case">Case by Case</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
               </div>
