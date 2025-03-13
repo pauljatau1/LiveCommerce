@@ -10,6 +10,7 @@ interface LiveShowProductCardProps {
     };
     index: number;
     onBuyNow?: (product: Product) => void;
+    onPreview?: (product: Product) => void;
 }
 
 /**
@@ -19,18 +20,29 @@ interface LiveShowProductCardProps {
 export const LiveShowProductCard: React.FC<LiveShowProductCardProps> = ({ 
     item, 
     index,
-    onBuyNow 
+    onBuyNow,
+    onPreview
 }) => {
     const product = item.product;
 
-    const handleBuyNow = () => {
+    const handleBuyNow = (e: any) => {
+        e.stopPropagation(); // Prevent triggering the card's TouchableOpacity
         if (onBuyNow) {
             onBuyNow(product);
         }
     };
 
+    const handleCardPress = () => {
+        if (onPreview) {
+            onPreview(product);
+        }
+    };
+
     return (
-        <TouchableOpacity className="bg-white/10 backdrop-blur-lg p-3 rounded-lg flex-row items-center mx-1">
+        <TouchableOpacity 
+            className="bg-white/10 backdrop-blur-lg p-3 rounded-lg flex-row items-center mx-1"
+            onPress={handleCardPress}
+        >
             <Image
                 source={{ uri: product.images[0]?.url }}
                 className="w-16 h-16 rounded-lg"

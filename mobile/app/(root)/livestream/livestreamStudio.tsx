@@ -19,6 +19,8 @@ import { LiveShowProductCard } from './liveShowProductCard';
 import { initializeSocket, disconnectSocket, getSocket, StreamNotification } from './socketHandler';
 import { SOCKET_EVENTS } from '@/constants/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import ProductPreview from '@/components/blips/productPreview';
+import CheckoutNow from '@/components/blips/checkoutNow';
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,6 +44,12 @@ const LivestreamStudio = () => {
         username: '@username',
         avatar: require('@/assets/icons/animoji.png')
     });
+
+    // Bottom sheet state for product preview and checkout
+    const [showProductPreview, setShowProductPreview] = useState(false);
+    const [showCheckout, setShowCheckout] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
         id: string;
@@ -180,6 +188,7 @@ const LivestreamStudio = () => {
                 if (streamDetails.products && streamDetails.products.length > 0) {
                     setStreamProducts(streamDetails.products);
                 } else if (streamDetails.stream?.products && streamDetails.stream.products.length > 0) {
+                    console.log('New Stream products:', streamDetails.stream.products);
                     setStreamProducts(streamDetails.stream.products);
                 }
 
@@ -363,8 +372,18 @@ const LivestreamStudio = () => {
 
     // Product buy handler
     const handleBuyNow = (product: Product) => {
-        // Implement buy functionality
+        // Set the selected product and show checkout
+        setSelectedProduct(product);
+        setShowCheckout(true);
         console.log('Buy product:', product.name);
+    };
+
+    // Product preview handler
+    const handleProductPreview = (product: Product) => {
+        // Set the selected product and show preview
+        setSelectedProduct(product);
+        setShowProductPreview(true);
+        console.log('Preview product:', product.name);
     };
 
     // Render a comment or event item to match the reference image
@@ -755,6 +774,7 @@ const LivestreamStudio = () => {
                                     item={item}
                                     index={index}
                                     onBuyNow={handleBuyNow}
+                                    onPreview={handleProductPreview}
                                 />
                             )}
                             defaultIndex={currentProductIndex}
@@ -762,6 +782,48 @@ const LivestreamStudio = () => {
                     </View>
                 )}
             </View>
+
+            {/* Bottom Sheets for Product Preview and Checkout */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-[11px]"
+                showCloseIcon={false}
+                title=""
+                show={showProductPreview}
+                snapPoints={["70%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowProductPreview(false)}
+                keyboardBehavior="interactive"
+            >
+                {selectedProduct && (
+                    <ProductPreview
+                        product={selectedProduct}
+                        closeSheet={() => setShowProductPreview(false)}
+                    />
+                )}
+            </BottomSheet>
+
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-[11px]"
+                showCloseIcon={false}
+                title=""
+                show={showCheckout}
+                snapPoints={["70%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowCheckout(false)}
+                keyboardBehavior="interactive"
+            >
+                {selectedProduct && (
+                    <CheckoutNow
+                        productId={selectedProduct._id}
+                        closeSheet={() => setShowCheckout(false)}
+                        sellerId={(selectedProduct.seller as any)?._id || 
+                                  (activeStreamDetails?.stream?.seller?._id || '')}
+                        channel="liveshow"
+                    />
+                )}
+            </BottomSheet>
         </>
     );
 };
