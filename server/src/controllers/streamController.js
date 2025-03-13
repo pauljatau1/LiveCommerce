@@ -27,6 +27,28 @@ exports.createStream = async (req, res) => {
       });
     }
 
+    // Validate scheduledStartTime format
+    if (!scheduledStartTime) {
+      return res.status(400).json({
+        message: 'Scheduled start time is required'
+      });
+    }
+
+    // Check if scheduledStartTime is a valid date
+    const startDate = new Date(scheduledStartTime);
+    if (isNaN(startDate.getTime())) {
+      return res.status(400).json({
+        message: 'Invalid date and time format for scheduled start time'
+      });
+    }
+
+    // Check if scheduledStartTime is in the future
+    if (startDate < new Date()) {
+      return res.status(400).json({
+        message: 'Scheduled start time must be in the future'
+      });
+    }
+
     // Update tags parsing to handle JSON string from frontend
     const parsedTags = tags ? 
       (typeof tags === 'string' ? JSON.parse(tags) : tags) // Parse JSON string to array
@@ -130,7 +152,7 @@ exports.createStream = async (req, res) => {
       channelName,
       agoraToken: token,
       agoraUid: seller.agoraUid,
-      scheduledStartTime: new Date(scheduledStartTime),
+      scheduledStartTime: startDate,
       type: 'auction',
       status: 'scheduled'
     });
@@ -750,13 +772,36 @@ exports.createOpenLiveShow = async (req, res) => {
       description,
       category,
       tags,
-      scheduledStartTime
+      scheduledStartTime,
+      video
     } = req.body;
 
     // Validate required fields
     if (!title || !description || !category) {
       return res.status(400).json({
         message: 'Title, description, and category are required'
+      });
+    }
+
+    // Validate scheduledStartTime format
+    if (!scheduledStartTime) {
+      return res.status(400).json({
+        message: 'Scheduled start time is required'
+      });
+    }
+
+    // Check if scheduledStartTime is a valid date
+    const startDate = new Date(scheduledStartTime);
+    if (isNaN(startDate.getTime())) {
+      return res.status(400).json({
+        message: 'Invalid date and time format for scheduled start time'
+      });
+    }
+
+    // Check if scheduledStartTime is in the future
+    if (startDate < new Date()) {
+      return res.status(400).json({
+        message: 'Scheduled start time must be in the future'
       });
     }
 
@@ -791,6 +836,38 @@ exports.createOpenLiveShow = async (req, res) => {
       }
     }
 
+    // Handle video upload
+    let videoData = {};
+    if (video) {
+      try {
+        // Parse the video data if it's a string
+        const parsedVideo = typeof video === 'string' ? JSON.parse(video) : video;
+        
+        if (parsedVideo && parsedVideo.data) {
+          const buffer = Buffer.from(parsedVideo.data, 'base64');
+          const fileKey = `stream-videos/${uuidv4()}.mp4`;
+          const params = {
+            Bucket: 'auqli-uploads',
+            Key: fileKey,
+            Body: buffer,
+            ContentType: parsedVideo.contentType || 'video/mp4',
+          };
+          
+          const uploadResult = await s3.upload(params).promise();
+          videoData = {
+            url: uploadResult.Location,
+            key: fileKey
+          };
+        }
+      } catch (videoError) {
+        console.error('Video upload error:', videoError);
+        return res.status(500).json({
+          message: 'Failed to upload video',
+          error: videoError.message
+        });
+      }
+    }
+
     // Generate unique channel name
     const channelName = `openshow_${uuidv4()}`;
 
@@ -815,6 +892,7 @@ exports.createOpenLiveShow = async (req, res) => {
       title,
       description,
       coverImage: imageData,
+      video: videoData,
       category,
       tags: parsedTags,
       products: sellerProducts.map(p => ({
@@ -823,7 +901,7 @@ exports.createOpenLiveShow = async (req, res) => {
       })),
       channelName,
       agoraToken: token,
-      scheduledStartTime: new Date(scheduledStartTime),
+      scheduledStartTime: startDate,
       type: 'open_show',
       status: 'scheduled'
     });
