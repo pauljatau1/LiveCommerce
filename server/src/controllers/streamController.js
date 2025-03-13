@@ -42,13 +42,6 @@ exports.createStream = async (req, res) => {
       });
     }
 
-    // Check if scheduledStartTime is in the future
-    if (startDate < new Date()) {
-      return res.status(400).json({
-        message: 'Scheduled start time must be in the future'
-      });
-    }
-
     // Update tags parsing to handle JSON string from frontend
     const parsedTags = tags ? 
       (typeof tags === 'string' ? JSON.parse(tags) : tags) // Parse JSON string to array
@@ -795,13 +788,6 @@ exports.createOpenLiveShow = async (req, res) => {
     if (isNaN(startDate.getTime())) {
       return res.status(400).json({
         message: 'Invalid date and time format for scheduled start time'
-      });
-    }
-
-    // Check if scheduledStartTime is in the future
-    if (startDate < new Date()) {
-      return res.status(400).json({
-        message: 'Scheduled start time must be in the future'
       });
     }
 
