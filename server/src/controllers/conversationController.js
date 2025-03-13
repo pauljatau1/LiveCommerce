@@ -29,6 +29,9 @@ exports.getConversations = async (req, res) => {
       const otherParticipant = conversation.participants.find(
         p => p.id && p.id._id && p.id._id.toString() !== userId
       );
+      const currentUserParticipant = conversation.participants.find(
+        p => p.id && p.id._id && p.id._id.toString() === userId
+      );
 
       // Check if otherParticipant exists and has valid data
       if (!otherParticipant || !otherParticipant.id) {
@@ -47,7 +50,11 @@ exports.getConversations = async (req, res) => {
           lastMessage: conversation.lastMessage,
           unreadCount: conversation.unreadCount.get(userId.toString()) || 0,
           createdAt: conversation.createdAt,
-          updatedAt: conversation.updatedAt
+          updatedAt: conversation.updatedAt,
+          settings: {
+            isBlocked: false,
+            isMuted: false
+          }
         };
       }
 
@@ -71,13 +78,22 @@ exports.getConversations = async (req, res) => {
         lastActive: otherParticipant.lastActive || null
       };
 
+      // Get chat settings
+      const settings = {
+        isBlocked: otherParticipant.settings?.isBlocked || false,
+        isMuted: currentUserParticipant.settings?.isMuted || false,
+        blockedBy: otherParticipant.settings?.blockedBy || null,
+        mutedBy: currentUserParticipant.settings?.mutedBy || null
+      };
+
       return {
         _id: conversation._id,
         participant: participantInfo,
         lastMessage: conversation.lastMessage,
         unreadCount: conversation.unreadCount.get(userId.toString()) || 0,
         createdAt: conversation.createdAt,
-        updatedAt: conversation.updatedAt
+        updatedAt: conversation.updatedAt,
+        settings
       };
     });
 
@@ -144,7 +160,15 @@ exports.getConversation = async (req, res) => {
       { isRead: true }
     );
 
-    // Format conversation with participant status
+    // Get current user's participant object and other participant's object
+    const currentUserParticipant = conversation.participants.find(
+      p => p.id._id.toString() === userId
+    );
+    const otherParticipant = conversation.participants.find(
+      p => p.id._id.toString() !== userId
+    );
+
+    // Format conversation with participant status and settings
     const formattedConversation = {
       ...conversation.toObject(),
       participants: conversation.participants.map(participant => ({
@@ -154,7 +178,13 @@ exports.getConversation = async (req, res) => {
           isOnline: participant.isOnline || false,
           lastActive: participant.lastActive || null
         }
-      }))
+      })),
+      settings: {
+        isBlocked: otherParticipant.settings?.isBlocked || false,
+        isMuted: currentUserParticipant.settings?.isMuted || false,
+        blockedBy: otherParticipant.settings?.blockedBy || null,
+        mutedBy: currentUserParticipant.settings?.mutedBy || null
+      }
     };
 
     // Return both conversation details and messages
@@ -204,4 +234,166 @@ exports.markConversationAsRead = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Failed to mark conversation as read', error: error.message });
   }
-}; 
+};
+
+exports.blockUser = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Find the other participant
+    const otherParticipant = conversation.participants.find(
+      p => p.id.toString() !== userId
+    );
+
+    if (!otherParticipant) {
+      return res.status(404).json({ message: 'Participant not found' });
+    }
+
+    // Update the other participant's settings
+    otherParticipant.settings = {
+      ...otherParticipant.settings,
+      isBlocked: true,
+      blockedBy: userId
+    };
+
+    await conversation.save();
+
+    res.json({ 
+      message: 'User blocked successfully',
+      settings: {
+        isBlocked: true,
+        isMuted: conversation.participants.find(p => p.id.toString() === userId)?.settings?.isMuted || false
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to block user', error: error.message });
+  }
+};
+
+exports.unblockUser = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Find the other participant
+    const otherParticipant = conversation.participants.find(
+      p => p.id.toString() !== userId
+    );
+
+    if (!otherParticipant) {
+      return res.status(404).json({ message: 'Participant not found' });
+    }
+
+    // Update the other participant's settings
+    otherParticipant.settings = {
+      ...otherParticipant.settings,
+      isBlocked: false,
+      blockedBy: null
+    };
+
+    await conversation.save();
+
+    res.json({ 
+      message: 'User unblocked successfully',
+      settings: {
+        isBlocked: false,
+        isMuted: conversation.participants.find(p => p.id.toString() === userId)?.settings?.isMuted || false
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to unblock user', error: error.message });
+  }
+};
+
+exports.muteConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Find current user's participant object
+    const currentUserParticipant = conversation.participants.find(
+      p => p.id.toString() === userId
+    );
+
+    if (!currentUserParticipant) {
+      return res.status(404).json({ message: 'Participant not found' });
+    }
+
+    // Update the current user's settings
+    currentUserParticipant.settings = {
+      ...currentUserParticipant.settings,
+      isMuted: true,
+      mutedBy: userId
+    };
+
+    await conversation.save();
+
+    res.json({ 
+      message: 'Conversation muted successfully',
+      settings: {
+        isBlocked: conversation.participants.find(p => p.id.toString() !== userId)?.settings?.isBlocked || false,
+        isMuted: true
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to mute conversation', error: error.message });
+  }
+};
+
+exports.unmuteConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Find current user's participant object
+    const currentUserParticipant = conversation.participants.find(
+      p => p.id.toString() === userId
+    );
+
+    if (!currentUserParticipant) {
+      return res.status(404).json({ message: 'Participant not found' });
+    }
+
+    // Update the current user's settings
+    currentUserParticipant.settings = {
+      ...currentUserParticipant.settings,
+      isMuted: false,
+      mutedBy: null
+    };
+
+    await conversation.save();
+
+    res.json({ 
+      message: 'Conversation unmuted successfully',
+      settings: {
+        isBlocked: conversation.participants.find(p => p.id.toString() !== userId)?.settings?.isBlocked || false,
+        isMuted: false
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to unmute conversation', error: error.message });
+  }
+};
+
+module.exports = exports; 

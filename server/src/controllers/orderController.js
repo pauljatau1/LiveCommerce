@@ -467,7 +467,7 @@ exports.createOrder = async (req, res) => {
         buyer: buyerId,
         seller: sellerId,
         items: sellerItemsList,
-        totalAmount: sellerTotal, // Only items total, not including shipping fee
+        totalAmount: sellerTotal,
         delivery_address: {
           first_name: shippingAddress.recipientName.split(' ')[0],
           last_name: shippingAddress.recipientName.split(' ').slice(1).join(' ') || '',
@@ -505,8 +505,36 @@ exports.createOrder = async (req, res) => {
         }
       });
       
+    
       await order.save({ session });
+      console.log('Order saved successfully:', {
+        orderId: order._id.toString(),
+        order_id: order.order_id
+      });
+      
       orders.push(order);
+      
+      // Add to our local array for processing after transaction
+      orderNotifications.push({
+        orderId: order._id,
+        buyerId: buyerId,
+        sellerId: sellerId
+      });
+      
+      // Schedule the order notification and message creation job with a small delay
+      console.log('Scheduling order notification job:', {
+        orderId: order._id.toString(),
+        buyerId,
+        sellerId
+      });
+      
+      await agenda.schedule('in 2 seconds', 'send-order-notifications', {
+        orderId: order._id,
+        buyerId: buyerId,
+        sellerId: sellerId
+      });
+      
+      console.log('Order notification job scheduled successfully');
       
       // Create transaction record for seller earnings (if not COD and not pending Paystack payment)
       if ((!isItemCod || paidFromWallet) && !(paymentMethod === 'paystack' && !isItemCod && !paidFromWallet)) {
@@ -548,7 +576,7 @@ exports.createOrder = async (req, res) => {
       // Ensure itemDescription doesn't exceed 200 characters (Fez API limit)
       if (sellerParcel.itemDescription && sellerParcel.itemDescription.length > 200) {
         sellerParcel.itemDescription = sellerParcel.itemDescription.substring(0, 197) + '...';
-        console.log(`⚠️ Truncated item description for order ${order.order_id} to fit Fez API limit`);
+        // console.log(`⚠️ Truncated item description for order ${order.order_id} to fit Fez API limit`);
       }
       
       // Create Fez Delivery request with sender information and seller-specific parcel details
@@ -604,15 +632,15 @@ exports.createOrder = async (req, res) => {
       // Add to our local array
       orderNotifications.push(notificationData);
       
-      // Log the notification data for debugging
-      console.log('Prepared notification data:', {
-        orderId: order._id.toString(),
-        buyerId: buyerId,
-        sellerId: sellerId,
-        orderIdValid: !!order._id,
-        buyerIdValid: !!buyerId,
-        sellerIdValid: !!sellerId
-      });
+      // // Log the notification data for debugging
+      // console.log('Prepared notification data:', {
+      //   orderId: order._id.toString(),
+      //   buyerId: buyerId,
+      //   sellerId: sellerId,
+      //   orderIdValid: !!order._id,
+      //   buyerIdValid: !!buyerId,
+      //   sellerIdValid: !!sellerId
+      // });
     }
     
     // Get a fresh authentication token for Fez Delivery
@@ -650,16 +678,24 @@ exports.createOrder = async (req, res) => {
       }
     }
     
-    // Commit the transaction before making external API calls
+    // After all orders are processed and Fez API call is complete
     await session.commitTransaction();
     session.endSession();
-    
-    // Schedule notifications for all orders
-    if (orderNotifications.length > 0) {
-      for (const notificationData of orderNotifications) {
-        agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
-      }
+
+    console.log('Transaction committed successfully');
+
+    // Now schedule the notifications after transaction is committed
+    for (const notification of orderNotifications) {
+      console.log('Scheduling post-commit notification for order:', notification.orderId.toString());
+      
+      await agenda.schedule('in 1 second', 'send-order-notifications', {
+        orderId: notification.orderId,
+        buyerId: notification.buyerId,
+        sellerId: notification.sellerId
+      });
     }
+
+    console.log('All order notifications scheduled');
     
     // Prepare response with detailed order information
     const orderDetails = orders.map(order => {

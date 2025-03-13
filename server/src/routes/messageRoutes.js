@@ -211,4 +211,49 @@ router.post('/product',
   messageController.sendProductMessage
 );
 
+/**
+ * @swagger
+ * /api/messages/order:
+ *   post:
+ *     summary: Send an order message
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipientId
+ *               - recipientModel
+ *               - orderId
+ *             properties:
+ *               recipientId:
+ *                 type: string
+ *                 description: ID of the message recipient
+ *               recipientModel:
+ *                 type: string
+ *                 enum: [Buyer, Seller]
+ *                 description: Type of recipient (Buyer or Seller)
+ *               orderId:
+ *                 type: string
+ *                 description: ID of the order to share
+ *               content:
+ *                 type: string
+ *                 description: Optional message text to accompany the order
+ *     responses:
+ *       201:
+ *         description: Order message sent successfully
+ *       404:
+ *         description: Order or recipient not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/order',
+  authMiddleware.verifyToken,
+  messageController.sendOrderMessage
+);
+
 module.exports = router;

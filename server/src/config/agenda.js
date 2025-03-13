@@ -74,29 +74,159 @@ agenda.define('closeOrder', async (job) => {
 // Define job for sending order notifications
 agenda.define('send-order-notifications', async (job) => {
   try {
+    console.log('Starting send-order-notifications job:', job.attrs.data);
+    
     const { orderId, buyerId, sellerId } = job.attrs.data;
     
     const Order = mongoose.model('Order');
     const Buyer = mongoose.model('Buyer');
     const Seller = mongoose.model('Seller');
+    const Message = mongoose.model('Message');
+    const Conversation = mongoose.model('Conversation');
     const notificationController = require('../controllers/notificationController');
     
     // Fetch the necessary data
-    const [order, buyer, seller] = await Promise.all([
-      Order.findById(orderId),
-      Buyer.findById(buyerId),
-      Seller.findById(sellerId)
-    ]);
+    console.log('Fetching order, buyer, and seller data...', {
+      orderId: orderId.toString(),
+      buyerId,
+      sellerId
+    });
+
+    let order, buyer, seller;
+    try {
+      order = await Order.findById(orderId)
+        .populate('items.product', 'name images price')
+        .populate('shipping')
+        .populate('delivery_address');
+      console.log('Order fetch result:', order ? 'Found' : 'Not found');
+    } catch (err) {
+      console.error('Error fetching order:', err);
+    }
+
+    try {
+      buyer = await Buyer.findById(buyerId);
+      console.log('Buyer fetch result:', buyer ? 'Found' : 'Not found');
+    } catch (err) {
+      console.error('Error fetching buyer:', err);
+    }
+
+    try {
+      seller = await Seller.findById(sellerId);
+      console.log('Seller fetch result:', seller ? 'Found' : 'Not found');
+    } catch (err) {
+      console.error('Error fetching seller:', err);
+    }
+    
+    console.log('Data fetch results:', {
+      orderFound: !!order,
+      buyerFound: !!buyer,
+      sellerFound: !!seller,
+      orderDetails: order ? {
+        id: order._id.toString(),
+        order_id: order.order_id,
+        items: order.items.length
+      } : null
+    });
     
     if (!order || !buyer || !seller) {
       console.error('Missing data for order notifications:', { orderId, buyerId, sellerId });
       return;
     }
+
+    // Find or create conversation
+    console.log('Finding or creating conversation...');
+    let conversation = await Conversation.findOne({
+      'participants': {
+        $all: [
+          { $elemMatch: { id: buyerId, model: 'Buyer' } },
+          { $elemMatch: { id: sellerId, model: 'Seller' } }
+        ]
+      }
+    });
+
+    if (!conversation) {
+      console.log('Creating new conversation...');
+      conversation = new Conversation({
+        participants: [
+          { id: buyerId, model: 'Buyer' },
+          { id: sellerId, model: 'Seller' }
+        ]
+      });
+      await conversation.save();
+      console.log('New conversation created:', conversation._id.toString());
+    } else {
+      console.log('Found existing conversation:', conversation._id.toString());
+    }
+
+    // Format order items for the message
+    console.log('Formatting order items...');
+    const formattedItems = order.items.map(item => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+      image: item.product.images[0]?.url || ''
+    }));
+
+    // Create the order message
+    console.log('Creating order message...');
+    const message = new Message({
+      conversation: conversation._id,
+      sender: { id: buyerId, model: 'Buyer' },
+      recipient: { id: sellerId, model: 'Seller' },
+      content: `Order #${order.order_id} has been placed`,
+      messageType: 'order',
+      order: {
+        id: order._id,
+        items: formattedItems,
+        shippingFee: order.shipping?.fee?.amount || 0,
+        totalAmount: order.totalAmount,
+        tracking: {
+          number: order.shipping?.tracking?.number,
+          url: order.shipping?.tracking?.url,
+          carrier: order.shipping?.carrier?.name,
+          status: order.shipping?.tracking?.status
+        },
+        delivery_address: {
+          first_name: order.delivery_address?.first_name,
+          last_name: order.delivery_address?.last_name,
+          email: order.delivery_address?.email,
+          phone: order.delivery_address?.phone,
+          line1: order.delivery_address?.line1,
+          line2: order.delivery_address?.line2,
+          city: order.delivery_address?.city,
+          state: order.delivery_address?.state,
+          country: order.delivery_address?.country,
+          zip: order.delivery_address?.zip
+        },
+        status: order.status
+      }
+    });
+
+    await message.save();
+    console.log('Order message saved:', message._id.toString());
+
+    // Update conversation
+    console.log('Updating conversation...');
+    conversation.lastMessage = {
+      content: `Order #${order.order_id} has been placed`,
+      sender: { id: buyerId, model: 'Buyer' },
+      messageType: 'order',
+      createdAt: message.createdAt
+    };
+
+    // Increment unread count for seller
+    const sellerKey = sellerId.toString();
+    const currentCount = conversation.unreadCount.get(sellerKey) || 0;
+    conversation.unreadCount.set(sellerKey, currentCount + 1);
+
+    await conversation.save();
+    console.log('Conversation updated successfully');
     
     // Send notifications and emails
+    console.log('Sending notifications...');
     await notificationController.handleOrderCreationNotifications(order, buyer, seller);
     
-    console.log(`Order notifications sent for order: ${order.order_id}`);
+    console.log('Order notifications and message sent successfully');
   } catch (error) {
     console.error('Error in send-order-notifications job:', error);
   }
@@ -146,6 +276,32 @@ agenda.define('update-auction-status', async (job) => {
 
   } catch (error) {
     console.error('Error in update-auction-status job:', error);
+  }
+});
+
+// Define job for updating order status in messages
+agenda.define('update-order-message-status', async (job) => {
+  try {
+    const { orderId, newStatus } = job.attrs.data;
+    
+    const Order = mongoose.model('Order');
+    const Message = mongoose.model('Message');
+    
+    // Find all messages that contain this order
+    const messages = await Message.find({
+      'order.id': orderId,
+      messageType: 'order'
+    });
+
+    // Update the order status in all messages
+    await Promise.all(messages.map(message => {
+      message.order.status = newStatus;
+      return message.save();
+    }));
+
+    console.log(`Updated order status to ${newStatus} in ${messages.length} messages for order: ${orderId}`);
+  } catch (error) {
+    console.error('Error in update-order-message-status job:', error);
   }
 });
 

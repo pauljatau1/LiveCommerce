@@ -4,6 +4,7 @@ const { s3 } = require('../config/awsConfig');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const { createNotification, createBuyerNotification } = require('./notificationController');
+const Order = require('../models/Order');
 
 // Helper function to create message preview
 const createMessagePreview = (content, messageType) => {
@@ -230,18 +231,54 @@ exports.getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.id;
     
+    console.log('Getting messages for conversation:', {
+      conversationId,
+      userId,
+      userRole: req.user.role
+    });
+    
     // Get pagination parameters
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     
     // If no page is specified, get the last 20 messages
     const totalMessages = await Message.countDocuments({ conversation: conversationId });
+    console.log('Total messages in conversation:', totalMessages);
+    
     const totalPages = Math.ceil(totalMessages / limit);
     
     // If no page specified, calculate the last page
     const effectivePage = !req.query.page ? totalPages : page;
     
-    const messages = await Message.find({ conversation: conversationId })
+    console.log('Pagination details:', {
+      page,
+      limit,
+      totalPages,
+      effectivePage
+    });
+    
+    // Debug: Check all message types in this conversation
+    const messageTypesInConversation = await Message.distinct('messageType', { conversation: conversationId });
+    console.log('All message types in conversation:', messageTypesInConversation);
+
+    // Debug: Count of each message type
+    const messageCounts = await Message.aggregate([
+      { $match: { conversation: new mongoose.Types.ObjectId(conversationId) } },
+      { $group: { _id: '$messageType', count: { $sum: 1 } } }
+    ]);
+    console.log('Message type counts:', messageCounts);
+
+    // Explicitly set up the query to ensure we get all message types
+    const query = {
+      conversation: conversationId
+    };
+
+    // Always start from the beginning for first page
+    const skipCount = (page - 1) * limit;
+
+    console.log('Skip and limit:', { skipCount, limit, page });
+
+    const messages = await Message.find(query)
       .populate({
         path: 'sender.id',
         refPath: 'sender.model',
@@ -257,13 +294,16 @@ exports.getMessages = async (req, res) => {
         model: 'Product',
         select: 'name price images description inventory.sku category'
       })
-      .sort({ createdAt: 1 }) // Sort by newest first
-      .skip((effectivePage - 1) * limit)
+      .sort({ createdAt: -1 }) // Sort oldest first
+      .skip(skipCount)
       .limit(limit)
       .lean();
 
-    // Reverse the messages to show oldest first
-    messages.reverse();
+    // Add debug logging for the actual messages being returned
+    console.log('Retrieved messages count:', messages.length);
+    console.log('First message timestamp:', messages[0]?.createdAt);
+    console.log('Last message timestamp:', messages[messages.length - 1]?.createdAt);
+    console.log('Message types in this batch:', messages.map(m => m.messageType));
 
     // Transform messages to include formatted participant info
     const formattedMessages = messages.map(message => {
@@ -410,4 +450,119 @@ exports.sendProductMessage = async (req, res) => {
       error: error.message 
     });
   }
-}; 
+};
+
+// Send order message
+exports.sendOrderMessage = async (req, res) => {
+  try {
+    const { recipientId, recipientModel, content, orderId } = req.body;
+    const senderId = req.user.id;
+    const senderModel = req.user.role;
+
+    // Validate order exists and populate necessary fields
+    const order = await Order.findById(orderId)
+      .populate('items.product', 'name images price')
+      .populate('shipping')
+      .populate('delivery_address');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Find or create conversation
+    let conversation = await Conversation.findOne({
+      'participants': {
+        $all: [
+          { $elemMatch: { id: senderId, model: senderModel } },
+          { $elemMatch: { id: recipientId, model: recipientModel } }
+        ]
+      }
+    });
+
+    if (!conversation) {
+      conversation = new Conversation({
+        participants: [
+          { id: senderId, model: senderModel },
+          { id: recipientId, model: recipientModel }
+        ]
+      });
+      await conversation.save();
+    }
+
+    // Format order items for the message
+    const formattedItems = order.items.map(item => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+      image: item.product.images[0]?.url || ''
+    }));
+
+    // Create message with order info
+    const message = new Message({
+      conversation: conversation._id,
+      sender: { id: senderId, model: senderModel },
+      recipient: { id: recipientId, model: recipientModel },
+      content: content || '',
+      messageType: 'order',
+      order: {
+        id: order._id,
+        items: formattedItems,
+        shippingFee: order.shipping?.fee?.amount || 0,
+        totalAmount: order.totalAmount,
+        tracking: {
+          number: order.shipping?.tracking?.number,
+          url: order.shipping?.tracking?.url,
+          carrier: order.shipping?.carrier?.name,
+          status: order.shipping?.tracking?.status
+        },
+        delivery_address: {
+          first_name: order.delivery_address?.first_name,
+          last_name: order.delivery_address?.last_name,
+          email: order.delivery_address?.email,
+          phone: order.delivery_address?.phone,
+          line1: order.delivery_address?.line1,
+          line2: order.delivery_address?.line2,
+          city: order.delivery_address?.city,
+          state: order.delivery_address?.state,
+          country: order.delivery_address?.country,
+          zip: order.delivery_address?.zip
+        },
+        status: order.status
+      }
+    });
+
+    await message.save();
+
+    // Update conversation
+    conversation.lastMessage = {
+      content: content || `Shared order #${order._id}`,
+      sender: { id: senderId, model: senderModel },
+      messageType: 'order',
+      createdAt: message.createdAt
+    };
+
+    // Increment unread count for recipient
+    const recipientKey = recipientId.toString();
+    const currentCount = conversation.unreadCount.get(recipientKey) || 0;
+    conversation.unreadCount.set(recipientKey, currentCount + 1);
+
+    await conversation.save();
+
+    // Create notification
+    const senderName = senderModel === 'Buyer' ? 
+      `${req.user.firstName} ${req.user.lastName}` : 
+      (req.user.businessName || req.user.storeName);
+    
+    await createMessageNotifications(message, senderName);
+
+    res.status(201).json({ message });
+  } catch (error) {
+    console.error('Order message error:', error);
+    res.status(500).json({ 
+      message: 'Failed to send order message', 
+      error: error.message 
+    });
+  }
+};
+
+module.exports = exports; 
