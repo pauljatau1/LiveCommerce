@@ -171,9 +171,9 @@ agenda.define('send-order-notifications', async (job) => {
     console.log('Creating order message...');
     const message = new Message({
       conversation: conversation._id,
-      sender: { id: buyerId, model: 'Buyer' },
-      recipient: { id: sellerId, model: 'Seller' },
-      content: `Order #${order.order_id} has been placed`,
+      sender: { id: sellerId, model: 'Seller' },
+      recipient: { id: buyerId, model: 'Buyer' },
+      content: `Thank you for your order #${order.order_id}. We'll process it right away!`,
       messageType: 'order',
       order: {
         id: order._id,
@@ -208,16 +208,16 @@ agenda.define('send-order-notifications', async (job) => {
     // Update conversation
     console.log('Updating conversation...');
     conversation.lastMessage = {
-      content: `Order #${order.order_id} has been placed`,
-      sender: { id: buyerId, model: 'Buyer' },
+      content: `Thank you for your order #${order.order_id}. We'll process it right away!`,
+      sender: { id: sellerId, model: 'Seller' },
       messageType: 'order',
       createdAt: message.createdAt
     };
 
-    // Increment unread count for seller
-    const sellerKey = sellerId.toString();
-    const currentCount = conversation.unreadCount.get(sellerKey) || 0;
-    conversation.unreadCount.set(sellerKey, currentCount + 1);
+    // Increment unread count for buyer
+    const buyerKey = buyerId.toString();
+    const currentCount = conversation.unreadCount.get(buyerKey) || 0;
+    conversation.unreadCount.set(buyerKey, currentCount + 1);
 
     await conversation.save();
     console.log('Conversation updated successfully');
