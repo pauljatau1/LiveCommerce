@@ -155,6 +155,7 @@ const orderSchema = new mongoose.Schema({
       default: 'pending'
     },
     transactionId: String,
+    paymentReference: String,
     paidAt: Date,
     isCashOnDelivery: {
       type: Boolean,
@@ -198,7 +199,7 @@ const orderSchema = new mongoose.Schema({
   closedAt: Date,
   closedBy: {
     type: String,
-    enum: ['admin', 'buyer', 'auto'],
+    enum: ['admin', 'buyer', 'auto', 'seller'],
   },
   closedReason: String,
 });

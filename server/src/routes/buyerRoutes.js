@@ -6,6 +6,7 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const passport = require('../config/passport');
 const jwt = require('jsonwebtoken');
+const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 
 
 /**
@@ -1873,9 +1874,66 @@ router.get('/wallet/balance',
 
 /**
  * @swagger
+ * /api/buyer/wallet/topup/verify:
+ *   get:
+ *     summary: Verify a wallet top-up payment
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: reference
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Paystack payment reference
+ *     responses:
+ *       200:
+ *         description: Wallet topped up successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Wallet topped up successfully
+ *                 transaction:
+ *                   type: object
+ *                   properties:
+ *                     paymentReference:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     type:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                 newBalance:
+ *                   type: number
+ *       400:
+ *         description: Invalid payment reference or verification failed
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/wallet/topup/verify',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  buyerController.verifyWalletTopUp
+);
+
+/**
+ * @swagger
  * /api/buyer/wallet/topup:
  *   post:
- *     summary: Top up buyer's wallet
+ *     summary: Direct wallet top-up (admin only)
  *     tags: [Buyer]
  *     security:
  *       - bearerAuth: []
@@ -1895,6 +1953,10 @@ router.get('/wallet/balance',
  *               description:
  *                 type: string
  *                 example: Wallet top up
+ *               bypassPaystack:
+ *                 type: boolean
+ *                 description: Whether to bypass Paystack (admin only)
+ *                 default: false
  *     responses:
  *       200:
  *         description: Wallet topped up successfully
@@ -1926,6 +1988,8 @@ router.get('/wallet/balance',
  *         description: Invalid amount
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - direct top-up not allowed
  *       404:
  *         description: Buyer not found
  *       500:
@@ -2027,5 +2091,194 @@ router.get('/wallet/transactions',
   authMiddleware.isBuyer,
   buyerController.getWalletTransactions
 );
+
+/**
+ * @swagger
+ * /api/buyer/sellers:
+ *   get:
+ *     summary: Get list of sellers that can be followed
+ *     description: Returns a list of sellers. If authenticated, excludes already followed sellers.
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of sellers per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for store name or business name
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category name
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [rating, followers, newest]
+ *           default: rating
+ *         description: Sort criteria
+ *     responses:
+ *       200:
+ *         description: List of sellers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sellers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                       businessName:
+ *                         type: string
+ *                       aboutStore:
+ *                         type: string
+ *                       storeAvatar:
+ *                         type: object
+ *                         properties:
+ *                           url:
+ *                             type: string
+ *                       categories:
+ *                         type: array
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           averageRating:
+ *                             type: number
+ *                           totalReviews:
+ *                             type: number
+ *                       followerCount:
+ *                         type: number
+ *                       isVerified:
+ *                         type: boolean
+ *                       isFeatured:
+ *                         type: boolean
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     current:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/sellers', 
+  optionalAuthMiddleware, // This middleware will make authentication optional
+  buyerController.getSellersToFollow
+);
+
+/**
+ * @swagger
+ * /api/buyer/public-profile/{buyerId}:
+ *   get:
+ *     summary: Get public profile information of a buyer
+ *     description: Retrieves publicly available information about a buyer including their basic info, activity stats, and recent public activities
+ *     tags: [Buyer]
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer to fetch profile for
+ *     responses:
+ *       200:
+ *         description: Buyer public profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 basicInfo:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     profileImage:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                     bio:
+ *                       type: string
+ *                     country:
+ *                       type: string
+ *                     joinedDate:
+ *                       type: string
+ *                       format: date-time
+ *                     isIdentityVerified:
+ *                       type: boolean
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalPosts:
+ *                       type: integer
+ *                     totalReviews:
+ *                       type: integer
+ *                     totalFollowers:
+ *                       type: integer
+ *                     totalFollowing:
+ *                       type: integer
+ *                 recentActivity:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       type:
+ *                         type: string
+ *                         enum: [post, product_review, product_purchase, follow]
+ *                       content:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 selectedCategories:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                       subCategories:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/public-profile/:buyerId', buyerController.getPublicProfile);
 
 module.exports = router;

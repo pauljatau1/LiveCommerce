@@ -15,11 +15,23 @@ const { Expo } = require('expo-server-sdk');
 // Import required AWS SDK modules for SNS (Simple Notification Service)
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 sgMail.setApiKey('SG.REDACTED');
 // Load environment variables from a .env file
 require('dotenv').config();
 
 const expo = new Expo();
+
+// Initialize Paystack
+const axios = require('axios');
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
+const paystack = axios.create({
+  baseURL: 'https://api.paystack.co',
+  headers: {
+    Authorization: `Bearer ${paystackSecretKey}`,
+    'Content-Type': 'application/json'
+  }
+});
 
 // Helper function to generate JWT
 const generateToken = (id) => {
@@ -1447,7 +1459,12 @@ exports.getSellerProfile = async (req, res) => {
         bio: seller.aboutStore,
         isFollowing: seller.followers?.some(
           follower => follower.buyerId?.toString() === req.user.id
-        ) || false
+        ) || false,
+        socialMedia: {
+          instagram: seller.socialMedia?.instagram || null,
+          facebook: seller.socialMedia?.facebook || null,
+          tiktok: seller.socialMedia?.tiktok || null
+        }
       },
       businessInfo: {
         businessName: seller.businessName,
@@ -1457,6 +1474,28 @@ exports.getSellerProfile = async (req, res) => {
           business: seller.businessAddress,
           warehouse: seller.warehouseDetails,
           seller: seller.sellerAddress
+        }
+      },
+      storePolicies: {
+        delivery: {
+          processingTime: seller.storePolicy?.processingTime || null,
+          deliveryTimes: seller.storePolicy?.deliveryTimes || null,
+          freeShippingPolicy: seller.storePolicy?.freeShippingPolicy || null,
+          allowsCod: seller.storePolicy?.allowsCod || true, // Add this line
+        },
+        returns: {
+          returnWindow: seller.storePolicy?.returnWindow || 14,
+          returnCondition: seller.storePolicy?.returnCondition || null,
+          returnShipping: seller.storePolicy?.returnShipping || null,
+          nonRefundableItems: seller.storePolicy?.nonRefundableItems || [],
+        },
+        refunds: {
+          refundPolicy: seller.storePolicy?.refundPolicy || null,
+          refundMethod: seller.storePolicy?.refundMethod || null,
+          lostOrDamagedPolicy: seller.storePolicy?.lostOrDamagedPolicy || null,
+        },
+        exchange: {
+          exchangePolicy: seller.storePolicy?.exchangePolicy || null,
         }
       },
       stats: {
@@ -1470,8 +1509,6 @@ exports.getSellerProfile = async (req, res) => {
         averageRating: parseFloat(reviewStats.averageRating),
         totalReviews: reviewStats.totalReviews,
         ratingDistribution: reviewStats.ratingDistribution,
-
-
       }
     };
 
@@ -2357,10 +2394,223 @@ exports.getWalletBalance = async (req, res) => {
   }
 };
 
-// Top up wallet
+// Initiate wallet top-up - Removed: Now handled on the frontend directly with Paystack
+
+// Send wallet top-up confirmation email
+exports.sendWalletTopUpEmail = async (buyer, transaction) => {
+  const formattedAmount = transaction.amount.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2
+  });
+  
+  const formattedBalance = buyer.wallet.balance.toLocaleString('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2
+  });
+  
+  const formattedDate = new Date(transaction.createdAt).toLocaleString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const msg = {
+    to: buyer.email,
+    from: {
+      email: 'support@auqli.com',
+      name: 'Auqli Support'
+    },
+    subject: 'Wallet Top-Up Confirmation',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+        </div>
+        
+        <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
+          <h2 style="color: #333; margin-bottom: 20px; text-align: center;">Wallet Top-Up Confirmation</h2>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${buyer.firstName},</p>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Your wallet has been successfully topped up with ${formattedAmount}.</p>
+          
+          <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 18px;">Transaction Details</h3>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #777; width: 40%;">Amount:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedAmount}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Transaction ID:</td>
+                <td style="padding: 8px 0; color: #333;">${transaction.paymentReference}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Date & Time:</td>
+                <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Status:</td>
+                <td style="padding: 8px 0; color: #333;">
+                  <span style="color: #4CAF50; font-weight: bold;">Completed</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #777;">Current Balance:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedBalance}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="font-size: 16px; color: #555; margin-bottom: 15px;">You can now use your wallet balance to make purchases on Auqli.</p>
+          
+        
+          
+      
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
+          <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          <p>
+            <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+            <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log('Wallet top-up confirmation email sent to:', buyer.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending wallet top-up confirmation email:', error);
+    return false;
+  }
+};
+
+// Verify and complete wallet top-up
+exports.verifyWalletTopUp = async (req, res) => {
+  try {
+    const { reference } = req.query;
+
+    if (!reference) {
+      return res.status(400).json({ message: 'Payment reference is required' });
+    }
+
+    // Verify with Paystack
+    const verificationResponse = await paystack.get(`/transaction/verify/${reference}`);
+    
+    // Fix: Paystack returns status as boolean (true) not string ("success")
+    if (!verificationResponse.data.status || verificationResponse.data.data.status !== 'success') {
+      return res.status(400).json({ 
+        message: 'Payment verification failed', 
+        error: verificationResponse.data 
+      });
+    }
+
+    const paymentData = verificationResponse.data.data;
+    const metadata = paymentData.metadata;
+    
+    // For frontend-initiated payments, metadata might not have transactionType
+    // So we'll check if buyerId exists and assume it's a wallet top-up
+    if (!metadata || !metadata.buyerId) {
+      return res.status(400).json({ message: 'Invalid payment metadata. Missing buyerId.' });
+    }
+
+    const buyerId = metadata.buyerId;
+    const buyer = await Buyer.findById(buyerId);
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Check if transaction is already completed
+    const existingTransaction = buyer.wallet.transactions.find(
+      t => t.paymentReference === reference
+    );
+
+    if (existingTransaction) {
+      if (existingTransaction.status === 'completed') {
+        return res.status(200).json({
+          message: 'Payment already processed',
+          transaction: existingTransaction,
+          currentBalance: buyer.wallet.balance
+        });
+      } else if (existingTransaction.status === 'pending') {
+        // Update the existing transaction
+        existingTransaction.status = 'completed';
+        
+        // Update wallet balance
+        buyer.wallet.balance += existingTransaction.amount;
+        
+        await buyer.save();
+        
+        // Send confirmation email
+        exports.sendWalletTopUpEmail(buyer, existingTransaction);
+        
+        return res.status(200).json({
+          message: 'Wallet topped up successfully',
+          transaction: existingTransaction,
+          newBalance: buyer.wallet.balance
+        });
+      }
+    }
+
+    // If no transaction found, create a new one
+    const amount = paymentData.amount / 100; // Convert from kobo to naira
+    
+    const newTransaction = {
+      type: 'credit',
+      amount,
+      paymentReference: reference,
+      description: metadata.description || 'Wallet top up via Paystack',
+      status: 'completed',
+      createdAt: new Date()
+    };
+
+    buyer.wallet.transactions.push(newTransaction);
+    buyer.wallet.balance += amount;
+    
+    await buyer.save();
+    
+    // Send confirmation email
+    exports.sendWalletTopUpEmail(buyer, newTransaction);
+    
+    return res.status(200).json({
+      message: 'Wallet topped up successfully',
+      transaction: newTransaction,
+      newBalance: buyer.wallet.balance
+    });
+  } catch (error) {
+    console.error('Verify wallet top-up error:', error);
+    res.status(500).json({
+      message: 'Failed to verify wallet top-up',
+      error: error.response?.data || error.message
+    });
+  }
+};
+
+// Handle Paystack webhook for wallet top-up - Removed: Now consolidated in orderController.handlePaystackWebhook
+
+// Legacy direct top-up method (for admin use or testing)
 exports.topUpWallet = async (req, res) => {
   try {
-    const { amount, description = 'Wallet top up' } = req.body;
+    const { amount, description = 'Wallet top up', bypassPaystack = false, paymentReference } = req.body;
+
+    // Only allow bypass for admin users or in development environment
+    if (bypassPaystack && (!req.user.isAdmin && process.env.NODE_ENV !== 'development')) {
+      return res.status(403).json({
+        message: 'Direct wallet top-up is not allowed'
+      });
+    }
 
     if (!amount || amount <= 0) {
       return res.status(400).json({
@@ -2373,11 +2623,44 @@ exports.topUpWallet = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
+    // Check if this is a fallback verification with an existing payment reference
+    if (paymentReference) {
+      // Check if transaction with this reference already exists
+      const existingTransaction = buyer.wallet.transactions.find(
+        t => t.paymentReference === paymentReference
+      );
+
+      if (existingTransaction) {
+        if (existingTransaction.status === 'completed') {
+          return res.status(200).json({
+            message: 'Payment already processed',
+            transaction: existingTransaction,
+            newBalance: buyer.wallet.balance
+          });
+        } else if (existingTransaction.status === 'pending') {
+          // Update the existing transaction
+          existingTransaction.status = 'completed';
+          buyer.wallet.balance += existingTransaction.amount;
+          
+          await buyer.save();
+          
+          // Send confirmation email
+          exports.sendWalletTopUpEmail(buyer, existingTransaction);
+          
+          return res.status(200).json({
+            message: 'Wallet topped up successfully',
+            transaction: existingTransaction,
+            newBalance: buyer.wallet.balance
+          });
+        }
+      }
+    }
+
     const transaction = {
       type: 'credit',
       amount,
-      paymentReference: generatePaymentReference(),
-      description,
+      paymentReference: paymentReference || generatePaymentReference(),
+      description: description + (bypassPaystack ? ' (Direct)' : ''),
       status: 'completed',
       createdAt: new Date()
     };
@@ -2387,6 +2670,9 @@ exports.topUpWallet = async (req, res) => {
     buyer.wallet.balance += amount;
 
     await buyer.save();
+
+    // Send confirmation email
+    exports.sendWalletTopUpEmail(buyer, transaction);
 
     res.status(200).json({
       message: 'Wallet topped up successfully',
@@ -2471,4 +2757,256 @@ exports.getWalletTransactions = async (req, res) => {
     });
   }
 };
+
+// Get sellers that can be followed
+exports.getSellersToFollow = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      search = '', 
+      category = '', 
+      sort = 'rating' 
+    } = req.query;
+
+    // Build base query
+    let query = { isDisabled: false };
+
+    // Add search filter if provided
+    if (search) {
+      query.$or = [
+        { storeName: { $regex: search, $options: 'i' } },
+        { businessName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add category filter if provided
+    if (category) {
+      query['categories.name'] = { $regex: category, $options: 'i' };
+    }
+
+    // If authenticated, exclude sellers the buyer is already following
+    if (req.user?.id) {
+      const buyer = await Buyer.findById(req.user.id);
+      if (buyer) {
+        const followedSellerIds = await Seller.find({
+          'followers.buyerId': req.user.id
+        }).distinct('_id');
+        
+        if (followedSellerIds.length > 0) {
+          query._id = { $nin: followedSellerIds };
+        }
+      }
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sort) {
+      case 'rating':
+        sortOptions = { 'stats.averageRating': -1 };
+        break;
+      case 'followers':
+        // Using $size of followers array for sorting
+        sortOptions = { 'followers': -1 };
+        break;
+      case 'newest':
+        sortOptions = { createdAt: -1 };
+        break;
+      default:
+        sortOptions = { 'stats.averageRating': -1 };
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query with pagination
+    const [sellers, total] = await Promise.all([
+      Seller.find(query)
+        .select(`
+          storeName businessName aboutStore storeAvatar 
+          categories stats followers isVerified isFeatured 
+          createdAt
+        `)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Seller.countDocuments(query)
+    ]);
+
+    // Transform seller data
+    const transformedSellers = sellers.map(seller => ({
+      _id: seller._id,
+      storeName: seller.storeName || seller.businessName || "Shop", // Default to "Shop" if no name available
+      businessName: seller.businessName,
+      aboutStore: seller.aboutStore,
+      storeAvatar: seller.storeAvatar,
+      categories: seller.categories,
+      stats: {
+        averageRating: seller.stats?.averageRating || 0,
+        totalReviews: seller.stats?.totalReviews || 0
+      },
+      followerCount: seller.followers?.length || 0,
+      isVerified: seller.isVerified,
+      isFeatured: seller.isFeatured,
+      createdAt: seller.createdAt
+    }));
+
+    // Return response with pagination
+    res.json({
+      sellers: transformedSellers,
+      pagination: {
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+        current: parseInt(page),
+        hasMore: skip + transformedSellers.length < total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getSellersToFollow:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve sellers',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get public profile information for a buyer
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getPublicProfile = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    console.log('Fetching profile for buyerId:', buyerId);
+
+    // First, get the post count directly from the Post model
+    const postCount = await Post.countDocuments({
+      'author.userId': buyerId,
+      'author.userModel': 'Buyer',
+      visibility: 'public'
+    });
+    console.log('Direct post count from Post collection:', postCount);
+
+    // Find the buyer and populate necessary fields
+    const buyer = await Buyer.findById(buyerId)
+      .select([
+        'firstName',
+        'lastName',
+        'username',
+        'profileImage',
+        'bio',
+        'country',
+        'createdAt',
+        'isIdentityVerified',
+        'selectedCategories',
+        'activityFeed',
+        'posts',
+        'followers',
+        'following'
+      ])
+      .populate([
+        {
+          path: 'activityFeed',
+          options: { 
+            sort: { createdAt: -1 },
+            limit: 10
+          }
+        },
+        {
+          path: 'posts',
+          match: { visibility: 'public' }
+        }
+      ]);
+
+    if (!buyer) {
+      console.log('Buyer not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    console.log('Raw buyer data:', {
+      activityFeedLength: buyer.activityFeed?.length,
+      postsLength: buyer.posts?.length,
+      postsIds: buyer.posts?.map(p => p._id),
+      followersLength: buyer.followers?.length,
+      followingLength: buyer.following?.length
+    });
+
+    // Calculate total reviews from activity feed
+    const totalReviews = buyer.activityFeed ? 
+      buyer.activityFeed.filter(activity => {
+        console.log('Activity type:', activity.type);
+        return activity.type === 'product_review';
+      }).length : 0;
+    console.log('Total reviews:', totalReviews);
+
+    // Calculate following count (number of follow activities)
+    const totalFollowing = buyer.activityFeed ? 
+      buyer.activityFeed.filter(activity => {
+        console.log('Checking follow activity:', activity.type);
+        return activity.type === 'follow';
+      }).length : 0;
+    console.log('Total following:', totalFollowing);
+
+    // Calculate followers count
+    const totalFollowers = buyer.followers ? buyer.followers.length : 0;
+    console.log('Total followers:', totalFollowers);
+
+    // Use the direct post count instead of the populated posts length
+    const totalPosts = postCount;
+    console.log('Total posts:', totalPosts);
+
+    // Format the response
+    const publicProfile = {
+      basicInfo: {
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        username: buyer.username,
+        profileImage: buyer.profileImage,
+        bio: buyer.bio,
+        country: buyer.country,
+        joinedDate: buyer.createdAt,
+        isIdentityVerified: buyer.isIdentityVerified
+      },
+      stats: {
+        totalPosts,
+        totalReviews,
+        totalFollowers,
+        totalFollowing
+      },
+      recentActivity: buyer.activityFeed?.map(activity => ({
+        type: activity.type,
+        content: activity.content,
+        createdAt: activity.createdAt
+      })) || [],
+      selectedCategories: buyer.selectedCategories?.map(category => ({
+        name: category.name,
+        subCategories: category.subCategories?.map(sub => ({
+          name: sub.name
+        }))
+      })) || []
+    };
+
+    console.log('Final stats:', publicProfile.stats);
+
+    res.status(200).json({
+      success: true,
+      data: publicProfile
+    });
+
+  } catch (error) {
+    console.error('Error in getPublicProfile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching buyer profile',
+      error: error.message
+    });
+  }
+};
+
 

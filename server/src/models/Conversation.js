@@ -11,6 +11,14 @@ const conversationSchema = new mongoose.Schema({
       type: String, 
       required: true,
       enum: ['Buyer', 'Seller']
+    },
+    lastActive: {
+      type: Date,
+      default: null
+    },
+    isOnline: {
+      type: Boolean,
+      default: false
     }
   }],
   lastMessage: {

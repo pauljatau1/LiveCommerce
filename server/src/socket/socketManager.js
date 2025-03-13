@@ -5,6 +5,9 @@ const Stream = require('../models/Stream');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 
+// Store active users
+const activeUsers = new Map();
+
 function initializeSocket(server) {
   const io = socketIO(server, {
     cors: {
@@ -35,8 +38,55 @@ function initializeSocket(server) {
   });
 
   // Connection handler
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log('User connected:', socket.user.id);
+    
+    // Add user to active users
+    activeUsers.set(socket.user.id, {
+      socketId: socket.id,
+      userId: socket.user.id,
+      userModel: socket.user.role,
+      lastActive: new Date()
+    });
+
+    // Update user's online status in all their conversations
+    await Conversation.updateMany(
+      { 'participants': { 
+        $elemMatch: { 
+          id: socket.user.id, 
+          model: socket.user.role 
+        } 
+      }},
+      { 
+        $set: { 
+          'participants.$.isOnline': true,
+          'participants.$.lastActive': new Date()
+        } 
+      }
+    );
+
+    // Emit user online status to relevant conversations
+    const userConversations = await Conversation.find({
+      'participants': {
+        $elemMatch: { 
+          id: socket.user.id, 
+          model: socket.user.role 
+        }
+      }
+    });
+
+    userConversations.forEach(conversation => {
+      conversation.participants.forEach(participant => {
+        if (participant.id.toString() !== socket.user.id) {
+          io.to(participant.id.toString()).emit('user_status_change', {
+            userId: socket.user.id,
+            userModel: socket.user.role,
+            isOnline: true,
+            lastActive: new Date()
+          });
+        }
+      });
+    });
 
     socket.on('join', (userId) => {
       socket.join(userId);
@@ -48,17 +98,104 @@ function initializeSocket(server) {
         const conversation = await Conversation.findById(conversationId)
           .populate('participants.id');
 
+        // Update last active timestamp
+        await Conversation.updateOne(
+          { 
+            _id: conversationId,
+            'participants.id': socket.user.id,
+            'participants.model': socket.user.role
+          },
+          { 
+            $set: { 
+              'participants.$.lastActive': new Date()
+            } 
+          }
+        );
+
         // Emit to all participants except sender
         conversation.participants.forEach(participant => {
           if (participant.id._id.toString() !== socket.user.id) {
-          console.log(socket.user.id+" sent message "+message.content+" to "+participant.id._id);
-
-            io.to(participant.id._id.toString()).emit('receive_message', message);
+            console.log(socket.user.id+" sent message "+message.content+" to "+participant.id._id);
+            io.to(participant.id._id.toString()).emit('receive_message', {
+              ...message,
+              sender: {
+                ...message.sender,
+                isOnline: true,
+                lastActive: new Date()
+              }
+            });
           }
         });
       } catch (error) {
         console.error('Socket message error:', error);
       }
+    });
+
+    // Handle user activity status
+    socket.on('user_activity', async () => {
+      const user = activeUsers.get(socket.user.id);
+      if (user) {
+        user.lastActive = new Date();
+        await Conversation.updateMany(
+          { 'participants': { 
+            $elemMatch: { 
+              id: socket.user.id, 
+              model: socket.user.role 
+            } 
+          }},
+          { 
+            $set: { 
+              'participants.$.lastActive': new Date()
+            } 
+          }
+        );
+      }
+    });
+
+    socket.on('disconnect', async () => {
+      console.log('User disconnected:', socket.user.id);
+      
+      // Remove user from active users
+      activeUsers.delete(socket.user.id);
+
+      // Update user's offline status in conversations
+      await Conversation.updateMany(
+        { 'participants': { 
+          $elemMatch: { 
+            id: socket.user.id, 
+            model: socket.user.role 
+          } 
+        }},
+        { 
+          $set: { 
+            'participants.$.isOnline': false,
+            'participants.$.lastActive': new Date()
+          } 
+        }
+      );
+
+      // Notify other users about status change
+      const userConversations = await Conversation.find({
+        'participants': {
+          $elemMatch: { 
+            id: socket.user.id, 
+            model: socket.user.role 
+          }
+        }
+      });
+
+      userConversations.forEach(conversation => {
+        conversation.participants.forEach(participant => {
+          if (participant.id.toString() !== socket.user.id) {
+            io.to(participant.id.toString()).emit('user_status_change', {
+              userId: socket.user.id,
+              userModel: socket.user.role,
+              isOnline: false,
+              lastActive: new Date()
+            });
+          }
+        });
+      });
     });
 
     // Add new stream monitoring events
@@ -186,14 +323,59 @@ function initializeSocket(server) {
       socket.leave(`stream_${data.streamId}`);
       console.log(`Stopped monitoring stream: ${data.streamId}`);
     });
-
-    socket.on('disconnect', () => {
-      console.log('User disconnected:', socket.user.id);
-    });
   });
+
+  // Periodic cleanup of inactive users (5 minutes of inactivity)
+  setInterval(async () => {
+    const inactivityThreshold = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
+    
+    for (const [userId, userData] of activeUsers.entries()) {
+      if (userData.lastActive < inactivityThreshold) {
+        activeUsers.delete(userId);
+        
+        // Update user's status in conversations
+        await Conversation.updateMany(
+          { 'participants': { 
+            $elemMatch: { 
+              id: userId, 
+              model: userData.userModel 
+            } 
+          }},
+          { 
+            $set: { 
+              'participants.$.isOnline': false,
+              'participants.$.lastActive': userData.lastActive
+            } 
+          }
+        );
+
+        // Notify other users
+        const userConversations = await Conversation.find({
+          'participants': {
+            $elemMatch: { 
+              id: userId, 
+              model: userData.userModel 
+            }
+          }
+        });
+
+        userConversations.forEach(conversation => {
+          conversation.participants.forEach(participant => {
+            if (participant.id.toString() !== userId) {
+              io.to(participant.id.toString()).emit('user_status_change', {
+                userId,
+                userModel: userData.userModel,
+                isOnline: false,
+                lastActive: userData.lastActive
+              });
+            }
+          });
+        });
+      }
+    }
+  }, 60000); // Check every minute
 
   return io;
 }
-
 
 module.exports = initializeSocket; 

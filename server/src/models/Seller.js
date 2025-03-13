@@ -117,6 +117,11 @@ const sellerSchema = new mongoose.Schema({
     url: { type: String },
     public_id: { type: String },
   },
+  socialMedia: {
+    instagram: { type: String },
+    facebook: { type: String },
+    tiktok: { type: String }
+  },
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: false },
   otp: { type: String },
@@ -304,20 +309,24 @@ const sellerSchema = new mongoose.Schema({
     refundPolicy: { type: String },
     processingTime: { type: String },
     refundMethod: { 
-      type: String,
-      enum: ['store_credit', 'original_payment', 'bank_transfer', 'both']
+      type: String
+      
     },
     nonRefundableItems: [{ type: String }],
     returnWindow: { 
-      type: Number, // Number of days
+      type: Number,
       default: 14
     },
     returnCondition: { type: String },
     returnShipping: {
-      type: String,
-      enum: ['buyer_paid', 'seller_paid', 'case_by_case']
+      type: String
+     
     },
-    exchangePolicy: { type: String }
+    exchangePolicy: { type: String },
+    allowsCod: {
+      type: Boolean,
+      default: true
+    }
   },
 });
 

@@ -40,7 +40,9 @@ exports.getConversations = async (req, res) => {
             name: 'Unknown User',
             avatar: null,
             location: { country: null, city: null },
-            verified: false
+            verified: false,
+            isOnline: false,
+            lastActive: null
           },
           lastMessage: conversation.lastMessage,
           unreadCount: conversation.unreadCount.get(userId.toString()) || 0,
@@ -64,7 +66,9 @@ exports.getConversations = async (req, res) => {
         },
         verified: otherParticipant.model === 'Buyer' 
           ? !!otherParticipant.id.emailVerified
-          : !!otherParticipant.id.isVerified
+          : !!otherParticipant.id.isVerified,
+        isOnline: otherParticipant.isOnline || false,
+        lastActive: otherParticipant.lastActive || null
       };
 
       return {
@@ -112,7 +116,11 @@ exports.getConversation = async (req, res) => {
 
     // Get conversation with populated participants
     const conversation = await Conversation.findById(conversationId)
-      .populate('participants.id', 'firstName lastName storeName avatarUrl');
+      .populate({
+        path: 'participants.id',
+        refPath: 'participants.model',
+        select: 'firstName lastName profileImage storeName storeAvatar businessName country city emailVerified isVerified'
+      });
 
     if (!conversation) {
       return res.status(404).json({ message: 'Conversation not found' });
@@ -136,10 +144,34 @@ exports.getConversation = async (req, res) => {
       { isRead: true }
     );
 
+    // Format conversation with participant status
+    const formattedConversation = {
+      ...conversation.toObject(),
+      participants: conversation.participants.map(participant => ({
+        ...participant.toObject(),
+        id: {
+          ...participant.id.toObject(),
+          isOnline: participant.isOnline || false,
+          lastActive: participant.lastActive || null
+        }
+      }))
+    };
+
     // Return both conversation details and messages
     res.json({
-      conversation: conversation.toObject(),
-      messages
+      conversation: formattedConversation,
+      messages: messages.map(message => ({
+        ...message.toObject(),
+        sender: {
+          ...message.sender,
+          isOnline: conversation.participants.find(
+            p => p.id._id.toString() === message.sender.id.toString()
+          )?.isOnline || false,
+          lastActive: conversation.participants.find(
+            p => p.id._id.toString() === message.sender.id.toString()
+          )?.lastActive || null
+        }
+      }))
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to get conversation', error: error.message });

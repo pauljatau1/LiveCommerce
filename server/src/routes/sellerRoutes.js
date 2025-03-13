@@ -2747,6 +2747,9 @@ router.post('/special-dates',
  *                 enum: [buyer_paid, seller_paid, case_by_case]
  *               exchangePolicy:
  *                 type: string
+ *               allowsCod:
+ *                 type: boolean
+ *                 description: Whether the seller accepts Cash on Delivery
  *     responses:
  *       200:
  *         description: Store policy updated successfully
@@ -2756,5 +2759,61 @@ router.post('/special-dates',
  *         description: Internal server error
  */
 router.put('/store-policy', authMiddleware.verifyToken, sellerController.updateStorePolicy);
+
+/**
+ * @swagger
+ * /api/seller/social-media:
+ *   put:
+ *     summary: Update seller's social media information
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               instagram:
+ *                 type: string
+ *                 description: Instagram profile URL or username
+ *                 example: "https://instagram.com/mystore"
+ *               facebook:
+ *                 type: string
+ *                 description: Facebook profile URL or username
+ *                 example: "https://facebook.com/mystore"
+ *               tiktok:
+ *                 type: string
+ *                 description: TikTok profile URL or username
+ *                 example: "https://tiktok.com/@mystore"
+ *     responses:
+ *       200:
+ *         description: Social media information updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Social media information updated successfully
+ *                 socialMedia:
+ *                   type: object
+ *                   properties:
+ *                     instagram:
+ *                       type: string
+ *                     facebook:
+ *                       type: string
+ *                     tiktok:
+ *                       type: string
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/social-media', authMiddleware.verifyToken, sellerController.updateSocialMedia);
 
 module.exports = router;

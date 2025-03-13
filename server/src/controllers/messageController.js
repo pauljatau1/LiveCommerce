@@ -3,6 +3,43 @@ const Conversation = require('../models/Conversation');
 const { s3 } = require('../config/awsConfig');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const { createNotification, createBuyerNotification } = require('./notificationController');
+
+// Helper function to create message preview
+const createMessagePreview = (content, messageType) => {
+  if (messageType === 'text') {
+    return content.length > 50 ? `${content.substring(0, 47)}...` : content;
+  } else if (messageType === 'product') {
+    return 'Shared a product';
+  } else {
+    return `Sent ${messageType}`;
+  }
+};
+
+// Helper function to create message notifications
+const createMessageNotifications = async (message, senderName, recipientName) => {
+  try {
+    const messagePreview = createMessagePreview(message.content, message.messageType);
+    
+    // Create notification based on recipient type
+    if (message.recipient.model === 'Seller') {
+      await createNotification(message.recipient.id, 'buyer_message', {
+        buyerName: senderName,
+        messagePreview,
+        conversationId: message.conversation
+      });
+    } else {
+      await createBuyerNotification(message.recipient.id, 'seller_message', {
+        sellerName: senderName,
+        messagePreview,
+        conversationId: message.conversation
+      });
+    }
+  } catch (error) {
+    console.error('Error creating message notification:', error);
+    // Don't throw error to prevent message sending from failing
+  }
+};
 
 // Send text message
 exports.sendTextMessage = async (req, res) => {
@@ -55,6 +92,13 @@ exports.sendTextMessage = async (req, res) => {
     conversation.unreadCount.set(recipientKey, currentCount + 1);
 
     await conversation.save();
+
+    // Create notification
+    const senderName = senderModel === 'Buyer' ? 
+      `${req.user.firstName} ${req.user.lastName}` : 
+      (req.user.businessName || req.user.storeName);
+    
+    await createMessageNotifications(message, senderName);
 
     res.status(201).json({ message });
   } catch (error) {
@@ -158,6 +202,13 @@ exports.sendMediaMessage = async (req, res) => {
     conversation.unreadCount.set(recipientKey, currentCount + 1);
 
     await conversation.save();
+
+    // Create notification
+    const senderName = senderModel === 'Buyer' ? 
+      `${req.user.firstName} ${req.user.lastName}` : 
+      (req.user.businessName || req.user.storeName);
+    
+    await createMessageNotifications(savedMessage, senderName);
 
     res.status(201).json({ 
       message: savedMessage, 
@@ -343,6 +394,13 @@ exports.sendProductMessage = async (req, res) => {
     conversation.unreadCount.set(recipientKey, currentCount + 1);
 
     await conversation.save();
+
+    // Create notification
+    const senderName = senderModel === 'Buyer' ? 
+      `${req.user.firstName} ${req.user.lastName}` : 
+      (req.user.businessName || req.user.storeName);
+    
+    await createMessageNotifications(message, senderName);
 
     res.status(201).json({ message });
   } catch (error) {

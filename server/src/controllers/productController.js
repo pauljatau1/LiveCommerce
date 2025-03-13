@@ -363,10 +363,10 @@ exports.getAllProducts = async (req, res) => {
       visibility = 'visible'
     } = req.query;
 
-    // Build query - start with an empty object to get all products if no filters
-    let query = {};
+    // Build query - start with base query that excludes offline_auction products
+    let query = { status: { $ne: 'offline_auction' } };
 
-    // Only add filters if they're specifically provided in the query
+    // Only add additional status filter if specifically provided in the query
     if (req.query.status) {
       query.status = status;
     }
@@ -1022,7 +1022,11 @@ exports.deepSearchProducts = async (req, res) => {
 // Get just arrived products
 exports.getJustArrivedProducts = async (req, res) => {
   try {
-    const products = await Product.find({ status: 'active', visibility: 'visible' })
+    const products = await Product.find({ 
+      status: 'active', 
+      visibility: 'visible',
+      status: { $ne: 'offline_auction' }
+    })
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('seller', sellerPopulationFields);
@@ -1112,7 +1116,11 @@ exports.getBuyerFeedProducts = async (req, res) => {
 // Get trending products based on review count and ratings
 exports.getTrendingProducts = async (req, res) => {
   try {
-    const products = await Product.find({ status: 'active', visibility: 'visible' })
+    const products = await Product.find({ 
+      status: 'active', 
+      visibility: 'visible',
+      status: { $ne: 'offline_auction' }
+    })
       .sort({ 'analytics.views': -1, 'analytics.likes': -1 })
       .limit(10)
       .populate('seller', sellerPopulationFields);
@@ -1318,6 +1326,26 @@ exports.getAllBlips = async (req, res) => {
           price: '$price',
           // Include stock information
           stock: '$stock',
+          // Include product status
+          status: '$status',
+          // Include auction information if it's an offline auction
+          auctionInfo: {
+            $cond: {
+              if: { $eq: ['$status', 'offline_auction'] },
+              then: {
+                minBid: '$auction.minBid',
+                maxBid: '$auction.maxBid',
+                endOnMaxBid: '$auction.endOnMaxBid',
+                startDate: '$auction.startDate',
+                endDate: '$auction.endDate',
+                status: '$auction.status',
+                daysLeft: '$auction.daysLeft',
+                currentHighestBid: '$auction.currentHighestBid',
+                winner: '$auction.winner'
+              },
+              else: null
+            }
+          },
           // Include discount information
           discount: {
             isActive: '$discount.isActive',
@@ -1352,7 +1380,7 @@ exports.getAllBlips = async (req, res) => {
             totalStoreReviews: '$sellerInfo.stats.totalReviews',
             // Include followers array for later processing
             followers: '$sellerInfo.followers',
-            isFeatured: '$sellerInfo.isFeatured' // Add this line to include the isFeatured field
+            isFeatured: '$sellerInfo.isFeatured'
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -1422,7 +1450,7 @@ exports.getAllBlips = async (req, res) => {
         seller: {
           ...sellerRest,
           isFollowing,
-          isFeatured: seller.isFeatured || false // Add the isFeatured property
+          isFeatured: seller.isFeatured || false
         }
       };
     });
@@ -1542,6 +1570,26 @@ exports.getSellerBlips = async (req, res) => {
           price: '$price',
           // Include stock information
           stock: '$stock',
+          // Include product status
+          status: '$status',
+          // Include auction information if it's an offline auction
+          auctionInfo: {
+            $cond: {
+              if: { $eq: ['$status', 'offline_auction'] },
+              then: {
+                minBid: '$auction.minBid',
+                maxBid: '$auction.maxBid',
+                endOnMaxBid: '$auction.endOnMaxBid',
+                startDate: '$auction.startDate',
+                endDate: '$auction.endDate',
+                status: '$auction.status',
+                daysLeft: '$auction.daysLeft',
+                currentHighestBid: '$auction.currentHighestBid',
+                winner: '$auction.winner'
+              },
+              else: null
+            }
+          },
           // Include discount information
           discount: {
             isActive: '$discount.isActive',
@@ -1575,7 +1623,7 @@ exports.getSellerBlips = async (req, res) => {
             storeRating: seller.stats ? seller.stats.averageRating : 0,
             totalStoreReviews: seller.stats ? seller.stats.totalReviews : 0,
             isFollowing: isFollowing,
-            isFeatured: seller.isFeatured // Add this line to include the isFeatured field
+            isFeatured: seller.isFeatured
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -1670,10 +1718,19 @@ exports.getSellerProducts = async (req, res) => {
       sortBy = 'newest' 
     } = req.query;
 
-    // Build query
-    const query = { seller: sellerId };
-    if (status) query.status = status;
-    if (visibility) query.visibility = visibility;
+    // Build query with base condition to exclude offline_auction products
+    const query = { 
+      seller: sellerId,
+      status: { $ne: 'offline_auction' }
+    };
+    
+    // Add additional status filter if provided
+    if (status) {
+      query.status = status;
+    }
+    if (visibility) {
+      query.visibility = visibility;
+    }
 
     // Build sort options
     let sortOptions = {};
@@ -2497,7 +2554,8 @@ exports.getPersonalizedProducts = async (req, res) => {
     const baseQuery = {
       status: 'active',
       visibility: 'visible',
-      stock: { $gt: 0 }
+      stock: { $gt: 0 },
+      status: { $ne: 'offline_auction' }
     };
 
     // Build category-specific query
