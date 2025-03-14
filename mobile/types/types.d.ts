@@ -19,7 +19,7 @@ type SelectedCategory = {
   }[];
 };
 
-export type SelectedCategoriesRequest = {
+export type SelectedCategoriesRequest = {ty
   selectedCategories: SelectedCategory[];
 };
 

@@ -26,7 +26,7 @@ const LiveCardTemp = ({ item, showBtn, showLive }: any) => {
         </View>
       </View>
       {/* Main Product Image */}
-      <View className="relative bg-black h-[240px] rounded-lg ">
+      <View className="relative bg-black h-[240px] w-[160px] rounded-lg ">
         <View className="absolute top-2 left-2">
           <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
             <Text className="text-white text-[10px] font-LexendDeca">
