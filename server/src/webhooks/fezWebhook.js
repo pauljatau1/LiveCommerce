@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const Order = mongoose.model('Order');
+const Message = mongoose.model('Message');
+const Conversation = mongoose.model('Conversation');
 const notificationController = require('../controllers/notificationController');
 const sgMail = require('@sendgrid/mail');
 
@@ -90,6 +92,9 @@ const handleOrderStatusUpdate = async (webhookData) => {
 
     // Send notifications based on status
     await sendStatusNotifications(order, internalStatus, webhookData);
+
+    // Find and update existing order messages
+    await updateOrderMessages(order, internalStatus, statusDescription);
 
     console.log(`Order ${order.order_id} updated with status: ${internalStatus}`);
     return true;
@@ -350,6 +355,62 @@ const sendStatusEmails = async (order, status, webhookData) => {
     console.log(`Status emails sent for order ${order.order_id} with status ${status}`);
   } catch (error) {
     console.error('Error sending status emails:', error);
+  }
+};
+
+/**
+ * Update existing order messages with new tracking status
+ */
+const updateOrderMessages = async (order, status, statusDescription) => {
+  try {
+    console.log('Updating order messages with new tracking status:', {
+      orderId: order._id,
+      status: status
+    });
+
+    // Find all messages that reference this order
+    const messages = await Message.find({
+      'order.id': order._id,
+      messageType: 'order'
+    });
+
+    if (!messages.length) {
+      console.log('No existing messages found for order:', order._id);
+      return;
+    }
+
+    console.log(`Found ${messages.length} messages to update`);
+
+    // Update each message with the new tracking status
+    const updatePromises = messages.map(async (message) => {
+      // Update tracking information
+      message.order.tracking = {
+        number: order.shipping.tracking.number,
+        url: order.shipping.tracking.url,
+        carrier: order.shipping.tracking.carrier,
+        status: status
+      };
+
+      // Add a note about the status update
+      message.content = message.content || '';
+      if (!message.content.includes(statusDescription)) {
+        message.content = `${message.content}\n[${new Date().toLocaleString()}] ${statusDescription}`;
+      }
+
+      await message.save();
+
+      // Update the conversation's last message if this was the last message
+      const conversation = await Conversation.findById(message.conversation);
+      if (conversation && conversation.lastMessage?.messageType === 'order') {
+        conversation.lastMessage.content = message.content;
+        await conversation.save();
+      }
+    });
+
+    await Promise.all(updatePromises);
+    console.log('Successfully updated all order messages');
+  } catch (error) {
+    console.error('Error updating order messages:', error);
   }
 };
 

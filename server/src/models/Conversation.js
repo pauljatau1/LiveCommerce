@@ -19,6 +19,24 @@ const conversationSchema = new mongoose.Schema({
     isOnline: {
       type: Boolean,
       default: false
+    },
+    settings: {
+      isBlocked: {
+        type: Boolean,
+        default: false
+      },
+      isMuted: {
+        type: Boolean,
+        default: false
+      },
+      blockedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null
+      },
+      mutedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null
+      }
     }
   }],
   lastMessage: {
@@ -29,7 +47,7 @@ const conversationSchema = new mongoose.Schema({
     },
     messageType: { 
       type: String, 
-      enum: ['text', 'image', 'video', 'audio', 'product'] 
+      enum: ['text', 'image', 'video', 'audio', 'product', 'order']
     },
     createdAt: { type: Date }
   },

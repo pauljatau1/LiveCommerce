@@ -7,6 +7,25 @@ const authMiddleware = require('../middlewares/authMiddleware');
  * @swagger
  * components:
  *   schemas:
+ *     ChatSettings:
+ *       type: object
+ *       properties:
+ *         isBlocked:
+ *           type: boolean
+ *           description: Whether the conversation is blocked
+ *         isMuted:
+ *           type: boolean
+ *           description: Whether notifications are muted for this conversation
+ *         blockedBy:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *           description: ID of the user who blocked the conversation
+ *         mutedBy:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *           description: ID of the user who muted the conversation
  *     Participant:
  *       type: object
  *       properties:
@@ -39,6 +58,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *           format: date-time
  *           nullable: true
  *           description: Timestamp of when the participant was last active
+ *         settings:
+ *           $ref: '#/components/schemas/ChatSettings'
  *     LastMessage:
  *       type: object
  *       properties:
@@ -54,7 +75,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *               enum: [Buyer, Seller]
  *         messageType:
  *           type: string
- *           enum: [text, image, video, audio, product]
+ *           enum: [text, image, video, audio, product, order]
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -70,6 +91,8 @@ const authMiddleware = require('../middlewares/authMiddleware');
  *         unreadCount:
  *           type: integer
  *           minimum: 0
+ *         settings:
+ *           $ref: '#/components/schemas/ChatSettings'
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -177,54 +200,26 @@ router.get('/', authMiddleware.verifyToken, conversationController.getConversati
  *               type: object
  *               properties:
  *                 conversation:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                     participants:
- *                       type: array
- *                       items:
- *                         allOf:
- *                           - $ref: '#/components/schemas/Participant'
- *                           - type: object
- *                             properties:
- *                               id:
- *                                 type: object
- *                                 properties:
- *                                   _id:
- *                                     type: string
- *                                   firstName:
- *                                     type: string
- *                                   lastName:
- *                                     type: string
- *                                   storeName:
- *                                     type: string
- *                                   profileImage:
- *                                     type: object
- *                                     properties:
- *                                       url:
- *                                         type: string
- *                                   storeAvatar:
- *                                     type: object
- *                                     properties:
- *                                       url:
- *                                         type: string
- *                     lastMessage:
- *                       $ref: '#/components/schemas/LastMessage'
- *                     unreadCount:
- *                       type: object
- *                       additionalProperties:
- *                         type: integer
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                     updatedAt:
- *                       type: string
- *                       format: date-time
+ *                   $ref: '#/components/schemas/Conversation'
  *                 messages:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Message'
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       content:
+ *                         type: string
+ *                       messageType:
+ *                         type: string
+ *                         enum: [text, image, video, audio, product, order]
+ *                       sender:
+ *                         $ref: '#/components/schemas/Participant'
+ *                       isRead:
+ *                         type: boolean
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
  *       404:
  *         description: Conversation not found
  *       500:
@@ -256,11 +251,148 @@ router.get('/:conversationId', authMiddleware.verifyToken, conversationControlle
  *               properties:
  *                 message:
  *                   type: string
+ *                   example: Conversation marked as read
  *       404:
  *         description: Conversation not found
  *       500:
  *         description: Server error
  */
 router.put('/:conversationId/read', authMiddleware.verifyToken, conversationController.markConversationAsRead);
+
+/**
+ * @swagger
+ * /api/conversations/{conversationId}/block:
+ *   put:
+ *     summary: Block a user in a conversation
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User blocked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: User blocked successfully
+ *                 settings:
+ *                   $ref: '#/components/schemas/ChatSettings'
+ *       404:
+ *         description: Conversation or participant not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:conversationId/block', authMiddleware.verifyToken, conversationController.blockUser);
+
+/**
+ * @swagger
+ * /api/conversations/{conversationId}/unblock:
+ *   put:
+ *     summary: Unblock a user in a conversation
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User unblocked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: User unblocked successfully
+ *                 settings:
+ *                   $ref: '#/components/schemas/ChatSettings'
+ *       404:
+ *         description: Conversation or participant not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:conversationId/unblock', authMiddleware.verifyToken, conversationController.unblockUser);
+
+/**
+ * @swagger
+ * /api/conversations/{conversationId}/mute:
+ *   put:
+ *     summary: Mute notifications for a conversation
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversation muted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Conversation muted successfully
+ *                 settings:
+ *                   $ref: '#/components/schemas/ChatSettings'
+ *       404:
+ *         description: Conversation or participant not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:conversationId/mute', authMiddleware.verifyToken, conversationController.muteConversation);
+
+/**
+ * @swagger
+ * /api/conversations/{conversationId}/unmute:
+ *   put:
+ *     summary: Unmute notifications for a conversation
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversation unmuted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Conversation unmuted successfully
+ *                 settings:
+ *                   $ref: '#/components/schemas/ChatSettings'
+ *       404:
+ *         description: Conversation or participant not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:conversationId/unmute', authMiddleware.verifyToken, conversationController.unmuteConversation);
 
 module.exports = router;
