@@ -120,6 +120,26 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
         }
       }
       
+      // Function to mute/unmute all audio tracks
+      window.toggleAudioMute = function(mute) {
+        try {
+          Object.values(remoteUsers).forEach(user => {
+            if (user.audioTrack) {
+              if (mute) {
+                user.audioTrack.setVolume(0);
+                window.ReactNativeWebView.postMessage("audio_muted:" + user.uid);
+              } else {
+                user.audioTrack.setVolume(100);
+                window.ReactNativeWebView.postMessage("audio_unmuted:" + user.uid);
+              }
+            }
+          });
+          window.ReactNativeWebView.postMessage(mute ? "all_audio_muted" : "all_audio_unmuted");
+        } catch (err) {
+          window.ReactNativeWebView.postMessage("error:toggle_mute:" + err.message);
+        }
+      }
+      
       // Start everything
       joinAsAudience();
     </script>

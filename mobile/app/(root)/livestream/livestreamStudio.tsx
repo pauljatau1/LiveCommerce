@@ -44,12 +44,15 @@ const LivestreamStudio = () => {
         username: '@username',
         avatar: require('@/assets/icons/animoji.png')
     });
+    const [viewerCount, setViewerCount] = useState<number>(0);
+    const [isMuted, setIsMuted] = useState<boolean>(false);
+    const webViewRef = useRef<WebView>(null);
 
     // Bottom sheet state for product preview and checkout
     const [showProductPreview, setShowProductPreview] = useState(false);
     const [showCheckout, setShowCheckout] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    
+
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
         id: string;
@@ -238,6 +241,15 @@ const LivestreamStudio = () => {
                 }
             }
 
+            // Set initial viewer count if available
+            if (streamDetails?.stream) {
+                const streamData = streamDetails.stream as any;
+                if (typeof streamData.viewerCount === 'number') {
+                    setViewerCount(streamData.viewerCount);
+                } else if (Array.isArray(streamData.viewers)) {
+                    setViewerCount(streamData.viewers.length);
+                }
+            }
 
             setStreamConfig({
                 appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || '',
@@ -299,6 +311,10 @@ const LivestreamStudio = () => {
                 console.log('User joined stream:', notification.user);
                 // Update UI to show join event
                 setLiveComments(prev => [...prev, notification]);
+                // Update viewer count if available in notification data
+                if (notification.data && 'viewerCount' in notification.data) {
+                    setViewerCount(notification.data.viewerCount as number);
+                }
                 break;
 
             case 'comment':
@@ -360,6 +376,12 @@ const LivestreamStudio = () => {
                 const state = parts[1];
                 setStatus(`Connection: ${state}`);
             }
+        } else if (message === 'all_audio_muted') {
+            console.log('Audio muted successfully');
+        } else if (message === 'all_audio_unmuted') {
+            console.log('Audio unmuted successfully');
+        } else if (message.startsWith('audio_muted:') || message.startsWith('audio_unmuted:')) {
+            console.log(message);
         } else {
             setStatus(message);
         }
@@ -369,6 +391,23 @@ const LivestreamStudio = () => {
         // Implement share functionality
         console.log('Share stream');
     };
+
+    // Toggle audio mute/unmute
+    const toggleMute = useCallback(() => {
+        const newMuteState = !isMuted;
+        setIsMuted(newMuteState);
+        
+        // Send message to WebView to handle audio muting
+        if (webViewRef.current) {
+            const message = newMuteState ? 'mute_audio' : 'unmute_audio';
+            webViewRef.current.injectJavaScript(`
+                if (window.toggleAudioMute) {
+                    window.toggleAudioMute(${newMuteState});
+                    true;
+                }
+            `);
+        }
+    }, [isMuted]);
 
     // Product buy handler
     const handleBuyNow = (product: Product) => {
@@ -560,8 +599,8 @@ const LivestreamStudio = () => {
 
         return {
             ...styles.commentsContainer,
-            bottom: keyboardVisibleRef.current 
-                ? keyboardHeightRef.current + KEYBOARD_OFFSET 
+            bottom: keyboardVisibleRef.current
+                ? keyboardHeightRef.current + KEYBOARD_OFFSET
                 : DEFAULT_BOTTOM
         };
     }, []);
@@ -572,8 +611,8 @@ const LivestreamStudio = () => {
 
         return {
             ...styles.rightActionsContainer,
-            bottom: keyboardVisibleRef.current 
-                ? keyboardHeightRef.current + KEYBOARD_OFFSET 
+            bottom: keyboardVisibleRef.current
+                ? keyboardHeightRef.current + KEYBOARD_OFFSET
                 : DEFAULT_BOTTOM
         };
     }, []);
@@ -584,8 +623,8 @@ const LivestreamStudio = () => {
 
         return {
             ...styles.commentInputContainer,
-            bottom: keyboardVisibleRef.current 
-                ? keyboardHeightRef.current - 15 
+            bottom: keyboardVisibleRef.current
+                ? keyboardHeightRef.current - 15
                 : DEFAULT_BOTTOM
         };
     }, []);
@@ -616,6 +655,7 @@ const LivestreamStudio = () => {
                     {streamConfig ? (
                         <>
                             <WebView
+                                ref={webViewRef}
                                 source={{
                                     html: streamEngine(
                                         streamConfig?.appId || '',
@@ -630,7 +670,6 @@ const LivestreamStudio = () => {
                                 allowsInlineMediaPlayback={true}
                                 mediaPlaybackRequiresUserAction={false}
                                 originWhitelist={['*']}
-                                debuggingEnabled={true}
                             />
 
                             {/* Show play loader while video is loading */}
@@ -656,19 +695,41 @@ const LivestreamStudio = () => {
                 {shouldShowUI && (
                     <SafeAreaView style={{ flex: 1, marginTop: Platform.OS === 'ios' ? 16 : 14 }}>
                         <View className={`flex-row justify-between items-center px-4`}>
-                            <View className="flex-row items-center gap-2">
-                                <Image
-                                    source={storeInfo.avatar}
-                                    className="w-10 h-10 rounded-full"
-                                />
-                                <View>
-                                    <Text className="text-white font-LexendDecaMedium text-base">{storeInfo.name}</Text>
-                                    <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
+                            <View className="flex-row items-center gap-4 ">
+                                <View className="flex-row items-center gap-2">
+                                    <Image
+                                        source={storeInfo.avatar}
+                                        className="w-10 h-10 rounded-full"
+                                    />
+                                    <View>
+                                        <Text className="text-white font-LexendDecaMedium text-base">{storeInfo.name}</Text>
+                                        <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
+                                    </View>
                                 </View>
+                                <TouchableOpacity className="bg-[#16783A] h-full px-4 py-1 rounded-md">
+                                    <Text className="text-white text-sm">Follow</Text>
+                                </TouchableOpacity>
                             </View>
-                            <TouchableOpacity className="bg-[#FF3B3B] px-4 py-1 rounded-full">
-                                <Text className="text-white text-sm">LIVE</Text>
-                            </TouchableOpacity>
+                            <View className="flex-row items-center gap-2">
+                                <View className="flex-row items-cente px-3 py-2 rounded-full">
+                                    <Ionicons name="eye-outline" size={20} color="#FFF" />
+                                    <Text className="text-white ml-1 font-LexendDecaMedium ">
+                                        {viewerCount > 999 
+                                            ? `${(viewerCount / 1000).toFixed(1)}K` 
+                                            : viewerCount}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity 
+                                    onPress={toggleMute}
+                                    className=" p-2 rounded-full"
+                                >
+                                    {isMuted ? (
+                                        <Ionicons name="volume-mute-outline" size={20} color="#FFF" />
+                                    ) : (
+                                        <Ionicons name="volume-medium-outline" size={20} color="#FFF" />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </SafeAreaView>
                 )}
@@ -676,7 +737,7 @@ const LivestreamStudio = () => {
                 <View>
                     {/* Right Side Actions - Only show when video is playing */}
                     {shouldShowUI && !keyboardVisibleRef.current && (
-                        <ScrollView style={getRightActionsStyle()}>
+                        <ScrollView showsVerticalScrollIndicator={false} style={getRightActionsStyle()}>
                             <View style={styles.actionItem}>
                                 <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
                                     <SimpleLineIcons name="share-alt" size={24} color="white" />
@@ -818,8 +879,8 @@ const LivestreamStudio = () => {
                     <CheckoutNow
                         productId={selectedProduct._id}
                         closeSheet={() => setShowCheckout(false)}
-                        sellerId={(selectedProduct.seller as any)?._id || 
-                                  (activeStreamDetails?.stream?.seller?._id || '')}
+                        sellerId={(selectedProduct.seller as any)?._id ||
+                            (activeStreamDetails?.stream?.seller?._id || '')}
                         channel="liveshow"
                     />
                 )}
