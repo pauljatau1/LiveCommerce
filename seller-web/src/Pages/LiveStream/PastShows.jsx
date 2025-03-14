@@ -63,6 +63,7 @@ const PastShows = () => {
                     thumbnailImage={item?.coverImage}
                     tags={item?.tags}
                     startTime={item?.scheduledStartTime}
+                    blip={item?.video}
                     isLiveStatus={item.status}
                     category={item?.category}
                     location={sellerInfo?.businessAddress}

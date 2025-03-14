@@ -62,12 +62,12 @@ const ScheduleShows = () => {
                     streamerImage={sellerInfo?.storeAvatar?.url}
                     streamTitle={item?.title}
                     thumbnailImage={item?.coverImage}
+                    blip={item?.video}
                     tags={item?.tags}
                     startTime={item?.scheduledStartTime}
                     isLiveStatus={item.status}
                     category={item?.category}
                     location={sellerInfo?.businessAddress}
-                    livestream={DraftCoverPhoto}
                     id={item?._id}
                   />
                 ))

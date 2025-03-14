@@ -3,39 +3,75 @@ import { Icon } from "@iconify/react";
 import { BASE_URL } from '../../Constants/Server';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
-import { Autocomplete, TextField, Chip } from '@mui/material';
+import { Autocomplete, TextField, Chip, Switch } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSellerProducts } from '../../Redux/Slices/ProductSlice';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
-import { NavLink, useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
-import Header from "../../Components/ui/Header/Header";
 import CreateAuctionIcon from '../../assets/Upload icon.png';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
+import dayjs from 'dayjs';
 
 const CreateLiveAuction = () => {
   const { setHeaderName, setNavName } = useOutletContext()
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
-  const { products, isLoading, message } = useSelector((state) => state.product);
-  const [loading, setLoading] = useState(false);
-  const [selectedProducts, setSelectedProducts] = useState([]);
+  const { products, message } = useSelector((state) => state.product);
   const [dragActive, setDragActive] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [productQuantities, setProductQuantities] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Date and time picker states
+  const [startDate, setStartDate] = useState(dayjs());
+  const [startTime, setStartTime] = useState(dayjs());
+  const [startImmediately, setStartImmediately] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+
+  // Blips related state
+  const [videos, setVideos] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     setHeaderName('Live Streams')
     setNavName('Create Live Auction')
-  }, [])
+  }, [setHeaderName, setNavName])
 
   const MAX_CHARS = 250;
 
   const inputRef = useRef(null);
+  const videoInputRef = useRef(null);
+
+  // Update the scheduled start time in context whenever date, time, or startImmediately changes
+  useEffect(() => {
+    const getScheduledStartTime = () => {
+      if (startImmediately) {
+        return new Date().toISOString();
+      } else {
+        // Combine date and time
+        const dateObj = startDate.toDate();
+        const timeObj = startTime.toDate();
+
+        dateObj.setHours(timeObj.getHours());
+        dateObj.setMinutes(timeObj.getMinutes());
+
+        return dateObj.toISOString();
+      }
+    };
+
+    livestreamDispatch({
+      type: 'SET_LIVESTREAM_DATA',
+      payload: { scheduledStartTime: getScheduledStartTime() }
+    });
+  }, [startDate, startTime, startImmediately, livestreamDispatch]);
 
   // Predefined tags
   const availableTags = [
@@ -76,9 +112,7 @@ const CreateLiveAuction = () => {
         }
       });
     }
-  }, [message])
-
-  console.log('filteredProducts', filteredProducts);
+  }, [message, products, livestreamDispatch])
 
   // Initialize tags if they're undefined
   useEffect(() => {
@@ -88,11 +122,11 @@ const CreateLiveAuction = () => {
         payload: { tags: [] }
       });
     }
-  }, []);
+  }, [livestream?.tags, livestreamDispatch]);
 
   useEffect(() => {
     const fetchCategories = async () => {
-      setLoading(true);
+      setIsLoading(true);
       try {
         const response = await axios.get(`${BASE_URL}/public/categories`);
         if (response.status === 200) {
@@ -102,35 +136,11 @@ const CreateLiveAuction = () => {
         console.error(error);
         toast.error('Failed to fetch categories');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     }
     fetchCategories();
   }, []);
-
-  const handleOnChange = (e, productId) => {
-    const { name, value } = e.target;
-    setProductQuantities(prev => ({ ...prev, [productId]: value }));
-  }
-
-  // Sample data
-  const sampleProducts = [
-    {
-      id: 1,
-      name: "Men's Male Shoe",
-      category: "Footwear",
-      image: "/path/to/shoe-image.jpg",
-      sku: "SHOE001",
-    },
-    {
-      id: 2,
-      name: "Men's Male Shoe",
-      category: "Footwear",
-      image: "/path/to/shoe-image.jpg",
-      sku: "SHOE002",
-    },
-    // Add more sample products as needed
-  ];
 
   // Handle drag events
   const handleDrag = (e) => {
@@ -163,14 +173,55 @@ const CreateLiveAuction = () => {
   };
 
   // Handle both selected and dropped files
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     // Add file type validation here
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
     if (!validTypes.includes(file.type)) {
-      alert('Please upload a valid file type (JPEG, PNG, GIF, MP4)');
+      toast.error('Invalid file type', {
+        description: 'Please upload a valid file type (JPEG, PNG, GIF, MP4)',
+        style: {
+          background: '#05031F',
+          color: '#fff',
+        }
+      });
       return;
     }
-    livestreamDispatch({ type: 'SET_LIVESTREAM_DATA', payload: { coverPhoto: file } });
+
+    try {
+      // Convert file to base64 before dispatching
+      const convertBlobToBase64 = (blob) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      };
+      
+      // Process image to base64
+      const base64 = await convertBlobToBase64(file);
+      
+      // Update the livestream context with the processed image data
+      livestreamDispatch({ 
+        type: 'SET_LIVESTREAM_DATA', 
+        payload: { 
+          coverPhoto: {
+            file: file, // Keep the file for preview
+            data: base64,
+            contentType: file.type
+          } 
+        } 
+      });
+    } catch (error) {
+      console.error('Image processing failed:', error);
+      toast.error('Failed to process image', {
+        description: "There was an error processing your image",
+        style: {
+          background: '#05031F',
+          color: '#fff',
+        }
+      });
+    }
   };
 
   // Handle button click
@@ -186,8 +237,129 @@ const CreateLiveAuction = () => {
     }
   };
 
+  // Handle video upload for blips
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      toast.error('Please upload a video file', {
+        description: "Upload a video file for your blip",
+        style: {
+          background: '#17171B',
+          color: '#fff',
+        }
+      });
+      return;
+    }
+
+    const maxSize = 60 * 1024 * 1024; // 60MB
+    if (file.size > maxSize) {
+      toast.error('Video must be less than 60MB', {
+        description: "Please upload a smaller video file",
+        style: {
+          background: '#17171B',
+          color: '#fff',
+        }
+      });
+      return;
+    }
+
+    // Add duration check
+    try {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+
+      const duration = await new Promise((resolve, reject) => {
+        video.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(video.src);
+          resolve(video.duration);
+        };
+        video.onerror = () => reject("Invalid video file");
+        video.src = URL.createObjectURL(file);
+      });
+
+      if (duration > 30) {
+        toast.error('Video must be less than 30 seconds', {
+          description: "Please upload a shorter video for better viewer engagement",
+          style: {
+            background: '#17171B',
+            color: '#fff',
+          }
+        });
+        return;
+      }
+
+      setIsUploading(true);
+      setUploadProgress(0);
+      setSelectedFile(file);
+
+      // Simulate upload progress
+      await simulateUpload(
+        file,
+        (progress) => setUploadProgress(progress)
+      );
+
+      const videoUrl = URL.createObjectURL(file);
+      setVideos([{ url: videoUrl, file }]);
+
+      // Convert file to base64 before dispatching
+      const convertBlobToBase64 = (blob) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      };
+
+      const base64Data = await convertBlobToBase64(file);
+
+      livestreamDispatch({
+        type: 'SET_LIVESTREAM_DATA',
+        payload: {
+          video: {
+            data: base64Data,
+            contentType: file.type
+          }
+        }
+      });
+
+      setIsUploading(false);
+      setUploadProgress(0);
+    } catch (error) {
+      console.error('Error processing video:', error);
+      toast.error('Error processing video', {
+        description: error.message || "Please try again with a different video",
+        style: {
+          background: '#17171B',
+          color: '#fff',
+        }
+      });
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Simulate upload progress (temporary function before implementing actual upload)
+  const simulateUpload = (file, onProgress) => {
+    return new Promise((resolve) => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 5;
+        onProgress(progress);
+
+        if (progress >= 100) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 200);
+    });
+  };
+
   const handleContinue = () => {
-    if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.products.some(product => product.selected)) {
+    if (livestream?.title && livestream?.description && livestream?.category && livestream?.tags.length > 0 && livestream?.coverPhoto && livestream?.products.some(product => product.selected) && livestream?.scheduledStartTime) {
       navigate('/dashboard/live-streams/submit-live-auction');
     } else {
       toast.error('Please fill all fields', {
@@ -245,6 +417,298 @@ const CreateLiveAuction = () => {
           />
         </div>
 
+        {/* Schedule Live Section */}
+        <div className="space-y-4">
+          <h2 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Schedule Live</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 max-w-[800px] gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 block">
+                Start Date <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                {/* Custom clickable button to open the date picker */}
+                <button
+                  type="button"
+                  onClick={() => !startImmediately && setDatePickerOpen(true)}
+                  className={`w-full relative text-left pl-10 pr-4 py-2 border border-gray-300 rounded-lg cursor-pointer`}
+                  disabled={startImmediately}
+                >
+                  <div className={`absolute left-0 top-1/2 transform -translate-y-1/2 flex rounded-tl-lg rounded-bl-lg items-center w-fit px-2 py-1 h-full justify-between ${startImmediately ? 'bg-gray-100 cursor-not-allowed' : 'bg-[#E9FCEF] hover:bg-[#D9F7E5]'}`}>
+                    <span className="">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </span>
+                  </div>
+                  <span className="block truncate text-sm">
+                    {startImmediately ? "Current Date" : startDate.format('DD MMM YYYY')}
+                  </span>
+                </button>
+
+                {/* Date picker that appears below the button when open */}
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    open={datePickerOpen}
+                    onOpen={() => setDatePickerOpen(true)}
+                    onClose={() => setDatePickerOpen(false)}
+                    disabled={startImmediately}
+                    value={startDate}
+                    onChange={(newDate) => {
+                      setStartDate(newDate);
+                    }}
+                    slotProps={{
+                      popper: {
+                        disablePortal: true,
+                        placement: 'left-start',
+                        sx: {
+                          position: 'absolute !important',
+                          zIndex: 9999,
+                          '& .MuiPaper-root': {
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                            borderRadius: '0.5rem',
+                          },
+                          '& .MuiPickersDay-root.Mui-selected': {
+                            backgroundColor: '#0BB248',
+                          },
+                          '& .MuiButton-root': {
+                            color: '#0BB248',
+                          },
+                          '& .MuiPickersCalendarHeader-switchViewButton': {
+                            color: '#0BB248',
+                          },
+                          '& .MuiPickersYear-yearButton.Mui-selected': {
+                            backgroundColor: '#0BB248',
+                          },
+                          '& .MuiPickersYear-yearButton.Mui-selected:hover': {
+                            backgroundColor: '#0AA240',
+                          },
+                          '& .MuiPickersMonth-monthButton.Mui-selected': {
+                            backgroundColor: '#0BB248',
+                          },
+                          '& .MuiPickersMonth-monthButton.Mui-selected:hover': {
+                            backgroundColor: '#0AA240',
+                          }
+                        }
+                      },
+                      day: {
+                        sx: {
+                          '&.Mui-selected': {
+                            backgroundColor: '#0BB248 !important',
+                            color: 'white',
+                          },
+                          '&:hover': {
+                            backgroundColor: 'rgba(11, 178, 72, 0.1) !important',
+                          },
+                        },
+                      },
+                      textField: {
+                        // This is just for the hidden field
+                        sx: {
+                          position: 'absolute',
+                          width: 0,
+                          height: 0,
+                          overflow: 'hidden'
+                        }
+                      },
+                      actionBar: {
+                        sx: {
+                          '& .MuiButton-root': {
+                            color: '#0BB248',
+                          }
+                        }
+                      }
+                    }}
+                    disablePast
+                  />
+                </LocalizationProvider>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 block">
+                Start Time <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                {/* Custom clickable button to open the time picker */}
+                <button
+                  type="button"
+                  onClick={() => !startImmediately && setTimePickerOpen(true)}
+                  className={`w-full relative text-left pl-10 pr-4 py-2 border border-gray-300 rounded-lg cursor-pointer`}
+                  disabled={startImmediately}
+                >
+                  <div className={`absolute left-0 top-1/2 transform -translate-y-1/2 flex rounded-tl-lg rounded-bl-lg items-center w-fit px-2 py-1 h-full justify-between ${startImmediately ? 'bg-gray-100 cursor-not-allowed' : 'bg-[#E9FCEF] hover:bg-[#D9F7E5]'}`}>
+                    <span className="">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                  </div>
+                  <span className="block truncate text-sm">
+                    {startImmediately ? "Current Time" : startTime.format('HH:mm')}
+                  </span>
+                </button>
+
+                {/* Time picker that appears below the button when open */}
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <TimePicker
+                    open={timePickerOpen}
+                    onOpen={() => setTimePickerOpen(true)}
+                    onClose={() => setTimePickerOpen(false)}
+                    disabled={startImmediately}
+                    value={startTime}
+                    onChange={(newTime) => {
+                      setStartTime(newTime);
+                    }}
+                    format="HH:mm"
+                    viewRenderers={{
+                      hours: renderTimeViewClock,
+                      minutes: renderTimeViewClock,
+                      seconds: renderTimeViewClock,
+                    }}
+                    slotProps={{
+                      popper: {
+                        disablePortal: true,
+                        placement: 'left-start',
+                        sx: {
+                          position: 'absolute !important',
+                          zIndex: 9999,
+                          '& .MuiPaper-root': {
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                            borderRadius: '0.5rem',
+                          },
+                          '& .MuiButtonBase-root.MuiIconButton-root:hover': {
+                            backgroundColor: 'rgba(11, 178, 72, 0.04)',
+                          },
+                          '& .MuiClock-pin': {
+                            backgroundColor: '#0BB248',
+                          },
+                          '& .MuiClockPointer-root': {
+                            backgroundColor: '#0BB248',
+                          },
+                          '& .MuiClockPointer-thumb': {
+                            backgroundColor: '#0BB248',
+                            borderColor: '#0BB248',
+                          },
+                          '& .MuiButton-root': {
+                            color: '#0BB248',
+                          },
+                          '& .MuiPickersDigitalClockClockNumber-root.Mui-selected': {
+                            backgroundColor: '#0BB248',
+                          },
+                          // Add direct styling for the AM/PM buttons
+                          '& [role="toolbar"] button': {
+                            '&[aria-pressed="true"]': {
+                              backgroundColor: '#0BB248 !important',
+                              color: 'white !important',
+                            }
+                          },
+                          // More specific selectors for the AM/PM segment
+                          '& .MuiPickersToolbar-root .MuiButton-root.Mui-selected': {
+                            backgroundColor: '#0BB248 !important',
+                            color: 'white !important',
+                          },
+                          '& .MuiButtonBase-root.Mui-selected': {
+                            backgroundColor: '#0BB248 !important',
+                            color: 'white !important',
+                          },
+                          // Additional selectors targeting the AM/PM buttons
+                          '& .MuiTimeClock-ampmSelection .MuiButton-root.Mui-selected': {
+                            backgroundColor: '#0BB248 !important',
+                            color: 'white !important',
+                          },
+                          // Style the OK button in the actionBar
+                          '& .MuiDialogActions-root .MuiButton-root': {
+                            color: '#0BB248',
+                          },
+                          // Target all the toolbar buttons
+                          '& .MuiTimePickerToolbar-ampmSelection button': {
+                            '&.Mui-selected': {
+                              backgroundColor: '#0BB248 !important',
+                              color: 'white !important',
+                            }
+                          }
+                        }
+                      },
+                      digital: {
+                        sx: {
+                          '& .MuiPickersDigitalClockClockNumber-root.Mui-selected': {
+                            backgroundColor: '#0BB248',
+                          },
+                        },
+                      },
+                      clock: {
+                        sx: {
+                          '& .MuiClockNumber-root.Mui-selected': {
+                            backgroundColor: '#0BB248',
+                          },
+                        },
+                      },
+                      textField: {
+                        // This is just for the hidden field
+                        sx: {
+                          position: 'absolute',
+                          width: 0,
+                          height: 0,
+                          overflow: 'hidden'
+                        }
+                      },
+                      actionBar: {
+                        sx: {
+                          '& .MuiButton-root': {
+                            color: '#0BB248',
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={startImmediately}
+              onChange={() => setStartImmediately(!startImmediately)}
+              size="small"
+              sx={{
+                width: 38,
+                height: 22,
+                padding: 0,
+                '& .MuiSwitch-switchBase': {
+                  padding: 0,
+                  margin: '1px',
+                  transitionDuration: '300ms',
+                  '&.Mui-checked': {
+                    transform: 'translateX(16px)',
+                    color: '#fff',
+                    '& + .MuiSwitch-track': {
+                      backgroundColor: '#16783A',
+                      opacity: 1,
+                      border: 0,
+                    },
+                  },
+                  '&.Mui-focusVisible .MuiSwitch-thumb': {
+                    color: '#33cf4d',
+                  },
+                },
+                '& .MuiSwitch-thumb': {
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                },
+                '& .MuiSwitch-track': {
+                  borderRadius: 26 / 2,
+                  backgroundColor: '#E9E9EA',
+                  opacity: 1,
+                },
+              }}
+            />
+            <span className="text-sm text-gray-700">Start Immediately</span>
+          </div>
+        </div>
+
         {/* Stream Cover Photo */}
         <div className="space-y-2">
           <label className="text-sm md:text-base font-inter font-bold text-[#27272E]">Stream Cover Photo</label>
@@ -260,11 +724,11 @@ const CreateLiveAuction = () => {
             {livestream?.coverPhoto ? (
               <div className="flex flex-col items-center">
                 <img
-                  src={URL.createObjectURL(livestream?.coverPhoto)}
+                  src={URL.createObjectURL(livestream?.coverPhoto.file)}
                   alt="Preview"
                   className="w-[250px] object-contain md:w-full h-20 rounded-lg mb-2"
                 />
-                <p className="text-sm text-gray-600">{livestream?.coverPhoto.name}</p>
+                <p className="text-sm text-gray-600">{livestream?.coverPhoto.file.name}</p>
               </div>
             ) : (
               <>
@@ -290,6 +754,99 @@ const CreateLiveAuction = () => {
           <p className="text-xs text-gray-500">
             Make sure the image uploaded fits to appear for best results. Wrong images will be removed automatically.
           </p>
+        </div>
+
+        {/* Blips Section */}
+        <div className="space-y-3">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+            <div>
+              <label className="text-sm md:text-base font-inter font-bold text-[#27272E]">Blips</label>
+              <span className="ml-2 text-xs bg-[#E9FCEF] text-[#0BB248] px-2 py-0.5 rounded-full">Recommended</span>
+            </div>
+            <button className="text-sm text-[#0BB248] hover:underline flex items-center">
+              What are blips?
+              <Icon icon="solar:info-circle-linear" className="ml-1 w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+            <div className="p-4 md:p-6">
+              {videos.length > 0 ? (
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="relative w-full max-w-[270px] mx-auto rounded-lg overflow-hidden aspect-[9/16] shadow-md border border-gray-200 bg-black">
+                    <video
+                      src={videos[0].url}
+                      className="w-full h-full object-contain"
+                      controls
+                      playsInline
+                    />
+                    <button
+                      className="absolute top-3 right-3 bg-white/90 hover:bg-white p-1.5 rounded-full shadow-sm transition-all duration-200 hover:shadow focus:outline-none transform hover:scale-105"
+                      onClick={() => {
+                        setVideos([]);
+                        setSelectedFile(null);
+                        livestreamDispatch({
+                          type: 'SET_LIVESTREAM_DATA',
+                          payload: { video: null }
+                        });
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-sm font-medium text-gray-700">Video uploaded successfully</p>
+                    <p className="text-xs text-gray-500">{selectedFile?.name}</p>
+                  </div>
+                </div>
+              ) : isUploading ? (
+                <div className="flex flex-col items-center space-y-6 py-8">
+                  <div className="w-full max-w-[270px] mx-auto bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="w-full bg-green-500 h-2" style={{ width: `${uploadProgress}%` }}></div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm text-gray-600">Uploading: {uploadProgress}%</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center text-center space-y-6 py-8">
+                  <div className="bg-[#F9FAFB] p-4 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#16783A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={0.8} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="space-y-2 max-w-sm">
+                    <h3 className="text-base font-semibold text-gray-900">Upload a Vertical Video Clip</h3>
+                    <p className="text-sm text-gray-500">
+                      Create a short vertical clip to promote your live auction. Maximum 30 seconds, 60MB.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => videoInputRef.current.click()}
+                    className="px-4 py-2 bg-[#0BB248] text-white rounded-lg text-sm font-medium hover:bg-[#0a9c40] transition-colors"
+                  >
+                    Upload Video
+                  </button>
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={handleVideoUpload}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Note: Videos that don&apos;t meet our guidelines will be automatically removed.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Stream Description */}
@@ -481,7 +1038,7 @@ const CreateLiveAuction = () => {
                         min="0"
                         value={product.quantity || ''}
                         disabled={true}
-                        className={`w-16 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 
+                        className={`w-1/2 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 
                           ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       />
                     </td>
