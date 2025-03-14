@@ -307,7 +307,7 @@ const LivestreamStudio = () => {
                     encoderConfig: {
                         width: { ideal: 1920, min: 1280 },
                         height: { ideal: 1080, min: 720 },
-                        frameRate: 60,
+                        frameRate: 30,
                         bitrateMin: 1500,
                         bitrateMax: 4000,
                         optimizationMode: 'motion',

@@ -105,7 +105,8 @@ const SubmitLiveShow = () => {
             coverImage: livestream.coverPhoto,
             category: livestream.category,
             tags: livestream.tags.map(tag => tag.label),
-            scheduledStartTime: new Date().toISOString(),
+            video: livestream.video,
+            scheduledStartTime: livestream.scheduledStartTime || new Date().toISOString(),
         }
 
         console.log(streamData);
@@ -163,6 +164,64 @@ const SubmitLiveShow = () => {
                                                 <p className="text-sm md:text-base text-[#718096]">No cover photo uploaded</p>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+
+                                {/* Blip Video Section */}
+                                <div className="space-y-2 mb-10">
+                                    <div className="flex items-center">
+                                        <h2 className="text-sm font-semibold text-[#27272E] font-inter">Stream Blip</h2>
+                                        <span className="ml-2 text-xs bg-[#E9FCEF] text-[#0BB248] px-2 py-0.5 rounded-full">Recommended</span>
+                                    </div>
+                                    <div className="flex md:flex-row flex-col items-start gap-4">
+                                        <div className="relative w-full md:w-1/3 aspect-[9/16] rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                                            {livestream?.video ? (
+                                                <div className="w-full h-full flex items-center justify-center bg-black">
+                                                    <video
+                                                        src={URL.createObjectURL(new Blob(
+                                                            [Uint8Array.from(atob(livestream.video.data), c => c.charCodeAt(0))], 
+                                                            { type: livestream.video.contentType }
+                                                        ))}
+                                                        className="w-full h-full object-contain"
+                                                        controls
+                                                        playsInline
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                                                    <div className="bg-[#E9FCEF] rounded-full p-3 mb-3">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#0BB248]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polygon points="23 7 16 12 23 17 23 7" />
+                                                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                                        </svg>
+                                                    </div>
+                                                    <p className="text-sm text-[#718096]">No blip video uploaded</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 flex flex-col justify-center">
+                                            <h3 className="text-sm font-medium text-gray-700 mb-1">Blip Benefits</h3>
+                                            <ul className="text-xs text-gray-600 space-y-2">
+                                                <li className="flex items-center">
+                                                    <svg className="w-4 h-4 mr-2 text-[#0BB248]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Increases your livestream visibility by up to 40%
+                                                </li>
+                                                <li className="flex items-center">
+                                                    <svg className="w-4 h-4 mr-2 text-[#0BB248]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Attracts more viewers to your upcoming show
+                                                </li>
+                                                <li className="flex items-center">
+                                                    <svg className="w-4 h-4 mr-2 text-[#0BB248]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Promotes engagement before your show starts
+                                                </li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
 

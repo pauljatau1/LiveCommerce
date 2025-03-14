@@ -3,8 +3,6 @@ import { BASE_URL } from "../Constants/Server";
 import { toast } from 'sonner';
 import PropTypes from 'prop-types';
 import axios from "axios";
-import mixpanel from "mixpanel-browser";
-
 
 const LivestreamContext = createContext();
 
@@ -15,8 +13,10 @@ export const LivestreamProvider = ({ children }) => {
             description: '',
             category: '',
             coverPhoto: null,
+            video: null,
             tags: [],
-            products: []
+            products: [],
+            scheduledStartTime: null,
         },
         isLoading: false,
         error: null,
@@ -115,8 +115,6 @@ export const LivestreamProvider = ({ children }) => {
                         products: [],
                         scheduledStartTime: null
                     }
-
-
                 }
             case 'SET_JOIN_LIVE_STREAM_DATA':
                 return {
@@ -128,7 +126,6 @@ export const LivestreamProvider = ({ children }) => {
         }
     }, initialState);
 
-
     const scheduleLiveShow = async (streamData) => {
         try {
             dispatch({ type: 'RESET_API_STATE' });
@@ -136,23 +133,11 @@ export const LivestreamProvider = ({ children }) => {
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
 
-            // Create FormData instance
-            const formData = new FormData();
-
-            // Append regular fields
-            formData.append('title', streamData.title);
-            formData.append('description', streamData.description);
-            formData.append('category', streamData.category);
-            formData.append('tags', JSON.stringify(streamData.tags));
-            formData.append('scheduledStartTime', streamData.scheduledStartTime);
-            // Append cover image file
-            formData.append('coverImage', streamData.coverImage);
-
-            const response = await axios.post(`${BASE_URL}/streams/open-live-show`, formData, {
+            const response = await axios.post(`${BASE_URL}/streams/open-live-show`, streamData, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`,
                     // Let browser set Content-Type with boundary automatically
-                    'Content-Type': 'multipart/form-data'
+                    'Content-Type': 'application/json'
                 }
             });
 
@@ -204,7 +189,6 @@ export const LivestreamProvider = ({ children }) => {
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
-
     }
 
     const getAllSellerActiveStreams = async () => {
@@ -254,21 +238,6 @@ export const LivestreamProvider = ({ children }) => {
 
             if (response.status === 200) {
                 const streamData = response.data.stream;
-
-                // Track livestream start
-                {/*try {
-                    const seller = JSON.parse(localStorage.getItem('seller'));
-                    {mixpanel.track("Live Session Started", {
-                        "Seller ID": seller?._id || 'unknown',
-                        "Live ID": streamData._id,
-                        "Start Time": new Date().toISOString(),
-                        "Stream Type": streamData.type, // 'auction' or 'show'
-                        "Scheduled Start": streamData.scheduledStartTime,
-                        "Products Featured": streamData.products?.length || 0
-                    });}
-                } catch (e) {
-                    console.error('Mixpanel tracking error:', e);
-                }}*/}
 
                 dispatch({
                     type: 'SET_SUCCESS_LIVESTREAM_START',
@@ -391,8 +360,6 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
     }
-
-
 
     return (
         <LivestreamContext.Provider value={{
