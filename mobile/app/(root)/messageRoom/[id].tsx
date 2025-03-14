@@ -15,7 +15,7 @@ import { router, useGlobalSearchParams } from "expo-router";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { formatDate, formatMessageDate } from "@/helpers/helpers";
+import { formatDate, formatMessageDate, timeFromNow } from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
 import { Image } from "expo-image";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -35,12 +35,22 @@ import {
   useGetAllProductsQuery,
   useGetSellerProductsQuery,
 } from "@/services/products";
+import OrderItem from "@/components/messages/orderItem";
 
 const { width, height } = Dimensions.get("window");
 
 const MessageRoom = () => {
-  const { id, name, avatar, conversationId, userId, token, model } =
-    useGlobalSearchParams();
+  const {
+    id,
+    name,
+    avatar,
+    conversationId,
+    userId,
+    token,
+    model,
+    isOnline,
+    lastActive,
+  } = useGlobalSearchParams();
   const socket = io(process.env.EXPO_PUBLIC_API_URL, {
     transports: ["websocket"],
     auth: {
@@ -441,22 +451,45 @@ const MessageRoom = () => {
                 color="rgba(204, 204, 204, 0.8)"
               />
             </TouchableOpacity>
-            <Image
-              source={{ uri: avatar }}
-              contentFit="cover"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 40,
-              }}
-            />
+            <View>
+              <Image
+                source={{ uri: avatar }}
+                contentFit="cover"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 40,
+                }}
+              />
+              {isOnline && (
+                <View
+                  className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    backgroundColor: "#16783A",
+                    position: "absolute",
+                    top: 0,
+                    right: -2,
+                  }}
+                ></View>
+              )}
+            </View>
+
             <View className="gap-[2px]">
               <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
                 {name}
               </Text>
-              {/* <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
-                Online
-              </Text> */}
+              {isOnline ? (
+                <Text className="text-[10px] text-[#ccc] font-LexendDecaLight">
+                  Online
+                </Text>
+              ) : (
+                <Text className="text-[10px] text-[#ccc] font-LexendDeca opacity-70">
+                  Last Active {timeFromNow(lastActive)} ago
+                </Text>
+              )}
             </View>
           </View>
           <View className="flex-row items-center gap-[24px]">
@@ -672,7 +705,7 @@ const MediaItem = memo(({ item }: { item: any }) => {
   );
 });
 
-const ProductItem = memo(({ item }: { item: any }) => {
+const ProductItem = memo(({ item, isMyMessage }: any) => {
   console.log("logging item product ", item);
 
   return (
@@ -682,6 +715,7 @@ const ProductItem = memo(({ item }: { item: any }) => {
       style={{
         flexShrink: 1,
         maxWidth: 250,
+        // backgroundColor: "#f2f2f2",
       }}
       onPress={() => router.push(`/(root)/product/${item?.id._id}`)}
     >
@@ -693,17 +727,24 @@ const ProductItem = memo(({ item }: { item: any }) => {
         />
       </View>
       <View className="gap-[2px] shrink">
-        <Text className="text-[14px] text-[#111] font-LexendDecaMedium">
+        <Text
+          className="text-[14px] text-[#111] font-LexendDecaMedium"
+          style={isMyMessage ? [styles.messageText, { fontSize: 14 }] : null}
+        >
           {item?.name}
         </Text>
         {<DeterminePrice productDetails={item} />}
-        <Text className="text-[10px] text-[#111] font-LexendDecaLight">
+        <Text
+          className="text-[10px] text-[#111] font-LexendDecaLight"
+          style={isMyMessage ? [styles.messageText, { fontSize: 10 }] : null}
+        >
           {item?.description?.slice(0, 40)}
         </Text>
       </View>
     </TouchableOpacity>
   );
 });
+
 const MessageItem = memo(
   ({
     message,
@@ -732,38 +773,46 @@ const MessageItem = memo(
         case "image":
           return <MediaItem item={media} />;
         case "product":
-          return <ProductItem item={message.product} />;
+          return (
+            <ProductItem item={message.product} isMyMessage={isMyMessage} />
+          );
+        case "order":
+          return <OrderItem item={message.order} isMyMessage={isMyMessage} />;
       }
     };
     return (
       <View>
-        <View
-          style={[
-            styles.messageContainer,
-            isMyMessage
-              ? styles.myMessageContainer
-              : styles.otherMessageContainer,
-          ]}
-        >
+        {message?.messageType == "order" ? (
+          RenderMessageType(message?.messageType)
+        ) : (
           <View
             style={[
-              // styles.messageContainer,
-              isMyMessage ? styles.myMessage : styles.otherMessage,
+              styles.messageContainer,
+              isMyMessage
+                ? styles.myMessageContainer
+                : styles.otherMessageContainer,
             ]}
           >
-            {RenderMessageType(messageType)}
+            <View
+              style={[
+                // styles.messageContainer,
+                isMyMessage ? styles.myMessage : styles.otherMessage,
+              ]}
+            >
+              {RenderMessageType(messageType)}
 
-            <Text style={styles.timestamp}>
-              {formatMessageDate(message.createdAt)}
-            </Text>
+              <Text style={styles.timestamp}>
+                {formatMessageDate(message.createdAt)}
+              </Text>
+            </View>
+            {isMyMessage && message.error && (
+              <Text className="text-[#F24822] text-[8px] font-LexendDeca ml-[4px]">
+                <AntDesign name="exclamationcircle" size={18} color="#F24822" />{" "}
+                {message.error}
+              </Text>
+            )}
           </View>
-          {isMyMessage && message.error && (
-            <Text className="text-[#F24822] text-[8px] font-LexendDeca ml-[4px]">
-              <AntDesign name="exclamationcircle" size={18} color="#F24822" />{" "}
-              {message.error}
-            </Text>
-          )}
-        </View>
+        )}
       </View>
     );
   },
@@ -772,7 +821,7 @@ const MessageItem = memo(
 const DeterminePrice = memo(({ productDetails }: { productDetails: any }) => {
   return (
     <View className="flex-row items-center gap-[8px]">
-      <Text className="text-[12px] font-LexendDecaMedium leading-[18px]">
+      <Text className="text-[12px] text-[#16783A]  font-LexendDecaMedium leading-[18px]">
         ₦
         {productDetails?.discount?.isActive
           ? productDetails?.discount?.discountedPrice?.toLocaleString()
@@ -960,7 +1009,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   myMessage: {
-    backgroundColor: "#F2F2F2",
+    backgroundColor: "rgba(41, 41, 41, 0.81)",
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderTopRightRadius: 12,
@@ -974,16 +1023,17 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
     borderTopLeftRadius: 8,
     borderBottomRightRadius: 8,
-    backgroundColor: "rgba(204, 204, 204, 0.25)",
+    backgroundColor: "#fff",
   },
   messageText: {
     fontSize: 15,
     fontFamily: "LexendDeca",
     marginRight: 6,
+    color: "#fff",
   },
   otherMessageText: {
     fontSize: 15,
-    color: "#fff",
+    color: "#121212",
     marginRight: 6,
     fontFamily: "LexendDeca",
   },

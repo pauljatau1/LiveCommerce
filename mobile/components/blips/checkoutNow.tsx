@@ -230,6 +230,10 @@ const CheckoutNow = ({
   };
 
   const handleCompleteOrder = async () => {
+    // return setShowPaystack(true);
+    if (orderLoading) {
+      return;
+    }
     if (orderLoading) {
       return;
     }
@@ -279,12 +283,9 @@ const CheckoutNow = ({
       paidFromWallet: selectedPayment == 1,
       channel,
     };
-
-    console.log(order);
-
+    const token = await getToken();
     try {
       setOrderloading(true);
-      const token = await getToken();
       const config = {
         method: "POST",
         url: process.env.EXPO_PUBLIC_API_URL + `api/order`,
@@ -298,25 +299,10 @@ const CheckoutNow = ({
       const response = await axios(config);
       if (response.status == 201) {
         setOrderId(response.data.orders[0]?.orderId);
-        await AsyncStorage.setItem(
-          "orders",
-          JSON.stringify(response.data.orders),
-        );
-        await AsyncStorage.removeItem("buyNow");
-        if (selectedPayment == 0) {
-          setShowPaystack(true);
-        } else if (selectedPayment == 2) {
-          closeSheet();
-          router.replace("/(root)/orders/orders");
-        } else {
-          router.replace("/(root)/orders/orders");
-        }
       }
     } catch (e: any) {
       console.log("could not create order", e?.response);
       toast.error("Could not create order");
-    } finally {
-      setOrderloading(false);
     }
   };
 
@@ -380,6 +366,23 @@ const CheckoutNow = ({
   }, []);
 
   useEffect(() => {
+    if (orderId) {
+      if (selectedPayment == 0) {
+        setTimeout(() => {
+          setShowPaystack(true);
+        }, 500);
+      } else if (selectedPayment == 2) {
+        closeSheet();
+        router.push("/(root)/orders/orders");
+      } else {
+        closeSheet();
+        router.push("/(root)/orders/orders");
+      }
+      setOrderloading(false);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
     if (user) {
       getAddresses();
       getPickupAddress();
@@ -401,6 +404,8 @@ const CheckoutNow = ({
       setCart(product);
     }
   }, [products]);
+
+  console.log("rendering");
 
   const renderPaymentOptions = useCallback(
     (item: any, index: number) => {
@@ -665,7 +670,7 @@ const CheckoutNow = ({
 
             <TouchableOpacity
               className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A]"
-              onPress={handleCompleteOrder}
+              onPress={() => handleCompleteOrder()}
             >
               {orderLoading ? (
                 <ActivityIndicator size={"small"} color="white" />
@@ -691,7 +696,7 @@ const CheckoutNow = ({
         <Paystack
           refNumber={generateReference()}
           paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
-          amount={deliveryFee! + cartTotal}
+          amount={deliveryFee! + productTotal}
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}
           onSuccess={onPaystackSuccess}
@@ -800,4 +805,4 @@ const CartItem = memo(({ cartItem }: { cartItem: any }) => {
   );
 });
 
-export default CheckoutNow;
+export default memo(CheckoutNow);

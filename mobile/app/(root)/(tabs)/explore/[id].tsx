@@ -99,7 +99,7 @@ const SingleExplore = () => {
           <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] mb-[24px] mt-[30px] relative">
             <TouchableOpacity
               className="absolute left-[12px]"
-              onPress={() => router.back()}
+              onPress={() => router.replace("/(root)/(tabs)/explore/explore")}
             >
               <Entypo
                 name="chevron-left"

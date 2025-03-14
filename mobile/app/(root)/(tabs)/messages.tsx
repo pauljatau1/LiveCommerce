@@ -74,7 +74,7 @@ const Message = () => {
     return (
       <TouchableOpacity
         activeOpacity={0.7}
-        className=" mx-[17px] py-[16px] flex-row gap-[12px] items-end justify-between relative border-b-[0.5px] border-b-[#888787]"
+        className=" px-[17px] py-[16px] flex-row gap-[12px] items-end justify-between relative border-b-[0.5px] border-b-[#888787]"
         onPress={() =>
           router.push({
             pathname: `../../messageRoom/${item.participant.id}`,
@@ -85,6 +85,8 @@ const Message = () => {
               userId: user._id,
               token: token,
               model: item.participant.model,
+              isOnline: item.participant.isOnline ? "online" : "",
+              lastActive: item.participant.lastActive,
             },
           })
         }
@@ -94,8 +96,22 @@ const Message = () => {
             <Image
               source={{ uri: item.participant.avatar }}
               contentFit="cover"
-              style={{ width: 40, height: 40, borderRadius: 40 }}
+              style={{ width: 40, height: 40, borderRadius: 20 }}
             />
+            {item.participant.isOnline && (
+              <View
+                className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: "#16783A",
+                  position: "absolute",
+                  top: 0,
+                  right: -2,
+                }}
+              ></View>
+            )}
           </View>
           <View className="gap-[5px] shrink">
             <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
@@ -120,9 +136,10 @@ const Message = () => {
         )}
 
         <Text
-          className="text-[12px] text-[#16783A] font-LexendDecaMedium absolute right-0"
+          className="text-[12px] text-[#ccc] font-LexendDecaMedium absolute right-[16px]"
           style={{
             top: 10,
+            right: 16,
           }}
         >
           {formatMessageDate(item.lastMessage?.createdAt)}
@@ -142,20 +159,35 @@ const Message = () => {
   return (
     <SafeAreaView className="h-full flex-1 bg-[#121212]">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <View className="flex-row items-center gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
-        <Image
-          source={
-            user?.profileImage?.url
-              ? { uri: user?.profileImage?.url }
-              : require("../../../assets/icons/profile.jpg")
-          }
-          contentFit="cover"
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 40,
-          }}
-        />
+      <View className="flex-row items-center gap-[12px] px-[16px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
+        <View>
+          <Image
+            source={
+              user?.profileImage?.url
+                ? { uri: user?.profileImage?.url }
+                : require("../../../assets/icons/profile.jpg")
+            }
+            contentFit="cover"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 40,
+            }}
+          />
+          <View
+            className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              backgroundColor: "#16783A",
+              position: "absolute",
+              top: 0,
+              right: -2,
+            }}
+          ></View>
+        </View>
+
         <View className="gap-[2px]">
           <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
             {user?.username ||
@@ -174,7 +206,7 @@ const Message = () => {
         <ActivityIndicator size={"small"} color="#16783A" />
       ) : conversations.length > 0 ? (
         <>
-          <View className="flex-row items-center gap-[8px] mb-[28px] px-[17px]">
+          <View className="flex-row items-center gap-[8px] mb-[16px] px-[16px]">
             <TouchableOpacity
               className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
               style={{
