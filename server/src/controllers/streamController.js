@@ -17,7 +17,8 @@ exports.createStream = async (req, res) => {
       category,
       tags,
       scheduledStartTime,
-      video
+      video,
+      coverImage
     } = req.body;
 
     // Validate required fields
@@ -42,37 +43,28 @@ exports.createStream = async (req, res) => {
       });
     }
 
-    // Update tags parsing to handle JSON string from frontend
-    const parsedTags = tags ? 
-      (typeof tags === 'string' ? JSON.parse(tags) : tags) // Parse JSON string to array
-      : [];
+    // No need to parse tags and products as they should now be objects/arrays directly
+    const parsedTags = tags || [];
 
     // Parse products array
-    let products;
-    try {
-      products = typeof req.body.products === 'string' ?
-        JSON.parse(req.body.products) : req.body.products;
-
-      if (!Array.isArray(products)) {
-        products = [products]; // Convert single object to array
-      }
-    } catch (error) {
+    const products = req.body.products || [];
+    if (!Array.isArray(products)) {
       return res.status(400).json({
-        message: 'Invalid products format. Expected JSON array',
-        error: error.message
+        message: 'Invalid products format. Expected array'
       });
     }
 
     // Upload cover image to AWS S3
     let imageData = {};
-    if (req.file) {
+    if (coverImage && coverImage.data) {
       try {
-        const fileKey = `stream-covers/${uuidv4()}-${req.file.originalname}`;
+        const buffer = Buffer.from(coverImage.data, 'base64');
+        const fileKey = `stream-covers/${uuidv4()}.${coverImage.contentType ? coverImage.contentType.split('/')[1] || 'jpg' : 'jpg'}`;
         const uploadParams = {
           Bucket: 'auqli-uploads',
           Key: fileKey,
-          Body: req.file.buffer,
-          ContentType: req.file.mimetype
+          Body: buffer,
+          ContentType: coverImage.contentType || 'image/jpeg'
         };
 
         const uploadResult = await s3.upload(uploadParams).promise();
@@ -93,17 +85,29 @@ exports.createStream = async (req, res) => {
     let videoData = {};
     if (video) {
       try {
-        // Parse the video data if it's a string
-        const parsedVideo = typeof video === 'string' ? JSON.parse(video) : video;
+        // Handle video data properly whether it comes from FormData or JSON
+        let processedVideo = video;
         
-        if (parsedVideo && parsedVideo.data) {
-          const buffer = Buffer.from(parsedVideo.data, 'base64');
+        // Only try to parse if it's a string that looks like JSON (starts with { or [)
+        if (typeof video === 'string' && (video.trim().startsWith('{') || video.trim().startsWith('['))) {
+          try {
+            processedVideo = JSON.parse(video);
+          } catch (parseError) {
+            // If parsing fails, use original value
+            console.log('Warning: Failed to parse video data as JSON, using as is');
+            processedVideo = video;
+          }
+        }
+        
+        // Now handle the video data
+        if (processedVideo && processedVideo.data) {
+          const buffer = Buffer.from(processedVideo.data, 'base64');
           const fileKey = `stream-videos/${uuidv4()}.mp4`;
           const params = {
             Bucket: 'auqli-uploads',
             Key: fileKey,
             Body: buffer,
-            ContentType: parsedVideo.contentType || 'video/mp4',
+            ContentType: processedVideo.contentType || 'video/mp4',
           };
           
           const uploadResult = await s3.upload(params).promise();
@@ -520,9 +524,9 @@ exports.joinStream = async (req, res) => {
     const notificationObj = {
       id: Date.now().toString(),
       type: 'join',
-      user: buyer.firstName || buyer.username || 'Viewer',
+      user: buyer.username || buyer.firstName || 'Viewer',
       avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-      content: `${buyer.username || buyer.firstName} joined room`,
+      content: `joined room`,
       data: {
         message: `${buyer.username || buyer.firstName} joined room`,
         buyerId: req.user.id.toString(),
@@ -531,7 +535,8 @@ exports.joinStream = async (req, res) => {
         buyerAvatar: buyer.profileImage?.url || buyer.avatarUrl || '',
         streamId: stream._id.toString(),
         sellerName: stream.seller.storeName || stream.seller.businessName,
-        sellerId: stream.seller._id.toString()
+        sellerId: stream.seller._id.toString(),
+        viewerCount: stream.viewers.length
       }
       // timestamp will be added automatically by the schema default
     };
@@ -766,7 +771,8 @@ exports.createOpenLiveShow = async (req, res) => {
       category,
       tags,
       scheduledStartTime,
-      video
+      video,
+      coverImage
     } = req.body;
 
     // Validate required fields
@@ -791,21 +797,20 @@ exports.createOpenLiveShow = async (req, res) => {
       });
     }
 
-    // Update tags parsing to handle JSON string from frontend
-    const parsedTags = tags ? 
-      (typeof tags === 'string' ? JSON.parse(tags) : tags) // Parse JSON string to array
-      : [];
+    // No need to parse tags as they should now be arrays directly
+    const parsedTags = tags || [];
 
     // Upload cover image to AWS S3
     let imageData = {};
-    if (req.file) {
+    if (coverImage && coverImage.data) {
       try {
-        const fileKey = `stream-covers/${uuidv4()}-${req.file.originalname}`;
+        const buffer = Buffer.from(coverImage.data, 'base64');
+        const fileKey = `stream-covers/${uuidv4()}.${coverImage.contentType ? coverImage.contentType.split('/')[1] || 'jpg' : 'jpg'}`;
         const uploadParams = {
           Bucket: 'auqli-uploads',
           Key: fileKey,
-          Body: req.file.buffer,
-          ContentType: req.file.mimetype
+          Body: buffer,
+          ContentType: coverImage.contentType || 'image/jpeg'
         };
 
         const uploadResult = await s3.upload(uploadParams).promise();
@@ -826,17 +831,29 @@ exports.createOpenLiveShow = async (req, res) => {
     let videoData = {};
     if (video) {
       try {
-        // Parse the video data if it's a string
-        const parsedVideo = typeof video === 'string' ? JSON.parse(video) : video;
+        // Handle video data properly whether it comes from FormData or JSON
+        let processedVideo = video;
         
-        if (parsedVideo && parsedVideo.data) {
-          const buffer = Buffer.from(parsedVideo.data, 'base64');
+        // Only try to parse if it's a string that looks like JSON (starts with { or [)
+        if (typeof video === 'string' && (video.trim().startsWith('{') || video.trim().startsWith('['))) {
+          try {
+            processedVideo = JSON.parse(video);
+          } catch (parseError) {
+            // If parsing fails, use original value
+            console.log('Warning: Failed to parse video data as JSON, using as is');
+            processedVideo = video;
+          }
+        }
+        
+        // Now handle the video data
+        if (processedVideo && processedVideo.data) {
+          const buffer = Buffer.from(processedVideo.data, 'base64');
           const fileKey = `stream-videos/${uuidv4()}.mp4`;
           const params = {
             Bucket: 'auqli-uploads',
             Key: fileKey,
             Body: buffer,
-            ContentType: parsedVideo.contentType || 'video/mp4',
+            ContentType: processedVideo.contentType || 'video/mp4',
           };
           
           const uploadResult = await s3.upload(params).promise();
