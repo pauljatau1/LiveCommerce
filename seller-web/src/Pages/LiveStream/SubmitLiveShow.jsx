@@ -102,7 +102,10 @@ const SubmitLiveShow = () => {
         const streamData = {
             title: livestream.title,
             description: livestream.description,
-            coverImage: livestream.coverPhoto,
+            coverImage: {
+                data: livestream.coverPhoto.data,
+                contentType: livestream.coverPhoto.contentType
+            },
             category: livestream.category,
             tags: livestream.tags.map(tag => tag.label),
             video: livestream.video,
@@ -152,12 +155,12 @@ const SubmitLiveShow = () => {
                                 {/* Cover Photo Section */}
                                 <div className="space-y-2 mb-10">
                                     <h2 className="text-sm font-semibold text-[#27272E] font-inter">Stream Cover Photo</h2>
-                                    <div className="relative w-full h-[200px] md:h-[300px] rounded-lg overflow-hidden bg-gray-100">
+                                    <div className="relative w-full h-[200px] md:h-[300px] flex items-center justify-center rounded-lg overflow-hidden bg-gray-100">
                                         {livestream?.coverPhoto ? (
                                             <img
-                                                src={URL.createObjectURL(livestream.coverPhoto)}
+                                                src={URL.createObjectURL(livestream.coverPhoto.file)}
                                                 alt="Stream Cover"
-                                                className="w-full h-full object-contain"
+                                                className="w-1/2 h-1/2 object-contain"
                                             />
                                         ) : (
                                             <div className="flex items-center justify-center h-full">

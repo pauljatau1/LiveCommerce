@@ -147,7 +147,7 @@ const CreateLiveShow = () => {
     };
 
     // Handle both selected and dropped files
-    const handleFile = (file) => {
+    const handleFile = async (file) => {
         // Add file type validation here - only allow image types
         const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
         if (!validTypes.includes(file.type)) {
@@ -160,7 +160,42 @@ const CreateLiveShow = () => {
             });
             return;
         }
-        livestreamDispatch({ type: 'SET_LIVESTREAM_DATA', payload: { coverPhoto: file } });
+
+        try {
+            // Convert file to base64 before dispatching
+            const convertBlobToBase64 = (blob) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            };
+            
+            // Process image to base64
+            const base64 = await convertBlobToBase64(file);
+            
+            // Update the livestream context with the processed image data
+            livestreamDispatch({ 
+                type: 'SET_LIVESTREAM_DATA', 
+                payload: { 
+                    coverPhoto: {
+                        file: file, // Keep the file for preview
+                        data: base64,
+                        contentType: file.type
+                    } 
+                } 
+            });
+        } catch (error) {
+            console.error('Image processing failed:', error);
+            toast.error('Failed to process image', {
+                description: "There was an error processing your image",
+                style: {
+                    background: '#05031F',
+                    color: '#fff',
+                }
+            });
+        }
     };
 
     // Handle button click
@@ -635,11 +670,11 @@ const CreateLiveShow = () => {
                         {livestream?.coverPhoto ? (
                             <div className="flex flex-col items-center">
                                 <img
-                                    src={URL.createObjectURL(livestream?.coverPhoto)}
+                                    src={URL.createObjectURL(livestream?.coverPhoto.file)}
                                     alt="Preview"
                                     className="w-[250px] object-contain md:w-full h-24 rounded-lg mb-2"
                                 />
-                                <p className="text-sm text-gray-600">{livestream?.coverPhoto.name}</p>
+                                <p className="text-sm text-gray-600">{livestream?.coverPhoto.file.name}</p>
                             </div>
                         ) : (
                             <>
@@ -730,22 +765,11 @@ const CreateLiveShow = () => {
                                                     {uploadProgress}%
                                                 </div>
                                             </div>
-                                            {/*<div className="max-w-xs mx-auto space-y-2">
-                                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-[#0BB248] transition-all duration-300 ease-out"
-                                                        style={{ width: `${uploadProgress}%` }}
-                                                    />
-                                                </div>
-                                                <p className="text-sm text-gray-500">
-                                                    Uploading your video... please wait
-                                                </p>
-                                            </div>*/}
                                         </div>
                                     ) : (
                                         <>
                                             <div className="bg-[#E9FCEF] rounded-full p-4 w-20 h-20 mx-auto mb-4 transition-transform group-hover:scale-110 duration-300">
-                                                <Icon icon="solar:videocamera-record-broken" className="w-full h-full text-[#0BB248]" />
+                                                <Icon icon="fluent:video-32-light" className="w-full h-full text-[#16783A]" />
                                             </div>
                                             <h3 className="font-semibold text-lg mb-2 text-gray-700">Add a Blip to Your Livestream</h3>
                                             <p className="text-gray-500 max-w-md mx-auto mb-1">
