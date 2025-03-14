@@ -1,8 +1,9 @@
 import { View, Text, FlatList, ActivityIndicator } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import SectionHeader from "@/components/global/section-header";
 import FollowCard from "../../global/followers-card/followers-card";
 import axios from "axios";
+import { getToken } from "@/store/features/auth/utils";
 
 const Sellers = () => {
   const [sellers, setSellers] = useState<any[]>([]);
@@ -11,14 +12,20 @@ const Sellers = () => {
 
   const getSellers = async () => {
     try {
+      const token = await getToken();
       const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}api/public/sellers`,
+        `${process.env.EXPO_PUBLIC_API_URL}api/buyer/sellers?page=1&limit=10&sort=rating`,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
       );
 
       if (response.status === 200) {
         setSellers(
-          response.data
-            .filter((seller: any) => seller.verification?.isFeatured)
+          response.data?.sellers
+            .filter((seller: any) => seller?.isFeatured)
             .slice(0, 10),
         );
       }
@@ -34,6 +41,21 @@ const Sellers = () => {
     getSellers();
   }, []);
 
+  const renderEmptySellers = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+        }}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Sellers to Follow
+        </Text>
+      </View>
+    );
+  }, [sellers]);
+
   if (error) {
     return (
       <View className="pt-[35px] w-[100%] items-center">
@@ -47,7 +69,7 @@ const Sellers = () => {
       <SectionHeader title="Sellers to follow" btnText="" />
       {loading ? (
         <ActivityIndicator color="#CCCCCC" className="py-4" />
-      ) : (
+      ) : sellers?.length > 0 ? (
         <FlatList
           data={sellers}
           renderItem={({ item }) => (
@@ -63,6 +85,8 @@ const Sellers = () => {
           }}
           className=" gap-4"
         />
+      ) : (
+        renderEmptySellers()
       )}
     </View>
   );

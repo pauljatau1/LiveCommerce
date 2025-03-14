@@ -5,20 +5,28 @@ import SectionHeader from "@/components/global/section-header";
 import FollowCard from "@/components/global/followers-card/followers-card";
 import { data } from "@/constants";
 import axios from "axios";
+import { getToken } from "@/store/features/auth/utils";
 
 const ForYouFeaturedShopsSection = () => {
   const [shops, setShops] = useState<any[]>([]);
   const handleGetShops = async () => {
     try {
+      const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/public/sellers",
+        process.env.EXPO_PUBLIC_API_URL +
+          "api/buyer/sellers?page=1&limit=10&sort=rating",
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
       );
 
       if (response.status == 200) {
         setShops(
-          response.data
-            .filter((data: any) => data.verification?.isFeatured)
-            .slice(0, 6),
+          response.data?.sellers
+            .filter((seller: any) => seller?.isFeatured)
+            .slice(0, 10),
         );
       }
     } catch (e) {
@@ -67,7 +75,7 @@ const ForYouFeaturedShopsSection = () => {
           data={shops}
           renderItem={({ item: row }) => (
             <View className=" mb-[5.54px] w-[50%]">
-              <FollowCard item={row.toString()} data={row} />
+              <FollowCard item={row?._id} data={row} />
             </View>
           )}
           ref={flatlistRef}

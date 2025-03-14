@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, memo } from "react";
 import {
   View,
   Dimensions,
@@ -89,6 +89,10 @@ const VideoItem = ({
       1000,
     );
   };
+
+  const handleCloseCheckout = useCallback(() => {
+    setShowCheckout(false);
+  }, []);
 
   const handleLike = async () => {
     const token = await getToken();
@@ -506,7 +510,7 @@ const VideoItem = ({
           <View style={[styles.loaderContainer, { bottom: tabBarHeight }]}>
             <Entypo
               name="controller-play"
-              size={100}
+              size={90}
               color="#ccc"
               style={{
                 opacity: 0.4,
@@ -549,7 +553,7 @@ const VideoItem = ({
         >
           <CheckoutNow
             productId={product.id}
-            closeSheet={() => setShowCheckout(false)}
+            closeSheet={handleCloseCheckout}
             sellerId={seller._id}
           />
         </BottomSheet>
@@ -657,4 +661,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VideoItem;
+export default memo(VideoItem);
