@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight } from 'lucide-react'
+import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight, XCircle } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,6 +26,9 @@ export default function OrderDetails() {
   const [arrangePickupLoading, setArrangePickupLoading] = useState(false)
   const [orderStatus, setOrderStatus] = useState(null)
   const navigate = useNavigate()
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelLoading, setCancelLoading] = useState(false)
 
   useEffect(() => {
     setHeaderName('Order')
@@ -109,6 +112,72 @@ export default function OrderDetails() {
     window.open(url, `_blank${documentType}`);
   };
 
+  // Add this helper function to check if order is cancellable
+  const isOrderCancellable = (order) => {
+    // Check if order exists and has items
+    if (!order || !order.items) return false;
+    
+    // Check if shipping status is pending
+    const isShippingPending = order.shipping?.tracking?.status === 'pending';
+    
+    // Check if all items are in pending status and none are cancelled
+    const areItemsPending = order.items.every(item => item.status === 'pending');
+    const isAnyCancelled = order.items.some(item => item.status === 'cancelled');
+    
+    // Order can be cancelled if shipping is pending, all items are pending, and none are cancelled
+    return isShippingPending && areItemsPending && !isAnyCancelled;
+  };
+
+  // Update the handleCancelOrder function
+  const handleCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      toast.error('Please provide a reason for cancellation');
+      return;
+    }
+
+    if (!isOrderCancellable(orderData)) {
+      toast.error('This order cannot be cancelled');
+      setCancelDialogOpen(false);
+      return;
+    }
+
+    setCancelLoading(true);
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/order/${id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: cancelReason
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to cancel order');
+      }
+
+      toast.success('Order cancelled successfully');
+      setCancelDialogOpen(false);
+      
+      // Refresh order details
+      const updatedOrder = await fetch(`${BASE_URL}/order/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+      const refreshedData = await updatedOrder.json();
+      setOrderData(refreshedData);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   if (loading || !orderData) return <Loader />
 
   const { order, buyer, seller, items, shipping, addresses, timeline } = orderData
@@ -179,15 +248,15 @@ export default function OrderDetails() {
                   </Button>
                 )}
 
-                {shipping?.tracking?.status === 'pending' && shipping?.rate_id && (
+                {shipping?.tracking?.status === 'pending' && isOrderCancellable(orderData) && (
                   <Button
-                    onClick={arrangePickup}
-                    disabled={arrangePickupLoading}
+                    onClick={() => setCancelDialogOpen(true)}
+                    variant="destructive"
                     size="lg"
-                    className="bg-green-600 hover:bg-green-600 capitalize transition-all duration-300 text-white text-sm h-10"
+                    className="bg-red-600 hover:bg-red-700 capitalize transition-all duration-300 text-white text-sm h-10"
                   >
-                    <Truck className="mr-2 h-3 w-3" />
-                    {arrangePickupLoading ? 'Arranging...' : 'Arrange Pickup'}
+                    <XCircle className="mr-2 h-3 w-3" />
+                    Cancel Order
                   </Button>
                 )}
               </div>
@@ -723,6 +792,56 @@ export default function OrderDetails() {
           </Card>
         </div>
       </div>
+
+      {/* Add Cancel Order Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for cancelling this order. This will be communicated to the buyer.
+              {!isOrderCancellable(orderData) && (
+                <div className="mt-2 text-red-500">
+                  This order cannot be cancelled because it has already been processed or cancelled.
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="reason" className="text-sm font-medium text-gray-700">
+                Cancellation Reason
+              </label>
+              <textarea
+                id="reason"
+                className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Please explain why you're cancelling this order..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                disabled={!isOrderCancellable(orderData)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              className="border-gray-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={cancelLoading || !isOrderCancellable(orderData)}
+              onClick={handleCancelOrder}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -140,6 +140,93 @@ const QuickReplyDialog = ({
   </Dialog>
 );
 
+const OrderMessage = ({ order }) => {
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN'
+    }).format(amount);
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      shipped: 'bg-purple-100 text-purple-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  return (
+    <div className="flex flex-col space-y-3 bg-white rounded-lg border p-4 max-w-sm">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-gray-900">Order Details</h3>
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+        </span>
+      </div>
+      
+      <div className="space-y-3">
+        {order.items.map((item, index) => (
+          <div key={index} className="flex items-center space-x-3 border-b pb-3 last:border-0">
+            <div className="h-16 w-16 flex-shrink-0">
+              <img 
+                src={item.image} 
+                alt={item.name}
+                className="h-full w-full object-cover rounded-md"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+              <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+              <p className="text-sm font-medium text-gray-900">{formatCurrency(item.price)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t pt-3 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">Shipping Fee:</span>
+          <span className="font-medium">{formatCurrency(order.shippingFee)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">Total Amount:</span>
+          <span className="font-medium">{formatCurrency(order.totalAmount)}</span>
+        </div>
+      </div>
+
+      <div className="border-t pt-3">
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Shipping Details</h4>
+        {order.tracking && (
+          <div className="mb-3 space-y-1">
+            <div>
+              <span className="text-sm text-gray-500">Tracking Number: </span>
+              <span className="text-sm font-medium">{order.tracking.number}</span>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Carrier: </span>
+              <span className="text-sm font-medium">{order.tracking.carrier}</span>
+            </div>
+          </div>
+        )}
+        <div className="text-sm text-gray-500 space-y-1">
+         
+          <p>{order.delivery_address?.line1}</p>
+          {order.delivery_address?.city && <p>{order.delivery_address?.city}</p>}
+          <p>
+            {order.delivery_address?.state}
+            {order.delivery_address?.zip && `, ${order.delivery_address?.zip}`}
+          </p>
+          <p>{order.delivery_address?.country}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function ChatInterface() {
   const { setHeaderName, setNavName } = useOutletContext()
   const [conversations, setConversations] = useState([]);
@@ -238,7 +325,7 @@ export default function ChatInterface() {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
-      }, 0);
+      }, 100); // Increased timeout to ensure content is loaded
 
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -248,6 +335,23 @@ export default function ChatInterface() {
       setInitialLoad(false);
     }
   };
+
+  // Add new useEffect for automatic scrolling when messages change
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    };
+
+    // Scroll when messages change
+    scrollToBottom();
+
+    // Also scroll after a short delay to handle any dynamic content
+    const timeoutId = setTimeout(scrollToBottom, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages]);
 
   // Auto-scroll to bottom for new messages
   useEffect(() => {
@@ -499,7 +603,7 @@ export default function ChatInterface() {
     // Add temporary message at the end
     setMessages(prev => [...prev, tempMessage]);
 
-    // Scroll to bottom
+    // Scroll to bottom immediately after adding temp message
     setTimeout(() => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -562,12 +666,12 @@ export default function ChatInterface() {
         message: serverMessage
       });
 
-      // Scroll to bottom again after message is sent
+      // Ensure scroll to bottom after server confirmation
       setTimeout(() => {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
-      }, 0);
+      }, 100);
 
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
@@ -840,10 +944,16 @@ export default function ChatInterface() {
             }}
           >
             <div className="flex items-start gap-3">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
-                <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
+                  <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
+                </Avatar>
+                {/* Online status indicator */}
+                <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                  conv.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
+                }`} />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-1">
                   <h3 className="text-sm font-semibold text-gray-900">
@@ -863,6 +973,12 @@ export default function ChatInterface() {
                     </span>
                   )}
                 </div>
+                {/* Last active status */}
+                {!conv.participant.isOnline && conv.participant.lastActive && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Last active {formatLastActive(conv.participant.lastActive)}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -916,6 +1032,7 @@ export default function ChatInterface() {
     <ScrollArea 
       ref={messagesContainerRef}
       className="flex-1 p-4"
+      scrollToBottom={true}
     >
       {isLoadingMessages ? (
         <div className="flex flex-col items-center justify-center h-40">
@@ -952,6 +1069,11 @@ export default function ChatInterface() {
                         src={message.media[0].url}
                         alt="Message attachment"
                         className="max-w-full rounded-lg mb-2"
+                        onLoad={() => {
+                          if (messagesContainerRef.current) {
+                            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                          }
+                        }}
                       />
                     )}
 
@@ -961,12 +1083,21 @@ export default function ChatInterface() {
                           src={message.product.image}
                           alt={message.product.name}
                           className="w-full h-24 object-cover rounded-md"
+                          onLoad={() => {
+                            if (messagesContainerRef.current) {
+                              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                            }
+                          }}
                         />
                         <h4 className="text-sm font-medium mt-2">{message.product.name}</h4>
                         <p className="text-sm font-medium text-green-600 mt-1">
                           ₦ {message.product.price.toLocaleString()}
                         </p>
                       </div>
+                    )}
+
+                    {message.messageType === 'order' && message.order && (
+                      <OrderMessage order={message.order} />
                     )}
 
                     <p className="text-sm">{message.content}</p>
@@ -1339,23 +1470,41 @@ export default function ChatInterface() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16">
-            <AvatarImage 
-              src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
-              alt={currentConversation.participant.name}
-            />
-            <AvatarFallback>
-              {buyerDetails?.buyerInfo?.firstName?.[0] || currentConversation.participant.name[0]}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="h-16 w-16">
+              <AvatarImage 
+                src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
+                alt={currentConversation.participant.name}
+              />
+              <AvatarFallback>
+                {buyerDetails?.buyerInfo?.firstName?.[0] || currentConversation.participant.name[0]}
+              </AvatarFallback>
+            </Avatar>
+            {/* Online status indicator */}
+            <span className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-white ${
+              currentConversation.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
+            }`} />
+          </div>
           
           <div className="flex-1">
-            <h2 className="text-xl font-semibold">
-              {buyerDetails ? 
-                `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` :
-                currentConversation.participant.name
-              }
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold">
+                {buyerDetails ? 
+                  `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` :
+                  currentConversation.participant.name
+                }
+              </h2>
+              {/* Online/Offline status text */}
+              <span className={`text-sm ${
+                currentConversation.participant.isOnline ? 'text-green-500' : 'text-gray-400'
+              }`}>
+                {currentConversation.participant.isOnline ? 'Online' : 
+                  currentConversation.participant.lastActive ? 
+                    `Last seen ${formatLastActive(currentConversation.participant.lastActive)}` : 
+                    'Offline'
+                }
+              </span>
+            </div>
             <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
               {primaryAddress && (
                 <div className="flex items-center gap-1">
@@ -1488,6 +1637,72 @@ export default function ChatInterface() {
   const handleSendQuickReply = (content) => {
     setMessageInput(content);
     handleSendMessage();
+  };
+
+  // Add this after other socket event listeners in the useEffect
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for user status changes
+    socket.on('user_status_change', (data) => {
+      console.log('User status changed:', data);
+      setConversations(prev => prev.map(conv => {
+        if (conv.participant.id === data.userId) {
+          return {
+            ...conv,
+            participant: {
+              ...conv.participant,
+              isOnline: data.isOnline,
+              lastActive: data.lastActive
+            }
+          };
+        }
+        return conv;
+      }));
+
+      // Update current conversation if it's the same user
+      if (currentConversation?.participant?.id === data.userId) {
+        setCurrentConversation(prev => ({
+          ...prev,
+          participant: {
+            ...prev.participant,
+            isOnline: data.isOnline,
+            lastActive: data.lastActive
+          }
+        }));
+      }
+    });
+
+    // Emit user activity periodically
+    const activityInterval = setInterval(() => {
+      socket.emit('user_activity');
+    }, 30000); // Every 30 seconds
+
+    return () => {
+      socket.off('user_status_change');
+      clearInterval(activityInterval);
+    };
+  }, [socket, currentConversation]);
+
+  // Add this helper function for formatting last active time
+  const formatLastActive = (lastActive) => {
+    if (!lastActive) return '';
+    
+    const date = new Date(lastActive);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays === 1) return 'yesterday';
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    
+    return date.toLocaleDateString();
   };
 
   return (
