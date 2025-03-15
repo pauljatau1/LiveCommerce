@@ -156,6 +156,7 @@ const OrderItem = ({
                   userId: orderItem?.buyer,
                   token: token,
                   model: "Seller",
+                  orderId: orderItem?.id || orderItem?._id,
                 },
               })
             }

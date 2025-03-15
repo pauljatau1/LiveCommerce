@@ -41,6 +41,26 @@ export function formatDate(date, format) {
   return formattedDate;
 }
 
+export function formatTimeFromNow(dateString) {
+  // Parse the input date string
+  const futureDate = moment(dateString);
+
+  // Get the current date and time
+  const now = moment();
+
+  // Calculate the difference between the future date and now
+  const duration = moment.duration(futureDate.diff(now));
+
+  // Extract days, hours, minutes, and seconds from the duration
+  const days = Math.floor(duration.asDays());
+  const hours = duration.hours();
+  const minutes = duration.minutes();
+  const seconds = duration.seconds();
+
+  // Format the result as "Xd:Yh:Zm:As"
+  return `${days}d:${hours}h:${minutes}m:${seconds}s`;
+}
+
 export function timeFromNow(timestamp) {
   const now = moment();
   const givenTime = moment(timestamp);

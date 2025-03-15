@@ -20,6 +20,9 @@ export const products = createApi({
     getAllProducts: builder.query({
       query: (credentials) => getRequest(`/products/all`, credentials),
     }),
+    getAllAuctionProducts: builder.query({
+      query: (credentials) => getRequest(`/products/auctions`, credentials),
+    }),
     deepSearchProducts: builder.query({
       query: (credentials) => getRequest(`/products/search`, credentials),
     }),
@@ -44,6 +47,7 @@ export const products = createApi({
 
 export const {
   useGetAllProductsQuery,
+  useGetAllAuctionProductsQuery,
   useGetNewAuqliQuery,
   useGetTrendingQuery,
   useGetSingleProductQuery,

@@ -87,6 +87,8 @@ const Message = () => {
               model: item.participant.model,
               isOnline: item.participant.isOnline ? "online" : "",
               lastActive: item.participant.lastActive,
+              isBlocked: item.settings?.isBlocked,
+              isMuted: item.settings?.isMuted,
             },
           })
         }

@@ -85,7 +85,7 @@ const ReportUserSheet = ({
           numberOfLines={4}
         />
       </View>
-      <View className="px-[16px]">
+      <View className="px-[16px] mb-[12px]">
         <Pressable
           style={{
             paddingVertical: 12,

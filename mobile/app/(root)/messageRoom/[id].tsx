@@ -11,7 +11,11 @@ import {
   Keyboard,
 } from "react-native";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { router, useGlobalSearchParams } from "expo-router";
+import {
+  router,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+} from "expo-router";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -36,8 +40,17 @@ import {
   useGetSellerProductsQuery,
 } from "@/services/products";
 import OrderItem from "@/components/messages/orderItem";
+import OptionsSheet from "@/components/connect/optionsSheet";
+import ChatSettings from "@/components/messages/optionsSheet";
+import ReportUserSheet from "@/components/connect/reportUserSheet";
 
 const { width, height } = Dimensions.get("window");
+
+const autoOrderMessages = [
+  "Ask Availability",
+  "Order Request",
+  "Logistics Inquiry",
+];
 
 const MessageRoom = () => {
   const {
@@ -50,7 +63,10 @@ const MessageRoom = () => {
     model,
     isOnline,
     lastActive,
-  } = useGlobalSearchParams();
+    isBlocked,
+    isMuted,
+    orderId = "",
+  } = useLocalSearchParams();
   const socket = io(process.env.EXPO_PUBLIC_API_URL, {
     transports: ["websocket"],
     auth: {
@@ -71,9 +87,27 @@ const MessageRoom = () => {
   const [page, setPage] = useState<number>(0);
   const [changePage, setChangePage] = useState<number>(0);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [showChatSetting, setShowChatSettings] = useState<boolean>(false);
+  const [showReportUser, setShowReportUser] = useState<boolean>(false);
+  const [isUserBlocked, setIsBlocked] = useState<boolean>(
+    isBlocked?.toString() == "true",
+  );
+  const [muteNotifications, setMuteNotifications] = useState<boolean>(
+    isMuted?.toString() == "true",
+  );
+  const [orderDetails, setOrderDetails] = useState<any>();
+  const [autoOrderMessage, setAutoOrderMessage] = useState<any>();
+  const [showOrderDetails, setShowOrderDetails] = useState<boolean>(
+    orderId !== "",
+  );
 
   const listRef = useRef<FlatList>(null);
   const isInitialLoad = useRef(true);
+
+  const updateMessageSettings = (settings: any) => {
+    setIsBlocked(settings.isBlocked);
+    setMuteNotifications(settings.isMuted);
+  };
 
   const pickImage = async () => {
     if (selectedMedia.length >= 1) {
@@ -144,6 +178,30 @@ const MessageRoom = () => {
     }
   }, [page, changePage]);
 
+  const fetchOrder = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/order/" + orderId,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setOrderDetails(response.data);
+    } catch (e) {
+      console.log("error getting single order ", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [orderId]);
+
+  const handleSendAutoMessage = () => {
+    handleSendMessage(
+      `${autoOrderMessage?.message}: ${orderDetails?.order?.order_id}`,
+    );
+  };
+
   const handleReadMessages = async () => {
     try {
       const token = await getToken();
@@ -162,7 +220,7 @@ const MessageRoom = () => {
     }
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (newMessage = "") => {
     if (!newMessage) return;
     setNewMessage("");
     const socketPayload = {
@@ -384,8 +442,6 @@ const MessageRoom = () => {
   }, [selectedProduct]);
 
   useEffect(() => {
-    console.log(token);
-
     socket.on("connect", () => {
       console.log("Connected to backend");
     });
@@ -410,6 +466,13 @@ const MessageRoom = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (orderId) {
+      fetchOrder();
+    }
+
+    setTimeout(() => setShowOrderDetails(false), 5000);
+  }, [orderId]);
   const scrollToBottom = useCallback(() => {
     if (listRef.current && messages.length > 0) {
       setTimeout(() => {
@@ -434,6 +497,11 @@ const MessageRoom = () => {
     (item: any, index: number) => item?._id || index.toString(),
     [],
   );
+
+  const handleShowReportUser = () => {
+    setShowChatSettings(false);
+    setShowReportUser(true);
+  };
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -510,7 +578,7 @@ const MessageRoom = () => {
                 }}
               />
             </Pressable>
-            <Pressable>
+            <Pressable onPress={() => setShowChatSettings(true)}>
               <Image
                 source={require("../../../assets/icons/dots.png")}
                 contentFit="contain"
@@ -590,6 +658,105 @@ const MessageRoom = () => {
                 alignSelf: "baseline",
               }}
             >
+              {orderId && showOrderDetails && (
+                <View
+                  className="p-[24px] bg-[#ffffff] rounded-[16px] flex-row items-center mx-[16px]"
+                  style={{
+                    padding: 24,
+                    backgroundColor: "#fff",
+                  }}
+                >
+                  <View className="p-[16px] bg-[#f2f2f2] rounded-[16px] w-full gap-[12px]">
+                    <View className="flex-row items-center justify-between gap-[4px]">
+                      <Text></Text>
+                      <Text className="text-center text-[#121212] text-[18px] font-LexendDecaBold">
+                        Shared from {name}
+                      </Text>
+                      <Pressable
+                        onPress={() => {
+                          setShowOrderDetails(false);
+                        }}
+                        style={{
+                          backgroundColor: "#EE571C",
+                          borderRadius: 24,
+                          borderWidth: 1,
+                          borderColor: "#EE571C",
+                        }}
+                      >
+                        <AntDesign
+                          name="closecircle"
+                          size={24}
+                          color="#F9C7B3"
+                        />
+                      </Pressable>
+                    </View>
+
+                    <Image
+                      source={{
+                        uri: orderDetails?.items[0]?.product?.images[0]?.url,
+                      }}
+                      style={{
+                        width: 172,
+                        height: 103,
+                        borderRadius: 14,
+                        alignSelf: "center",
+                      }}
+                      contentFit="contain"
+                    />
+
+                    <View style={styles.placedDetailsContainer}>
+                      <Text style={styles.placedName} numberOfLines={2}>
+                        {orderDetails?.items[0]?.product?.name}
+                      </Text>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.placedPrice}>
+                          N{orderDetails?.order?.totalAmount?.toLocaleString()}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View>
+                      <Text className="font-LexendDeca">
+                        Shipping : N
+                        {orderDetails?.shipping?.fee?.amount.toLocaleString()}
+                      </Text>
+                    </View>
+
+                    <View className="flex-row items-center justify-between gap-[8px]">
+                      {autoOrderMessages?.map((message, index) => {
+                        return (
+                          <Pressable
+                            style={
+                              index == autoOrderMessage?.index
+                                ? styles.autoOrderMessage
+                                : styles.autoOrderMessageInactive
+                            }
+                            onPress={() =>
+                              setAutoOrderMessage({
+                                index,
+                                message,
+                              })
+                            }
+                          >
+                            <Text style={styles.autoOrderMessageText}>
+                              {message}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Pressable
+                      style={styles.sendAutoMsgBtn}
+                      onPress={handleSendAutoMessage}
+                    >
+                      <Text className="text-[#fff] font-LexendDecaSemiBold text-[10px]">
+                        Send
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
               <View className="flex-row items-center gap-[12px] pt-[12px]  border-t-[0.5px] border-t-[#888787] px-[17px]">
                 <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink  bg-[#2e2e2e]">
                   <TextInput
@@ -599,9 +766,12 @@ const MessageRoom = () => {
                     value={newMessage}
                     multiline
                     onChangeText={(text) => setNewMessage(text)}
-                    onFocus={() => setShowOptions(false)}
+                    onFocus={() => {
+                      setShowOrderDetails(false);
+                      setShowOptions(false);
+                    }}
                   />
-                  <Pressable onPress={handleSendMessage}>
+                  <Pressable onPress={() => handleSendMessage("")}>
                     <MaterialCommunityIcons
                       name="send-circle"
                       size={30}
@@ -680,6 +850,45 @@ const MessageRoom = () => {
           <ProductsSheet
             handleSubmitSelectedProducts={handleSubmitSelectedProducts}
             id={id}
+          />
+        </BottomSheet>
+
+        <BottomSheet
+          bgColor="#3A3A3A"
+          childrenStyle="!px-[0px]"
+          showCloseIcon={false}
+          show={showChatSetting}
+          enableDynamicSizing={false}
+          snapPoints={["60%"]}
+          onRequestClose={() => setShowChatSettings(false)}
+          keyboardBehavior="interactive"
+        >
+          <ChatSettings
+            handleShowReportUser={() => handleShowReportUser()}
+            closeSheet={() => setShowChatSettings(false)}
+            sellerId={id}
+            sellerName={name}
+            isBlocked={isUserBlocked}
+            isMuted={muteNotifications}
+            conversationId={conversationId}
+            updateMessageSettings={updateMessageSettings}
+          />
+        </BottomSheet>
+
+        <BottomSheet
+          bgColor="#3A3A3A"
+          childrenStyle="!px-[0px]"
+          showCloseIcon={false}
+          title=""
+          show={showReportUser}
+          titleColor="!text-white"
+          onRequestClose={() => setShowReportUser(false)}
+          keyboardBehavior={"interactive"}
+        >
+          <ReportUserSheet
+            userId={id?.toString()}
+            userType={"Seller"}
+            closeSheet={() => setShowReportUser(false)}
           />
         </BottomSheet>
       </SafeAreaView>
@@ -1047,6 +1256,67 @@ const styles = StyleSheet.create({
   emptyList: {
     flex: 1,
     justifyContent: "flex-end",
+  },
+  placedDetailsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    width: "100%",
+  },
+  placedName: {
+    fontSize: 14,
+    fontFamily: "LexendDeca-SemiBold",
+    flexShrink: 1,
+    color: "#000",
+  },
+  priceContainer: {
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E5FDFF",
+  },
+  placedPrice: {
+    fontSize: 12,
+    fontFamily: "LexendDeca-Medium",
+    color: "#16783A",
+  },
+  autoOrderMessage: {
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    borderRadius: 6,
+    backgroundColor: "rgba(69, 193, 51, 0.10)",
+    flexBasis: "33%",
+    borderColor: "#16783A",
+    borderWidth: 1,
+    flexShrink: 1,
+  },
+  autoOrderMessageText: {
+    color: "#16783A",
+    fontSize: 8,
+    fontFamily: "LexendDeca-SemiBold",
+    textAlign: "center",
+  },
+  autoOrderMessageInactive: {
+    paddingHorizontal: 2,
+    paddingVertical: 12,
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    flexBasis: "33%",
+    borderColor: "#16783A",
+    borderWidth: 1,
+    flexShrink: 1,
+  },
+  sendAutoMsgBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 6,
+    backgroundColor: "#16783A",
+    borderColor: "#16783A",
+    borderWidth: 1,
+    alignSelf: "center",
   },
 });
 

@@ -4,10 +4,16 @@ import ProductCard from "@/components/global/product-card";
 import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import useCarousel from "@/hooks/useCarousel";
+import { useGetAllProductsQuery } from "@/services/products";
 import React from "react";
 import { FlatList, View } from "react-native";
 
 const KeepShowingSection = () => {
+  const {
+    data: products,
+    error,
+    isLoading,
+  } = useGetAllProductsQuery({ limit: 10 });
   const { activeIndex, flatlistRef, handleScroll } = useCarousel({
     dataLength: data.productsData.length,
     autoScroll: false,
@@ -41,10 +47,20 @@ const KeepShowingSection = () => {
         }}
       >
         <FlatList
-          data={data.productsData}
+          data={products?.data?.products}
           renderItem={({ item: row }) => (
             <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-              <ProductCard {...row} showNike={true} />
+              <ProductCard
+                price={row?.price}
+                id={row?._id}
+                imageUrl={row?.images}
+                sellerName={row?.seller?.storeName}
+                category={row?.category}
+                // showNike={false}
+                title={row?.name}
+                sellerRating={row?.stats?.averageRating}
+                moreDetails={row}
+              />
             </View>
           )}
           keyExtractor={(item) => item.id}
