@@ -22,6 +22,18 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
   try {
     const messagePreview = createMessagePreview(message.content, message.messageType);
     
+    // Populate sender information if not already populated
+    let sender;
+    if (message.sender.model === 'Buyer') {
+      const Buyer = require('../models/Buyer');
+      sender = await Buyer.findById(message.sender.id);
+      senderName = sender ? `${sender.firstName} ${sender.lastName}` : 'Unknown User';
+    } else {
+      const Seller = require('../models/Seller');
+      sender = await Seller.findById(message.sender.id);
+      senderName = sender ? (sender.businessName || sender.storeName) : 'Unknown Seller';
+    }
+    
     // Create notification based on recipient type
     if (message.recipient.model === 'Seller') {
       await createNotification(message.recipient.id, 'buyer_message', {
@@ -95,11 +107,7 @@ exports.sendTextMessage = async (req, res) => {
     await conversation.save();
 
     // Create notification
-    const senderName = senderModel === 'Buyer' ? 
-      `${req.user.firstName} ${req.user.lastName}` : 
-      (req.user.businessName || req.user.storeName);
-    
-    await createMessageNotifications(message, senderName);
+    await createMessageNotifications(message);
 
     res.status(201).json({ message });
   } catch (error) {
@@ -205,11 +213,7 @@ exports.sendMediaMessage = async (req, res) => {
     await conversation.save();
 
     // Create notification
-    const senderName = senderModel === 'Buyer' ? 
-      `${req.user.firstName} ${req.user.lastName}` : 
-      (req.user.businessName || req.user.storeName);
-    
-    await createMessageNotifications(savedMessage, senderName);
+    await createMessageNotifications(savedMessage);
 
     res.status(201).json({ 
       message: savedMessage, 
@@ -436,11 +440,7 @@ exports.sendProductMessage = async (req, res) => {
     await conversation.save();
 
     // Create notification
-    const senderName = senderModel === 'Buyer' ? 
-      `${req.user.firstName} ${req.user.lastName}` : 
-      (req.user.businessName || req.user.storeName);
-    
-    await createMessageNotifications(message, senderName);
+    await createMessageNotifications(message);
 
     res.status(201).json({ message });
   } catch (error) {
@@ -549,11 +549,7 @@ exports.sendOrderMessage = async (req, res) => {
     await conversation.save();
 
     // Create notification
-    const senderName = senderModel === 'Buyer' ? 
-      `${req.user.firstName} ${req.user.lastName}` : 
-      (req.user.businessName || req.user.storeName);
-    
-    await createMessageNotifications(message, senderName);
+    await createMessageNotifications(message);
 
     res.status(201).json({ message });
   } catch (error) {

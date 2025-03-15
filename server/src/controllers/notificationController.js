@@ -945,3 +945,64 @@ exports.markAllBuyerNotificationsAsRead = async (req, res) => {
     res.status(500).json({ message: 'Failed to mark all notifications as read', error: error.message });
   }
 };
+
+// Helper function to create message preview
+const createMessagePreview = (content, messageType) => {
+  if (messageType === 'text') {
+    return content.length > 50 ? `${content.substring(0, 47)}...` : content;
+  } else if (messageType === 'product') {
+    return 'Shared a product';
+  } else {
+    return `Sent ${messageType}`;
+  }
+};
+
+// Helper function to create message notifications
+const createMessageNotifications = async (message, senderName, recipientName) => {
+  try {
+    const messagePreview = createMessagePreview(message.content, message.messageType);
+    
+    // Populate sender information if not already populated
+    let sender;
+    if (message.sender.model === 'Buyer') {
+      const Buyer = require('../models/Buyer');
+      sender = await Buyer.findById(message.sender.id).select('firstName lastName');
+      if (!sender) {
+        console.error('Buyer not found:', message.sender.id);
+        senderName = 'a buyer';
+      } else {
+        // Only use the full name if both firstName and lastName are available
+        senderName = (sender.firstName && sender.lastName) ? 
+          `${sender.firstName} ${sender.lastName}` : 
+          'a buyer';
+      }
+    } else {
+      const Seller = require('../models/Seller');
+      sender = await Seller.findById(message.sender.id).select('businessName storeName');
+      if (!sender) {
+        console.error('Seller not found:', message.sender.id);
+        senderName = 'Unknown Seller';
+      } else {
+        senderName = sender.businessName || sender.storeName || 'Unknown Seller';
+      }
+    }
+    
+    // Create notification based on recipient type
+    if (message.recipient.model === 'Seller') {
+      await createNotification(message.recipient.id, 'buyer_message', {
+        buyerName: senderName,
+        messagePreview,
+        conversationId: message.conversation
+      });
+    } else {
+      await createBuyerNotification(message.recipient.id, 'seller_message', {
+        sellerName: senderName,
+        messagePreview,
+        conversationId: message.conversation
+      });
+    }
+  } catch (error) {
+    console.error('Error creating message notification:', error);
+    // Don't throw error to prevent message sending from failing
+  }
+};

@@ -3993,3 +3993,135 @@ exports.getAuctionProducts = async (req, res) => {
   }
 };
 
+// Get seller's auction products
+exports.getSellerAuctionProducts = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { status, sort = 'endDate', page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build query
+    const query = { 
+      status: 'offline_auction',
+      seller: sellerId
+    };
+    if (status) {
+      query['auction.status'] = status;
+    }
+
+    // Build sort object
+    let sortObj = {};
+    switch (sort) {
+      case 'endDate':
+        sortObj = { 'auction.endDate': 1 };
+        break;
+      case 'startDate':
+        sortObj = { 'auction.startDate': 1 };
+        break;
+      case 'currentBid':
+        sortObj = { 'auction.currentHighestBid.amount': -1 };
+        break;
+      default:
+        sortObj = { 'auction.endDate': 1 };
+    }
+
+    // Execute query with pagination
+    const [products, totalProducts] = await Promise.all([
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('seller', 'businessName storeName storeAvatar storeBanner stats firstName lastName email phoneNumber isVerified createdAt aboutStore')
+        .populate({
+          path: 'auction.bids.buyer',
+          select: 'firstName lastName country profileImage -_id'
+        })
+        .populate({
+          path: 'auction.currentHighestBid.buyer',
+          select: 'firstName lastName country profileImage -_id'
+        })
+        .populate({
+          path: 'auction.winner.buyer',
+          select: 'firstName lastName country profileImage -_id'
+        })
+        .select('name description images auction seller'),
+      Product.countDocuments(query)
+    ]);
+
+    // Calculate total pages
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    // Update days left and clean up buyer data
+    const now = new Date();
+    const cleanedProducts = products.map(product => {
+      const cleanedProduct = product.toObject();
+
+      // Calculate days left
+      if (cleanedProduct.auction.status === 'scheduled') {
+        cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.startDate - now) / (1000 * 60 * 60 * 24));
+      } else if (cleanedProduct.auction.status === 'ongoing') {
+        cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.endDate - now) / (1000 * 60 * 60 * 24));
+      } else {
+        cleanedProduct.auction.daysLeft = 0;
+      }
+
+      // Clean up bids
+      if (cleanedProduct.auction.bids) {
+        cleanedProduct.auction.bids = cleanedProduct.auction.bids.map(bid => ({
+          _id: bid._id,
+          amount: bid.amount,
+          status: bid.status,
+          createdAt: bid.createdAt,
+          buyer: bid.buyer ? {
+            firstName: bid.buyer.firstName,
+            lastName: bid.buyer.lastName,
+            country: bid.buyer.country,
+            profileImage: bid.buyer.profileImage
+          } : null
+        }));
+      }
+
+      // Clean up current highest bid
+      if (cleanedProduct.auction.currentHighestBid && cleanedProduct.auction.currentHighestBid.buyer) {
+        cleanedProduct.auction.currentHighestBid = {
+          amount: cleanedProduct.auction.currentHighestBid.amount,
+          buyer: {
+            firstName: cleanedProduct.auction.currentHighestBid.buyer.firstName,
+            lastName: cleanedProduct.auction.currentHighestBid.buyer.lastName,
+            country: cleanedProduct.auction.currentHighestBid.buyer.country,
+            profileImage: cleanedProduct.auction.currentHighestBid.buyer.profileImage
+          }
+        };
+      }
+
+      // Clean up winner
+      if (cleanedProduct.auction.winner && cleanedProduct.auction.winner.buyer) {
+        cleanedProduct.auction.winner = {
+          bidAmount: cleanedProduct.auction.winner.bidAmount,
+          buyer: {
+            firstName: cleanedProduct.auction.winner.buyer.firstName,
+            lastName: cleanedProduct.auction.winner.buyer.lastName,
+            country: cleanedProduct.auction.winner.buyer.country,
+            profileImage: cleanedProduct.auction.winner.buyer.profileImage
+          }
+        };
+      }
+
+      return cleanedProduct;
+    });
+
+    res.json({
+      products: cleanedProducts,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalProducts
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getSellerAuctionProducts:', error);
+    res.status(500).json({ message: 'Error retrieving seller auction products', error: error.message });
+  }
+};
+

@@ -2136,9 +2136,6 @@ router.get('/seller/:sellerId/categories', productController.getSellerProductCat
  */
 router.get('/:productId/blips/:blipId/comments/:commentId/replies', productController.getBlipCommentReplies);
 
-
-
-
 /**
  * @swagger
  * /api/products/{productId}/bid:
@@ -2360,6 +2357,102 @@ router.get('/buyer/bids',
   productController.getBuyerBids
 );
 
-
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/auctions:
+ *   get:
+ *     summary: Get all offline auction products for a specific seller
+ *     description: Retrieve a list of all offline auction products for a specific seller with optional filtering
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, ongoing, ended]
+ *         description: Filter auctions by status
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [endDate, startDate, currentBid]
+ *         description: Sort auctions by specific fields
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of seller's auction products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       auction:
+ *                         type: object
+ *                         properties:
+ *                           minBid:
+ *                             type: number
+ *                           maxBid:
+ *                             type: number
+ *                           endOnMaxBid:
+ *                             type: boolean
+ *                           startDate:
+ *                             type: string
+ *                           endDate:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           currentHighestBid:
+ *                             type: object
+ *                             properties:
+ *                               amount:
+ *                                 type: number
+ *                           daysLeft:
+ *                             type: number
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/auctions', productController.getSellerAuctionProducts);
 
 module.exports = router;
