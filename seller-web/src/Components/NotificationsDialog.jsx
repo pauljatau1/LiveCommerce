@@ -183,20 +183,7 @@ function NotificationsDialog({ notifications, onClose }) {
                   </div>
                   <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
                   
-                  {notification.data && Object.keys(notification.data).length > 0 && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      {Object.entries(notification.data)
-                        .filter(([key]) => !['productId', 'order_id'].includes(key))
-                        .map(([key, value]) => (
-                          <span key={key} className="inline-block mr-3">
-                            <span className="font-medium">
-                              {key.replace(/([A-Z])/g, ' $1').toLowerCase()}:
-                            </span>{' '}
-                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                          </span>
-                        ))}
-                    </div>
-                  )}
+                  
                 </div>
               </div>
             </div>

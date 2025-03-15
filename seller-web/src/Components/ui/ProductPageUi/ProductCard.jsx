@@ -173,7 +173,7 @@ StockUpdateModal.propTypes = {
     isSubmitting: PropTypes.bool.isRequired,
 };
 
-const ProductCard = ({ item, setIsStockUpdated }) => {
+const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     // Separate states for mobile and desktop popovers
     const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
     const [isDesktopPopoverOpen, setIsDesktopPopoverOpen] = useState(false);
@@ -191,14 +191,48 @@ const ProductCard = ({ item, setIsStockUpdated }) => {
     };
 
     const getUploadStatus = (status) => {
-        if (status == "active") return { text: 'Active', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
-        if (status == "draft") return { text: 'Draft', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+        if (status === "active") return { text: 'Active', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (status === "draft") return { text: 'Draft', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+        if (status === "offline_auction") return { text: 'Offline Auction', class: 'bg-[#9333EA]/10 text-[#9333EA]' };
+        // Default case
+        return { text: 'Unknown', class: 'bg-gray-100 text-gray-500' };
     };
 
-    const status = getStockStatus(item?.stock);
-    console.log(item.stock);
+    const getAuctionStatus = (auction) => {
+        if (!auction) return { text: 'N/A', class: 'bg-gray-100 text-gray-500' };
+        if (auction.status === 'ended') return { text: 'Ended', class: 'bg-[#DF0707]/10 text-[#DF0707]' };
+        if (auction.status === 'active') return { text: 'Active', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (new Date(auction.startDate) > new Date()) return { text: 'Scheduled', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+        return { text: 'Unknown', class: 'bg-gray-100 text-gray-500' };
+    };
 
-    const uploadStatus = getUploadStatus(item.status)
+    const getTimeLeft = (auction) => {
+        if (!auction) return 'N/A';
+        if (auction.status === 'ended') return 'Ended';
+        
+        const now = new Date();
+        const end = new Date(auction.endDate);
+        if (now > end) return 'Ended';
+        
+        const diff = end - now;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        
+        if (days > 0) return `${days}d ${hours}h`;
+        return `${hours}h`;
+    };
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
+
+    const status = isAuction ? getAuctionStatus(item.auction) : getStockStatus(item?.stock);
+    const uploadStatus = getUploadStatus(item.status);
 
     const handleProductDelete = (productId) => {
         dispatch(deleteProduct(productId));
@@ -248,19 +282,34 @@ const ProductCard = ({ item, setIsStockUpdated }) => {
     // Mobile Card Layout
     const MobileCard = () => (
         <div className="flex flex-col gap-4 p-4">
-            <div className="flex items-start gap-4">
-                <img
-                    src={item?.images[0]?.url}
-                    alt={item?.name}
-                    className="w-[60px] h-[60px] rounded-lg object-contain flex-shrink-0"
-                />
-                <div className="flex flex-col flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-[#05031F] truncate">
-                        {item?.name}
-                    </h3>
-                    <p className="text-xs text-[#05031F]/60">
-                        {item?.category}
-                    </p>
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                    <img
+                        src={item?.images[0]?.url}
+                        alt={item?.name}
+                        className="w-16 h-16 rounded-lg object-cover"
+                    />
+                    <div className="space-y-1">
+                        <h3 className="font-medium text-[#05031F] line-clamp-2">{item?.name}</h3>
+                        <p className="text-sm text-gray-500">{item?.category}</p>
+                        {isAuction ? (
+                            <>
+                                <p className="text-sm font-medium text-[#05031F]">
+                                    Current Bid: {formatCurrency(item.auction?.currentHighestBid?.amount || 0)}
+                                </p>
+                                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${status.class}`}>
+                                    {status.text}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-sm font-medium text-[#05031F]">{formatCurrency(item?.price)}</p>
+                                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${status.class}`}>
+                                    {status.text}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
                 <div className="flex flex-col gap-2 items-center justify-center">
                     <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${status.class}`}>
@@ -272,9 +321,6 @@ const ProductCard = ({ item, setIsStockUpdated }) => {
                 </div>
             </div>
             <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-[#05031F]">
-                    ₦ {item?.price?.toLocaleString()}
-                </p>
                 <div className="grid grid-cols-[40px_40px] items-center gap-2 h-[40px]">
                     <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
                         <PopoverTrigger asChild>
@@ -318,32 +364,39 @@ const ProductCard = ({ item, setIsStockUpdated }) => {
 
     // Desktop Card Layout
     const DesktopCard = () => (
-        <div className="hidden lg:grid grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 items-center hover:bg-[#F7F7F7] transition-all duration-200">
-            <div className="w-12 h-12">
-                <img
-                    src={item?.images[0]?.url}
-                    alt={item?.name}
-                    className="w-full h-full rounded-lg object-contain"
-                />
-            </div>
-            <div className="truncate pr-4">
-                <p className="text-sm font-medium text-[#05031F] truncate">{item?.name}</p>
-            </div>
-            <div className="truncate">
-                <p className="text-sm text-[#05031F] truncate">{item?.category}</p>
-            </div>
-            <div className="truncate">
-                <p className={`text-sm px-3 py-1 rounded-full w-fit text-[#05031F] truncate ${uploadStatus?.class}`}>
-                    {uploadStatus?.text || 'offline auction'}
-                </p>
+        <div className="hidden lg:grid grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 items-center">
+            <img
+                src={item?.images[0]?.url}
+                alt={item?.name}
+                className="w-16 h-16 rounded-lg object-cover"
+            />
+            <div>
+                <h3 className="font-medium text-[#05031F] line-clamp-2">{item?.name}</h3>
+                <p className="text-sm text-gray-500">{item?.category}</p>
             </div>
             <div>
-                <p className="text-sm text-[#05031F]">₦ {item?.price?.toLocaleString()}</p>
+                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${uploadStatus.class}`}>
+                    {uploadStatus.text}
+                </div>
             </div>
-            <div className="flex justify-center">
-                <span className={`px-3 py-1 rounded-full text-xs ${status.class}`}>
+            <div>
+                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${status.class}`}>
                     {status.text}
-                </span>
+                </div>
+            </div>
+            <div className="text-sm font-medium text-[#05031F]">
+                {isAuction ? (
+                    formatCurrency(item.auction?.currentHighestBid?.amount || 0)
+                ) : (
+                    formatCurrency(item?.price)
+                )}
+            </div>
+            <div className="text-center">
+                {isAuction ? (
+                    <span className="text-sm text-gray-500">{getTimeLeft(item.auction)}</span>
+                ) : (
+                    <span className="text-sm text-gray-500">{item?.stock}</span>
+                )}
             </div>
             <div className="grid grid-cols-[40px_40px] items-center gap-2 h-[40px]">
                 <Popover open={isDesktopPopoverOpen} onOpenChange={setIsDesktopPopoverOpen}>
@@ -407,6 +460,8 @@ const ProductCard = ({ item, setIsStockUpdated }) => {
 
 ProductCard.propTypes = {
     item: PropTypes.object.isRequired,
+    setIsStockUpdated: PropTypes.func.isRequired,
+    isAuction: PropTypes.bool
 };
 
 // Memoize the entire ProductCard component
