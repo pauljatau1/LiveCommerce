@@ -28,7 +28,7 @@ router.use(debugMiddleware);
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -42,21 +42,42 @@ router.use(debugMiddleware);
  *               description:
  *                 type: string
  *               coverImage:
- *                 type: string
- *                 format: binary
+ *                 type: object
+ *                 properties:
+ *                   data:
+ *                     type: string
+ *                     description: Base64 encoded image data
+ *                   contentType:
+ *                     type: string
+ *                     example: 'image/jpeg'
  *               video:
- *                 type: string
- *                 description: Base64 encoded video data with content type
- *                 example: '{"data":"base64string","contentType":"video/mp4"}'
+ *                 type: object
+ *                 properties:
+ *                   data:
+ *                     type: string
+ *                     description: Base64 encoded video data
+ *                   contentType:
+ *                     type: string
+ *                     example: 'video/mp4'
  *               category:
  *                 type: string
  *               tags:
- *                 type: string
- *                 description: Comma-separated list of tags
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of tag strings
  *               products:
- *                 type: string
- *                 description: JSON string array of products with bid limits
- *                 example: '[{"productId":"123","minBid":10,"maxBid":1000},{"productId":"456","minBid":20,"maxBid":2000}]'
+ *                 type: array
+ *                 description: Array of products with bid limits
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     productId:
+ *                       type: string
+ *                     minBid:
+ *                       type: number
+ *                     maxBid:
+ *                       type: number
  *               scheduledStartTime:
  *                 type: string
  *                 format: date-time
@@ -73,7 +94,6 @@ router.use(debugMiddleware);
 router.post('/create', 
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  upload.single('coverImage'),
   streamController.createStream
 );
 
@@ -839,7 +859,7 @@ router.get('/seller/:sellerId', streamController.getSellerStreams);
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -852,17 +872,30 @@ router.get('/seller/:sellerId', streamController.getSellerStreams);
  *               description:
  *                 type: string
  *               coverImage:
- *                 type: string
- *                 format: binary
+ *                 type: object
+ *                 properties:
+ *                   data:
+ *                     type: string
+ *                     description: Base64 encoded image data
+ *                   contentType:
+ *                     type: string
+ *                     example: 'image/jpeg'
  *               video:
- *                 type: string
- *                 description: Base64 encoded video data with content type
- *                 example: '{"data":"base64string","contentType":"video/mp4"}'
+ *                 type: object
+ *                 properties:
+ *                   data:
+ *                     type: string
+ *                     description: Base64 encoded video data
+ *                   contentType:
+ *                     type: string
+ *                     example: 'video/mp4'
  *               category:
  *                 type: string
  *               tags:
- *                 type: string
- *                 description: Comma-separated list of tags
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of tag strings
  *               scheduledStartTime:
  *                 type: string
  *                 format: date-time
@@ -879,7 +912,6 @@ router.get('/seller/:sellerId', streamController.getSellerStreams);
 router.post('/open-live-show',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  upload.single('coverImage'),
   streamController.createOpenLiveShow
 );
 
