@@ -90,7 +90,10 @@
     "react-redux": "^9.2.0",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.5.5",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "expo-linear-gradient": "~14.0.2",
+    "@react-native-masked-view/masked-view": "0.3.2",
+    "expo-blur": "~14.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

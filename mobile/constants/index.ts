@@ -271,10 +271,10 @@ const watchCategories: Category[] = [
 const subCategories: SubCategory[] = [
   { id: "1", title: "Jewelry" },
   { id: "2", title: "Jerseys" },
-  { id: "3", title: "Men’s Fashion" },
+  { id: "3", title: "Men's Fashion" },
   { id: "4", title: "Bags" },
   { id: "5", title: "Vintage" },
-  { id: "6", title: "Men’s Jewelry" },
+  { id: "6", title: "Men's Jewelry" },
 ];
 
 const carouselData = [
@@ -304,4 +304,15 @@ export const data = {
   watchCategories,
   carouselData,
   productsData,
+};
+
+// API URL
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.yourdomain.com';
+
+// Socket Events
+export const SOCKET_EVENTS = {
+  VIEWER_JOINED: 'viewer_joined_stream',
+  VIEWER_LEFT: 'viewer_left_stream',
+  NEW_COMMENT: 'new_comment',
+  NEW_PURCHASE: 'new_purchase'
 };

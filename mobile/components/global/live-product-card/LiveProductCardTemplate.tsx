@@ -14,7 +14,7 @@ const LiveProductCardTemplate = ({ item, showBtn, showLive }: any) => {
   };
 
   return (
-    <TouchableOpacity className=" mr-[12px] w-[170px] rounded-lg">
+    <TouchableOpacity className=" mr-[12px] mb-[22px] w-[170px] rounded-lg">
       {/* Seller Info */}
 
       <View className="flex-row items-center mb-2 justify-between flex-wrap gap-2 mt-2">
@@ -26,7 +26,7 @@ const LiveProductCardTemplate = ({ item, showBtn, showLive }: any) => {
         </View>
       </View>
       {/* Main Product Image */}
-      <View className="relative bg-[#000] h-[240px] w-[170px] rounded-lg ">
+      <View className="relative bg-[#000] h-[240px] w-[160px] rounded-lg ">
         <View className="absolute top-2 left-2">
           <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
             <Text className="text-white text-[10px] font-LexendDeca">
