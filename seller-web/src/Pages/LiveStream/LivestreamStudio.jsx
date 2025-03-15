@@ -120,7 +120,7 @@ const LivestreamStudio = () => {
             const audioPermission = await navigator.permissions.query({ name: 'microphone' });
             
             if (videoPermission.state === 'denied' || audioPermission.state === 'denied') {
-                setDeviceError('Camera/microphone access is blocked. Please update browser permissions.');
+                setDeviceError('Camera/microphone access is blocked. Please grant camera and microphone access.');
                 return false;
             }
 
@@ -307,7 +307,7 @@ const LivestreamStudio = () => {
                     encoderConfig: {
                         width: { ideal: 1920, min: 1280 },
                         height: { ideal: 1080, min: 720 },
-                        frameRate: 60,
+                        frameRate: 30,
                         bitrateMin: 1500,
                         bitrateMax: 4000,
                         optimizationMode: 'motion',
@@ -334,7 +334,7 @@ const LivestreamStudio = () => {
                 setTimeout(() => {
                     clearInterval(checkInterval);
                     reject(new Error('Video container not found after 5 seconds'));
-                }, 5000);
+                }, 15000);
             });
 
             // 9. Play and publish

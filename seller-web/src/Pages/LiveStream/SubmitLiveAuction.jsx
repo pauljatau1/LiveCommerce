@@ -89,6 +89,12 @@ const SubmitLiveAuction = () => {
     const navigate = useNavigate();
     const { livestream, scheduleLiveAuction, isLoading, message } = useLivestreamContext();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const { setHeaderName, setNavName } = useOutletContext();
+
+    useEffect(() => {
+        setHeaderName('Live Streams');
+        setNavName('Submit Live Auction');
+    }, [setHeaderName, setNavName]);
 
     useEffect(() => {
         if (message === 'livestream scheduled successfully') {
@@ -102,11 +108,15 @@ const SubmitLiveAuction = () => {
         const streamData = {
             title: livestream.title,
             description: livestream.description,
-            coverImage: livestream.coverPhoto,
+            coverImage: {
+                data: livestream.coverPhoto.data,
+                contentType: livestream.coverPhoto.contentType
+            },
             category: livestream.category,
             tags: livestream.tags.map(tag => tag.label),
             products: selectedProducts,
-            scheduledStartTime: new Date().toISOString(),
+            video: livestream.video,
+            scheduledStartTime: livestream.scheduledStartTime || new Date().toISOString(),
         }
 
         console.log(streamData);
@@ -139,13 +149,13 @@ const SubmitLiveAuction = () => {
                                 <div className="flex flex-col md:flex-row md:items-center mb-10 md:mb-20 justify-between gap-4">
                                     <div className="flex items-center gap-4 xl:gap-8">
                                         <img src={LiveShowIcon} alt="Live Show Icon" className="w-10 h-10 md:w-14 md:h-14 xl:w-16 xl:h-16 object-cover" />
-                                        <h4 className="text-base md:text-lg font-semibold max-w-[150px] md:max-w-none font-inter text-[#16192C]">Open Live show Summary</h4>
+                                        <h4 className="text-base md:text-lg font-semibold max-w-[150px] md:max-w-none font-inter text-[#16192C]">Open Live Auction Summary</h4>
                                     </div>
                                     <p className="text-xs xl:text-sm font-inter text-[#718096]">Preview</p>
                                 </div>
                                 {/* Title Section */}
                                 <div className="space-y-2 mb-10">
-                                    <h2 className="text-sm font-semibold text-[#27272E] font-inter">Open Live Stream Title</h2>
+                                    <h2 className="text-sm font-semibold text-[#27272E] font-inter">Open Live Auction Title</h2>
                                     <p className="text-sm md:text-base text-[#718096]">
                                         {livestream?.title || 'No title provided'}
                                     </p>
@@ -157,15 +167,73 @@ const SubmitLiveAuction = () => {
                                     <div className="relative w-full h-[200px] md:h-[300px] flex items-center justify-center rounded-lg overflow-hidden bg-gray-100">
                                         {livestream?.coverPhoto ? (
                                             <img
-                                                src={URL.createObjectURL(livestream.coverPhoto)}
+                                                src={URL.createObjectURL(livestream.coverPhoto.file)}
                                                 alt="Stream Cover"
-                                                className="w-full h-full object-contain"
+                                                className="w-1/2 h-1/2 object-contain"
                                             />
                                         ) : (
                                             <div className="flex items-center justify-center h-full">
                                                 <p className="text-sm md:text-base text-[#718096]">No cover photo uploaded</p>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+
+                                {/* Blip Video Section */}
+                                <div className="space-y-2 mb-10">
+                                    <div className="flex items-center">
+                                        <h2 className="text-sm font-semibold text-[#27272E] font-inter">Stream Blip</h2>
+                                        <span className="ml-2 text-xs bg-[#E9FCEF] text-[#0BB248] px-2 py-0.5 rounded-full">Recommended</span>
+                                    </div>
+                                    <div className="flex md:flex-row flex-col items-start gap-4">
+                                        <div className="relative w-full md:w-1/3 aspect-[9/16] rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                                            {livestream?.video ? (
+                                                <div className="w-full h-full flex items-center justify-center bg-black">
+                                                    <video
+                                                        src={URL.createObjectURL(new Blob(
+                                                            [Uint8Array.from(atob(livestream.video.data), c => c.charCodeAt(0))], 
+                                                            { type: livestream.video.contentType }
+                                                        ))}
+                                                        className="w-full h-full object-contain"
+                                                        controls
+                                                        playsInline
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                                                    <div className="bg-[#E9FCEF] rounded-full p-3 mb-3">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#0BB248]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polygon points="23 7 16 12 23 17 23 7" />
+                                                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                                        </svg>
+                                                    </div>
+                                                    <p className="text-sm text-[#718096]">No blip video uploaded</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 flex flex-col justify-center">
+                                            <h3 className="text-sm font-medium text-gray-700 mb-1">Blip Benefits</h3>
+                                            <ul className="text-xs text-gray-600 space-y-2">
+                                                <li className="flex items-center">
+                                                    <svg className="w-4 h-4 mr-2 text-[#0BB248]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Increases your livestream visibility by up to 40%
+                                                </li>
+                                                <li className="flex items-center">
+                                                    <svg className="w-4 h-4 mr-2 text-[#0BB248]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Attracts more viewers to your upcoming show
+                                                </li>
+                                                <li className="flex items-center">
+                                                    <svg className="w-4 h-4 mr-2 text-[#0BB248]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Promotes engagement before your show starts
+                                                </li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -189,7 +257,7 @@ const SubmitLiveAuction = () => {
 
                         {/* Products Selection Card */}
                         <div className="flex-1 xl:flex-none lg:w-[354px] bg-white rounded-xl shadow-sm border overflow-y-auto border-gray-200 h-auto">
-                            <h1 className="text-lg font-bold text-[#16192C] font-inter pl-8 pt-6 xl:pt-10">Products in show</h1>
+                            <h1 className="text-lg font-semibold text-[#16192C] font-inter pl-8 pt-6 xl:pt-10">Products in show</h1>
                             <div className="flex flex-col gap-3 mt-3">
                                 {selectedProducts.map(product => (
                                     <LiveAuctionProductsCard key={product.id} product={product} />
