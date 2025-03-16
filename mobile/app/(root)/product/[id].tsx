@@ -484,39 +484,52 @@ const ProductDescription = () => {
                       )}
                     />
                   )}
-                  <View className="flex flex-row items-center justify-between py-[20px] px-[18px]">
-                    <View className="flex flex-row items-end">
-                      <Text className="text-[22px] text-white font-LexendDecaMedium">
-                        ₦
-                        {productDetails?.discount?.isActive
-                          ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
-                            0
-                          : productDetails?.price?.toLocaleString()}
-                      </Text>
-                      {productDetails?.discount?.isActive && (
-                        <Text className="text-[8px] text-[#09AF46] font-LexendDecaMedium line-through absolute bottom-[-5px] right-[-25px]">
-                          ₦{productDetails?.price?.toLocaleString()}
-                        </Text>
-                      )}
-                    </View>
-                    <View className="flex flex-row items-center gap-[6px]">
-                      {productDetails?.discount?.isActive ? (
-                        <View className=" bg-[#FFD700] py-[5px] px-[17px] rounded-[14px]">
-                          <Text className="text-[9px] text-black font-LexendDecaBold">
-                            {productDetails?.discount?.value?.toFixed(0)}
-                            {productDetails?.discount?.type == "percentage" &&
-                              "%"}
-                          </Text>
-                        </View>
-                      ) : null}
-                      <View className=" bg-[#0EA245] py-[5px] px-[17px] rounded-[14px]">
-                        <Text className="text-[9px] text-white font-LexendDecaBold">
-                          {productDetails?.condition}
+
+                  <View className="py-[20px] px-[18px]">
+                    {productDetails?.status == "offline_auction" && (
+                      <View className="flex flex-row items-center justify-between">
+                        <Text className="text-[#fff] text-[8px] font-LexendDecaSemiBold">
+                          {productDetails?.auction?.currentHighestBid?.buyer ||
+                            "no current winner"}
                         </Text>
                       </View>
-                      <Text className="text-[11px] text-white font-LexendDecaBold">
-                        {formatNumber(productDetails?.stats?.soldCount)} sold
-                      </Text>
+                    )}
+                    <View className="flex flex-row items-center justify-between ">
+                      <View className="flex flex-row items-end">
+                        <Text className="text-[22px] text-white font-LexendDecaMedium">
+                          ₦
+                          {productDetails?.discount?.isActive
+                            ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
+                              0
+                            : productDetails?.price?.toLocaleString()}
+                        </Text>
+                        {productDetails?.discount?.isActive && (
+                          <Text className="text-[8px] text-[#09AF46] font-LexendDecaMedium line-through absolute bottom-[-5px] right-[-25px]">
+                            ₦{productDetails?.price?.toLocaleString()}
+                          </Text>
+                        )}
+                      </View>
+                      <View className="flex flex-row items-center gap-[6px]">
+                        {productDetails?.discount?.isActive ? (
+                          <View className=" bg-[#FFD700] py-[5px] px-[17px] rounded-[14px]">
+                            <Text className="text-[9px] text-black font-LexendDecaBold">
+                              {productDetails?.discount?.value?.toFixed(0)}
+                              {productDetails?.discount?.type == "percentage" &&
+                                "%"}
+                            </Text>
+                          </View>
+                        ) : null}
+                        <View className=" bg-[#0EA245] py-[5px] px-[17px] rounded-[14px]">
+                          <Text className="text-[9px] text-white font-LexendDecaBold">
+                            {productDetails?.condition}
+                          </Text>
+                        </View>
+                        <Text className="text-[11px] text-white font-LexendDecaBold">
+                          {productDetails?.status == "offline_auction"
+                            ? `${formatNumber(productDetails?.auction?.bids?.length)} bids`
+                            : `${formatNumber(productDetails?.stats?.soldCount)} sold`}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
@@ -934,44 +947,71 @@ const ProductDescription = () => {
 
       {isLoading || isFetching ? null : (
         <View
-          className="absolute bottom-0 left-0 bg-black w-full flex-row justify-center"
-          style={{ paddingBottom: 29, paddingTop: 24, gap: 16 }}
+          className="absolute bottom-0 left-0 bg-black w-full flex-row justify-center px-[30px]"
+          style={{
+            paddingBottom: 29,
+            paddingTop: 24,
+            gap: 16,
+            paddingHorizontal: 30,
+          }}
         >
-          <TouchableOpacity
-            className="px-[20px] py-[12px] bg-[#fff] items-center justify-center"
-            style={{
-              borderRadius: 6,
-              borderWidth: 1,
-              borderColor: "#16783A",
-              minWidth: 130,
-            }}
-            onPress={() => {
-              if (userToken) {
-                return setShowCartSheet(true);
-              }
-              return setShowAuthSheet(true);
-            }}
-          >
-            <Text className="text-[10px]" style={{ color: "#16783A" }}>
-              ADD TO CART
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="px-[20px] py-[12px] bg-[#fff] items-center justify-center"
-            style={{
-              borderRadius: 6,
-              backgroundColor: "#16783A",
-              minWidth: 130,
-            }}
-            onPress={async () => {
-              if (userToken) {
-                return setShowCheckout(true);
-              }
-              return setShowAuthSheet(true);
-            }}
-          >
-            <Text className="text-[10px] text-white">BUY NOW</Text>
-          </TouchableOpacity>
+          {productDetails?.status == "offline_auction" ? (
+            <TouchableOpacity
+              className="px-[20px] py-[12px] bg-[#fff] items-center justify-center w-full"
+              style={{
+                borderRadius: 6,
+                backgroundColor: "#16783A",
+                minWidth: 130,
+              }}
+              onPress={() => {}}
+            >
+              <Text className="text-[10px] text-white font-LexendDecaSemiBold">
+                Bid ₦
+                {(
+                  productDetails?.auction?.currentHighestBid?.amount ||
+                  productDetails?.auction?.minBid
+                ).toLocaleString()}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                className="px-[20px] py-[12px] bg-[#fff] items-center justify-center"
+                style={{
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: "#16783A",
+                  minWidth: 130,
+                }}
+                onPress={() => {
+                  if (userToken) {
+                    return setShowCartSheet(true);
+                  }
+                  return setShowAuthSheet(true);
+                }}
+              >
+                <Text className="text-[10px]" style={{ color: "#16783A" }}>
+                  ADD TO CART
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="px-[20px] py-[12px] bg-[#fff] items-center justify-center"
+                style={{
+                  borderRadius: 6,
+                  backgroundColor: "#16783A",
+                  minWidth: 130,
+                }}
+                onPress={async () => {
+                  if (userToken) {
+                    return setShowCheckout(true);
+                  }
+                  return setShowAuthSheet(true);
+                }}
+              >
+                <Text className="text-[10px] text-white">BUY NOW</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
 

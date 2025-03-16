@@ -63,8 +63,9 @@ const SellerCategories = ({ sellerId }: any) => {
           </Pressable>
           {activeCategory && activeCategory == index?.toString() ? (
             <View className="flex-row gap-[8.5px] items-center flex-wrap pb-[10px]">
-              {item?.subCategories?.map((subcategory: any) => (
+              {item?.subCategories?.map((subcategory: any, index: number) => (
                 <Pressable
+                  key={index}
                   className="rounded-[4px] px-[12px] py-[8px]"
                   style={{
                     backgroundColor: "rgba(204, 204, 204, 0.25);",

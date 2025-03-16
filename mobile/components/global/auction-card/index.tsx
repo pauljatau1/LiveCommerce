@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import { icons, images } from "@/constants";
 import CustomButton from "../button/CustomButton";
@@ -6,6 +6,14 @@ import { formatTimeFromNow } from "@/helpers/helpers";
 import { router } from "expo-router";
 
 const AuctionCard = ({ item }: any) => {
+  const [bidTime, setBidTime] = useState<any>();
+
+  useEffect(() => {
+    setInterval(
+      () => setBidTime(formatTimeFromNow(item?.auction?.endDate)),
+      1000,
+    );
+  }, []);
   return (
     <View className=" bg-black rounded-lg p-[11.85px]  w-[173px] min-h-[299px]">
       {/* Product Image */}
@@ -39,7 +47,7 @@ const AuctionCard = ({ item }: any) => {
           </Text>
           <View className="w-[6px] h-[6px] bg-white rounded-full" />
           <Text className="font-LexendDecaBold !text-[#FF6600E5]  text-[8px]">
-            {formatTimeFromNow(item?.auction?.endDate)}
+            {bidTime || formatTimeFromNow(item?.auction?.endDate)}
           </Text>
         </View>
         <Text className="text-[#FFD700] text-[8px] pb-[12.47px] font-LexendDecaSemiBold mt-[2px]">
