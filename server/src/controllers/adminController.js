@@ -11,6 +11,7 @@ const Announcement = require('../models/Annoucement');
 const Withdrawal = require('../models/Withdrawal');
 const Resource = require('../models/Resource');
 const Transaction = require('../models/Transaction');
+const BankChangeRequest = require('../models/BankChangeRequest');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
@@ -2517,6 +2518,125 @@ exports.recalculateCategoryStats = async (req, res) => {
   }
 };
 
+// Get all bank account change requests
+exports.getAllBankChangeRequests = async (req, res) => {
+  try {
+    const requests = await BankChangeRequest.find()
+      .populate('seller', 'firstName lastName email storeName')
+      .sort({ requestDate: -1 });
+
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Failed to fetch bank change requests', 
+      error: error.message 
+    });
+  }
+};
+
+// Process bank account change request
+exports.processBankChangeRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { requestId } = req.params;
+    const { status, reason } = req.body;
+
+    const request = await BankChangeRequest.findById(requestId)
+      .populate('seller')
+      .session(session);
+
+    if (!request) {
+      return res.status(404).json({ message: 'Bank change request not found' });
+    }
+
+    if (request.status !== 'pending') {
+      return res.status(400).json({ message: 'This request has already been processed' });
+    }
+
+    request.status = status;
+    request.processedDate = new Date();
+    request.processedBy = req.user.id;
+    
+    if (status === 'rejected') {
+      request.rejectionReason = reason;
+      request.notes.push({
+        content: `Request rejected: ${reason}`,
+        addedBy: 'admin'
+      });
+    } else if (status === 'approved') {
+      // Update seller's bank details
+      const seller = request.seller;
+      seller.bankDetails = request.newBankDetails;
+      await seller.save({ session });
+
+      request.notes.push({
+        content: 'Request approved and bank details updated',
+        addedBy: 'admin'
+      });
+    }
+
+    await request.save({ session });
+
+    // Send email notification to seller
+    const emailSubject = status === 'approved' 
+      ? 'Bank Account Change Request Approved'
+      : 'Bank Account Change Request Rejected';
+
+    const emailHtml = status === 'approved' 
+      ? `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Bank Account Change Request Approved</h2>
+          <p>Dear ${request.seller.firstName},</p>
+          <p>Your request to change your bank account details has been approved. Your new bank details are now active.</p>
+          <p>New Bank Details:</p>
+          <ul>
+            <li>Bank Name: ${request.newBankDetails.bankName}</li>
+            <li>Account Name: ${request.newBankDetails.accountName}</li>
+            <li>Account Number: ${request.newBankDetails.accountNumber}</li>
+          </ul>
+          <p>If you did not request this change, please contact our support team immediately.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+      : `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Bank Account Change Request Rejected</h2>
+          <p>Dear ${request.seller.firstName},</p>
+          <p>Your request to change your bank account details has been rejected.</p>
+          <p>Reason: ${reason}</p>
+          <p>If you would like to submit a new request, please ensure to address the reason mentioned above.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `;
+
+    await sgMail.send({
+      to: request.seller.email,
+      from: 'Auqli Admin <joseph@auqli.com>',
+      subject: emailSubject,
+      html: emailHtml
+    });
+
+    await session.commitTransaction();
+
+    res.json({
+      message: `Bank change request ${status} successfully`,
+      request
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ 
+      message: 'Failed to process bank change request', 
+      error: error.message 
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// ... rest of the code ...
 
 
 

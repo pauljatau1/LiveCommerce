@@ -2816,4 +2816,76 @@ router.put('/store-policy', authMiddleware.verifyToken, sellerController.updateS
  */
 router.put('/social-media', authMiddleware.verifyToken, sellerController.updateSocialMedia);
 
+/**
+ * @swagger
+ * /api/seller/bank-change-request:
+ *   post:
+ *     summary: Submit a bank account change request
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               bankDetails:
+ *                 type: object
+ *                 properties:
+ *                   bankCountry:
+ *                     type: string
+ *                   bankName:
+ *                     type: string
+ *                   bankAccountType:
+ *                     type: string
+ *                   accountCurrency:
+ *                     type: string
+ *                   accountNumber:
+ *                     type: string
+ *                   accountName:
+ *                     type: string
+ *                   swiftCode:
+ *                     type: string
+ *                   bankIdentifierCode:
+ *                     type: string
+ *               proofFile:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Bank change request submitted successfully
+ *       400:
+ *         description: Invalid request or missing proof document
+ *       500:
+ *         description: Server error
+ */
+router.post('/bank-change-request', 
+  authMiddleware.verifyToken,
+  upload.single('proofFile'),
+  sellerController.requestBankAccountChange
+);
+
+/**
+ * @swagger
+ * /api/seller/bank-change-request/status:
+ *   get:
+ *     summary: Get bank change request status
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bank change request status retrieved successfully
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/bank-change-request/status',
+  authMiddleware.verifyToken,
+  sellerController.getBankChangeRequestStatus
+);
+
 module.exports = router;

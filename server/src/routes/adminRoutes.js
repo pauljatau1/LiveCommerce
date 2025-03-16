@@ -1413,6 +1413,67 @@ router.get('/banks', authMiddleware.verifyToken, async (req, res) => {
 // Add the new finalize transfer route
 router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, adminController.finalizeTransfer);
 
+/**
+ * @swagger
+ * /api/admin/bank-change-requests:
+ *   get:
+ *     summary: Get all bank account change requests
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bank change requests retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/bank-change-requests',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getAllBankChangeRequests
+);
 
+/**
+ * @swagger
+ * /api/admin/bank-change-requests/{requestId}:
+ *   put:
+ *     summary: Process a bank account change request
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [approved, rejected]
+ *               reason:
+ *                 type: string
+ *                 description: Required if status is rejected
+ *     responses:
+ *       200:
+ *         description: Bank change request processed successfully
+ *       400:
+ *         description: Invalid request or already processed
+ *       404:
+ *         description: Request not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/bank-change-requests/:requestId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.processBankChangeRequest
+);
 
 module.exports = router;

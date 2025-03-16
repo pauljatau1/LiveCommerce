@@ -125,7 +125,7 @@ function initializeSocket(server) {
           startDate: auction.auction.startDate,
           endDate: auction.auction.endDate,
           minBid: auction.auction.minBid,
-          bidsCount: auction.auction.bids.length,
+          bidsCount: auction?.auction?.bids?.length,
           currentHighestBid: auction.auction.currentHighestBid ? {
             amount: auction.auction.currentHighestBid.amount,
             buyer: auction.auction.currentHighestBid.buyer ? {
@@ -191,7 +191,7 @@ function initializeSocket(server) {
             startDate: product.auction.startDate,
             endDate: product.auction.endDate,
             timeRemaining: timeRemaining,
-            bidsCount: product.auction.bids.length,
+            bidsCount: product?.auction?.bids?.length,
             currentHighestBid: product.auction.currentHighestBid ? {
               amount: product.auction.currentHighestBid.amount,
               buyer: product.auction.currentHighestBid.buyer ? {
@@ -277,7 +277,7 @@ function initializeSocket(server) {
             endDate: product.auction.endDate,
             timeRemaining: timeRemaining,
             bids: formattedBids,
-            bidsCount: formattedBids.length,
+            bidsCount: formattedBids?.length,
             currentHighestBid: product.auction.currentHighestBid ? {
               amount: product.auction.currentHighestBid.amount,
               buyer: product.auction.currentHighestBid.buyer ? {
@@ -441,7 +441,7 @@ function initializeSocket(server) {
         const bidData = {
           productId: product._id,
           bid: {
-            _id: product.auction.bids[product.auction.bids.length - 1]._id,
+            _id: product?.auction?.bids[product?.auction?.bids?.length - 1]?._id,
             amount: amount,
             status: 'active',
             createdAt: new Date(),
@@ -461,8 +461,8 @@ function initializeSocket(server) {
               profileImage: buyer.profileImage
             }
           },
-          bidsCount: product.auction.bids.length,
-          auctionStatus: product.auction.status,
+          bidsCount: product?.auction?.bids?.length,
+          auctionStatus: product?.auction?.status,
           auctionEnded: auctionEnded,
           winner: auctionEnded ? {
             buyer: {
@@ -491,9 +491,9 @@ function initializeSocket(server) {
               lastName: buyer.lastName
             }
           },
-          bidsCount: product.auction.bids.length,
-          status: product.auction.status,
-          timeRemaining: product.auction.status === 'ongoing' ? product.auction.endDate - now : 0
+          bidsCount: product?.auction?.bids?.length,
+          status: product?.auction?.status,
+          timeRemaining: product?.auction?.status === 'ongoing' ? product?.auction?.endDate - now : 0
         });
         
         // Also emit to auction details room
@@ -508,9 +508,9 @@ function initializeSocket(server) {
               profileImage: buyer.profileImage
             }
           },
-          bidsCount: product.auction.bids.length,
-          status: product.auction.status,
-          timeRemaining: product.auction.status === 'ongoing' ? product.auction.endDate - now : 0
+          bidsCount: product?.auction?.bids?.length,
+          status: product?.auction?.status,
+          timeRemaining: product?.auction?.status === 'ongoing' ? product?.auction?.endDate - now : 0
         });
 
         // Send confirmation to the bidder
@@ -977,7 +977,7 @@ function initializeSocket(server) {
           currentHighestBid: auction.auction?.currentHighestBid ? {
             amount: auction.auction.currentHighestBid.amount
           } : null,
-          bidsCount: auction.auction?.bids?.length || 0
+          bidsCount: auction?.auction?.bids?.length || 0
         });
         
         // Also emit updates to auction details room
