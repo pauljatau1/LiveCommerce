@@ -8,6 +8,11 @@ const jwtDecode = require('jwt-decode');
 const Seller = require('../models/Seller');
 const { RtcRole } = require('agora-access-token');
 const Buyer = require('../models/Buyer');
+const { saveToken, getToken } = require('../../Firebase');
+const { Expo } = require('expo-server-sdk');
+
+const expo = new Expo();
+
 
 exports.createStream = async (req, res) => {
   try {
@@ -503,6 +508,15 @@ exports.joinStream = async (req, res) => {
       tokenUid, 
       RtcRole.SUBSCRIBER
     );
+    
+    const userToken = await getToken(req.user.id);
+    if (userToken) {
+      await expo.sendPushNotificationsAsync([{
+        to: userToken.token,
+        title: `Live Show Activity`,
+        body: `You have successfully joined a stream created by ${stream.seller.storeName}`
+      }]);
+    }
 
     // Add user to viewers if not already there
     if (!stream.viewers.some(viewer => viewer._id.toString() === req.user.id)) {
