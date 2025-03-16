@@ -4,9 +4,13 @@ const Conversation = require('../models/Conversation');
 const Stream = require('../models/Stream');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
+const Product = require('../models/Product');
+const mongoose = require('mongoose');
 
 // Store active users
 const activeUsers = new Map();
+// Store active auction watchers
+const auctionWatchers = new Map();
 
 function initializeSocket(server) {
   const io = socketIO(server, {
@@ -93,6 +97,490 @@ function initializeSocket(server) {
       console.log(`User ${userId} joined their room`);
     });
 
+    // AUCTION SPECIFIC EVENTS
+
+    // Join auction lists room to receive updates about all auctions
+    socket.on('join_auction_lists', async () => {
+      try {
+        socket.join('auction_lists');
+        console.log(`User ${socket.user.id} joined auction lists room`);
+        
+        // Send initial data about active auctions
+        const activeAuctions = await Product.find({
+          status: 'offline_auction',
+          'auction.status': { $in: ['scheduled', 'ongoing'] }
+        })
+        .select('_id name auction.status auction.startDate auction.endDate auction.minBid auction.currentHighestBid auction.bids')
+        .populate({
+          path: 'auction.currentHighestBid.buyer',
+          select: 'firstName lastName profileImage'
+        })
+        .limit(20); // Limit to avoid large payloads
+        
+        // Format the data for the client
+        const formattedAuctions = activeAuctions.map(auction => ({
+          _id: auction._id,
+          name: auction.name,
+          status: auction.auction.status,
+          startDate: auction.auction.startDate,
+          endDate: auction.auction.endDate,
+          minBid: auction.auction.minBid,
+          bidsCount: auction.auction.bids.length,
+          currentHighestBid: auction.auction.currentHighestBid ? {
+            amount: auction.auction.currentHighestBid.amount,
+            buyer: auction.auction.currentHighestBid.buyer ? {
+              _id: auction.auction.currentHighestBid.buyer._id,
+              firstName: auction.auction.currentHighestBid.buyer.firstName,
+              lastName: auction.auction.currentHighestBid.buyer.lastName,
+              profileImage: auction.auction.currentHighestBid.buyer.profileImage
+            } : null
+          } : null,
+          timeRemaining: auction.auction.status === 'scheduled' 
+            ? auction.auction.startDate - new Date() 
+            : auction.auction.endDate - new Date()
+        }));
+        
+        socket.emit('auction_lists_data', {
+          auctions: formattedAuctions
+        });
+        
+      } catch (error) {
+        console.error('Error joining auction lists room:', error);
+        socket.emit('auction_error', { message: 'Failed to join auction lists room' });
+      }
+    });
+    
+    // Leave auction lists room
+    socket.on('leave_auction_lists', () => {
+      socket.leave('auction_lists');
+      console.log(`User ${socket.user.id} left auction lists room`);
+    });
+    
+    // Join to watch a specific auction product details
+    socket.on('join_auction_details', async (productId) => {
+      try {
+        socket.join(`auction_details_${productId}`);
+        console.log(`User ${socket.user.id} joined auction details room for product ${productId}`);
+        
+        // Get current auction data and send to the user
+        const product = await Product.findById(productId)
+          .populate({
+            path: 'auction.currentHighestBid.buyer',
+            select: 'firstName lastName profileImage'
+          })
+          .select('name auction status');
+        
+        if (product && product.status === 'offline_auction') {
+          // Calculate time remaining
+          const now = new Date();
+          let timeRemaining = null;
+          
+          if (product.auction.status === 'scheduled') {
+            timeRemaining = product.auction.startDate - now;
+          } else if (product.auction.status === 'ongoing') {
+            timeRemaining = product.auction.endDate - now;
+          }
+          
+          // Send auction details to the user
+          socket.emit('auction_details_data', {
+            productId: product._id,
+            name: product.name,
+            status: product.auction.status,
+            minBid: product.auction.minBid,
+            maxBid: product.auction.maxBid,
+            startDate: product.auction.startDate,
+            endDate: product.auction.endDate,
+            timeRemaining: timeRemaining,
+            bidsCount: product.auction.bids.length,
+            currentHighestBid: product.auction.currentHighestBid ? {
+              amount: product.auction.currentHighestBid.amount,
+              buyer: product.auction.currentHighestBid.buyer ? {
+                _id: product.auction.currentHighestBid.buyer._id,
+                firstName: product.auction.currentHighestBid.buyer.firstName,
+                lastName: product.auction.currentHighestBid.buyer.lastName,
+                profileImage: product.auction.currentHighestBid.buyer.profileImage
+              } : null
+            } : null
+          });
+        }
+      } catch (error) {
+        console.error('Error joining auction details room:', error);
+        socket.emit('auction_error', { message: 'Failed to join auction details room' });
+      }
+    });
+    
+    // Leave auction details room
+    socket.on('leave_auction_details', (productId) => {
+      socket.leave(`auction_details_${productId}`);
+      console.log(`User ${socket.user.id} left auction details room for product ${productId}`);
+    });
+
+    // Join an auction room to receive updates
+    socket.on('join_auction', async (productId) => {
+      try {
+        socket.join(`auction_${productId}`);
+        console.log(`User ${socket.user.id} joined auction room for product ${productId}`);
+        
+        // Add user to auction watchers
+        if (!auctionWatchers.has(productId)) {
+          auctionWatchers.set(productId, new Set());
+        }
+        auctionWatchers.get(productId).add(socket.user.id);
+
+        // Get current auction data and send to the user
+        const product = await Product.findById(productId)
+          .populate({
+            path: 'auction.bids.buyer',
+            select: 'firstName lastName profileImage'
+          })
+          .populate({
+            path: 'auction.currentHighestBid.buyer',
+            select: 'firstName lastName profileImage'
+          })
+          .select('name auction status');
+
+        if (product && product.status === 'offline_auction') {
+          // Calculate time remaining
+          const now = new Date();
+          let timeRemaining = null;
+          let auctionState = product.auction.status;
+
+          if (product.auction.status === 'scheduled') {
+            timeRemaining = product.auction.startDate - now;
+          } else if (product.auction.status === 'ongoing') {
+            timeRemaining = product.auction.endDate - now;
+          }
+
+          // Format bids for the response
+          const formattedBids = product.auction.bids.map(bid => ({
+            _id: bid._id,
+            buyer: bid.buyer ? {
+              _id: bid.buyer._id,
+              firstName: bid.buyer.firstName,
+              lastName: bid.buyer.lastName,
+              profileImage: bid.buyer.profileImage
+            } : null,
+            amount: bid.amount,
+            status: bid.status,
+            createdAt: bid.createdAt
+          }));
+
+          // Send initial auction data to the user
+          socket.emit('auction_data', {
+            productId: product._id,
+            name: product.name,
+            status: product.auction.status,
+            minBid: product.auction.minBid,
+            maxBid: product.auction.maxBid,
+            endOnMaxBid: product.auction.endOnMaxBid,
+            startDate: product.auction.startDate,
+            endDate: product.auction.endDate,
+            timeRemaining: timeRemaining,
+            bids: formattedBids,
+            bidsCount: formattedBids.length,
+            currentHighestBid: product.auction.currentHighestBid ? {
+              amount: product.auction.currentHighestBid.amount,
+              buyer: product.auction.currentHighestBid.buyer ? {
+                _id: product.auction.currentHighestBid.buyer._id,
+                firstName: product.auction.currentHighestBid.buyer.firstName,
+                lastName: product.auction.currentHighestBid.buyer.lastName,
+                profileImage: product.auction.currentHighestBid.buyer.profileImage
+              } : null
+            } : null,
+            winner: product.auction.winner ? {
+              buyer: product.auction.winner.buyer ? {
+                _id: product.auction.winner.buyer._id,
+                firstName: product.auction.winner.buyer.firstName,
+                lastName: product.auction.winner.buyer.lastName
+              } : null,
+              bidAmount: product.auction.winner.bidAmount,
+              winningDate: product.auction.winner.winningDate
+            } : null,
+            watchersCount: auctionWatchers.get(productId).size
+          });
+
+          // Notify other users in the room about the new watcher
+          socket.to(`auction_${productId}`).emit('auction_watcher_joined', {
+            watchersCount: auctionWatchers.get(productId).size
+          });
+        }
+      } catch (error) {
+        console.error('Error joining auction room:', error);
+        socket.emit('auction_error', { message: 'Failed to join auction room' });
+      }
+    });
+
+    // Leave an auction room
+    socket.on('leave_auction', (productId) => {
+      socket.leave(`auction_${productId}`);
+      console.log(`User ${socket.user.id} left auction room for product ${productId}`);
+
+      // Remove user from auction watchers
+      if (auctionWatchers.has(productId)) {
+        auctionWatchers.get(productId).delete(socket.user.id);
+        
+        // If there are still watchers, notify them about the count change
+        if (auctionWatchers.get(productId).size > 0) {
+          io.to(`auction_${productId}`).emit('auction_watcher_left', {
+            watchersCount: auctionWatchers.get(productId).size
+          });
+        }
+      }
+    });
+
+    // Place a bid via socket (real-time)
+    socket.on('place_bid', async (data) => {
+      try {
+        const { productId, amount } = data;
+        const buyerId = socket.user.id;
+
+        // Validate user is a buyer
+        if (socket.user.role !== 'buyer') {
+          socket.emit('bid_error', { message: 'Only buyers can place bids' });
+          return;
+        }
+
+        // Find the product
+        const product = await Product.findById(productId);
+        
+        if (!product) {
+          socket.emit('bid_error', { message: 'Product not found' });
+          return;
+        }
+
+        if (product.status !== 'offline_auction') {
+          socket.emit('bid_error', { message: 'This product is not an auction item' });
+          return;
+        }
+
+        // Check if auction has started
+        const now = new Date();
+        if (now < product.auction.startDate) {
+          socket.emit('bid_error', { message: 'Auction has not started yet' });
+          return;
+        }
+
+        // Check if auction has ended
+        if (now > product.auction.endDate) {
+          socket.emit('bid_error', { message: 'Auction has ended' });
+          return;
+        }
+
+        // Check minimum bid
+        if (amount < product.auction.minBid) {
+          socket.emit('bid_error', { 
+            message: `Bid amount must be at least ${product.auction.minBid}` 
+          });
+          return;
+        }
+
+        // Check if bid is higher than current highest bid
+        if (product.auction.currentHighestBid.amount && amount <= product.auction.currentHighestBid.amount) {
+          socket.emit('bid_error', { 
+            message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}` 
+          });
+          return;
+        }
+
+        // Convert buyerId to ObjectId properly
+        const buyerObjectId = new mongoose.Types.ObjectId(buyerId);
+
+        // Mark previous highest bid as outbid if it exists
+        if (product.auction.currentHighestBid.buyer) {
+          const previousHighestBid = product.auction.bids.find(
+            bid => bid.buyer.toString() === product.auction.currentHighestBid.buyer.toString() && 
+            bid.status === 'active'
+          );
+          if (previousHighestBid) {
+            previousHighestBid.status = 'outbid';
+          }
+        }
+
+        // Add new bid
+        const newBid = {
+          buyer: buyerObjectId,
+          amount: amount,
+          status: 'active'
+        };
+
+        product.auction.bids.push(newBid);
+
+        // Update current highest bid
+        product.auction.currentHighestBid = {
+          amount: amount,
+          buyer: buyerObjectId
+        };
+
+        // Check if auction should end (max bid reached and endOnMaxBid is true)
+        let auctionEnded = false;
+        if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
+          product.auction.status = 'ended';
+          product.auction.winner = {
+            buyer: buyerObjectId,
+            bidAmount: amount,
+            winningDate: now
+          };
+          auctionEnded = true;
+
+          // Update all other bids to 'lost'
+          product.auction.bids.forEach(bid => {
+            if (bid.buyer.toString() !== buyerObjectId.toString()) {
+              bid.status = 'lost';
+            } else if (bid.amount === amount) {
+              bid.status = 'won';
+            }
+          });
+        }
+
+        await product.save();
+
+        // Get buyer details for the response
+        const buyer = await Buyer.findById(buyerId).select('firstName lastName profileImage');
+
+        // Prepare bid notification data
+        const bidData = {
+          productId: product._id,
+          bid: {
+            _id: product.auction.bids[product.auction.bids.length - 1]._id,
+            amount: amount,
+            status: 'active',
+            createdAt: new Date(),
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              profileImage: buyer.profileImage
+            }
+          },
+          currentHighestBid: {
+            amount: amount,
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              profileImage: buyer.profileImage
+            }
+          },
+          bidsCount: product.auction.bids.length,
+          auctionStatus: product.auction.status,
+          auctionEnded: auctionEnded,
+          winner: auctionEnded ? {
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              profileImage: buyer.profileImage
+            },
+            bidAmount: amount,
+            winningDate: now
+          } : null
+        };
+
+        // Emit bid update to all users in the auction room
+        io.to(`auction_${productId}`).emit('bid_update', bidData);
+
+        // Also emit to auction lists room with minimal data
+        io.to('auction_lists').emit('auction_list_update', {
+          productId: product._id,
+          name: product.name,
+          currentHighestBid: {
+            amount: amount,
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName
+            }
+          },
+          bidsCount: product.auction.bids.length,
+          status: product.auction.status,
+          timeRemaining: product.auction.status === 'ongoing' ? product.auction.endDate - now : 0
+        });
+        
+        // Also emit to auction details room
+        io.to(`auction_details_${productId}`).emit('auction_details_update', {
+          productId: product._id,
+          currentHighestBid: {
+            amount: amount,
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              profileImage: buyer.profileImage
+            }
+          },
+          bidsCount: product.auction.bids.length,
+          status: product.auction.status,
+          timeRemaining: product.auction.status === 'ongoing' ? product.auction.endDate - now : 0
+        });
+
+        // Send confirmation to the bidder
+        socket.emit('bid_placed', { 
+          success: true,
+          message: 'Bid placed successfully',
+          ...bidData
+        });
+
+      } catch (error) {
+        console.error('Error placing bid:', error);
+        socket.emit('bid_error', { message: 'Failed to place bid' });
+      }
+    });
+
+    // Request auction timer update
+    socket.on('request_auction_timer', async (productId) => {
+      try {
+        const product = await Product.findById(productId)
+          .select('auction.status auction.startDate auction.endDate');
+        
+        if (!product) {
+          socket.emit('auction_timer_error', { message: 'Product not found' });
+          return;
+        }
+
+        const now = new Date();
+        let timeRemaining = null;
+        let auctionState = product.auction.status;
+
+        if (product.auction.status === 'scheduled') {
+          timeRemaining = product.auction.startDate - now;
+          
+          // Check if auction should start now
+          if (timeRemaining <= 0) {
+            // Update auction status to ongoing
+            await Product.findByIdAndUpdate(productId, {
+              'auction.status': 'ongoing'
+            });
+            auctionState = 'ongoing';
+            timeRemaining = product.auction.endDate - now;
+          }
+        } else if (product.auction.status === 'ongoing') {
+          timeRemaining = product.auction.endDate - now;
+          
+          // Check if auction should end now
+          if (timeRemaining <= 0) {
+            // End the auction
+            const updatedProduct = await Product.findById(productId);
+            await updatedProduct.endAuction(false, io);
+            auctionState = 'ended';
+            timeRemaining = 0;
+          }
+        } else {
+          timeRemaining = 0;
+        }
+
+        // Send timer update to the requesting client
+        socket.emit('auction_timer_update', {
+          productId,
+          timeRemaining,
+          status: auctionState
+        });
+
+      } catch (error) {
+        console.error('Error updating auction timer:', error);
+        socket.emit('auction_timer_error', { message: 'Failed to update timer' });
+      }
+    });
+
     socket.on('new_message', async ({ conversationId, message }) => {
       try {
         const conversation = await Conversation.findById(conversationId)
@@ -157,6 +645,20 @@ function initializeSocket(server) {
       
       // Remove user from active users
       activeUsers.delete(socket.user.id);
+
+      // Remove user from all auction watchers
+      for (const [productId, watchers] of auctionWatchers.entries()) {
+        if (watchers.has(socket.user.id)) {
+          watchers.delete(socket.user.id);
+          
+          // Notify remaining watchers about the count change
+          if (watchers.size > 0) {
+            io.to(`auction_${productId}`).emit('auction_watcher_left', {
+              watchersCount: watchers.size
+            });
+          }
+        }
+      }
 
       // Update user's offline status in conversations
       await Conversation.updateMany(
@@ -374,6 +876,156 @@ function initializeSocket(server) {
       }
     }
   }, 60000); // Check every minute
+
+  // Periodic auction timer updates (every 10 seconds)
+  setInterval(async () => {
+    try {
+      // Find all active auctions
+      const activeAuctions = await Product.find({
+        status: 'offline_auction',
+        'auction.status': { $in: ['scheduled', 'ongoing'] }
+      }).select('_id auction.status auction.startDate auction.endDate');
+
+      const now = new Date();
+
+      for (const auction of activeAuctions) {
+        let timeRemaining = null;
+        let statusChanged = false;
+        let newStatus = auction.auction.status;
+
+        // Calculate time remaining and check if status needs to change
+        if (auction.auction.status === 'scheduled' && auction.auction.startDate <= now) {
+          // Auction should start
+          await Product.findByIdAndUpdate(auction._id, {
+            'auction.status': 'ongoing'
+          });
+          newStatus = 'ongoing';
+          statusChanged = true;
+          timeRemaining = auction.auction.endDate - now;
+        } else if (auction.auction.status === 'scheduled') {
+          timeRemaining = auction.auction.startDate - now;
+        } else if (auction.auction.status === 'ongoing' && auction.auction.endDate <= now) {
+          // Auction should end
+          const product = await Product.findById(auction._id);
+          await product.endAuction(false, io);
+          newStatus = 'ended';
+          statusChanged = true;
+          timeRemaining = 0;
+        } else if (auction.auction.status === 'ongoing') {
+          timeRemaining = auction.auction.endDate - now;
+        }
+
+        // Only emit updates if there are watchers for this auction
+        if (auctionWatchers.has(auction._id.toString()) && auctionWatchers.get(auction._id.toString()).size > 0) {
+          // Emit timer update to all users watching this auction
+          io.to(`auction_${auction._id}`).emit('auction_timer_update', {
+            productId: auction._id,
+            timeRemaining,
+            status: newStatus,
+            statusChanged
+          });
+
+          // If status changed, emit additional status update
+          if (statusChanged) {
+            // Get more details if the auction ended
+            if (newStatus === 'ended') {
+              const updatedProduct = await Product.findById(auction._id)
+                .populate({
+                  path: 'auction.winner.buyer',
+                  select: 'firstName lastName profileImage'
+                });
+
+              io.to(`auction_${auction._id}`).emit('auction_ended', {
+                productId: auction._id,
+                winner: updatedProduct.auction.winner ? {
+                  buyer: {
+                    _id: updatedProduct.auction.winner.buyer._id,
+                    firstName: updatedProduct.auction.winner.buyer.firstName,
+                    lastName: updatedProduct.auction.winner.buyer.lastName,
+                    profileImage: updatedProduct.auction.winner.buyer.profileImage
+                  },
+                  bidAmount: updatedProduct.auction.winner.bidAmount,
+                  winningDate: updatedProduct.auction.winner.winningDate
+                } : null
+              });
+            } else if (newStatus === 'ongoing') {
+              io.to(`auction_${auction._id}`).emit('auction_started', {
+                productId: auction._id,
+                startDate: now,
+                endDate: auction.auction.endDate
+              });
+            }
+          }
+        }
+        
+        // Also emit updates to auction lists room
+        io.to('auction_lists').emit('auction_list_update', {
+          productId: auction._id,
+          name: auction.name,
+          status: newStatus,
+          timeRemaining,
+          statusChanged,
+          currentHighestBid: auction.auction.currentHighestBid ? {
+            amount: auction.auction.currentHighestBid.amount
+          } : null,
+          bidsCount: auction.auction.bids.length
+        });
+        
+        // Also emit updates to auction details room
+        io.to(`auction_details_${auction._id}`).emit('auction_details_update', {
+          productId: auction._id,
+          status: newStatus,
+          timeRemaining,
+          statusChanged
+        });
+        
+        // If status changed, emit additional status update to auction lists and details
+        if (statusChanged) {
+          if (newStatus === 'ended') {
+            const updatedProduct = await Product.findById(auction._id)
+              .populate({
+                path: 'auction.winner.buyer',
+                select: 'firstName lastName profileImage'
+              });
+              
+            const winnerData = updatedProduct.auction.winner ? {
+              buyer: {
+                _id: updatedProduct.auction.winner.buyer._id,
+                firstName: updatedProduct.auction.winner.buyer.firstName,
+                lastName: updatedProduct.auction.winner.buyer.lastName
+              },
+              bidAmount: updatedProduct.auction.winner.bidAmount,
+              winningDate: updatedProduct.auction.winner.winningDate
+            } : null;
+            
+            io.to('auction_lists').emit('auction_ended_list', {
+              productId: auction._id,
+              winner: winnerData
+            });
+            
+            io.to(`auction_details_${auction._id}`).emit('auction_details_ended', {
+              productId: auction._id,
+              winner: winnerData
+            });
+          } else if (newStatus === 'ongoing') {
+            io.to('auction_lists').emit('auction_started_list', {
+              productId: auction._id,
+              startDate: now,
+              endDate: auction.auction.endDate
+            });
+            
+            io.to(`auction_details_${auction._id}`).emit('auction_details_started', {
+              productId: auction._id,
+              startDate: now,
+              endDate: auction.auction.endDate
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating auction timers:', error);
+    }
+  }, 10000); // Check every 10 seconds
 
   return io;
 }

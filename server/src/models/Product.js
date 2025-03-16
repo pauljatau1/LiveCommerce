@@ -1357,7 +1357,7 @@ productSchema.methods.placeBid = async function(buyerId, bidAmount) {
 };
 
 // Add this before module.exports
-productSchema.methods.endAuction = async function(maxBidReached = false) {
+productSchema.methods.endAuction = async function(maxBidReached = false, io = null) {
   if (this.status !== 'offline_auction' || 
       (this.auction.status !== 'ongoing' && !maxBidReached)) {
     throw new Error('Cannot end auction - invalid status');
@@ -1384,6 +1384,39 @@ productSchema.methods.endAuction = async function(maxBidReached = false) {
   }
 
   await this.save();
+  
+  // Emit WebSocket event if io is provided
+  if (io) {
+    // Populate winner details
+    const populatedProduct = await this.constructor.findById(this._id)
+      .populate({
+        path: 'auction.winner.buyer',
+        select: 'firstName lastName profileImage'
+      });
+    
+    if (populatedProduct && populatedProduct.auction.winner) {
+      io.to(`auction_${this._id}`).emit('auction_ended', {
+        productId: this._id,
+        winner: {
+          buyer: {
+            _id: populatedProduct.auction.winner.buyer._id,
+            firstName: populatedProduct.auction.winner.buyer.firstName,
+            lastName: populatedProduct.auction.winner.buyer.lastName,
+            profileImage: populatedProduct.auction.winner.buyer.profileImage
+          },
+          bidAmount: populatedProduct.auction.winner.bidAmount,
+          winningDate: populatedProduct.auction.winner.winningDate
+        }
+      });
+    } else {
+      // No winner
+      io.to(`auction_${this._id}`).emit('auction_ended', {
+        productId: this._id,
+        winner: null
+      });
+    }
+  }
+  
   return this.auction.winner;
 };
 

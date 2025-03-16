@@ -3590,94 +3590,82 @@ exports.placeBid = async (req, res) => {
 
     console.log('Debug - Product saved successfully');
 
-    // If auction ended, send notifications
-    if (auctionEnded) {
-      // Send winner notification
-      const winner = await Buyer.findById(buyerObjectId);
-      const seller = await Seller.findById(product.seller);
-      
-      // Send notifications using SendGrid
-      const sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    // Get buyer details for the response
+    const buyer = await Buyer.findById(buyerId).select('firstName lastName profileImage');
 
-      // Send winner notification
-      await sgMail.send({
-        to: winner.email,
-        from: 'Auqli Auctions <joseph@auqli.com>',
-        subject: 'Congratulations! You Won the Auction!',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Auction Won!</h2>
-            <p>Dear ${winner.firstName},</p>
-            <p>Congratulations! You have won the auction for "${product.name}" with a bid of $${amount}.</p>
-            <p>The seller will be in touch with you shortly regarding payment and delivery details.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      });
-
-      // Send seller notification
-      await sgMail.send({
-        to: seller.email,
-        from: 'Auqli Auctions <joseph@auqli.com>',
-        subject: 'Your Auction Has Ended!',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Auction Ended!</h2>
-            <p>Dear ${seller.firstName},</p>
-            <p>Your auction for "${product.name}" has ended. The winning bid was $${amount}.</p>
-            <p>The winner is ${winner.firstName} ${winner.lastName}. Please contact them to arrange payment and delivery.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      });
-    } else {
-      // If there was a previous highest bidder, notify them that they've been outbid
-      if (product.auction.bids.length > 1) {
-        const previousBidder = await Buyer.findById(
-          product.auction.bids[product.auction.bids.length - 2].buyer
-        );
-        
-        if (previousBidder) {
-          const sgMail = require('@sendgrid/mail');
-          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-          
-          await sgMail.send({
-            to: previousBidder.email,
-            from: 'Auqli Auctions <joseph@auqli.com>',
-            subject: 'You\'ve Been Outbid!',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>New Highest Bid!</h2>
-                <p>Dear ${previousBidder.firstName},</p>
-                <p>Someone has placed a higher bid of $${amount} on "${product.name}".</p>
-                <p>There's still time to place a new bid if you're interested!</p>
-                <p><a href="${process.env.FRONTEND_URL}/products/${product._id}">View Auction</a></p>
-                <p>Best regards,<br>The Auqli Team</p>
-              </div>
-            `
-          });
+    // Prepare bid notification data for WebSocket
+    const bidData = {
+      productId: product._id,
+      bid: {
+        _id: product.auction.bids[product.auction.bids.length - 1]._id,
+        amount: amount,
+        status: 'active',
+        createdAt: new Date(),
+        buyer: {
+          _id: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          profileImage: buyer.profileImage
         }
+      },
+      currentHighestBid: {
+        amount: amount,
+        buyer: {
+          _id: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          profileImage: buyer.profileImage
+        }
+      },
+      bidsCount: product.auction.bids.length,
+      auctionStatus: product.auction.status,
+      auctionEnded: auctionEnded,
+      winner: auctionEnded ? {
+        buyer: {
+          _id: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          profileImage: buyer.profileImage
+        },
+        bidAmount: amount,
+        winningDate: now
+      } : null
+    };
+
+    // Emit bid update to all users in the auction room via WebSocket
+    if (req.app.get('io')) {
+      req.app.get('io').to(`auction_${productId}`).emit('bid_update', bidData);
+      
+      // If auction ended, emit additional event
+      if (auctionEnded) {
+        req.app.get('io').to(`auction_${productId}`).emit('auction_ended', {
+          productId: product._id,
+          winner: {
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              profileImage: buyer.profileImage
+            },
+            bidAmount: amount,
+            winningDate: now
+          }
+        });
       }
     }
 
-    res.json({
+    // Return success response
+    res.status(200).json({
       message: 'Bid placed successfully',
       bid: {
         amount: amount,
-        buyer: buyerObjectId,
+        buyer: buyerId,
         auctionEnded
       }
     });
 
   } catch (error) {
     console.error('Error in placeBid:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      errors: error.errors,
-      stack: error.stack
-    });
     res.status(500).json({ 
       message: 'Error placing bid', 
       error: error.message 
