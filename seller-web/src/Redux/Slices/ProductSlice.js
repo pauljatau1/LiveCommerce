@@ -12,7 +12,9 @@ const initialState = {
     message: null,
     response: '',
     deleteStatus: false,
-    deletedProductId: ''
+    deletedProductId: '',
+    auctionProducts: [],
+    isLoadingAuctions: false,
 };
 
 
@@ -47,6 +49,24 @@ export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts
         }
     } catch (error) {
         console.log(error);
+    }
+});
+
+export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerAuctionProducts', async () => {
+    try {
+        const seller = JSON.parse(localStorage.getItem('seller'));
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/auctions`, {
+            params: {
+                page: 1,
+                limit: 10
+            }
+        });
+        if (response.status === 200) {
+            return response.data;
+        }
+    } catch (error) {
+        console.log(error);
+        throw error;
     }
 });
 
@@ -209,6 +229,21 @@ const productSlice = createSlice({
         state.error = action.error.message;
         toast.error('Failed to update product', {
             description: action.error.message,
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+    }).addCase(fetchSellerAuctionProducts.pending, (state) => {
+        state.isLoadingAuctions = true;
+    }).addCase(fetchSellerAuctionProducts.fulfilled, (state, action) => {
+        state.isLoadingAuctions = false;
+        state.auctionProducts = action.payload.products;
+    }).addCase(fetchSellerAuctionProducts.rejected, (state, action) => {
+        state.isLoadingAuctions = false;
+        state.error = action.error.message;
+        toast.error('Failed to fetch auction products', {
+            description: "Please reload the page and try again",
             style: {
                 background: '#05031F',
                 color: '#fff',
