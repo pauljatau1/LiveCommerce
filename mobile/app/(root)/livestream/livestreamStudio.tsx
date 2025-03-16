@@ -396,7 +396,7 @@ const LivestreamStudio = () => {
     const toggleMute = useCallback(() => {
         const newMuteState = !isMuted;
         setIsMuted(newMuteState);
-        
+
         // Send message to WebView to handle audio muting
         if (webViewRef.current) {
             const message = newMuteState ? 'mute_audio' : 'unmute_audio';
@@ -594,7 +594,7 @@ const LivestreamStudio = () => {
 
     // Update the animated style functions to use the ref directly
     const getCommentContainerStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 200;
+        const DEFAULT_BOTTOM = 230;
         const KEYBOARD_OFFSET = 60;
 
         return {
@@ -606,7 +606,7 @@ const LivestreamStudio = () => {
     }, []);
 
     const getRightActionsStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 200;
+        const DEFAULT_BOTTOM = 230;
         const KEYBOARD_OFFSET = 200;
 
         return {
@@ -618,7 +618,7 @@ const LivestreamStudio = () => {
     }, []);
 
     const getCommentInputStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 100;
+        const DEFAULT_BOTTOM = 130;
         const GAP_SIZE = 15;
 
         return {
@@ -711,22 +711,22 @@ const LivestreamStudio = () => {
                                 </TouchableOpacity>
                             </View>
                             <View className="flex-row items-center gap-2">
-                                <View className="flex-row items-cente px-3 py-2 rounded-full">
-                                    <Ionicons name="eye-outline" size={20} color="#FFF" />
+                                <View className="flex-row items-center px-3 py-2 rounded-full">
+                                    <Octicons name="people" size={22} color="#FFF" />
                                     <Text className="text-white ml-1 font-LexendDecaMedium ">
-                                        {viewerCount > 999 
-                                            ? `${(viewerCount / 1000).toFixed(1)}K` 
+                                        {viewerCount > 999
+                                            ? `${(viewerCount / 1000).toFixed(1)}K`
                                             : viewerCount}
                                     </Text>
                                 </View>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={toggleMute}
                                     className=" p-2 rounded-full"
                                 >
                                     {isMuted ? (
-                                        <Ionicons name="volume-mute-outline" size={20} color="#FFF" />
+                                        <Ionicons name="volume-mute-outline" size={22} color="#FFF" />
                                     ) : (
-                                        <Ionicons name="volume-medium-outline" size={20} color="#FFF" />
+                                        <Ionicons name="volume-medium-outline" size={22} color="#FFF" />
                                     )}
                                 </TouchableOpacity>
                             </View>
@@ -740,35 +740,35 @@ const LivestreamStudio = () => {
                         <ScrollView showsVerticalScrollIndicator={false} style={getRightActionsStyle()}>
                             <View style={styles.actionItem}>
                                 <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                                    <SimpleLineIcons name="share-alt" size={24} color="white" />
+                                    <SimpleLineIcons name="share-alt" size={22} color="white" />
                                 </TouchableOpacity>
                                 <Text style={styles.actionText}>Share</Text>
                             </View>
 
                             <View style={styles.actionItem}>
                                 <TouchableOpacity style={styles.actionButton}>
-                                    <Ionicons name="information-circle-outline" size={28} color="white" />
+                                    <Ionicons name="information-circle-outline" size={24} color="white" />
                                 </TouchableOpacity>
                                 <Text style={styles.actionText}>Info</Text>
                             </View>
 
                             <View style={styles.actionItem}>
                                 <TouchableOpacity style={styles.actionButton}>
-                                    <FontAwesome name="credit-card" size={24} color="white" />
+                                <Ionicons name="card-outline" size={24} color="white" />
                                 </TouchableOpacity>
                                 <Text style={styles.actionText}>Pay</Text>
                             </View>
 
                             <View style={styles.actionItem}>
                                 <TouchableOpacity style={styles.actionButton}>
-                                    <Entypo name="box" size={24} color="white" />
+                                <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
                                 </TouchableOpacity>
                                 <Text style={styles.actionText}>Orders</Text>
                             </View>
 
                             <View style={styles.actionItem}>
                                 <TouchableOpacity style={styles.actionButton}>
-                                    <Feather name="shopping-bag" size={24} color="white" />
+                                <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
                                 </TouchableOpacity>
                                 <Text style={styles.actionText}>Shop</Text>
                             </View>
@@ -820,7 +820,7 @@ const LivestreamStudio = () => {
 
                 {/* Bottom Product Card - Only show when video is playing */}
                 {shouldShowUI && streamProducts.length > 0 && (
-                    <View style={{ position: 'sticky', bottom: 88, left: 0, right: 0, zIndex: 10, padding: 16 }}>
+                    <View className="absolute bottom-0 left-0 right-0 p-4">
                         <Carousel
                             loop
                             autoPlay={true}
