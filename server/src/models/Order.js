@@ -499,23 +499,6 @@ orderSchema.pre('save', async function(next) {
     }
   });
 
-  // Check if order should be auto-closed
-  if (this.isOpen && 
-      this.items.every(item => item.status === 'delivered') && 
-      this.items[0].statusHistory.find(h => h.status === 'delivered')) {
-    
-    const deliveredDate = this.items[0].statusHistory.find(h => h.status === 'delivered').timestamp;
-    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
-
-    if (deliveredDate <= oneMinuteAgo) {
-      this.isOpen = false;
-      this.closedAt = new Date();
-      this.closedBy = 'auto';
-      this.closedReason = 'Auto-closed after 1 minute of delivery with no action';
-      // The wallet update will be triggered by the isOpen change in the middleware above
-    }
-  }
-
   try {
     // Check if there's any return request for this order
     const Return = mongoose.model('Return');

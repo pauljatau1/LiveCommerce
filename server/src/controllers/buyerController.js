@@ -1782,7 +1782,7 @@ exports.reviewSeller = async (req, res) => {
     const hasPurchase = await hasVerifiedPurchase(buyerId, sellerId);
 
     // If buyer is neither a follower nor has made a purchase, return error
-    if (!isFollower && !hasPurchase) {
+    if (!hasPurchase) {
       return res.status(403).json({ 
         message: 'You must be a follower of this seller or have made a purchase to write a review' 
       });

@@ -102,8 +102,6 @@ router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.
  *     summary: Simulate Fez Delivery order webhook events
  *     description: Test endpoint to simulate different order status webhook events from Fez Delivery
  *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -127,17 +125,12 @@ router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.
  *         description: Webhook event simulated successfully
  *       400:
  *         description: Invalid request parameters
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Order not found
  *       500:
  *         description: Server error
  */
-router.post('/simulate-fez-webhook', 
-  authMiddleware.verifyToken, 
-  notificationController.simulateFezWebhook
-);
+router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
 
 /**
  * @swagger
