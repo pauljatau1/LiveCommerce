@@ -968,7 +968,7 @@ function initializeSocket(server) {
           currentHighestBid: auction.auction.currentHighestBid ? {
             amount: auction.auction.currentHighestBid.amount
           } : null,
-          bidsCount: auction.auction.bids.length
+          bidsCount: auction.auction.bids ? auction.auction.bids.length : 0
         });
         
         // Also emit updates to auction details room
