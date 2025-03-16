@@ -1768,12 +1768,25 @@ exports.reviewSeller = async (req, res) => {
       review => review.buyer.toString() === buyerId
     );
 
-    // if (existingReview) {
-    //   return res.status(400).json({ message: 'You have already reviewed this seller' });
-    // }
+    if (existingReview) {
+      return res.status(400).json({ message: 'You have already reviewed this seller' });
+    }
 
     // Get buyer details
     const buyer = await Buyer.findById(buyerId);
+
+    // Check if buyer is a follower of the seller
+    const isFollower = buyer.followers.some(follower => follower.sellerId.toString() === sellerId);
+    
+    // Check if buyer has made a purchase from the seller
+    const hasPurchase = await hasVerifiedPurchase(buyerId, sellerId);
+
+    // If buyer is neither a follower nor has made a purchase, return error
+    if (!isFollower && !hasPurchase) {
+      return res.status(403).json({ 
+        message: 'You must be a follower of this seller or have made a purchase to write a review' 
+      });
+    }
 
     // Create new review
     const review = {
@@ -1783,7 +1796,7 @@ exports.reviewSeller = async (req, res) => {
       buyerName: `${buyer.firstName} ${buyer.lastName}`,
       buyerImage: buyer.profileImage?.url,
       createdAt: new Date(),
-      isVerifiedPurchase: await hasVerifiedPurchase(buyerId, sellerId)
+      isVerifiedPurchase: hasPurchase
     };
 
     // Add review to seller's reviews array
