@@ -990,7 +990,10 @@ const ProductDescription = () => {
                   return setShowAuthSheet(true);
                 }}
               >
-                <Text className="text-[10px]" style={{ color: "#16783A" }}>
+                <Text
+                  className="text-[10px] font-LexendDecaMedium"
+                  style={{ color: "#16783A" }}
+                >
                   ADD TO CART
                 </Text>
               </TouchableOpacity>
@@ -1008,7 +1011,9 @@ const ProductDescription = () => {
                   return setShowAuthSheet(true);
                 }}
               >
-                <Text className="text-[10px] text-white">BUY NOW</Text>
+                <Text className="text-[10px] text-white font-LexendDecaMedium">
+                  BUY NOW
+                </Text>
               </TouchableOpacity>
             </>
           )}
