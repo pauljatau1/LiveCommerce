@@ -70,6 +70,37 @@ const LivestreamStudio = () => {
             setHeaderName('Live Streams')
             setNavName('Live Studio')
             setShowBackButton(true)
+            
+            // Cleanup any remaining tracks or streams on unmount
+            if (previewMediaStream) {
+                previewMediaStream.getTracks().forEach(track => {
+                    try {
+                        track.stop();
+                        track.enabled = false;
+                    } catch (error) {
+                        console.error("Error cleaning up preview track on unmount:", error);
+                    }
+                });
+            }
+            if (localTracks.length > 0) {
+                localTracks.forEach(track => {
+                    try {
+                        track.stop();
+                        track.enabled = false;
+                        track.close();
+                    } catch (error) {
+                        console.error("Error cleaning up local track on unmount:", error);
+                    }
+                });
+            }
+            if (client) {
+                client.removeAllListeners();
+                if (client.connectionState !== 'DISCONNECTED') {
+                    client.leave().catch(error => {
+                        console.error("Error leaving channel on unmount:", error);
+                    });
+                }
+            }
         };
     }, []);
 
@@ -175,8 +206,10 @@ const LivestreamStudio = () => {
             // Clean up preview stream if it exists
             if (previewMediaStream) {
                 try {
-                    previewMediaStream.getTracks().forEach(track => {
+                    const tracks = previewMediaStream.getTracks();
+                    tracks.forEach(track => {
                         track.stop();
+                        track.enabled = false;
                     });
                     setPreviewMediaStream(null);
                 } catch (previewError) {
@@ -198,8 +231,13 @@ const LivestreamStudio = () => {
                     
                     // Stop and close each track
                     localTracks.forEach(track => {
-                        track.stop();
-                        track.close();
+                        try {
+                            track.stop();
+                            track.enabled = false;
+                            track.close();
+                        } catch (trackError) {
+                            console.error("Error cleaning up individual track:", trackError);
+                        }
                     });
                     setLocalTracks([]);
                 } catch (trackError) {
@@ -211,7 +249,7 @@ const LivestreamStudio = () => {
             if (currentConnectionState !== 'DISCONNECTED') {
                 try {
                     await client.leave();
-                    
+                    client.removeAllListeners();
                     // Wait a moment for the leave operation to complete
                     await new Promise(resolve => setTimeout(resolve, 300));
                 } catch (leaveError) {
@@ -376,38 +414,50 @@ const LivestreamStudio = () => {
         }
     };
 
-    useEffect(() => {
-        if (hasLiveStreamEnded) {
-            endStream();
-        }
-    }, [hasLiveStreamEnded]);
-
     const endStream = async (button1, button2) => {
         try {
+            // Set loading states at the start
             if (button1 === true) {
                 setIsLiveStreamEndingButton1(true);
             } else if (button2 === true) {
                 setIsLiveStreamEndingButton2(true);
             }
 
-            // 1. Stop the preview stream first
+            // 1. Stop and cleanup preview stream
             if (previewMediaStream) {
-                previewMediaStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                setPreviewMediaStream(null);
+                try {
+                    const tracks = previewMediaStream.getTracks();
+                    for (const track of tracks) {
+                        try {
+                            track.stop();
+                            track.enabled = false;
+                        } catch (trackError) {
+                            console.error("Error cleaning up preview track:", trackError);
+                        }
+                    }
+                    setPreviewMediaStream(null);
+                } catch (error) {
+                    console.error("Error cleaning up preview stream:", error);
+                }
             }
 
-            // 2. Unpublish and stop Agora tracks
+            // 2. Unpublish and cleanup Agora tracks
             if (localTracks.length > 0) {
                 try {
-                    // Unpublish from Agora client
-                    await client.unpublish(localTracks);
+                    // First unpublish from Agora client
+                    if (client.connectionState === 'CONNECTED') {
+                        await client.unpublish(localTracks);
+                    }
                     
-                    // Stop and close each Agora track
-                    for (let track of localTracks) {
-                        track.stop();
-                        track.close();
+                    // Then stop and close each track
+                    for (const track of localTracks) {
+                        try {
+                            track.stop();
+                            track.enabled = false;
+                            track.close();
+                        } catch (trackError) {
+                            console.error("Error cleaning up track:", trackError);
+                        }
                     }
                     setLocalTracks([]);
                 } catch (error) {
@@ -415,45 +465,52 @@ const LivestreamStudio = () => {
                 }
             }
 
-            // 3. Leave the Agora channel
+            // 3. Leave and cleanup Agora client
             if (client) {
                 try {
-                    await client.leave();
+                    // Remove all event listeners first
                     client.removeAllListeners();
+                    
+                    // Then leave the channel if connected
+                    if (client.connectionState !== 'DISCONNECTED') {
+                        await client.leave();
+                    }
                 } catch (error) {
-                    console.error("Error leaving channel:", error);
+                    console.error("Error leaving Agora channel:", error);
                 }
             }
 
-            // 4. Reset states and clear storage - clear ALL stream data, not just the flag
-            setIsStreaming(false);
-            stopTimer();
-            localStorage.removeItem(`stream_connected_${id}`);
-
-            // 5. Notify backend
+            // 4. Notify backend about stream end
             await endLiveStream(_id);
 
-            // 6. Reset UI states
-            setIsLiveStreamEndingButton1(false);
-            setIsLiveStreamEndingButton2(false);
-
-            // 7. Show success message
+            // 5. Show success message
             toast.success('Livestream ended successfully', {
                 style: { background: '#161A1E', color: '#fff' }
             });
-
-            // 8. Navigate to past shows
-            navigate('/dashboard/live-streams/past-shows');
 
         } catch (error) {
             console.error('Error ending stream:', error);
             toast.error('Failed to end stream: ' + error.message, {
                 style: { background: '#161A1E', color: '#fff' }
             });
-            
-            // Reset UI states even if there's an error
+        } finally {
+            // Reset all states and clear storage regardless of success/failure
+            setIsStreaming(false);
+            stopTimer();
+            setStreamDuration(0);
             setIsLiveStreamEndingButton1(false);
             setIsLiveStreamEndingButton2(false);
+            
+            // Clear all stream-related localStorage items
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('stream_connected_')) {
+                    localStorage.removeItem(key);
+                }
+            }
+
+            // Navigate to past shows after cleanup
+            navigate('/dashboard/live-streams/past-shows');
         }
     };
 
@@ -545,25 +602,6 @@ const LivestreamStudio = () => {
     useEffect(() => {
         if (!isStreaming || !channelName || !socket) return;
 
-        // Handle socket connection errors
-        socket.on('connect_error', (error) => {
-            console.error('Stream monitoring socket error:', error);
-            toast.error('Failed to connect to stream monitoring');
-        });
-
-        // Join stream monitoring room
-        socket.emit('join_stream_monitor', {
-            streamId: id,
-            channelName,
-            hostId: seller.agoraUid
-        });
-
-        // Listen for connection state updates from other clients
-        socket.on('connection_state', (data) => {
-            console.log('Received connection state update:', data);
-            // Handle connection state updates from other clients if needed
-        });
-
         const handleConnectionStateChange = (curState, prevState) => {
             if (socket.connected) {
                 socket.emit('stream_connection_update', {
@@ -594,9 +632,23 @@ const LivestreamStudio = () => {
             }
         };
 
+        // Handle socket connection errors
+        socket.on('connect_error', (error) => {
+            console.error('Stream monitoring socket error:', error);
+            toast.error('Failed to connect to stream monitoring');
+        });
+
+        // Join stream monitoring room
+        socket.emit('join_stream_monitor', {
+            streamId: id,
+            channelName,
+            hostId: seller.agoraUid
+        });
+
         client.on('connection-state-change', handleConnectionStateChange);
 
         return () => {
+            // Cleanup socket and client listeners
             client.off('connection-state-change', handleConnectionStateChange);
             if (socket.connected) {
                 socket.emit('leave_stream_monitor', {
@@ -604,6 +656,7 @@ const LivestreamStudio = () => {
                     hostId: seller.agoraUid
                 });
             }
+            socket.off('connect_error');
         };
     }, [isStreaming, channelName, id, seller.agoraUid, socket]); 
 
