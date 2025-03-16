@@ -24,9 +24,7 @@ const Sellers = () => {
 
       if (response.status === 200) {
         setSellers(
-          response.data?.sellers
-            .filter((seller: any) => seller?.isFeatured)
-            .slice(0, 10),
+          response.data?.sellers?.filter((seller: any) => seller?.isFeatured)?.slice(0, 10),
         );
       }
     } catch (err) {

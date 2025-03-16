@@ -75,61 +75,6 @@ const LivestreamStudio = () => {
     useEffect(() => {
         setupLivestream();
 
-        // Add sample comments and events for demonstration that match the reference image
-        const sampleEvents = [
-            {
-                id: '1',
-                type: 'join' as const,
-                user: 'Ahmed',
-                avatar: null, // Test fallback avatar
-                content: 'joined the stream',
-                timestamp: new Date(Date.now() - 5000)
-            },
-            {
-                id: '2',
-                type: 'comment' as const,
-                user: 'Jessica',
-                avatar: require('@/assets/icons/animoji.png'), // With image
-                content: 'This blue shirt looks amazing!',
-                timestamp: new Date(Date.now() - 15000)
-            },
-            {
-                id: '3',
-                type: 'purchase' as const,
-                user: 'Michael',
-                avatar: null, // Test fallback avatar
-                content: 'purchased Blue Polo Shirt',
-                timestamp: new Date(Date.now() - 30000)
-            },
-            {
-                id: '4',
-                type: 'join' as const,
-                user: 'User1638',
-                avatar: null, // Test fallback avatar
-                content: 'joined the stream',
-                timestamp: new Date(Date.now() - 2000)
-            },
-            {
-                id: '5',
-                type: 'comment' as const,
-                user: 'User1638',
-                avatar: null, // Test fallback avatar
-                content: 'This blue shirt looks amazing!',
-                timestamp: new Date(Date.now() - 10000)
-            },
-            {
-                id: '6',
-                type: 'comment' as const,
-                user: 'User1638',
-                avatar: null, // Test fallback avatar
-                content: 'This blue shirt looks amazing!',
-                timestamp: new Date(Date.now() - 10000)
-            },
-        ];
-
-        // Initialize with sample data
-        //setLiveComments(sampleEvents);
-
         // Scroll to the end to show new comment
         if (commentsListRef.current) {
             commentsListRef.current.scrollToEnd({ animated: true });
@@ -244,7 +189,9 @@ const LivestreamStudio = () => {
             // Set initial viewer count if available
             if (streamDetails?.stream) {
                 const streamData = streamDetails.stream as any;
+                console.log('Stream view count data:', streamData);    
                 if (typeof streamData.viewerCount === 'number') {
+                    console.log('Viewer count:', streamData.viewerCount);
                     setViewerCount(streamData.viewerCount);
                 } else if (Array.isArray(streamData.viewers)) {
                     setViewerCount(streamData.viewers.length);
@@ -259,24 +206,40 @@ const LivestreamStudio = () => {
             });
 
             // Initialize with chat interactions from the stream
+            const chatInteractions = (streamDetails.stream as any)?.chatInteractions || [];
 
-            // Directly use the chat interactions from the server
-            const chatInteractions = (streamDetails.stream as any).chatInteractions || [];
+            // Get the current user's information
+            const user = await getUser();
+            
+            // Create a join event for the current user
+            const userJoinEvent = {
+                id: Date.now().toString(),
+                type: 'join' as const,
+                user: user?.firstName || 'You',
+                avatar: user?.profileImage?.url || require('@/assets/icons/animoji.png'),
+                content: 'joined the stream',
+                timestamp: new Date(),
+                data: {
+                    isCurrentUser: true // Add this flag to identify the current user's join event
+                }
+            };
 
-            // Set the live comments with the server data
-            setLiveComments(chatInteractions);
+            // Add the user's join event to the beginning of chat interactions
+            const updatedChatInteractions = [...chatInteractions, userJoinEvent];
 
-            console.log(`Loaded ${chatInteractions.length} chat interactions from server`);
+            // Set the live comments with the updated data
+            setLiveComments(updatedChatInteractions);
+
+            console.log(`Loaded ${updatedChatInteractions.length} chat interactions from server`);
+            
             // Use requestAnimationFrame to ensure UI has updated before scrolling
-            if (chatInteractions.length > 0) {
+            if (updatedChatInteractions.length > 0) {
                 requestAnimationFrame(() => {
-
                     if (commentsListRef.current) {
                         commentsListRef.current.scrollToEnd({ animated: false });
                     }
                 });
             }
-
 
             // Initialize socket connection for real-time chat
             const userToken = await getToken();
@@ -499,12 +462,24 @@ const LivestreamStudio = () => {
         };
 
         if (item.type === 'join') {
+            const isCurrentUser = item.data?.isCurrentUser;
             return (
-                <View style={styles.joinCommentItem}>
+                <View style={[
+                    styles.joinCommentItem,
+                    isCurrentUser && styles.currentUserJoinItem
+                ]}>
                     {renderAvatar()}
                     <View style={styles.joinCommentContent}>
-                        <Text style={styles.commentUser}>{item.user}</Text>
-                        <Text style={styles.joinCommentText}>{item.content}👋</Text>
+                        <Text style={[
+                            styles.commentUser,
+                            isCurrentUser && styles.currentUserText
+                        ]}>
+                            {isCurrentUser ? 'You' : item.user}
+                        </Text>
+                        <Text style={styles.joinCommentText}>
+                            {item.content}
+                            {isCurrentUser ? ' 👋 Welcome!' : ' 👋'}
+                        </Text>
                     </View>
                 </View>
             );
@@ -649,202 +624,213 @@ const LivestreamStudio = () => {
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-            <View className="flex-1 bg-black">
-                {/* Agora Video Container */}
-                <View className="absolute w-full h-full">
-                    {streamConfig ? (
-                        <>
-                            <WebView
-                                ref={webViewRef}
-                                source={{
-                                    html: streamEngine(
-                                        streamConfig?.appId || '',
-                                        streamConfig?.channel || '',
-                                        streamConfig?.token || '',
-                                        streamConfig?.uid || ''
-                                    ),
-                                }}
-                                style={styles.fullScreen}
-                                onMessage={handleWebViewMessage}
-                                javaScriptEnabled={true}
-                                allowsInlineMediaPlayback={true}
-                                mediaPlaybackRequiresUserAction={false}
-                                originWhitelist={['*']}
-                            />
-
-                            {/* Show play loader while video is loading */}
-                            {(isLoading || !isVideoPlaying) && (
-                                <View style={styles.playButtonOverlay}>
-                                    <View style={styles.playButtonContainer}>
-                                        <ActivityIndicator size="large" color="#fff" />
-                                    </View>
-                                </View>
-                            )}
-                        </>
-                    ) : (
-                        <View style={styles.fullScreen2}>
-                            <Image
-                                source={require('@/assets/icons/auqli-logo.png')}
-                                className="w-20 h-14"
-                            />
-                        </View>
-                    )}
-                </View>
-
-                {/* Top Actions - Only show when video is playing */}
-                {shouldShowUI && (
-                    <SafeAreaView style={{ flex: 1, marginTop: Platform.OS === 'ios' ? 16 : 14 }}>
-                        <View className={`flex-row justify-between items-center px-4`}>
-                            <View className="flex-row items-center gap-4 ">
-                                <View className="flex-row items-center gap-2">
-                                    <Image
-                                        source={storeInfo.avatar}
-                                        className="w-10 h-10 rounded-full"
-                                    />
-                                    <View>
-                                        <Text className="text-white font-LexendDecaMedium text-base">{storeInfo.name}</Text>
-                                        <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
-                                    </View>
-                                </View>
-                                <TouchableOpacity className="bg-[#16783A] h-full px-4 py-1 rounded-md">
-                                    <Text className="text-white text-sm">Follow</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <View className="flex-row items-center gap-2">
-                                <View className="flex-row items-center px-3 py-2 rounded-full">
-                                    <Octicons name="people" size={22} color="#FFF" />
-                                    <Text className="text-white ml-1 font-LexendDecaMedium ">
-                                        {viewerCount > 999
-                                            ? `${(viewerCount / 1000).toFixed(1)}K`
-                                            : viewerCount}
-                                    </Text>
-                                </View>
-                                <TouchableOpacity
-                                    onPress={toggleMute}
-                                    className=" p-2 rounded-full"
-                                >
-                                    {isMuted ? (
-                                        <Ionicons name="volume-mute-outline" size={22} color="#FFF" />
-                                    ) : (
-                                        <Ionicons name="volume-medium-outline" size={22} color="#FFF" />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </SafeAreaView>
-                )}
-
-                <View>
-                    {/* Right Side Actions - Only show when video is playing */}
-                    {shouldShowUI && !keyboardVisibleRef.current && (
-                        <ScrollView showsVerticalScrollIndicator={false} style={getRightActionsStyle()}>
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                                    <SimpleLineIcons name="share-alt" size={22} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Share</Text>
-                            </View>
-
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Ionicons name="information-circle-outline" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Info</Text>
-                            </View>
-
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                <Ionicons name="card-outline" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Pay</Text>
-                            </View>
-
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Orders</Text>
-                            </View>
-
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>Shop</Text>
-                            </View>
-
-                            <View style={styles.actionItem}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <AntDesign name="like2" size={24} color="white" />
-                                </TouchableOpacity>
-                                <Text style={styles.actionText}>React</Text>
-                            </View>
-                        </ScrollView>
-                    )}
-
-                    {/* Live Comments Section */}
-                    {shouldShowUI && (
-                        <View style={getCommentContainerStyle()}>
-                            <FlatList
-                                ref={commentsListRef}
-                                data={liveComments}
-                                renderItem={renderCommentItem}
-                                keyExtractor={item => item.id}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.commentsList}
-                                fadingEdgeLength={350}
-                                onContentSizeChange={() => {
-                                    if (commentsListRef.current && liveComments.length > 0) {
-                                        commentsListRef.current.scrollToEnd({ animated: false });
-                                    }
-                                }}
-                            />
-                        </View>
-                    )}
-
-                    {/* Comment Input */}
-                    {shouldShowUI && (
-                        <View style={getCommentInputStyle()}>
-                            <TextInput
-                                style={styles.commentInput}
-                                placeholder="Say something..."
-                                placeholderTextColor="#999"
-                                value={commentInput}
-                                onChangeText={setCommentInput}
-                                returnKeyType="send"
-                                onSubmitEditing={handleSendComment}
-                            />
-                        </View>
-                    )}
-                </View>
-
-                {/* Bottom Product Card - Only show when video is playing */}
-                {shouldShowUI && streamProducts.length > 0 && (
-                    <View className="absolute bottom-0 left-0 right-0 p-4">
-                        <Carousel
-                            loop
-                            autoPlay={true}
-                            autoPlayInterval={9000}
-                            width={screenWidth - 32} // Account for padding
-                            height={90} // Adjust based on your card height
-                            data={streamProducts}
-                            scrollAnimationDuration={500}
-                            onSnapToItem={(index) => setCurrentProductIndex(index)}
-                            renderItem={({ item, index }) => (
-                                <LiveShowProductCard
-                                    item={item}
-                                    index={index}
-                                    onBuyNow={handleBuyNow}
-                                    onPreview={handleProductPreview}
+            <View 
+                style={{ flex: 1 }}
+            >
+                <View className="flex-1 bg-black">
+                    {/* Agora Video Container */}
+                    <View className="absolute w-full h-full">
+                        {streamConfig ? (
+                            <>
+                                <WebView
+                                    ref={webViewRef}
+                                    source={{
+                                        html: streamEngine(
+                                            streamConfig?.appId || '',
+                                            streamConfig?.channel || '',
+                                            streamConfig?.token || '',
+                                            streamConfig?.uid || ''
+                                        ),
+                                    }}
+                                    style={styles.fullScreen}
+                                    onMessage={handleWebViewMessage}
+                                    javaScriptEnabled={true}
+                                    allowsInlineMediaPlayback={true}
+                                    mediaPlaybackRequiresUserAction={false}
+                                    originWhitelist={['*']}
                                 />
-                            )}
-                            defaultIndex={currentProductIndex}
-                        />
+
+                                {/* Show play loader while video is loading */}
+                                {(isLoading || !isVideoPlaying) && (
+                                    <View style={styles.playButtonOverlay}>
+                                        <View style={styles.playButtonContainer}>
+                                            <ActivityIndicator size="large" color="#fff" />
+                                        </View>
+                                    </View>
+                                )}
+                            </>
+                        ) : (
+                            <View style={styles.fullScreen2}>
+                                <Image
+                                    source={require('@/assets/icons/auqli-logo.png')}
+                                    className="w-20 h-14"
+                                />
+                            </View>
+                        )}
                     </View>
-                )}
+
+                    {/* Content Container */}
+                    <View style={styles.contentContainer}>
+                        {/* Top Actions */}
+                        {shouldShowUI && (
+                            <SafeAreaView style={{ marginTop: Platform.OS === 'ios' ? 16 : 14 }}>
+                                <View className={`flex-row justify-between items-center px-4`}>
+                                    <View className="flex-row items-center gap-4 ">
+                                        <View className="flex-row items-center gap-2">
+                                            <Image
+                                                source={storeInfo.avatar}
+                                                className="w-10 h-10 rounded-full"
+                                            />
+                                            <View>
+                                                <Text className="text-white font-LexendDecaMedium text-base">{storeInfo.name}</Text>
+                                                <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
+                                            </View>
+                                        </View>
+                                        <TouchableOpacity className="bg-[#16783A] h-full px-4 py-1 rounded-md">
+                                            <Text className="text-white text-sm">Follow</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View className="flex-row items-center gap-2">
+                                        <View className="flex-row items-center px-3 py-2 rounded-full">
+                                            <Octicons name="people" size={22} color="#FFF" />
+                                            <Text className="text-white ml-1 font-LexendDecaMedium ">
+                                                {viewerCount > 999
+                                                    ? `${(viewerCount / 1000).toFixed(1)}K`
+                                                    : viewerCount}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={toggleMute}
+                                            className=" p-2 rounded-full"
+                                        >
+                                            {isMuted ? (
+                                                <Ionicons name="volume-mute-outline" size={22} color="#FFF" />
+                                            ) : (
+                                                <Ionicons name="volume-medium-outline" size={22} color="#FFF" />
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </SafeAreaView>
+                        )}
+
+                        {/* Main Content Area */}
+                        <View style={styles.mainContentArea}>
+                            {/* Right Side Actions */}
+                            {shouldShowUI && !keyboardVisibleRef.current && (
+                                <ScrollView showsVerticalScrollIndicator={false} style={styles.rightActionsContainer}>
+                                    <View style={styles.actionItem}>
+                                        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+                                            <SimpleLineIcons name="share-alt" size={22} color="white" />
+                                        </TouchableOpacity>
+                                        <Text style={styles.actionText}>Share</Text>
+                                    </View>
+
+                                    <View style={styles.actionItem}>
+                                        <TouchableOpacity style={styles.actionButton}>
+                                            <Ionicons name="information-circle-outline" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <Text style={styles.actionText}>Info</Text>
+                                    </View>
+
+                                    <View style={styles.actionItem}>
+                                        <TouchableOpacity style={styles.actionButton}>
+                                        <Ionicons name="card-outline" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <Text style={styles.actionText}>Pay</Text>
+                                    </View>
+
+                                    <View style={styles.actionItem}>
+                                        <TouchableOpacity style={styles.actionButton}>
+                                        <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <Text style={styles.actionText}>Orders</Text>
+                                    </View>
+
+                                    <View style={styles.actionItem}>
+                                        <TouchableOpacity style={styles.actionButton}>
+                                        <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <Text style={styles.actionText}>Shop</Text>
+                                    </View>
+
+                                    <View style={styles.actionItem}>
+                                        <TouchableOpacity style={styles.actionButton}>
+                                            <AntDesign name="like2" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <Text style={styles.actionText}>React</Text>
+                                    </View>
+                                </ScrollView>
+                            )}
+
+                            {/* Live Comments Section */}
+                            {shouldShowUI && (
+                                <View style={styles.commentsContainer}>
+                                    <FlatList
+                                        ref={commentsListRef}
+                                        data={liveComments}
+                                        renderItem={renderCommentItem}
+                                        keyExtractor={item => item.id}
+                                        showsVerticalScrollIndicator={false}
+                                        contentContainerStyle={styles.commentsList}
+                                        fadingEdgeLength={350}
+                                        onContentSizeChange={() => {
+                                            if (commentsListRef.current && liveComments.length > 0) {
+                                                commentsListRef.current.scrollToEnd({ animated: false });
+                                            }
+                                        }}
+                                    />
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Bottom Area */}
+                        <View style={styles.bottomArea}>
+                            {/* Comment Input */}
+                            {shouldShowUI && (
+                                <View style={styles.commentInputContainer}>
+                                    <TextInput
+                                        style={styles.commentInput}
+                                        placeholder="Say something..."
+                                        placeholderTextColor="#999"
+                                        value={commentInput}
+                                        onChangeText={setCommentInput}
+                                        returnKeyType="send"
+                                        onSubmitEditing={handleSendComment}
+                                    />
+                                </View>
+                            )}
+
+                            {/* Bottom Product Card */}
+                            {shouldShowUI && streamProducts.length > 0 && (
+                                <View style={styles.bottomProductCardContainer}>
+                                    <Carousel
+                                        loop
+                                        autoPlay={true}
+                                        autoPlayInterval={9000}
+                                        width={screenWidth - 32}
+                                        height={90}
+                                        data={streamProducts}
+                                        scrollAnimationDuration={500}
+                                        onSnapToItem={(index) => setCurrentProductIndex(index)}
+                                        renderItem={({ item, index }) => (
+                                            <LiveShowProductCard
+                                                item={item}
+                                                index={index}
+                                                onBuyNow={handleBuyNow}
+                                                onPreview={handleProductPreview}
+                                            />
+                                        )}
+                                        defaultIndex={currentProductIndex}
+                                    />
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                </View>
             </View>
 
-            {/* Bottom Sheets for Product Preview and Checkout */}
+            {/* Bottom Sheets */}
             <BottomSheet
                 bgColor="#121212"
                 childrenStyle="!px-[11px]"
@@ -914,33 +900,38 @@ const styles = StyleSheet.create({
         color: '#fff',
         marginTop: 10,
     },
-    // Right side actions styling to match reference image
+    contentContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    mainContentArea: {
+        height: '65%',
+        position: 'relative',
+    },
+    bottomArea: {
+        position: 'relative',
+        paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+    },
+    bottomProductCardContainer: {
+        position: 'relative',
+        padding: 16,
+        marginTop: 10,
+    },
+    commentInputContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        zIndex: 10,
+    },
     rightActionsContainer: {
         position: 'absolute',
         right: 13,
-        bottom: 200, // Position higher to avoid overlap with product card
+        bottom: 50,
         maxHeight: 300,
         zIndex: 10,
     },
-    actionItem: {
-        alignItems: 'center',
-        marginBottom: 0,
-    },
-    actionButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    actionText: {
-        color: 'white',
-        fontSize: 12,
-        marginTop: 4,
-    },
-    // Comments styling to match reference image exactly
     commentsContainer: {
         position: 'absolute',
-        bottom: 210, // Position higher to avoid overlap with product card
+        bottom: 50,
         left: 0,
         width: '70%',
         maxHeight: 200,
@@ -951,7 +942,6 @@ const styles = StyleSheet.create({
         paddingTop: 10, // More padding at top to account for the fade effect
         paddingBottom: 0,
     },
-    // Base comment item styles
     commentAvatar: {
         width: 35,
         height: 35,
@@ -962,10 +952,8 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
     },
-    // Join comment specific styles (green background)
     joinCommentItem: {
         flexDirection: 'row',
-
         borderRadius: 20,
         paddingVertical: 8,
         paddingHorizontal: 12,
@@ -982,7 +970,6 @@ const styles = StyleSheet.create({
         fontFamily: 'LexendDeca',
         fontWeight: 'bold',
     },
-    // Purchase comment specific styles (red background)
     purchaseCommentItem: {
         flexDirection: 'row',
         borderRadius: 20,
@@ -1000,7 +987,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    // Regular comment specific styles (dark background)
     regularCommentItem: {
         flexDirection: 'row',
         borderRadius: 20,
@@ -1018,17 +1004,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    // Comment input styling to match reference image
-    commentInputContainer: {
-        position: 'absolute',
-        left: 16,
-        right: 18,
-        flexDirection: 'row',
-        alignItems: 'center',
-        zIndex: 10,
-    },
     commentInput: {
-        flex: 1,
         color: '#fff',
         borderWidth: 1,
         borderColor: '#ffffff',
@@ -1060,6 +1036,28 @@ const styles = StyleSheet.create({
     },
     playButton: {
         opacity: 0.9,
+    },
+    actionItem: {
+        alignItems: 'center',
+        marginBottom: 0,
+    },
+    actionButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    actionText: {
+        color: 'white',
+        fontSize: 12,
+        marginTop: 4,
+    },
+    currentUserJoinItem: {
+        backgroundColor: 'rgba(22, 120, 58, 0.2)', // Light green background for current user
+    },
+    currentUserText: {
+        color: '#16783A', // Green text for current user
+        fontWeight: 'bold',
     },
 });
 

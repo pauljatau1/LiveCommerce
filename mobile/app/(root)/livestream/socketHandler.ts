@@ -19,6 +19,7 @@ export interface StreamNotification {
     price?: number;
     streamId: string;
     isHost: boolean;
+    viewerCount?: number;
   };
   timestamp: Date;
 }

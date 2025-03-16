@@ -51,7 +51,7 @@ const ExploreMoreSection = () => {
 
       {loading ? (
         <HomepageSkeleton numOfLoaders={2} height={220} padding={16} />
-      ) : moreStreams.length > 0 ? (
+      ) : moreStreams?.length > 0 ? (
         <View
           style={{
             paddingHorizontal: 16,
