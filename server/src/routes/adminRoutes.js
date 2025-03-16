@@ -1415,19 +1415,19 @@ router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, adminC
 
 /**
  * @swagger
- * /api/admin/bank-change-requests:
+ * /api/admin/bank-requests:
  *   get:
- *     summary: Get all bank account change requests
+ *     summary: Get all bank change requests
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Bank change requests retrieved successfully
+ *         description: List of bank change requests
  *       500:
  *         description: Server error
  */
-router.get('/bank-change-requests',
+router.get('/bank-requests',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.getAllBankChangeRequests
@@ -1435,15 +1435,63 @@ router.get('/bank-change-requests',
 
 /**
  * @swagger
- * /api/admin/bank-change-requests/{requestId}:
- *   put:
- *     summary: Process a bank account change request
+ * /api/admin/bank-requests/stats:
+ *   get:
+ *     summary: Get bank change request statistics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bank change request statistics
+ *       500:
+ *         description: Server error
+ */
+router.get('/bank-requests/stats',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getBankChangeRequestStats
+);
+
+/**
+ * @swagger
+ * /api/admin/bank-requests/{id}/approve:
+ *   post:
+ *     summary: Approve a bank change request
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: requestId
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Bank change request approved
+ *       404:
+ *         description: Request not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/bank-requests/:id/approve',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.processBankChangeRequest
+);
+
+/**
+ * @swagger
+ * /api/admin/bank-requests/{id}/reject:
+ *   post:
+ *     summary: Reject a bank change request
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
  *         required: true
  *         schema:
  *           type: string
@@ -1454,23 +1502,18 @@ router.get('/bank-change-requests',
  *           schema:
  *             type: object
  *             properties:
- *               status:
+ *               rejectionReason:
  *                 type: string
- *                 enum: [approved, rejected]
- *               reason:
- *                 type: string
- *                 description: Required if status is rejected
+ *                 required: true
  *     responses:
  *       200:
- *         description: Bank change request processed successfully
- *       400:
- *         description: Invalid request or already processed
+ *         description: Bank change request rejected
  *       404:
  *         description: Request not found
  *       500:
  *         description: Server error
  */
-router.put('/bank-change-requests/:requestId',
+router.post('/bank-requests/:id/reject',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.processBankChangeRequest

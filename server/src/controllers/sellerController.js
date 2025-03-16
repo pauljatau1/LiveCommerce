@@ -22,6 +22,7 @@ const notificationController = require('./notificationController');
 const Transaction = require('../models/Transaction');
 const Return = require('../models/Return');
 const BankChangeRequest = require('../models/BankChangeRequest');
+const Admin = require('../models/Admin');
 
 
 // Add this helper function at the top of the file
@@ -863,114 +864,111 @@ exports.addBankDetails = async (req, res) => {
 // Request bank account change
 exports.requestBankAccountChange = async (req, res) => {
   try {
-    const { bankDetails } = req.body;
-    const proofFile = req.file;
+    const sellerId = req.user.id;
+    const seller = await Seller.findById(sellerId);
 
-    if (!proofFile) {
-      return res.status(400).json({ message: 'Proof document is required for bank account changes' });
-    }
-
-    const seller = await Seller.findById(req.user.id);
     if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
+      return res.status(404).json({ message: "Seller not found" });
     }
 
     // Check if there's already a pending request
-    const pendingRequest = await BankChangeRequest.findOne({
-      seller: seller._id,
+    const existingRequest = await BankChangeRequest.findOne({
+      seller: sellerId,
       status: 'pending'
     });
 
-    if (pendingRequest) {
+    if (existingRequest) {
       return res.status(400).json({ 
-        message: 'You already have a pending bank account change request' 
+        message: "You already have a pending bank change request" 
+      });
+    }
+
+    // Validate proof document
+    if (!req.file) {
+      return res.status(400).json({ 
+        message: "Proof document is required" 
+      });
+    }
+
+    // Parse the newBankDetails from JSON string
+    let newBankDetails;
+    try {
+      newBankDetails = JSON.parse(req.body.newBankDetails);
+    } catch (error) {
+      return res.status(400).json({ 
+        message: "Invalid bank details format" 
       });
     }
 
     // Upload proof document to S3
-    const fileKey = `bank-change-proofs/${uuidv4()}-${proofFile.originalname}`;
+    const fileKey = `bank-change-proofs/${uuidv4()}-${req.file.originalname}`;
     const uploadParams = {
       Bucket: 'auqli-uploads',
       Key: fileKey,
-      Body: proofFile.buffer,
-      ContentType: proofFile.mimetype,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
     };
 
     const uploadResult = await s3.upload(uploadParams).promise();
 
     // Create bank change request
     const bankChangeRequest = new BankChangeRequest({
-      seller: seller._id,
+      seller: sellerId,
       currentBankDetails: seller.bankDetails,
-      newBankDetails: bankDetails,
+      newBankDetails: newBankDetails,
       proofDocument: {
         url: uploadResult.Location,
         public_id: uploadResult.Key
-      },
-      notes: [{
-        content: 'Bank account change request submitted',
-        addedBy: 'seller'
-      }]
+      }
     });
 
     await bankChangeRequest.save();
 
-    // Send email notification to admin
+    // Send email notifications
+    const adminEmails = await Admin.find().distinct('email');
+    
+    // Email to admin
     const adminEmailMsg = {
-      to: process.env.ADMIN_EMAIL,
+      to: adminEmails,
       from: 'Auqli Admin <joseph@auqli.com>',
       subject: 'New Bank Account Change Request',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>New Bank Account Change Request</h2>
-          <p>A seller has submitted a bank account change request:</p>
-          <ul>
-            <li>Seller: ${seller.firstName} ${seller.lastName}</li>
-            <li>Store Name: ${seller.storeName || 'N/A'}</li>
-            <li>Current Bank: ${seller.bankDetails?.bankName || 'N/A'}</li>
-            <li>New Bank: ${bankDetails.bankName}</li>
-          </ul>
-          <p>Please review this request in the admin dashboard.</p>
-        </div>
+        <h2>New Bank Account Change Request</h2>
+        <p>A seller has submitted a request to change their bank account details.</p>
+        <p>Seller: ${seller.firstName} ${seller.lastName} (${seller.email})</p>
+        <p>Store: ${seller.storeName}</p>
+        <p>Please review the request in the admin dashboard.</p>
       `
     };
 
-    // Send confirmation email to seller
+    // Email to seller
     const sellerEmailMsg = {
       to: seller.email,
       from: 'Auqli Admin <joseph@auqli.com>',
-      subject: 'Bank Account Change Request Received',
+      subject: 'Bank Account Change Request Submitted',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Bank Account Change Request Received</h2>
-          <p>Dear ${seller.firstName},</p>
-          <p>We have received your request to change your bank account details. Our team will review your request and get back to you shortly.</p>
-          <p>New Bank Details:</p>
-          <ul>
-            <li>Bank Name: ${bankDetails.bankName}</li>
-            <li>Account Name: ${bankDetails.accountName}</li>
-            <li>Account Number: ${bankDetails.accountNumber}</li>
-          </ul>
-          <p>You will receive another email once your request has been processed.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
+        <h2>Bank Account Change Request Submitted</h2>
+        <p>Your request to change bank account details has been submitted successfully.</p>
+        <p>Our admin team will review your request and notify you of the decision.</p>
+        <p>You can check the status of your request in your seller dashboard.</p>
       `
     };
 
+    // Send both emails
     await Promise.all([
       sgMail.send(adminEmailMsg),
       sgMail.send(sellerEmailMsg)
     ]);
 
-    res.json({
-      message: 'Bank account change request submitted successfully',
-      bankChangeRequest
+    res.status(200).json({
+      message: "Bank change request submitted successfully"
     });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to submit bank account change request', 
-      error: error.message 
+    console.error('Error in requestBankAccountChange:', error);
+    res.status(500).json({
+      message: "Failed to submit bank account change request",
+      error: error.message
     });
   }
 };
@@ -978,18 +976,19 @@ exports.requestBankAccountChange = async (req, res) => {
 // Get bank change request status
 exports.getBankChangeRequestStatus = async (req, res) => {
   try {
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
+    const sellerId = req.user.id;
+    const pendingRequest = await BankChangeRequest.findOne({
+      seller: sellerId,
+      status: 'pending'
+    }).select('requestDate newBankDetails status');
 
-    const requests = await BankChangeRequest.find({ seller: seller._id })
-      .sort({ requestDate: -1 })
-      .limit(5);
-
-    res.json(requests);
+    res.json({
+      success: true,
+      pendingRequest
+    });
   } catch (error) {
     res.status(500).json({ 
+      success: false,
       message: 'Failed to get bank change request status', 
       error: error.message 
     });

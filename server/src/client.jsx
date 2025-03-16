@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, CreditCard, User, Briefcase, Calculator, Globe, DollarSign, Hash, Upload } from 'lucide-react'
+import { Building2, CreditCard, User, Briefcase, Calculator, Globe, DollarSign, Hash, Upload, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -60,7 +60,7 @@ export default function PaymentSettings() {
       
       if (response.ok) {
         const data = await response.json();
-        if (data.pendingRequest) {
+        if (data.success && data.pendingRequest) {
           setPendingRequest(data.pendingRequest);
         }
       }
@@ -112,9 +112,21 @@ export default function PaymentSettings() {
 
         const formData = new FormData();
         formData.append('proofDocument', proofDocument);
-        Object.entries(editForm).forEach(([key, value]) => {
-          formData.append(`newBankDetails[${key}]`, value);
-        });
+        
+        // Properly format the bank details
+        const newBankDetails = {
+          bankCountry: editForm.bankCountry,
+          bankName: editForm.bankName,
+          bankAccountType: editForm.bankAccountType,
+          accountCurrency: editForm.accountCurrency,
+          accountNumber: editForm.accountNumber,
+          accountName: editForm.accountName,
+          swiftCode: editForm.swiftCode,
+          bankIdentifierCode: editForm.bankIdentifierCode
+        };
+
+        // Append the entire newBankDetails object as a single JSON string
+        formData.append('newBankDetails', JSON.stringify(newBankDetails));
 
         const response = await fetch(`${BASE_URL}/seller/bank-change-request`, {
           method: 'POST',
@@ -124,13 +136,14 @@ export default function PaymentSettings() {
           body: formData,
         });
 
-        if (response.ok) {
-          toast.success("Bank change request submitted successfully");
-          fetchPendingRequest();
-          setIsEditing(false);
-        } else {
-          throw new Error("Failed to submit bank change request");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to submit bank change request");
         }
+
+        toast.success("Bank change request submitted successfully");
+        fetchPendingRequest();
+        setIsEditing(false);
       }
     } catch (error) {
       toast.error(error.message);
@@ -265,8 +278,35 @@ export default function PaymentSettings() {
     </Dialog>
   );
 
+  const PendingRequestBanner = () => {
+    if (!pendingRequest) return null;
+
+    return (
+      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-start space-x-3">
+          <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+          <div>
+            <h3 className="font-medium text-yellow-800">Pending Bank Change Request</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              You have a pending request to change your bank details. New details:
+            </p>
+            <div className="mt-2 space-y-1 text-sm text-yellow-700">
+              <p>Bank: {pendingRequest.newBankDetails.bankName}</p>
+              <p>Account Number: {pendingRequest.newBankDetails.accountNumber}</p>
+              <p>Account Name: {pendingRequest.newBankDetails.accountName}</p>
+              <p className="text-xs text-yellow-600 mt-2">
+                Submitted on: {new Date(pendingRequest.requestDate).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
+      <PendingRequestBanner />
       <div className="grid gap-6 md:grid-cols-2">
         {/* Payout Details */}
         <Card>
@@ -281,20 +321,10 @@ export default function PaymentSettings() {
               }}
               disabled={pendingRequest}
             >
-              Edit
+              {pendingRequest ? "Change Pending" : "Edit"}
             </Button>
           </CardHeader>
           <CardContent>
-            {pendingRequest && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm text-yellow-700">
-                  You have a pending bank account change request. Please wait for admin approval.
-                </p>
-                <p className="text-xs text-yellow-600 mt-1">
-                  Submitted on: {new Date(pendingRequest.requestDate).toLocaleDateString()}
-                </p>
-              </div>
-            )}
             <div className="space-y-4">
               <div className="flex items-center justify-between py-2 border-b">
                 <div className="flex items-center gap-2">

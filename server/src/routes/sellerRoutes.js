@@ -2831,7 +2831,7 @@ router.put('/social-media', authMiddleware.verifyToken, sellerController.updateS
  *           schema:
  *             type: object
  *             properties:
- *               bankDetails:
+ *               newBankDetails:
  *                 type: object
  *                 properties:
  *                   bankCountry:
@@ -2850,7 +2850,7 @@ router.put('/social-media', authMiddleware.verifyToken, sellerController.updateS
  *                     type: string
  *                   bankIdentifierCode:
  *                     type: string
- *               proofFile:
+ *               proofDocument:
  *                 type: string
  *                 format: binary
  *     responses:
@@ -2863,7 +2863,7 @@ router.put('/social-media', authMiddleware.verifyToken, sellerController.updateS
  */
 router.post('/bank-change-request', 
   authMiddleware.verifyToken,
-  upload.single('proofFile'),
+  upload.single('proofDocument'),
   sellerController.requestBankAccountChange
 );
 
