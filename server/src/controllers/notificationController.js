@@ -132,7 +132,7 @@ const getNotificationMessage = (type, data) => {
     case 'back_in_stock':
       return `"${data.productName}" is back in stock! Don't miss out.`;
     case 'seller_message':
-      return `New message from ${data.sellerName} regarding order #${data.order_id}.`;
+      return `New message from ${data.sellerName}.`;
     case 'order_reminder':
       return `Please confirm receipt of order #${data.order_id} delivered on ${new Date(data.deliveryDate).toLocaleDateString()}.`;
     case 'review_reminder':
