@@ -1369,18 +1369,16 @@ exports.getAllBlips = async (req, res) => {
             }
           },
           seller: {
-            _id: '$sellerInfo._id',
-            firstName: '$sellerInfo.firstName',
-            lastName: '$sellerInfo.lastName',
-            storeName: '$sellerInfo.storeName',
-            storeAvatar: '$sellerInfo.storeAvatar',
-            aboutStore: '$sellerInfo.aboutStore',
-            // Include seller store rating
-            storeRating: '$sellerInfo.stats.averageRating',
-            totalStoreReviews: '$sellerInfo.stats.totalReviews',
-            // Include followers array for later processing
-            followers: '$sellerInfo.followers',
-            isFeatured: '$sellerInfo.isFeatured'
+            _id: { $literal: seller._id },
+            firstName: { $literal: seller.firstName },
+            lastName: { $literal: seller.lastName },
+            storeName: { $literal: seller.storeName },
+            storeAvatar: { $literal: seller.storeAvatar },
+            aboutStore: { $literal: seller.aboutStore },
+            storeRating: { $literal: seller.stats ? seller.stats.averageRating : 0 },
+            totalStoreReviews: { $literal: seller.stats ? seller.stats.totalReviews : 0 },
+            isFollowing: { $literal: isFollowing },
+            isFeatured: { $literal: seller.isFeatured || false }
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -1613,17 +1611,16 @@ exports.getSellerBlips = async (req, res) => {
             }
           },
           seller: {
-            _id: seller._id,
-            firstName: seller.firstName,
-            lastName: seller.lastName,
-            storeName: seller.storeName,
-            storeAvatar: seller.storeAvatar,
-            aboutStore: seller.aboutStore,
-            // Include seller store rating
-            storeRating: seller.stats ? seller.stats.averageRating : 0,
-            totalStoreReviews: seller.stats ? seller.stats.totalReviews : 0,
-            isFollowing: isFollowing,
-            isFeatured: seller.isFeatured
+            _id: { $literal: seller._id },
+            firstName: { $literal: seller.firstName },
+            lastName: { $literal: seller.lastName },
+            storeName: { $literal: seller.storeName },
+            storeAvatar: { $literal: seller.storeAvatar },
+            aboutStore: { $literal: seller.aboutStore },
+            storeRating: { $literal: seller.stats ? seller.stats.averageRating : 0 },
+            totalStoreReviews: { $literal: seller.stats ? seller.stats.totalReviews : 0 },
+            isFollowing: { $literal: isFollowing },
+            isFeatured: { $literal: seller.isFeatured || false }
           },
           images: { $first: '$images.url' },
           blipEngagement: {
