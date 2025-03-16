@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Check, X, Eye, Loader2, PlayCircle, AlertCircle } from "lucide-react";
+import { Check, X, Eye, Loader2, PlayCircle, AlertCircle, Building2 } from "lucide-react";
 import { api } from "@/api/axios";
 import { toast } from "sonner";
 import {
@@ -45,6 +45,8 @@ interface Withdrawal {
     bankName: string;
     accountNumber: string;
     accountName: string;
+    bankCode: string;
+    bankIdentifierCode?: string;
   };
   amount: number;
   status: 'pending' | 'processing' | 'completed' | 'rejected';
@@ -52,6 +54,11 @@ interface Withdrawal {
   requestDate: string;
   processedDate?: string;
   reference: string;
+  paymentInfo?: {
+    transferReference?: string;
+    transferRecipientCode?: string;
+    paystackStatus?: string;
+  };
 }
 
 function Withdrawals() {
@@ -68,6 +75,7 @@ function Withdrawals() {
   const [transferPolling, setTransferPolling] = useState<NodeJS.Timeout | null>(null);
   const [requiresOTP, setRequiresOTP] = useState(false);
   const [transferCode, setTransferCode] = useState(null);
+  const [otpValue, setOtpValue] = useState('');
 
   const fetchWithdrawals = async () => {
     try {
@@ -120,22 +128,46 @@ function Withdrawals() {
   const confirmTransfer = async () => {
     setTransferStatus({ loading: true, error: null });
     try {
-      const response = await api.post(`/api/admin/withdrawals/${selectedWithdrawal._id}/transfer`);
+      // Use bankIdentifierCode from withdrawal request
+      const transferData = {
+        bankCode: selectedWithdrawal?.bankDetails?.bankIdentifierCode,
+        accountNumber: selectedWithdrawal?.bankDetails?.accountNumber,
+        accountName: selectedWithdrawal?.bankDetails?.accountName,
+        bankName: selectedWithdrawal?.bankDetails?.bankName,
+        amount: selectedWithdrawal?.amount
+      };
+
+      const response = await api.post(
+        `/api/admin/withdrawals/${selectedWithdrawal._id}/transfer`,
+        transferData
+      );
+      
       toast.success("Transfer initiated successfully");
       
-      // Start polling for transfer status with improved logic
+      // Store the Paystack transfer reference
+      const paystackReference = response.data.data.transfer.reference;
+      setSelectedWithdrawal(prev => ({
+        ...prev,
+        paymentInfo: {
+          ...prev.paymentInfo,
+          transferReference: paystackReference
+        }
+      }));
+      
+      // Start polling for transfer status
       const pollInterval = setInterval(async () => {
         try {
           const statusResponse = await api.get(
             `/api/admin/transfers/${response.data.data.transfer.reference}/verify`
           );
           
-          const { status, requiresAction } = statusResponse.data.data;
+          const { status, requiresAction, message } = statusResponse.data.data;
           
           console.log('Transfer status check:', {
             reference: response.data.data.transfer.reference,
             status,
-            requiresAction
+            requiresAction,
+            message
           });
 
           if (requiresAction) {
@@ -143,20 +175,8 @@ function Withdrawals() {
             clearInterval(pollInterval);
             setTransferPolling(null);
             setRequiresOTP(true);
-            // For test mode, automatically finalize the transfer
-            try {
-              const finalizeResponse = await api.post(
-                `/api/admin/transfers/${response.data.data.transfer.reference}/finalize`
-              );
-              if (finalizeResponse.data.success) {
-                toast.success("Transfer finalized successfully");
-                await fetchWithdrawals();
-                setIsTransferModalOpen(false);
-              }
-            } catch (finalizeError) {
-              console.error("Error finalizing transfer:", finalizeError);
-              toast.error("Failed to finalize transfer");
-            }
+            setTransferCode(statusResponse.data.data.transfer_code);
+            toast.info("Transfer requires verification");
             return;
           }
 
@@ -169,30 +189,51 @@ function Withdrawals() {
           } else if (status === 'failed') {
             clearInterval(pollInterval);
             setTransferPolling(null);
-            toast.error("Transfer failed");
+            toast.error(message || "Transfer failed");
             await fetchWithdrawals();
             setIsTransferModalOpen(false);
           }
           // Continue polling for 'processing' status
         } catch (error) {
           console.error("Error polling transfer status:", error);
-          // Don't clear interval on network errors, keep trying
           if (error.response?.status === 404) {
-            // Only stop polling if withdrawal is not found
             clearInterval(pollInterval);
             setTransferPolling(null);
             toast.error("Transfer reference not found");
           }
         }
-      }, 5000); // Poll every 5 seconds
+      }, 5000);
 
       setTransferPolling(pollInterval);
     } catch (error) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || "Failed to initiate transfer";
       setTransferStatus({
         loading: false,
-        error: error.response?.data?.message || "Failed to initiate transfer"
+        error: errorMessage
       });
-      toast.error("Failed to initiate transfer");
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleOTPSubmit = async () => {
+    if (!selectedWithdrawal?.paymentInfo?.transferReference || !otpValue) return;
+
+    try {
+      const response = await api.post(
+        `/api/admin/transfers/${selectedWithdrawal.paymentInfo.transferReference}/finalize`,
+        { otp: otpValue }
+      );
+
+      if (response.data.success) {
+        toast.success("Transfer finalized successfully");
+        setRequiresOTP(false);
+        setOtpValue('');
+        await fetchWithdrawals();
+        setIsTransferModalOpen(false);
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || "Failed to finalize transfer";
+      toast.error(errorMessage);
     }
   };
 
@@ -307,7 +348,7 @@ function Withdrawals() {
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            {requiresOTP ? 'Verify Transfer' : 'Confirm Transfer'}
+            {requiresOTP ? 'Enter OTP to Complete Transfer' : 'Confirm Transfer'}
           </DialogTitle>
         </DialogHeader>
         
@@ -327,9 +368,24 @@ function Withdrawals() {
 
               <div className="border rounded p-3">
                 <p className="font-semibold mb-2">Bank Details</p>
-                <p>{selectedWithdrawal.bankDetails.bankName}</p>
-                <p>{selectedWithdrawal.bankDetails.accountNumber}</p>
-                <p>{selectedWithdrawal.bankDetails.accountName}</p>
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-gray-50">
+                    <Building2 className="h-4 w-4 text-gray-600" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-700">
+                      {selectedWithdrawal.bankDetails.bankName}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {selectedWithdrawal.bankDetails.accountNumber}
+                      {selectedWithdrawal.bankDetails.bankIdentifierCode && (
+                        <span className="ml-2 text-gray-400">
+                          (BIC: {selectedWithdrawal.bankDetails.bankIdentifierCode})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {transferStatus.error && (
@@ -339,41 +395,73 @@ function Withdrawals() {
                   <AlertDescription>{transferStatus.error}</AlertDescription>
                 </Alert>
               )}
-            </>
-          )}
 
-          {requiresOTP && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Verification Required</AlertTitle>
-              <AlertDescription>
-                Transfer requires verification. Processing automatically...
-              </AlertDescription>
-            </Alert>
+              {requiresOTP && (
+                <div className="space-y-4">
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>OTP Required</AlertTitle>
+                    <AlertDescription>
+                      Please enter the OTP sent to your phone to complete this transfer.
+                    </AlertDescription>
+                  </Alert>
+                  <div className="space-y-2">
+                    <label htmlFor="otp" className="text-sm font-medium">
+                      Enter OTP
+                    </label>
+                    <input
+                      id="otp"
+                      type="text"
+                      value={otpValue}
+                      onChange={(e) => setOtpValue(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md"
+                      placeholder="Enter OTP"
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => setIsTransferModalOpen(false)}
+            onClick={() => {
+              setIsTransferModalOpen(false);
+              setOtpValue('');
+              if (transferPolling) {
+                clearInterval(transferPolling);
+                setTransferPolling(null);
+              }
+            }}
             disabled={transferStatus.loading}
           >
             Cancel
           </Button>
-          <Button
-            onClick={confirmTransfer}
-            disabled={transferStatus.loading}
-          >
-            {transferStatus.loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing
-              </>
-            ) : (
-              'Confirm Transfer'
-            )}
-          </Button>
+          {requiresOTP ? (
+            <Button
+              onClick={handleOTPSubmit}
+              disabled={!otpValue || otpValue.length < 6}
+            >
+              Submit OTP
+            </Button>
+          ) : (
+            <Button
+              onClick={confirmTransfer}
+              disabled={transferStatus.loading || requiresOTP}
+            >
+              {transferStatus.loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing
+                </>
+              ) : (
+                'Confirm Transfer'
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -443,9 +531,23 @@ function Withdrawals() {
                 </TableCell>
                 <TableCell>{formatCurrency(withdrawal.amount)}</TableCell>
                 <TableCell>
-                  <div className="text-sm">
-                    <div>{withdrawal.bankDetails.bankName}</div>
-                    <div className="text-muted-foreground">{withdrawal.bankDetails.accountNumber}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-gray-50">
+                      <Building2 className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-300">
+                        {withdrawal.bankDetails.bankName}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {withdrawal.bankDetails.accountNumber}
+                        {withdrawal.bankDetails.bankIdentifierCode && (
+                          <span className="ml-2 text-gray-400">
+                            (BIC: {withdrawal.bankDetails.bankIdentifierCode})
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>{formatDate(withdrawal.requestDate)}</TableCell>

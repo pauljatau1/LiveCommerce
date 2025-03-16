@@ -14,7 +14,8 @@ import {
   DollarSign,
   Video,
   FileText,
-  PackageOpen
+  PackageOpen,
+  Building2
 } from 'lucide-react';
 
 const mainLinks = [
@@ -31,6 +32,7 @@ const mainLinks = [
   { icon: Image, label: 'Banners', path: '/dashboard/banners' },
   { icon: Megaphone, label: 'Announcements', path: '/dashboard/announcements' },
   { icon: FileText, label: 'Resources', path: '/dashboard/resources' },
+  { icon: Building2, label: 'Bank Requests', path: '/dashboard/bankrequests' },
 ];
 
 const bottomLinks = [

@@ -17,7 +17,7 @@ import Banners from '@/pages/banners';
 import OrderDetail from '@/pages/orderDetail';
 import Returns from '@/pages/returns';
 import ReturnDetail from '@/pages/returnDetail';
-
+import BankRequests from '@/pages/bankrequests';
 
 function App() {
   return (
@@ -47,7 +47,7 @@ function App() {
             <Route path="/dashboard/order-detail/:id" element={<OrderDetail />} />
             <Route path="/dashboard/returns" element={<Returns />} />
             <Route path="/dashboard/return-detail/:id" element={<ReturnDetail />} />
-           
+            <Route path="/dashboard/bankrequests" element={<BankRequests />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
