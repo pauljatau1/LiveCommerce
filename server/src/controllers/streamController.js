@@ -1262,7 +1262,7 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
 exports.getStreamsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
-    const { status, type, page = 1, limit = 10, sortByLiveCount = false } = req.query;
+    const { status, type, page = 1, limit = 10, sortByViews } = req.query;
     
     // Build query with case-insensitive category matching
     const query = { 
@@ -1277,59 +1277,59 @@ exports.getStreamsByCategory = async (req, res) => {
       query.type = type;
     }
 
-    let streams;
-    let total;
+    // Build aggregation pipeline
+    const aggregationPipeline = [
+      { $match: query },
+      {
+        $addFields: {
+          viewerCount: { $size: "$viewers" }
+        }
+      }
+    ];
 
-    if (sortByLiveCount) {
-      // Get the count of live streams for this category
-      const liveCount = await Stream.countDocuments({
-        ...query,
-        status: 'live'
+    // Add sort stage based on sortByViews parameter
+    if (sortByViews) {
+      aggregationPipeline.push({
+        $sort: {
+          viewerCount: sortByViews === 'asc' ? 1 : -1,
+          scheduledStartTime: -1,
+          createdAt: -1
+        }
       });
-
-      // Find streams for the given category
-      streams = await Stream.find(query)
-        .populate('seller', 'storeName businessName storeAvatar rating')
-        .populate('products.product', 'name description images price')
-        .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
-        .sort({ 
-          liveCount: -1,  // Sort by live count first
-          scheduledStartTime: -1, 
-          createdAt: -1 
-        })
-        .skip((page - 1) * limit)
-        .limit(parseInt(limit));
-
-      // Add liveCount to the response
-      streams = streams.map(stream => {
-        const streamObj = stream.toObject();
-        streamObj.categoryLiveCount = liveCount;
-        streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
-        return streamObj;
-      });
-
     } else {
-      // Regular sorting without live count
-      streams = await Stream.find(query)
-        .populate('seller', 'storeName businessName storeAvatar rating')
-        .populate('products.product', 'name description images price')
-        .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
-        .sort({ scheduledStartTime: -1, createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(parseInt(limit));
-
-      // Add viewerCount to each stream
-      streams = streams.map(stream => {
-        const streamObj = stream.toObject();
-        streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
-        return streamObj;
+      aggregationPipeline.push({
+        $sort: {
+          scheduledStartTime: -1,
+          createdAt: -1
+        }
       });
     }
 
-    total = await Stream.countDocuments(query);
+    // Add pagination
+    aggregationPipeline.push(
+      { $skip: (page - 1) * limit },
+      { $limit: parseInt(limit) }
+    );
+
+    // Execute aggregation and populate references
+    const streams = await Stream.aggregate(aggregationPipeline)
+      .exec()
+      .then(async streams => {
+        // Populate the references after aggregation
+        return await Stream.populate(streams, [
+          { path: 'seller', select: 'storeName businessName storeAvatar rating' },
+          { path: 'products.product', select: 'name description images price' }
+        ]);
+      });
+
+    // Get total count for pagination
+    const total = await Stream.countDocuments(query);
 
     res.json({
-      streams,
+      streams: streams.map(stream => ({
+        ...stream,
+        viewerCount: stream.viewers ? stream.viewers.length : 0
+      })),
       pagination: {
         total,
         pages: Math.ceil(total / limit),

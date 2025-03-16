@@ -1099,7 +1099,7 @@ router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStat
  * /api/streams/category/{category}:
  *   get:
  *     summary: Get streams by category
- *     description: Retrieve all streams for a specific category with optional filtering by status and type. Can be sorted by number of live shows in the category.
+ *     description: Retrieve all streams for a specific category with optional filtering by status, type, and sorting by views count
  *     tags: [Streams]
  *     parameters:
  *       - in: path
@@ -1121,11 +1121,11 @@ router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStat
  *           enum: [auction, open_show]
  *         description: Filter streams by type (optional)
  *       - in: query
- *         name: sortByLiveCount
+ *         name: sortByViews
  *         schema:
- *           type: boolean
- *           default: false
- *         description: Sort streams by the number of live shows in their category (optional)
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Sort streams by viewer count (asc for ascending, desc for descending)
  *       - in: query
  *         name: page
  *         schema:
@@ -1152,38 +1152,7 @@ router.get('/seller/:sellerId/filtered', streamController.getSellerStreamsByStat
  *                 streams:
  *                   type: array
  *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                       seller:
- *                         type: object
- *                         properties:
- *                           _id:
- *                             type: string
- *                           storeName:
- *                             type: string
- *                           businessName:
- *                             type: string
- *                           storeAvatar:
- *                             type: object
- *                           rating:
- *                             type: number
- *                       title:
- *                         type: string
- *                       description:
- *                         type: string
- *                       categoryLiveCount:
- *                         type: number
- *                         description: Number of live shows in this category (only when sortByLiveCount is true)
- *                       viewerCount:
- *                         type: number
- *                       status:
- *                         type: string
- *                         enum: [scheduled, live, ended]
- *                       type:
- *                         type: string
- *                         enum: [auction, open_show]
+ *                     $ref: '#/components/schemas/Stream'
  *                 pagination:
  *                   type: object
  *                   properties:
