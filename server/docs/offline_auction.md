@@ -13,17 +13,29 @@ This guide explains how to implement the client-side functionality for offline a
 ### Fetch Auction Products
 ```javascript
 // Get all offline auction products
-GET /api/products/offline-auctions
+GET /api/products/auctions
 
-// Get specific offline auction product
-GET /api/products/offline-auctions/:productId
+// Get specific seller's auction products
+GET /api/products/seller/:sellerId/auctions
 
 // Get bids for a specific auction
-GET /api/products/offline-auctions/:productId/bids
+GET /api/products/:productId/bids
+
+// Get all bids placed by the authenticated buyer
+GET /api/products/buyer/bids
 
 // Place a bid
-POST /api/products/offline-auctions/:productId/bid
+POST /api/products/:productId/bid
 ```
+
+Query Parameters for `/api/products/auctions`:
+- `status`: Filter by 'scheduled', 'ongoing', or 'ended'
+- `sort`: Sort by 'endDate', 'startDate', or 'currentBid'
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 10)
+
+Query Parameters for `/api/products/seller/:sellerId/auctions`:
+- Same as above
 
 ## WebSocket Events
 
@@ -100,7 +112,7 @@ import axios from 'axios';
 
 const fetchAuctionProducts = async () => {
   try {
-    const response = await axios.get('/api/products/offline-auctions');
+    const response = await axios.get('/api/products/auctions');
     return response.data;
   } catch (error) {
     console.error('Error fetching auction products:', error);
@@ -110,7 +122,7 @@ const fetchAuctionProducts = async () => {
 
 const fetchAuctionDetails = async (productId) => {
   try {
-    const response = await axios.get(`/api/products/offline-auctions/${productId}`);
+    const response = await axios.get(`/api/products/auctions/${productId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching auction details:', error);
@@ -173,7 +185,7 @@ const placeBid = async (productId, amount) => {
     socket.emit('place_bid', { productId, amount });
     
     // You can also make an API call if needed
-    const response = await axios.post(`/api/products/offline-auctions/${productId}/bid`, {
+    const response = await axios.post(`/api/products/auctions/${productId}/bid`, {
       amount
     });
     return response.data;
