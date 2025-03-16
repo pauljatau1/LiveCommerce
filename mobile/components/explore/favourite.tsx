@@ -8,18 +8,23 @@ import { FontAwesome6, MaterialIcons } from "@expo/vector-icons";
 import BottomSheet from "../global/bottom-sheet";
 import SortSheet from "./exploreSortSheet";
 import { catalogSort } from "@/helpers/helpers";
+import ExploreFilterSheet from "./exploreFilterSheet";
 
 const FavouriteExplore = ({ category }: any) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [spotLight, setSpotLight] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("");
+  const [liveFilter, setLiveFilter] = useState<string>("open_show");
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
+  const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
   const [filteredStreams, setFilteredStremas] = useState<any[]>([]);
+
   const fetchSpotlightLiveStreams = async () => {
+    setLoading(true);
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/streams/category/${category?.toLowerCase()}?status=live`,
+          `api/streams/category/${category?.toLowerCase()}?status=live&type=${liveFilter}&sortByView=${filter}`,
       );
       if (response.status === 200) {
         console.log("spotlight streams", response.data?.streams?.length);
@@ -44,6 +49,11 @@ const FavouriteExplore = ({ category }: any) => {
     fetchSpotlightLiveStreams();
   }, []);
 
+  const handleSelectFilterType = (type: string) => {
+    setShowFilterSheet(false);
+    setLiveFilter(type);
+  };
+
   const renderEmptyStreams = useCallback(() => {
     return (
       <View
@@ -63,6 +73,15 @@ const FavouriteExplore = ({ category }: any) => {
     return (
       <View className="flex-row items-center gap-[8px] mb-[17px]">
         <TouchableOpacity
+          className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+          style={{
+            backgroundColor: "rgba(204, 204, 204, 0.25)",
+          }}
+          onPress={() => setShowFilterSheet(true)}
+        >
+          <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
+        </TouchableOpacity>
+        {/* <TouchableOpacity
           className={` rounded-[8px] py-[8px] px-[12px] gap-[8px] flex-row justify-center items-center`}
           style={{
             backgroundColor:
@@ -77,7 +96,7 @@ const FavouriteExplore = ({ category }: any) => {
           >
             Auction
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <TouchableOpacity
           className={` rounded-[8px] py-[8px] px-[12px] gap-[8px] flex-row justify-center items-center`}
           style={{
@@ -103,33 +122,42 @@ const FavouriteExplore = ({ category }: any) => {
     );
   }, [filter]);
 
+  useEffect(() => {
+    fetchSpotlightLiveStreams();
+  }, [liveFilter, filter]);
+
   return (
     <View className=" w-[100%] pb-[15.5px]">
-      {loading ? (
-        <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
-      ) : spotLight?.length > 0 ? (
-        <View
-          style={{
-            paddingHorizontal: 16,
-          }}
-        >
-          <FlatList
-            data={spotLight}
-            renderItem={({ item }) => (
-              <View className="w-1/2 py-2 shrink">
-                <LiveProductCard item={item} />
-              </View>
-            )}
-            keyExtractor={(item, index) => item?._id || index.toString()}
-            numColumns={2}
-            columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
-            scrollEnabled={false}
-            ListHeaderComponent={renderListHeader}
-          />
-        </View>
-      ) : (
-        renderEmptyStreams()
-      )}
+      {
+        loading ? (
+          <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
+        ) : (
+          // spotLight?.length < 1 ? (
+          <View
+            style={{
+              paddingHorizontal: 16,
+            }}
+          >
+            <FlatList
+              data={spotLight}
+              renderItem={({ item }) => (
+                <View className="w-1/2 py-2 shrink">
+                  <LiveProductCard item={item} />
+                </View>
+              )}
+              keyExtractor={(item, index) => item?._id || index.toString()}
+              numColumns={2}
+              columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
+              scrollEnabled={false}
+              ListHeaderComponent={renderListHeader}
+              ListEmptyComponent={renderEmptyStreams}
+            />
+          </View>
+        )
+        // ) : (
+        //   renderEmptyStreams()
+        // )
+      }
       <BottomSheet
         bgColor="#121212"
         childrenStyle="!px-[0px]"
@@ -144,6 +172,23 @@ const FavouriteExplore = ({ category }: any) => {
         <SortSheet
           selectSortType={handleSelectSortType}
           currentSelection={filter}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        show={showFilterSheet}
+        titleColor="!text-white"
+        snapPoints={["60%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowFilterSheet(false)}
+        keyboardBehavior="interactive"
+      >
+        <ExploreFilterSheet
+          selectFilterType={handleSelectFilterType}
+          currentSelection={liveFilter}
         />
       </BottomSheet>
     </View>

@@ -50,7 +50,7 @@ const service = [
 const CreateAccount = () => {
   // const router = useRouter();
   const dispatch = useDispatch();
-  const { expoPushToken } = usePushNotifications()
+  const { expoPushToken } = usePushNotifications();
   const phoneInput = useRef<PhoneInput>(null);
 
   const methods = useForm({
@@ -97,7 +97,8 @@ const CreateAccount = () => {
       firstName,
       lastName,
       phoneNumber: phone.replace(/^0+/, ""),
-      country: country.label,
+      country: "NG",
+      //  || country.label,
       username: userName,
       agree,
       expoPushToken: expoPushToken?.data || "",
@@ -185,7 +186,13 @@ const CreateAccount = () => {
                     keyboardType="email-address"
                     rules={["required", "email"]}
                   />
-                  <Select
+                  <Input
+                    name="Country"
+                    label="Country"
+                    placeholder="Nigeria"
+                    readOnly
+                  />
+                  {/* <Select
                     name="country"
                     required
                     label="Country"
@@ -197,7 +204,7 @@ const CreateAccount = () => {
                       OptionComponent(option, selected, length, index)
                     }
                     estimatedItemSize={4}
-                  />
+                  /> */}
                   <View>
                     <Text className="mb-[6px] font-LexendDecaMedium text-sm font-medium tracking-wider text-white">
                       Mobile Number
@@ -266,7 +273,7 @@ const CreateAccount = () => {
                           {errors.phone && (
                             <Text className="mt-2 text-left font-LexendDeca text-xs tracking-wider text-red-500">
                               *{errors?.phone.message as string}
-                              {value}
+                              {/* {value} */}
                             </Text>
                           )}
                         </View>

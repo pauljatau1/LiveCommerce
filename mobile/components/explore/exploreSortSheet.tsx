@@ -8,7 +8,10 @@ const SortSheet = ({
   selectSortType: any;
   currentSelection: any;
 }) => {
-  const options = ["Views: Highest to Lowest", "Views: Lowest to Highest"];
+  const options = [
+    { label: "Views: Highest to Lowest", value: "desc" },
+    { label: "Views: Lowest to Highest", value: "asc" },
+  ];
   const [selectedType, setSelectedType] = useState<string>(currentSelection);
   return (
     <View className="my-[10px] h-full">
@@ -28,10 +31,10 @@ const SortSheet = ({
               justifyContent: "space-between",
               alignItems: "center",
             }}
-            onPress={() => setSelectedType(option)}
+            onPress={() => setSelectedType(option.value)}
           >
             <Text className="text-[14px] text-[#fff] font-LexendDeca">
-              {option}
+              {option.label}
             </Text>
             <View
               style={{
@@ -49,7 +52,7 @@ const SortSheet = ({
                   width: 12,
                   height: 12,
                   borderRadius: 12,
-                  backgroundColor: selectedType == option ? "#fff" : "",
+                  backgroundColor: selectedType == option.value ? "#fff" : "",
                 }}
               ></View>
             </View>
@@ -64,14 +67,14 @@ const SortSheet = ({
         }}
       >
         <Pressable
-          className=" py-[12px] items-center justify-center bg-[#16783A]"
+          className=" py-[12px] items-center justify-center border-[1px] border-[#16783A]"
           style={{ borderRadius: 8.5, flexBasis: "23%" }}
-          onPress={() => selectSortType(selectedType)}
+          onPress={() => selectSortType("")}
         >
           <Text className="text-[14px] text-[#fff] font-LexendDeca">Clear</Text>
         </Pressable>
         <Pressable
-          className=" py-[12px] items-center justify-center bg-[#16783A] "
+          className=" py-[12px] items-center justify-center bg-[#16783A] border-[1px] border-[#16783A]"
           style={{ borderRadius: 8.5, flexBasis: "75%" }}
           onPress={() => selectSortType(selectedType)}
         >

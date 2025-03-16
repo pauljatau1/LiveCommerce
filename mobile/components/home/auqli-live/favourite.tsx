@@ -24,6 +24,9 @@ const Favourite = () => {
         },
       );
       if (response.status === 200) {
+        if (!response.data?.streams) {
+          return;
+        }
         console.log("favorite sellers streams", response.data?.streams?.length);
         setFavoriteSellersStream(response.data?.streams);
       }

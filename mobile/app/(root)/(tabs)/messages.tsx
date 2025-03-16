@@ -121,7 +121,7 @@ const Message = () => {
             </Text>
             <Text className="text-[13px] text-[#ccc] font-LexendDecaLight shrink">
               {item.lastMessage.messageType == "text"
-                ? item.lastMessage.content.length > 20
+                ? item.lastMessage.content?.length > 20
                   ? item.lastMessage.content.slice(0, 40) + "..."
                   : item.lastMessage.content
                 : "Shared " + item.lastMessage.messageType}
@@ -206,7 +206,7 @@ const Message = () => {
 
       {loading ? (
         <ActivityIndicator size={"small"} color="#16783A" />
-      ) : conversations.length > 0 ? (
+      ) : conversations?.length > 0 ? (
         <>
           <View className="flex-row items-center gap-[8px] mb-[16px] px-[16px]">
             <TouchableOpacity
@@ -249,7 +249,7 @@ const Message = () => {
         </>
       ) : null}
 
-      {!loading && conversations.length < 1 ? <EmptyMessages /> : null}
+      {!loading && conversations?.length < 1 ? <EmptyMessages /> : null}
 
       <BottomSheet
         bgColor="#121212"
