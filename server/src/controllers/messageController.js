@@ -5,6 +5,10 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const { createNotification, createBuyerNotification } = require('./notificationController');
 const Order = require('../models/Order');
+const { saveToken, getToken } = require('../../Firebase');
+const { Expo } = require('expo-server-sdk');
+
+const expo = new Expo();
 
 // Helper function to create message preview
 const createMessagePreview = (content, messageType) => {
@@ -108,6 +112,16 @@ exports.sendTextMessage = async (req, res) => {
 
     // Create notification
     await createMessageNotifications(message);
+
+    // Send push notification to sender
+    const userToken = await getToken(senderId);
+    if (userToken) {
+      await expo.sendPushNotificationsAsync([{
+        to: userToken.token,
+        title: `New Message`,
+        body: `You have a new message`
+      }]);
+    }
 
     res.status(201).json({ message });
   } catch (error) {
