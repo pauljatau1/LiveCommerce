@@ -884,35 +884,37 @@ function initializeSocket(server) {
       const activeAuctions = await Product.find({
         status: 'offline_auction',
         'auction.status': { $in: ['scheduled', 'ongoing'] }
-      }).select('_id auction.status auction.startDate auction.endDate');
+      }).select('_id name auction');  // Include name and full auction object
 
       const now = new Date();
 
       for (const auction of activeAuctions) {
         let timeRemaining = null;
         let statusChanged = false;
-        let newStatus = auction.auction.status;
+        let newStatus = auction.auction?.status || 'ended';
 
         // Calculate time remaining and check if status needs to change
-        if (auction.auction.status === 'scheduled' && auction.auction.startDate <= now) {
+        if (auction.auction?.status === 'scheduled' && auction.auction?.startDate <= now) {
           // Auction should start
           await Product.findByIdAndUpdate(auction._id, {
             'auction.status': 'ongoing'
           });
           newStatus = 'ongoing';
           statusChanged = true;
-          timeRemaining = auction.auction.endDate - now;
-        } else if (auction.auction.status === 'scheduled') {
-          timeRemaining = auction.auction.startDate - now;
-        } else if (auction.auction.status === 'ongoing' && auction.auction.endDate <= now) {
+          timeRemaining = auction.auction?.endDate - now;
+        } else if (auction.auction?.status === 'scheduled') {
+          timeRemaining = auction.auction?.startDate - now;
+        } else if (auction.auction?.status === 'ongoing' && auction.auction?.endDate <= now) {
           // Auction should end
           const product = await Product.findById(auction._id);
-          await product.endAuction(false, io);
+          if (product) {
+            await product.endAuction(false, io);
+          }
           newStatus = 'ended';
           statusChanged = true;
           timeRemaining = 0;
-        } else if (auction.auction.status === 'ongoing') {
-          timeRemaining = auction.auction.endDate - now;
+        } else if (auction.auction?.status === 'ongoing') {
+          timeRemaining = auction.auction?.endDate - now;
         }
 
         // Only emit updates if there are watchers for this auction
@@ -935,24 +937,31 @@ function initializeSocket(server) {
                   select: 'firstName lastName profileImage'
                 });
 
-              io.to(`auction_${auction._id}`).emit('auction_ended', {
-                productId: auction._id,
-                winner: updatedProduct.auction.winner ? {
-                  buyer: {
-                    _id: updatedProduct.auction.winner.buyer._id,
-                    firstName: updatedProduct.auction.winner.buyer.firstName,
-                    lastName: updatedProduct.auction.winner.buyer.lastName,
-                    profileImage: updatedProduct.auction.winner.buyer.profileImage
-                  },
-                  bidAmount: updatedProduct.auction.winner.bidAmount,
-                  winningDate: updatedProduct.auction.winner.winningDate
-                } : null
-              });
+              if (updatedProduct?.auction?.winner) {
+                io.to(`auction_${auction._id}`).emit('auction_ended', {
+                  productId: auction._id,
+                  winner: {
+                    buyer: {
+                      _id: updatedProduct.auction.winner.buyer._id,
+                      firstName: updatedProduct.auction.winner.buyer.firstName,
+                      lastName: updatedProduct.auction.winner.buyer.lastName,
+                      profileImage: updatedProduct.auction.winner.buyer.profileImage
+                    },
+                    bidAmount: updatedProduct.auction.winner.bidAmount,
+                    winningDate: updatedProduct.auction.winner.winningDate
+                  }
+                });
+              } else {
+                io.to(`auction_${auction._id}`).emit('auction_ended', {
+                  productId: auction._id,
+                  winner: null
+                });
+              }
             } else if (newStatus === 'ongoing') {
               io.to(`auction_${auction._id}`).emit('auction_started', {
                 productId: auction._id,
                 startDate: now,
-                endDate: auction.auction.endDate
+                endDate: auction.auction?.endDate
               });
             }
           }
@@ -961,14 +970,14 @@ function initializeSocket(server) {
         // Also emit updates to auction lists room
         io.to('auction_lists').emit('auction_list_update', {
           productId: auction._id,
-          name: auction.name,
+          name: auction.name || '',
           status: newStatus,
           timeRemaining,
           statusChanged,
-          currentHighestBid: auction.auction.currentHighestBid ? {
+          currentHighestBid: auction.auction?.currentHighestBid ? {
             amount: auction.auction.currentHighestBid.amount
           } : null,
-          bidsCount: auction.auction.bids ? auction.auction.bids.length : 0
+          bidsCount: auction.auction?.bids?.length || 0
         });
         
         // Also emit updates to auction details room
@@ -988,7 +997,7 @@ function initializeSocket(server) {
                 select: 'firstName lastName profileImage'
               });
               
-            const winnerData = updatedProduct.auction.winner ? {
+            const winnerData = updatedProduct?.auction?.winner ? {
               buyer: {
                 _id: updatedProduct.auction.winner.buyer._id,
                 firstName: updatedProduct.auction.winner.buyer.firstName,
@@ -1011,13 +1020,13 @@ function initializeSocket(server) {
             io.to('auction_lists').emit('auction_started_list', {
               productId: auction._id,
               startDate: now,
-              endDate: auction.auction.endDate
+              endDate: auction.auction?.endDate
             });
             
             io.to(`auction_details_${auction._id}`).emit('auction_details_started', {
               productId: auction._id,
               startDate: now,
-              endDate: auction.auction.endDate
+              endDate: auction.auction?.endDate
             });
           }
         }
