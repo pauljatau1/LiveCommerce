@@ -290,7 +290,9 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                         className="w-16 h-16 rounded-lg object-cover"
                     />
                     <div className="space-y-1">
-                        <h3 className="font-medium text-[#05031F] line-clamp-2">{item?.name}</h3>
+                        <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#05031F]/70 transition-all duration-200">
+                            <h3 className="font-medium text-[#05031F] line-clamp-2">{item?.name}</h3>
+                        </Link>
                         <p className="text-sm text-gray-500">{item?.category}</p>
                         {isAuction ? (
                             <>
@@ -371,7 +373,9 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 className="w-16 h-16 rounded-lg object-cover"
             />
             <div>
-                <h3 className="font-medium text-[#05031F] line-clamp-2">{item?.name}</h3>
+                <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#05031F]/70 transition-all duration-200">
+                    <h3 className="font-medium text-[#05031F] line-clamp-2">{item?.name}</h3>
+                </Link>
                 <p className="text-sm text-gray-500">{item?.category}</p>
             </div>
             <div>

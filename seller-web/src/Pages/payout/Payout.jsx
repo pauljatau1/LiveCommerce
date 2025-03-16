@@ -43,7 +43,8 @@ export default function Payout() {
   const [bankDetails, setBankDetails] = useState({
     bankName: '',
     accountNumber: '',
-    accountName: ''
+    accountName: '',
+    bankIdentifierCode: ''
   });
   const [withdrawalAmount, setWithdrawalAmount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -108,7 +109,8 @@ export default function Payout() {
           setBankDetails({
             bankName: profileData?.bankDetails?.bankName || '',
             accountNumber: profileData?.bankDetails?.accountNumber || '',
-            accountName: profileData?.bankDetails?.accountName || ''
+            accountName: profileData?.bankDetails?.accountName || '',
+            bankIdentifierCode: profileData?.bankDetails?.bankIdentifierCode || ''
           });
 
           setFinancialData({
@@ -180,7 +182,12 @@ export default function Payout() {
           },
           body: JSON.stringify({
             amount: withdrawalAmount,
-            bankDetails
+            bankDetails: {
+              bankName: bankDetails.bankName,
+              accountNumber: bankDetails.accountNumber,
+              accountName: bankDetails.accountName,
+              bankIdentifierCode: bankDetails.bankIdentifierCode
+            }
           })
         });
 

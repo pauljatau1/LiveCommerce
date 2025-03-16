@@ -1166,7 +1166,7 @@ export default function ChatInterface() {
                       className="w-12 h-12 object-cover rounded-md"
                     />
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-medium text-gray-900 truncate">{product.name}</h4>
+                      <h4 className="text-xs font-medium text-gray-900 truncate">{product.name.length > 30 ? `${product.name.substring(0, 30)}...` : product.name}</h4>
                       <p className="text-xs text-gray-600 mt-0.5">
                         {new Intl.NumberFormat('en-NG', {
                           style: 'currency',
