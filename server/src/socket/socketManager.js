@@ -377,7 +377,7 @@ function initializeSocket(server) {
         const buyerId = socket.user.id;
 
         // Validate user is a buyer
-        if (socket.user.role !== 'buyer') {
+        if (socket.user.role?.toLowerCase() !== 'buyer') {
           console.log('Bid rejected: User is not a buyer', {
             socketId: socket.id,
             userRole: socket.user.role
