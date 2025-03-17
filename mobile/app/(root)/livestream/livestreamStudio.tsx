@@ -19,12 +19,14 @@ import { LiveShowProductCard } from './liveShowProductCard';
 import { initializeSocket, disconnectSocket, getSocket, StreamNotification } from './socketHandler';
 import { SOCKET_EVENTS } from '@/constants/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ProductPreview from '@/components/blips/productPreview';
 import CheckoutNow from '@/components/blips/checkoutNow';
 
 const { width, height } = Dimensions.get('window');
 
 const LivestreamStudio = () => {
+    const insets = useSafeAreaInsets();
     const { id } = useLocalSearchParams();
     const { activeStreamDetails, joinStream, fetchActiveStreamDetails } = useLivestream() as LivestreamContextType;
     const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
@@ -677,7 +679,7 @@ const LivestreamStudio = () => {
                     <View style={styles.contentContainer}>
                         {/* Top Actions */}
                         {shouldShowUI && (
-                            <SafeAreaView style={{ marginTop: Platform.OS === 'ios' ? 16 : 14 }}>
+                            <SafeAreaView style={{ marginTop: insets.top + 15 }}>
                                 <View className={`flex-row justify-between items-center px-4`}>
                                     <View className="flex-row items-center gap-4 ">
                                         <View className="flex-row items-center gap-2">
