@@ -428,7 +428,7 @@ router.get('/admin/statistics',
  * @swagger
  * /api/returns/{returnId}/create-label:
  *   post:
- *     summary: Create shipping label for return
+ *     summary: Create shipping label for return using Fez Delivery
  *     tags: [Returns]
  *     security:
  *       - bearerAuth: []
@@ -482,7 +482,7 @@ router.get('/admin/statistics',
  *                     type: string
  *     responses:
  *       200:
- *         description: Return shipping label created successfully
+ *         description: Return shipping label created successfully with Fez Delivery
  *       400:
  *         description: Missing required fields
  *       404:
@@ -498,7 +498,7 @@ router.post('/:returnId/create-label',
  * @swagger
  * /api/returns/{returnId}/shipping-rates:
  *   get:
- *     summary: Get shipping rates for a return
+ *     summary: Get shipping rates for a return from Fez Delivery
  *     tags: [Returns]
  *     security:
  *       - bearerAuth: []
@@ -510,7 +510,7 @@ router.post('/:returnId/create-label',
  *           type: string
  *     responses:
  *       200:
- *         description: Shipping rates retrieved successfully
+ *         description: Shipping rates retrieved successfully from Fez Delivery
  */
 router.get('/:returnId/shipping-rates',
   authMiddleware.verifyToken,
@@ -522,7 +522,7 @@ router.get('/:returnId/shipping-rates',
  * @swagger
  * /api/returns/{returnId}/select-rate:
  *   post:
- *     summary: Select shipping rate for return
+ *     summary: Select Fez Delivery shipping rate for return
  *     tags: [Returns]
  *     security:
  *       - bearerAuth: []
@@ -551,7 +551,7 @@ router.get('/:returnId/shipping-rates',
  *                 type: number
  *     responses:
  *       200:
- *         description: Shipping rate selected successfully
+ *         description: Fez Delivery shipping rate selected successfully
  */
 router.post('/:returnId/select-rate',
   authMiddleware.verifyToken,
@@ -563,7 +563,7 @@ router.post('/:returnId/select-rate',
  * @swagger
  * /api/returns/{returnId}/arrange-pickup:
  *   post:
- *     summary: Arrange pickup for return shipment
+ *     summary: Arrange pickup for return shipment with Fez Delivery
  *     tags: [Returns]
  *     security:
  *       - bearerAuth: []
@@ -575,9 +575,9 @@ router.post('/:returnId/select-rate',
  *           type: string
  *     responses:
  *       200:
- *         description: Return pickup arranged successfully
+ *         description: Return pickup arranged successfully with Fez Delivery
  *       400:
- *         description: Missing shipment_id or rate_id
+ *         description: Missing shipment_id
  *       404:
  *         description: Return request not found
  *       500:
