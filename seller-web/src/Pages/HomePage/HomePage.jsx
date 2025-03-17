@@ -270,7 +270,8 @@ const HomePage = () => {
         percentage: `${analytics.walletBalance.changePercentage}%`,
         trend: analytics.walletBalance.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-green-600',
-        iconBackground: 'bg-green-50'
+        iconBackground: 'bg-green-50',
+        link: '/dashboard/earnings-payouts'
       },
       {
         id: ObjectID().toHexString(),
@@ -280,7 +281,8 @@ const HomePage = () => {
         percentage: `${analytics.storeVisits.changePercentage}%`,
         trend: analytics.storeVisits.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-blue-600',
-        iconBackground: 'bg-blue-50'
+        iconBackground: 'bg-blue-50',
+        link: '/dashboard/analytics-insights'
       },
       {
         id: ObjectID().toHexString(),
@@ -290,7 +292,8 @@ const HomePage = () => {
         percentage: `${analytics.totalOrders.changePercentage}%`,
         trend: analytics.totalOrders.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-purple-600',
-        iconBackground: 'bg-purple-50'
+        iconBackground: 'bg-purple-50',
+        link: '/dashboard/orders'
       },
       {
         id: ObjectID().toHexString(),
@@ -300,7 +303,8 @@ const HomePage = () => {
         percentage: `${analytics.conversionRate.changePercentage}%`,
         trend: analytics.conversionRate.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-green-600',
-        iconBackground: 'bg-green-50'
+        iconBackground: 'bg-green-50',
+        link: '/dashboard/analytics-insights'
       },
       {
         id: ObjectID().toHexString(),
@@ -310,7 +314,8 @@ const HomePage = () => {
         percentage: `${analytics.newCustomers.changePercentage}%`,
         trend: analytics.newCustomers.changePercentage >= 0 ? 'up' : 'down',
         iconColor: 'text-orange-600',
-        iconBackground: 'bg-orange-50'
+        iconBackground: 'bg-orange-50',
+        link: '/dashboard/customers'
       }
     ];
   };

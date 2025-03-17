@@ -134,22 +134,25 @@ export default function ReturnDetail() {
           Authorization: `Bearer ${sellerToken}`
         },
         body: JSON.stringify({
-          action: 'approve',
+          action: action,
           message: action === 'reject' ? 'Return request denied' : approvalMessage,
           partialRefundAmount: parseFloat(refundAmount) || 0
         })
       })
 
       if (response.ok) {
+        toast.success(`Return request ${action === 'approve' ? 'approved' : 'rejected'} successfully`)
         setApprovalDialog(false)
-        fetchReturnDetails()
+        await fetchReturnDetails()
       } else {
         const error = await response.json()
         setError(error.message)
+        toast.error(error.message || `Failed to ${action} return request`)
       }
     } catch (error) {
-      setError("Failed to process return action")
-      console.error("Error handling return action:", error)
+      setError(`Failed to process return ${action}`)
+      console.error(`Error handling return ${action}:`, error)
+      toast.error(`Failed to process return ${action}`)
     } finally {
       setIsProcessing(false)
     }
@@ -171,102 +174,25 @@ export default function ReturnDetail() {
       })
 
       if (response.ok) {
+        toast.success("Return shipping label created successfully")
         await fetchReturnDetails()
-        await fetchShippingRates()
-        setShowRatesDialog(true)
+        // No need to fetch rates or show rates dialog since Fez handles everything in one step
       } else {
         const error = await response.json()
         setError(error.message)
+        toast.error(error.message || "Failed to create shipping label")
       }
     } catch (error) {
       setError("Failed to create shipping label")
       console.error("Error creating shipping label:", error)
+      toast.error("Failed to create shipping label")
     } finally {
       setIsCreatingLabel(false)
     }
   }
 
-  const fetchShippingRates = async () => {
-    try {
-      setIsLoadingRates(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/shipping-rates`, {
-        headers: {
-          Authorization: `Bearer ${sellerToken}`
-        }
-      })
-      const data = await response.json()
-      setShippingRates(data.rates)
-    } catch (error) {
-      setError("Failed to fetch shipping rates")
-      console.error("Error fetching shipping rates:", error)
-    } finally {
-      setIsLoadingRates(false)
-    }
-  }
-
   const handleSelectRate = async (rate) => {
-    try {
-      setIsProcessing(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/select-rate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        },
-        body: JSON.stringify({
-          rate_id: rate.rate_id,
-          carrier_name: rate.carrier_name,
-          amount: rate.amount
-        })
-      })
-
-      if (response.ok) {
-        setSelectedRate(rate)
-        await fetchReturnDetails()
-        setShowRatesDialog(false)
-      } else {
-        const error = await response.json()
-        setError(error.message)
-      }
-    } catch (error) {
-      setError("Failed to select shipping rate")
-      console.error("Error selecting shipping rate:", error)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handleArrangePickup = async () => {
-    try {
-      setIsProcessing(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/arrange-pickup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        }
-      })
-
-      if (response.ok) {
-        await fetchReturnDetails()
-        // toast({
-        //   title: "Success",
-        //   description: "Pickup arranged successfully",
-        // })
-        alert("Pickup arranged successfully")
-      } else {
-        const error = await response.json()
-        setError(error.message)
-      }
-    } catch (error) {
-      setError("Failed to arrange pickup")
-      console.error("Error arranging pickup:", error)
-    } finally {
-      setIsProcessing(false)
-    }
+    setSelectedRate(rate)
   }
 
   const handleReject = async (e) => {
@@ -321,93 +247,27 @@ export default function ReturnDetail() {
     <Dialog open={showRatesDialog} onOpenChange={setShowRatesDialog}>
       <DialogContent className="w-[95vw] max-w-3xl mx-auto">
         <DialogHeader>
-          <DialogTitle>Select Shipping Rate</DialogTitle>
+          <DialogTitle>Return Shipping Created</DialogTitle>
         </DialogHeader>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {isLoadingRates ? (
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {shippingRates?.map((rate) => (
-                <Card
-                  key={rate.id}
-                  className={`p-4 cursor-pointer transition-all ${
-                    selectedRate?.id === rate.id
-                      ? 'ring-2 ring-primary'
-                      : 'hover:shadow-md'
-                  }`}
-                  onClick={() => handleSelectRate(rate)}
-                >
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={rate.carrier_logo}
-                      alt={rate.carrier_name}
-                      className="h-12 w-12 object-contain"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-medium">{rate.carrier_name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {rate.carrier_rate_description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    <p className="text-lg font-semibold">
-                      ₦{rate.amount.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {rate.delivery_time}
-                    </p>
-                  </div>
-                </Card>
-              ))}
+        <div className="p-4 text-center">
+          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Return Shipping Created Successfully</h3>
+          <p className="text-muted-foreground mb-4">
+            The return shipping has been created with Fez Delivery. The customer will be notified to prepare the package for pickup.
+          </p>
+          
+          {returnData?.returnShipment?.tracking?.number && (
+            <div className="bg-muted p-4 rounded-lg mb-4">
+              <p className="font-medium">Tracking Number:</p>
+              <p className="text-primary">{returnData.returnShipment.tracking.number}</p>
             </div>
-
-            {/* Added Refresh Rates button */}
-            <div className="flex justify-center mt-4">
-              <Button
-                variant="outline"
-                onClick={fetchShippingRates}
-                disabled={isLoadingRates}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoadingRates ? 'animate-spin' : ''}`} />
-                {isLoadingRates ? 'Refreshing...' : 'Refresh Rates'}
-              </Button>
-            </div>
-          </>
-        )}
+          )}
+        </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setShowRatesDialog(false)}
-            disabled={isProcessing}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleArrangePickup}
-            disabled={isProcessing || !selectedRate}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              'Arrange Shipment'
-            )}
+          <Button onClick={() => setShowRatesDialog(false)}>
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -461,6 +321,7 @@ export default function ReturnDetail() {
           <Button
             onClick={() => handleReturnAction('approve')}
             disabled={isProcessing}
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             {isProcessing ? (
               <>
@@ -468,7 +329,10 @@ export default function ReturnDetail() {
                 Processing...
               </>
             ) : (
-              'Approve Return'
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve Return
+              </>
             )}
           </Button>
         </DialogFooter>
@@ -581,8 +445,9 @@ export default function ReturnDetail() {
       <Button
         className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white"
         onClick={() => setApprovalDialog(true)}
-        disabled={isProcessing}
+        disabled={returnData?.status !== "PENDING_SELLER_REVIEW" || isProcessing}
       >
+        <CheckCircle className="mr-2 h-4 w-4" />
         Accept Request
       </Button>
     </div>
@@ -602,7 +467,7 @@ export default function ReturnDetail() {
   return (
     <div className="pt-6 md:pt-10 px-4 md:px-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 bg-white p-4 md:p-6 rounded-lg shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 bg-white p-4 md:p-6 rounded-lg -sm">
         <div className="space-y-4 w-full md:w-auto">
           <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Return ID: #{id.slice(-6)}</h1>
@@ -668,7 +533,7 @@ export default function ReturnDetail() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <div className="md:col-span-2 space-y-4 md:space-y-6">
           {/* Product Section */}
-          <Card className="p-4 md:p-6 shadow-md">
+          <Card className="p-4 md:p-6 -md">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Product Details</h2>
               {returnData?.status === "APPROVED" && (
@@ -712,7 +577,7 @@ export default function ReturnDetail() {
           </Card>
 
           {/* Return Timeline */}
-          <Card className="p-6 shadow-md">
+          <Card className="p-6 -md">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Return Timeline</h2>
             <div className="space-y-6">
               {returnData?.timeline?.map((activity, index) => (
@@ -745,7 +610,7 @@ export default function ReturnDetail() {
 
           {/* Dispute Section - Show only if disputed */}
           {returnData?.dispute?.status !== 'PENDING' && (
-            <Card className="p-6 shadow-md border-orange-200">
+            <Card className="p-6 -md border-orange-200">
               <div className="flex items-center gap-3 mb-6">
                 <AlertTriangle className="w-5 h-5 text-orange-500" />
                 <h2 className="text-xl font-bold text-gray-900">Dispute Information</h2>
@@ -830,12 +695,12 @@ export default function ReturnDetail() {
 
           {/* Shipping Status - if return is approved */}
           {returnData?.returnShipment?.status !== 'PENDING' && (
-            <Card className="p-6 shadow-md">
+            <Card className="p-6 -md">
               <h2 className="text-xl font-semibold mb-4">Return Shipping Status</h2>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="font-medium">Status:</span>
-                  <Badge variant="outline" className={
+                  <Badge variant={
                     returnData.returnShipment.status === 'DELIVERED'
                       ? 'bg-green-50 text-green-700'
                       : 'bg-blue-50 text-blue-700'
@@ -859,8 +724,7 @@ export default function ReturnDetail() {
 
       {/* Button to create shipping label */}
       {returnData?.status === "APPROVED" && 
-        (!returnData?.returnShippingLabel?.url || 
-         returnData?.returnShippingLabel?.url.includes('example.com')) && (
+        (!returnData?.returnShipment?.shipment_id) && (
         <div className="mt-4">
           <Button
             className="bg-black text-white"
@@ -870,43 +734,19 @@ export default function ReturnDetail() {
             {isCreatingLabel ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Label...
+                Creating Return Shipment...
               </>
             ) : (
               <>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Shipping Label
+                Create Return Shipment
               </>
             )}
           </Button>
         </div>
       )}
 
-      {/* Add the Arrange Pickup button */}
-      {returnData?.status === "RETURN_SHIPPING_ARRANGED" && 
-       returnData?.returnShipment?.status === "RATE_SELECTED" && (
-        <div className="mt-4">
-          <Button
-            className="bg-black text-white"
-            onClick={handleArrangePickup}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Arranging Pickup...
-              </>
-            ) : (
-              <>
-                <CalendarPlus className="mr-2 h-4 w-4" />
-                Arrange Pickup
-              </>
-            )}
-          </Button>
-        </div>
-      )}
-
-      {/* Add Shipment Status Information */}
+      {/* Update Shipment Status Information */}
       {returnData?.returnShipment && (
         <div className="mt-6 space-y-4">
           <Card className="p-6">
@@ -915,41 +755,46 @@ export default function ReturnDetail() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Carrier:</span>
-                <span className="font-medium">{returnData?.returnShipment?.carrier?.name}</span>
+                <span className="font-medium">{returnData?.returnShipment?.carrier?.name || 'Fez Delivery'}</span>
               </div>
 
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Status:</span>
                 <Badge variant={
-                  returnData.returnShipment.status === "RATE_SELECTED" ? "warning" :
-                  returnData.returnShipment.status === "PICKUP_ARRANGED" ? "success" :
+                  returnData.returnShipment.tracking?.status === "delivered" ? "success" :
                   "default"
                 }>
-                  {returnData.returnShipment.status.replace(/_/g, " ")}
+                  {returnData.returnShipment.tracking?.status?.toUpperCase() || 'PENDING'}
                 </Badge>
               </div>
 
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Shipping Fee:</span>
                 <span className="font-medium">
-                  {returnData?.returnShipment?.fee?.currency} {returnData?.returnShipment?.fee?.amount?.toLocaleString()}
+                  {returnData?.returnShipment?.fee?.currency || 'NGN'} {returnData?.returnShipment?.fee?.amount?.toLocaleString() || '0'}
                 </span>
               </div>
 
-              {returnData.returnShipment.tracking.status && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Tracking Number:</span>
+                <span className="font-medium">{returnData?.returnShipment?.shipment_id || returnData?.returnShipment?.tracking?.number || 'N/A'}</span>
+              </div>
+
+              {returnData?.returnShipment?.tracking?.url && (
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Tracking Status:</span>
-                  <Badge variant={
-                    returnData.returnShipment.tracking.status === "pending" ? "warning" :
-                    returnData.returnShipment.tracking.status === "delivered" ? "success" :
-                    "default"
-                  }>
-                    {returnData.returnShipment.tracking.status.toUpperCase()}
-                  </Badge>
+                  <span className="text-muted-foreground">Track Package:</span>
+                  <a 
+                    href={returnData.returnShipment.tracking.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline flex items-center"
+                  >
+                    <Eye className="w-4 h-4 mr-1" /> Track
+                  </a>
                 </div>
               )}
 
-              {returnData.returnShipment.tracking.history.length > 0 && (
+              {returnData.returnShipment.tracking?.history?.length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-semibold mb-2">Tracking History</h4>
                   <div className="space-y-2">
@@ -1104,6 +949,7 @@ export default function ReturnDetail() {
       {/* Render the rates dialog */}
       {renderShippingRatesDialog()}
       {renderRejectDialog()}
+      {renderApprovalDialog()}
     </div>
   )
 }
