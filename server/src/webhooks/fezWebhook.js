@@ -78,9 +78,14 @@ const handleOrderStatusUpdate = async (webhookData) => {
     };
 
     // If delivered, update delivery date and mark items as delivered
-    if (internalStatus === 'delivered') {
+    if (internalStatus === 'delivered' || internalStatus === 'Delivered') {
       shippingUpdate.$set['shipping.delivery.actualDate'] = new Date();
       shippingUpdate.$set['items.$[].status'] = 'delivered';
+      
+      // Schedule auto-close job for 1 day after delivery
+      const { agenda } = require('../config/agenda');
+      await agenda.schedule('in 24 hours', 'closeOrder', { orderId: order._id });
+      console.log(`Scheduled auto-close job for order ${order.order_id} in 24 hours`);
     } else if (internalStatus === 'cancelled') {
       shippingUpdate.$set['items.$[].status'] = 'cancelled';
     } else {

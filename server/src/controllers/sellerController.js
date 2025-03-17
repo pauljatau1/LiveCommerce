@@ -2109,6 +2109,11 @@ exports.createWithdrawalRequest = async (req, res) => {
       return res.status(400).json({ message: 'Insufficient wallet balance' });
     }
 
+    // Validate bank details
+    if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName || !bankDetails.bankIdentifierCode) {
+      return res.status(400).json({ message: 'All bank details are required (bankName, accountNumber, accountName, bankIdentifierCode)' });
+    }
+
     const withdrawal = new Withdrawal({
       seller: seller._id,
       amount,

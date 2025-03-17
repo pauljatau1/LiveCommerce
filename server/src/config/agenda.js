@@ -13,22 +13,122 @@ agenda.define('closeOrder', async (job) => {
   try {
     const { orderId } = job.attrs.data;
     const Order = mongoose.model('Order');
+    const Transaction = mongoose.model('Transaction');
+    const Category = mongoose.model('Category');
+    const Seller = mongoose.model('Seller');
     const sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const order = await Order.findById(orderId)
       .populate('buyer', 'email firstName')
-      .populate('seller', 'email firstName businessName');
+      .populate('seller', 'email firstName businessName')
+      .populate('items.product', 'name category');
 
-    if (!order || !order.isOpen) return;
+    if (!order || !order.isOpen || !order.paid) return;
 
-    // Close the order
-    order.isOpen = false;
-    order.closedAt = new Date();
-    order.closedBy = 'auto';
-    order.closedReason = 'Auto-closed after delivery with no reported issues';
+    // Calculate fees and amounts
+    const categories = await Category.find({});
+    const categoryFeeMap = new Map(
+      categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
+    );
 
-    await order.save(); // This will trigger the pre-save middleware for wallet updates
+    let totalPlatformFee = 0;
+    let totalAmount = 0;
+
+    order.items.forEach(item => {
+      const itemTotal = item.price * item.quantity;
+      totalAmount += itemTotal;
+
+      const categoryName = typeof item.product?.category === 'string' 
+        ? item.product.category.toLowerCase() 
+        : null;
+      
+      const categoryFee = categoryFeeMap.get(categoryName) || 0;
+      const itemPlatformFee = itemTotal * (categoryFee / 100);
+      totalPlatformFee += itemPlatformFee;
+    });
+
+    // Calculate payment processing fee (1.5%)
+    const paymentProcessingFee = totalAmount * 0.015;
+    const totalDeductions = totalPlatformFee + paymentProcessingFee;
+    const sellerAmount = totalAmount - totalDeductions;
+
+    // Create transaction records
+    const transactionPromises = [];
+
+    // Order payment transaction
+    transactionPromises.push(
+      Transaction.create({
+        seller: order.seller._id,
+        type: 'order_payment',
+        amount: totalAmount,
+        orderId: order._id,
+        description: `Payment for order #${order.order_id}`,
+        status: 'completed'
+      })
+    );
+
+    // Platform fee transactions for each item
+    order.items.forEach(item => {
+      const itemTotal = item.price * item.quantity;
+      const categoryName = typeof item.product?.category === 'string' 
+        ? item.product.category.toLowerCase() 
+        : null;
+      const categoryFee = categoryFeeMap.get(categoryName) || 0;
+      const itemPlatformFee = itemTotal * (categoryFee / 100);
+
+      if (itemPlatformFee > 0) {
+        transactionPromises.push(
+          Transaction.create({
+            seller: order.seller._id,
+            type: 'platform_fee',
+            amount: itemPlatformFee,
+            orderId: order._id,
+            description: `Platform fee for ${item.productName} in order #${order.order_id}`,
+            metadata: {
+              categoryFee: categoryFee,
+              categoryName: categoryName,
+              itemTotal: itemTotal
+            },
+            status: 'completed'
+          })
+        );
+      }
+    });
+
+    // Processing fee transaction
+    transactionPromises.push(
+      Transaction.create({
+        seller: order.seller._id,
+        type: 'processing_fee',
+        amount: paymentProcessingFee,
+        orderId: order._id,
+        description: `Payment processing fee for order #${order.order_id}`,
+        metadata: {
+          processingFeePercent: 1.5,
+          itemTotal: totalAmount
+        },
+        status: 'completed'
+      })
+    );
+
+    // Update seller's wallet and close order
+    await Promise.all([
+      Seller.findByIdAndUpdate(
+        order.seller._id,
+        { $inc: { walletBalance: sellerAmount } }
+      ),
+      Order.findByIdAndUpdate(
+        order._id,
+        {
+          isOpen: false,
+          closedAt: new Date(),
+          closedBy: 'auto',
+          closedReason: 'Auto-closed after 1 day of delivery with no reported issues'
+        }
+      ),
+      ...transactionPromises
+    ]);
 
     // Send closure notification emails
     const buyerClosureEmail = {
@@ -55,6 +155,14 @@ agenda.define('closeOrder', async (job) => {
           <h2>Order Closed and Payment Released</h2>
           <p>Dear ${order.seller.firstName},</p>
           <p>Order #${order.order_id} has been automatically closed and payment has been released to your wallet.</p>
+          <p><strong>Payment Details:</strong></p>
+          <ul>
+            <li>Total Order Amount: ₦${totalAmount.toLocaleString()}</li>
+            <li style="margin-top: 10px;"><strong>Platform Fees:</strong> ₦${totalPlatformFee.toLocaleString()}</li>
+            <li>Payment Processing Fee (1.5%): ₦${paymentProcessingFee.toLocaleString()}</li>
+            <li>Total Deductions: ₦${totalDeductions.toLocaleString()}</li>
+            <li style="margin-top: 10px; font-weight: bold;">Amount Released: ₦${sellerAmount.toLocaleString()}</li>
+          </ul>
           <p>Thank you for selling with Auqli!</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>

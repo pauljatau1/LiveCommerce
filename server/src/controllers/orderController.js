@@ -542,27 +542,22 @@ exports.createOrder = async (req, res) => {
         const Transaction = mongoose.model('Transaction');
         const transaction = new Transaction({
           seller: sellerId,
-          orderId: order._id, // Changed from 'order' to 'orderId' to match the model
-          amount: sellerTotal, // Only the items total, not shipping
-          type: 'order_payment', // Changed from 'sale' to 'order_payment' to match enum values
-          status: 'completed',
+          orderId: order._id,
+          amount: sellerTotal,
+          type: 'order_payment',
+          status: 'pending', // Changed from 'completed' to 'pending'
           description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
           metadata: {
             itemTotal: sellerTotal,
-            processingFeePercent: 0, // Set to 0 or the appropriate value
+            processingFeePercent: 0,
             categoryName: sellerItemsList[0]?.productName || 'Mixed',
-            categoryFee: 0 // Set to 0 or the appropriate value
+            categoryFee: 0
           }
         });
         
         await transaction.save({ session });
         
-        // Update seller's balance
-        await Seller.findByIdAndUpdate(
-          sellerId,
-          { $inc: { 'wallet.balance': sellerTotal } },
-          { session }
-        );
+        // Do not update seller's balance here - it will be updated when the order is closed
       }
       
       // Prepare seller-specific parcel details for Fez

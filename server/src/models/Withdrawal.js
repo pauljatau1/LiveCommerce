@@ -18,7 +18,8 @@ const withdrawalSchema = new mongoose.Schema({
   bankDetails: {
     bankName: String,
     accountNumber: String,
-    accountName: String
+    accountName: String,
+    bankIdentifierCode: String
   },
   requestDate: {
     type: Date,

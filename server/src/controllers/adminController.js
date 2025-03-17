@@ -1898,7 +1898,7 @@ exports.verifyBankAccount = async (req, res) => {
   try {
     const { accountNumber, bankCode } = req.body;
 
-    const response = await paystack.get(`/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`);
+    const response = await paystack.get(`/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode || '044'}`);
 
     res.json({
       success: true,
@@ -1946,17 +1946,16 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
   session.startTransaction();
 
   let withdrawal = null;
-  let testAmount = null;
 
   try {
     console.log('Environment Check:', {
       nodeEnv: process.env.NODE_ENV,
-      isTestMode: isTestMode(),
       paystackKeyExists: !!process.env.PAYSTACK_SECRET_KEY
     });
 
     const { withdrawalId } = req.params;
-    console.log('Processing withdrawal:', { withdrawalId });
+    const { bankCode, accountNumber, accountName } = req.body;
+    console.log('Processing withdrawal:', { withdrawalId, bankCode, accountNumber });
 
     withdrawal = await Withdrawal.findById(withdrawalId)
       .populate('seller')
@@ -1966,21 +1965,18 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
       throw new Error('Withdrawal request not found');
     }
 
-    // For test mode, use minimum test amount
-    testAmount = isTestMode() ? 10 : withdrawal.amount; // Use ₦10 for testing
-    const amountInKobo = Math.round(testAmount * 100); // Convert to kobo
+    // Convert amount to kobo (Paystack uses kobo)
+    const amountInKobo = Math.round(withdrawal.amount * 100);
 
     console.log('Amount calculation:', {
-      originalAmount: withdrawal.amount,
-      testAmount: testAmount,
-      amountInKobo: amountInKobo,
-      isTestMode: isTestMode()
+      amount: withdrawal.amount,
+      amountInKobo: amountInKobo
     });
 
     try {
       // First verify the recipient's bank account
       const verifyAccount = await paystack.get(
-        `/bank/resolve?account_number=${withdrawal.bankDetails.accountNumber}&bank_code=${withdrawal.bankDetails.bankCode || '044'}`
+        `/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`
       );
       
       console.log('Account verification:', {
@@ -1990,9 +1986,9 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
 
       const recipientPayload = {
         type: 'nuban',
-        name: verifyAccount.data.data.account_name, // Use verified account name
-        account_number: withdrawal.bankDetails.accountNumber,
-        bank_code: withdrawal.bankDetails.bankCode || '044',
+        name: verifyAccount.data.data.account_name,
+        account_number: accountNumber,
+        bank_code: bankCode,
         currency: 'NGN'
       };
       console.log('Creating recipient with payload:', recipientPayload);
@@ -2007,7 +2003,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
         source: 'balance',
         amount: amountInKobo,
         recipient: recipientResponse.data.data.recipient_code,
-        reason: `Test transfer - ${withdrawal.reference}`,
+        reason: `Withdrawal payout - ${withdrawal.reference}`,
         currency: 'NGN'
       };
       console.log('Transfer payload:', transferPayload);
@@ -2016,7 +2012,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
       console.log('Transfer initiated:', {
         reference: transferResponse.data.data.reference,
         status: transferResponse.data.status,
-        amount: transferResponse.data.data.amount / 100 // Convert back to Naira for logging
+        amount: transferResponse.data.data.amount / 100
       });
 
       withdrawal.status = 'processing';
@@ -2024,9 +2020,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
         transferReference: transferResponse.data.data.reference,
         transferRecipientCode: recipientResponse.data.data.recipient_code,
         initiatedAt: new Date(),
-        testMode: isTestMode(),
-        originalAmount: withdrawal.amount,
-        testAmount: testAmount,
+        amount: withdrawal.amount,
         amountInKobo: amountInKobo,
         paystackStatus: transferResponse.data.data.status,
         lastChecked: new Date(),
@@ -2036,7 +2030,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
       withdrawal.reference = transferResponse.data.data.reference;
 
       withdrawal.notes.push({
-        content: `Test transfer of ₦${testAmount} initiated (Original amount: ₦${withdrawal.amount})`,
+        content: `Transfer of ₦${withdrawal.amount.toLocaleString()} initiated to account ${withdrawal.bankDetails.accountNumber}`,
         addedBy: 'admin'
       });
 
@@ -2046,16 +2040,14 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
 
       res.json({
         success: true,
-        message: 'Test transfer initiated successfully',
+        message: 'Transfer initiated successfully',
         data: {
           withdrawal,
           transfer: {
             reference: transferResponse.data.data.reference,
-            amount: testAmount,
-            originalAmount: withdrawal.amount,
+            amount: withdrawal.amount,
             status: transferResponse.data.status
-          },
-          testMode: true
+          }
         }
       });
 
@@ -2070,7 +2062,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
       // Handle specific Paystack errors
       const errorMessage = paystackError.response?.data?.message || paystackError.message;
       if (errorMessage.includes('balance is not enough')) {
-        throw new Error(`Test transfer failed: Insufficient balance for ₦${testAmount}. Please try a smaller amount or fund your test account.`);
+        throw new Error(`Transfer failed: Insufficient Paystack balance for ₦${withdrawal.amount}. Please fund your Paystack account.`);
       } else if (errorMessage.includes('account number')) {
         throw new Error('Invalid bank account details. Please verify the account number and bank code.');
       } else {
@@ -2089,13 +2081,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to initiate transfer',
-      error: error.message,
-      details: isTestMode() ? {
-        testMode: true,
-        originalAmount: withdrawal?.amount,
-        testAmount: testAmount,
-        withdrawalId: req.params.withdrawalId
-      } : undefined
+      error: error.message
     });
   } finally {
     session.endSession();
@@ -2308,6 +2294,7 @@ exports.handlePaystackWebhook = async (req, res) => {
 exports.finalizeTransfer = async (req, res) => {
   try {
     const { reference } = req.params;
+    const { otp } = req.body; // Get OTP from request body
     console.log('Starting transfer finalization for reference:', reference);
 
     // Find withdrawal first
@@ -2327,11 +2314,6 @@ exports.finalizeTransfer = async (req, res) => {
       });
     }
 
-    // Add a small delay for test mode (Paystack recommendation)
-    if (isTestMode()) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
     // First get the transfer details to get the transfer_code
     const transferResponse = await paystack.get(`/transfer/verify/${reference}`);
     console.log('Transfer verification response:', {
@@ -2348,7 +2330,7 @@ exports.finalizeTransfer = async (req, res) => {
       try {
         const finalizeResponse = await paystack.post('/transfer/finalize_transfer', {
           transfer_code: transfer_code,
-          otp: "123456"  // Test mode OTP
+          otp
         });
 
         console.log('Finalize response:', {
@@ -2420,9 +2402,6 @@ exports.finalizeTransfer = async (req, res) => {
     });
   }
 };
-
-// Helper function to check test mode
-const isTestMode = () => process.env.NODE_ENV === 'development';
 
 // Add this new function to recalculate category statistics
 exports.recalculateCategoryStats = async (req, res) => {

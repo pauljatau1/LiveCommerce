@@ -1593,6 +1593,8 @@ router.get('/top-sold-products',
  *                     type: string
  *                   accountName:
  *                     type: string
+ *                   bankIdentifierCode:
+ *                     type: string
  *     responses:
  *       200:
  *         description: Withdrawal request created successfully
