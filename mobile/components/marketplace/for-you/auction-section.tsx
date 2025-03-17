@@ -4,10 +4,16 @@ import ProductCard from "@/components/global/product-card";
 import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import useCarousel from "@/hooks/useCarousel";
+import { useGetAllAuctionProductsQuery } from "@/services/products";
 import React from "react";
 import { FlatList, View } from "react-native";
 
 const ForYouAuctionSection = () => {
+  const {
+    data: products,
+    error,
+    isLoading,
+  } = useGetAllAuctionProductsQuery({ status: "ongoing", limit: 10 });
   const { activeIndex, flatlistRef, handleScroll } = useCarousel({
     dataLength: data.productsData.length,
     autoScroll: false,
@@ -41,13 +47,13 @@ const ForYouAuctionSection = () => {
         }}
       >
         <FlatList
-          data={data.productsData}
-          renderItem={({ item: row }) => (
+          data={products?.products}
+          renderItem={({ item }) => (
             <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-              <AuctionCard {...row} showNike={false} />
+              <AuctionCard item={item} showNike={false} />
             </View>
           )}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => item?._id || index?.toString()}
           horizontal
           showsHorizontalScrollIndicator={false}
           className="pt-[15px]"

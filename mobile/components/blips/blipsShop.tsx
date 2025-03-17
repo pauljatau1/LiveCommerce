@@ -14,6 +14,7 @@ import CatalogCard from "../catalog/catalogCard";
 import ShopCard from "../sellerProfile/shopItem";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
+import SellerCategories from "./sellerCategories";
 
 const tabs = ["Auctions", "Buy Now", "Categories"];
 
@@ -121,15 +122,7 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
     (item: any) => {
       return (
         <View style={{ width: "100%" }}>
-          <Text
-            style={{
-              marginHorizontal: "auto",
-              marginVertical: 12,
-              color: "#fff",
-            }}
-          >
-            Categories
-          </Text>
+          <SellerCategories sellerId={id} />
         </View>
       );
     },
@@ -202,10 +195,10 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
               columnWrapperStyle={{
                 justifyContent: "space-between",
                 marginBottom: 16,
+                paddingHorizontal: tab == "Buy Now" ? 16 : 0,
               }}
               contentContainerStyle={{
                 paddingBottom: 10,
-                paddingHorizontal: 16,
               }}
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled={true}
@@ -225,6 +218,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: "wrap",
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   tab: {
     paddingHorizontal: 12,

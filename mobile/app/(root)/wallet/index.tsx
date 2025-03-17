@@ -8,6 +8,7 @@ import {
   ScrollView,
   Pressable,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -42,6 +43,7 @@ const Wallet = () => {
   const [userInfo, setUserInfo] = useState<any>();
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [walletTransactions, setWalletTransactions] = useState<any>([]);
+  const [walletLoading, setWalletLoading] = useState<boolean>(false);
   const [paymentReference, setPaymentReference] = useState<string>("");
   const [amount, setAmount] = useState<number>(0);
   const [showPaystack, setShowPaystack] = useState(false);
@@ -78,6 +80,7 @@ const Wallet = () => {
   };
 
   const getWalletTransactions = async () => {
+    setWalletLoading(true);
     try {
       const token = await getToken();
       const response = await axios.get(
@@ -91,6 +94,8 @@ const Wallet = () => {
       setWalletTransactions(response.data?.transactions);
     } catch (e) {
       console.log("error fetching buyer wallet balance ", e);
+    } finally {
+      setWalletLoading(false);
     }
   };
 
@@ -307,13 +312,18 @@ const Wallet = () => {
               <Text className="text-[14px] font-LexendDeca text-[#fff] opacity-70">
                 My Balance
               </Text>
-              <Text className="text-[18px] font-LexendDeca text-[#fff] ">
-                {"₦" +
-                  walletBalance?.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-              </Text>
+
+              {walletBalance ? (
+                <Text className="text-[18px] font-LexendDeca text-[#fff] ">
+                  {"₦" +
+                    walletBalance?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                </Text>
+              ) : (
+                <ActivityIndicator size={"small"} color={"white"} />
+              )}
             </View>
             <View className="flex-row gap-[10px] items-center">
               <Text className="text-[14px] font-LexendDecaMedium text-[#fff]">
@@ -407,11 +417,20 @@ const Wallet = () => {
             Transaction History
           </Text>
           <View className="bg-[#404040] rounded-[8px] overflow-hidden">
+            {walletLoading && (
+              <ActivityIndicator
+                size={"small"}
+                color={"white"}
+                style={{ marginVertical: 20 }}
+              />
+            )}
             {walletTransactions.length > 0
               ? walletTransactions?.map((item: any, index: number) =>
                   renderTransactions({ item, index }),
                 )
-              : renderEmptyList({})}
+              : walletLoading
+                ? null
+                : renderEmptyList({})}
             {/* <FlatList
               data={walletTransactions}
               renderItem={renderTransactions}

@@ -146,7 +146,8 @@ const ShopCard: React.FC<ProductCardProps> = ({
         title="Buy"
         className="w-full mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[8px] self-center"
         onPress={() => {
-          setShowCartSheet(true);
+          closeSheet();
+          router.push(`/product/${id}`);
         }}
       />
     </TouchableOpacity>

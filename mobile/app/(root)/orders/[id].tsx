@@ -295,6 +295,7 @@ const SingleOrder = () => {
                               userId: order?.buyer?._id || order?.buyer,
                               token: userToken,
                               model: "Seller",
+                              orderId: order?.id || order?._id,
                             },
                           })
                         }

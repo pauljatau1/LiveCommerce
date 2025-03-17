@@ -19,7 +19,9 @@ const ForYou = () => {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + "api/public/banners",
       );
-      setBanners(response.data);
+      if (response.data) {
+        setBanners(response.data);
+      }
     } catch (e) {
       console.log(e);
     } finally {

@@ -223,7 +223,11 @@ const CollapsibleHeader = memo(
               />
               <View style={styles.policyText}>
                 <Text style={styles.policyTextLabel}>Pay on Delivery</Text>
-                <Text style={styles.policyTextValue}>Available</Text>
+                <Text style={styles.policyTextValue}>
+                  {seller?.storePolicies?.delivery?.allowsCod
+                    ? "Available"
+                    : "unavailable"}
+                </Text>
               </View>
             </View>
             <View style={[styles.policyCard, { backgroundColor: "#FFE6E4" }]}>
@@ -237,7 +241,10 @@ const CollapsibleHeader = memo(
               />
               <View style={styles.policyText}>
                 <Text style={styles.policyTextLabel}>Return</Text>
-                <Text style={styles.policyTextValue}> Within 30 Days</Text>
+                <Text style={styles.policyTextValue}>
+                  {" "}
+                  Within {seller?.storePolicies?.returns?.returnWindow} Days
+                </Text>
               </View>
             </View>
           </View>
