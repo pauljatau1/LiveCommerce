@@ -33,7 +33,7 @@ const PopularCard = () => {
 
   return (
     <View className="pt-[16px] mb-5 w-full">
-      <SectionHeader title="Popular Now" btnText="View All" />
+      <SectionHeader title="Popular Now" btnText="" />
       {isLoading ? (
         <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
       ) : activeLivestream?.length > 0 ? (

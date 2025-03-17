@@ -46,7 +46,10 @@ const ProductPreview = ({
               />
               <View className="px-[16px] gap-[10px]">
                 <View className="flex-row justify-between items-start ">
-                  <Text className="text-[16px] font-LexendDecaSemiBold shrink">
+                  <Text
+                    className="text-[16px] font-LexendDecaSemiBold shrink"
+                    numberOfLines={2}
+                  >
                     {productDetails?.name?.length > 50
                       ? productDetails?.name?.split(0, 50) + "..."
                       : productDetails?.name}
