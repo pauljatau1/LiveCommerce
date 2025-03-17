@@ -223,8 +223,8 @@ exports.startStream = async (req, res) => {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
-    // Get seller with store name
-    const seller = await Seller.findById(req.user.id).select('agoraUid storeName');
+    // Get seller with store name and followers
+    const seller = await Seller.findById(req.user.id).select('agoraUid storeName followers');
     const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid, RtcRole.PUBLISHER);
     console.log('start stream uid', seller.agoraUid);
 
@@ -267,8 +267,32 @@ exports.startStream = async (req, res) => {
         notificationObj.timestamp = new Date();
         io.to('stream_notifications').emit('stream_notification', notificationObj);
       }
+
+      // Send push notifications to all followers
+      if (seller.followers && seller.followers.length > 0) {
+        const notifications = await Promise.all(
+          seller.followers.map(async (follower) => {
+            const userToken = await getToken(follower.buyerId);
+            if (userToken) {
+              return {
+                to: userToken.token,
+                title: `${seller.storeName} Started a Live ${stream.type === 'auction' ? 'Auction' : 'Show'}`,
+                body: `${seller.storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}. Join now!`
+              };
+            }
+            return null;
+          })
+        );
+
+        // Filter out null values and send notifications
+        const validNotifications = notifications.filter(notification => notification !== null);
+        if (validNotifications.length > 0) {
+          await expo.sendPushNotificationsAsync(validNotifications);
+        }
+      }
+
     } catch (error) {
-      console.error('Failed to save chat interaction:', error);
+      console.error('Failed to save chat interaction or send notifications:', error);
       // Continue with the response even if saving the chat interaction fails
     }
 
