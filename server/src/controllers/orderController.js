@@ -2595,31 +2595,31 @@ exports.markOrderAsPaid = async (req, res) => {
 
     const updatedOrder = await order.save();
 
-    // Create transaction record for seller earnings
-    const Transaction = mongoose.model('Transaction');
-    const transaction = new Transaction({
-      seller: order.seller._id,
-      orderId: order._id,
-      amount: order.totalAmount,
-      type: 'order_payment',
-      status: 'completed',
-      description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
-      metadata: {
-        itemTotal: order.totalAmount,
-        processingFeePercent: 0,
-        categoryName: order.items[0]?.productName || 'Mixed',
-        categoryFee: 0,
-        paymentReference: paymentReference || null
-      }
-    });
+    // // Create transaction record for seller earnings
+    // const Transaction = mongoose.model('Transaction');
+    // const transaction = new Transaction({
+    //   seller: order.seller._id,
+    //   orderId: order._id,
+    //   amount: order.totalAmount,
+    //   type: 'order_payment',
+    //   status: 'completed',
+    //   description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
+    //   metadata: {
+    //     itemTotal: order.totalAmount,
+    //     processingFeePercent: 0,
+    //     categoryName: order.items[0]?.productName || 'Mixed',
+    //     categoryFee: 0,
+    //     paymentReference: paymentReference || null
+    //   }
+    // });
     
-    await transaction.save();
+    // await transaction.save();
     
-    // Update seller's balance
-    await Seller.findByIdAndUpdate(
-      order.seller._id,
-      { $inc: { 'wallet.balance': order.totalAmount } }
-    );
+    // // Update seller's balance
+    // await Seller.findByIdAndUpdate(
+    //   order.seller._id,
+    //   { $inc: { 'wallet.balance': order.totalAmount } }
+    // );
 
     // Create notifications
     const notificationData = {

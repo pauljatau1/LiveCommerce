@@ -1324,11 +1324,8 @@ exports.getAllBlips = async (req, res) => {
           productId: '$_id',
           productName: '$name',
           price: '$price',
-          // Include stock information
           stock: '$stock',
-          // Include product status
           status: '$status',
-          // Include auction information if it's an offline auction
           auctionInfo: {
             $cond: {
               if: { $eq: ['$status', 'offline_auction'] },
@@ -1346,7 +1343,6 @@ exports.getAllBlips = async (req, res) => {
               else: null
             }
           },
-          // Include discount information
           discount: {
             isActive: '$discount.isActive',
             type: '$discount.type',
@@ -1369,16 +1365,27 @@ exports.getAllBlips = async (req, res) => {
             }
           },
           seller: {
-            _id: { $literal: seller._id },
-            firstName: { $literal: seller.firstName },
-            lastName: { $literal: seller.lastName },
-            storeName: { $literal: seller.storeName },
-            storeAvatar: { $literal: seller.storeAvatar },
-            aboutStore: { $literal: seller.aboutStore },
-            storeRating: { $literal: seller.stats ? seller.stats.averageRating : 0 },
-            totalStoreReviews: { $literal: seller.stats ? seller.stats.totalReviews : 0 },
-            isFollowing: { $literal: isFollowing },
-            isFeatured: { $literal: seller.isFeatured || false }
+            _id: '$sellerInfo._id',
+            firstName: '$sellerInfo.firstName',
+            lastName: '$sellerInfo.lastName',
+            storeName: '$sellerInfo.storeName',
+            storeAvatar: '$sellerInfo.storeAvatar',
+            aboutStore: '$sellerInfo.aboutStore',
+            storeRating: { $ifNull: ['$sellerInfo.stats.averageRating', 0] },
+            totalStoreReviews: { $ifNull: ['$sellerInfo.stats.totalReviews', 0] },
+            isFollowing: {
+              $cond: {
+                if: { $isArray: '$sellerInfo.followers' },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    { $ifNull: ['$sellerInfo.followers.buyerId', []] }
+                  ]
+                },
+                else: false
+              }
+            },
+            isFeatured: { $ifNull: ['$sellerInfo.isFeatured', false] }
           },
           images: { $first: '$images.url' },
           blipEngagement: {
@@ -1432,24 +1439,11 @@ exports.getAllBlips = async (req, res) => {
     const processedBlips = blips.map(blip => {
       // Create a new object without the followers array
       const { seller, ...rest } = blip;
-      const { followers, ...sellerRest } = seller;
       
-      // Check if the buyer is following this seller
-      let isFollowing = false;
-      if (isAuthenticated && Array.isArray(followers)) {
-        isFollowing = followers.some(
-          follower => follower.buyerId && follower.buyerId.toString() === buyerId
-        );
-      }
-      
-      // Return the processed blip with isFollowing property
+      // Return the processed blip
       return {
         ...rest,
-        seller: {
-          ...sellerRest,
-          isFollowing,
-          isFeatured: seller.isFeatured || false
-        }
+        seller
       };
     });
 
