@@ -2455,4 +2455,125 @@ router.get('/buyer/bids',
  */
 router.get('/seller/:sellerId/auctions', productController.getSellerAuctionProducts);
 
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}:
+ *   get:
+ *     summary: Get details of a specific blip
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved blip details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                   description: Product ID
+ *                 blipId:
+ *                   type: string
+ *                   description: Blip ID
+ *                 blipUrl:
+ *                   type: string
+ *                   description: URL of the blip video
+ *                 contentType:
+ *                   type: string
+ *                   description: Content type of the blip
+ *                 productName:
+ *                   type: string
+ *                   description: Name of the product
+ *                 price:
+ *                   type: number
+ *                   description: Original price of the product
+ *                 discountedPrice:
+ *                   type: number
+ *                   description: Discounted price if applicable
+ *                 stock:
+ *                   type: number
+ *                   description: Current stock of the product
+ *                 status:
+ *                   type: string
+ *                   description: Status of the product
+ *                 auctionInfo:
+ *                   type: object
+ *                   description: Auction information if product is an auction
+ *                   properties:
+ *                     minBid:
+ *                       type: number
+ *                     maxBid:
+ *                       type: number
+ *                     endOnMaxBid:
+ *                       type: boolean
+ *                     startDate:
+ *                       type: string
+ *                       format: date-time
+ *                     endDate:
+ *                       type: string
+ *                       format: date-time
+ *                     status:
+ *                       type: string
+ *                     daysLeft:
+ *                       type: number
+ *                     currentHighestBid:
+ *                       type: object
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     storeName:
+ *                       type: string
+ *                     storeAvatar:
+ *                       type: string
+ *                     isVerified:
+ *                       type: boolean
+ *                     isFeatured:
+ *                       type: boolean
+ *                 images:
+ *                   type: string
+ *                   description: Main product image URL
+ *                 blipEngagement:
+ *                   type: object
+ *                   properties:
+ *                     likesCount:
+ *                       type: number
+ *                     commentsCount:
+ *                       type: number
+ *                     viewCount:
+ *                       type: number
+ *                     isLiked:
+ *                       type: boolean
+ *                 averageRating:
+ *                   type: number
+ *                   description: Average product rating
+ *                 reviewCount:
+ *                   type: number
+ *                   description: Number of product reviews
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Invalid product or blip ID format
+ *       404:
+ *         description: Blip not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/blips/:blipId', optionalAuth, productController.getBlipDetails);
+
 module.exports = router;
