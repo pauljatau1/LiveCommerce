@@ -232,12 +232,16 @@ const LivestreamStudio = () => {
 
             console.log(`Loaded ${updatedChatInteractions.length} chat interactions from server`);
             
-            // Use requestAnimationFrame to ensure UI has updated before scrolling
+            // Use requestAnimationFrame and setTimeout for more reliable scrolling
             if (updatedChatInteractions.length > 0) {
                 requestAnimationFrame(() => {
-                    if (commentsListRef.current) {
-                        commentsListRef.current.scrollToEnd({ animated: false });
-                    }
+                    setTimeout(() => {
+                        if (commentsListRef.current) {
+                            commentsListRef.current.scrollToEnd({
+                                animated: true
+                            });
+                        }
+                    }, 500); // Increased timeout to ensure layout is complete
                 });
             }
 
@@ -774,11 +778,34 @@ const LivestreamStudio = () => {
                                         showsVerticalScrollIndicator={false}
                                         contentContainerStyle={styles.commentsList}
                                         fadingEdgeLength={350}
-                                        onContentSizeChange={() => {
+                                        onLayout={() => {
+                                            // Scroll to end on initial layout
                                             if (commentsListRef.current && liveComments.length > 0) {
-                                                commentsListRef.current.scrollToEnd({ animated: false });
+                                                setTimeout(() => {
+                                                    commentsListRef.current?.scrollToEnd({
+                                                        animated: false
+                                                    });
+                                                }, 100);
                                             }
                                         }}
+                                        onContentSizeChange={() => {
+                                            // Scroll to end when content size changes
+                                            if (commentsListRef.current && liveComments.length > 0) {
+                                                setTimeout(() => {
+                                                    commentsListRef.current?.scrollToEnd({
+                                                        animated: false
+                                                    });
+                                                }, 100);
+                                            }
+                                        }}
+                                        maintainVisibleContentPosition={{
+                                            minIndexForVisible: 0,
+                                            autoscrollToTopThreshold: 10
+                                        }}
+                                        removeClippedSubviews={false}
+                                        initialNumToRender={20}
+                                        maxToRenderPerBatch={20}
+                                        windowSize={21}
                                     />
                                 </View>
                             )}
@@ -939,8 +966,9 @@ const styles = StyleSheet.create({
     },
     commentsList: {
         paddingHorizontal: 8,
-        paddingTop: 10, // More padding at top to account for the fade effect
+        paddingTop: 10,
         paddingBottom: 0,
+        width: '100%',
     },
     commentAvatar: {
         width: 35,
@@ -951,6 +979,7 @@ const styles = StyleSheet.create({
     commentUser: {
         color: '#fff',
         fontSize: 14,
+        marginBottom: 2,
     },
     joinCommentItem: {
         flexDirection: 'row',
@@ -960,15 +989,18 @@ const styles = StyleSheet.create({
         marginBottom: 0,
         maxWidth: '100%',
         alignSelf: 'flex-start',
+        flex: 1,
     },
     joinCommentContent: {
         flexDirection: 'column',
+        flex: 1,
     },
     joinCommentText: {
         color: '#FFEB3B', // Yellow text for "joined the stream"
         fontSize: 12,
         fontFamily: 'LexendDeca',
         fontWeight: 'bold',
+        flexWrap: 'wrap',
     },
     purchaseCommentItem: {
         flexDirection: 'row',
@@ -978,14 +1010,17 @@ const styles = StyleSheet.create({
         marginBottom: 0,
         maxWidth: '100%',
         alignSelf: 'flex-start',
+        flex: 1,
     },
     purchaseCommentContent: {
         flexDirection: 'column',
+        flex: 1,
     },
     purchaseCommentText: {
         color: '#16783A',
         fontSize: 12,
         fontWeight: 'bold',
+        flexWrap: 'wrap',
     },
     regularCommentItem: {
         flexDirection: 'row',
@@ -995,14 +1030,17 @@ const styles = StyleSheet.create({
         marginBottom: 0,
         maxWidth: '100%',
         alignSelf: 'flex-start',
+        flex: 1,
     },
     regularCommentContent: {
         flexDirection: 'column',
+        flex: 1,
     },
     regularCommentText: {
         color: '#fff',
         fontSize: 12,
         fontWeight: 'bold',
+        flexWrap: 'wrap',
     },
     commentInput: {
         color: '#fff',
