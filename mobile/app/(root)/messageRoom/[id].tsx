@@ -197,6 +197,9 @@ const MessageRoom = () => {
   }, [orderId]);
 
   const handleSendAutoMessage = () => {
+    setNewMessage(
+      `${autoOrderMessage?.message}: ${orderDetails?.order?.order_id}`,
+    );
     handleSendMessage(
       `${autoOrderMessage?.message}: ${orderDetails?.order?.order_id}`,
     );
@@ -220,12 +223,12 @@ const MessageRoom = () => {
     }
   };
 
-  const handleSendMessage = async (newMessage = "") => {
-    if (!newMessage) return;
+  const handleSendMessage = async (newMessageParam = "") => {
+    if (!newMessageParam && !newMessage) return;
     setNewMessage("");
     const socketPayload = {
       sender: { id: userId },
-      content: newMessage,
+      content: newMessage || newMessageParam,
       createdAt: new Date().toISOString(),
       error: "",
       conversationId: conversationId,
@@ -241,7 +244,7 @@ const MessageRoom = () => {
         {
           recipientId: id,
           recipientModel: model || "Seller",
-          content: newMessage,
+          content: newMessage || newMessageParam,
         },
         {
           headers: {
@@ -771,7 +774,7 @@ const MessageRoom = () => {
                       setShowOptions(false);
                     }}
                   />
-                  <Pressable onPress={() => handleSendMessage("")}>
+                  <Pressable onPress={() => handleSendMessage(newMessage)}>
                     <MaterialCommunityIcons
                       name="send-circle"
                       size={30}
