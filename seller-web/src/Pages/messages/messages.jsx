@@ -965,7 +965,7 @@ export default function ChatInterface() {
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-gray-600 truncate">
-                    {conv.lastMessage.content.slice(0, 27)}{conv.lastMessage.content.length > 27 ? '...' : ''}
+                    {conv.lastMessage.content.slice(0, 22)}{conv.lastMessage.content.length > 22 ? '...' : ''}
                   </p>
                   {conv.unreadCount > 0 && (
                     <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">

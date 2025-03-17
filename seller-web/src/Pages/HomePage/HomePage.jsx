@@ -15,6 +15,7 @@ import QuickOrderCard from "../../Components/QuickOrderCard";
 import OrdersTable from "../../Components/OrdersTable";
 import SuggestedVideoCard from "../../Components/SuggestedVideoCard";
 import AnnouncementCard from "../../Components/AnnouncementCard";
+import DashboardSkeleton from "../../Components/ui/DashboardSkeleton";
 import axios from "axios";
 import LinearProgress from '@mui/material/LinearProgress';
 import ObjectID from 'bson-objectid';
@@ -22,13 +23,12 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { FiShoppingBag, FiBarChart2, FiUserPlus } from 'react-icons/fi';
 import { FaStoreAlt } from "react-icons/fa";
 import { BiWallet } from 'react-icons/bi';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
 import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
 import NotificationsDialog from "../../Components/NotificationsDialog";
 import { useOutletContext } from "react-router-dom";
 import NoOrderFound from "../../assets/no-order-found.png";
 import { useIntercomChat } from "../../Hooks/useIntercom";
+import Skeleton from 'react-loading-skeleton';
 
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
@@ -330,11 +330,7 @@ const HomePage = () => {
       }
 
       {isDataLoading || !isDataReady ? (
-        <div className="flex flex-col justify-center items-center h-[80dvh]">
-          <div className="w-1/4">
-            <LinearProgress color="success" />
-          </div>
-        </div>
+        <DashboardSkeleton />
       ) : (
         <div>
           {/* Greeting */}
@@ -375,7 +371,7 @@ const HomePage = () => {
                         View all
                       </button>
                     </DialogTrigger>
-                    <NotificationsDialog notifications={stuffToDo?.notifications} />
+                    <NotificationsDialog notifications={stuffToDo?.notifications.filter(notification => notification.type !== 'buyer_message')} />
                   </Dialog>
                 </div>
               </div>
@@ -387,7 +383,10 @@ const HomePage = () => {
                   </div>
                 ) : stuffToDo?.notifications?.length > 0 ? (
                   <div className="space-y-3 h-full">
-                    {stuffToDo.notifications.slice(0, 3).map((notification) => (
+                    {stuffToDo.notifications
+                      .filter(notification => notification.type !== 'buyer_message')
+                      .slice(0, 3)
+                      .map((notification) => (
                       <div key={notification._id} className="p-4 border gap-2 flex-wrap flex items-center justify-between rounded-lg cursor-pointer border-gray-200 hover:bg-gray-50 hover:shadow-md transition-colors">
                         <div>
                           <h4 className="text-sm xl:text-base font-inter font-semibold text-[#27272E]">{notification.title}</h4>
@@ -399,7 +398,7 @@ const HomePage = () => {
                               Check It
                             </button>
                           </DialogTrigger>
-                          <NotificationsDialog notifications={stuffToDo?.notifications} />
+                          <NotificationsDialog notifications={stuffToDo?.notifications.filter(notification => notification.type !== 'buyer_message')} />
                         </Dialog>
                       </div>
                     ))}

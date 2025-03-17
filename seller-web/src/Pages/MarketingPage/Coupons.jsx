@@ -624,7 +624,7 @@ export default function Coupons() {
                                 <div className="flex items-center gap-1">
                                   <AlertCircle className="h-3 w-3" />
                                   <span>
-                                    {discountInfo.discountPercentage} off until {discountInfo.endDate}
+                                    {Math.ceil(parseFloat(discountInfo.discountPercentage))}% off until {discountInfo.endDate}
                                   </span>
                                 </div>
                               </Badge>
@@ -656,16 +656,22 @@ export default function Coupons() {
 
         {/* Form Actions */}
         <div className="flex justify-end space-x-4 pt-6 border-t">
-          <Button type="button" variant="outline">Cancel</Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
           <Button 
             type="submit"
             className="min-w-[150px]"
             disabled={selectedProducts.length === 0 || isSubmitting || !isDateValid()}
           >
             {isSubmitting ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Publishing...
+                <span>Creating Coupon...</span>
               </div>
             ) : (
               'Publish Coupon'

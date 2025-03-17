@@ -46,7 +46,7 @@ export default function Payout() {
     accountName: '',
     bankIdentifierCode: ''
   });
-  const [withdrawalAmount, setWithdrawalAmount] = useState(0);
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -433,7 +433,7 @@ export default function Payout() {
                           </label>
                           <input
                             type="number"
-                            value={withdrawalAmount}
+                            value={withdrawalAmount || ''}
                             onChange={(e) => setWithdrawalAmount(Number(e.target.value))}
                             className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                             placeholder="Enter amount"

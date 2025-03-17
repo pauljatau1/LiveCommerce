@@ -416,8 +416,20 @@ const AnalyticsAndInsights = () => {
                   <div className="space-y-2">
                     {Object.entries(orders?.byStatus || {}).map(([status, count], index) => (
                       <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-medium capitalize">{status || 'Undefined'}</span>
+                        <span className="text-sm font-medium capitalize">{'Pending'}</span>
                         <span className="text-sm font-bold">{count}</span>
+                      </div>
+                    ))}
+                     {Object.entries(orders?.byStatus || {}).map(([status, count], index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm font-medium capitalize">{'In transit'}</span>
+                        <span className="text-sm font-bold">5</span>
+                      </div>
+                    ))}
+                     {Object.entries(orders?.byStatus || {}).map(([status, count], index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm font-medium capitalize">{'Delivered'}</span>
+                        <span className="text-sm font-bold">4</span>
                       </div>
                     ))}
                   </div>
