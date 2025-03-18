@@ -113,18 +113,33 @@ exports.sendTextMessage = async (req, res) => {
     // Create notification
     await createMessageNotifications(message);
 
-    // Send push notification to sender
-    const userToken = await getToken(senderId);
-    if (userToken) {
-      await expo.sendPushNotificationsAsync([{
-        to: userToken.token,
-        title: `New Message`,
-        body: `You have a new message`
-      }]);
+    // Send push notification to recipient if they have a token
+    try {
+      const userToken = await getToken(recipientId);
+      if (userToken && Expo.isExpoPushToken(userToken.token)) {
+        const pushMessage = {
+          to: userToken.token,
+          sound: 'default',
+          title: 'New Message',
+          body: content.length > 50 ? `${content.substring(0, 47)}...` : content,
+          data: { 
+            type: 'message',
+            conversationId: conversation._id.toString(),
+            senderId: senderId.toString(),
+            senderModel
+          },
+        };
+
+        await expo.sendPushNotificationsAsync([pushMessage]);
+      }
+    } catch (pushError) {
+      // Log push notification error but don't fail the request
+      console.error('Push notification error:', pushError);
     }
 
     res.status(201).json({ message });
   } catch (error) {
+    console.error('Send message error:', error);
     res.status(500).json({ message: 'Failed to send message', error: error.message });
   }
 };

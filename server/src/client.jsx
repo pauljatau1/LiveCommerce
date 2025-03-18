@@ -1,836 +1,954 @@
-import { useState, useEffect } from 'react';
-import { Building2, CreditCard, Info, ArrowRight, ArrowLeft, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText, ArrowUpDown, CircleDollarSign, ArrowDownUp, ArrowUpRight } from 'lucide-react'
-import { Card } from "@/Components/ui/card"
-import { Button } from "@/Components/ui/button"
-import Header from '@/Components/ui/Header/Header';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/Components/ui/select"
-import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
-import { Toaster } from "@/Components/ui/sonner";
-import { BASE_URL } from "@/Constants/Server";
-import { useOutletContext, Link } from 'react-router-dom';
-import jsPDF from 'jspdf';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { useParams, useNavigate } from "react-router-dom"
+import { MessageCircle, Phone, Printer, Plus, ShoppingBag, ArrowLeft, Clock, HelpCircle, CheckCircle, XCircle, Truck, Package, RefreshCw, Lock, AlertTriangle, CheckSquare, Loader2, CalendarPlus, Upload, Eye, Scale } from "lucide-react"
+import { useState, useEffect } from "react"
+import { BASE_URL } from "@/Constants/Server"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+// import { toast } from "@/components/ui/use-toast"
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-  }).format(amount)
+const getStatusConfig = (status) => {
+  const configs = {
+    PENDING_SELLER_REVIEW: {
+      color: 'bg-yellow-50 text-yellow-700 border-yellow-300',
+      icon: <Clock className="w-4 h-4" />,
+      label: 'Pending Review'
+    },
+    NEED_MORE_INFO: {
+      color: 'bg-blue-50 text-blue-700 border-blue-300',
+      icon: <HelpCircle className="w-4 h-4" />,
+      label: 'Need More Information'
+    },
+    APPROVED: {
+      color: 'bg-green-50 text-green-700 border-green-300',
+      icon: <CheckCircle className="w-4 h-4" />,
+      label: 'Approved'
+    },
+    REJECTED: {
+      color: 'bg-red-50 text-red-700 border-red-300',
+      icon: <XCircle className="w-4 h-4" />,
+      label: 'Rejected'
+    },
+    IN_TRANSIT: {
+      color: 'bg-purple-50 text-purple-700 border-purple-300',
+      icon: <Truck className="w-4 h-4" />,
+      label: 'In Transit'
+    },
+    RECEIVED: {
+      color: 'bg-teal-50 text-teal-700 border-teal-300',
+      icon: <Package className="w-4 h-4" />,
+      label: 'Received'
+    },
+    REFUNDED: {
+      color: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+      icon: <RefreshCw className="w-4 h-4" />,
+      label: 'Refunded'
+    },
+    CLOSED: {
+      color: 'bg-gray-50 text-gray-700 border-gray-300',
+      icon: <Lock className="w-4 h-4" />,
+      label: 'Closed'
+    },
+    DISPUTED: {
+      color: 'bg-orange-50 text-orange-700 border-orange-300',
+      icon: <AlertTriangle className="w-4 h-4" />,
+      label: 'Disputed'
+    },
+    RESOLVED: {
+      color: 'bg-indigo-50 text-indigo-700 border-indigo-300',
+      icon: <CheckSquare className="w-4 h-4" />,
+      label: 'Resolved'
+    },
+    RETURN_SHIPPING_ARRANGED: {
+      color: 'bg-purple-50 text-purple-700 border-purple-300',
+      icon: <Truck className="w-4 h-4" />,
+      label: 'Return Shipping Arranged'
+    }
+  }
+  return configs[status] || configs.PENDING_SELLER_REVIEW
 }
 
-export default function Payout() {
-  const { setHeaderName, setNavName } = useOutletContext()
-  const [withdrawals, setWithdrawals] = useState([]);
-  const [financialData, setFinancialData] = useState({
-    totalRevenue: 0,
-    amountOnHold: 0,
-    availableForWithdrawal: 0,
-  });
-  const [bankDetails, setBankDetails] = useState({
-    bankName: '',
-    accountNumber: '',
-    accountName: '',
-    bankIdentifierCode: ''
-  });
-  const [withdrawalAmount, setWithdrawalAmount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [transactions, setTransactions] = useState([]);
-  const [transactionSummary, setTransactionSummary] = useState({
-    totalEarnings: 0,
-    totalPlatformFees: 0,
-    totalWithdrawals: 0,
-    currentBalance: 0
-  });
-  const [transactionPagination, setTransactionPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalTransactions: 0
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("withdrawals");
+export default function ReturnDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [returnData, setReturnData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [approvalDialog, setApprovalDialog] = useState(false)
+  const [refundAmount, setRefundAmount] = useState('')
+  const [approvalMessage, setApprovalMessage] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState(null)
+
+  // New state variables
+  const [shippingRates, setShippingRates] = useState(null)
+  const [selectedRate, setSelectedRate] = useState(null)
+  const [showRatesDialog, setShowRatesDialog] = useState(false)
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false)
+  const [isLoadingRates, setIsLoadingRates] = useState(false)
+  const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [rejectReason, setRejectReason] = useState("")
+  const [rejectDescription, setRejectDescription] = useState("")
+  const [rejectEvidence, setRejectEvidence] = useState([])
+  const [isRejecting, setIsRejecting] = useState(false)
 
   useEffect(() => {
-    setHeaderName('Earnings & Payouts')
-    setNavName('')
-  }, [])
+    fetchReturnDetails()
+  }, [id])
 
-  useEffect(() => {
-    const fetchFinancialData = async () => {
-      setIsLoading(true);
-      try {
-        const sellerToken = localStorage.getItem('sellerToken');
-        if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken);
-          const token = tokenData.data;
-
-          // Fetch withdrawals
-          const withdrawalsResponse = await fetch(`${BASE_URL}/seller/withdrawals`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          const withdrawalsData = await withdrawalsResponse.json();
-          setWithdrawals(withdrawalsData || []); // Ensure array even if null/undefined
-
-          // Calculate totalRevenue and amountOnHold
-          const totalRevenue = (withdrawalsData || [])
-            .filter(w => w.status === 'completed')
-            .reduce((sum, w) => sum + w.amount, 0);
-          const amountOnHold = (withdrawalsData || [])
-            .filter(w => w.status === 'pending')
-            .reduce((sum, w) => sum + w.amount, 0);
-
-          // Fetch seller profile
-          const profileResponse = await fetch(`${BASE_URL}/seller/profile`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          const profileData = await profileResponse.json();
-          const availableForWithdrawal = profileData?.walletBalance || 0;
-
-          // Set bank details with default values
-          setBankDetails({
-            bankName: profileData?.bankDetails?.bankName || '',
-            accountNumber: profileData?.bankDetails?.accountNumber || '',
-            accountName: profileData?.bankDetails?.accountName || '',
-            bankIdentifierCode: profileData?.bankDetails?.bankIdentifierCode || ''
-          });
-
-          setFinancialData({
-            totalRevenue,
-            amountOnHold,
-            availableForWithdrawal,
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching financial data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchFinancialData();
-  }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const sellerToken = localStorage.getItem('sellerToken');
-        if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken);
-          const token = tokenData.data;
-
-          // Fetch transactions
-          const transactionsResponse = await fetch(`${BASE_URL}/seller/transactions?page=1&limit=10`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          const transactionsData = await transactionsResponse.json();
-          setTransactions(transactionsData.transactions);
-          setTransactionSummary(transactionsData.summary);
-          setTransactionPagination(transactionsData.pagination);
-        }
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const handleWithdrawalRequest = async () => {
-    if (withdrawalAmount < 1000) {
-      setError('Minimum withdrawal amount is ₦1,000');
-      return;
-    }
-    if (withdrawalAmount > financialData.availableForWithdrawal) {
-      setError('Withdrawal amount exceeds available balance');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
+  const fetchReturnDetails = async () => {
     try {
-      const sellerToken = localStorage.getItem('sellerToken');
-      if (sellerToken) {
-        const tokenData = JSON.parse(sellerToken);
-        const token = tokenData.data;
-
-        const response = await fetch(`${BASE_URL}/seller/withdrawals`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            amount: withdrawalAmount,
-            bankDetails: {
-              bankName: bankDetails.bankName,
-              accountNumber: bankDetails.accountNumber,
-              accountName: bankDetails.accountName,
-              bankIdentifierCode: bankDetails.bankIdentifierCode
-            }
-          })
-        });
-
-        const result = await response.json();
-        if (response.ok) {
-          setWithdrawals([...withdrawals, result.withdrawal]);
-          setWithdrawalAmount(0);
-          setLoading(false);
-          document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
-          document.getElementById('withdrawalSuccessDialog').click(); // Open success dialog
-        } else {
-          setError('Error: ' + result.message);
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}`, {
+        headers: {
+          Authorization: `Bearer ${sellerToken}`
         }
+      })
+      const data = await response.json()
+      setReturnData(data)
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching return details:", error)
+      setLoading(false)
+    }
+  }
+
+  const handleReturnAction = async (action) => {
+    if (action === 'approve' && !approvalDialog) {
+      setApprovalDialog(true)
+      return
+    }
+
+    try {
+      setIsProcessing(true)
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/respond`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sellerToken}`
+        },
+        body: JSON.stringify({
+          action: action,
+          message: action === 'reject' ? 'Return request denied' : approvalMessage,
+          partialRefundAmount: parseFloat(refundAmount) || 0
+        })
+      })
+
+      if (response.ok) {
+        toast.success(`Return request ${action === 'approve' ? 'approved' : 'rejected'} successfully`)
+        setApprovalDialog(false)
+        await fetchReturnDetails()
+      } else {
+        const error = await response.json()
+        setError(error.message)
+        toast.error(error.message || `Failed to ${action} return request`)
       }
     } catch (error) {
-      console.error('Error creating withdrawal request:', error);
-      setError('An error occurred. Please try again.');
+      setError(`Failed to process return ${action}`)
+      console.error(`Error handling return ${action}:`, error)
+      toast.error(`Failed to process return ${action}`)
     } finally {
-      setLoading(false);
+      setIsProcessing(false)
     }
-  };
+  }
 
-  const handleViewReceipt = (withdrawal) => {
-    if (withdrawal.status === 'completed') {
-      const doc = new jsPDF();
-      doc.setFontSize(20);
-      doc.text('Auqli Receipt', 14, 22);
-      doc.setFontSize(12);
-      doc.text(`Reference: ${withdrawal.reference}`, 14, 30);
-      doc.text(`Amount: ${formatCurrency(withdrawal.amount)}`, 14, 38);
-      doc.text(`Bank: ${withdrawal.bankDetails.bankName}`, 14, 46);
-      doc.text(`Account Number: ${withdrawal.bankDetails.accountNumber}`, 14, 54);
-      doc.text(`Account Name: ${withdrawal.bankDetails.accountName}`, 14, 62);
-      doc.text(`Date: ${new Date(withdrawal.requestDate).toLocaleDateString()}`, 14, 70);
-      doc.save(`receipt_${withdrawal.reference}.pdf`);
-    } else {
-      alert('Receipt is only available for completed withdrawals.');
+  const handleCreateShippingLabel = async () => {
+    try {
+      setIsCreatingLabel(true)
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/create-label`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sellerToken}`
+        },
+        body: JSON.stringify({
+          pickup_address: returnData?.order?.pickup_address
+        })
+      })
+
+      if (response.ok) {
+        toast.success("Return shipping label created successfully")
+        await fetchReturnDetails()
+        // No need to fetch rates or show rates dialog since Fez handles everything in one step
+      } else {
+        const error = await response.json()
+        setError(error.message)
+        toast.error(error.message || "Failed to create shipping label")
+      }
+    } catch (error) {
+      setError("Failed to create shipping label")
+      console.error("Error creating shipping label:", error)
+      toast.error("Failed to create shipping label")
+    } finally {
+      setIsCreatingLabel(false)
     }
-  };
+  }
 
-  const getTransactionStatusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'failed':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
+  const handleSelectRate = async (rate) => {
+    setSelectedRate(rate)
+  }
+
+  const handleReject = async (e) => {
+    e.preventDefault()
+    
+    try {
+      setIsRejecting(true)
+      const formData = new FormData()
+      formData.append("reason", rejectReason)
+      formData.append("description", rejectDescription)
+      
+      // Append each file to the formData
+      rejectEvidence.forEach(file => {
+        formData.append("evidence", file)
+      })
+
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/reject`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sellerToken}`,
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        toast.success("Return request rejected successfully")
+        setShowRejectDialog(false)
+        await fetchReturnDetails()
+      } else {
+        const error = await response.json()
+        toast.error(error.message || "Failed to reject return request")
+      }
+    } catch (error) {
+      console.error("Error rejecting return:", error)
+      toast.error("Failed to reject return request")
+    } finally {
+      setIsRejecting(false)
     }
-  };
+  }
 
-  const getTransactionTypeIcon = (type) => {
-    switch (type) {
-      case 'order_payment':
-        return <ArrowUpRight className="h-4 w-4 text-green-600" />;
-      case 'platform_fee':
-        return <Building2 className="h-4 w-4 text-orange-600" />;
-      case 'processing_fee':
-        return <CreditCard className="h-4 w-4 text-red-600" />;
-      case 'withdrawal':
-        return <ArrowDownToLine className="h-4 w-4 text-blue-600" />;
-      default:
-        return <CircleDollarSign className="h-4 w-4" />;
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length > 5) {
+      toast.error("Maximum 5 files allowed")
+      return
     }
-  };
+    setRejectEvidence(files)
+  }
 
-  const getTransactionColor = (type, netAmount) => {
-    if (type === 'order_payment') return 'text-green-600';
-    if (netAmount < 0) return 'text-red-600';
-    return 'text-gray-900';
-  };
+  const renderShippingRatesDialog = () => (
+    <Dialog open={showRatesDialog} onOpenChange={setShowRatesDialog}>
+      <DialogContent className="w-[95vw] max-w-3xl mx-auto">
+        <DialogHeader>
+          <DialogTitle>Return Shipping Created</DialogTitle>
+        </DialogHeader>
 
-  const getTransactionLabel = (type) => {
-    switch (type) {
-      case 'order_payment':
-        return 'Sale';
-      case 'platform_fee':
-        return 'Platform Fee';
-      case 'processing_fee':
-        return 'Processing Fee';
-      case 'withdrawal':
-        return 'Withdrawal';
-      default:
-        return type.replace(/_/g, ' ');
-    }
-  };
+        <div className="p-4 text-center">
+          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Return Shipping Created Successfully</h3>
+          <p className="text-muted-foreground mb-4">
+            The return shipping has been created with Fez Delivery. The customer will be notified to prepare the package for pickup.
+          </p>
+          
+          {returnData?.returnShipment?.tracking?.number && (
+            <div className="bg-muted p-4 rounded-lg mb-4">
+              <p className="font-medium">Tracking Number:</p>
+              <p className="text-primary">{returnData.returnShipment.tracking.number}</p>
+            </div>
+          )}
+        </div>
 
-  // Add empty state components
-  const EmptyTransactions = () => (
-    <div className="text-center py-12">
-      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-gray-900">No transactions yet</h3>
-      <p className="text-gray-500 mt-2">Your transactions will appear here once you start making sales.</p>
+        <DialogFooter>
+          <Button onClick={() => setShowRatesDialog(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const statusConfig = getStatusConfig(returnData?.status)
+
+  const renderApprovalDialog = () => (
+    <Dialog open={approvalDialog} onOpenChange={setApprovalDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Approve Return Request</DialogTitle>
+        </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Refund Amount</label>
+            <Input
+              type="number"
+              value={refundAmount}
+              onChange={(e) => setRefundAmount(e.target.value)}
+              placeholder="Enter refund amount"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Approval Message</label>
+            <Input
+              value={approvalMessage}
+              onChange={(e) => setApprovalMessage(e.target.value)}
+              placeholder="Enter approval message"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setApprovalDialog(false)}
+            disabled={isProcessing}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleReturnAction('approve')}
+            disabled={isProcessing}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve Return
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const renderRejectDialog = () => (
+    <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+      <DialogContent className="w-[95vw] max-w-md mx-auto">
+        <DialogHeader>
+          <DialogTitle>Reject Return Request</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleReject} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason for Rejection</Label>
+            <Input
+              id="reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter reason for rejection"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Detailed Description</Label>
+            <Textarea
+              id="description"
+              value={rejectDescription}
+              onChange={(e) => setRejectDescription(e.target.value)}
+              placeholder="Provide detailed explanation"
+              required
+              rows={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="evidence">Evidence (Max 5 files)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="evidence"
+                type="file"
+                onChange={handleFileChange}
+                multiple
+                accept="image/*"
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById("evidence").click()}
+                className="w-full"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Files
+              </Button>
+            </div>
+            {rejectEvidence.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {rejectEvidence.length} file(s) selected
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowRejectDialog(false)}
+              disabled={isRejecting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isRejecting || !rejectReason || !rejectDescription || !rejectEvidence.length}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isRejecting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Reject Return
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const renderActionButtons = () => (
+    <div className="flex flex-col md:flex-row gap-2 md:gap-4 w-full">
+      <Button
+        variant="destructive"
+        onClick={() => setShowRejectDialog(true)}
+        disabled={returnData?.status !== "PENDING_SELLER_REVIEW"}
+        className="w-full md:w-auto"
+      >
+        <AlertTriangle className="mr-2 h-4 w-4" />
+        Decline/Escalate
+      </Button>
+      <Button
+        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white"
+        onClick={() => setApprovalDialog(true)}
+        disabled={returnData?.status !== "PENDING_SELLER_REVIEW" || isProcessing}
+      >
+        <CheckCircle className="mr-2 h-4 w-4" />
+        Accept Request
+      </Button>
     </div>
-  );
+  )
 
-  const EmptyWithdrawals = () => (
-    <div className="text-center py-12">
-      <ArrowDownToLine className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-gray-900">No withdrawals yet</h3>
-      <p className="text-gray-500 mt-2">Your withdrawal history will appear here once you make your first withdrawal.</p>
-    </div>
-  );
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50/30 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading return details...</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
-    <>
-      <div className="min-h-screen bg-gray-50/30">
-        <div className="container mx-auto px-4 py-6 space-y-4">
-          {/* Financial Cards - Enhanced Design */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100">
-                  <CircleDollarSign className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Total Earnings</p>
-                  <h3 className="text-xl font-bold text-gray-900 truncate">
-                    {formatCurrency(transactionSummary.totalEarnings)}
-                  </h3>
-                </div>
-              </div>
-              <div className="flex items-center text-sm text-green-600 mb-3">
-                <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span className="font-medium">+12.5%</span>
-                <span className="text-gray-500 ml-1">from last month</span>
-              </div>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setActiveTab("transactions")}
-              >
-                View Transactions
-              </Button>
-            </Card>
-
-            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100">
-                  <Clock className="h-6 w-6 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Pending Payouts</p>
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(financialData.amountOnHold)}
-                  </h3>
-                </div>
-              </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <BanknoteIcon className="h-4 w-4 mr-1" />
-                <span className="text-gray-500">
-                  {withdrawals.filter(w => w.status === 'pending').length} pending requests
-                </span>
-              </div>
-            </Card>
-
-            <Card className="p-6 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100">
-                  <ArrowDownToLine className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Total Withdrawals</p>
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(transactionSummary.totalWithdrawals)}
-                  </h3>
-                </div>
-              </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <Clock className="h-4 w-4 mr-1" />
-                <span className="text-gray-500">Last withdrawal 2 days ago</span>
-              </div>
-            </Card>
-
-            <Card className="p-6 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition-all duration-200">
-              <div className="relative z-10">
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="p-3 rounded-xl bg-white/10 backdrop-blur-sm">
-                    <Wallet className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-300">Available Balance</p>
-                    <h3 className="text-2xl font-bold text-white">
-                      {formatCurrency(transactionSummary.currentBalance)}
-                    </h3>
-                  </div>
-                </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="w-full mt-3 bg-green-500 hover:bg-gray-100 font-semibold text-white border-0">
-                      <ArrowDownToLine className="h-4 w-4 mr-2" />
-                      Withdraw Funds
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogTitle>Create Withdrawal Request</DialogTitle>
-                    <DialogDescription className="py-4">
-                      <div className="space-y-4">
-                        <div className="p-4 bg-gray-50 rounded-lg mb-4">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Current Bank Details</h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Bank:</span>
-                              <span className="font-medium">{bankDetails.bankName}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Account:</span>
-                              <span className="font-medium">{bankDetails.accountNumber}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Name:</span>
-                              <span className="font-medium">{bankDetails.accountName}</span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="link"
-                            className="mt-2 h-auto p-0 text-blue-600"
-                            onClick={() => {
-                              document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
-                              window.location.href = "/dashboard/settings?tab=payment";
-                            }}
-                          >
-                            Change Bank Details
-                          </Button>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Available Balance: {formatCurrency(financialData.availableForWithdrawal)}
-                          </label>
-                          <input
-                            type="number"
-                            value={withdrawalAmount}
-                            onChange={(e) => setWithdrawalAmount(Number(e.target.value))}
-                            className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                            placeholder="Enter amount"
-                            min="1000"
-                            max={financialData.availableForWithdrawal}
-                          />
-                        </div>
-                        {error && (
-                          <p className="text-red-500 text-sm">{error}</p>
-                        )}
-                        <div className="text-sm text-gray-500">
-                          <Info className="h-4 w-4 inline mr-1" />
-                          Minimum withdrawal amount is ₦1,000
-                        </div>
-                      </div>
-                    </DialogDescription>
-                    <DialogFooter>
-                      <Button
-                        onClick={handleWithdrawalRequest}
-                        disabled={loading || !withdrawalAmount}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        {loading ? 'Processing...' : 'Withdraw'}
-                      </Button>
-                      <DialogClose asChild>
-                        <Button variant="outline">Cancel</Button>
-                      </DialogClose>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.07] to-transparent" />
-            </Card>
+    <div className="pt-6 md:pt-10 px-4 md:px-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 bg-white p-4 md:p-6 rounded-lg -sm">
+        <div className="space-y-4 w-full md:w-auto">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Return ID: #{id.slice(-6)}</h1>
+            <Badge variant="outline" className={`px-2 md:px-4 py-1 md:py-1.5 text-sm font-medium flex items-center gap-2 ${statusConfig.color}`}>
+              {statusConfig.icon}
+              {statusConfig.label}
+            </Badge>
           </div>
 
-          {/* Withdrawal Method - Updated for mobile */}
-          <Card className="p-4 bg-white shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-50">
-                  <CreditCard className="h-5 w-5 text-green-600" />
-                </div>
-                <h3 className="font-medium text-gray-800">Withdrawal Method</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-gray-600">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Return Reason:</span>
+                <span>{returnData?.items[0]?.reason}</span>
               </div>
-              <Link to="/dashboard/settings?tab=payment">
-                <Button variant="outline" className="border-2 w-full sm:w-auto">
-                  Go To Bank Settings
-                </Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
-                <Building2 className="h-5 w-5 text-gray-500 mr-3" />
-                <div>
-                  <p className="text-sm text-gray-500">Bank Name</p>
-                  <p className="font-medium">{bankDetails.bankName}</p>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Order ID:</span>
+                <span className="text-blue-600 hover:underline cursor-pointer">
+                  #{returnData?.order?.order_id}
+                </span>
               </div>
-              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
-                <span className="h-5 w-5 flex items-center justify-center text-gray-500 mr-3">#</span>
-                <div>
-                  <p className="text-sm text-gray-500">Account Number</p>
-                  <p className="font-medium">{bankDetails.accountNumber}</p>
-                </div>
-              </div>
-              <div className="flex items-center p-3 bg-gray-50 rounded-lg">
-                <span className="h-5 w-5 flex items-center justify-center text-gray-500 mr-3">@</span>
-                <div>
-                  <p className="text-sm text-gray-500">Account Name</p>
-                  <p className="font-medium">{bankDetails.accountName}</p>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Preferred Resolution:</span>
+                <Badge variant="secondary" className="capitalize">
+                  {returnData?.preferredResolution}
+                </Badge>
               </div>
             </div>
-          </Card>
-
-          {/* Replace the Withdrawal History section with Tabs */}
-          <Card className="p-4 bg-white shadow-sm">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-50">
-                    <Receipt className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Financial History</h3>
-                    <p className="text-sm text-gray-500">Track all your financial activities</p>
-                  </div>
-                </div>
-                <TabsList className="grid w-full sm:w-[400px] grid-cols-2">
-                <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
-                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                
-                </TabsList>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Request Date:</span>
+                <span>{new Date(returnData?.requestDate).toLocaleDateString()}</span>
               </div>
-
-              <TabsContent value="transactions" className="mt-4">
-                <div className="bg-white rounded-lg shadow-sm border">
-                  <div className="p-4 border-b">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-blue-50">
-                          <ArrowDownUp className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Transaction History</h3>
-                          <p className="text-sm text-gray-500">View all your financial transactions</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Select defaultValue="all">
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Filter by type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Transactions</SelectItem>
-                            <SelectItem value="order_payment">Order Payments</SelectItem>
-                            {/* <SelectItem value="platform_fee">Platform Fees</SelectItem> */}
-                            <SelectItem value="withdrawal">Withdrawals</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button variant="outline" className="gap-2">
-                          <Calendar className="h-4 w-4" />
-                          Date Range
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    {transactions && transactions.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-gray-50/60">
-                            <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Type</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Order ID</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Details</TableHead>
-                            <TableHead className="font-semibold text-gray-600 text-right">Amount</TableHead>
-                            <TableHead className="font-semibold text-gray-600 text-right">Net Amount</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {transactions.map((transaction) => (
-                            <TableRow key={transaction._id} className="hover:bg-gray-50/50 group">
-                              <TableCell className="whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-700">
-                                  {new Date(transaction.createdAt).toLocaleDateString()}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {new Date(transaction.createdAt).toLocaleTimeString()}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className={`p-1.5 rounded-md ${
-                                    transaction.type === 'order_payment' ? 'bg-green-50' :
-                                    transaction.type === 'platform_fee' ? 'bg-orange-50' :
-                                    transaction.type === 'processing_fee' ? 'bg-red-50' :
-                                    'bg-gray-50'
-                                  }`}>
-                                    {getTransactionTypeIcon(transaction.type)}
-                                  </div>
-                                  <span className="font-medium">
-                                    {getTransactionLabel(transaction.type)}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-medium text-gray-700">
-                                  #{transaction.orderId}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="max-w-xs">
-                                  <div className="font-medium text-gray-700 truncate">
-                                    {transaction.description}
-                                  </div>
-                                  {transaction.orderDetails && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {transaction.orderDetails.items.map((item, index) => (
-                                        <div key={index} className="flex items-center gap-1">
-                                          <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
-                                            {item.quantity}x
-                                          </span>
-                                          <span className="truncate">{item.productName}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {transaction.metadata && transaction.type === 'platform_fee' && (
-                                    <div className="text-xs text-orange-600 mt-1">
-                                      {transaction.metadata.categoryFee}% fee for {transaction.metadata.categoryName}
-                                    </div>
-                                  )}
-                                  {transaction.metadata && transaction.type === 'processing_fee' && (
-                                    <div className="text-xs text-red-600 mt-1">
-                                      {transaction.metadata.processingFeePercent}% processing fee
-                                    </div>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className={`font-medium ${getTransactionColor(transaction.type, transaction.amount)}`}>
-                                  {formatCurrency(Math.abs(transaction.amount))}
-                                </div>
-                                {transaction.deductions > 0 && (
-                                  <div className="text-xs text-red-600">
-                                    -{formatCurrency(transaction.deductions)} fees
-                                  </div>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className={`font-medium ${getTransactionColor(transaction.type, transaction.netAmount)}`}>
-                                  {transaction.netAmount >= 0 ? '+' : '-'}{formatCurrency(Math.abs(transaction.netAmount))}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  transaction.status === 'completed' ? 'bg-green-50 text-green-700' :
-                                  transaction.status === 'pending' ? 'bg-yellow-50 text-yellow-700' :
-                                  transaction.status === 'failed' ? 'bg-red-50 text-red-700' :
-                                  'bg-gray-50 text-gray-700'
-                                }`}>
-                                  {transaction.status}
-                                </span>
-                                {transaction.breakdown && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="text-xs text-gray-500 hover:text-gray-700">
-                                        <Info className="h-3 w-3 mr-1" />
-                                        View Breakdown
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                      <DialogTitle>Transaction Breakdown</DialogTitle>
-                                      <div className="space-y-2 py-4">
-                                        <div className="flex justify-between">
-                                          <span className="text-gray-600">Gross Amount</span>
-                                          <span className="font-medium">{formatCurrency(transaction.breakdown.grossAmount)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-red-600">
-                                          <span>Platform Fee</span>
-                                          <span>-{formatCurrency(transaction.breakdown.platformFee)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-red-600">
-                                          <span>Processing Fee</span>
-                                          <span>-{formatCurrency(transaction.breakdown.processingFee)}</span>
-                                        </div>
-                                        <div className="border-t pt-2 flex justify-between font-medium">
-                                          <span>Net Amount</span>
-                                          <span className="text-green-600">{formatCurrency(transaction.breakdown.netAmount)}</span>
-                                        </div>
-                                      </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <EmptyTransactions />
-                    )}
-                  </div>
+              {returnData?.refundDetails?.amount && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Refund Amount:</span>
+                  <span className="text-green-600 font-medium">
+                    ₦{returnData.refundDetails.amount.toLocaleString()}
+                  </span>
                 </div>
-              </TabsContent>
+              )}
+            </div>
+          </div>
+        </div>
 
-              <TabsContent value="withdrawals" className="mt-4">
-                <div className="bg-white rounded-lg shadow-sm border">
-                  <div className="p-4 border-b">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-green-50">
-                          <ArrowDownToLine className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Withdrawal History</h3>
-                          <p className="text-sm text-gray-500">Track all your withdrawal requests</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Select defaultValue="all">
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Filter by status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Withdrawals</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="failed">Failed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button variant="outline" className="gap-2">
-                          <Calendar className="h-4 w-4" />
-                          Date Range
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    {withdrawals && withdrawals.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-gray-50/60">
-                            <TableHead className="font-semibold text-gray-600">Date & Time</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Reference</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Amount</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Bank Details</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Status</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {withdrawals.map((withdrawal) => (
-                            <TableRow key={withdrawal._id} className="hover:bg-gray-50/50">
-                              <TableCell className="whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-700">
-                                  {new Date(withdrawal.requestDate).toLocaleDateString()}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {new Date(withdrawal.requestDate).toLocaleTimeString()}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-medium text-gray-700">{withdrawal.reference}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-medium text-green-600">{formatCurrency(withdrawal.amount)}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded-md bg-gray-50">
-                                    <Building2 className="h-4 w-4 text-gray-600" />
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-gray-700">
-                                      {withdrawal.bankDetails.bankName}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      {withdrawal.bankDetails.accountNumber}
-                                    </div>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getTransactionStatusColor(withdrawal.status)}`}>
-                                  {withdrawal.status}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                {withdrawal.status === 'completed' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleViewReceipt(withdrawal)}
-                                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  >
-                                    <FileText className="h-4 w-4" />
-                                    Download Receipt
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <EmptyWithdrawals />
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </Card>
-
-          {/* Withdrawal Success Dialog */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <button id="withdrawalSuccessDialog" className="hidden">Withdrawal Success</button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogTitle className="text-green-600">Success!</DialogTitle>
-              <DialogDescription className="py-4">
-                Your withdrawal request has been created successfully.
-              </DialogDescription>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white">
-                    Close
-                  </Button>
-                </DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+        <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
+          <Button variant="outline" size="sm" className="w-full md:w-auto">
+            <Printer className="w-4 h-4 mr-2" />
+            Print Details
+          </Button>
+          {returnData?.returnShippingLabel?.url && (
+            <Button variant="outline" size="sm" className="w-full md:w-auto">
+              Download Label
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="w-full md:w-auto">
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Contact Buyer
+          </Button>
         </div>
       </div>
-    </>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="md:col-span-2 space-y-4 md:space-y-6">
+          {/* Product Section */}
+          <Card className="p-4 md:p-6 -md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Product Details</h2>
+              {returnData?.status === "APPROVED" && (
+                <Badge className="bg-green-100 text-green-800 border-green-200">
+                  Return Approved
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+              <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
+                <img
+                  src={returnData?.items[0]?.product?.images[0]?.url}
+                  alt={returnData?.items[0]?.product?.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {returnData?.items[0]?.product?.name}
+                </h3>
+                <div className="sm:grid sm:grid-cols-2 gap-4 text-sm text-gray-600">
+                  <p>Quantity: {returnData?.items[0]?.quantity}</p>
+                  <p>Status: <span className="text-yellow-600 font-medium">{returnData?.status}</span></p>
+                  <p className="text-green-700 font-medium">
+                    Unit Price: ₦{returnData?.items[0]?.product?.price?.toLocaleString()}
+                  </p>
+                  <p className="text-green-700 font-medium">
+                    Total: ₦{((returnData?.items[0]?.product?.price || 0) * (returnData?.items[0]?.quantity || 1)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 md:mt-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Buyer's Comment:</span> {returnData?.description}
+              </p>
+            </div>
+            <div className="mt-4 flex flex-col md:flex-row gap-2 md:gap-4">
+              {renderActionButtons()}
+            </div>
+          </Card>
+
+          {/* Return Timeline */}
+          <Card className="p-6 -md">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Return Timeline</h2>
+            <div className="space-y-6">
+              {returnData?.timeline?.map((activity, index) => (
+                <div key={index} className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-3 h-3 rounded-full ring-4 ${
+                      getStatusConfig(activity.status).color.replace('bg-', 'bg-').replace('text-', 'ring-')
+                    }`} />
+                    {index !== (returnData?.timeline?.length - 1) && (
+                      <div className="w-0.5 h-full bg-gray-200" />
+                    )}
+                  </div>
+                  <div className="flex-1 -mt-1">
+                    <div className="font-medium text-gray-900 mb-1">
+                      {getStatusConfig(activity.status).label}
+                    </div>
+                    <div className="text-sm text-gray-600">{activity.note}</div>
+                    <div className="text-xs text-gray-400 mt-1 flex items-center gap-2">
+                      <Clock className="w-3 h-3" />
+                      {new Date(activity.date).toLocaleString()}
+                      <span className="capitalize text-gray-500">
+                        • by {activity.updatedBy}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Dispute Section - Show only if disputed */}
+          {returnData?.dispute?.status !== 'PENDING' && (
+            <Card className="p-6 -md border-orange-200">
+              <div className="flex items-center gap-3 mb-6">
+                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <h2 className="text-xl font-bold text-gray-900">Dispute Information</h2>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="font-medium">Status:</span>
+                    <Badge variant="outline" className={
+                      returnData.dispute.status === 'RESOLVED'
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-orange-50 text-orange-700'
+                    }>
+                      {returnData.dispute.status}
+                    </Badge>
+                  </div>
+                  {returnData.dispute.resolution && (
+                    <div>
+                      <span className="font-medium">Resolution:</span>
+                      <Badge variant="outline">{returnData.dispute.resolution}</Badge>
+                    </div>
+                  )}
+                </div>
+                {/* Add more dispute details as needed */}
+              </div>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-4 md:space-y-6">
+          {/* Customer Details */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Customer Details</h2>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div>
+                  <p className="font-medium">
+                    {`${returnData?.order?.pickup_address?.first_name} ${returnData?.order?.pickup_address?.last_name}`}
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>{returnData?.order?.pickup_address?.email}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="w-4 h-4" />
+                <span>{returnData?.order?.pickup_address?.phone}</span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Shipping Information */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Shipping Information</h2>
+            <div className="space-y-2">
+              <p className="font-medium">Return Address:</p>
+              <p className="text-sm text-muted-foreground">
+                {returnData?.order?.pickup_address?.line1},<br/>
+                {returnData?.order?.pickup_address?.line2 && `${returnData?.order?.pickup_address?.line2},`}<br/>
+                {returnData?.order?.pickup_address?.city}, {returnData?.order?.pickup_address?.state}.<br/>
+                {returnData?.order?.pickup_address?.zip},<br/>
+                {returnData?.order?.pickup_address?.country}
+              </p>
+            </div>
+          </Card>
+
+          {/* Proof Files */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Proof Files</h2>
+            <div className="space-y-4">
+              {returnData?.evidence?.map((file, index) => (
+                <img
+                  key={index}
+                  src={file.url || "/placeholder.svg"}
+                  alt={`Return Evidence ${index + 1}`}
+                  className="w-full rounded-lg"
+                />
+              ))}
+            </div>
+          </Card>
+
+          {/* Shipping Status - if return is approved */}
+          {returnData?.returnShipment?.status !== 'PENDING' && (
+            <Card className="p-6 -md">
+              <h2 className="text-xl font-semibold mb-4">Return Shipping Status</h2>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Status:</span>
+                  <Badge variant={
+                    returnData.returnShipment.status === 'DELIVERED'
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-blue-50 text-blue-700'
+                  }>
+                    {returnData.returnShipment.status}
+                  </Badge>
+                </div>
+                {returnData.returnShipment.tracking?.number && (
+                  <div>
+                    <span className="font-medium">Tracking Number:</span>
+                    <p className="text-blue-600 hover:underline cursor-pointer">
+                      {returnData.returnShipment.tracking.number}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Button to create shipping label */}
+      {returnData?.status === "APPROVED" && 
+        (!returnData?.returnShipment?.shipment_id) && (
+        <div className="mt-4">
+          <Button
+            className="bg-black text-white"
+            onClick={handleCreateShippingLabel}
+            disabled={isCreatingLabel}
+          >
+            {isCreatingLabel ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Return Shipment...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Return Shipment
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Update Shipment Status Information */}
+      {returnData?.returnShipment && (
+        <div className="mt-6 space-y-4">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Return Shipment Details</h3>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Carrier:</span>
+                <span className="font-medium">{returnData?.returnShipment?.carrier?.name || 'Fez Delivery'}</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Status:</span>
+                <Badge variant={
+                  returnData.returnShipment.tracking?.status === "delivered" ? "success" :
+                  "default"
+                }>
+                  {returnData.returnShipment.tracking?.status?.toUpperCase() || 'PENDING'}
+                </Badge>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Shipping Fee:</span>
+                <span className="font-medium">
+                  {returnData?.returnShipment?.fee?.currency || 'NGN'} {returnData?.returnShipment?.fee?.amount?.toLocaleString() || '0'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Tracking Number:</span>
+                <span className="font-medium">{returnData?.returnShipment?.shipment_id || returnData?.returnShipment?.tracking?.number || 'N/A'}</span>
+              </div>
+
+              {returnData?.returnShipment?.tracking?.url && (
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Track Package:</span>
+                  <a 
+                    href={returnData.returnShipment.tracking.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline flex items-center"
+                  >
+                    <Eye className="w-4 h-4 mr-1" /> Track
+                  </a>
+                </div>
+              )}
+
+              {returnData.returnShipment.tracking?.history?.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold mb-2">Tracking History</h4>
+                  <div className="space-y-2">
+                    {returnData.returnShipment.tracking.history.map((event, index) => (
+                      <div key={index} className="text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            {new Date(event.timestamp).toLocaleString()}
+                          </span>
+                          <Badge variant="outline">{event.status}</Badge>
+                        </div>
+                        <p className="text-sm mt-1">{event.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Rejection Details Section */}
+      {returnData?.rejectionDetails && (
+        <div className="mt-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center text-red-600">
+              <AlertTriangle className="mr-2 h-5 w-5" />
+              Return Request Rejected
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Reason for Rejection</h4>
+                <p className="mt-1">{returnData.rejectionDetails.reason}</p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Detailed Description</h4>
+                <p className="mt-1">{returnData.rejectionDetails.description}</p>
+              </div>
+
+              {returnData.rejectionDetails.evidence?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Evidence</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {returnData.rejectionDetails.evidence.map((evidence, index) => (
+                      <a 
+                        key={evidence._id} 
+                        href={evidence.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:bg-muted/80 transition-colors"
+                      >
+                        <img 
+                          src={evidence.url} 
+                          alt={`Rejection evidence ${index + 1}`}
+                          className="object-cover w-full h-full"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-sm text-muted-foreground">
+                Rejected on {new Date(returnData.rejectionDetails.rejectedAt).toLocaleString()}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Dispute Section */}
+      {returnData?.dispute && returnData.dispute.status !== "none" && (
+        <div className="mt-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <Scale className="mr-2 h-5 w-5" />
+              Dispute Information
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <Badge variant={
+                  returnData.dispute.status === "PENDING" ? "warning" :
+                  returnData.dispute.status === "RESOLVED" ? "success" :
+                  "default"
+                }>
+                  {returnData.dispute.status}
+                </Badge>
+              </div>
+
+              {returnData.dispute.resolutionDetails?.evidence?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Resolution Evidence</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {returnData.dispute.resolutionDetails.evidence.map((evidence, index) => (
+                      <a 
+                        key={index}
+                        href={evidence.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:bg-muted/80 transition-colors"
+                      >
+                        <img 
+                          src={evidence.url} 
+                          alt={`Resolution evidence ${index + 1}`}
+                          className="object-cover w-full h-full"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {returnData.dispute.adminNotes?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Admin Notes</h4>
+                  <div className="space-y-2">
+                    {returnData.dispute.adminNotes.map((note, index) => (
+                      <div key={index} className="p-3 bg-muted rounded-lg">
+                        <p className="text-sm">{note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      <div className="mt-6">
+        <Button
+          variant="outline"
+          className="text-muted-foreground"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Go Back
+        </Button>
+      </div>
+
+      {/* Render the rates dialog */}
+      {renderShippingRatesDialog()}
+      {renderRejectDialog()}
+    </div>
   )
 }

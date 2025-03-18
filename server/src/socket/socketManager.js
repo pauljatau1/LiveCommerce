@@ -13,6 +13,7 @@ const activeUsers = new Map();
 const auctionWatchers = new Map();
 
 function initializeSocket(server) {
+  console.log('Initializing socket server...');
   const io = socketIO(server, {
     cors: {
       origin: ["*","http://localhost:5173", "http://localhost:5173/","https://seller.auqli.live/", "https://seller.auqli.live", "http://localhost:5174/", "http://localhost:5174"],
@@ -25,25 +26,41 @@ function initializeSocket(server) {
     pingInterval: 25000
   });
 
-  // Authentication middleware
+  // Add debug log for authentication middleware
   io.use((socket, next) => {
+    console.log('Socket authentication attempt:', {
+      hasToken: !!socket.handshake.auth.token,
+      socketId: socket.id
+    });
+    
     const token = socket.handshake.auth.token;
     if (!token) {
+      console.log('Authentication failed: No token provided');
       return next(new Error('Authentication error'));
     }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       socket.user = decoded;
+      console.log('Socket authenticated successfully:', {
+        userId: decoded.id,
+        role: decoded.role,
+        socketId: socket.id
+      });
       next();
     } catch (err) {
+      console.log('Authentication failed:', err.message);
       next(new Error('Authentication error'));
     }
   });
 
   // Connection handler
   io.on('connection', async (socket) => {
-    console.log('User connected:', socket.user.id);
+    console.log('New socket connection:', {
+      socketId: socket.id,
+      userId: socket.user.id,
+      userRole: socket.user.role
+    });
     
     // Add user to active users
     activeUsers.set(socket.user.id, {
@@ -217,10 +234,22 @@ function initializeSocket(server) {
 
     // Join an auction room to receive updates
     socket.on('join_auction', async (productId) => {
+      console.log('User joining auction room:', {
+        socketId: socket.id,
+        userId: socket.user.id,
+        productId
+      });
+      
       try {
         socket.join(`auction_${productId}`);
-        console.log(`User ${socket.user.id} joined auction room for product ${productId}`);
         
+        // Log room members
+        const room = io.sockets.adapter.rooms.get(`auction_${productId}`);
+        console.log('Current auction room members:', {
+          productId,
+          memberCount: room ? room.size : 0
+        });
+
         // Add user to auction watchers
         if (!auctionWatchers.has(productId)) {
           auctionWatchers.set(productId, new Set());
@@ -305,7 +334,12 @@ function initializeSocket(server) {
           });
         }
       } catch (error) {
-        console.error('Error joining auction room:', error);
+        console.error('Error joining auction room:', {
+          socketId: socket.id,
+          userId: socket.user.id,
+          productId,
+          error: error.message
+        });
         socket.emit('auction_error', { message: 'Failed to join auction room' });
       }
     });
@@ -330,109 +364,149 @@ function initializeSocket(server) {
 
     // Place a bid via socket (real-time)
     socket.on('place_bid', async (data) => {
+      console.log('Received bid placement request:', {
+        socketId: socket.id,
+        userId: socket.user.id,
+        userRole: socket.user.role,
+        productId: data.productId,
+        amount: data.amount
+      });
+
       try {
         const { productId, amount } = data;
         const buyerId = socket.user.id;
 
         // Validate user is a buyer
-        if (socket.user.role !== 'buyer') {
+        if (socket.user.role?.toLowerCase() !== 'buyer') {
+          console.log('Bid rejected: User is not a buyer', {
+            socketId: socket.id,
+            userRole: socket.user.role
+          });
           socket.emit('bid_error', { message: 'Only buyers can place bids' });
           return;
         }
 
         // Find the product
         const product = await Product.findById(productId);
+        console.log('Found product for bid:', {
+          productFound: !!product,
+          productId,
+          productStatus: product?.status,
+          auctionStatus: product?.auction?.status
+        });
         
         if (!product) {
+          console.log('Bid rejected: Product not found', { productId });
           socket.emit('bid_error', { message: 'Product not found' });
           return;
         }
 
         if (product.status !== 'offline_auction') {
+          console.log('Bid rejected: Not an auction product', {
+            productId,
+            productStatus: product.status
+          });
           socket.emit('bid_error', { message: 'This product is not an auction item' });
           return;
         }
 
-        // Check if auction has started
+        // Check auction timing
         const now = new Date();
+        console.log('Checking auction timing:', {
+          productId,
+          currentTime: now,
+          auctionStart: product.auction.startDate,
+          auctionEnd: product.auction.endDate,
+          auctionStatus: product.auction.status
+        });
+
         if (now < product.auction.startDate) {
+          console.log('Bid rejected: Auction not started', {
+            productId,
+            startDate: product.auction.startDate
+          });
           socket.emit('bid_error', { message: 'Auction has not started yet' });
           return;
         }
 
-        // Check if auction has ended
         if (now > product.auction.endDate) {
+          console.log('Bid rejected: Auction ended', {
+            productId,
+            endDate: product.auction.endDate
+          });
           socket.emit('bid_error', { message: 'Auction has ended' });
           return;
         }
 
-        // Check minimum bid
+        // Check bid amount
+        console.log('Validating bid amount:', {
+          productId,
+          bidAmount: amount,
+          minBid: product.auction.minBid,
+          currentHighestBid: product.auction.currentHighestBid?.amount
+        });
+
         if (amount < product.auction.minBid) {
+          console.log('Bid rejected: Below minimum bid', {
+            productId,
+            bidAmount: amount,
+            minBid: product.auction.minBid
+          });
           socket.emit('bid_error', { 
             message: `Bid amount must be at least ${product.auction.minBid}` 
           });
           return;
         }
 
-        // Check if bid is higher than current highest bid
         if (product.auction.currentHighestBid.amount && amount <= product.auction.currentHighestBid.amount) {
+          console.log('Bid rejected: Not higher than current bid', {
+            productId,
+            bidAmount: amount,
+            currentHighestBid: product.auction.currentHighestBid.amount
+          });
           socket.emit('bid_error', { 
             message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}` 
           });
           return;
         }
 
-        // Convert buyerId to ObjectId properly
+        // Process valid bid
+        console.log('Processing valid bid:', {
+          productId,
+          buyerId,
+          amount
+        });
+
+        // Convert buyerId to ObjectId
         const buyerObjectId = new mongoose.Types.ObjectId(buyerId);
 
-        // Mark previous highest bid as outbid if it exists
+        // Update previous highest bid
         if (product.auction.currentHighestBid.buyer) {
-          const previousHighestBid = product.auction.bids.find(
-            bid => bid.buyer.toString() === product.auction.currentHighestBid.buyer.toString() && 
-            bid.status === 'active'
-          );
-          if (previousHighestBid) {
-            previousHighestBid.status = 'outbid';
-          }
+          console.log('Updating previous highest bid:', {
+            productId,
+            previousBuyerId: product.auction.currentHighestBid.buyer
+          });
         }
 
-        // Add new bid
+        // Save new bid
+        const previousBidsCount = product.auction.bids.length;
         const newBid = {
           buyer: buyerObjectId,
           amount: amount,
           status: 'active'
         };
-
         product.auction.bids.push(newBid);
-
-        // Update current highest bid
         product.auction.currentHighestBid = {
           amount: amount,
           buyer: buyerObjectId
         };
 
-        // Check if auction should end (max bid reached and endOnMaxBid is true)
-        let auctionEnded = false;
-        if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
-          product.auction.status = 'ended';
-          product.auction.winner = {
-            buyer: buyerObjectId,
-            bidAmount: amount,
-            winningDate: now
-          };
-          auctionEnded = true;
-
-          // Update all other bids to 'lost'
-          product.auction.bids.forEach(bid => {
-            if (bid.buyer.toString() !== buyerObjectId.toString()) {
-              bid.status = 'lost';
-            } else if (bid.amount === amount) {
-              bid.status = 'won';
-            }
-          });
-        }
-
         await product.save();
+        console.log('Bid saved successfully:', {
+          productId,
+          newBidsCount: product.auction.bids.length,
+          previousBidsCount
+        });
 
         // Get buyer details for the response
         const buyer = await Buyer.findById(buyerId).select('firstName lastName profileImage');
@@ -463,23 +537,18 @@ function initializeSocket(server) {
           },
           bidsCount: product?.auction?.bids?.length,
           auctionStatus: product?.auction?.status,
-          auctionEnded: auctionEnded,
-          winner: auctionEnded ? {
-            buyer: {
-              _id: buyer._id,
-              firstName: buyer.firstName,
-              lastName: buyer.lastName,
-              profileImage: buyer.profileImage
-            },
-            bidAmount: amount,
-            winningDate: now
-          } : null
+          auctionEnded: false,
+          winner: null
         };
 
-        // Emit bid update to all users in the auction room
-        io.to(`auction_${productId}`).emit('bid_update', bidData);
+        // Emit updates
+        console.log('Broadcasting bid updates to rooms:', {
+          productId,
+          auctionRoom: `auction_${productId}`,
+          bidData: bidData
+        });
 
-        // Also emit to auction lists room with minimal data
+        io.to(`auction_${productId}`).emit('bid_update', bidData);
         io.to('auction_lists').emit('auction_list_update', {
           productId: product._id,
           name: product.name,
@@ -495,8 +564,6 @@ function initializeSocket(server) {
           status: product?.auction?.status,
           timeRemaining: product?.auction?.status === 'ongoing' ? product?.auction?.endDate - now : 0
         });
-        
-        // Also emit to auction details room
         io.to(`auction_details_${productId}`).emit('auction_details_update', {
           productId: product._id,
           currentHighestBid: {
@@ -513,7 +580,11 @@ function initializeSocket(server) {
           timeRemaining: product?.auction?.status === 'ongoing' ? product?.auction?.endDate - now : 0
         });
 
-        // Send confirmation to the bidder
+        // Confirm to bidder
+        console.log('Sending confirmation to bidder:', {
+          socketId: socket.id,
+          buyerId
+        });
         socket.emit('bid_placed', { 
           success: true,
           message: 'Bid placed successfully',
@@ -521,7 +592,13 @@ function initializeSocket(server) {
         });
 
       } catch (error) {
-        console.error('Error placing bid:', error);
+        console.error('Error processing bid:', {
+          socketId: socket.id,
+          userId: socket.user.id,
+          productId: data.productId,
+          error: error.message,
+          stack: error.stack
+        });
         socket.emit('bid_error', { message: 'Failed to place bid' });
       }
     });
@@ -641,7 +718,11 @@ function initializeSocket(server) {
     });
 
     socket.on('disconnect', async () => {
-      console.log('User disconnected:', socket.user.id);
+      console.log('Socket disconnected:', {
+        socketId: socket.id,
+        userId: socket.user?.id,
+        reason: socket.disconnectReason
+      });
       
       // Remove user from active users
       activeUsers.delete(socket.user.id);

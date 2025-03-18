@@ -9,14 +9,40 @@ const NotificationController = require('./notificationController');
 const Product = require('../models/Product');
 const { createBuyerNotification, createNotification } = require('./notificationController');
 
-// Initialize Terminal Africa API client
-const terminalAPI = axios.create({
-  baseURL: 'https://sandbox.terminal.africa/v1',
-  headers: {
-    Authorization: `Bearer ${process.env.TERMINAL_SECRET_KEY}`,
-    'Content-Type': 'application/json'
+// Initialize Fez API configuration
+const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
+const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB";
+
+// Function to get Fez authentication token
+const getFezAuthToken = async () => {
+  try {
+    console.log('🔑 Attempting to authenticate with Fez Delivery API...');
+    
+    const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+    const authData = {
+      user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
+      password: process.env.FEZ_PASSWORD || "Bolu@123"
+    };
+    
+    console.log(`📤 Auth request to: ${authUrl}`);
+    
+    const response = await axios.post(authUrl, authData);
+    
+    console.log(`📥 Auth response status: ${response.status}`);
+    
+    if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+      console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);
+      return response.data.authDetails.authToken;
+    } else {
+      console.error('❌ Authentication failed:', response.data);
+      throw new Error('Failed to authenticate with Fez Delivery API');
+    }
+  } catch (error) {
+    console.error('❌ Error authenticating with Fez Delivery API:', error.message);
+    throw error;
   }
-});
+};
 
 exports.createReturnRequest = async (req, res) => {
   try {
@@ -903,7 +929,7 @@ exports.createReturnShippingLabel = async (req, res) => {
         path: 'items.product',
         select: 'name weight price'
       })
-      .populate('seller', 'email firstName lastName businessName phoneNumber');
+      .populate('seller', 'email firstName lastName businessName phoneNumber address state');
 
     if (!returnRequest) {
       return res.status(404).json({ message: 'Return request not found' });
@@ -914,36 +940,6 @@ exports.createReturnShippingLabel = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to create shipping label for this return' });
     }
 
-    // Format items array according to Terminal Africa's requirements
-    const items = returnRequest.items.map(item => ({
-      name: item.product.name,
-      quantity: item.quantity,
-      weight: item.product.weight || 0.5,
-      weight_unit: 'kg',
-      description: item.product.name,
-      value: item.product.price,
-      currency: 'NGN',
-      sku: item.product._id.toString()
-    }));
-
-    // Calculate total weight and value
-    const totalWeight = items.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
-    const totalValue = items.reduce((sum, item) => sum + (item.value * item.quantity), 0);
-
-    // Clean up addresses to match Terminal Africa format
-    const cleanPickupAddress = {
-      first_name: pickup_address.first_name,
-      last_name: pickup_address.last_name,
-      email: pickup_address.email,
-      phone: pickup_address.phone,
-      line1: pickup_address.line1,
-      line2: pickup_address.line2 || '',
-      city: pickup_address.city,
-      state: pickup_address.state,
-      country: pickup_address.country || 'NG',
-      zip: pickup_address.zip
-    };
-
     // Ensure seller phone number is available
     if (!returnRequest.seller.phoneNumber) {
       return res.status(400).json({
@@ -951,61 +947,84 @@ exports.createReturnShippingLabel = async (req, res) => {
       });
     }
 
-    const cleanDeliveryAddress = {
-      first_name: returnRequest.seller.firstName,
-      last_name: returnRequest.seller.lastName,
-      email: returnRequest.seller.email,
-      phone: returnRequest.seller.phoneNumber,
-      line1: returnRequest.order.pickup_address.line1,
-      line2: returnRequest.order.pickup_address.line2 || '',
-      city: returnRequest.order.pickup_address.city,
-      state: returnRequest.order.pickup_address.state,
-      country: returnRequest.order.pickup_address.country || 'NG',
-      zip: returnRequest.order.pickup_address.zip
+    // Calculate total weight and value
+    const totalWeight = returnRequest.items.reduce((sum, item) => {
+      const weight = item.product.weight || 0.5;
+      return sum + (weight * item.quantity);
+    }, 0);
+    
+    const totalValue = returnRequest.items.reduce((sum, item) => {
+      return sum + (item.product.price * item.quantity);
+    }, 0);
+
+    // Generate a unique order ID for the return
+    const uniqueReturnId = `AUQLI-RTN-${returnId.substring(0, 8)}`;
+
+    // Create Fez Delivery request
+    const fezRequest = {
+      recipientAddress: returnRequest.order.pickup_address.line1,
+      recipientState: returnRequest.order.pickup_address.state || returnRequest.seller.state || "Lagos",
+      recipientName: `${returnRequest.seller.firstName} ${returnRequest.seller.lastName}`,
+      recipientPhone: returnRequest.seller.phoneNumber,
+      recipientEmail: returnRequest.seller.email || '',
+      uniqueID: uniqueReturnId,
+      BatchID: `RETURN-${returnRequest.order.order_id}`,
+      valueOfItem: totalValue.toString(),
+      weight: Math.max(1, Math.round(totalWeight)), // Ensure minimum weight of 1kg for Fez
+      itemDescription: `Return for order #${returnRequest.order.order_id}`,
+      additionalDetails: `Return reason: ${returnRequest.description}`,
+      isItemCod: false,
+      thirdparty: "true",
+      senderName: `${pickup_address.first_name} ${pickup_address.last_name}`,
+      senderAddress: pickup_address.line1,
+      senderPhone: pickup_address.phone,
+      senderEmail: pickup_address.email || '',
+      pickUpState: pickup_address.state || "Lagos",
     };
 
-    // Prepare shipping data for Terminal Africa
-    const shippingData = {
-      pickup_address: cleanPickupAddress,
-      delivery_address: cleanDeliveryAddress,
-      parcel: {
-        weight: totalWeight,
-        weight_unit: 'kg',
-        description: `Return for order #${returnRequest.order.order_id}`,
-        items: items,
-        value: totalValue,
-        currency: 'NGN'
-      },
-      shipment_purpose: 'return',
-      metadata: {
-        return_id: returnId,
-        order_id: returnRequest.order.order_id
-      }
-    };
+    // Set a default pickup date (tomorrow)
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    fezRequest.pickUpDate = tomorrow.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 
     // Log request data
-    console.log('Terminal Africa Request Data:', JSON.stringify(shippingData, null, 2));
+    console.log('Fez Delivery Request Data:', JSON.stringify(fezRequest, null, 2));
 
-    // Create shipment with Terminal Africa
-    const shipmentResponse = await terminalAPI.post('/shipments/quick', shippingData);
+    // Get a fresh authentication token for Fez Delivery
+    const authToken = await getFezAuthToken();
+    console.log('Using fresh token for return shipment creation:', authToken.substring(0, 10) + '...');
+
+    // Create shipment with Fez Delivery
+    const fezResponse = await axios.post(`${FEZ_API_URL}/order`, [fezRequest], {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': FEZ_SECRET_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
 
     // Log response data
-    console.log('Terminal Africa Response:', JSON.stringify(shipmentResponse.data, null, 2));
+    console.log('Fez Delivery Response:', JSON.stringify(fezResponse.data, null, 2));
 
-    if (!shipmentResponse.data.status) {
-      throw new Error(shipmentResponse.data.message || 'Failed to create return shipment');
+    if (!fezResponse.data || fezResponse.data.status !== 'Success') {
+      throw new Error(fezResponse.data?.message || 'Failed to create return shipment');
     }
 
-    const shipmentData = shipmentResponse.data.data;
+    // Get the order number from the response
+    // Fez returns orderNos as an object with uniqueID as key and order number as value
+    const orderNo = fezResponse.data.orderNos?.[uniqueReturnId];
+    
+    if (!orderNo) {
+      throw new Error('Failed to get order number from Fez response');
+    }
 
     // Update return request with shipping information
     const shippingUpdate = {
       status: 'RETURN_LABEL_CREATED',
-      'returnShipment.shipment_id': shipmentData.shipment_id,
-      'returnShipment.rate_id': shipmentData.rate_id,
+      'returnShipment.shipment_id': orderNo,
       'returnShipment.tracking': {
-        number: shipmentData.tracking_number,
-        url: shipmentData.tracking_url,
+        number: orderNo,
+        url: `https://fezdelivery.co/track?orderNo=${orderNo}`,
         status: 'pending',
         lastUpdate: new Date(),
         history: [{
@@ -1014,24 +1033,37 @@ exports.createReturnShippingLabel = async (req, res) => {
           description: 'Return shipping label created'
         }]
       },
-      'returnShipment.documents': {
-        shippingLabel: shipmentData.shipping_label_url,
-        commercialInvoice: shipmentData.commercial_invoice_url
-      },
       'returnShipment.carrier': {
-        name: shipmentData.carrier_name,
-        reference: shipmentData.carrier_reference
+        name: 'Fez Delivery',
+        reference: orderNo
       },
       'returnShipment.fee': {
-        amount: shipmentData.shipment_cost,
+        amount: 0, // Fez doesn't return fee in the create order response
         currency: 'NGN'
       },
-      'returnShipment.pickup_address': cleanPickupAddress,
-      'returnShipment.delivery_address': cleanDeliveryAddress,
-      'returnShipment.parcel': {
-        weight: totalWeight,
-        weight_unit: 'kg',
-        items: items
+      'returnShipment.pickup_address': {
+        first_name: pickup_address.first_name,
+        last_name: pickup_address.last_name,
+        email: pickup_address.email,
+        phone: pickup_address.phone,
+        line1: pickup_address.line1,
+        line2: pickup_address.line2 || '',
+        city: pickup_address.city,
+        state: pickup_address.state,
+        country: pickup_address.country || 'NG',
+        zip: pickup_address.zip
+      },
+      'returnShipment.delivery_address': {
+        first_name: returnRequest.seller.firstName,
+        last_name: returnRequest.seller.lastName,
+        email: returnRequest.seller.email,
+        phone: returnRequest.seller.phoneNumber,
+        line1: returnRequest.order.pickup_address.line1,
+        line2: returnRequest.order.pickup_address.line2 || '',
+        city: returnRequest.order.pickup_address.city,
+        state: returnRequest.order.pickup_address.state,
+        country: returnRequest.order.pickup_address.country || 'NG',
+        zip: returnRequest.order.pickup_address.zip
       },
       'returnShipment.created_at': new Date()
     };
@@ -1044,7 +1076,7 @@ exports.createReturnShippingLabel = async (req, res) => {
           timeline: {
             status: 'RETURN_LABEL_CREATED',
             date: new Date(),
-            note: `Return shipping label created with tracking number ${shipmentData.tracking_number}`,
+            note: `Return shipping label created with Fez Delivery tracking number ${orderNo}`,
             updatedBy: 'seller'
           }
         }
@@ -1057,13 +1089,19 @@ exports.createReturnShippingLabel = async (req, res) => {
       returnId: returnId,
       orderId: updatedReturn.order._id,
       order_id: updatedReturn.order.order_id,
-      trackingNumber: shipmentData.tracking_number,
-      trackingUrl: shipmentData.tracking_url
+      trackingNumber: orderNo,
+      trackingUrl: `https://fezdelivery.co/track?orderNo=${orderNo}`
     });
 
     res.json({
       message: 'Return shipping label created successfully',
-      data: shipmentData
+      data: {
+        shipment_id: orderNo,
+        tracking_number: orderNo,
+        tracking_url: `https://fezdelivery.co/track?orderNo=${orderNo}`,
+        carrier_name: 'Fez Delivery',
+        shipment_cost: 0 // Fez doesn't return fee in the create order response
+      }
     });
 
   } catch (error) {
@@ -1093,27 +1131,68 @@ exports.getReturnShippingRates = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to get shipping rates for this return' });
     }
 
-    // Verify shipment_id exists
-    if (!returnRequest.returnShipment?.shipment_id) {
-      return res.status(400).json({ message: 'No shipment created for this return yet' });
-    }
+    // For Fez Delivery, we don't need to get rates as they have fixed pricing
+    // Instead, we'll return an estimated delivery fee based on weight
+    
+    // Calculate total weight
+    const totalWeight = returnRequest.items.reduce((sum, item) => {
+      const weight = item.product?.weight || 0.5;
+      return sum + (weight * item.quantity);
+    }, 0);
+    
+    // Round up to nearest kg and ensure minimum of 1kg
+    const roundedWeight = Math.max(1, Math.ceil(totalWeight));
+    
+    // Calculate estimated fee (base fee + additional per kg)
+    // These are example values - adjust based on Fez's actual pricing
+    const baseFee = 2500; // Base fee for first kg
+    const additionalFee = 500; // Fee per additional kg
+    const estimatedFee = baseFee + (Math.max(0, roundedWeight - 1) * additionalFee);
 
-    // Get shipping rates from Terminal Africa using the correct endpoint
-    const ratesResponse = await terminalAPI.get('/rates/shipment', {
-      params: {
-        shipment_id: returnRequest.returnShipment.shipment_id,
-        currency: 'NGN'
+    // Get a fresh authentication token for Fez Delivery
+    const authToken = await getFezAuthToken();
+    
+    // Get delivery time estimate from Fez
+    const estimateResponse = await axios.post(`${FEZ_API_URL}/delivery-time-estimate`, {
+      pickUpState: returnRequest.order.pickup_address.state || "Lagos",
+      deliveryState: returnRequest.order.delivery_address.state || "Lagos"
+    }, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': FEZ_SECRET_KEY,
+        'Content-Type': 'application/json'
       }
     });
 
-    if (!ratesResponse.data.status) {
-      throw new Error(ratesResponse.data.message || 'Failed to get shipping rates');
+    let estimatedDeliveryTime = "1-3 days";
+    if (estimateResponse.data && estimateResponse.data.status === 'Success') {
+      estimatedDeliveryTime = estimateResponse.data.data.estimatedDeliveryTime || estimatedDeliveryTime;
     }
+
+    // Create a single rate option
+    const fezRate = {
+      id: 'fez-standard-rate',
+      carrier_name: 'Fez Delivery',
+      carrier_logo: 'https://fezdelivery.co/assets/images/logo.png',
+      amount: estimatedFee,
+      currency: 'NGN',
+      delivery_time: estimatedDeliveryTime,
+      delivery_time_hours: 72, // 3 days in hours
+      pickup_time: '24h',
+      insurance_fee: 0,
+      is_doorstep_delivery: true,
+      is_doorstep_pickup: true,
+      weight: roundedWeight
+    };
 
     res.json({
       message: 'Shipping rates retrieved successfully',
-      rates: ratesResponse.data.data,
-      pageData: ratesResponse.data.pageData
+      rates: [fezRate],
+      pageData: {
+        total: 1,
+        page: 1,
+        limit: 10
+      }
     });
 
   } catch (error) {
@@ -1145,74 +1224,36 @@ exports.selectReturnShippingRate = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to select rate for this return' });
     }
 
-    // Verify shipment_id exists
-    if (!returnRequest.returnShipment?.shipment_id) {
-      return res.status(400).json({ message: 'No shipment created for this return yet' });
-    }
+    // For Fez Delivery, we don't need to select a rate as they have fixed pricing
+    // We'll just update the return request with the selected rate information
 
-    // // Select rate with Terminal Africa
-    // const selectRateResponse = await terminalAPI.post(`/rates/select`, {
-    //   rate_id,
-    //   shipment_id: returnRequest.returnShipment.shipment_id
-    // });
-
-    // // if (!selectRateResponse.data.status) {
-    // //   throw new Error(selectRateResponse.data.message || 'Failed to select shipping rate');
-    // // }
-
-    // Update return request with selected rate information
-    const rateUpdate = {
-      'returnShipment.rate_id': rate_id,
-      'returnShipment.carrier.name': carrier_name,
-      'returnShipment.fee.amount': amount,
-      'returnShipment.fee.currency': 'NGN',
-      'returnShipment.status': 'RATE_SELECTED',
-      'returnShipment.paid': true,
-      status: 'RETURN_SHIPPING_ARRANGED'
-    };
-
-    // Add to timeline
-    const timelineUpdate = {
-      $push: {
-        timeline: {
-          status: 'RETURN_SHIPPING_ARRANGED',
-          date: new Date(),
-          note: `Return shipping rate selected with ${carrier_name}. Amount: NGN ${amount}`,
-          updatedBy: 'seller'
-        }
-      }
-    };
-
+    // Update return request with rate information
     const updatedReturn = await Return.findByIdAndUpdate(
       returnId,
       { 
-        $set: rateUpdate,
-        ...timelineUpdate
+        $set: {
+          'returnShipment.rate_id': rate_id || 'fez-standard-rate',
+          'returnShipment.fee.amount': amount || 0,
+          'returnShipment.carrier.name': carrier_name || 'Fez Delivery'
+        },
+        $push: {
+          timeline: {
+            status: 'RETURN_RATE_SELECTED',
+            date: new Date(),
+            note: `Return shipping rate selected: ${carrier_name || 'Fez Delivery'} - ₦${amount || 0}`,
+            updatedBy: 'seller'
+          }
+        }
       },
       { new: true }
     );
 
-    // Send notification to buyer
-    await NotificationController.createNotification(returnRequest.buyer, 'return_shipping_arranged', {
-      returnId: returnRequest._id,
-      orderId: returnRequest.order._id,
-      carrier: carrier_name,
-      amount: amount
-    });
-
     res.json({
       message: 'Shipping rate selected successfully',
       data: {
-        shipment_id: returnRequest.returnShipment.shipment_id,
-        rate_id: rate_id,
-        carrier: {
-          name: carrier_name
-        },
-        fee: {
-          amount: amount,
-          currency: 'NGN'
-        },
-        status: 'RATE_SELECTED'
+        rate_id: rate_id || 'fez-standard-rate',
+        carrier_name: carrier_name || 'Fez Delivery',
+        amount: amount || 0
       }
     });
 
@@ -1231,134 +1272,110 @@ exports.arrangeReturnPickup = async (req, res) => {
   try {
     const { returnId } = req.params;
 
-    const returnRequest = await Return.findById(returnId);
+    const returnRequest = await Return.findById(returnId)
+      .populate('order')
+      .populate('seller');
+      
     if (!returnRequest) {
       return res.status(404).json({ message: 'Return request not found' });
     }
 
-    // Verify shipment_id and rate_id exist
-    if (!returnRequest.returnShipment?.shipment_id || !returnRequest.returnShipment?.rate_id) {
+    // Verify shipment_id exists
+    if (!returnRequest.returnShipment?.shipment_id) {
       return res.status(400).json({ 
-        message: 'Cannot arrange pickup. Missing shipment_id or rate_id. Please create shipment and select rate first.' 
+        message: 'Cannot arrange pickup. Missing shipment_id. Please create shipment first.' 
       });
     }
 
-    // Arrange pickup with Terminal Africa
-    const pickupResponse = await terminalAPI.post('/shipments/pickup', {
-      shipment_id: returnRequest.returnShipment.shipment_id,
-      rate_id: returnRequest.returnShipment.rate_id,
-      purchase_insurance: false
+    // For Fez Delivery, the pickup is automatically arranged when the order is created
+    // We'll just update the return request status to reflect that pickup is arranged
+
+    // Get a fresh authentication token for Fez Delivery
+    const authToken = await getFezAuthToken();
+    
+    // Get tracking information from Fez
+    const orderNo = returnRequest.returnShipment.shipment_id;
+    const trackingResponse = await axios.get(`${FEZ_API_URL}/order/track/${orderNo}`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': FEZ_SECRET_KEY,
+        'Content-Type': 'application/json'
+      }
     });
 
-    if (!pickupResponse.data.status) {
-      throw new Error(pickupResponse.data.message || 'Failed to arrange pickup');
+    let trackingStatus = 'pending';
+    let trackingHistory = [];
+    
+    if (trackingResponse.data && trackingResponse.data.status === 'Success') {
+      const trackingData = trackingResponse.data.data;
+      trackingStatus = trackingData.status?.toLowerCase() || 'pending';
+      
+      // Format tracking history if available
+      if (trackingData.history && Array.isArray(trackingData.history)) {
+        trackingHistory = trackingData.history.map(item => ({
+          status: item.status || 'unknown',
+          timestamp: new Date(item.date) || new Date(),
+          location: item.location || '',
+          description: item.description || ''
+        }));
+      }
     }
 
-    // Extract important data from response
-    const responseData = pickupResponse.data.data;
-    const shipmentPayload = responseData.metadata.shipment_payload;
-    const carrierShipment = responseData.metadata.carrier_shipment;
-
-    // Safely parse the planned shipping date
-    let plannedShippingDate = null;
-    try {
-      if (carrierShipment?.plannedShippingDateAndTime) {
-        plannedShippingDate = new Date(carrierShipment.plannedShippingDateAndTime);
-        // Validate the parsed date
-        if (isNaN(plannedShippingDate.getTime())) {
-          plannedShippingDate = null;
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to parse planned shipping date:', error);
-      plannedShippingDate = null;
-    }
-
-    // Prepare the update object
-    const pickupUpdate = {
-      'returnShipment.shipment_reference': responseData._id,
-      'returnShipment.tracking.number': shipmentPayload.shipmentTrackingNumber,
-      'returnShipment.tracking.url': shipmentPayload.trackingUrl,
-      'returnShipment.tracking.package_number': shipmentPayload.packages[0]?.trackingNumber,
-      'returnShipment.tracking.package_url': shipmentPayload.packages[0]?.trackingUrl,
-      'returnShipment.tracking.status': 'pickup_arranged',
-      'returnShipment.tracking.lastUpdate': new Date(),
-      'returnShipment.documents.shippingLabel': shipmentPayload.documents.find(d => d.typeCode === 'label')?.url,
-      'returnShipment.pickup_details': {
-        instructions: carrierShipment.pickup.specialInstructions?.map(i => i.value) || [],
-        contact: {
-          email: carrierShipment.pickup.pickupDetails.contactInformation.email,
-          phone: carrierShipment.pickup.pickupDetails.contactInformation.phone,
-          company: carrierShipment.pickup.pickupDetails.contactInformation.companyName,
-          name: carrierShipment.pickup.pickupDetails.contactInformation.fullName
-        }
-      },
-      'returnShipment.delivery_details': {
-        contact: {
-          company: shipmentPayload.shipmentDetails[0]?.customerDetails.receiverDetails.contactInformation.companyName,
-          name: shipmentPayload.shipmentDetails[0]?.customerDetails.receiverDetails.contactInformation.fullName
-        },
-        address: {
-          postal_code: shipmentPayload.shipmentDetails[0]?.customerDetails.receiverDetails.postalAddress.postalCode,
-          city: shipmentPayload.shipmentDetails[0]?.customerDetails.receiverDetails.postalAddress.cityName,
-          country_code: shipmentPayload.shipmentDetails[0]?.customerDetails.receiverDetails.postalAddress.countryCode,
-          line1: shipmentPayload.shipmentDetails[0]?.customerDetails.receiverDetails.postalAddress.addressLine1,
-          line2: shipmentPayload.shipmentDetails[0]?.customerDetails.receiverDetails.postalAddress.addressLine2
-        }
-      }
-    };
-
-    // Only add planned shipping date if it's valid
-    if (plannedShippingDate) {
-      pickupUpdate['returnShipment.planned_shipping_date'] = plannedShippingDate;
-    }
-
-    // Add tracking history
-    const timelineUpdate = {
-      $push: {
-        'returnShipment.tracking.history': {
-          status: 'pickup_arranged',
-          timestamp: new Date(),
-          description: 'Return pickup has been arranged',
-          location: shipmentPayload.shipmentDetails[0]?.customerDetails.shipperDetails.postalAddress.cityName
-        }
-      }
-    };
-
+    // Update return request with pickup information
     const updatedReturn = await Return.findByIdAndUpdate(
       returnId,
       { 
-        $set: pickupUpdate,
-        ...timelineUpdate
+        $set: {
+          status: 'IN_TRANSIT',
+          'returnShipment.status': 'PICKUP_ARRANGED',
+          'returnShipment.tracking.status': trackingStatus,
+          'returnShipment.tracking.lastUpdate': new Date(),
+          'returnShipment.tracking.history': trackingHistory.length > 0 ? trackingHistory : [
+            {
+              status: 'pickup_arranged',
+              timestamp: new Date(),
+              location: returnRequest.returnShipment.pickup_address?.city || '',
+              description: 'Pickup arranged with Fez Delivery'
+            }
+          ]
+        },
+        $push: {
+          timeline: {
+            status: 'RETURN_PICKUP_ARRANGED',
+            date: new Date(),
+            note: `Return pickup arranged with Fez Delivery`,
+            updatedBy: 'seller'
+          }
+        }
       },
       { new: true }
     );
 
-    // Notify buyer
+    // Send notification to buyer
     await createBuyerNotification(returnRequest.buyer, 'return_pickup_arranged', {
       returnId: returnRequest._id,
-      orderId: returnRequest.order,
+      orderId: returnRequest.order._id,
       order_id: returnRequest.order.order_id,
-      tracking_number: shipmentPayload.shipmentTrackingNumber,
-      pickupDate: plannedShippingDate,
-      carrier: returnRequest.returnShipment.carrier.name
+      trackingNumber: orderNo,
+      trackingUrl: `https://fezdelivery.co/track?orderNo=${orderNo}`
     });
 
     res.json({
       message: 'Return pickup arranged successfully',
       data: {
-        tracking_number: shipmentPayload.shipmentTrackingNumber,
-        tracking_url: shipmentPayload.trackingUrl,
-        shipping_label: pickupUpdate['returnShipment.documents.shippingLabel'],
-        planned_shipping_date: plannedShippingDate
+        shipment_id: orderNo,
+        tracking_number: orderNo,
+        tracking_url: `https://fezdelivery.co/track?orderNo=${orderNo}`,
+        status: 'pickup_arranged'
       }
     });
 
   } catch (error) {
     console.error('Error arranging return pickup:', error);
+    console.error('Error details:', error.response?.data);
     res.status(500).json({
-      message: 'Failed to arrange pickup',
-      error: error.message
+      message: 'Failed to arrange return pickup',
+      error: error.response?.data?.message || error.message
     });
   }
 };
