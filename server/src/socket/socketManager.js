@@ -132,6 +132,10 @@ function initializeSocket(server) {
           path: 'auction.currentHighestBid.buyer',
           select: 'firstName lastName profileImage'
         })
+        .populate({
+          path: 'auction.bids.buyer',
+          select: 'firstName lastName profileImage'
+        })
         .limit(20); // Limit to avoid large payloads
         
         // Format the data for the client
@@ -266,6 +270,10 @@ function initializeSocket(server) {
             path: 'auction.currentHighestBid.buyer',
             select: 'firstName lastName profileImage'
           })
+          .populate({
+            path: 'auction.winner.buyer',
+            select: 'firstName lastName profileImage'
+          })
           .select('name auction status');
 
         if (product && product.status === 'offline_auction') {
@@ -320,7 +328,8 @@ function initializeSocket(server) {
               buyer: product.auction.winner.buyer ? {
                 _id: product.auction.winner.buyer._id,
                 firstName: product.auction.winner.buyer.firstName,
-                lastName: product.auction.winner.buyer.lastName
+                lastName: product.auction.winner.buyer.lastName,
+                profileImage: product.auction.winner.buyer.profileImage
               } : null,
               bidAmount: product.auction.winner.bidAmount,
               winningDate: product.auction.winner.winningDate
@@ -502,9 +511,21 @@ function initializeSocket(server) {
         };
 
         await product.save();
+        
+        // Reload the product with populated buyer details
+        const updatedProduct = await Product.findById(productId)
+          .populate({
+            path: 'auction.bids.buyer',
+            select: 'firstName lastName profileImage'
+          })
+          .populate({
+            path: 'auction.currentHighestBid.buyer',
+            select: 'firstName lastName profileImage'
+          });
+
         console.log('Bid saved successfully:', {
           productId,
-          newBidsCount: product.auction.bids.length,
+          newBidsCount: updatedProduct.auction.bids.length,
           previousBidsCount
         });
 
@@ -513,9 +534,9 @@ function initializeSocket(server) {
 
         // Prepare bid notification data
         const bidData = {
-          productId: product._id,
+          productId: updatedProduct._id,
           bid: {
-            _id: product?.auction?.bids[product?.auction?.bids?.length - 1]?._id,
+            _id: updatedProduct?.auction?.bids[updatedProduct?.auction?.bids?.length - 1]?._id,
             amount: amount,
             status: 'active',
             createdAt: new Date(),
@@ -535,8 +556,8 @@ function initializeSocket(server) {
               profileImage: buyer.profileImage
             }
           },
-          bidsCount: product?.auction?.bids?.length,
-          auctionStatus: product?.auction?.status,
+          bidsCount: updatedProduct?.auction?.bids?.length,
+          auctionStatus: updatedProduct?.auction?.status,
           auctionEnded: false,
           winner: null
         };
@@ -550,22 +571,8 @@ function initializeSocket(server) {
 
         io.to(`auction_${productId}`).emit('bid_update', bidData);
         io.to('auction_lists').emit('auction_list_update', {
-          productId: product._id,
-          name: product.name,
-          currentHighestBid: {
-            amount: amount,
-            buyer: {
-              _id: buyer._id,
-              firstName: buyer.firstName,
-              lastName: buyer.lastName
-            }
-          },
-          bidsCount: product?.auction?.bids?.length,
-          status: product?.auction?.status,
-          timeRemaining: product?.auction?.status === 'ongoing' ? product?.auction?.endDate - now : 0
-        });
-        io.to(`auction_details_${productId}`).emit('auction_details_update', {
-          productId: product._id,
+          productId: updatedProduct._id,
+          name: updatedProduct.name,
           currentHighestBid: {
             amount: amount,
             buyer: {
@@ -575,9 +582,24 @@ function initializeSocket(server) {
               profileImage: buyer.profileImage
             }
           },
-          bidsCount: product?.auction?.bids?.length,
-          status: product?.auction?.status,
-          timeRemaining: product?.auction?.status === 'ongoing' ? product?.auction?.endDate - now : 0
+          bidsCount: updatedProduct?.auction?.bids?.length,
+          status: updatedProduct?.auction?.status,
+          timeRemaining: updatedProduct?.auction?.status === 'ongoing' ? updatedProduct?.auction?.endDate - now : 0
+        });
+        io.to(`auction_details_${productId}`).emit('auction_details_update', {
+          productId: updatedProduct._id,
+          currentHighestBid: {
+            amount: amount,
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              profileImage: buyer.profileImage
+            }
+          },
+          bidsCount: updatedProduct?.auction?.bids?.length,
+          status: updatedProduct?.auction?.status,
+          timeRemaining: updatedProduct?.auction?.status === 'ongoing' ? updatedProduct?.auction?.endDate - now : 0
         });
 
         // Confirm to bidder
