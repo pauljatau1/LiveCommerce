@@ -81,6 +81,7 @@ const Checkout = () => {
   const [showAddressSheet, setShowAddressSheet] = useState<boolean>(false);
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [totalWalletBalance, setTotalWalletBalance] = useState<number>(0);
 
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
@@ -119,7 +120,12 @@ const Checkout = () => {
           },
         },
       );
-      setWalletBalance(response.data?.balance);
+      console.log("wallet ", response.data);
+
+      setWalletBalance(
+        response.data?.availableBalance || response.data?.balance,
+      );
+      setTotalWalletBalance(response.data?.balance);
     } catch (e) {
       console.log("error fetching buyer wallet balance ", e);
     }
@@ -223,8 +229,6 @@ const Checkout = () => {
   };
 
   const getShippingFee = async () => {
-    console.log(cart[0]?.weight);
-
     const payload = cart?.map((ct: any) => {
       return {
         pickUpState:

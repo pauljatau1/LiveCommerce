@@ -317,7 +317,7 @@ const Profile = () => {
       );
       setProfile(response.data);
     } catch (error) {
-      console.error("Error fetching blips:", error);
+      console.error("Error fetching user profile:", error);
     }
   }, []);
 

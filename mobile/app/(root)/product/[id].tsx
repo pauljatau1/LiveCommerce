@@ -9,7 +9,13 @@ import {
   Platform,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { router, useGlobalSearchParams } from "expo-router";
 import { useGetSingleProductQuery } from "@/services/products";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -33,12 +39,13 @@ import { toast } from "@/core/toast";
 import moment from "moment";
 import { useIsFocused } from "@react-navigation/native";
 import { formatNumber, getProductSpecifications } from "@/helpers/helpers";
-import { getToken, getUser } from "@/store/features/auth/utils";
+import { getToken, getUser, setToken } from "@/store/features/auth/utils";
 import AuthSheet from "@/components/auth/authSheet";
 import CheckoutNow from "@/components/blips/checkoutNow";
 import { initializeSocket } from "@/core/sockets";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import AuctionRulesSheet from "@/components/product/auctionRulesSheet";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -89,14 +96,32 @@ const ProductDescription = () => {
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
   const [auctionData, setAuctionData] = useState<any>();
-  const [activeSocket, setActiveSocket] = useState<any>();
+  const [showRules, setShowRules] = useState<boolean>(false);
+  const [shippingFee, setShippingFee] = useState<any>();
+
+  const handleCloseRules = useCallback(() => {
+    setShowRules(false);
+  }, []);
 
   const getUserInfo = async () => {
-    const user = await getUser();
     const token = await getToken();
-
-    setUser(user);
-    setUserToken(token);
+    if (!token) {
+      return setShowAuthSheet(true);
+    }
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/profile`,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setUser(response.data);
+      setToken(token);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
   };
 
   const getSellerInfo = async (sellerId: string) => {
@@ -107,6 +132,47 @@ const ProductDescription = () => {
       setSellerInfo(response.data);
     } catch (e) {
       console.log(e);
+    }
+  };
+
+  const getShippingFee = async () => {
+    const payload = [
+      {
+        pickUpState:
+          sellerInfo?.warehouseDetails?.state ||
+          sellerInfo?.warehouseDetails?.address?.state ||
+          sellerInfo?.warehouse?.address?.state ||
+          sellerInfo?.contactInformation?.sellerAddress?.state ||
+          sellerInfo?.addresses?.sellerAddress?.state ||
+          sellerInfo?.addresses?.warehouseAddress?.state,
+        weight: productDetails?.weight,
+        sellerId: sellerInfo?._id,
+      },
+    ];
+
+    console.log({
+      state: user?.shippingAddresses[0]?.state,
+      pickupLocations: payload,
+    });
+
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + "api/order/delivery-cost",
+        {
+          state: user?.shippingAddresses[0]?.state,
+          pickupLocations: payload,
+        },
+
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setShippingFee(response.data?.totalCost);
+    } catch (e) {
+      console.log("error fetching delivery fee ", e);
     }
   };
 
@@ -235,23 +301,9 @@ const ProductDescription = () => {
     socket.on("connect", () => {
       console.log("Connected to auctions");
     });
-    console.log("user locva", userLocal?._id);
-
-    socket.emit("join", userLocal?._id);
 
     return () => {
       socket.off("connect");
-    };
-  }, []);
-
-  useEffect(() => {
-    socket.on("bid_placed", (data) => {
-      console.log("Bid successfully placed:", data);
-    });
-
-    return () => {
-      socket.off("bid_placed");
-      socket.off("bid_error");
     };
   }, []);
 
@@ -265,12 +317,16 @@ const ProductDescription = () => {
 
       socket.on("auction_data", (data) => {
         setAuctionData(data);
-        console.log("listening to auction data ", data);
+        // console.log("listening to auction data ", data);
       });
 
       socket.on("bid_update", (data) => {
         setAuctionData(data);
         console.log("gotten bid update", data);
+      });
+
+      socket.on("bid_placed", (data) => {
+        console.log("Bid successfully placed:", data);
       });
 
       socket.on("auction_ended", (data) => {
@@ -284,12 +340,14 @@ const ProductDescription = () => {
         socket.off("bid_update");
         socket.off("auction_timer_update");
         socket.off("auction_ended");
+        socket.off("bid_placed");
+        socket.off("bid_error");
       };
     }
   }, [productDetails, id]);
 
   useEffect(() => {
-    refetch();
+    // refetch();
     getUserInfo();
   }, []);
 
@@ -329,9 +387,39 @@ const ProductDescription = () => {
     }
   }, [productDetails]);
 
+  useEffect(() => {
+    if (user?.shippingAddresses?.length > 0 && sellerInfo?._id) {
+      console.log("starting shipping");
+      console.log(user?.shippingAddresses?.length);
+      console.log(sellerInfo?._id);
+
+      getShippingFee();
+    }
+  }, [user, sellerInfo]);
+
+  useEffect(() => {
+    if (shippingFee) {
+      setShowRules(shippingFee);
+    }
+  }, [shippingFee]);
+
   //auction functions
 
   const placeBid = (amount: number) => {
+    if (!user?.wallet?.availableBalance && !shippingFee) {
+      return toast.error("Unable to place bid . Please try again");
+    }
+    if (
+      (user?.wallet?.availableBalance || user?.wallet?.balance) + shippingFee <
+      amount + 500
+    ) {
+      return toast.info("insufficient wallet balance");
+    }
+
+    if (user?.shippingAddresses?.length < 1) {
+      return toast.info("Please add a correct address to bid");
+    }
+
     socket.emit("place_bid", {
       productId: productDetails?._id,
       amount: amount + 500,
@@ -567,10 +655,29 @@ const ProductDescription = () => {
 
                   <View className="py-[20px] px-[18px]">
                     {productDetails?.status == "offline_auction" && (
-                      <View className="flex flex-row items-center justify-between">
-                        <Text className="text-[#fff] text-[8px] font-LexendDecaSemiBold">
-                          {productDetails?.auction?.currentHighestBid?.buyer
-                            ?.firstName || "no current winner"}
+                      <View className="flex flex-row items-center gap-[8px] mb-[10px]">
+                        {auctionData?.currentHighestBid?.buyer?.profileImage
+                          ?.url && (
+                          <Image
+                            source={{
+                              uri: auctionData?.currentHighestBid?.buyer
+                                ?.profileImage?.url,
+                            }}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 10,
+                            }}
+                          />
+                        )}
+
+                        <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
+                          {auctionData?.currentHighestBid?.buyer?.firstName
+                            ? auctionData?.currentHighestBid?.buyer?.firstName +
+                              " " +
+                              auctionData?.currentHighestBid?.buyer?.lastName +
+                              " is winning"
+                            : "no current winner"}
                         </Text>
                       </View>
                     )}
@@ -606,7 +713,7 @@ const ProductDescription = () => {
                         </View>
                         <Text className="text-[11px] text-white font-LexendDecaBold">
                           {productDetails?.status == "offline_auction"
-                            ? `${formatNumber(auctionData?.bids?.length)} bids`
+                            ? `${formatNumber(auctionData?.bids?.length || auctionData?.bidsCount)} bids`
                             : `${formatNumber(productDetails?.stats?.soldCount)} sold`}
                         </Text>
                       </View>
@@ -1053,7 +1160,7 @@ const ProductDescription = () => {
                 Bid ₦
                 {(
                   auctionData?.currentHighestBid?.amount || auctionData?.minBid
-                ).toLocaleString()}
+                )?.toLocaleString()}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -1149,6 +1256,23 @@ const ProductDescription = () => {
         keyboardBehavior="interactive"
       >
         <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={showRules}
+        snapPoints={["30%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowRules(false)}
+        keyboardBehavior="interactive"
+      >
+        <AuctionRulesSheet
+          closeSheet={handleCloseRules}
+          auction={auctionData}
+          shipping={shippingFee}
+        />
       </BottomSheet>
 
       <BottomSheet
