@@ -147,14 +147,9 @@ exports.createStream = async (req, res) => {
       category,
       tags: parsedTags,
       products: products.map(p => ({
-        product: p?.productId,
-        name: p?.name,
-        category: p?.category,
-        images: p?.images,
-        sku: p?.sku,
-        quantity: p?.stock,
-        minBid: p?.minBid,
-        maxBid: p?.maxBid
+        product: p.product,
+        minBid: p.minBid,
+        maxBid: p.maxBid
       })),
       channelName,
       agoraToken: token,
