@@ -268,7 +268,7 @@ const SingleOrder = () => {
                           seller={order.seller}
                           buyer={order.buyer}
                           token={userToken?.toString()}
-                          orderId={order?._id}
+                          orderId={order?.order?._id}
                           conversationId={conversationId?.toString()}
                         />
                       );
@@ -295,7 +295,7 @@ const SingleOrder = () => {
                               userId: order?.buyer?._id || order?.buyer,
                               token: userToken,
                               model: "Seller",
-                              orderId: order?.id || order?._id,
+                              orderId: order?.id || order?.order?._id,
                             },
                           })
                         }
@@ -325,7 +325,7 @@ const SingleOrder = () => {
                                     };
                                   }),
                                 ),
-                                orderId: order?._id,
+                                orderId: order?.order?._id,
                               },
                             })
                           }

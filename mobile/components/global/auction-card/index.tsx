@@ -27,6 +27,9 @@ const AuctionCard = ({ item }: any) => {
         <Text
           className="text-white text-[10px] font-LexendDecaSemiBold  text-normal pt-3"
           numberOfLines={2}
+          style={{
+            height: 40,
+          }}
         >
           {item?.name}
         </Text>

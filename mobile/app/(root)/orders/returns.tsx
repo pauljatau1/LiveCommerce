@@ -182,6 +182,9 @@ const Returns = () => {
       selectedMedia.forEach((image, index) => {
         formData.append(`evidence`, image);
       });
+
+      console.log(formData);
+
       const response = await axios.post(
         process.env.EXPO_PUBLIC_API_URL + `api/returns/request`,
         formData,

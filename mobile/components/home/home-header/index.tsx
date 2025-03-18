@@ -7,7 +7,7 @@ import {
   Pressable,
   Platform,
 } from "react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { icons } from "@/constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -19,12 +19,14 @@ import EvilIcons from "@expo/vector-icons/EvilIcons";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
+import axios from "axios";
 
 const HomeHeader = () => {
   const isFocused = useIsFocused();
   const [cartNumber, setCartNumber] = useState<number>(0);
   const [token, setToken] = useState<string>("");
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
 
   const getAuthUser = async () => {
     const authToken = await getToken();
@@ -36,6 +38,10 @@ const HomeHeader = () => {
   useEffect(() => {
     getAuthUser();
   }, []);
+
+  useEffect(() => {
+    if (isFocused) handleGetNotifications();
+  }, [isFocused]);
 
   const { top } = useSafeAreaInsets();
 
@@ -49,6 +55,25 @@ const HomeHeader = () => {
       return setCartNumber(0);
     }
   }, [isFocused]);
+
+  const handleGetNotifications = async () => {
+    try {
+      const token = await getToken();
+
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/notifications/unread`,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setUnreadNotifications(response.data?.unreadCount);
+      console.log("reading note -> ", response.data?.unreadCount);
+    } catch (error) {
+      console.error("Error fetching more notifications:", error);
+    }
+  };
 
   return (
     <View
@@ -152,6 +177,22 @@ const HomeHeader = () => {
               height: 25,
             }}
           />
+          {unreadNotifications > 0 && (
+            <View
+              className="absolute top-[-12px]"
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: 7,
+                backgroundColor: "#fff",
+                justifyContent: "center",
+                alignItems: "center",
+                right: -4,
+              }}
+            >
+              <View className="bg-[#16783A] w-[10px] h-[10px] rounded-[5px]"></View>
+            </View>
+          )}
           {/* <Text className="text-gray-200 text-[7.554px] font-LexendDeca font-[600] ">
             Notifications
           </Text> */}

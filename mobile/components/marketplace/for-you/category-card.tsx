@@ -1,9 +1,21 @@
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import React from "react";
+import { router } from "expo-router";
 
 const ForYouCategoryCard = ({ item }: any) => {
+  const subCats = item?.subCategories?.map((sub: any) => sub?.name);
   return (
-    <View>
+    <Pressable
+      onPress={() =>
+        router.push({
+          pathname: `/(root)/(tabs)/explore/${item._id}`,
+          params: {
+            name: item.name,
+            subCategories: subCats,
+          },
+        })
+      }
+    >
       <View className="w-[178px] relative h-[214.185px] pr-[8.43px]">
         <Image
           source={{ uri: item?.image?.url }}
@@ -14,7 +26,7 @@ const ForYouCategoryCard = ({ item }: any) => {
       <Text className="text-[12px] font-normal  !text-white font-LexendDecaSemiBold mt-[8.43px]">
         {item.name}
       </Text>
-    </View>
+    </Pressable>
   );
 };
 

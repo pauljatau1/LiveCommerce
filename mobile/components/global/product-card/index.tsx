@@ -98,12 +98,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
         />
       )}
       {/* Product Details */}
-      <View className="gap-[4px]">
-        <Text className="text-white text-[10px] capitalize font-LexendDecaBold  text-normal pt-3">
-          {title?.slice(0, 25)}
+      <View className="">
+        <Text
+          className="text-white text-[10px] capitalize font-LexendDecaBold  text-normal pt-3 h-[40px]"
+          numberOfLines={2}
+        >
+          {title}
         </Text>
         {moreDetails?.discount?.isActive ? (
-          <View className="flex-row items-center gap-[4px] flex-wrap">
+          <View className="flex-row items-center gap-[4px] flex-wrap mb-[4px]">
             <Text className="text-white text-[10px] font-LexendDecaMedium">
               ₦
               {moreDetails?.discount?.isActive
@@ -119,7 +122,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </Text>
           </View>
         ) : (
-          <Text className="text-white font-LexendDecaBold  text-[10px]">
+          <Text className="text-white font-LexendDecaBold  text-[10px] mb-[4px]">
             ₦{price?.toLocaleString()}
           </Text>
         )}

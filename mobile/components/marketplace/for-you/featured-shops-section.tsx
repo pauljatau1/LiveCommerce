@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { FlatList, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { FlatList, View, Text } from "react-native";
 import useCarousel from "@/hooks/useCarousel";
 import SectionHeader from "@/components/global/section-header";
 import FollowCard from "@/components/global/followers-card/followers-card";
@@ -53,6 +53,21 @@ const ForYouFeaturedShopsSection = () => {
     ));
   };
 
+  const renderEmptySellers = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+        }}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Sellers to Follow
+        </Text>
+      </View>
+    );
+  }, [shops]);
+
   useEffect(() => {
     handleGetShops();
   }, []);
@@ -85,6 +100,7 @@ const ForYouFeaturedShopsSection = () => {
           className="pt-[10px]"
           // pagingEnabled
           onScroll={handleScroll}
+          ListEmptyComponent={renderEmptySellers}
           numColumns={2}
           style={{
             justifyContent: "space-between",

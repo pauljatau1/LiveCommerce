@@ -72,14 +72,14 @@ const SpotLight = () => {
             If you get any liveshow we will show you here.
           </Text>
         </View>
-        <Pressable
+        {/* <Pressable
           className="px-[20px] py-[12px] rounded-[6px] bg-[#16783A]"
           onPress={() => router.push("/settings/updateCategories")}
         >
           <Text className="text-white text-[12px] font-LexendDecaSemiBold">
             Add a category
           </Text>
-        </Pressable>
+        </Pressable> */}
       </View>
     );
   }, [spotLight]);

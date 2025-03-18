@@ -398,7 +398,7 @@ const ProductDescription = () => {
   }, [user, sellerInfo]);
 
   useEffect(() => {
-    if (shippingFee) {
+    if (shippingFee && productDetails?.status == "offline_auction") {
       setShowRules(shippingFee);
     }
   }, [shippingFee]);

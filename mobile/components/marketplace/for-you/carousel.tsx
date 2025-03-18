@@ -47,12 +47,12 @@ const Carousel = ({ banners }: { banners: any[] }) => {
           <Text className="font-LexendDecaExtraBold text-[#16783A] uppercase text-[15px] text-center bg-[#121212] p-2 rounded-[2px]">
             {item.description}
           </Text>
-          <View className="flex items-center justify-center w-[120px]">
+          {/* <View className="flex items-center justify-center w-[120px]">
             <CustomButton
               title="Shop now"
               className="mb-4 mt-[18px] !rounded-[8.016px] !text-white text-sm font-LexendDecaBold"
             />
-          </View>
+          </View> */}
         </View>
       </View>
     );
@@ -79,7 +79,7 @@ const Carousel = ({ banners }: { banners: any[] }) => {
         data={banners || data}
         ref={flatlistRef}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item._id || index?.toString()}
         horizontal
         pagingEnabled
         onScroll={handleScroll}
