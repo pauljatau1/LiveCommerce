@@ -183,7 +183,12 @@ const VideoCard = memo(({ item }: { item: any }) => {
   return (
     <Pressable
       className=" bg-black rounded-[8px] w-[100%] h-[250px]"
-      onPress={() => setModalVisible(true)}
+      onPress={() =>
+        router.push({
+          pathname: "/singleBlip",
+          params: { id: item?._id, blipId: item?.blipId },
+        })
+      }
     >
       <Image
         source={{ uri: item.images }}

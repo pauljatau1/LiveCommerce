@@ -57,8 +57,28 @@ export function formatTimeFromNow(dateString) {
   const minutes = duration.minutes();
   const seconds = duration.seconds();
 
-  // Format the result as "Xd:Yh:Zm:As"
-  return `${days}d:${hours}h:${minutes}m:${seconds}s`;
+  // Build the formatted string conditionally
+  let formattedTime = "";
+
+  if (days > 0) {
+    formattedTime += `${days}d:`;
+  }
+  if (hours > 0 || formattedTime !== "") {
+    formattedTime += `${hours}h:`;
+  }
+  if (minutes > 0 || formattedTime !== "") {
+    formattedTime += `${minutes}m:`;
+  }
+  if (seconds > 0 || formattedTime !== "") {
+    formattedTime += `${seconds}s`;
+  }
+
+  // Remove trailing colon if present
+  if (formattedTime.endsWith(":")) {
+    formattedTime = formattedTime.slice(0, -1);
+  }
+
+  return formattedTime || "0s"; // Return '0s' if no time is remaining
 }
 
 export function timeFromNow(timestamp) {

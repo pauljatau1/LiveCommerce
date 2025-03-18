@@ -289,6 +289,15 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+
+      <Stack.Screen
+        name="singleBlip/index"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 };

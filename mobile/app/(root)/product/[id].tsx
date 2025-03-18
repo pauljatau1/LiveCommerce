@@ -36,6 +36,9 @@ import { formatNumber, getProductSpecifications } from "@/helpers/helpers";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import AuthSheet from "@/components/auth/authSheet";
 import CheckoutNow from "@/components/blips/checkoutNow";
+import { initializeSocket } from "@/core/sockets";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -45,6 +48,10 @@ configureReanimatedLogger({
 const { width, height } = Dimensions.get("window");
 
 const ProductDescription = () => {
+  const token = useSelector((state: RootState) => state.authState.token);
+  const userLocal = useSelector((state: RootState) => state.authState.user);
+  const socket = initializeSocket(token);
+  socket.connect();
   const isFocused = useIsFocused();
   const scrollViewRef = useRef<ScrollView>(null);
   const { id } = useGlobalSearchParams();
@@ -81,13 +88,13 @@ const ProductDescription = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
-  useEffect(() => {
-    setProductDetails(product);
-  }, [id, product]);
+  const [auctionData, setAuctionData] = useState<any>();
+  const [activeSocket, setActiveSocket] = useState<any>();
 
   const getUserInfo = async () => {
     const user = await getUser();
     const token = await getToken();
+
     setUser(user);
     setUserToken(token);
   };
@@ -214,8 +221,6 @@ const ProductDescription = () => {
     setProductSpecifications(specs);
   };
 
-  const handleBuyNow = () => {};
-
   const formattedStoreName = useMemo(() => {
     return (
       sellerInfo?.storeName ||
@@ -225,6 +230,75 @@ const ProductDescription = () => {
       sellerInfo?.businessInfo?.businessName
     );
   }, [sellerInfo]);
+
+  useEffect(() => {
+    socket.on("connect", () => {
+      console.log("Connected to auctions");
+    });
+    console.log("user locva", userLocal?._id);
+
+    socket.emit("join", userLocal?._id);
+
+    return () => {
+      socket.off("connect");
+    };
+  }, []);
+
+  useEffect(() => {
+    socket.on("bid_placed", (data) => {
+      console.log("Bid successfully placed:", data);
+    });
+
+    return () => {
+      socket.off("bid_placed");
+      socket.off("bid_error");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (productDetails?._id) {
+      socket.emit("join_auction", productDetails?._id);
+
+      socket.on("bid_error", (error) => {
+        console.log("Bid error:", error);
+      });
+
+      socket.on("auction_data", (data) => {
+        setAuctionData(data);
+        console.log("listening to auction data ", data);
+      });
+
+      socket.on("bid_update", (data) => {
+        setAuctionData(data);
+        console.log("gotten bid update", data);
+      });
+
+      socket.on("auction_ended", (data) => {
+        // Handle auction end
+      });
+      return () => {
+        console.log("leaving");
+
+        socket.emit("leave_auction", productDetails?._id);
+        socket.off("auction_data");
+        socket.off("bid_update");
+        socket.off("auction_timer_update");
+        socket.off("auction_ended");
+      };
+    }
+  }, [productDetails, id]);
+
+  useEffect(() => {
+    refetch();
+    getUserInfo();
+  }, []);
+
+  useEffect(() => {
+    setProductDetails(product);
+    if (product?.auction) {
+      setAuctionData(product?.auction);
+    }
+  }, [id, product]);
 
   useEffect(() => {
     if (isFocused) {
@@ -255,9 +329,15 @@ const ProductDescription = () => {
     }
   }, [productDetails]);
 
-  useEffect(() => {
-    getUserInfo();
-  }, []);
+  //auction functions
+
+  const placeBid = (amount: number) => {
+    socket.emit("place_bid", {
+      productId: productDetails?._id,
+      amount: amount + 500,
+    });
+    console.log("placedBid ", amount);
+  };
 
   const renderContent = (row: any[]) => {
     return (
@@ -489,8 +569,8 @@ const ProductDescription = () => {
                     {productDetails?.status == "offline_auction" && (
                       <View className="flex flex-row items-center justify-between">
                         <Text className="text-[#fff] text-[8px] font-LexendDecaSemiBold">
-                          {productDetails?.auction?.currentHighestBid?.buyer ||
-                            "no current winner"}
+                          {productDetails?.auction?.currentHighestBid?.buyer
+                            ?.firstName || "no current winner"}
                         </Text>
                       </View>
                     )}
@@ -526,7 +606,7 @@ const ProductDescription = () => {
                         </View>
                         <Text className="text-[11px] text-white font-LexendDecaBold">
                           {productDetails?.status == "offline_auction"
-                            ? `${formatNumber(productDetails?.auction?.bids?.length)} bids`
+                            ? `${formatNumber(auctionData?.bids?.length)} bids`
                             : `${formatNumber(productDetails?.stats?.soldCount)} sold`}
                         </Text>
                       </View>
@@ -963,13 +1043,16 @@ const ProductDescription = () => {
                 backgroundColor: "#16783A",
                 minWidth: 130,
               }}
-              onPress={() => {}}
+              onPress={() => {
+                placeBid(
+                  auctionData?.currentHighestBid?.amount || auctionData?.minBid,
+                );
+              }}
             >
               <Text className="text-[10px] text-white font-LexendDecaSemiBold">
                 Bid ₦
                 {(
-                  productDetails?.auction?.currentHighestBid?.amount ||
-                  productDetails?.auction?.minBid
+                  auctionData?.currentHighestBid?.amount || auctionData?.minBid
                 ).toLocaleString()}
               </Text>
             </TouchableOpacity>

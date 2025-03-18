@@ -16,6 +16,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { FlatList, TextInput } from "react-native-gesture-handler";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
+import { ActivityIndicator } from "react-native-paper";
 
 const ProfileStats = () => {
   const { username, activeTab } = useLocalSearchParams();
@@ -30,6 +31,7 @@ const ProfileStats = () => {
   const [filteredfollowing, setfilteredFollowing] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [fetching, setFetching] = useState<boolean>(false);
+  const [followLoading, setFollowLoading] = useState<string>("");
   const [page, setPage] = useState<number>(1);
 
   const handleGetFollowers = async () => {
@@ -92,6 +94,42 @@ const ProfileStats = () => {
     setfilteredfollowers(filteredFollowers);
   };
 
+  const handleFollow = async (action: string, item: any) => {
+    let method = "";
+    if (action == "follow") {
+      method = "POST";
+    } else {
+      method = "DELETE";
+    }
+    setFollowLoading(item.id);
+    const token = await getToken();
+    const config = {
+      url: process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${item?.id}`,
+      method,
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+      data: {},
+    };
+    try {
+      const response = await axios(config);
+      console.log("follow from profile ", response.data);
+      if (action == "follow") {
+        setFollowingCount((followingCount || 0) + 1);
+        setfilteredFollowing([...following, item]);
+      } else {
+        setFollowingCount((followingCount || 1) - 1);
+        setfilteredFollowing(
+          following?.filter((fol: any) => fol?.id !== item?.id),
+        );
+      }
+    } catch (error) {
+      console.error("Error following seller:", error);
+    } finally {
+      setFollowLoading("");
+    }
+  };
+
   useEffect(() => {
     handleGetFollowers();
     handleGetFollowing();
@@ -111,16 +149,39 @@ const ProfileStats = () => {
           </View>
           <Pressable
             className="w-[100px] items-center justify-center rounded-[6px] border-[#16783A] border-[1px]"
-            style={{ paddingVertical: 7.5, width: 100 }}
+            style={{
+              height: 31,
+              paddingVertical: 7.5,
+              width: 100,
+              backgroundColor: filteredfollowing?.some(
+                (fol: any) => fol?.id == item?.id,
+              )
+                ? "#121212"
+                : "#16783A",
+            }}
+            onPress={() =>
+              handleFollow(
+                filteredfollowing?.some((fol: any) => fol?.id == item?.id)
+                  ? "unfollow"
+                  : "follow",
+                item,
+              )
+            }
           >
             <Text className="text-white font-LexendDeca text-[10px]">
-              Following
+              {followLoading && followLoading == item?.id ? (
+                <ActivityIndicator size={10} color="#fff" />
+              ) : filteredfollowing?.some((fol: any) => fol?.id == item?.id) ? (
+                "Following"
+              ) : (
+                "Follow"
+              )}
             </Text>
           </Pressable>
         </View>
       );
     },
-    [selectedTab],
+    [selectedTab, filteredfollowing, filteredfollowers, followLoading],
   );
 
   return (

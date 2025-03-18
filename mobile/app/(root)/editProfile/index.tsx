@@ -25,11 +25,14 @@ import BottomSheet from "@/components/global/bottom-sheet";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import LoadingModal from "@/components/global/loading-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { setUserData } from "@/store/features/auth/authSlice";
+import { useDispatch } from "react-redux";
 
 const { width, height } = Dimensions.get("window");
 const offset = 20;
 
 const EditProfile = () => {
+  const dispatch = useDispatch();
   const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
   const { avatar, username, bio, email, phoneNumber, firstName, lastName } =
     useLocalSearchParams();
@@ -107,10 +110,17 @@ const EditProfile = () => {
       const user = await getUser();
       console.log(response.data);
 
-      await setUser({
-        ...user,
-        profileImage: { url: response.data.buyer?.profileImage?.url },
-      });
+      // await setUser({
+      //   ...user,
+      //   profileImage: { url: response.data.buyer?.profileImage?.url },
+      // });
+
+      dispatch(
+        setUserData({
+          ...user,
+          profileImage: { url: response.data.buyer?.profileImage?.url },
+        }),
+      );
       updateProfile();
     } catch (e) {
       console.log("error updating avatar", e);
@@ -146,6 +156,13 @@ const EditProfile = () => {
         ...user,
         ...payload,
       });
+
+      dispatch(
+        setUserData({
+          ...user,
+          ...payload,
+        }),
+      );
       router.back();
 
       setLoading(false);

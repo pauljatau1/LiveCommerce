@@ -26,7 +26,7 @@ const ForYouTrendingSection = () => {
           <ActivityIndicator size={"small"} color={"16783A"} />
         ) : (
           <FlatList
-            data={products.data}
+            data={products?.data}
             renderItem={({ item: row }) => (
               <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
                 <ProductCard

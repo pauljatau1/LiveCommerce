@@ -117,6 +117,7 @@ const Blips = () => {
         price: item.price,
         image: item.images,
       }}
+      singularBlip={false}
     />
   );
 

@@ -188,7 +188,7 @@ const FavouriteExplore = ({ category }: any) => {
       >
         <ExploreFilterSheet
           selectFilterType={handleSelectFilterType}
-          currentSelection={liveFilter}
+          currentSelection={{ condition: liveFilter }}
         />
       </BottomSheet>
     </View>

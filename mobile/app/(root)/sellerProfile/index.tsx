@@ -21,7 +21,7 @@ import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AllPostsList from "@/components/profile/myPostsList";
-import { router, useLocalSearchParams } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Image } from "expo-image";
 import { getToken, getUser } from "@/store/features/auth/utils";
@@ -176,6 +176,72 @@ const CollapsibleHeader = memo(
               <Text style={styles.infoBubbleText}>Lagos, Nigeria</Text>
             </View>
           </View>
+          {seller?.storeInfo?.socialMedia?.instagram ||
+          seller?.storeInfo?.socialMedia?.facebook ||
+          seller?.storeInfo?.socialMedia?.tiktok ? (
+            <View style={styles.socialContainer}>
+              {seller?.storeInfo?.socialMedia?.facebook && (
+                <Link
+                  href={`${seller?.storeInfo?.socialMedia?.facebook}`}
+                  style={{ flexBasis: "33%", flexShrink: 1 }}
+                >
+                  <View
+                    style={[
+                      styles.socialCard,
+                      { borderColor: "#1966F7", borderWidth: 1 },
+                    ]}
+                  >
+                    <Image
+                      source={require("../../../assets/icons/facebook-logo.png")}
+                      contentFit="contain"
+                      style={{
+                        width: 14,
+                        height: 14,
+                      }}
+                    />
+                    <Text style={styles.socialText}>Facebook</Text>
+                  </View>
+                </Link>
+              )}
+              {seller?.storeInfo?.socialMedia?.instagram && (
+                <Link
+                  href={`${seller?.storeInfo?.socialMedia?.instagram}`}
+                  style={{ flexBasis: "33%", flexShrink: 1 }}
+                >
+                  <View style={[styles.socialCard]}>
+                    <Image
+                      source={require("../../../assets/icons/instagram-logo.png")}
+                      contentFit="contain"
+                      style={{
+                        width: 14,
+                        height: 14,
+                      }}
+                    />
+                    <Text style={styles.socialText}>Instagram</Text>
+                  </View>
+                </Link>
+              )}
+              {seller?.storeInfo?.socialMedia?.tiktok && (
+                <Link
+                  href={`${seller?.storeInfo?.socialMedia?.tiktok}`}
+                  style={{ flexBasis: "33%", flexShrink: 1 }}
+                >
+                  <View style={[styles.socialCard]}>
+                    <Image
+                      source={require("../../../assets/icons/tiktok-logo.png")}
+                      contentFit="contain"
+                      style={{
+                        width: 14,
+                        height: 14,
+                      }}
+                    />
+                    <Text style={styles.socialText}>Tiktok</Text>
+                  </View>
+                </Link>
+              )}
+            </View>
+          ) : null}
+
           <View style={styles.statsContainer}>
             <View style={styles.stat}>
               <Text style={styles.statValue}>
@@ -200,10 +266,15 @@ const CollapsibleHeader = memo(
               <Text style={styles.statLabel}>Followers</Text>
             </View>
           </View>
-          <Text style={styles.bio}>
+          <Text style={styles.bio} numberOfLines={3}>
             {seller?.storeInfo?.aboutStore?.slice(0, 170)}
           </Text>
-          <View style={styles.policyContainer}>
+          <View
+            style={[
+              styles.policyContainer,
+              { position: "absolute", bottom: 2 },
+            ]}
+          >
             <View style={[styles.policyCard, { backgroundColor: "#DEFFEE" }]}>
               <Feather name="truck" size={14} color="black" />
               <View style={styles.policyText}>
@@ -671,7 +742,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 8,
-    paddingVertical: 20,
+    paddingVertical: 15,
     gap: 10,
     flexWrap: "wrap",
   },
@@ -699,7 +770,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 15,
   },
   stat: {
     borderRightColor: "rgba(255, 255, 255, 0.16)",
@@ -724,7 +795,7 @@ const styles = StyleSheet.create({
     color: "#ccc",
     fontFamily: "LexendDeca",
     fontSize: 12,
-    marginBottom: 20,
+    marginBottom: 15,
   },
   policyContainer: {
     flexDirection: "row",
@@ -755,6 +826,34 @@ const styles = StyleSheet.create({
     color: "#3A3A3A",
     fontSize: 8,
     fontFamily: "LexendDeca",
+  },
+  socialContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 32,
+    marginBottom: 15,
+    // flexWrap: "wrap",
+  },
+  socialCard: {
+    borderRadius: 6,
+    padding: 4,
+    paddingVertical: 8,
+    gap: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 80,
+    // flexBasis: "50%",
+    width: "100%",
+    borderColor: "#fff",
+    borderWidth: 1,
+  },
+  socialText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontFamily: "LexendDeca-SemiBold",
   },
 });
 

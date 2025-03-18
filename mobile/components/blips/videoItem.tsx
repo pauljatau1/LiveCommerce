@@ -12,6 +12,8 @@ import {
   TouchableWithoutFeedback,
   FlatList,
   KeyboardAvoidingView,
+  Share,
+  Alert,
 } from "react-native";
 import { ResizeMode, Video } from "expo-av";
 import { ActivityIndicator } from "react-native-paper";
@@ -20,7 +22,7 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import Octicons from "@expo/vector-icons/Octicons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, useNavigationState } from "@react-navigation/native";
 import Entypo from "@expo/vector-icons/Entypo";
 import { router } from "expo-router";
 import axios from "axios";
@@ -48,6 +50,7 @@ const VideoItem = ({
   engagement,
   product,
   item,
+  singularBlip = false,
 }: {
   id: string;
   videoUrl: string;
@@ -56,6 +59,7 @@ const VideoItem = ({
   engagement: any;
   product: any;
   item: any;
+  singularBlip: boolean;
 }) => {
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -77,6 +81,28 @@ const VideoItem = ({
   const [following, setFollowing] = useState<boolean>(
     item?.seller?.isFollowing || false,
   );
+
+  const onShare = async () => {
+    try {
+      const result = await Share.share({
+        url:
+          Platform.OS == "android"
+            ? `com.auqli.auqliapp://singleBlip?id=${product?.id}&blipId=${id}`
+            : `com.auqli.app://singleBlip?id=${product?.id}&blipId=${id}`,
+      });
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // shared with activity type of result.activityType
+        } else {
+          // shared
+        }
+      } else if (result.action === Share.dismissedAction) {
+        // dismissed
+      }
+    } catch (error: any) {
+      Alert.alert(error.message);
+    }
+  };
 
   const handlePlaybackStatusUpdate = (status: any) => {
     if (!status.isLoaded) return;
@@ -188,7 +214,7 @@ const VideoItem = ({
   //   };
   // }, []);
 
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = !singularBlip ? useBottomTabBarHeight() : 10;
 
   const handleBuyNow = useCallback(async () => {
     const token = await getToken();
@@ -271,6 +297,14 @@ const VideoItem = ({
           }}
         >
           <View className="flex-row items-center gap-[8px] ">
+            {singularBlip ? (
+              <Pressable
+                onPress={() => router.replace("/blips")}
+                style={styles.buttonShadow}
+              >
+                <Entypo name="chevron-left" size={24} color="#fff" />
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={() =>
                 router.push({
@@ -405,7 +439,10 @@ const VideoItem = ({
               </Text>
             </View>
             <View className="items-center gap-2 max-w-[60px] self-end">
-              <TouchableOpacity className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center">
+              <TouchableOpacity
+                className="bg-[#2E3038] rounded-[8px] h-[40px] w-[40px] items-center justify-center"
+                onPress={onShare}
+              >
                 <Ionicons name="arrow-redo-sharp" size={18} color="#14AE5C" />
               </TouchableOpacity>
               <Text
@@ -555,6 +592,7 @@ const VideoItem = ({
             productId={product.id}
             closeSheet={handleCloseCheckout}
             sellerId={seller._id}
+            channel="marketplace"
           />
         </BottomSheet>
 

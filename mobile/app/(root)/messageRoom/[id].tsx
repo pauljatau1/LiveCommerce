@@ -26,6 +26,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 import * as ImagePicker from "expo-image-picker";
 
 import { io } from "socket.io-client";
+import { initializeSocket } from "../../../core/sockets";
 import { Pressable, TextInput } from "react-native-gesture-handler";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -67,12 +68,13 @@ const MessageRoom = () => {
     isMuted,
     orderId = "",
   } = useLocalSearchParams();
-  const socket = io(process.env.EXPO_PUBLIC_API_URL, {
-    transports: ["websocket"],
-    auth: {
-      token: token,
-    },
-  });
+  // const socket = io(process.env.EXPO_PUBLIC_API_URL, {
+  //   transports: ["websocket"],
+  //   auth: {
+  //     token: token,
+  //   },
+  // });
+  const socket = initializeSocket(token);
   socket.connect();
 
   const [selectedMedia, setSelectedMedia] = useState<any[]>([]);

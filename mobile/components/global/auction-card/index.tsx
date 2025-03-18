@@ -51,7 +51,8 @@ const AuctionCard = ({ item }: any) => {
           </Text>
         </View>
         <Text className="text-[#FFD700] text-[8px] pb-[12.47px] font-LexendDecaSemiBold mt-[2px]">
-          {item?.auction?.currentHighestBid?.buyer || "no current winner"}
+          {item?.auction?.currentHighestBid?.buyer?.firstName ||
+            "no current winner"}
         </Text>
       </View>
       {/* Seller Information */}
