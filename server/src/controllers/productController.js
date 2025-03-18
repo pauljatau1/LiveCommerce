@@ -474,6 +474,191 @@ exports.getProduct = async (req, res) => {
   try {
     console.log('Fetching product with ID:', req.params.id);
 
+    // First find the product to check if it's an auction
+    const productCheck = await Product.findById(req.params.id);
+    
+    if (!productCheck) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // If it's an auction product, we need to populate the buyer fields
+    if (productCheck.status === 'offline_auction') {
+      const product = await Product.findById(req.params.id)
+        .populate({
+          path: 'seller',
+          select: `
+            firstName lastName email phoneNumber businessName 
+            businessType businessEmail businessNumber businessAddress 
+            storeName aboutStore storeAvatar storeBanner 
+            shippingOptions warehouseDetails categories followers
+            isVerified accountType storeVisits products customers
+          `
+        })
+        .populate({
+          path: 'auction.bids.buyer',
+          select: 'firstName lastName profileImage'
+        })
+        .populate({
+          path: 'auction.currentHighestBid.buyer',
+          select: 'firstName lastName profileImage'
+        })
+        .populate({
+          path: 'auction.winner.buyer',
+          select: 'firstName lastName profileImage'
+        });
+      
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+      
+      // Format the product for response
+      const formattedProduct = product.toObject();
+      
+      // Format seller information
+      if (formattedProduct.seller) {
+        formattedProduct.seller = {
+          _id: formattedProduct.seller._id,
+          personalInfo: {
+            firstName: formattedProduct.seller.firstName,
+            lastName: formattedProduct.seller.lastName,
+            email: formattedProduct.seller.email,
+            phoneNumber: formattedProduct.seller.phoneNumber
+          },
+          businessInfo: {
+            businessName: formattedProduct.seller.businessName,
+            businessType: formattedProduct.seller.businessType,
+            businessEmail: formattedProduct.seller.businessEmail,
+            businessNumber: formattedProduct.seller.businessNumber,
+            businessAddress: formattedProduct.seller.businessAddress,
+            taxInformation: formattedProduct.seller.taxInformation
+          },
+          storeInfo: {
+            storeName: formattedProduct.seller.storeName,
+            aboutStore: formattedProduct.seller.aboutStore,
+            storeAvatar: formattedProduct.seller.storeAvatar,
+            storeBanner: formattedProduct.seller.storeBanner,
+            categories: formattedProduct.seller.categories,
+            followerCount: formattedProduct.seller.followers ? formattedProduct.seller.followers.length : 0
+          },
+          shippingInfo: {
+            shippingOptions: formattedProduct.seller.shippingOptions,
+            warehouseDetails: formattedProduct.seller.warehouseDetails
+          },
+          addresses: {
+            businessAddress: formattedProduct.seller.businessAddress,
+            warehouseAddress: formattedProduct.seller.warehouseDetails?.address,
+            sellerAddress: formattedProduct.seller.sellerAddress
+          },
+          verification: {
+            isVerified: formattedProduct.seller.isVerified,
+            accountType: formattedProduct.seller.accountType
+          },
+          stats: {
+            storeVisits: formattedProduct.seller.storeVisits || 0,
+            totalProducts: formattedProduct.seller.products ? formattedProduct.seller.products.length : 0,
+            totalCustomers: formattedProduct.seller.customers ? formattedProduct.seller.customers.length : 0
+          }
+        };
+      }
+      
+      // Format auction data
+      if (formattedProduct.auction) {
+        // Format bids
+        if (formattedProduct.auction.bids) {
+          formattedProduct.auction.bids = formattedProduct.auction.bids.map(bid => ({
+            _id: bid._id,
+            buyer: bid.buyer ? {
+              _id: bid.buyer._id,
+              firstName: bid.buyer.firstName,
+              lastName: bid.buyer.lastName,
+              profileImage: bid.buyer.profileImage
+            } : bid.buyer,
+            amount: bid.amount,
+            status: bid.status,
+            createdAt: bid.createdAt
+          }));
+        }
+        
+        // Format current highest bid
+        if (formattedProduct.auction.currentHighestBid && formattedProduct.auction.currentHighestBid.buyer) {
+          formattedProduct.auction.currentHighestBid = {
+            amount: formattedProduct.auction.currentHighestBid.amount,
+            buyer: {
+              _id: formattedProduct.auction.currentHighestBid.buyer._id,
+              firstName: formattedProduct.auction.currentHighestBid.buyer.firstName,
+              lastName: formattedProduct.auction.currentHighestBid.buyer.lastName,
+              profileImage: formattedProduct.auction.currentHighestBid.buyer.profileImage
+            }
+          };
+        }
+        
+        // Format winner
+        if (formattedProduct.auction.winner && formattedProduct.auction.winner.buyer) {
+          formattedProduct.auction.winner = {
+            bidAmount: formattedProduct.auction.winner.bidAmount,
+            winningDate: formattedProduct.auction.winner.winningDate,
+            buyer: {
+              _id: formattedProduct.auction.winner.buyer._id,
+              firstName: formattedProduct.auction.winner.buyer.firstName,
+              lastName: formattedProduct.auction.winner.buyer.lastName,
+              profileImage: formattedProduct.auction.winner.buyer.profileImage
+            }
+          };
+        }
+      }
+      
+      // Add inventory information
+      formattedProduct.inventory = {
+        currentStock: formattedProduct.stock,
+        lowStockAlert: formattedProduct.lowStockAlert,
+        sku: formattedProduct.sku,
+        quantity: formattedProduct.inventory?.quantity || 0,
+        lowStockThreshold: formattedProduct.inventory?.lowStockThreshold || 5
+      };
+      
+      // Add pricing information
+      formattedProduct.pricing = {
+        originalPrice: formattedProduct.price,
+        discountInfo: formattedProduct.discount,
+        taxable: formattedProduct.pricing?.taxable || true,
+        taxRate: formattedProduct.pricing?.taxRate || 0
+      };
+      
+      // Add shipping information
+      formattedProduct.shippingDetails = {
+        weight: formattedProduct.shippingInfo?.weight || null,
+        dimensions: formattedProduct.shippingInfo?.dimensions || null,
+        methods: formattedProduct.shippingInfo?.shippingMethods || []
+      };
+      
+      // Increment view count
+      await Product.findByIdAndUpdate(req.params.id, {
+        $inc: { 'stats.views': 1 },
+        $set: { 'stats.lastViewed': new Date() }
+      });
+      
+      // Update seller stats
+      const seller = await Seller.findById(formattedProduct.seller._id);
+      if (seller) {
+        // Increment total store visits
+        seller.storeVisits = (seller.storeVisits || 0) + 1;
+  
+        // Update monthly stats for store visits
+        const currentDate = new Date();
+        const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+  
+        // Get current month's visits or initialize to 0
+        const currentMonthVisits = seller.monthlyStats.storeVisits.get(monthKey) || 0;
+        seller.monthlyStats.storeVisits.set(monthKey, currentMonthVisits + 1);
+  
+        await seller.save();
+      }
+      
+      console.log('Auction product retrieved successfully');
+      return res.json(formattedProduct);
+    }
+    
+    // For non-auction products, use the existing aggregation pipeline
     const product = await Product.aggregate([
       {
         $match: {
