@@ -276,9 +276,9 @@ function initializeSocket(server) {
           })
           .populate({
             path: 'seller',
-            select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
+            select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt'
           })
-          .select('name description price images category subCategory subSubCategory brand modelNumber seller status auction inventory shippingInfo returnPolicy stats tags colors size material weight dimensions shippingWeight shippingDimensions warranty minimumPurchaseQuantity vendor metaDescription metaKeywords reviews logistics warehouseLocation createdAt updatedAt');
+          .select('name description price category subCategory brand images blips stock shippingInfo returnPolicy stats sku upc condition tags colors size material weight dimensions shippingWeight shippingDimensions taxClass taxRate warranty minimumPurchaseQuantity vendor metaDescription metaKeywords reviews logistics warehouseLocation status createdAt updatedAt inventory variants pricing shipping seo visibility analytics auction');
 
         if (product && product.status === 'offline_auction') {
           // Calculate time remaining
@@ -312,18 +312,18 @@ function initializeSocket(server) {
             name: product.name,
             description: product.description,
             price: product.price,
-            images: product.images,
             category: product.category,
             subCategory: product.subCategory,
-            subSubCategory: product.subSubCategory,
             brand: product.brand,
-            modelNumber: product.modelNumber,
-            seller: product.seller,
-            status: product.status,
-            inventory: product.inventory,
+            images: product.images,
+            blips: product.blips,
+            stock: product.stock,
             shippingInfo: product.shippingInfo,
             returnPolicy: product.returnPolicy,
             stats: product.stats,
+            sku: product.sku,
+            upc: product.upc,
+            condition: product.condition,
             tags: product.tags,
             colors: product.colors,
             size: product.size,
@@ -332,6 +332,8 @@ function initializeSocket(server) {
             dimensions: product.dimensions,
             shippingWeight: product.shippingWeight,
             shippingDimensions: product.shippingDimensions,
+            taxClass: product.taxClass,
+            taxRate: product.taxRate,
             warranty: product.warranty,
             minimumPurchaseQuantity: product.minimumPurchaseQuantity,
             vendor: product.vendor,
@@ -340,38 +342,44 @@ function initializeSocket(server) {
             reviews: product.reviews,
             logistics: product.logistics,
             warehouseLocation: product.warehouseLocation,
+            status: product.auction.status,
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
-            auction: {
-              status: product.auction.status,
-              minBid: product.auction.minBid,
-              maxBid: product.auction.maxBid,
-              endOnMaxBid: product.auction.endOnMaxBid,
-              startDate: product.auction.startDate,
-              endDate: product.auction.endDate,
-              timeRemaining: timeRemaining,
-              bids: formattedBids,
-              bidsCount: formattedBids?.length,
-              currentHighestBid: product.auction.currentHighestBid ? {
-                amount: product.auction.currentHighestBid.amount,
-                buyer: product.auction.currentHighestBid.buyer ? {
-                  _id: product.auction.currentHighestBid.buyer._id,
-                  firstName: product.auction.currentHighestBid.buyer.firstName,
-                  lastName: product.auction.currentHighestBid.buyer.lastName,
-                  profileImage: product.auction.currentHighestBid.buyer.profileImage
-                } : null
-              } : null,
-              winner: product.auction.winner ? {
-                buyer: product.auction.winner.buyer ? {
-                  _id: product.auction.winner.buyer._id,
-                  firstName: product.auction.winner.buyer.firstName,
-                  lastName: product.auction.winner.buyer.lastName,
-                  profileImage: product.auction.winner.buyer.profileImage
-                } : null,
-                bidAmount: product.auction.winner.bidAmount,
-                winningDate: product.auction.winner.winningDate
+            inventory: product.inventory,
+            variants: product.variants,
+            pricing: product.pricing,
+            shipping: product.shipping,
+            seo: product.seo,
+            visibility: product.visibility,
+            analytics: product.analytics,
+            seller: product.seller,
+            minBid: product.auction.minBid,
+            maxBid: product.auction.maxBid,
+            endOnMaxBid: product.auction.endOnMaxBid,
+            startDate: product.auction.startDate,
+            endDate: product.auction.endDate,
+            timeRemaining: timeRemaining,
+            bids: formattedBids,
+            bidsCount: formattedBids?.length,
+            currentHighestBid: product.auction.currentHighestBid ? {
+              amount: product.auction.currentHighestBid.amount,
+              buyer: product.auction.currentHighestBid.buyer ? {
+                _id: product.auction.currentHighestBid.buyer._id,
+                firstName: product.auction.currentHighestBid.buyer.firstName,
+                lastName: product.auction.currentHighestBid.buyer.lastName,
+                profileImage: product.auction.currentHighestBid.buyer.profileImage
               } : null
-            },
+            } : null,
+            winner: product.auction.winner ? {
+              buyer: product.auction.winner.buyer ? {
+                _id: product.auction.winner.buyer._id,
+                firstName: product.auction.winner.buyer.firstName,
+                lastName: product.auction.winner.buyer.lastName,
+                profileImage: product.auction.winner.buyer.profileImage
+              } : null,
+              bidAmount: product.auction.winner.bidAmount,
+              winningDate: product.auction.winner.winningDate
+            } : null,
             watchersCount: auctionWatchers.get(productId).size
           });
 
