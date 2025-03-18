@@ -17,6 +17,20 @@ const chatInteractionSchema = new mongoose.Schema({
   }
 });
 
+// Define product data schema to store directly
+const productDataSchema = new mongoose.Schema({
+  productId: { type: String },
+  name: { type: String },
+  category: { type: String },
+  images: [{
+    url: { type: String },
+    _id: { type: String },
+    id: { type: String }
+  }],
+  sku: { type: String },
+  quantity: { type: Number },
+}, { _id: false });
+
 const streamSchema = new mongoose.Schema({
   seller: {
     type: mongoose.Schema.Types.ObjectId,
@@ -43,10 +57,16 @@ const streamSchema = new mongoose.Schema({
   tags: [String],
   products: [{
     product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
-      required: true
+      type: mongoose.Schema.Types.Mixed,
+      required: true,
+      refPath: 'products.productType'
     },
+    productType: {
+      type: String,
+      enum: ['ObjectId', 'ProductData'],
+      default: 'ObjectId'
+    },
+    productData: productDataSchema,
     minBid: {
       type: Number,
       required: function() {
