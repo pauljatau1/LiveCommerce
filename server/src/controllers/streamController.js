@@ -146,7 +146,16 @@ exports.createStream = async (req, res) => {
       video: videoData,
       category,
       tags: parsedTags,
-      products: products,
+      products: products.map(p => ({
+        product: p?.productId,
+        name: p?.name,
+        category: p?.category,
+        images: p?.images,
+        sku: p?.sku,
+        quantity: p?.stock,
+        minBid: p?.minBid,
+        maxBid: p?.maxBid
+      })),
       channelName,
       agoraToken: token,
       agoraUid: seller.agoraUid,
