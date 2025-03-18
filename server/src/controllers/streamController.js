@@ -138,34 +138,6 @@ exports.createStream = async (req, res) => {
     const token = agoraService.generateToken(channelName, seller.agoraUid);
     console.log('create stream uid', seller.agoraUid);
 
-    // Process products - handle both formats
-    const processedProducts = products.map(p => {
-      if (p.product && typeof p.product === 'object' && p.product.productId) {
-        // Product is an object with product data
-        return {
-          productType: 'ProductData',
-          productData: {
-            productId: p.product.productId,
-            name: p.product.name,
-            category: p.product.category,
-            images: p.product.images,
-            sku: p.product.sku,
-            quantity: p.product.quantity,
-          },
-          minBid: p.minBid,
-          maxBid: p.maxBid
-        };
-      } else {
-        // Product is just an ID reference
-        return {
-          productType: 'ObjectId',
-          product: p.product,
-          minBid: p.minBid,
-          maxBid: p.maxBid
-        };
-      }
-    });
-
     const stream = new Stream({
       seller: req.user.id,
       title,
@@ -174,7 +146,11 @@ exports.createStream = async (req, res) => {
       video: videoData,
       category,
       tags: parsedTags,
-      products: processedProducts,
+      products: products.map(p => ({
+        product: p.product,
+        minBid: p.minBid,
+        maxBid: p.maxBid
+      })),
       channelName,
       agoraToken: token,
       agoraUid: seller.agoraUid,
@@ -188,6 +164,7 @@ exports.createStream = async (req, res) => {
     const populatedStream = await Stream.findById(stream._id)
       .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price');
+
 
     res.status(201).json({
       message: 'Stream created successfully',
