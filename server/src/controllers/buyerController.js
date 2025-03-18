@@ -2389,21 +2389,35 @@ const generatePaymentReference = () => {
 // Get wallet balance
 exports.getWalletBalance = async (req, res) => {
   try {
-    const buyer = await Buyer.findById(req.user.id);
+    const buyer = await Buyer.findById(req.user.id)
+      .populate('wallet.onHoldItems.productId', 'name images auction.status auction.endDate');
+    
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
+    // Format on-hold items for better frontend display
+    const formattedOnHoldItems = buyer.wallet.onHoldItems.map(item => ({
+      productId: item.productId._id,
+      productName: item.productId.name,
+      productImage: item.productId.images && item.productId.images.length > 0 ? 
+        item.productId.images[0].url : null,
+      amount: item.amount,
+      bidDate: item.bidDate,
+      auctionStatus: item.productId.auction?.status,
+      auctionEndDate: item.productId.auction?.endDate
+    }));
+
     res.status(200).json({
       balance: buyer.wallet.balance,
+      onHoldAmount: buyer.wallet.onHoldAmount,
+      availableBalance: buyer.wallet.balance - buyer.wallet.onHoldAmount,
+      onHoldItems: formattedOnHoldItems,
       currency: buyer.wallet.currency
     });
   } catch (error) {
-    console.error('Get wallet balance error:', error);
-    res.status(500).json({
-      message: 'Failed to get wallet balance',
-      error: error.message
-    });
+    console.error('Error getting wallet balance:', error);
+    res.status(500).json({ message: 'Failed to get wallet balance', error: error.message });
   }
 };
 
