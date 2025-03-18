@@ -259,7 +259,15 @@ exports.createProduct = async (req, res) => {
       });
 
       // Schedule auction end
-      await agenda.schedule(newProduct.auction.endDate, 'end-auction', {
+      await agenda.schedule(newProduct.auction.endDate, 'update-auction-status', {
+        productId: newProduct._id,
+        newStatus: 'ended'
+      });
+      
+      // Also schedule the order creation job to run a minute after the auction ends
+      // This ensures the auction is fully ended and the winner is saved before creating the order
+      const orderCreationTime = new Date(newProduct.auction.endDate.getTime() + 60000); // 1 minute after end
+      await agenda.schedule(orderCreationTime, 'create-auction-winner-order', {
         productId: newProduct._id
       });
     }
@@ -466,6 +474,191 @@ exports.getProduct = async (req, res) => {
   try {
     console.log('Fetching product with ID:', req.params.id);
 
+    // First find the product to check if it's an auction
+    const productCheck = await Product.findById(req.params.id);
+    
+    if (!productCheck) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // If it's an auction product, we need to populate the buyer fields
+    if (productCheck.status === 'offline_auction') {
+      const product = await Product.findById(req.params.id)
+        .populate({
+          path: 'seller',
+          select: `
+            firstName lastName email phoneNumber businessName 
+            businessType businessEmail businessNumber businessAddress 
+            storeName aboutStore storeAvatar storeBanner 
+            shippingOptions warehouseDetails categories followers
+            isVerified accountType storeVisits products customers
+          `
+        })
+        .populate({
+          path: 'auction.bids.buyer',
+          select: 'firstName lastName profileImage'
+        })
+        .populate({
+          path: 'auction.currentHighestBid.buyer',
+          select: 'firstName lastName profileImage'
+        })
+        .populate({
+          path: 'auction.winner.buyer',
+          select: 'firstName lastName profileImage'
+        });
+      
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+      
+      // Format the product for response
+      const formattedProduct = product.toObject();
+      
+      // Format seller information
+      if (formattedProduct.seller) {
+        formattedProduct.seller = {
+          _id: formattedProduct.seller._id,
+          personalInfo: {
+            firstName: formattedProduct.seller.firstName,
+            lastName: formattedProduct.seller.lastName,
+            email: formattedProduct.seller.email,
+            phoneNumber: formattedProduct.seller.phoneNumber
+          },
+          businessInfo: {
+            businessName: formattedProduct.seller.businessName,
+            businessType: formattedProduct.seller.businessType,
+            businessEmail: formattedProduct.seller.businessEmail,
+            businessNumber: formattedProduct.seller.businessNumber,
+            businessAddress: formattedProduct.seller.businessAddress,
+            taxInformation: formattedProduct.seller.taxInformation
+          },
+          storeInfo: {
+            storeName: formattedProduct.seller.storeName,
+            aboutStore: formattedProduct.seller.aboutStore,
+            storeAvatar: formattedProduct.seller.storeAvatar,
+            storeBanner: formattedProduct.seller.storeBanner,
+            categories: formattedProduct.seller.categories,
+            followerCount: formattedProduct.seller.followers ? formattedProduct.seller.followers.length : 0
+          },
+          shippingInfo: {
+            shippingOptions: formattedProduct.seller.shippingOptions,
+            warehouseDetails: formattedProduct.seller.warehouseDetails
+          },
+          addresses: {
+            businessAddress: formattedProduct.seller.businessAddress,
+            warehouseAddress: formattedProduct.seller.warehouseDetails?.address,
+            sellerAddress: formattedProduct.seller.sellerAddress
+          },
+          verification: {
+            isVerified: formattedProduct.seller.isVerified,
+            accountType: formattedProduct.seller.accountType
+          },
+          stats: {
+            storeVisits: formattedProduct.seller.storeVisits || 0,
+            totalProducts: formattedProduct.seller.products ? formattedProduct.seller.products.length : 0,
+            totalCustomers: formattedProduct.seller.customers ? formattedProduct.seller.customers.length : 0
+          }
+        };
+      }
+      
+      // Format auction data
+      if (formattedProduct.auction) {
+        // Format bids
+        if (formattedProduct.auction.bids) {
+          formattedProduct.auction.bids = formattedProduct.auction.bids.map(bid => ({
+            _id: bid._id,
+            buyer: bid.buyer ? {
+              _id: bid.buyer._id,
+              firstName: bid.buyer.firstName,
+              lastName: bid.buyer.lastName,
+              profileImage: bid.buyer.profileImage
+            } : bid.buyer,
+            amount: bid.amount,
+            status: bid.status,
+            createdAt: bid.createdAt
+          }));
+        }
+        
+        // Format current highest bid
+        if (formattedProduct.auction.currentHighestBid && formattedProduct.auction.currentHighestBid.buyer) {
+          formattedProduct.auction.currentHighestBid = {
+            amount: formattedProduct.auction.currentHighestBid.amount,
+            buyer: {
+              _id: formattedProduct.auction.currentHighestBid.buyer._id,
+              firstName: formattedProduct.auction.currentHighestBid.buyer.firstName,
+              lastName: formattedProduct.auction.currentHighestBid.buyer.lastName,
+              profileImage: formattedProduct.auction.currentHighestBid.buyer.profileImage
+            }
+          };
+        }
+        
+        // Format winner
+        if (formattedProduct.auction.winner && formattedProduct.auction.winner.buyer) {
+          formattedProduct.auction.winner = {
+            bidAmount: formattedProduct.auction.winner.bidAmount,
+            winningDate: formattedProduct.auction.winner.winningDate,
+            buyer: {
+              _id: formattedProduct.auction.winner.buyer._id,
+              firstName: formattedProduct.auction.winner.buyer.firstName,
+              lastName: formattedProduct.auction.winner.buyer.lastName,
+              profileImage: formattedProduct.auction.winner.buyer.profileImage
+            }
+          };
+        }
+      }
+      
+      // Add inventory information
+      formattedProduct.inventory = {
+        currentStock: formattedProduct.stock,
+        lowStockAlert: formattedProduct.lowStockAlert,
+        sku: formattedProduct.sku,
+        quantity: formattedProduct.inventory?.quantity || 0,
+        lowStockThreshold: formattedProduct.inventory?.lowStockThreshold || 5
+      };
+      
+      // Add pricing information
+      formattedProduct.pricing = {
+        originalPrice: formattedProduct.price,
+        discountInfo: formattedProduct.discount,
+        taxable: formattedProduct.pricing?.taxable || true,
+        taxRate: formattedProduct.pricing?.taxRate || 0
+      };
+      
+      // Add shipping information
+      formattedProduct.shippingDetails = {
+        weight: formattedProduct.shippingInfo?.weight || null,
+        dimensions: formattedProduct.shippingInfo?.dimensions || null,
+        methods: formattedProduct.shippingInfo?.shippingMethods || []
+      };
+      
+      // Increment view count
+      await Product.findByIdAndUpdate(req.params.id, {
+        $inc: { 'stats.views': 1 },
+        $set: { 'stats.lastViewed': new Date() }
+      });
+      
+      // Update seller stats
+      const seller = await Seller.findById(formattedProduct.seller._id);
+      if (seller) {
+        // Increment total store visits
+        seller.storeVisits = (seller.storeVisits || 0) + 1;
+  
+        // Update monthly stats for store visits
+        const currentDate = new Date();
+        const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+  
+        // Get current month's visits or initialize to 0
+        const currentMonthVisits = seller.monthlyStats.storeVisits.get(monthKey) || 0;
+        seller.monthlyStats.storeVisits.set(monthKey, currentMonthVisits + 1);
+  
+        await seller.save();
+      }
+      
+      console.log('Auction product retrieved successfully');
+      return res.json(formattedProduct);
+    }
+    
+    // For non-auction products, use the existing aggregation pipeline
     const product = await Product.aggregate([
       {
         $match: {
@@ -3461,11 +3654,10 @@ exports.placeBid = async (req, res) => {
     const { amount } = req.body;
     const buyerId = req.user.id;
 
-    console.log('Debug - Incoming request data:', {
+    console.log('Debug - Incoming bid request:', {
       productId,
       amount,
-      buyerId,
-      user: req.user
+      buyerId
     });
 
     // Validate bid amount
@@ -3473,13 +3665,9 @@ exports.placeBid = async (req, res) => {
       return res.status(400).json({ message: 'Invalid bid amount' });
     }
 
+    // Get product information first
     const product = await Product.findById(productId);
-    console.log('Debug - Found product:', {
-      productId: product?._id,
-      status: product?.status,
-      auctionStatus: product?.auction?.status
-    });
-
+    
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -3507,84 +3695,197 @@ exports.placeBid = async (req, res) => {
     }
 
     // Check if bid is higher than current highest bid
-    if (product.auction.currentHighestBid.amount && amount <= product.auction.currentHighestBid.amount) {
+    if (product.auction.currentHighestBid && 
+        product.auction.currentHighestBid.amount && 
+        amount <= product.auction.currentHighestBid.amount) {
       return res.status(400).json({ 
         message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}` 
+      });
+    }
+
+    // Get buyer and check wallet balance before allowing bid
+    const Buyer = mongoose.model('Buyer');
+    const buyer = await Buyer.findById(buyerId);
+
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Calculate shipping fee for the check
+    const shippingFee = 1000; // Default shipping fee
+    const totalRequired = amount + shippingFee;
+    
+    // Check if buyer has enough balance including what's already on hold
+    // Ensure we handle cases where wallet might not be fully initialized
+    const walletBalance = buyer.wallet && typeof buyer.wallet.balance === 'number' ? buyer.wallet.balance : 0;
+    const onHoldAmount = buyer.wallet && typeof buyer.wallet.onHoldAmount === 'number' ? buyer.wallet.onHoldAmount : 0;
+    const buyerAvailableBalance = walletBalance - onHoldAmount;
+    
+    if (buyerAvailableBalance < totalRequired) {
+      return res.status(400).json({ 
+        message: `Insufficient funds. You need ₦${totalRequired.toLocaleString()} in your wallet to place this bid. You have ₦${buyerAvailableBalance.toLocaleString()} available.` 
       });
     }
 
     // Convert buyerId to ObjectId properly
     const buyerObjectId = new mongoose.Types.ObjectId(buyerId);
 
-    console.log('Debug - Current auction state:', {
-      currentHighestBid: product.auction.currentHighestBid,
-      bidsCount: product.auction.bids?.length,
-      buyerObjectId
-    });
+    // Check if buyer already has an active bid on this auction
+    const existingActiveBid = product.auction.bids && product.auction.bids.find(
+      bid => bid.buyer && bid.buyer.toString() === buyerObjectId.toString() && bid.status === 'active'
+    );
 
-    // Mark previous highest bid as outbid if it exists
-    if (product.auction.currentHighestBid.buyer) {
-      const previousHighestBid = product.auction.bids.find(
-        bid => bid.buyer.toString() === product.auction.currentHighestBid.buyer.toString() && 
-        bid.status === 'active'
+    // Step 1: Process the buyer's own wallet hold first
+    // If buyer already has a bid, release the hold on that amount
+    if (existingActiveBid) {
+      const existingHoldIndex = buyer.wallet.onHoldItems && buyer.wallet.onHoldItems.findIndex(
+        item => item.productId && item.productId.toString() === productId
       );
-      if (previousHighestBid) {
-        previousHighestBid.status = 'outbid';
+
+      if (existingHoldIndex !== -1) {
+        const oldHoldAmount = buyer.wallet.onHoldItems[existingHoldIndex].amount;
+        // Ensure onHoldAmount never goes below zero
+        buyer.wallet.onHoldAmount = Math.max(0, buyer.wallet.onHoldAmount - oldHoldAmount);
+        buyer.wallet.onHoldItems.splice(existingHoldIndex, 1);
+        
+        // Save buyer immediately after releasing the hold
+        await buyer.save();
+        console.log(`Released previous hold of ₦${oldHoldAmount} for buyer ${buyerId} on product ${productId}`);
       }
     }
 
+    // Step 2: Handle previous highest bidder if it's a different buyer
+    let previousBuyerId = null;
+    
+    if (product.auction.currentHighestBid && 
+        product.auction.currentHighestBid.buyer &&
+        product.auction.currentHighestBid.buyer.toString() !== buyerObjectId.toString()) {
+      
+      previousBuyerId = product.auction.currentHighestBid.buyer;
+      
+      // Get the previous bidder
+      const previousBidder = await Buyer.findById(previousBuyerId);
+      
+      if (previousBidder) {
+        // Find and remove the hold
+        const prevHoldIndex = previousBidder.wallet.onHoldItems.findIndex(
+          item => item.productId && item.productId.toString() === productId
+        );
+        
+        if (prevHoldIndex !== -1) {
+          const prevHoldAmount = previousBidder.wallet.onHoldItems[prevHoldIndex].amount;
+          // Ensure onHoldAmount never goes below zero
+          previousBidder.wallet.onHoldAmount = Math.max(0, previousBidder.wallet.onHoldAmount - prevHoldAmount);
+          previousBidder.wallet.onHoldItems.splice(prevHoldIndex, 1);
+          
+          // Save previous bidder immediately
+          await previousBidder.save();
+          console.log(`Released hold of ₦${prevHoldAmount} for previous bidder ${previousBuyerId} on product ${productId}`);
+        }
+      }
+    }
+
+    // Step 3: Update product with new bid information
+    // Mark previous highest bid as outbid
+    product.auction.bids.forEach(bid => {
+      if (bid.status === 'active' && bid.buyer) {
+        bid.status = 'outbid';
+      }
+    });
+    
     // Add new bid
     const newBid = {
       buyer: buyerObjectId,
       amount: amount,
-      status: 'active'
+      status: 'active',
+      createdAt: new Date()
     };
-
-    console.log('Debug - New bid to be added:', newBid);
-
-    product.auction.bids.push(newBid);
-
-    // Update current highest bid
-    product.auction.currentHighestBid = {
-      amount: amount,
-      buyer: buyerObjectId
-    };
-
+    
+    // Track if this is the winning bid
+    let isWinningBid = false;
+    
     // Check if auction should end (max bid reached and endOnMaxBid is true)
-    let auctionEnded = false;
     if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
       product.auction.status = 'ended';
       product.auction.winner = {
         buyer: buyerObjectId,
         bidAmount: amount,
-        winningDate: now
+        winningDate: new Date()
       };
-      auctionEnded = true;
-
+      isWinningBid = true;
+      
       // Update all other bids to 'lost'
       product.auction.bids.forEach(bid => {
-        if (bid.buyer.toString() !== buyerObjectId.toString()) {
+        // Make sure bid.buyer exists before checking toString()
+        if (bid.buyer && bid.buyer.toString() !== buyerObjectId.toString()) {
           bid.status = 'lost';
-        } else if (bid.amount === amount) {
-          bid.status = 'won';
         }
       });
+      
+      // Set new bid status to 'won' instead of 'active'
+      newBid.status = 'won';
+    }
+    
+    // Now add the new bid to the array
+    product.auction.bids.push(newBid);
+    
+    // Update current highest bid
+    product.auction.currentHighestBid = {
+      amount: amount,
+      buyer: buyerObjectId
+    };
+    
+    // Save product with updated bids
+    await product.save();
+    console.log(`Updated product ${productId} with new bid of ₦${amount} from buyer ${buyerId}`);
+
+    // Step 4: Update buyer's wallet with new hold (or direct payment if auction ended)
+    if (isWinningBid) {
+      // If auction ended with this bid, no need to put a hold, just prepare for order creation
+      console.log(`Auction ended with winning bid of ₦${amount} from buyer ${buyerId}`);
+      
+      // Schedule order creation after everything else is done
+      try {
+        setTimeout(async () => {
+          try {
+            const agenda = require('../config/agenda').agenda;
+            await agenda.now('create-auction-winner-order', { productId: product._id });
+            console.log('Scheduled auction winner order creation for max bid:', product._id);
+          } catch (scheduleError) {
+            console.error('Failed to schedule auction winner order creation:', {
+              productId: product._id,
+              error: scheduleError.message
+            });
+          }
+        }, 500);
+      } catch (error) {
+        console.error('Error setting up order creation timeout:', error);
+      }
+    } else {
+      // Add hold on buyer's wallet for the bid amount + shipping
+      buyer.wallet.onHoldItems.push({
+        productId: product._id,
+        productName: product.name,
+        productImage: product.images && product.images.length > 0 ? 
+          product.images[0].url : null,
+        amount: totalRequired,
+        bidDate: new Date(),
+        auctionStatus: product.auction.status,
+        auctionEndDate: product.auction.endDate
+      });
+      
+      // Update total hold amount
+      buyer.wallet.onHoldAmount += totalRequired;
+      
+      // Save buyer with new hold
+      await buyer.save();
+      console.log(`Added hold of ₦${totalRequired} for buyer ${buyerId} on product ${productId}`);
     }
 
-    console.log('Debug - Before saving product:', {
-      bidsCount: product.auction.bids.length,
-      lastBid: product.auction.bids[product.auction.bids.length - 1],
-      currentHighestBid: product.auction.currentHighestBid
-    });
+    // Step 5: Get buyer details for the response
+    const buyerDetails = await Buyer.findById(buyerId).select('firstName lastName profileImage');
 
-    await product.save();
-
-    console.log('Debug - Product saved successfully');
-
-    // Get buyer details for the response
-    const buyer = await Buyer.findById(buyerId).select('firstName lastName profileImage');
-
-    // Prepare bid notification data for WebSocket
+    // Step 6: Prepare bid notification data for WebSocket
     const bidData = {
       productId: product._id,
       bid: {
@@ -3593,68 +3894,67 @@ exports.placeBid = async (req, res) => {
         status: 'active',
         createdAt: new Date(),
         buyer: {
-          _id: buyer._id,
-          firstName: buyer.firstName,
-          lastName: buyer.lastName,
-          profileImage: buyer.profileImage
+          _id: buyerDetails._id,
+          firstName: buyerDetails.firstName,
+          lastName: buyerDetails.lastName,
+          profileImage: buyerDetails.profileImage
         }
       },
       currentHighestBid: {
         amount: amount,
         buyer: {
-          _id: buyer._id,
-          firstName: buyer.firstName,
-          lastName: buyer.lastName,
-          profileImage: buyer.profileImage
+          _id: buyerDetails._id,
+          firstName: buyerDetails.firstName,
+          lastName: buyerDetails.lastName,
+          profileImage: buyerDetails.profileImage
         }
       },
       bidsCount: product.auction.bids.length,
       auctionStatus: product.auction.status,
-      auctionEnded: auctionEnded,
-      winner: auctionEnded ? {
+      auctionEnded: isWinningBid,
+      winner: isWinningBid ? {
         buyer: {
-          _id: buyer._id,
-          firstName: buyer.firstName,
-          lastName: buyer.lastName,
-          profileImage: buyer.profileImage
+          _id: buyerDetails._id,
+          firstName: buyerDetails.firstName,
+          lastName: buyerDetails.lastName,
+          profileImage: buyerDetails.profileImage
         },
         bidAmount: amount,
-        winningDate: now
+        winningDate: new Date()
       } : null
     };
 
-    // Emit bid update to all users in the auction room via WebSocket
+    // Step 7: Emit bid update to all users in the auction room via WebSocket
     if (req.app.get('io')) {
       req.app.get('io').to(`auction_${productId}`).emit('bid_update', bidData);
       
       // If auction ended, emit additional event
-      if (auctionEnded) {
+      if (isWinningBid) {
         req.app.get('io').to(`auction_${productId}`).emit('auction_ended', {
           productId: product._id,
           winner: {
             buyer: {
-              _id: buyer._id,
-              firstName: buyer.firstName,
-              lastName: buyer.lastName,
-              profileImage: buyer.profileImage
+              _id: buyerDetails._id,
+              firstName: buyerDetails.firstName,
+              lastName: buyerDetails.lastName,
+              profileImage: buyerDetails.profileImage
             },
             bidAmount: amount,
-            winningDate: now
+            winningDate: new Date()
           }
         });
       }
     }
 
-    // Return success response
+    // Step 8: Return success response
     res.status(200).json({
       message: 'Bid placed successfully',
       bid: {
         amount: amount,
         buyer: buyerId,
-        auctionEnded
+        auctionEnded: isWinningBid
       }
     });
-
   } catch (error) {
     console.error('Error in placeBid:', error);
     res.status(500).json({ 
@@ -3785,16 +4085,67 @@ agenda.define('end-auction', async (job) => {
   try {
     const { productId } = job.attrs.data;
     const Product = mongoose.model('Product');
+    const Buyer = mongoose.model('Buyer');
     const sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const product = await Product.findById(productId)
       .populate('seller', 'email firstName businessName')
-      .populate('auction.currentHighestBid.buyer', 'email firstName lastName');
+      .populate('auction.currentHighestBid.buyer', 'email firstName lastName')
+      .populate('auction.bids.buyer', '_id');
 
-    if (!product || product.auction.status !== 'ongoing') return;
+    if (!product) {
+      console.log('Product not found for end-auction job:', productId);
+      return;
+    }
+    
+    let winner;
+    
+    // Only call endAuction if the auction is still ongoing
+    if (product.auction.status === 'ongoing') {
+      winner = await product.endAuction();
+    } else if (product.auction.status === 'ended') {
+      // If auction already ended, just get the winner information
+      winner = product.auction.winner;
+      console.log('Auction already ended, winner info:', winner ? 'Has winner' : 'No winner');
+    } else {
+      console.log('Auction not in a valid state for ending:', product.auction.status);
+      return;
+    }
 
-    const winner = await product.endAuction();
+    // Get unique bidder IDs (excluding the winner)
+    const bidderIds = product.auction.bids
+      .filter(bid => !winner || bid.buyer._id.toString() !== winner.buyer.toString())
+      .map(bid => bid.buyer._id.toString());
+    
+    // Remove duplicates
+    const uniqueBidderIds = [...new Set(bidderIds)];
+    
+    // Release holds for all non-winning bidders
+    for (const bidderId of uniqueBidderIds) {
+      try {
+        const bidder = await Buyer.findById(bidderId);
+        if (bidder) {
+          // Find and remove the hold for this product
+          const holdIndex = bidder.wallet.onHoldItems.findIndex(
+            item => item.productId.toString() === productId
+          );
+          
+          if (holdIndex !== -1) {
+            const holdAmount = bidder.wallet.onHoldItems[holdIndex].amount;
+            // Ensure onHoldAmount never goes below zero
+            bidder.wallet.onHoldAmount = Math.max(0, bidder.wallet.onHoldAmount - holdAmount);
+            bidder.wallet.onHoldItems.splice(holdIndex, 1);
+            await bidder.save();
+            
+            console.log(`Released hold of ₦${holdAmount} for bidder ${bidderId} on product ${productId}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Error releasing hold for bidder ${bidderId}:`, error);
+        // Continue with other bidders despite error
+      }
+    }
 
     if (winner) {
       // Send winner notification
@@ -3826,6 +4177,7 @@ agenda.define('end-auction', async (job) => {
             <p>Your auction for "${product.name}" has ended.</p>
             <p>Winning bid: $${winner.bidAmount}</p>
             <p>Winner: ${product.auction.currentHighestBid.buyer.firstName} ${product.auction.currentHighestBid.buyer.lastName}</p>
+            <p>An order will be automatically created for this auction win.</p>
             <p>Please contact the buyer to arrange payment and delivery.</p>
             <p><a href="${process.env.FRONTEND_URL}/dashboard/products/${product._id}">View Details</a></p>
             <p>Best regards,<br>The Auqli Team</p>
@@ -3837,6 +4189,10 @@ agenda.define('end-auction', async (job) => {
         sgMail.send(winnerEmail),
         sgMail.send(sellerEmail)
       ]);
+      
+      // Schedule order creation (do this after the emails to ensure the order doesn't exist yet when sending emails)
+      await job.agenda.now('create-auction-winner-order', { productId: product._id });
+      console.log('Scheduled auction winner order creation after auction end:', product._id);
     }
 
   } catch (error) {

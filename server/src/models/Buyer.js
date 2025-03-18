@@ -202,6 +202,26 @@ const buyerSchema = new mongoose.Schema({
       default: 0,
       min: 0 
     },
+    onHoldAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    onHoldItems: [{
+      productId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Product', 
+        required: true 
+      },
+      amount: { 
+        type: Number, 
+        required: true 
+      },
+      bidDate: { 
+        type: Date, 
+        default: Date.now 
+      }
+    }],
     currency: { 
       type: String, 
       default: 'NGN' 

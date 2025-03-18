@@ -93,7 +93,7 @@ variantSchema.virtual('discountedPrice').get(function () {
   if (this.discount.endDate && this.discount.endDate < now) return this.price;
 
   if (this.discount.type === 'percentage') {
-    return Math.round((this.price * (100 - this.discount.value)) / 100);
+    return Math.ceil((this.price * (100 - this.discount.value)) / 100);
   } else {
     return Math.max(0, this.price - this.discount.value);
   }
@@ -165,7 +165,7 @@ const productSchema = new mongoose.Schema({
     ref: 'Seller',
     required: true,
     autopopulate: {
-      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions '
+      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions'
     }
   },
   images: [{
@@ -1179,7 +1179,7 @@ productSchema.virtual('discountedPrice').get(function () {
   if (this.discount.endDate && this.discount.endDate < now) return this.price;
 
   if (this.discount.type === 'percentage') {
-    return Math.round((this.price * (100 - this.discount.value)) / 100);
+    return Math.ceil((this.price * (100 - this.discount.value)) / 100);
   } else {
     return Math.max(0, this.price - this.discount.value);
   }
@@ -1381,6 +1381,18 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
         bid.status = 'lost';
       }
     });
+    
+    // Schedule order creation job
+    try {
+      const agenda = require('../config/agenda').agenda;
+      await agenda.now('create-auction-winner-order', { productId: this._id });
+      console.log('Scheduled auction winner order creation for product:', this._id);
+    } catch (error) {
+      console.error('Failed to schedule auction winner order creation:', {
+        productId: this._id,
+        error: error.message
+      });
+    }
   }
 
   await this.save();
