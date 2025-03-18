@@ -8,8 +8,11 @@ import axios from 'axios';
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { fetchSellerDetails } = useAuthContext();
+  const { fetchSellerDetails, seller: contextSeller, token } = useAuthContext();
 
+  console.log('Protected route activated')
+  console.log('contextSeller', contextSeller)
+  console.log('context token', token)
 
   useEffect(() => {
     const fetchSeller = async () => {
@@ -26,13 +29,16 @@ const ProtectedRoute = ({ children }) => {
     fetchSeller();
   }, []);
 
+
+
+
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
     const storedToken = localStorage.getItem('sellerToken');
-    const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+    const tokenData = storedToken ? JSON.parse(storedToken) : token;
     const seller = localStorage.getItem('seller');
-    const sellerData = seller ? JSON.parse(seller) : {}
+    const sellerData = seller ? JSON.parse(seller) : contextSeller
 
     const isDashboardRoute = location.pathname.startsWith('/dashboard');
     const isSignUpRoute = location.pathname.startsWith('/signup');

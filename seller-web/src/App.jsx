@@ -41,7 +41,7 @@ import { SocketProvider } from './Contexts/SocketContext';
 import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
 import EditProduct from './Pages/ProductsPage/EditProduct';
 import LiveStream from './Pages/LiveStream/LiveStream';
-import DashboardRoute, { Loader as DashboardLoader } from './Components/DashboardRoute';
+import DashboardRoute from './Components/DashboardRoute';
 import SettingsDashboard from './Pages/Settings/SettingsDashboard';
 import AnalyticsDashboard from './Pages/Analytics/anayltics';
 import Help from './Pages/help/help';
@@ -93,7 +93,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: '/',
-        element: <Navigate to="/login" replace />,
+        element: <Loader />,
         // element: <TestTopup />
       },
       {
@@ -213,7 +213,7 @@ const router = createBrowserRouter([
             </DashboardRoute>
           </AuthProvider>
         ),
-        loader: DashboardLoader,
+        loader: () => new Promise(resolve => setTimeout(resolve, 1000)),
         errorElement: <NotFoundPage />,
         children: [
           {

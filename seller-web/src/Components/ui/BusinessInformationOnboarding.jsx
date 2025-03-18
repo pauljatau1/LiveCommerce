@@ -10,7 +10,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "../../Components/ui/select";
-import { Country, State, City } from 'country-state-city';
+import statesCitiesDb from 'states-cities-db';
 import Step2 from '../../assets/Step2.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PhoneInput from 'react-phone-input-2';
@@ -25,8 +25,8 @@ const BusinessInformationOnboarding = () => {
     const [selectedCountry, setSelectedCountry] = useState("");
     const [selectedState, setSelectedState] = useState("");
     const [selectedCity, setSelectedCity] = useState("");
-    const [countryCode, setCountryCode] = useState("");
-    const [stateCode, setStateCode] = useState("");
+    const [countrySlug, setCountrySlug] = useState("");
+    const [stateSlug, setStateSlug] = useState("");
     const [searchQuery, setSearchQuery] = useState('');
     const [stateSearchQuery, setStateSearchQuery] = useState('');
     const [citySearchQuery, setCitySearchQuery] = useState('');
@@ -36,8 +36,8 @@ const BusinessInformationOnboarding = () => {
     const [selectedCountry2, setSelectedCountry2] = useState("");
     const [selectedState2, setSelectedState2] = useState("");
     const [selectedCity2, setSelectedCity2] = useState("");
-    const [countryCode2, setCountryCode2] = useState("");
-    const [stateCode2, setStateCode2] = useState("");
+    const [countrySlug2, setCountrySlug2] = useState("");
+    const [stateSlug2, setStateSlug2] = useState("");
     const [searchQuery2, setSearchQuery2] = useState('');
     const [stateSearchQuery2, setStateSearchQuery2] = useState('');
     const [citySearchQuery2, setCitySearchQuery2] = useState('');
@@ -60,59 +60,63 @@ const BusinessInformationOnboarding = () => {
     const CHUNK_SIZE = 50;
 
     // Memoize data
-    const countries = useMemo(() => Country.getAllCountries(), []);
+    const countries = useMemo(() => {
+        return statesCitiesDb.getCountries();
+    }, []);
 
-    const states = useMemo(() =>
-        countryCode ? State.getStatesOfCountry(countryCode) : []
-        , [countryCode]);
+    const states = useMemo(() => {
+        return countrySlug ? statesCitiesDb.getStates(countrySlug) : [];
+    }, [countrySlug]);
 
-    const cities = useMemo(() =>
-        stateCode ? City.getCitiesOfState(countryCode, stateCode) : []
-        , [countryCode, stateCode]);
+    const cities = useMemo(() => {
+        return stateSlug ? statesCitiesDb.getCities(stateSlug) : [];
+    }, [stateSlug]);
 
-    const countries2 = useMemo(() => Country.getAllCountries(), []);
+    const countries2 = useMemo(() => {
+        return statesCitiesDb.getCountries();
+    }, []);
 
-    const states2 = useMemo(() =>
-        countryCode2 ? State.getStatesOfCountry(countryCode2) : []
-        , [countryCode2]);
+    const states2 = useMemo(() => {
+        return countrySlug2 ? statesCitiesDb.getStates(countrySlug2) : [];
+    }, [countrySlug2]);
 
-    const cities2 = useMemo(() =>
-        stateCode2 ? City.getCitiesOfState(countryCode2, stateCode2) : []
-        , [countryCode2, stateCode2]);
+    const cities2 = useMemo(() => {
+        return stateSlug2 ? statesCitiesDb.getCities(stateSlug2) : [];
+    }, [stateSlug2]);
 
     // Handle country selection
-    const handleCountrySelect = (isoCode) => {
-        const country = countries.find(c => c.isoCode === isoCode);
+    const handleCountrySelect = (slug) => {
+        const country = countries.find(c => c.slug === slug);
         setSelectedCountry(country.name);
-        setCountryCode(isoCode);
+        setCountrySlug(slug);
         setSelectedState("");
-        setStateCode("");
+        setStateSlug("");
         setSelectedCity("");
     };
 
     // Handle country selection for warehouse
-    const handleCountrySelect2 = (isoCode) => {
-        const country = countries2.find(c => c.isoCode === isoCode);
+    const handleCountrySelect2 = (slug) => {
+        const country = countries2.find(c => c.slug === slug);
         setSelectedCountry2(country.name);
-        setCountryCode2(isoCode);
+        setCountrySlug2(slug);
         setSelectedState2("");
-        setStateCode2("");
+        setStateSlug2("");
         setSelectedCity2("");
     };
 
     // Handle state selection
-    const handleStateSelect = (isoCode) => {
-        const state = states.find(s => s.isoCode === isoCode);
+    const handleStateSelect = (slug) => {
+        const state = states.find(s => s.slug === slug);
         setSelectedState(state.name);
-        setStateCode(isoCode);
+        setStateSlug(slug);
         setSelectedCity("");
     };
 
     // Handle state selection for warehouse
-    const handleStateSelect2 = (isoCode) => {
-        const state = states2.find(s => s.isoCode === isoCode);
+    const handleStateSelect2 = (slug) => {
+        const state = states2.find(s => s.slug === slug);
         setSelectedState2(state.name);
-        setStateCode2(isoCode);
+        setStateSlug2(slug);
         setSelectedCity2("");
     };
 
@@ -271,7 +275,7 @@ const BusinessInformationOnboarding = () => {
             toast.error('Please fill in your warehouse details', {
                 description: 'All fields are required',
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -279,7 +283,7 @@ const BusinessInformationOnboarding = () => {
             toast.error('Please fill in your business details', {
                 description: 'All fields are required',
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -298,15 +302,15 @@ const BusinessInformationOnboarding = () => {
                 <img src={Step2} alt="Step 1" className="w-full lg:w-[1000px]" />
                 <div className="flex flex-col items-center justify-center mt-[64px] lg:mt-[125px] ">
                     <div className="flex flex-col items-center justify-center">
-                        <h1 className="text-center text-2xl lg:text-3xl font-bold mb-4 lg:mb-7 ">Business Information</h1>
-                        <p className="text-center text-base lg:text-2xl font-light">Let us know details about your business, with just these few questions</p>
+                        <h1 className="text-center text-2xl lg:text-3xl text-[#2D3748] font-bold mb-4 lg:mb-7 ">Business Information</h1>
+                        <p className="text-center text-base lg:text-2xl font-light text-[#2D3748]">Let us know details about your business, with just these few questions</p>
                         <form className="w-full mt-14 lg:mt-2">
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label htmlFor="businessName" className="text-base lg:text-2xl font-normal">Business Email</label>
-                                <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder='Enter e-mail address' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 " />
+                                <label htmlFor="businessName" className="text-base text-[#2D3748] lg:text-2xl font-normal">Business Email</label>
+                                <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder='Enter e-mail address' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 " />
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label htmlFor="phone" className="text-base lg:text-2xl font-normal">Business Phone Number</label>
+                                <label htmlFor="phone" className="text-base text-[#2D3748] lg:text-2xl font-normal">Business Phone Number</label>
                                 <PhoneInput
                                     country={'ng'}
                                     value={phone}
@@ -317,18 +321,18 @@ const BusinessInformationOnboarding = () => {
                                         placeholder: 'Phone Number'
                                     }}
                                     containerClass="w-full mt-2 lg:mt-4 block"
-                                    inputClass="!w-full !min-w-full !h-[65px] lg:!h-[82px] !border !border-gray-300 !rounded-full !py-5 !lg:py-6 !px-4 !lg:px-8 !text-md !lg:text-lg !pl-12 hover:!border-[#05031F] !transition-all !duration-300"
+                                    inputClass="!w-full !min-w-full !h-[65px] lg:!h-[82px] !border !border-gray-300 !rounded-full !py-5 !lg:py-6 !px-4 !lg:px-8 !text-md !lg:text-lg !pl-12 hover:!border-[#2D3748] !transition-all !duration-300"
                                     buttonClass="!h-[64px] lg:!h-[81px] !border-0 !rounded-l-full "
                                     dropdownClass="!rounded-lg !border !border-gray-200 !shadow-lg"
                                     enableSearch={true}
                                 />
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label htmlFor="businessName" className="text-base lg:text-2xl font-normal mb-6 lg:mb-10">Business Address</label>
+                                <label htmlFor="businessName" className="text-base text-[#2D3748] lg:text-2xl font-normal mb-6 lg:mb-10">Business Address</label>
                                 <div className="flex flex-col md:flex-row gap-5 lg:gap-7 w-full mb-7 ">
                                     <div className="flex flex-col w-full">
                                         <Select onValueChange={handleCountrySelect}>
-                                            <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                            <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                                 <SelectValue placeholder="Select a country" />
                                             </SelectTrigger>
                                             <SelectContent className="w-full max-h-[300px]">
@@ -342,12 +346,12 @@ const BusinessInformationOnboarding = () => {
                                                 <SelectGroup>
                                                     {searchQuery
                                                         ? filteredCountries.map((country) => (
-                                                            <SelectItem key={country.isoCode} value={country.isoCode}>
+                                                            <SelectItem key={country.slug} value={country.slug}>
                                                                 {country.name}
                                                             </SelectItem>
                                                         ))
                                                         : visibleCountries.map((country) => (
-                                                            <SelectItem key={country.isoCode} value={country.isoCode}>
+                                                            <SelectItem key={country.slug} value={country.slug}>
                                                                 {country.name}
                                                             </SelectItem>
                                                         ))
@@ -365,8 +369,8 @@ const BusinessInformationOnboarding = () => {
                                         </Select>
                                     </div>
                                     <div className="flex flex-col w-full">
-                                        <Select onValueChange={handleStateSelect} disabled={!countryCode}>
-                                            <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                        <Select onValueChange={handleStateSelect} disabled={!countrySlug}>
+                                            <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                                 <SelectValue placeholder="Select a state" />
                                             </SelectTrigger>
                                             <SelectContent className="w-full max-h-[300px]">
@@ -380,12 +384,12 @@ const BusinessInformationOnboarding = () => {
                                                 <SelectGroup>
                                                     {stateSearchQuery
                                                         ? filteredStates.map((state) => (
-                                                            <SelectItem key={state.isoCode} value={state.isoCode}>
+                                                            <SelectItem key={state.slug} value={state.slug}>
                                                                 {state.name}
                                                             </SelectItem>
                                                         ))
                                                         : visibleStates.map((state) => (
-                                                            <SelectItem key={state.isoCode} value={state.isoCode}>
+                                                            <SelectItem key={state.slug} value={state.slug}>
                                                                 {state.name}
                                                             </SelectItem>
                                                         ))
@@ -404,8 +408,8 @@ const BusinessInformationOnboarding = () => {
                                     </div>
                                 </div>
                                 <div className="flex flex-col w-full">
-                                    <Select onValueChange={setSelectedCity} disabled={!stateCode}>
-                                        <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                    <Select onValueChange={setSelectedCity} disabled={!stateSlug}>
+                                        <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                             <SelectValue placeholder="Select a city" />
                                         </SelectTrigger>
                                         <SelectContent className="w-full max-h-[300px]">
@@ -419,12 +423,12 @@ const BusinessInformationOnboarding = () => {
                                             <SelectGroup>
                                                 {citySearchQuery
                                                     ? filteredCities.map((city) => (
-                                                        <SelectItem key={city.name} value={city.name}>
+                                                        <SelectItem key={city.slug} value={city.slug}>
                                                             {city.name}
                                                         </SelectItem>
                                                     ))
                                                     : visibleCities.map((city) => (
-                                                        <SelectItem key={city.name} value={city.name}>
+                                                        <SelectItem key={city.slug} value={city.slug}>
                                                             {city.name}
                                                         </SelectItem>
                                                     ))
@@ -448,7 +452,7 @@ const BusinessInformationOnboarding = () => {
                                     id="businessName"
                                     value={streetAddress1}
                                     onChange={(e) => setStreetAddress1(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 resize-none"
+                                    className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 resize-none"
                                     rows={4}
                                 />
                             </div>
@@ -458,12 +462,12 @@ const BusinessInformationOnboarding = () => {
                                     value={streetAddress2}
                                     onChange={(e) => setStreetAddress2(e.target.value)}
                                     id="businessName"
-                                    className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 resize-none"
+                                    className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 resize-none"
                                     rows={4}
                                 />
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <input type="text" value={zipCode} onChange={(e) => setZipCode(e.target.value)} placeholder='Zip Code' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 " />
+                                <input type="text" value={zipCode} onChange={(e) => setZipCode(e.target.value)} placeholder='Zip Code' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 " />
                             </div>
                             <div className="space-x-4">
                                 <input type="checkbox" onChange={() => setFillWarehouse(!fillWarehouse)} value={fillWarehouse} id="fillBusiness" className="cursor-pointer" />
@@ -473,13 +477,13 @@ const BusinessInformationOnboarding = () => {
                                 fillWarehouse && (
                                     <div className="mt-5 lg:mt-20">
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <label htmlFor="businessName" className="text-base lg:text-2xl font-normal">Warehouse Name</label>
-                                            <input type="text" value={warehouseName} onChange={(e) => setWarehouseName(e.target.value)} placeholder='Enter warehouse name' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 " />
+                                            <label htmlFor="businessName" className="text-base text-[#2D3748] lg:text-2xl font-normal">Warehouse Name</label>
+                                            <input type="text" value={warehouseName} onChange={(e) => setWarehouseName(e.target.value)} placeholder='Enter warehouse name' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 " />
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <label htmlFor="shippingMethod" className="text-base lg:text-2xl font-normal">Shipping Method</label>
+                                            <label htmlFor="shippingMethod" className="text-base text-[#2D3748] lg:text-2xl font-normal">Shipping Method</label>
                                             <Select onValueChange={(value) => setShippingMethod(value)}>
-                                                <SelectTrigger className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-8 lg:py-10 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                                <SelectTrigger className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-8 lg:py-10 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                                     <SelectValue 
                                                         placeholder={<span className="text-gray-400">Select shipping method</span>} 
                                                     />
@@ -500,9 +504,9 @@ const BusinessInformationOnboarding = () => {
                                             </Select>
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <label htmlFor="returnPolicy" className="text-base lg:text-2xl font-normal">Return Policy</label>
+                                            <label htmlFor="returnPolicy" className="text-base text-[#2D3748] lg:text-2xl font-normal">Return Policy</label>
                                             <Select onValueChange={(value) => setReturnPolicy(value)}>
-                                                <SelectTrigger className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-8 lg:py-10 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                                <SelectTrigger className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-8 lg:py-10 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                                     <SelectValue 
 
                                                         placeholder={<span className="text-gray-400">Select return policy</span>} 
@@ -527,7 +531,7 @@ const BusinessInformationOnboarding = () => {
                                             </Select>
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <label htmlFor="phone" className="text-base lg:text-2xl font-normal">Warehouse Contact No</label>
+                                            <label htmlFor="phone" className="text-base text-[#2D3748] lg:text-2xl font-normal">Warehouse Contact No</label>
                                             <PhoneInput
                                                 country={'ng'}
                                                 value={warehousePhone}
@@ -538,18 +542,18 @@ const BusinessInformationOnboarding = () => {
                                                     placeholder: 'Phone Number'
                                                 }}
                                                 containerClass="w-full mt-2 lg:mt-4 block"
-                                                inputClass="!w-full !min-w-full !h-[65px] lg:!h-[82px] !border !border-gray-300 !rounded-full !py-5 !lg:py-6 !px-4 !lg:px-8 !text-md !lg:text-lg !pl-12 hover:!border-[#05031F] !transition-all !duration-300"
+                                                inputClass="!w-full !min-w-full !h-[65px] lg:!h-[82px] !border !border-gray-300 !rounded-full !py-5 !lg:py-6 !px-4 !lg:px-8 !text-md !lg:text-lg !pl-12 hover:!border-[#2D3748] !transition-all !duration-300"
                                                 buttonClass="!h-[64px] lg:!h-[81px] !border-0 !rounded-l-full "
                                                 dropdownClass="!rounded-lg !border !border-gray-200 !shadow-lg"
                                                 enableSearch={true}
                                             />
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <label htmlFor="businessName" className="text-base lg:text-2xl font-normal mb-6 lg:mb-10">Warehouse Address</label>
+                                            <label htmlFor="businessName" className="text-base text-[#2D3748] lg:text-2xl font-normal mb-6 lg:mb-10">Warehouse Address</label>
                                             <div className="flex flex-col md:flex-row gap-5 lg:gap-7 w-full mb-7 ">
                                                 <div className="flex flex-col w-full">
                                                     <Select onValueChange={handleCountrySelect2}>
-                                                        <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                                        <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                                             <SelectValue placeholder="Select a country" />
                                                         </SelectTrigger>
                                                         <SelectContent className="w-full max-h-[300px]">
@@ -563,12 +567,12 @@ const BusinessInformationOnboarding = () => {
                                                             <SelectGroup>
                                                                 {searchQuery2
                                                                     ? filteredCountries2.map((country) => (
-                                                                        <SelectItem key={country.isoCode} value={country.isoCode}>
+                                                                        <SelectItem key={country.slug} value={country.slug}>
                                                                             {country.name}
                                                                         </SelectItem>
                                                                     ))
                                                                     : visibleCountries2.map((country) => (
-                                                                        <SelectItem key={country.isoCode} value={country.isoCode}>
+                                                                        <SelectItem key={country.slug} value={country.slug}>
                                                                             {country.name}
                                                                         </SelectItem>
                                                                     ))
@@ -586,8 +590,8 @@ const BusinessInformationOnboarding = () => {
                                                     </Select>
                                                 </div>
                                                 <div className="flex flex-col w-full">
-                                                    <Select onValueChange={handleStateSelect2} disabled={!countryCode2}>
-                                                        <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                                    <Select onValueChange={handleStateSelect2} disabled={!countrySlug2}>
+                                                        <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                                             <SelectValue placeholder="Select a state" />
                                                         </SelectTrigger>
                                                         <SelectContent className="w-full max-h-[300px]">
@@ -601,12 +605,12 @@ const BusinessInformationOnboarding = () => {
                                                             <SelectGroup>
                                                                 {stateSearchQuery2
                                                                     ? filteredStates2.map((state) => (
-                                                                        <SelectItem key={state.isoCode} value={state.isoCode}>
+                                                                        <SelectItem key={state.slug} value={state.slug}>
                                                                             {state.name}
                                                                         </SelectItem>
                                                                     ))
                                                                     : visibleStates2.map((state) => (
-                                                                        <SelectItem key={state.isoCode} value={state.isoCode}>
+                                                                        <SelectItem key={state.slug} value={state.slug}>
                                                                             {state.name}
                                                                         </SelectItem>
                                                                     ))
@@ -625,8 +629,8 @@ const BusinessInformationOnboarding = () => {
                                                 </div>
                                             </div>
                                             <div className="flex flex-col w-full">
-                                                <Select onValueChange={setSelectedCity2} disabled={!stateCode2}>
-                                                    <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                                                <Select onValueChange={setSelectedCity2} disabled={!stateSlug2}>
+                                                    <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                                                         <SelectValue placeholder="Select a city" />
                                                     </SelectTrigger>
                                                     <SelectContent className="w-full max-h-[300px]">
@@ -640,12 +644,12 @@ const BusinessInformationOnboarding = () => {
                                                         <SelectGroup>
                                                             {citySearchQuery2
                                                                 ? filteredCities2.map((city) => (
-                                                                    <SelectItem key={city.name} value={city.name}>
+                                                                    <SelectItem key={city.slug} value={city.slug}>
                                                                         {city.name}
                                                                     </SelectItem>
                                                                 ))
                                                                 : visibleCities2.map((city) => (
-                                                                    <SelectItem key={city.name} value={city.name}>
+                                                                    <SelectItem key={city.slug} value={city.slug}>
                                                                         {city.name}
                                                                     </SelectItem>
                                                                 ))
@@ -669,7 +673,7 @@ const BusinessInformationOnboarding = () => {
                                                 id="businessName"
                                                 value={warehouseAddress1}
                                                 onChange={(e) => setWarehouseAddress1(e.target.value)}
-                                                className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 resize-none"
+                                                className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 resize-none"
                                                 rows={4}
                                             />
                                         </div>
@@ -679,19 +683,19 @@ const BusinessInformationOnboarding = () => {
                                                 value={warehouseAddress2}
                                                 onChange={(e) => setWarehouseAddress2(e.target.value)}
                                                 id="businessName"
-                                                className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 resize-none"
+                                                className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[300px] px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 resize-none"
                                                 rows={4}
                                             />
                                         </div>
                                         <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                            <input type="text" value={warehouseZipCode} onChange={(e) => setWarehouseZipCode(e.target.value)} placeholder='Zip Code' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 " />
+                                            <input type="text" value={warehouseZipCode} onChange={(e) => setWarehouseZipCode(e.target.value)} placeholder='Zip Code' id="businessName" className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 " />
                                         </div>
                                     </div>
                                 )
                             }
                             <div className="flex items-center justify-center gap-10 mt-20 lg:mt-14 ">
-                                <button onClick={handleBack} className="bg-transparent text-[#0BB248] border border-[#0BB248] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">Back</button>
-                                <button onClick={handleNext} className="bg-[#0BB248] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">
+                                <button onClick={handleBack} className="bg-transparent text-[#2D3748] border border-[#2D3748] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">Back</button>
+                                <button onClick={handleNext} className="bg-[#2D3748] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer ">
                                     {
                                         isLoading ? <CircularProgress size={20} color='white' /> : 'Next'
                                     }

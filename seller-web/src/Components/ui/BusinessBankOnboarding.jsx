@@ -38,7 +38,7 @@ const BusinessBankOnboarding = () => {
             toast.error('Please fill in all fields', {
                 description: 'All fields are required',
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -67,7 +67,7 @@ const BusinessBankOnboarding = () => {
                                     placeholder='Enter Bank Country'
                                     value={bankDetails.bankCountry}
                                     onChange={handleChange}
-                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                 />
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
@@ -79,7 +79,7 @@ const BusinessBankOnboarding = () => {
                                     placeholder='Enter Bank Name'
                                     value={bankDetails.bankName}
                                     onChange={handleChange}
-                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                 />
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
@@ -91,7 +91,7 @@ const BusinessBankOnboarding = () => {
                                     placeholder='Enter Bank Account Type'
                                     value={bankDetails.bankAccountType}
                                     onChange={handleChange}
-                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                 />
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
@@ -103,7 +103,7 @@ const BusinessBankOnboarding = () => {
                                     placeholder='Enter Account Currency'
                                     value={bankDetails.accountCurrency}
                                     onChange={handleChange}
-                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                    className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                 />
                             </div>
                             <div className="flex flex-col md:flex-row gap-4 w-full">
@@ -116,7 +116,7 @@ const BusinessBankOnboarding = () => {
                                         placeholder='Enter Account No.'
                                         value={bankDetails.accountNumber}
                                         onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                     />
                                 </div>
                                 <div className="flex flex-col items-center justify-center mb-4 lg:mb-7 w-full">
@@ -128,7 +128,7 @@ const BusinessBankOnboarding = () => {
                                         placeholder='Enter Account Name'
                                         value={bankDetails.accountName}
                                         onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                     />
                                 </div>
                             </div>
@@ -142,7 +142,7 @@ const BusinessBankOnboarding = () => {
                                         placeholder='Enter Swift Code'
                                         value={bankDetails.swiftCode}
                                         onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                     />
                                 </div>
                                 <div className="flex flex-col items-center justify-center mb-4 lg:mb-7 w-full">
@@ -154,15 +154,15 @@ const BusinessBankOnboarding = () => {
                                         placeholder='Enter Bank Identifier Code'
                                         value={bankDetails.bankIdentifierCode}
                                         onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-500 cursor-pointer"
+                                        className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-500 cursor-pointer"
                                     />
                                 </div>
                             </div>
                             <div className="flex items-center justify-center gap-10 mt-20 lg:mt-14">
-                                <button type="button" onClick={handleBack} className="bg-transparent text-[#0BB248] border border-[#0BB248] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">Back</button>
-                                <button type="submit" onClick={handleSubmit} className="bg-[#0BB248] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">
+                                <button type="button" onClick={handleBack} className="bg-transparent text-[#2D3748] border border-[#2D3748] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">Back</button>
+                                <button type="submit" onClick={handleSubmit} className="bg-[#2D3748] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer">
                                     {
-                                        isLoading ? <CircularProgress size={20} color='white' /> : 'Finish'
+                                        isLoading ? <CircularProgress size={20} color='white' /> : 'Next'
                                     }
                                 </button>
                             </div>

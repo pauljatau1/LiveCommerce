@@ -79,9 +79,11 @@ function AuthProvider({ children }) {
             case "RESET":
                 return {
                     ...state,
+                    seller: null,
                     isAuthenticated: false,
                     message: "",
-                    otpStatus: ""
+                    otpStatus: "",
+                    token: null
                 }
             case "REQUEST_OTP_SUCCESS":
                 return {
@@ -97,7 +99,8 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     isAuthenticated: true,
-                    seller: action.payload,
+                    seller: action.payload.seller,
+                    token: action.payload.token,
                     message: "Login successful"
                 }
             case "LOGIN_FAILED":
@@ -134,6 +137,16 @@ function AuthProvider({ children }) {
                 return {
                     ...state,
                     isTokenValid: false
+                };
+            case "STORE_TOKEN":
+                return {
+                    ...state,
+                    token: action.payload
+                };
+            case "STORE_SELLER":
+                return {
+                    ...state,
+                    seller: action.payload
                 };
             case "FETCH_TOP_3_SELLING_PRODUCTS":
                 return {
@@ -387,7 +400,8 @@ function AuthProvider({ children }) {
             });
             dispatch({ type: 'SET_DATA_READY', payload: false });
             if (response.status === 200) {
-                dispatch({ type: 'LOGIN_SUCCESS', payload: response.data.user });
+                dispatch({ type: 'STORE_SELLER', payload: response.data.user });
+                dispatch({ type: 'STORE_TOKEN', payload: { data: response.data.token, isVerified: response.data.user.isVerified } });
                 localStorage.setItem('seller', JSON.stringify(response.data.user));
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
@@ -439,7 +453,7 @@ function AuthProvider({ children }) {
                         border: '1px solid #05031F',
                     }
                 });
-                navigate('/dashboard/home');
+                navigate('/dashboard/home', { replace: true });
                 dispatch({ type: 'SET_DATA_READY', payload: true });
                 window.dispatchEvent(new Event('appLoginComplete'));
             }
@@ -590,6 +604,7 @@ function AuthProvider({ children }) {
     const logout = async () => {
         try {
             shutdown();
+            dispatch({ type: 'RESET' });
             dispatch({ type: 'LOGOUT' });
             // Clear Intercom storage tracks
             Object.keys(localStorage).forEach(key => {

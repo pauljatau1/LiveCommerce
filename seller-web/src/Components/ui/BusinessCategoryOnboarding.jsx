@@ -235,13 +235,13 @@ const BusinessCategoryOnboarding = () => {
               <div className="flex flex-col md:flex-row items-center justify-center gap-5 lg:gap-10 mt-20 lg:mt-44">
                 <button
                   onClick={() => navigate(-1)}
-                  className="bg-transparent text-[#0BB248] border border-[#0BB248] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
+                  className="bg-transparent text-[#2D3748] border border-[#2D3748] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="bg-[#0BB248] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
+                  className="bg-[#2D3748] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
                 >
                   {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Next'}
                 </button>
@@ -311,7 +311,7 @@ const BusinessCategoryOnboarding = () => {
                     )}
                   </div>
 
-                  <div className="absolute bottom-0 right-0 bg-[#0BB248] rounded-full p-2 shadow-lg">
+                  <div className="absolute bottom-0 right-0 bg-[#2D3748] rounded-full p-2 shadow-lg">
                     <svg
                       width="20"
                       height="20"
@@ -335,7 +335,7 @@ const BusinessCategoryOnboarding = () => {
           </div>
           <button
             onClick={handleImageSubmit}
-            className="w-full bg-[#0BB248] text-white rounded-md py-2.5 sm:py-3 text-sm sm:text-base hover:bg-opacity-90 transition-all duration-300 mt-2 sm:mt-4"
+            className="w-full bg-[#2D3748] text-white rounded-md py-2.5 sm:py-3 text-sm sm:text-base hover:bg-opacity-90 transition-all duration-300 mt-2 sm:mt-4"
           >
             {isImageUploading ? <CircularProgress size={20} color="inherit" /> : 'Submit'}
           </button>

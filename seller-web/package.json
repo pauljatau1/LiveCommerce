@@ -90,6 +90,7 @@
     "socket.io-client": "^4.8.1",
     "sonner": "^1.7.1",
     "star-product-rating": "^1.0.12",
+    "states-cities-db": "^1.4.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7"
   },
