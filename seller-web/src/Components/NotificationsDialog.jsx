@@ -15,6 +15,9 @@ function NotificationsDialog({ notifications, onClose }) {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'new_order':
+        return "material-symbols:order-approve-outline";
+      case 'new_follower':
+        return "material-symbols:person-add-outline";
       case 'order_paid':
       case 'order_delivered':
       case 'order_cancelled':
@@ -81,6 +84,10 @@ function NotificationsDialog({ notifications, onClose }) {
         navigate(`/dashboard/products`);
         break;
       
+      case 'new_follower':
+        navigate('/dashboard/customers');
+        break;
+
       case 'new_order':
       case 'order_paid':
       case 'order_delivered':
@@ -88,11 +95,7 @@ function NotificationsDialog({ notifications, onClose }) {
       case 'order_status_update':
       case 'order_shipped':
       case 'order_reminder':
-        if (notification.data?.order_id) {
-          navigate(`/dashboard/orders`);
-        } else {
-          navigate('/dashboard/orders');
-        }
+        navigate('/dashboard/orders');
         break;
 
       case 'return_request':
@@ -103,11 +106,7 @@ function NotificationsDialog({ notifications, onClose }) {
       case 'return_partial_refund':
       case 'return_label_created':
       case 'return_pickup_arranged':
-        if (notification.data?.order_id) {
-          navigate(`/dashboard/returns`);
-        } else {
-          navigate('/dashboard/returns');
-        }
+        navigate('/dashboard/returns');
         break;
 
       case 'new_campaign':
@@ -159,7 +158,8 @@ function NotificationsDialog({ notifications, onClose }) {
             <p>No notifications yet</p>
           </div>
         ) : (
-          notifications?.map((notification) => (
+          notifications?.filter(notification => notification.type !== 'buyer_message')
+            .map((notification) => (
             <div
               key={notification._id}
               onClick={() => handleNotificationClick(notification)}

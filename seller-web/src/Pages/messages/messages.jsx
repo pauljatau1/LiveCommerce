@@ -965,7 +965,7 @@ export default function ChatInterface() {
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-gray-600 truncate">
-                    {conv.lastMessage.content.slice(0, 27)}{conv.lastMessage.content.length > 27 ? '...' : ''}
+                    {conv.lastMessage.content.slice(0, 22)}{conv.lastMessage.content.length > 22 ? '...' : ''}
                   </p>
                   {conv.unreadCount > 0 && (
                     <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
@@ -1166,7 +1166,7 @@ export default function ChatInterface() {
                       className="w-12 h-12 object-cover rounded-md"
                     />
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-medium text-gray-900 truncate">{product.name}</h4>
+                      <h4 className="text-xs font-medium text-gray-900 truncate">{product.name.length > 30 ? `${product.name.substring(0, 30)}...` : product.name}</h4>
                       <p className="text-xs text-gray-600 mt-0.5">
                         {new Intl.NumberFormat('en-NG', {
                           style: 'currency',

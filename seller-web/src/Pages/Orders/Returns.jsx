@@ -140,8 +140,8 @@ export default function ReturnsDashboard() {
 
             {/* Table Header */}
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Returns Table</h2>
-                <div className="flex gap-2">
+                {/* <h2 className="text-xl font-semibold">Returns Table</h2> */}
+                {/* <div className="flex gap-2">
                     <Button variant="outline" size="sm">
                         <CalendarIcon className="w-4 h-4 mr-2" />
                         Filtering by date
@@ -150,7 +150,7 @@ export default function ReturnsDashboard() {
                         <FilterIcon className="w-4 h-4 mr-2" />
                         Return Reason
                     </Button>
-                </div>
+                </div> */}
             </div>
 
             {/* Loading State */}

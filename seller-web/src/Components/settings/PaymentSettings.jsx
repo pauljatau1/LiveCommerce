@@ -1,7 +1,5 @@
-"use client"
-
 import { useState, useEffect } from 'react'
-import { Building2, CreditCard, User, Briefcase, Calculator, Globe, DollarSign, Hash } from 'lucide-react'
+import { Building2, CreditCard, User, Briefcase, Calculator, Globe, DollarSign, Hash, Upload, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -10,6 +8,38 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BASE_URL } from "@/Constants/Server"
 import { toast } from "sonner"
+
+const NIGERIAN_BANKS = [
+  { name: 'Access Bank Nigeria Plc', code: '044' },
+  { name: 'Ecobank Nigeria', code: '050' },
+  { name: 'Enterprise Bank Plc', code: '084' },
+  { name: 'Fidelity Bank Plc', code: '070' },
+  { name: 'First Bank of Nigeria Plc', code: '011' },
+  { name: 'First City Monument Bank', code: '214' },
+  { name: 'Guaranty Trust Bank Plc', code: '058' },
+  { name: 'Jaiz Bank', code: '301' },
+  { name: 'Keystone Bank Ltd', code: '082' },
+  { name: 'Mainstreet Bank Plc', code: '014' },
+  { name: 'Skye Bank Plc', code: '076' },
+  { name: 'Stanbic IBTC Plc', code: '039' },
+  { name: 'Sterling Bank Plc', code: '232' },
+  { name: 'Union Bank Nigeria Plc', code: '032' },
+  { name: 'United Bank for Africa Plc', code: '033' },
+  { name: 'Unity Bank Plc', code: '215' },
+  { name: 'WEMA Bank Plc', code: '035' },
+  { name: 'Zenith Bank International', code: '057' },
+  { name: 'Providus Bank', code: '101' },
+  { name: 'PARALLEX BANK LIMITED', code: '104' },
+  { name: 'LOTUS BANK LIMITED', code: '303' },
+  { name: 'PREMIUM TRUST BANK LTD', code: '105' },
+  { name: 'SIGNATURE BANK LTD', code: '106' },
+  { name: 'GLOBUS BANK', code: '103' },
+  { name: 'TITAN TRUST BANK', code: '102' },
+  { name: 'Polaris Bank', code: '067' },
+  { name: 'OPTIMUS BANK LTD', code: '107' },
+  { name: 'Standard Chartered Bank', code: '068' },
+  { name: 'Suntrust Bank', code: '100' }
+];
 
 export default function PaymentSettings() {
   const [bankDetails, setBankDetails] = useState({
@@ -25,9 +55,12 @@ export default function PaymentSettings() {
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [proofDocument, setProofDocument] = useState(null);
+  const [pendingRequest, setPendingRequest] = useState(null);
 
   useEffect(() => {
     fetchProfileData();
+    fetchPendingRequest();
   }, []);
 
   const fetchProfileData = async () => {
@@ -48,28 +81,104 @@ export default function PaymentSettings() {
     }
   };
 
+  const fetchPendingRequest = async () => {
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/seller/bank-change-request/status`, {
+        headers: {
+          Authorization: `Bearer ${sellerToken}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.pendingRequest) {
+          setPendingRequest(data.pendingRequest);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch pending request status");
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error("File size should not exceed 5MB");
+        return;
+      }
+      setProofDocument(file);
+    }
+  };
+
   const handleUpdateBankDetails = async () => {
     setIsLoading(true);
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile/bank-details`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`,
-        },
-        body: JSON.stringify({ bankDetails: editForm }),
-      });
 
-      if (response.ok) {
-        toast.success("Bank details updated successfully");
-        fetchProfileData();
-        setIsEditing(false);
+      if (!bankDetails.accountNumber) {
+        // Direct update for first-time bank details
+        const response = await fetch(`${BASE_URL}/seller/profile/bank-details`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${sellerToken}`,
+          },
+          body: JSON.stringify({ bankDetails: editForm }),
+        });
+
+        if (response.ok) {
+          toast.success("Bank details added successfully");
+          fetchProfileData();
+          setIsEditing(false);
+        } else {
+          throw new Error("Failed to add bank details");
+        }
       } else {
-        throw new Error("Failed to update bank details");
+        // Submit change request for existing bank details
+        if (!proofDocument) {
+          toast.error("Please upload proof document");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('proofDocument', proofDocument);
+        
+        // Properly format the bank details
+        const newBankDetails = {
+          bankCountry: editForm.bankCountry,
+          bankName: editForm.bankName,
+          bankAccountType: editForm.bankAccountType,
+          accountCurrency: editForm.accountCurrency,
+          accountNumber: editForm.accountNumber,
+          accountName: editForm.accountName,
+          swiftCode: editForm.swiftCode,
+          bankIdentifierCode: editForm.bankIdentifierCode
+        };
+
+        // Append the entire newBankDetails object as a single JSON string
+        formData.append('newBankDetails', JSON.stringify(newBankDetails));
+
+        const response = await fetch(`${BASE_URL}/seller/bank-change-request`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${sellerToken}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to submit bank change request");
+        }
+
+        toast.success("Bank change request submitted successfully");
+        fetchPendingRequest();
+        setIsEditing(false);
       }
     } catch (error) {
-      toast.error("Error updating bank details");
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +188,9 @@ export default function PaymentSettings() {
     <Dialog open={isEditing} onOpenChange={setIsEditing}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Update Bank Details</DialogTitle>
+          <DialogTitle>
+            {bankDetails.accountNumber ? "Request Bank Details Change" : "Add Bank Details"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="grid gap-4">
@@ -93,10 +204,28 @@ export default function PaymentSettings() {
 
             <div className="grid gap-2">
               <Label>Bank Name</Label>
-              <Input 
+              <Select 
                 defaultValue={bankDetails.bankName}
-                onChange={(e) => setEditForm({...editForm, bankName: e.target.value})}
-              />
+                onValueChange={(value) => {
+                  const selectedBank = NIGERIAN_BANKS.find(bank => bank.name === value);
+                  setEditForm({
+                    ...editForm, 
+                    bankName: value,
+                    bankIdentifierCode: selectedBank.code
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select bank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NIGERIAN_BANKS.map((bank) => (
+                    <SelectItem key={bank.code} value={bank.name}>
+                      {bank.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">
@@ -160,12 +289,32 @@ export default function PaymentSettings() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Bank Identifier Code</Label>
+              <Label>Bank Identifier Code (CBN Code)</Label>
               <Input 
-                defaultValue={bankDetails.bankIdentifierCode}
-                onChange={(e) => setEditForm({...editForm, bankIdentifierCode: e.target.value})}
+                value={editForm.bankIdentifierCode || ''}
+                disabled
+                className="bg-gray-100"
               />
             </div>
+
+            {bankDetails.accountNumber && (
+              <div className="grid gap-2">
+                <Label>Proof Document</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileChange}
+                    className="flex-1"
+                  />
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Please upload a document to verify your bank account change request (bank statement, void check, or other official document).
+                  Maximum file size: 5MB. Supported formats: PDF, JPG, PNG.
+                </p>
+              </div>
+            )}
           </div>
           
           <Button 
@@ -173,15 +322,42 @@ export default function PaymentSettings() {
             onClick={handleUpdateBankDetails}
             disabled={isLoading}
           >
-            {isLoading ? "Updating..." : "Update Bank Details"}
+            {isLoading ? "Processing..." : bankDetails.accountNumber ? "Submit Change Request" : "Add Bank Details"}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
 
+  const PendingRequestBanner = () => {
+    if (!pendingRequest) return null;
+
+    return (
+      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-start space-x-3">
+          <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+          <div>
+            <h3 className="font-medium text-yellow-800">Pending Bank Change Request</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              You have a pending request to change your bank details. New details:
+            </p>
+            <div className="mt-2 space-y-1 text-sm text-yellow-700">
+              <p>Bank: {pendingRequest.newBankDetails.bankName}</p>
+              <p>Account Number: {pendingRequest.newBankDetails.accountNumber}</p>
+              <p>Account Name: {pendingRequest.newBankDetails.accountName}</p>
+              <p className="text-xs text-yellow-600 mt-2">
+                Submitted on: {new Date(pendingRequest.requestDate).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
+      <PendingRequestBanner />
       <div className="grid gap-6 md:grid-cols-2">
         {/* Payout Details */}
         <Card>
@@ -194,8 +370,9 @@ export default function PaymentSettings() {
                 setEditForm(bankDetails);
                 setIsEditing(true);
               }}
+              disabled={pendingRequest}
             >
-              Edit
+              {pendingRequest ? "Change Pending" : "Edit"}
             </Button>
           </CardHeader>
           <CardContent>

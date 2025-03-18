@@ -145,21 +145,21 @@ export const sideBarNavData = [
                 name: 'Coupons',
                 path: 'coupons'
             },
-            {
-                id: ObjectID().toHexString(),
-                name: 'Flash Sales',
-                path: 'flash-sales'
-            },
+            // {
+            //     id: ObjectID().toHexString(),
+            //     name: 'Flash Sales',
+            //     path: 'flash-sales'
+            // },
             {
                 id: ObjectID().toHexString(),
                 name: 'Inbox Campaigns',
                 path: 'inbox-campaigns'
             },
-            {
-                id: ObjectID().toHexString(),
-                name: 'Referrals',
-                path: 'referrals'
-            }
+            // {
+            //     id: ObjectID().toHexString(),
+            //     name: 'Referrals',
+            //     path: 'referrals'
+            // }
         ]
     },
     {

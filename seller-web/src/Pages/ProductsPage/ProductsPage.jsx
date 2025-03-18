@@ -21,6 +21,13 @@ import { fetchSellerProducts, fetchSellerAuctionProducts } from "../../Redux/Sli
 import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
 import NotFound from "../../assets/not-found-icon2.png";
 import LinearProgress from "@mui/material/LinearProgress";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "../../Components/ui/dialog";
 
 import React from 'react';
 
@@ -32,6 +39,12 @@ const ProductsPage = () => {
     const { products, auctionProducts, isLoading, isLoadingAuctions, deleteStatus } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products'); // 'products' or 'auctions'
+    const [sortType, setSortType] = useState('newest-to-oldest'); // Updated default sort
+    
+    // Dialog states
+    const [showDateDialog, setShowDateDialog] = useState(false);
+    const [showStatusDialog, setShowStatusDialog] = useState(false);
+    const [showPriceDialog, setShowPriceDialog] = useState(false);
 
     useEffect(() => {
         setHeaderName('Products')
@@ -46,9 +59,53 @@ const ProductsPage = () => {
         }
     }, [dispatch, isStockUpdated, activeTab]);
 
-    // Memoize the products list based on active tab
-    const displayedProducts = activeTab === 'products' ? products : auctionProducts;
+    // Sort function
+    const getSortedProducts = (products) => {
+        if (!products) return [];
+        
+        const productsCopy = [...products];
+        
+        switch (sortType) {
+            case 'newest-to-oldest':
+                return productsCopy.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            case 'oldest-to-newest':
+                return productsCopy.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            case 'active-only':
+                return productsCopy.filter(product => product.status === 'active');
+            case 'draft-only':
+                return productsCopy.filter(product => product.status === 'draft');
+            case 'price-high-to-low':
+                return productsCopy.sort((a, b) => b.price - a.price);
+            case 'price-low-to-high':
+                return productsCopy.sort((a, b) => a.price - b.price);
+            default:
+                return productsCopy;
+        }
+    };
+
+    // Get sorted products
+    const displayedProducts = getSortedProducts(activeTab === 'products' ? products : auctionProducts);
     const isCurrentlyLoading = activeTab === 'products' ? isLoading : isLoadingAuctions;
+
+    // Get active filter label
+    const getActiveFilterLabel = () => {
+        switch (sortType) {
+            case 'newest-to-oldest':
+                return 'Newest First';
+            case 'oldest-to-newest':
+                return 'Oldest First';
+            case 'active-only':
+                return 'Active Only';
+            case 'draft-only':
+                return 'Draft Only';
+            case 'price-high-to-low':
+                return 'Highest Price';
+            case 'price-low-to-high':
+                return 'Lowest Price';
+            default:
+                return 'Sort';
+        }
+    };
 
     // Memoize the products list
     const memoizedProducts = React.useMemo(() => {
@@ -102,18 +159,32 @@ const ProductsPage = () => {
                                     <div className="flex items-center justify-between flex-wrap gap-2">
                                         <p className="text-base font-cabin font-normal text-[#17171B]">Sort By:</p>
                                         <div className="flex items-center flex-wrap gap-2">
-                                            <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#17171B] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
-                                                <Icon icon="solar:calendar-outline" width="20" height="20" color="#17171B" />
-                                                <p className="text-sm font-cabin font-normal text-[#17171B]">Newest</p>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#17171B] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
-                                                <Icon icon="iconamoon:clock-thin" width="20" height="20" color="#17171B" />
-                                                <p className="text-sm font-cabin font-normal text-[#17171B]">Active</p>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#17171B] bg-[#0BB24817] rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out">
-                                                <Icon icon="solar:calendar-outline" width="20" height="20" color="#17171B" />
-                                                <p className="text-sm font-cabin font-normal text-[#17171B]">Lowest-Highest</p>
-                                            </div>
+                                            {/* Date Sort Button */}
+                                            <button 
+                                                onClick={() => setShowDateDialog(true)}
+                                                className={`flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                            >
+                                                <Icon icon="solar:calendar-outline" width="20" height="20" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#17171B"} />
+                                                <p className={`text-sm font-cabin font-normal`}>Date</p>
+                                            </button>
+
+                                            {/* Status Sort Button */}
+                                            <button 
+                                                onClick={() => setShowStatusDialog(true)}
+                                                className={`flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                            >
+                                                <Icon icon="iconamoon:clock-thin" width="20" height="20" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#17171B"} />
+                                                <p className={`text-sm font-cabin font-normal`}>Status</p>
+                                            </button>
+
+                                            {/* Price Sort Button */}
+                                            <button 
+                                                onClick={() => setShowPriceDialog(true)}
+                                                className={`flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                            >
+                                                <Icon icon="solar:sort-by-time-linear" width="20" height="20" color={sortType.includes('price') ? "#FFFFFF" : "#17171B"} />
+                                                <p className={`text-sm font-cabin font-normal`}>Price</p>
+                                            </button>
                                         </div>
                                     </div>
                                 )}
@@ -128,9 +199,9 @@ const ProductsPage = () => {
                             <div className="hidden lg:grid grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white">
                                 <div className="text-sm font-medium text-[#05031F]">Image</div>
                                 <div className="text-sm font-medium text-[#05031F]">Product Name</div>
-                                <div className="text-sm font-medium text-[#05031F]">Category</div>
+                                <div className="text-sm font-medium text-[#05031F]">Upload Status</div>
                                 <div className="text-sm font-medium text-[#05031F]">
-                                    {activeTab === 'auctions' ? 'Auction Status' : 'Upload Status'}
+                                    {activeTab === 'auctions' ? 'Auction Status' : 'Stock'}
                                 </div>
                                 <div className="text-sm font-medium text-[#05031F]">
                                     {activeTab === 'auctions' ? 'Current Bid' : 'Price'}
@@ -176,6 +247,120 @@ const ProductsPage = () => {
                     </>
                 )
             }
+
+            {/* Date Sort Dialog */}
+            <Dialog open={showDateDialog} onOpenChange={setShowDateDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Sort by Date</DialogTitle>
+                        <DialogDescription>
+                            Choose how to sort products by their creation date
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 py-4">
+                        <button
+                            onClick={() => {
+                                setSortType('newest-to-oldest');
+                                setShowDateDialog(false);
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg ${
+                                sortType === 'newest-to-oldest' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                            }`}
+                        >
+                            <span>Newest to Oldest</span>
+                            {sortType === 'newest-to-oldest' && <Icon icon="lucide:check" />}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSortType('oldest-to-newest');
+                                setShowDateDialog(false);
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg ${
+                                sortType === 'oldest-to-newest' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                            }`}
+                        >
+                            <span>Oldest to Newest</span>
+                            {sortType === 'oldest-to-newest' && <Icon icon="lucide:check" />}
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Status Sort Dialog */}
+            <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Filter by Status</DialogTitle>
+                        <DialogDescription>
+                            Choose which product status to display
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 py-4">
+                        <button
+                            onClick={() => {
+                                setSortType('active-only');
+                                setShowStatusDialog(false);
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg ${
+                                sortType === 'active-only' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                            }`}
+                        >
+                            <span>Show Active Only</span>
+                            {sortType === 'active-only' && <Icon icon="lucide:check" />}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSortType('draft-only');
+                                setShowStatusDialog(false);
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg ${
+                                sortType === 'draft-only' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                            }`}
+                        >
+                            <span>Show Draft Only</span>
+                            {sortType === 'draft-only' && <Icon icon="lucide:check" />}
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Price Sort Dialog */}
+            <Dialog open={showPriceDialog} onOpenChange={setShowPriceDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Sort by Price</DialogTitle>
+                        <DialogDescription>
+                            Choose how to sort products by price
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 py-4">
+                        <button
+                            onClick={() => {
+                                setSortType('price-high-to-low');
+                                setShowPriceDialog(false);
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg ${
+                                sortType === 'price-high-to-low' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                            }`}
+                        >
+                            <span>Highest to Lowest</span>
+                            {sortType === 'price-high-to-low' && <Icon icon="lucide:check" />}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSortType('price-low-to-high');
+                                setShowPriceDialog(false);
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg ${
+                                sortType === 'price-low-to-high' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                            }`}
+                        >
+                            <span>Lowest to Highest</span>
+                            {sortType === 'price-low-to-high' && <Icon icon="lucide:check" />}
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     )
 }
