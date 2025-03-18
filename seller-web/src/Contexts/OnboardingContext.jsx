@@ -85,7 +85,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Business Account Type Submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -104,7 +104,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting business Account Type', {
                 description: AxiosError.response.data.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -136,7 +136,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Business name submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -150,7 +150,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting business details', {
                 description: AxiosError.response.data.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -174,7 +174,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Business information submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -186,7 +186,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting business information', {
                 description: AxiosError.response.data.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -205,7 +205,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.error('Error submitting business information', {
                     description: 'Please try again',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -225,7 +225,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Business warehouse submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -239,7 +239,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting business warehouse', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -270,7 +270,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Documents submitted successfully', {
                     description: 'Your verification documents have been uploaded',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -284,7 +284,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting documents', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -308,7 +308,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Bank details submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -322,7 +322,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting bank details', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -349,7 +349,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Business Onboarding Completed', {
                     description: 'Your onboarding is complete and your account is being reviewed',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -363,7 +363,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting business category', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -387,7 +387,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Shipping options submitted', {
                     description: 'We will use this information to create your business profile',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -398,7 +398,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting shipping options', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -422,7 +422,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Individual information submitted', {
                     description: 'We will use this information to create your individual profile',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -436,7 +436,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting individual information', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -467,7 +467,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Documents submitted successfully', {
                     description: 'Your individual verification documents have been uploaded',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -482,7 +482,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting documents', {
                 description: error.response?.data?.message || error.message,
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
@@ -532,7 +532,7 @@ const OnboardingProvider = ({ children }) => {
                 toast.success('Profile images submitted successfully', {
                     description: 'Your profile and banner images have been uploaded',
                     style: {
-                        background: '#05031F',
+                        background: '#2D3748',
                         color: '#fff',
                     }
                 });
@@ -552,7 +552,7 @@ const OnboardingProvider = ({ children }) => {
             toast.error('Error submitting images', {
                 description: error.response?.data?.message || 'Failed to upload images. Please try again.',
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             });
