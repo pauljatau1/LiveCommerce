@@ -104,7 +104,7 @@ const CreateLiveAuction = () => {
               images: product?.images,
               sku: product?.sku,
               quantity: product?.stock,
-              minBid: 0,
+              minBid: product?.price,
               maxBid: 0,
               selected: true
             }
@@ -1033,26 +1033,22 @@ const CreateLiveAuction = () => {
                       {product.sku}
                     </td>
                     <td className="px-4 py-3">
-                      <input
-                        type="number"
-                        min="0"
-                        value={product.quantity || ''}
-                        disabled={true}
-                        className={`w-1/2 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 
-                          ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                      />
+                      <p className="text-sm text-gray-500 font-medium">{product?.quantity}</p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <span className="text-sm text-gray-500 font-medium">₦</span>
                         <input
-                          type="number"
+                          type="text"
                           min="0"
-                          value={product.minBid || ''}
+                          value={product.minBid ? product.minBid.toLocaleString() : ''}
                           disabled={!product.selected}
-                          onChange={(e) => handleBidChange(product.productId, 'minBid', e.target.value)}
-                          className={`w-16 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
-                            ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/,/g, '');
+                            handleBidChange(product.productId, 'minBid', value);
+                          }}
+                          className={`w-16 xl:w-24 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
+                            ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                         />
                       </div>
                     </td>
@@ -1060,13 +1056,16 @@ const CreateLiveAuction = () => {
                       <div className="flex items-center gap-1">
                         <span className="text-sm text-gray-500 font-medium">₦</span>
                         <input
-                          type="number"
+                          type="text"
                           min="0"
-                          value={product.maxBid || ''}
+                          value={product.maxBid ? product.maxBid.toLocaleString() : ''}
                           disabled={!product.selected}
-                          onChange={(e) => handleBidChange(product.productId, 'maxBid', e.target.value)}
-                          className={`w-16 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
-                            ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/,/g, '');
+                            handleBidChange(product.productId, 'maxBid', value);
+                          }}
+                          className={`w-16 xl:w-24 px-2 py-1 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500
+                            ${!product.selected ? 'bg-gray-100 cursor-not-allowed' : ''} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                         />
                       </div>
                     </td>
