@@ -202,6 +202,10 @@ const orderSchema = new mongoose.Schema({
     enum: ['admin', 'buyer', 'auto', 'seller'],
   },
   closedReason: String,
+  notificationsSent: {
+    type: Boolean,
+    default: false
+  }
 });
 
 // Add a pre-save middleware to handle seller wallet updates
@@ -519,5 +523,8 @@ orderSchema.pre('save', async function(next) {
 
   next();
 });
+
+// Add a compound index to prevent duplicate orders
+orderSchema.index({ order_id: 1, buyer: 1 }, { unique: true });
 
 module.exports = mongoose.model('Order', orderSchema);

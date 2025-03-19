@@ -1,6 +1,7 @@
 const Notification = require('../models/Notification');
 const sgMail = require('@sendgrid/mail');
 const Order = require('../models/Order');
+const mongoose = require('mongoose');
 const { agenda } = require('../config/agenda');
 const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
@@ -215,112 +216,119 @@ exports.createNotification = async (sellerId, type, data) => {
 
 // Helper function to send email notification
 exports.sendEmailNotification = async (seller, notification) => {
-  const orderData = notification.data || {};
-  
-  // Format the items list if available
-  let itemsHtml = '';
-  if (orderData.items && Array.isArray(orderData.items)) {
-    itemsHtml = `
-      <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-        <thead>
-          <tr style="background-color: #f2f2f2;">
-            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Product</th>
-            <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quantity</th>
-            <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Price</th>
-            <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${orderData.items.map(item => `
-            <tr>
-              <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.productName || 'Product'}</td>
-              <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.quantity || 1}</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(item.price || 0).toLocaleString()}</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-        <tfoot>
-          <tr style="background-color: #f9f9f9;">
-            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Subtotal:</strong></td>
-            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.amount || '0'}</td>
-          </tr>
-          ${orderData.shippingFee ? `
-          <tr style="background-color: #f9f9f9;">
-            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Shipping Fee:</strong></td>
-            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.shippingFee}</td>
-          </tr>
-          <tr style="background-color: #f9f9f9;">
-            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Total:</strong></td>
-            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${
-              (() => {
-                try {
-                  const amount = parseFloat(orderData.amount.replace(/[^\d.-]/g, '')) || 0;
-                  const shipping = parseFloat(orderData.shippingFee.replace(/[^\d.-]/g, '')) || 0;
-                  return (amount + shipping).toLocaleString();
-                } catch (e) {
-                  return orderData.amount || '0';
-                }
-              })()
-            }</td>
-          </tr>
-          ` : ''}
-        </tfoot>
-      </table>
-    `;
-  } else if (typeof orderData.items === 'number') {
-    // Handle case where items is just a number (count)
-    itemsHtml = `<p><strong>Number of Items:</strong> ${orderData.items}</p>`;
-  }
-  
-  // Delivery information
-  let deliveryInfoHtml = '';
-  if (orderData.deliveryAddress) {
-    deliveryInfoHtml = `
-      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-        <h3 style="margin-top: 0;">Delivery Information</h3>
-        <p><strong>Recipient:</strong> ${orderData.deliveryAddress.recipientName || ''}</p>
-        <p><strong>Address:</strong> ${orderData.deliveryAddress.recipientAddress || ''}</p>
-        <p><strong>State:</strong> ${orderData.deliveryAddress.recipientState || ''}</p>
-        <p><strong>Phone:</strong> ${orderData.deliveryAddress.recipientPhone || ''}</p>
-        <p><strong>Email:</strong> ${orderData.deliveryAddress.recipientEmail || ''}</p>
-      </div>
-    `;
-  }
-  
-  const msg = {
-    to: seller.email,
-    from: 'Auqli Seller <joseph@auqli.com>',
-    subject: notification.title,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #333;">New Order Received</h2>
-        </div>
-        <p>Hello ${seller.firstName || 'Seller'},</p>
-        <p>You have received a new order from ${orderData.buyerName || 'a customer'}.</p>
-        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-          <p><strong>Order ID:</strong> ${orderData.order_id || ''}</p>
-          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-          <p><strong>Payment Method:</strong> ${orderData.paymentMethod || 'Online Payment'}</p>
-        </div>
-        
-        <h3>Order Details</h3>
-        ${itemsHtml}
-        
-        ${deliveryInfoHtml}
-        
-        <p>Please log in to your Auqli seller dashboard to process this order.</p>
-        <div style="text-align: center; margin-top: 20px;">
-          <a href="https://seller.auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order Details</a>
-        </div>
-        <p style="margin-top: 20px;">Thank you for selling with Auqli!</p>
-        <p>Best regards,<br>The Auqli Team</p>
-      </div>
-    `,
-  };
-
   try {
+    // Ensure SendGrid API key is set
+    const apiKey = process.env.SENDGRID_API_KEY;
+    if (!apiKey) {
+      throw new Error('SendGrid API key not configured');
+    }
+    sgMail.setApiKey(apiKey);
+    
+    const orderData = notification.data || {};
+    
+    // Format the items list if available
+    let itemsHtml = '';
+    if (orderData.items && Array.isArray(orderData.items)) {
+      itemsHtml = `
+        <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Product</th>
+              <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quantity</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Price</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orderData.items.map(item => `
+              <tr>
+                <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.productName || 'Product'}</td>
+                <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.quantity || 1}</td>
+                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(item.price || 0).toLocaleString()}</td>
+                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background-color: #f9f9f9;">
+              <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Subtotal:</strong></td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.amount || '0'}</td>
+            </tr>
+            ${orderData.shippingFee ? `
+            <tr style="background-color: #f9f9f9;">
+              <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Shipping Fee:</strong></td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.shippingFee}</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+              <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Total:</strong></td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${
+                (() => {
+                  try {
+                    const amount = parseFloat(orderData.amount.replace(/[^\d.-]/g, '')) || 0;
+                    const shipping = parseFloat(orderData.shippingFee.replace(/[^\d.-]/g, '')) || 0;
+                    return (amount + shipping).toLocaleString();
+                  } catch (e) {
+                    return orderData.amount || '0';
+                  }
+                })()
+              }</td>
+            </tr>
+            ` : ''}
+          </tfoot>
+        </table>
+      `;
+    } else if (typeof orderData.items === 'number') {
+      // Handle case where items is just a number (count)
+      itemsHtml = `<p><strong>Number of Items:</strong> ${orderData.items}</p>`;
+    }
+    
+    // Delivery information
+    let deliveryInfoHtml = '';
+    if (orderData.deliveryAddress) {
+      deliveryInfoHtml = `
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <h3 style="margin-top: 0;">Delivery Information</h3>
+          <p><strong>Recipient:</strong> ${orderData.deliveryAddress.recipientName || ''}</p>
+          <p><strong>Address:</strong> ${orderData.deliveryAddress.recipientAddress || ''}</p>
+          <p><strong>State:</strong> ${orderData.deliveryAddress.recipientState || ''}</p>
+          <p><strong>Phone:</strong> ${orderData.deliveryAddress.recipientPhone || ''}</p>
+          <p><strong>Email:</strong> ${orderData.deliveryAddress.recipientEmail || ''}</p>
+        </div>
+      `;
+    }
+    
+    const msg = {
+      to: seller.email,
+      from: 'Auqli Seller <joseph@auqli.com>',
+      subject: notification.title,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #333;">New Order Received</h2>
+          </div>
+          <p>Hello ${seller.firstName || 'Seller'},</p>
+          <p>You have received a new order from ${orderData.buyerName || 'a customer'}.</p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p><strong>Order ID:</strong> ${orderData.order_id || ''}</p>
+            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p><strong>Payment Method:</strong> ${orderData.paymentMethod || 'Online Payment'}</p>
+          </div>
+          
+          <h3>Order Details</h3>
+          ${itemsHtml}
+          
+          ${deliveryInfoHtml}
+          
+          <p>Please log in to your Auqli seller dashboard to process this order.</p>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="https://seller.auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order Details</a>
+          </div>
+          <p style="margin-top: 20px;">Thank you for selling with Auqli!</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `,
+    };
+
     await sgMail.send(msg);
   } catch (error) {
     console.error('Email sending failed:', error);
@@ -329,12 +337,51 @@ exports.sendEmailNotification = async (seller, notification) => {
 
 // Helper function to send email notification to buyer
 exports.sendEmailToBuyer = async (buyer, notification) => {
-  const orderData = notification.data || {};
-  
-  // Format the items list if available
-  let itemsHtml = '';
-  if (orderData.items && Array.isArray(orderData.items)) {
-    itemsHtml = `
+  try {
+    console.log(`Sending direct email to buyer: ${buyer.email} for notification: ${notification.type}`);
+    
+    // Ensure we have a valid API key
+    const apiKey = process.env.SENDGRID_API_KEY;
+    if (!apiKey) {
+      console.error('Cannot send email: SendGrid API key is not configured');
+      throw new Error('SendGrid API key not configured');
+    }
+    
+    // Set the API key for safety
+    sgMail.setApiKey(apiKey);
+    
+    // Extract data from notification
+    const data = notification.data || {};
+    const orderInfo = parseNotificationData(data);
+    
+    // Generate appropriate subject based on notification type
+    let subject = 'Order Update - Auqli';
+    if (notification.type === 'order_placed') {
+      subject = 'Your Order Has Been Placed - Auqli';
+    } else if (notification.type === 'order_paid') {
+      subject = 'Your Payment Has Been Confirmed - Auqli';
+    } else if (notification.type.includes('shipped')) {
+      subject = 'Your Order Has Been Shipped - Auqli';
+    } else if (notification.type.includes('delivered')) {
+      subject = 'Your Order Has Been Delivered - Auqli';
+    }
+    
+    // Format the items table
+    let itemsHtml = '';
+    if (data.items && Array.isArray(data.items)) {
+      data.items.forEach(item => {
+        itemsHtml += `
+          <tr>
+            <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.productName || 'Product'}</td>
+            <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.quantity || 1}</td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(item.price || 0).toLocaleString()}</td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
+          </tr>
+        `;
+      });
+    }
+    
+    const itemsTable = `
       <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
         <thead>
           <tr style="background-color: #f2f2f2;">
@@ -345,67 +392,40 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
           </tr>
         </thead>
         <tbody>
-          ${orderData.items.map(item => `
-            <tr>
-              <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.productName || 'Product'}</td>
-              <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.quantity || 1}</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(item.price || 0).toLocaleString()}</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
-            </tr>
-          `).join('')}
+          ${itemsHtml}
         </tbody>
         <tfoot>
           <tr style="background-color: #f9f9f9;">
             <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Subtotal:</strong></td>
-            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.amount || '0'}</td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${data.amount || '₦0'}</td>
           </tr>
-          ${orderData.shippingFee ? `
+          ${data.shippingFee ? `
           <tr style="background-color: #f9f9f9;">
             <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Shipping Fee:</strong></td>
-            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${orderData.shippingFee}</td>
-          </tr>
-          <tr style="background-color: #f9f9f9;">
-            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Total:</strong></td>
-            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${
-              (() => {
-                try {
-                  const amount = parseFloat(orderData.amount.replace(/[^\d.-]/g, '')) || 0;
-                  const shipping = parseFloat(orderData.shippingFee.replace(/[^\d.-]/g, '')) || 0;
-                  return (amount + shipping).toLocaleString();
-                } catch (e) {
-                  return orderData.amount || '0';
-                }
-              })()
-            }</td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${data.shippingFee}</td>
           </tr>
           ` : ''}
         </tfoot>
       </table>
     `;
-  } else if (typeof orderData.items === 'number') {
-    // Handle case where items is just a number (count)
-    itemsHtml = `<p><strong>Number of Items:</strong> ${orderData.items}</p>`;
-  }
-  
-  // Delivery information
-  let deliveryInfoHtml = '';
-  if (orderData.deliveryAddress) {
-    deliveryInfoHtml = `
-      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-        <h3 style="margin-top: 0;">Delivery Information</h3>
-        <p><strong>Recipient:</strong> ${orderData.deliveryAddress.recipientName || ''}</p>
-        <p><strong>Address:</strong> ${orderData.deliveryAddress.recipientAddress || ''}</p>
-        <p><strong>State:</strong> ${orderData.deliveryAddress.recipientState || ''}</p>
-        <p><strong>Phone:</strong> ${orderData.deliveryAddress.recipientPhone || ''}</p>
-      </div>
-    `;
-  }
-  
-  const msg = {
-    to: buyer.email,
-    from: 'Auqli <support@auqli.com>',
-    subject: notification.title,
-    html: `
+    
+    // Delivery information
+    let deliveryInfoHtml = '';
+    if (data.deliveryAddress) {
+      deliveryInfoHtml = `
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <h3 style="margin-top: 0;">Delivery Information</h3>
+          <p><strong>Recipient:</strong> ${data.deliveryAddress.recipientName || ''}</p>
+          <p><strong>Address:</strong> ${data.deliveryAddress.recipientAddress || ''}</p>
+          <p><strong>State:</strong> ${data.deliveryAddress.recipientState || ''}</p>
+          <p><strong>Phone:</strong> ${data.deliveryAddress.recipientPhone || ''}</p>
+          <p><strong>Email:</strong> ${data.deliveryAddress.recipientEmail || ''}</p>
+        </div>
+      `;
+    }
+    
+    // Create email HTML
+    const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <div style="text-align: center; margin-bottom: 20px;">
           <h2 style="color: #333;">Order Confirmation</h2>
@@ -413,14 +433,14 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
         <p>Hello ${buyer.firstName || 'Customer'},</p>
         <p>Thank you for your order! We're pleased to confirm that your order has been received and is being processed.</p>
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-          <p><strong>Order ID:</strong> ${orderData.order_id || ''}</p>
+          <p><strong>Order ID:</strong> ${data.order_id || 'N/A'}</p>
           <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-          <p><strong>Seller:</strong> ${orderData.sellerName || 'Seller'}</p>
-          <p><strong>Payment Method:</strong> ${orderData.paymentMethod || 'Online Payment'}</p>
+          <p><strong>Seller:</strong> ${data.sellerName || 'N/A'}</p>
+          <p><strong>Payment Method:</strong> ${data.paymentMethod || 'Online Payment'}</p>
         </div>
         
         <h3>Order Details</h3>
-        ${itemsHtml}
+        ${itemsTable}
         
         ${deliveryInfoHtml}
         
@@ -432,15 +452,43 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
         <p>Thank you for shopping with Auqli!</p>
         <p>Best regards,<br>The Auqli Team</p>
       </div>
-    `,
-  };
-
-  try {
+    `;
+    
+    // Send email
+    const msg = {
+      to: buyer.email,
+      from: 'Auqli <support@auqli.com>',
+      subject,
+      html
+    };
+    
+    console.log(`Attempting to send email to buyer ${buyer.email} for order ${data.order_id || 'N/A'}`);
     await sgMail.send(msg);
-    console.log(`Email sent to buyer: ${buyer.email}`);
+    console.log(`Email sent successfully to buyer ${buyer.email} for order ${data.order_id || 'N/A'}`);
+    
+    return true;
   } catch (error) {
-    console.error('Email sending to buyer failed:', error);
+    console.error('Error sending email to buyer:', error);
+    console.error('SendGrid error details:', error.response?.body?.errors);
+    throw error;
   }
+};
+
+// Helper function to parse notification data
+const parseNotificationData = (data) => {
+  if (!data) return {};
+  
+  // Extract order ID, amount, etc.
+  const orderInfo = {
+    order_id: data.order_id || 'N/A',
+    amount: data.amount || '₦0',
+    sellerName: data.sellerName || 'N/A',
+    paymentMethod: data.paymentMethod || 'N/A',
+    items: data.items || [],
+    // Add any other fields needed
+  };
+  
+  return orderInfo;
 };
 
 // Function to handle order creation notifications
@@ -759,7 +807,6 @@ exports.simulateFezWebhook = async (req, res) => {
     }
 
     // Find the order by Fez order number
-    const mongoose = require('mongoose');
     const Order = mongoose.model('Order');
     const order = await Order.findOne({ 'shipping.fez_order_number': orderNumber });
     
@@ -1004,5 +1051,393 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
   } catch (error) {
     console.error('Error creating message notification:', error);
     // Don't throw error to prevent message sending from failing
+  }
+};
+
+// Helper function to verify SendGrid API key
+const verifySendGridConfig = () => {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  
+  if (!apiKey) {
+    console.error('SENDGRID_API_KEY is not set in environment variables!');
+    return false;
+  }
+  
+  if (apiKey.startsWith('SG.')) {
+    console.log('SendGrid API key appears to be properly formatted');
+    return true;
+  } else {
+    console.error('SendGrid API key does not appear to be properly formatted. Should start with "SG."');
+    return false;
+  }
+};
+
+// Function to process batch order notifications for a buyer
+exports.processBatchOrderNotifications = async (buyerId) => {
+  try {
+    console.log('Starting batch order notification processing for buyer:', buyerId);
+    
+    // Verify SendGrid configuration
+    const isConfigValid = verifySendGridConfig();
+    console.log('SendGrid configuration valid:', isConfigValid);
+    
+    const Order = mongoose.model('Order');
+    const Buyer = mongoose.model('Buyer');
+    const Seller = mongoose.model('Seller');
+    
+    // Get the buyer
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      console.error('Buyer not found for batch processing:', buyerId);
+      return;
+    }
+    
+    console.log('Found buyer for batch processing:', {
+      buyerId: buyer._id.toString(),
+      email: buyer.email,
+      name: `${buyer.firstName} ${buyer.lastName}`
+    });
+    
+    // Find all orders for this buyer that haven't had notifications sent
+    const orders = await Order.find({
+      buyer: buyerId,
+      notificationsSent: false,
+      createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Orders created in the last 5 minutes
+    }).populate('seller').populate('items.product');
+    
+    if (orders.length === 0) {
+      console.log('No orders found for batch processing for buyer:', buyerId);
+      return;
+    }
+    
+    console.log(`Found ${orders.length} orders for batch processing for buyer:`, buyerId);
+    
+    // Deduplicate orders based on order_id to prevent repeats
+    const uniqueOrderMap = new Map();
+    orders.forEach(order => {
+      uniqueOrderMap.set(order.order_id, order);
+    });
+    
+    const uniqueOrders = Array.from(uniqueOrderMap.values());
+    
+    console.log(`After deduplication: ${uniqueOrders.length} unique orders for buyer:`, buyerId);
+    console.log('Order details:', uniqueOrders.map(order => ({
+      orderId: order._id.toString(),
+      order_id: order.order_id,
+      seller: order.seller ? order.seller._id.toString() : 'Missing seller',
+      items: order.items.length,
+      notificationsSent: order.notificationsSent
+    })));
+    
+    // Group orders by seller
+    const ordersBySeller = {};
+    const allSellers = [];
+    
+    uniqueOrders.forEach(order => {
+      if (!order.seller) {
+        console.error('Order has no seller:', order._id.toString());
+        return;
+      }
+      
+      const sellerId = order.seller._id.toString();
+      if (!ordersBySeller[sellerId]) {
+        ordersBySeller[sellerId] = [];
+        allSellers.push(order.seller);
+      }
+      ordersBySeller[sellerId].push(order);
+    });
+    
+    console.log('Grouped orders by seller:', Object.keys(ordersBySeller).map(sellerId => ({
+      sellerId,
+      orderCount: ordersBySeller[sellerId].length
+    })));
+    
+    // Send individual notifications to each seller
+    for (const seller of allSellers) {
+      const sellerOrders = ordersBySeller[seller._id.toString()];
+      console.log(`Processing ${sellerOrders.length} orders for seller:`, seller._id.toString());
+      
+      for (const order of sellerOrders) {
+        try {
+          console.log(`Creating notification for seller ${seller._id.toString()} for order ${order.order_id}`);
+          
+          // Create notification for seller
+          const sellerNotification = await exports.createNotification(
+            seller._id,
+            'new_order',
+            {
+              order_id: order.order_id,
+              amount: `₦${order.totalAmount.toLocaleString()}`,
+              items: order.items.map(item => ({
+                productName: item.productName || 'Product',
+                quantity: item.quantity,
+                price: item.price
+              })),
+              buyerName: `${buyer.firstName} ${buyer.lastName}`,
+              shippingFee: order.shipping?.fee?.amount?.toLocaleString() || '0',
+              paymentMethod: order.paymentInfo?.method?.charAt(0).toUpperCase() + order.paymentInfo?.method?.slice(1) || 'Online Payment',
+              deliveryAddress: {
+                recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
+                recipientAddress: order.delivery_address.line1,
+                recipientState: order.delivery_address.state,
+                recipientPhone: order.delivery_address.phone,
+                recipientEmail: order.delivery_address.email
+              }
+            }
+          );
+          
+          console.log(`Notification created for seller ${seller._id.toString()}, sending email...`);
+          
+          // Send email to seller for this specific order
+          await exports.sendEmailNotification(seller, sellerNotification);
+          console.log(`Email sent to seller ${seller.email} for order ${order.order_id}`);
+          
+          // Mark order as notified
+          order.notificationsSent = true;
+          await order.save();
+          console.log(`Order ${order.order_id} marked as notified`);
+        } catch (error) {
+          console.error(`Error processing notification for order ${order.order_id}:`, error);
+        }
+      }
+    }
+    
+    // For single orders, create a dedicated email to buyer
+    if (uniqueOrders.length === 1) {
+      console.log('Processing single order notification for buyer:', buyer.email);
+      const order = uniqueOrders[0];
+      const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
+      
+      try {
+        // Create notification for buyer
+        const buyerNotification = await exports.createBuyerNotification(
+          buyer._id,
+          'order_placed',
+          {
+            order_id: order.order_id,
+            amount: `₦${order.totalAmount.toLocaleString()}`,
+            items: order.items.map(item => ({
+              productName: item.productName || 'Product',
+              quantity: item.quantity,
+              price: item.price
+            })),
+            sellerName: sellerName,
+            shippingFee: order.shipping?.fee?.amount?.toLocaleString() || '0',
+            paymentMethod: order.paymentInfo?.method?.charAt(0).toUpperCase() + order.paymentInfo?.method?.slice(1) || 'Online Payment',
+            deliveryAddress: {
+              recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
+              recipientAddress: order.delivery_address.line1,
+              recipientState: order.delivery_address.state,
+              recipientPhone: order.delivery_address.phone,
+              recipientEmail: order.delivery_address.email
+            }
+          }
+        );
+        
+        console.log('Successfully created in-app notification for buyer');
+        
+        // Send direct email to buyer for single order
+        await exports.sendEmailToBuyer(buyer, buyerNotification);
+        console.log(`Direct email sent to buyer ${buyer.email} for single order ${order.order_id}`);
+      } catch (error) {
+        console.error('Error sending single order notification to buyer:', error);
+      }
+    }
+    // For multiple orders, create a consolidated email for the buyer
+    else if (uniqueOrders.length > 1) {
+      console.log('Creating consolidated email for buyer with multiple orders:', buyer.email);
+      
+      // Create in-app notifications for each order first
+      console.log('Creating in-app notifications for buyer first');
+      const buyerNotifications = [];
+      for (const order of uniqueOrders) {
+        try {
+          const notification = await exports.createBuyerNotification(
+            buyer._id,
+            'order_placed',
+            {
+              order_id: order.order_id,
+              amount: `₦${order.totalAmount.toLocaleString()}`,
+              items: order.items.map(item => ({
+                productName: item.productName || 'Product',
+                quantity: item.quantity,
+                price: item.price
+              })),
+              sellerName: order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`,
+              shippingFee: order.shipping?.fee?.amount?.toLocaleString() || '0',
+              paymentMethod: order.paymentInfo?.method?.charAt(0).toUpperCase() + order.paymentInfo?.method?.slice(1) || 'Online Payment',
+              deliveryAddress: {
+                recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
+                recipientAddress: order.delivery_address.line1,
+                recipientState: order.delivery_address.state,
+                recipientPhone: order.delivery_address.phone,
+                recipientEmail: order.delivery_address.email
+              }
+            }
+          );
+          buyerNotifications.push(notification);
+          console.log(`In-app notification created for buyer for order ${order.order_id}`);
+          
+          // Mark order as notified
+          order.notificationsSent = true;
+          await order.save();
+          console.log(`Order ${order.order_id} marked as notified`);
+        } catch (notifError) {
+          console.error(`Error creating in-app notification for order ${order.order_id}:`, notifError);
+        }
+      }
+      
+      let totalAmount = 0;
+      let allItemsHtml = '';
+      
+      // Process each order's items for the email
+      for (const order of uniqueOrders) {
+        const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
+        totalAmount += order.totalAmount;
+        
+        allItemsHtml += `
+          <tr style="background-color: #f9f9f9;">
+            <td colspan="4" style="padding: 10px; text-align: left; border: 1px solid #ddd;">
+              <strong>Order #${order.order_id} from ${sellerName}</strong>
+            </td>
+          </tr>
+        `;
+        
+        // Format the items for this order
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach(item => {
+            allItemsHtml += `
+              <tr>
+                <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.productName || 'Product'}</td>
+                <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.quantity || 1}</td>
+                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(item.price || 0).toLocaleString()}</td>
+                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</td>
+              </tr>
+            `;
+          });
+        }
+        
+        // Add shipping fee if applicable
+        if (order.shipping?.fee?.amount) {
+          allItemsHtml += `
+            <tr style="background-color: #f9f9f9;">
+              <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Shipping Fee (${sellerName}):</strong></td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${order.shipping.fee.amount.toLocaleString()}</td>
+            </tr>
+          `;
+          totalAmount += order.shipping.fee.amount;
+        }
+      }
+      
+      // Create the overall table
+      const itemsTable = `
+        <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Product</th>
+              <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quantity</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Price</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allItemsHtml}
+          </tbody>
+          <tfoot>
+            <tr style="background-color: #f9f9f9;">
+              <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Grand Total:</strong></td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${totalAmount.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+      
+      // Get delivery information from the first order
+      const firstOrder = uniqueOrders[0];
+      const deliveryInfoHtml = `
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <h3 style="margin-top: 0;">Delivery Information</h3>
+          <p><strong>Recipient:</strong> ${firstOrder.delivery_address.first_name} ${firstOrder.delivery_address.last_name}</p>
+          <p><strong>Address:</strong> ${firstOrder.delivery_address.line1}</p>
+          <p><strong>State:</strong> ${firstOrder.delivery_address.state}</p>
+          <p><strong>Phone:</strong> ${firstOrder.delivery_address.phone}</p>
+          <p><strong>Email:</strong> ${firstOrder.delivery_address.email}</p>
+        </div>
+      `;
+      
+      // Send consolidated email to buyer
+      const msg = {
+        to: buyer.email,
+        from: 'Auqli <support@auqli.com>',
+        subject: `Your Orders Have Been Placed - Auqli`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #333;">Multiple Orders Confirmation</h2>
+            </div>
+            <p>Hello ${buyer.firstName || 'Customer'},</p>
+            <p>Thank you for your orders! We're pleased to confirm that your orders have been received and are being processed.</p>
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+              <p><strong>Orders:</strong> ${uniqueOrders.length} orders from ${allSellers.length} sellers</p>
+              <p><strong>Payment Method:</strong> ${firstOrder.paymentInfo?.method?.charAt(0).toUpperCase() + firstOrder.paymentInfo?.method?.slice(1) || 'Online Payment'}</p>
+            </div>
+            
+            <h3>Order Details</h3>
+            ${itemsTable}
+            
+            ${deliveryInfoHtml}
+            
+            <p>You can track the status of your orders by logging into your Auqli account.</p>
+            <div style="text-align: center; margin-top: 20px;">
+              <a href="https://auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Track Your Orders</a>
+            </div>
+            <p style="margin-top: 20px;">If you have any questions about your orders, please contact our customer service team.</p>
+            <p>Thank you for shopping with Auqli!</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
+      
+      try {
+        console.log('Sending consolidated email to buyer:', {
+          to: buyer.email,
+          from: 'Auqli <support@auqli.com>',
+          subject: `Your Orders Have Been Placed - Auqli`,
+          orderCount: uniqueOrders.length,
+          sellerCount: allSellers.length
+        });
+        
+        // Ensure SendGrid API key is set
+        const apiKey = process.env.SENDGRID_API_KEY;
+        if (!apiKey) {
+          throw new Error('SendGrid API key not configured');
+        }
+        sgMail.setApiKey(apiKey);
+        
+        await sgMail.send(msg);
+        console.log(`Batch email sent to buyer: ${buyer.email} for ${uniqueOrders.length} orders`);
+      } catch (emailError) {
+        console.error('Error sending batch email to buyer:', emailError);
+        console.error('SendGrid error details:', emailError.response?.body?.errors);
+        
+        // FALLBACK: If batch email fails, try to send individual emails for each order
+        console.log('Attempting to send individual emails as fallback...');
+        for (let i = 0; i < buyerNotifications.length; i++) {
+          try {
+            await exports.sendEmailToBuyer(buyer, buyerNotifications[i]);
+            console.log(`Fallback: Individual email sent to buyer for order ${uniqueOrders[i].order_id}`);
+          } catch (fallbackError) {
+            console.error(`Fallback email failed for order ${uniqueOrders[i].order_id}:`, fallbackError);
+          }
+        }
+      }
+    }
+    
+    console.log(`Batch order notification processing completed for buyer: ${buyerId}`);
+    return true;
+  } catch (error) {
+    console.error('Error in batch order notification processing:', error);
+    throw error;
   }
 };

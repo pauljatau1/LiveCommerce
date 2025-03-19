@@ -1,6 +1,27 @@
 const Agenda = require('agenda');
 const mongoose = require('mongoose');
 
+// Verify SendGrid API key at startup
+const verifySendGridConfig = () => {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  
+  if (!apiKey) {
+    console.error('⚠️ SENDGRID_API_KEY is not set in environment variables!');
+    return false;
+  }
+  
+  if (apiKey.startsWith('SG.')) {
+    console.log('✅ SendGrid API key appears to be properly formatted');
+    return true;
+  } else {
+    console.error('⚠️ SendGrid API key does not appear to be properly formatted. Should start with "SG."');
+    return false;
+  }
+};
+
+// Check SendGrid configuration at startup
+verifySendGridConfig();
+
 const agenda = new Agenda({
   db: {
     address: process.env.MONGODB_URI,
@@ -184,22 +205,47 @@ agenda.define('send-order-notifications', async (job) => {
   try {
     console.log('Starting send-order-notifications job:', job.attrs.data);
     
-    const { orderId, buyerId, sellerId } = job.attrs.data;
+    const { orderId, buyerId, sellerId, batchProcess = false } = job.attrs.data;
+    const notificationController = require('../controllers/notificationController');
+
+    // Process batch notifications if this is a batch job
+    if (batchProcess) {
+      console.log('Processing batch notifications for buyer:', buyerId);
+      
+      // Check if there's already a job in progress for this buyer
+      const runningJobs = await agenda.jobs({
+        name: 'send-order-notifications',
+        'data.buyerId': buyerId,
+        'data.batchProcess': true,
+        $or: [
+          { lockedAt: { $ne: null } },
+          { nextRunAt: { $lt: new Date() } }
+        ]
+      });
+      
+      // If there are already running jobs for this buyer (more than this one), skip
+      if (runningJobs.length > 1) {
+        console.log(`Skipping duplicate batch notification job for buyer: ${buyerId}. Already ${runningJobs.length} jobs in progress.`);
+        return;
+      }
+      
+      await notificationController.processBatchOrderNotifications(buyerId);
+      return;
+    }
     
+    // Fetch the necessary data
+    console.log('Fetching order, buyer, and seller data...', {
+      orderId: orderId?.toString(),
+      buyerId,
+      sellerId
+    });
+
     const Order = mongoose.model('Order');
     const Buyer = mongoose.model('Buyer');
     const Seller = mongoose.model('Seller');
     const Message = mongoose.model('Message');
     const Conversation = mongoose.model('Conversation');
-    const notificationController = require('../controllers/notificationController');
     
-    // Fetch the necessary data
-    console.log('Fetching order, buyer, and seller data...', {
-      orderId: orderId.toString(),
-      buyerId,
-      sellerId
-    });
-
     let order, buyer, seller;
     try {
       order = await Order.findById(orderId)
@@ -207,6 +253,12 @@ agenda.define('send-order-notifications', async (job) => {
         .populate('shipping')
         .populate('delivery_address');
       console.log('Order fetch result:', order ? 'Found' : 'Not found');
+      
+      // Skip if notifications were already sent for this order
+      if (order && order.notificationsSent) {
+        console.log(`Skipping notifications for order ${order.order_id} as they were already sent`);
+        return;
+      }
     } catch (err) {
       console.error('Error fetching order:', err);
     }
@@ -333,6 +385,10 @@ agenda.define('send-order-notifications', async (job) => {
     // Send notifications and emails
     console.log('Sending notifications...');
     await notificationController.handleOrderCreationNotifications(order, buyer, seller);
+    
+    // Mark order as having had notifications sent
+    console.log(`Marking order ${order.order_id} as having had notifications sent`);
+    await Order.findByIdAndUpdate(orderId, { notificationsSent: true });
     
     console.log('Order notifications and message sent successfully');
   } catch (error) {

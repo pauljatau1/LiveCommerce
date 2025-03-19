@@ -507,12 +507,57 @@ router.get('/sellers/:id', async (req, res) => {
         followers storeVisits shippingOptions warehouseDetails
         firstName lastName phoneNumber businessNumber taxInformation
         accountType verificationDocuments emailVerified isNew
-        activityFeed customers sellerAddress email
+        activityFeed customers sellerAddress email reviews stats
       `);
     
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
+
+    // Get total sold items from orders
+    const Order = mongoose.model('Order');
+    const soldItemsAggregation = await Order.aggregate([
+      {
+        $match: {
+          seller: seller._id,
+          paid: true
+        }
+      },
+      {
+        $unwind: '$items'
+      },
+      {
+        $group: {
+          _id: null,
+          totalSoldItems: { $sum: '$items.quantity' }
+        }
+      }
+    ]);
+
+    // Get stream statistics
+    const Stream = mongoose.model('Stream');
+    const streamStats = await Stream.aggregate([
+      {
+        $match: {
+          seller: seller._id
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalStreams: { $sum: 1 },
+          liveStreams: {
+            $sum: { $cond: [{ $eq: ['$status', 'live'] }, 1, 0] }
+          },
+          scheduledStreams: {
+            $sum: { $cond: [{ $eq: ['$status', 'scheduled'] }, 1, 0] }
+          },
+          endedStreams: {
+            $sum: { $cond: [{ $eq: ['$status', 'ended'] }, 1, 0] }
+          }
+        }
+      }
+    ]);
 
     // Transform the response with detailed formatting
     const sellerResponse = {
@@ -538,6 +583,11 @@ router.get('/sellers/:id', async (req, res) => {
         storeBanner: seller.storeBanner
       },
       categories: seller.categories,
+      location: {
+        country: seller.businessAddress?.country || seller.sellerAddress?.country,
+        state: seller.businessAddress?.state || seller.sellerAddress?.state,
+        city: seller.businessAddress?.city || seller.sellerAddress?.city
+      },
       contactInformation: {
         businessEmail: seller.businessEmail,
         businessAddress: seller.businessAddress,
@@ -553,11 +603,29 @@ router.get('/sellers/:id', async (req, res) => {
       metrics: {
         followers: seller.followers?.length || 0,
         storeVisits: seller.storeVisits || 0,
-        customerCount: seller.customers?.length || 0
+        customerCount: seller.customers?.length || 0,
+        totalSoldItems: soldItemsAggregation[0]?.totalSoldItems || 0,
+        streams: {
+          total: streamStats[0]?.totalStreams || 0,
+          live: streamStats[0]?.liveStreams || 0,
+          scheduled: streamStats[0]?.scheduledStreams || 0,
+          ended: streamStats[0]?.endedStreams || 0
+        }
+      },
+      ratings: {
+        average: seller.stats?.averageRating || 0,
+        total: seller.stats?.totalReviews || 0,
+        distribution: seller.stats?.ratingDistribution || {
+          1: 0,
+          2: 0,
+          3: 0,
+          4: 0,
+          5: 0
+        }
       },
       activity: {
         isNew: seller.isNew,
-        recentActivity: seller.activityFeed?.slice(0, 5) || [], // Get 5 most recent activities
+        recentActivity: seller.activityFeed?.slice(0, 5) || []
       },
       createdAt: seller.createdAt
     };
