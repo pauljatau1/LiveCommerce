@@ -1,5 +1,5 @@
 import { View, Text, FlatList, Image, TouchableOpacity } from "react-native";
-import React from "react";
+import React, { memo, useCallback } from "react";
 import SectionHeader from "@/components/global/section-header";
 import WatchCategoryCard from "./category-card";
 import { data, icons } from "@/constants";
@@ -7,7 +7,15 @@ import ForYouCategoryCard from "./category-card";
 import { useGetAllCategoriesQuery } from "@/services/categories";
 
 const ForYouCatetorySection = () => {
-  const { data: categoriesData } = useGetAllCategoriesQuery({});
+  const {
+    data: categoriesData,
+    isLoading,
+    isError,
+  } = useGetAllCategoriesQuery({});
+
+  const renderCategories = useCallback(({ item }: any) => {
+    return <ForYouCategoryCard item={item} />;
+  }, []);
 
   return (
     <View className="w-[100%] pb-[9.81px] pt-[8px] ">
@@ -16,7 +24,7 @@ const ForYouCatetorySection = () => {
         <FlatList
           data={categoriesData}
           keyExtractor={(item) => item._id}
-          renderItem={({ item }) => <ForYouCategoryCard item={item} />}
+          renderItem={renderCategories}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{
@@ -29,4 +37,4 @@ const ForYouCatetorySection = () => {
   );
 };
 
-export default ForYouCatetorySection;
+export default memo(ForYouCatetorySection);

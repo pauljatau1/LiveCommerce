@@ -5,7 +5,7 @@ import {
   useWindowDimensions,
   Platform,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import HomeHeader from "./home-header";
 import Tags from "../global/tags";
 import AuqliLive from "./auqli-live";
@@ -15,12 +15,13 @@ import Auctions from "./auctions";
 import Coming from "./coming";
 import { ScrollView } from "react-native-virtualized-view";
 import CustomButton from "../global/button/CustomButton";
-import { router } from "expo-router";
+import { router, useFocusEffect, useSegments } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 
 const Home = () => {
   const tabBarHeight = useBottomTabBarHeight();
+  const segments = useSegments();
   const layout = useWindowDimensions();
 
   const [index, setIndex] = useState(0);
@@ -91,6 +92,14 @@ const Home = () => {
         );
     }
   };
+
+  useEffect(() => {
+    console.log("segments ", segments);
+
+    if (segments[3] === "home") {
+      return setSelected("Auqli Live");
+    }
+  }, [segments]);
 
   return (
     <View className="pt-[30px] flex-1">

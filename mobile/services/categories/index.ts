@@ -1,4 +1,4 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi, fetchBaseQuery, retry } from "@reduxjs/toolkit/query/react";
 // import { API_URL } from '@env'
 
 import { getRequest, putRequest, postRequest } from "@/core";
@@ -8,19 +8,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const category = createApi({
   reducerPath: "category",
-  baseQuery: fetchBaseQuery({
-    baseUrl: process.env.EXPO_PUBLIC_API_URL + "api",
-    prepareHeaders: async (headers) => {
-      var token = await getToken();
-      var registerPayload = await AsyncStorage.getItem("registerPayload");
-      if (registerPayload)
-        var tokenFromSignup = JSON.parse(registerPayload!).token;
-      if (token || tokenFromSignup) {
-        headers.set("authorization", `Bearer ${token || tokenFromSignup}`);
-      }
-      return headers;
-    },
-  }),
+  baseQuery: retry(
+    fetchBaseQuery({
+      baseUrl: process.env.EXPO_PUBLIC_API_URL + "api",
+      prepareHeaders: async (headers) => {
+        var token = await getToken();
+        var registerPayload = await AsyncStorage.getItem("registerPayload");
+        if (registerPayload)
+          var tokenFromSignup = JSON.parse(registerPayload!).token;
+        if (token || tokenFromSignup) {
+          headers.set("authorization", `Bearer ${token || tokenFromSignup}`);
+        }
+        return headers;
+      },
+    }),
+    { maxRetries: 1 },
+  ),
   endpoints: (builder) => ({
     uploadCategories: builder.mutation<any, SelectedCategoriesRequest>({
       query: (credentials) =>

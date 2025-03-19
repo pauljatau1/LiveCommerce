@@ -3,8 +3,9 @@ import { FlatList, View, Image, Text, Dimensions } from "react-native";
 import useCarousel from "@/hooks/useCarousel";
 import CustomButton from "@/components/global/button/CustomButton";
 import { data } from "@/constants";
+import BannerSkeleton from "@/components/skeleton/bannerSkeleton";
 
-const Carousel = ({ banners }: { banners: any[] }) => {
+const Carousel = ({ banners }: any) => {
   const screenWidth = Dimensions.get("window").width;
   const { activeIndex, flatlistRef, handleScroll } = useCarousel({
     dataLength: banners?.length,
@@ -59,7 +60,7 @@ const Carousel = ({ banners }: { banners: any[] }) => {
   };
 
   const renderDotIndicators = () => {
-    return banners?.map((_, index) => (
+    return banners?.map((_: any, index: number) => (
       <View
         key={index}
         style={{
@@ -75,26 +76,32 @@ const Carousel = ({ banners }: { banners: any[] }) => {
 
   return (
     <View>
-      <FlatList
-        data={banners || data}
-        ref={flatlistRef}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => item._id || index?.toString()}
-        horizontal
-        pagingEnabled
-        onScroll={handleScroll}
-        showsHorizontalScrollIndicator={false}
-        onScrollToIndexFailed={() => console.log("scroll failed")}
-      />
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "center",
-          marginTop: 12,
-        }}
-      >
-        {renderDotIndicators()}
-      </View>
+      {banners?.length < 1 ? (
+        <BannerSkeleton />
+      ) : (
+        <>
+          <FlatList
+            data={banners}
+            ref={flatlistRef}
+            renderItem={renderItem}
+            keyExtractor={(item, index) => item._id || index?.toString()}
+            horizontal
+            pagingEnabled
+            onScroll={handleScroll}
+            showsHorizontalScrollIndicator={false}
+            onScrollToIndexFailed={() => console.log("scroll failed")}
+          />
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "center",
+              marginTop: 12,
+            }}
+          >
+            {renderDotIndicators()}
+          </View>
+        </>
+      )}
     </View>
   );
 };

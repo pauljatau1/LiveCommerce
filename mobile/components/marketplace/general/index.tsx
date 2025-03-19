@@ -4,6 +4,8 @@ import { useGetAllProductsQuery } from "@/services/products";
 import { ActivityIndicator } from "react-native-paper";
 import ProductCard from "@/components/global/product-card";
 import CatalogCard from "@/components/catalog/catalogCard";
+import ProductSkeleton from "@/components/skeleton/productSkeleton";
+import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
 
 interface GeneralCategoryProps {
   name: string;
@@ -57,13 +59,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   };
 
   const renderEmptyPlaceholder = () => {
-    return (
-      <View className="">
-        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
-          No Products Found
-        </Text>
-      </View>
-    );
+    return <ProductEmptyState />;
   };
 
   return (
@@ -81,12 +77,12 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
         />
       </View>
 
-      <View className="w-full justify-between gap-[8px] px-[16px]">
-        {isLoading ? (
-          <ActivityIndicator size={"small"} color="#16783A" />
-        ) : (
+      {isLoading ? (
+        <ProductSkeleton numOfLoaders={4} height={157} padding={16} />
+      ) : (
+        <View className="w-full justify-between gap-[8px] px-[16px]">
           <FlatList
-            data={categoryData.data.products}
+            data={categoryData?.data?.products}
             renderItem={({ item, index }) => renderCategoryData(item)}
             keyExtractor={(item, index) => index.toString()}
             numColumns={2}
@@ -97,8 +93,8 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyPlaceholder}
           />
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
 };

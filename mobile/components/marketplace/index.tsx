@@ -1,5 +1,5 @@
 import { View, Text, FlatList } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Tags from "../global/tags";
 
 import { ScrollView } from "react-native-virtualized-view";
@@ -63,7 +63,7 @@ const Marketplace = () => {
     getSelectedCategories();
   }, [allCategories]);
 
-  const renderContent = () => {
+  const renderContent = useCallback(() => {
     if (selected == "For You") {
       return <ForYou />;
     }
@@ -74,7 +74,7 @@ const Marketplace = () => {
         category={allCategories?.find((cat: any) => cat.name == selected)}
       />
     );
-  };
+  }, [selected]);
 
   return (
     <View className="pt-[30px]" style={{ flex: 1 }}>
