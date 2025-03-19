@@ -192,7 +192,10 @@ ActiveLiveStreamCard.propTypes = {
     streamerName: PropTypes.string.isRequired,
     streamerImage: PropTypes.string,
     streamTitle: PropTypes.string.isRequired,
-    thumbnailImage: PropTypes.string,
+    thumbnailImage: PropTypes.shape({
+        url: PropTypes.string,
+        contentType: PropTypes.string
+    }),
     blip: PropTypes.shape({
         url: PropTypes.string
     }),

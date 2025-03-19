@@ -102,24 +102,35 @@ const SubmitLiveAuction = () => {
         }
     }, [message]);
 
-    const selectedProducts = livestream.products.filter(product => product.selected);
+    const selectedProducts = livestream?.products?.filter(product => product.selected);
 
     const handleSchedulingLiveAuction = async () => {
         const streamData = {
-            title: livestream.title,
-            description: livestream.description,
+            title: livestream?.title,
+            description: livestream?.description,
             coverImage: {
-                data: livestream.coverPhoto.data,
-                contentType: livestream.coverPhoto.contentType
+                data: livestream?.coverPhoto?.data,
+                contentType: livestream?.coverPhoto?.contentType
             },
-            category: livestream.category,
-            tags: livestream.tags.map(tag => tag.label),
-            products: selectedProducts,
-            video: livestream.video,
-            scheduledStartTime: livestream.scheduledStartTime || new Date().toISOString(),
+            category: livestream?.category,
+            tags: livestream?.tags?.map(tag => tag.label),
+            products: selectedProducts.map(product => ({
+                product: {
+                    productId: product.productId,
+                    name: product.name,
+                    category: product.category,
+                    images: product.images,
+                    sku: product.sku,
+                    quantity: product.quantity,
+                },
+                minBid: product.minBid,
+                maxBid: product.maxBid,
+            })),
+            video: livestream?.video,
+            scheduledStartTime: livestream?.scheduledStartTime || new Date().toISOString(),
         }
 
-        console.log(streamData);
+        console.log('live auction submitted data', streamData);
 
         try {
             if (streamData.title && streamData.description && streamData.coverImage && streamData.products.length > 0) {

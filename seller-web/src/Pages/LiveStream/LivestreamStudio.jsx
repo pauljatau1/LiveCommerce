@@ -155,7 +155,15 @@ const LivestreamStudio = () => {
                 return false;
             }
 
-            const previewStream = await navigator.mediaDevices.getUserMedia({
+            // Set up a timeout promise that rejects after 60 seconds
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error('Device initialization timeout after 60 seconds'));
+                }, 60000);
+            });
+
+            // Try to get media with a timeout
+            const mediaPromise = navigator.mediaDevices.getUserMedia({
                 video: {
                     width: { ideal: 1920 },
                     height: { ideal: 1080 },
@@ -168,12 +176,45 @@ const LivestreamStudio = () => {
                 }
             });
 
+            // Race between the media initialization and the timeout
+            const previewStream = await Promise.race([mediaPromise, timeoutPromise]);
+
+            // Check if camera track is actually receiving data
+            const videoTrack = previewStream.getVideoTracks()[0];
+            if (videoTrack && !videoTrack.enabled) {
+                throw new Error('Camera is not producing video data');
+            }
+
+            // Check if audio track is actually receiving data
+            const audioTrack = previewStream.getAudioTracks()[0];
+            if (audioTrack && !audioTrack.enabled) {
+                throw new Error('Microphone is not producing audio data');
+            }
+
             // Store the preview stream in state
             setPreviewMediaStream(previewStream);
             return previewStream;
 
         } catch (error) {
-            setDeviceError(`Device error: ${error.message}. Please check connections and refresh.`);
+            // More detailed error handling
+            let errorMessage = `Device error: ${error.message}.`;
+            
+            if (error.message.includes('timeout')) {
+                errorMessage = 'Camera and microphone did not initialize within 60 seconds. Please check your device connections.';
+            } else if (error.name === 'NotFoundError') {
+                errorMessage = 'Camera or microphone not found. Please connect your devices and try again.';
+            } else if (error.name === 'NotReadableError' || error.name === 'AbortError') {
+                errorMessage = 'Your camera or microphone is already in use by another application. Please close other apps that might be using your devices.';
+            } else if (error.name === 'OverconstrainedError') {
+                errorMessage = 'Your camera does not support the required resolution. Please try using a different camera.';
+            } else if (error.message.includes('Camera is not producing')) {
+                errorMessage = 'Your camera is connected but not producing video. Please check your camera settings or try another device.';
+            } else if (error.message.includes('Microphone is not producing')) {
+                errorMessage = 'Your microphone is connected but not producing audio. Please check your microphone settings or try another device.';
+            }
+            
+            setDeviceError(errorMessage);
+            console.error('Device initialization error:', error);
             return null;
         }
     };
@@ -229,16 +270,33 @@ const LivestreamStudio = () => {
                         await client.unpublish(localTracks);
                     }
                     
-                    // Stop and close each track
-                    localTracks.forEach(track => {
+                    // Then stop and close each track
+                    for (const track of localTracks) {
                         try {
+                            const trackType = track.trackMediaType; // 'audio' or 'video'
+                            console.log(`📤 [STREAM END] Stopping Agora ${trackType} track`);
+                            
+                            // Change order: First disable, then stop and close
+                            try {
+                                // Safely try to disable the track first
+                                if (track.enabled !== false && typeof track.enabled !== 'undefined') {
+                                    track.enabled = false;
+                                }
+                            } catch (enabledError) {
+                                console.log(`📤 [STREAM END] Could not disable track (already disabled or read-only)`, enabledError);
+                            }
+                            
+                            // Then stop the track
                             track.stop();
-                            track.enabled = false;
+                            
+                            // Finally close the track (this destroys the track)
                             track.close();
+                            
+                            console.log(`📤 [STREAM END] Successfully cleaned up ${trackType} track`);
                         } catch (trackError) {
-                            console.error("Error cleaning up individual track:", trackError);
+                            console.error("Error cleaning up track:", trackError);
                         }
-                    });
+                    }
                     setLocalTracks([]);
                 } catch (trackError) {
                     console.error("Track cleanup error:", trackError);
@@ -423,70 +481,132 @@ const LivestreamStudio = () => {
                 setIsLiveStreamEndingButton2(true);
             }
 
-            // 1. Stop and cleanup preview stream
+            console.log("📤 [STREAM END] Beginning stream shutdown process");
+
+            // 1. Stop and cleanup preview stream with enhanced error handling
             if (previewMediaStream) {
                 try {
+                    console.log("📤 [STREAM END] Cleaning up preview media stream");
                     const tracks = previewMediaStream.getTracks();
+                    console.log(`📤 [STREAM END] Found ${tracks.length} preview tracks to clean up`);
+                    
                     for (const track of tracks) {
                         try {
-                            track.stop();
+                            // Get track type and ID for better logging
+                            const trackType = track.kind; // 'audio' or 'video'
+                            const trackId = track.id;
+                            console.log(`📤 [STREAM END] Stopping ${trackType} track ${trackId}`);
+                            
+                            // Fully disable and stop the track
                             track.enabled = false;
+                            track.stop();
+                            
+                            // Additional check to ensure the track is really stopped
+                            if (track.readyState !== 'ended') {
+                                console.warn(`📤 [STREAM END] Track ${trackId} not fully stopped, forcing again`);
+                                track.stop();
+                            }
                         } catch (trackError) {
                             console.error("Error cleaning up preview track:", trackError);
                         }
                     }
+                    
+                    // Explicitly remove all references to the stream
+                    previewMediaStream.getTracks().forEach(track => track.stop());
                     setPreviewMediaStream(null);
+                    
+                    // Force a small delay to allow browser to release camera/mic resources
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    console.log("📤 [STREAM END] Preview media stream cleanup completed");
                 } catch (error) {
                     console.error("Error cleaning up preview stream:", error);
                 }
             }
 
-            // 2. Unpublish and cleanup Agora tracks
+            // 2. Access navigator.mediaDevices to ensure all user media is stopped
+            try {
+                // This is an additional safety measure to release all media devices
+                console.log("📤 [STREAM END] Performing additional media device release");
+                const emptyTracks = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                emptyTracks.getTracks().forEach(track => {
+                    track.enabled = false;
+                    track.stop();
+                });
+            } catch (mediaError) {
+                console.log("📤 [STREAM END] Additional media release not needed or failed:", mediaError);
+            }
+
+            // 3. Unpublish and cleanup Agora tracks
             if (localTracks.length > 0) {
                 try {
+                    console.log(`📤 [STREAM END] Cleaning up ${localTracks.length} Agora tracks`);
                     // First unpublish from Agora client
                     if (client.connectionState === 'CONNECTED') {
                         await client.unpublish(localTracks);
+                        console.log("📤 [STREAM END] Unpublished tracks from Agora");
                     }
                     
                     // Then stop and close each track
                     for (const track of localTracks) {
                         try {
+                            const trackType = track.trackMediaType; // 'audio' or 'video'
+                            console.log(`📤 [STREAM END] Stopping Agora ${trackType} track`);
+                            
+                            // Change order: First disable, then stop and close
+                            try {
+                                // Safely try to disable the track first
+                                if (track.enabled !== false && typeof track.enabled !== 'undefined') {
+                                    track.enabled = false;
+                                }
+                            } catch (enabledError) {
+                                console.log(`📤 [STREAM END] Could not disable track (already disabled or read-only)`, enabledError);
+                            }
+                            
+                            // Then stop the track
                             track.stop();
-                            track.enabled = false;
+                            
+                            // Finally close the track (this destroys the track)
                             track.close();
+                            
+                            console.log(`📤 [STREAM END] Successfully cleaned up ${trackType} track`);
                         } catch (trackError) {
                             console.error("Error cleaning up track:", trackError);
                         }
                     }
                     setLocalTracks([]);
+                    console.log("📤 [STREAM END] Agora tracks cleanup completed");
                 } catch (error) {
                     console.error("Error unpublishing tracks:", error);
                 }
             }
 
-            // 3. Leave and cleanup Agora client
+            // 4. Leave and cleanup Agora client
             if (client) {
                 try {
+                    console.log("📤 [STREAM END] Cleaning up Agora client");
                     // Remove all event listeners first
                     client.removeAllListeners();
                     
                     // Then leave the channel if connected
                     if (client.connectionState !== 'DISCONNECTED') {
                         await client.leave();
+                        console.log("📤 [STREAM END] Left Agora channel");
                     }
                 } catch (error) {
                     console.error("Error leaving Agora channel:", error);
                 }
             }
 
-            // 4. Notify backend about stream end
+            // 5. Notify backend about stream end
+            console.log("📤 [STREAM END] Notifying backend about stream end");
             await endLiveStream(_id);
 
-            // 5. Show success message
+            // 6. Show success message
             toast.success('Livestream ended successfully', {
                 style: { background: '#161A1E', color: '#fff' }
             });
+            
+            console.log("📤 [STREAM END] Stream shutdown completed successfully");
 
         } catch (error) {
             console.error('Error ending stream:', error);
@@ -495,6 +615,7 @@ const LivestreamStudio = () => {
             });
         } finally {
             // Reset all states and clear storage regardless of success/failure
+            console.log("📤 [STREAM END] Resetting all states and clearing storage");
             setIsStreaming(false);
             stopTimer();
             setStreamDuration(0);
@@ -509,6 +630,23 @@ const LivestreamStudio = () => {
                 }
             }
 
+            // Final check: Force garbage collection of any remaining media resources
+            try {
+                // Force a delay before navigation to give time for cleanup
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Create one final check to ensure camera/mic are released
+                const finalCheck = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                finalCheck.getTracks().forEach(track => {
+                    track.enabled = false;
+                    track.stop();
+                });
+            } catch (e) {
+                // If this fails, it likely means devices are already released
+                console.log("📤 [STREAM END] Final device check completed");
+            }
+
+            console.log("📤 [STREAM END] Navigating away from stream page");
             // Navigate to past shows after cleanup
             navigate('/dashboard/live-streams/past-shows');
         }
@@ -1039,15 +1177,15 @@ const LivestreamStudio = () => {
                                                                     <div key={item?.product._id} className="bg-[#161A1E] flex  gap-4 rounded-xl p-3">
                                                                         <div className="">
                                                                             <img
-                                                                                src={item.product.images[0].url}
-                                                                                alt={item.product.name}
+                                                                                src={item?.product?.images[0]?.url}
+                                                                                alt={item?.product?.name}
                                                                                 className="w-[62px] h-[62px] object-contain rounded-lg"
                                                                             />
                                                                         </div>
                                                                         <div>
-                                                                            <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item.product.name}</p>
+                                                                            <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
                                                                             <p className="text-sm text-[#718096] font-inter font-medium">
-                                                                                {formatCurrency(item.product.price)}
+                                                                                {formatCurrency(item?.product?.price)}
                                                                             </p>
                                                                         </div>
                                                                     </div>
@@ -1097,15 +1235,15 @@ const LivestreamStudio = () => {
                                                                             <div key={item?.product._id} className="bg-[#161A1E] flex  gap-4 rounded-xl p-3">
                                                                                 <div className="">
                                                                                     <img
-                                                                                        src={item.product.images[0].url}
-                                                                                        alt={item.product.name}
+                                                                                        src={item?.product?.images[0]?.url}
+                                                                                        alt={item?.product?.name}
                                                                                         className="w-[62px] h-[62px] object-contain rounded-lg"
                                                                                     />
                                                                                 </div>
                                                                                 <div>
-                                                                                    <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item.product.name}</p>
+                                                                                    <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
                                                                                     <p className="text-sm text-[#718096] font-inter font-medium">
-                                                                                        {formatCurrency(item.product.price)}
+                                                                                        {formatCurrency(item?.product?.price)}
                                                                                     </p>
                                                                                 </div>
                                                                             </div>
@@ -1414,15 +1552,15 @@ const LivestreamStudio = () => {
                                                                     <div key={item?.product._id} className="bg-[#161A1E] flex  gap-4 rounded-xl p-3">
                                                                         <div className="">
                                                                             <img
-                                                                                src={item.product.images[0].url}
-                                                                                alt={item.product.name}
+                                                                                src={item?.product?.images[0]?.url}
+                                                                                alt={item?.product?.name}
                                                                                 className="w-[62px] h-[62px] object-contain rounded-lg"
                                                                             />
                                                                         </div>
                                                                         <div>
-                                                                            <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item.product.name}</p>
+                                                                            <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
                                                                             <p className="text-sm text-[#718096] font-inter font-medium">
-                                                                                {formatCurrency(item.product.price)}
+                                                                                {formatCurrency(item?.product?.price)}
                                                                             </p>
                                                                         </div>
                                                                     </div>
@@ -1473,15 +1611,15 @@ const LivestreamStudio = () => {
                                                                             <div key={item?.product._id} className="bg-[#161A1E] flex  gap-4 rounded-xl p-3">
                                                                                 <div className="">
                                                                                     <img
-                                                                                        src={item.product.images[0].url}
-                                                                                        alt={item.product.name}
+                                                                                        src={item?.product?.images[0]?.url}
+                                                                                        alt={item?.product?.name}
                                                                                         className="w-[62px] h-[62px] object-contain rounded-lg"
                                                                                     />
                                                                                 </div>
                                                                                 <div>
-                                                                                    <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item.product.name}</p>
+                                                                                    <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
                                                                                     <p className="text-sm text-[#718096] font-inter font-medium">
-                                                                                        {formatCurrency(item.product.price)}
+                                                                                        {formatCurrency(item?.product?.price)}
                                                                                     </p>
                                                                                 </div>
                                                                             </div>

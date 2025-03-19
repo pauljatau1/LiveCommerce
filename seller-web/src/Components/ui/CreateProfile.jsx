@@ -142,10 +142,10 @@ const CreateProfile = () => {
                             <input
                                 type="checkbox"
                                 id="privacy"
-                                className="mt-1.5 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                className="mt-1.5 h-4 w-4 rounded border-gray-300 text-[#2D3748] focus:ring-[#2D3748]"
                             />
                             <label htmlFor="privacy" className="text-gray-600">
-                                By continuing, you agree to our <a href="#" className="text-green-600 hover:underline hover:text-green-700 font-medium">privacy policy</a>
+                                By continuing, you agree to our <a href="#" className="text-[#2D3748] hover:underline hover:text-[#2D3748] font-medium">privacy policy</a>
                             </label>
                         </div>
 
@@ -153,10 +153,10 @@ const CreateProfile = () => {
                             <input
                                 type="checkbox"
                                 id="terms"
-                                className="mt-1.5 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                className="mt-1.5 h-4 w-4 rounded border-gray-300 text-[#2D3748] focus:ring-[#2D3748]"
                             />
                             <label htmlFor="terms" className="text-gray-600">
-                                I confirm that I have read, and agree to <a href="#" className="text-green-600 hover:underline hover:text-green-700 font-medium">Auqli&apos;s terms and conditions</a>
+                                I confirm that I have read, and agree to <a href="#" className="text-[#2D3748] hover:underline hover:text-[#2D3748] font-medium">Auqli&apos;s terms and conditions</a>
                             </label>
                         </div>
 
@@ -164,10 +164,10 @@ const CreateProfile = () => {
                             <input
                                 type="checkbox"
                                 id="seller-agreement"
-                                className="mt-1.5 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                className="mt-1.5 h-4 w-4 rounded border-gray-300 text-[#2D3748] focus:ring-[#2D3748]"
                             />
                             <label htmlFor="seller-agreement" className="text-gray-600">
-                                By registering as a Seller you agree to comply with our <a href="#" className="text-green-600 hover:underline hover:text-green-700 font-medium">Seller Agreement</a>
+                                By registering as a Seller you agree to comply with our <a href="#" className="text-[#2D3748] hover:underline hover:text-[#2D3748] font-medium">Seller Agreement</a>
                             </label>
                         </div>
                     </div>
@@ -183,7 +183,7 @@ const CreateProfile = () => {
                         <button
                             onClick={handleSubmit}
                             disabled={isImageUploading}
-                            className="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 py-2.5 bg-[#2D3748] text-white font-medium rounded-lg hover:bg-[#2D3748] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isImageUploading ? 'Uploading...' : 'Next'}
                         </button>

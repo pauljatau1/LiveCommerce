@@ -91,7 +91,7 @@ const IndividualVerificationOnboarding = () => {
             toast.error('Please upload all required documents', {
                 description: 'All fields are required',
                 style: {
-                    background: '#05031F',
+                    background: '#2D3748',
                     color: '#fff',
                 }
             })
@@ -119,13 +119,13 @@ const IndividualVerificationOnboarding = () => {
                 <img src={Step3} alt="Step 3" className="w-full lg:w-[1000px]" />
                 <div className="flex flex-col items-center justify-center mt-[64px] lg:mt-[125px]">
                     <div className="flex flex-col items-center justify-center">
-                        <h1 className="text-center text-2xl lg:text-3xl font-bold mb-4 lg:mb-7">Verification</h1>
-                        <p className="text-center text-base lg:text-2xl font-light">
+                        <h1 className="text-center text-[#2D3748] text-2xl lg:text-3xl font-bold mb-4 lg:mb-7">Verification</h1>
+                        <p className="text-center text-[#2D3748] text-base lg:text-2xl font-light">
                         Upload necessary information to enable us review and approve your application. Fake documents will be detected automatically and reported.
                         </p>
                         <form onSubmit={handleSubmit} className="w-full mt-14 lg:mt-28">
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label className="text-base lg:text-2xl font-light">Tax or Vat ID</label>
+                                <label className="text-base text-[#2D3748] lg:text-2xl font-light">Tax or Vat ID</label>
                                 <div className="w-full relative">
                                     <input
                                         type="file"
@@ -138,7 +138,7 @@ const IndividualVerificationOnboarding = () => {
                                         <TooltipTrigger asChild>
                                             <label
                                                 htmlFor="taxIdUpload"
-                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
+                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#2D3748] transition-all duration-500"
                                             >
                                                 <span className="text-gray-500">
                                                     {documents.taxId.file ? documents.taxId.file.name : 'Upload From Device'}
@@ -156,7 +156,7 @@ const IndividualVerificationOnboarding = () => {
                             </div>
 
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label className="text-base lg:text-2xl font-light">Government ID</label>
+                                <label className="text-base text-[#2D3748] lg:text-2xl font-light">Government ID</label>
                                 <div className="w-full relative">
                                     <input
                                         type="file"
@@ -172,7 +172,7 @@ const IndividualVerificationOnboarding = () => {
                                         <TooltipTrigger asChild>
                                             <label
                                                 htmlFor="governmentIdUpload"
-                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
+                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#2D3748] transition-all duration-500"
                                             >
                                                 <span className="text-gray-500">
                                                     {documents.governmentId.file ? documents.governmentId.file.name : 'Upload From Device'}
@@ -190,7 +190,7 @@ const IndividualVerificationOnboarding = () => {
 
                             </div>
                             <div className="flex flex-col items-center justify-center mb-4 lg:mb-7">
-                                <label className="text-base lg:text-2xl font-light">Proof of Address</label>
+                                <label className="text-base text-[#2D3748] lg:text-2xl font-light">Proof of Address</label>
                                 <div className="w-full relative">
                                     <input
                                         type="file"
@@ -203,7 +203,7 @@ const IndividualVerificationOnboarding = () => {
                                         <TooltipTrigger asChild>
                                             <label
                                                 htmlFor="proofOfAddressUpload"
-                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#05031F] transition-all duration-500"
+                                                className="w-full border border-gray-300 rounded-full mt-2 lg:mt-4 py-5 lg:py-6 px-4 lg:px-8 flex items-center justify-between cursor-pointer hover:border-[#2D3748] transition-all duration-500"
                                             >
                                                 <span className="text-gray-500">
                                                     {documents.proofOfAddress.file ? documents.proofOfAddress.file.name : 'Upload From Device'}
@@ -224,13 +224,13 @@ const IndividualVerificationOnboarding = () => {
                                 <button
                                     type="button"
                                     onClick={handleBack}
-                                    className="bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
+                                    className="bg-transparent text-[#2D3748] border border-[#2D3748] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
                                 >
                                     Back
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
+                                    className="bg-[#2D3748] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
                                 >
                                     {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Next'}
                                 </button>

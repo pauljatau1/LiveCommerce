@@ -17,7 +17,7 @@ import { useIntercomChat } from '../../Hooks/useIntercom';
 
 const LoginPage = () => {
   const { initVisitor } = useIntercomChat();
-  const { seller, otpStatus, verifyOtp, requestNewOtp, isLoading, login, resetPassword, resetPasswordWithOtp, isForgotPasswordRequestSuccessful, passwordResetSuccessful, dispatch } = useAuthContext();
+  const { isLoading, login, resetPassword, resetPasswordWithOtp, isForgotPasswordRequestSuccessful, passwordResetSuccessful, dispatch } = useAuthContext();
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');

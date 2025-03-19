@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../Components/ui/select";
-import { Country, State, City } from 'country-state-city';
+import statesCitiesDb from 'states-cities-db';
 import Step2 from '../../assets/onboarding-setp1.png';
 import CircularProgress from '@mui/material/CircularProgress';
 
@@ -23,8 +23,8 @@ const IndividualOnboarding = () => {
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedState, setSelectedState] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
-  const [countryCode, setCountryCode] = useState("");
-  const [stateCode, setStateCode] = useState("");
+  const [countrySlug, setCountrySlug] = useState("");
+  const [stateSlug, setStateSlug] = useState("");
   const [searchQuery, setSearchQuery] = useState('');
   const [stateSearchQuery, setStateSearchQuery] = useState('');
   const [citySearchQuery, setCitySearchQuery] = useState('');
@@ -37,13 +37,17 @@ const IndividualOnboarding = () => {
 
   const CHUNK_SIZE = 50;
 
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const states = useMemo(() =>
-    countryCode ? State.getStatesOfCountry(countryCode) : []
-    , [countryCode]);
-  const cities = useMemo(() =>
-    stateCode ? City.getCitiesOfState(countryCode, stateCode) : []
-    , [countryCode, stateCode]);
+  const countries = useMemo(() => {
+    return statesCitiesDb.getCountries();
+  }, []);
+  
+  const states = useMemo(() => {
+    return countrySlug ? statesCitiesDb.getStates(countrySlug) : [];
+  }, [countrySlug]);
+  
+  const cities = useMemo(() => {
+    return stateSlug ? statesCitiesDb.getCities(stateSlug) : [];
+  }, [stateSlug]);
 
   const filteredCountries = useMemo(() =>
     countries.filter(country =>
@@ -97,19 +101,19 @@ const IndividualOnboarding = () => {
     ]);
   };
 
-  const handleCountrySelect = (isoCode) => {
-    const country = countries.find(c => c.isoCode === isoCode);
+  const handleCountrySelect = (slug) => {
+    const country = countries.find(c => c.slug === slug);
     setSelectedCountry(country.name);
-    setCountryCode(isoCode);
+    setCountrySlug(slug);
     setSelectedState("");
-    setStateCode("");
+    setStateSlug("");
     setSelectedCity("");
   };
 
-  const handleStateSelect = (isoCode) => {
-    const state = states.find(s => s.isoCode === isoCode);
+  const handleStateSelect = (slug) => {
+    const state = states.find(s => s.slug === slug);
     setSelectedState(state.name);
-    setStateCode(isoCode);
+    setStateSlug(slug);
     setSelectedCity("");
   };
 
@@ -139,7 +143,7 @@ const IndividualOnboarding = () => {
       toast.error('Please fill in all required fields', {
         description: 'All fields except Street Address Line 2 are required',
         style: {
-          background: '#05031F',
+          background: '#2D3748',
           color: '#fff',
         }
       });
@@ -152,38 +156,38 @@ const IndividualOnboarding = () => {
         <img src={Step2} alt="Step 2" className="w-full lg:w-[1000px]" />
         <div className="flex flex-col items-center justify-center mt-[64px] lg:mt-[125px]">
           <div className="flex flex-col items-center justify-center">
-            <h1 className="text-center text-2xl lg:text-3xl font-bold mb-4 lg:mb-7">Individual Seller Information</h1>
-            <p className="text-center text-base lg:text-2xl font-light my-2 lg:my-14">
+            <h1 className="text-center text-[#2D3748] text-2xl lg:text-3xl font-bold mb-4 lg:mb-7">Individual Seller Information</h1>
+            <p className="text-center text-[#2D3748] text-base lg:text-2xl font-light my-2 lg:my-14">
               We just need a little information about you to process your application to sell on Augli
             </p>
 
             <form className="w-full mt-5 ">
               <div className="flex flex-col items-center justify-center gap-5 lg:gap-7 w-full mb-7">
-                <label className="text-base lg:text-2xl font-normal mb-2">Full Legal Name</label>
+                <label className="text-base text-[#2D3748] lg:text-2xl font-normal mb-2">Full Legal Name</label>
                 <div className="flex flex-col md:flex-row gap-5 lg:gap-7 w-full mb-7">
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="First Name"
-                    className="w-full border border-gray-300 rounded-full py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300"
+                    className="w-full border border-gray-300 rounded-full py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300"
                   />
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Last Name"
-                    className="w-full border border-gray-300 rounded-full py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300"
+                    className="w-full border border-gray-300 rounded-full py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300"
                   />
                 </div>
               </div>
 
               <div className="flex flex-col items-center justify-center my-12 lg:my-20">
-                <label className="text-base lg:text-2xl font-normal mb-6 lg:mb-10">Complete Address</label>
+                <label className="text-base text-[#2D3748] lg:text-2xl font-normal mb-6 lg:mb-10">Complete Address</label>
                 <div className="flex flex-col md:flex-row gap-5 lg:gap-7 w-full mb-7">
                   <div className="flex flex-col w-full">
                     <Select onValueChange={handleCountrySelect}>
-                      <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                      <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                         <SelectValue placeholder="Country" />
                       </SelectTrigger>
                       <SelectContent className="w-full max-h-[300px]">
@@ -197,12 +201,12 @@ const IndividualOnboarding = () => {
                         <SelectGroup>
                           {searchQuery
                             ? filteredCountries.map((country) => (
-                              <SelectItem key={country.isoCode} value={country.isoCode}>
+                              <SelectItem key={country.slug} value={country.slug}>
                                 {country.name}
                               </SelectItem>
                             ))
                             : visibleCountries.map((country) => (
-                              <SelectItem key={country.isoCode} value={country.isoCode}>
+                              <SelectItem key={country.slug} value={country.slug}>
                                 {country.name}
                               </SelectItem>
                             ))
@@ -220,8 +224,8 @@ const IndividualOnboarding = () => {
                     </Select>
                   </div>
                   <div className="flex flex-col w-full">
-                    <Select onValueChange={handleStateSelect} disabled={!countryCode}>
-                      <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                    <Select onValueChange={handleStateSelect} disabled={!countrySlug}>
+                      <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                         <SelectValue placeholder="State" />
                       </SelectTrigger>
                       <SelectContent className="w-full max-h-[300px]">
@@ -235,12 +239,12 @@ const IndividualOnboarding = () => {
                         <SelectGroup>
                           {stateSearchQuery
                             ? filteredStates.map((state) => (
-                              <SelectItem key={state.isoCode} value={state.isoCode}>
+                              <SelectItem key={state.slug} value={state.slug}>
                                 {state.name}
                               </SelectItem>
                             ))
                             : visibleStates.map((state) => (
-                              <SelectItem key={state.isoCode} value={state.isoCode}>
+                              <SelectItem key={state.slug} value={state.slug}>
                                 {state.name}
                               </SelectItem>
                             ))
@@ -260,8 +264,8 @@ const IndividualOnboarding = () => {
                 </div>
 
                 <div className="flex flex-col w-full mb-7">
-                  <Select onValueChange={setSelectedCity} disabled={!stateCode}>
-                    <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300">
+                  <Select onValueChange={setSelectedCity} disabled={!stateSlug}>
+                    <SelectTrigger className="w-full border border-gray-300 rounded-full py-9 lg:py-11 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300">
                       <SelectValue placeholder="City" />
                     </SelectTrigger>
                     <SelectContent className="w-full max-h-[300px]">
@@ -275,12 +279,12 @@ const IndividualOnboarding = () => {
                       <SelectGroup>
                         {citySearchQuery
                           ? filteredCities.map((city) => (
-                            <SelectItem key={city.name} value={city.name}>
+                            <SelectItem key={city.slug} value={city.slug}>
                               {city.name}
                             </SelectItem>
                           ))
                           : visibleCities.map((city) => (
-                            <SelectItem key={city.name} value={city.name}>
+                            <SelectItem key={city.slug} value={city.slug}>
                               {city.name}
                             </SelectItem>
                           ))
@@ -302,14 +306,14 @@ const IndividualOnboarding = () => {
                   placeholder="Street Address"
                   value={streetAddress1}
                   onChange={(e) => setStreetAddress1(e.target.value)}
-                  className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[100px] px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 resize-none mb-7"
+                  className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[100px] px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 resize-none mb-7"
                 />
 
                 <textarea
                   placeholder="Street Address Line 2 (Optional)"
                   value={streetAddress2}
                   onChange={(e) => setStreetAddress2(e.target.value)}
-                  className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[100px] px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300 resize-none mb-7"
+                  className="w-full border border-gray-300 rounded-[25.78px] lg:rounded-[52.78px] mt-2 lg:mt-4 py-5 lg:py-6 h-[100px] px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300 resize-none mb-7"
                 />
 
                 <input
@@ -317,7 +321,7 @@ const IndividualOnboarding = () => {
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value)}
                   placeholder="Zip Code"
-                  className="w-full border border-gray-300 rounded-full py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-primary text-md lg:text-lg hover:border hover:border-[#05031F] transition-all duration-300"
+                  className="w-full border border-gray-300 rounded-full py-5 lg:py-6 px-4 lg:px-8 focus:outline-none focus:border-[#2D3748] text-md lg:text-lg hover:border hover:border-[#2D3748] transition-all duration-300"
                 />
               </div>
 
@@ -325,14 +329,14 @@ const IndividualOnboarding = () => {
                 <button
                   onClick={handleBack}
                   type="button"
-                  className="bg-transparent text-[#05031F] border border-[#05031F] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
+                  className="bg-transparent text-[#2D3748] border border-[#2D3748] rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleNext}
                   type="submit"
-                  className="bg-[#05031F] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
+                  className="bg-[#2D3748] text-white rounded-md px-11 py-3 lg:py-4 hover:transform hover:scale-95 transition-all duration-300 cursor-pointer"
                 >
                   {
                     isLoading ? <CircularProgress size={20} color="inherit" /> : 'Next'
