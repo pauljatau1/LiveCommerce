@@ -213,6 +213,34 @@ export default function StoreSettings() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    if (name === 'phoneNumber') {
+      // Remove all non-digit characters
+      let cleaned = value.replace(/\D/g, '');
+      
+      // If the number starts with 0, remove it
+      if (cleaned.startsWith('0')) {
+        cleaned = cleaned.substring(1);
+      }
+      
+      // If the number starts with 234, remove it (to prevent double prefix)
+      if (cleaned.startsWith('234')) {
+        cleaned = cleaned.substring(3);
+      }
+      
+      // Limit to 10 digits (after removing prefix)
+      cleaned = cleaned.substring(0, 10);
+      
+      // Format for display: if there are digits, add the +234 prefix
+      const formatted = cleaned ? `+234${cleaned}` : '';
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: formatted
+      }));
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -340,6 +368,17 @@ export default function StoreSettings() {
     }));
   };
 
+  // Add this validation function
+  const isValidNigerianNumber = (number) => {
+    // Remove all non-digit characters
+    const cleaned = number.replace(/\D/g, '');
+    
+    // Check if it starts with 234 and has 13 digits total
+    // OR if it has 10 digits (without prefix)
+    return (cleaned.startsWith('234') && cleaned.length === 13) ||
+           (cleaned.length === 10);
+  };
+
   // Update validation function to only check fields that are being updated
   const validateBusinessDetails = (dataToUpdate) => {
     // If we're updating business details, only validate the fields that are present
@@ -422,6 +461,12 @@ export default function StoreSettings() {
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
       
+      // Validate phone number before updating
+      if (formData.phoneNumber && !isValidNigerianNumber(formData.phoneNumber)) {
+        toast.error("Please enter a valid Nigerian phone number");
+        return false;
+      }
+      
       // Only include fields that have been modified
       const updateData = {
         ...(formData.email && { businessEmail: formData.email }),
@@ -454,6 +499,12 @@ export default function StoreSettings() {
     setUpdatingSection(prev => ({ ...prev, individualInfo: true }));
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      
+      // Validate phone number before updating
+      if (formData.phoneNumber && !isValidNigerianNumber(formData.phoneNumber)) {
+        toast.error("Please enter a valid Nigerian phone number");
+        return false;
+      }
       
       // Only include fields that have been modified
       const updateData = {

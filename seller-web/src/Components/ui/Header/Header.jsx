@@ -133,7 +133,33 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   )
 
   const desktopNotificationsButton = (
-    <Dialog open={notificationDialogOpen} onOpenChange={setNotificationDialogOpen}>
+    <Dialog open={notificationDialogOpen} onOpenChange={async (isOpen) => {
+      setNotificationDialogOpen(isOpen);
+      if (isOpen && calculateNewNotifications() > 0) {
+        try {
+          const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+          if (!sellerToken) return;
+
+          // Update local state immediately
+          const updatedNotifications = stuffToDo.notifications.map(notification => ({
+            ...notification,
+            isRead: true
+          }));
+          stuffToDo.notifications = updatedNotifications;
+
+          // Make API call to mark all notifications as read
+          await fetch(`${BASE_URL}/notifications/mark-all-read`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${sellerToken}`,
+              'accept': '*/*'
+            }
+          });
+        } catch (error) {
+          console.error('Error marking notifications as read:', error);
+        }
+      }
+    }}>
       <DialogTrigger asChild>
         <button className="relative p-2 mr-3 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
           <Icon icon="ion:notifications-outline" className="h-7 w-7" />
