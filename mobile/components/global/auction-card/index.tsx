@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import { View, Text, Image, TouchableOpacity, Pressable } from "react-native";
 import { icons, images } from "@/constants";
 import CustomButton from "../button/CustomButton";
 import { formatTimeFromNow } from "@/helpers/helpers";
@@ -15,7 +15,10 @@ const AuctionCard = ({ item }: any) => {
     );
   }, []);
   return (
-    <View className=" bg-black rounded-lg p-[11.85px]  w-[173px] min-h-[299px]">
+    <Pressable
+      className=" bg-black rounded-lg p-[11.85px]  w-[173px] min-h-[299px]"
+      onPress={() => router.push(`/product/${item?._id}`)}
+    >
       {/* Product Image */}
       <Image
         source={{ uri: item?.images[0]?.url }}
@@ -101,7 +104,7 @@ const AuctionCard = ({ item }: any) => {
         className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
         onPress={() => router.push(`/product/${item?._id}`)}
       />
-    </View>
+    </Pressable>
   );
 };
 

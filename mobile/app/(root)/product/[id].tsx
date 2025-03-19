@@ -46,6 +46,7 @@ import { initializeSocket } from "@/core/sockets";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import AuctionRulesSheet from "@/components/product/auctionRulesSheet";
+import { Octicons } from "@expo/vector-icons";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -999,94 +1000,162 @@ const ProductDescription = () => {
 
                   {isProductSpecsShow && renderSpecifications()}
 
-                  <View className="px-[20px] py-[14px]">
+                  <View className="px-[20px] py-[14px] ">
                     <View
-                      className="py-[15px] px-[20px] rounded-[7px]"
+                      className="py-[15px] px-[20px] rounded-[7px] border-white border-[0.7px] flex-row gap-[16px]"
                       style={{ backgroundColor: "rgba(22, 120, 58, 0.38)" }}
                     >
-                      <View className="flex-row gap-2 items-center mb-[18px]">
-                        <Image
-                          source={{
-                            uri: sellerInfo?.storePresence?.storeAvatar?.url,
-                          }}
-                          style={{
-                            width: 32,
-                            height: 32,
-                            resizeMode: "contain",
-                            borderRadius: 32,
-                          }}
-                        />
-                        <View>
-                          <View className="flex-row items-center gap-[8px]">
-                            <Text className="text-[#ccc] text-[15px] font-LexendDecaMedium">
-                              {sellerInfo?.storeName}
-                            </Text>
-                            <Image
-                              source={require("../../../assets/icons/verified.png")}
-                              style={{
-                                resizeMode: "contain",
-                                width: 16,
-                                height: 16,
-                              }}
-                            />
-                          </View>
+                      <View className="">
+                        <View className="flex-row gap-2 items-center mb-[18px]">
+                          <Image
+                            source={{
+                              uri: sellerInfo?.storePresence?.storeAvatar?.url,
+                            }}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              resizeMode: "contain",
+                              borderRadius: 32,
+                            }}
+                          />
+                          <View>
+                            <View className="flex-row items-center gap-[8px]">
+                              <Text className="text-[#ccc] text-[15px] font-LexendDecaMedium">
+                                {sellerInfo?.storeName}
+                              </Text>
+                              <Image
+                                source={require("../../../assets/icons/verified.png")}
+                                style={{
+                                  resizeMode: "contain",
+                                  width: 16,
+                                  height: 16,
+                                }}
+                              />
+                            </View>
 
-                          <Text className="text-[#ccc] text-[8px] font-LexendDecaMedium">
-                            {formatDate(sellerInfo?.createdAt)}
-                          </Text>
+                            <Text className="text-[#ccc] text-[8px] font-LexendDecaMedium">
+                              {formatDate(sellerInfo?.createdAt)}
+                            </Text>
+                          </View>
+                        </View>
+                        <View className="flex-row gap-[8px] items-center">
+                          <TouchableOpacity
+                            className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
+                            onPress={() => {
+                              if (!userToken) {
+                                return setShowAuthSheet(true);
+                              }
+                              router.push({
+                                pathname: `/(root)/messageRoom/${sellerInfo._id}`,
+                                params: {
+                                  name:
+                                    sellerInfo?.storeName ||
+                                    sellerInfo?.personalInfo.firstName +
+                                      " " +
+                                      sellerInfo?.personalInfo.lastName ||
+                                    "Default",
+                                  avatar:
+                                    sellerInfo?.storePresence?.storeAvatar?.url,
+                                  conversationId:
+                                    conversations?.find(
+                                      (convo) =>
+                                        convo.participant.id == sellerInfo._id,
+                                    )?._id || "",
+                                  userId: user?._id,
+                                  token: userToken,
+                                  model: "Seller",
+                                },
+                              });
+                            }}
+                          >
+                            <Text className="font-LexendDecaMedium text-[#FFD700] text-[8px]">
+                              Chat Seller
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
+                            onPress={() =>
+                              router.push({
+                                pathname: "/sellerProfile",
+                                params: {
+                                  sellerId: sellerInfo?._id,
+                                  sellerAvatar:
+                                    sellerInfo?.storePresence?.storeAvatar?.url,
+                                },
+                              })
+                            }
+                          >
+                            <Text className="font-LexendDecaMedium text-[#FFD700] text-[8px]">
+                              View Shop
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
-                      <View className="flex-row gap-[8px] items-center">
-                        <TouchableOpacity
-                          className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
-                          onPress={() => {
-                            if (!userToken) {
-                              return setShowAuthSheet(true);
-                            }
-                            router.push({
-                              pathname: `/(root)/messageRoom/${sellerInfo._id}`,
-                              params: {
-                                name:
-                                  sellerInfo?.storeName ||
-                                  sellerInfo?.personalInfo.firstName +
-                                    " " +
-                                    sellerInfo?.personalInfo.lastName ||
-                                  "Default",
-                                avatar:
-                                  sellerInfo?.storePresence?.storeAvatar?.url,
-                                conversationId:
-                                  conversations?.find(
-                                    (convo) =>
-                                      convo.participant.id == sellerInfo._id,
-                                  )?._id || "",
-                                userId: user?._id,
-                                token: userToken,
-                                model: "Seller",
-                              },
-                            });
-                          }}
-                        >
-                          <Text className="font-LexendDecaMedium text-[#FFD700] text-[8px]">
-                            Chat Seller
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
-                          onPress={() =>
-                            router.push({
-                              pathname: "/sellerProfile",
-                              params: {
-                                sellerId: sellerInfo?._id,
-                                sellerAvatar:
-                                  sellerInfo?.storePresence?.storeAvatar?.url,
-                              },
-                            })
-                          }
-                        >
-                          <Text className="font-LexendDecaMedium text-[#FFD700] text-[8px]">
-                            View Shop
-                          </Text>
-                        </TouchableOpacity>
+
+                      <View className="justify-between">
+                        <View className="flex-row items-center gap-[16px]">
+                          <View className="gap-[4px]">
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                              Items Sold
+                            </Text>
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                              {formatNumber(
+                                sellerInfo?.metrics?.totalSoldItems,
+                              )}{" "}
+                              Items
+                            </Text>
+                          </View>
+                          <View className="gap-[4px] mr-[24px] ml-[10px]">
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                              Rating
+                            </Text>
+                            <View className="flex-row items-center gap-[4px]">
+                              <AntDesign
+                                name="star"
+                                size={11}
+                                color="#FFD700"
+                              />
+                              <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                                {sellerInfo?.ratings?.average} (
+                                {sellerInfo?.ratings?.total})
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        <View className="flex-row items-center gap-[16px]">
+                          <View className="gap-[4px]">
+                            <View className="flex-row items-center gap-[4px]">
+                              <Octicons name="video" size={10} color="white" />
+                              <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                                Liveshows
+                              </Text>
+                            </View>
+
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                              {formatNumber(
+                                sellerInfo?.metrics?.streams?.total,
+                              )}{" "}
+                            </Text>
+                          </View>
+                          <View className="gap-[4px] mr-[24px] ml-[10px]">
+                            <View className="flex-row items-center gap-[4px]">
+                              <Ionicons
+                                name="location-sharp"
+                                size={11}
+                                color="red"
+                              />
+                              <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                                Location
+                              </Text>
+                            </View>
+
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                              {sellerInfo?.location?.state},{" "}
+                              {sellerInfo?.location?.country || "Nigeria"}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
                     </View>
                   </View>

@@ -17,7 +17,7 @@ import CatalogCard from "../catalog/catalogCard";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import BottomSheet from "../global/bottom-sheet";
-import { catalogSort } from "@/helpers/helpers";
+import { catalogSort, formatNumber } from "@/helpers/helpers";
 import VideoItem from "../blips/videoItem";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
@@ -179,6 +179,7 @@ const Blips = ({
 
 const VideoCard = memo(({ item }: { item: any }) => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  console.log(item);
 
   return (
     <Pressable
@@ -203,7 +204,9 @@ const VideoCard = memo(({ item }: { item: any }) => {
         <View style={styles.buttonShadow}>
           <Ionicons name="play-outline" size={20} color="#f2f2f2" />
         </View>
-        <Text style={styles.text}>{item.views}</Text>
+        <Text style={styles.text}>
+          {formatNumber(item?.blipEngagement?.viewCount)}
+        </Text>
       </View>
 
       <Modal

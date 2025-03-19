@@ -630,7 +630,7 @@ const SellerProfile = () => {
             gap: 23,
           }}
         >
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => null}
             className="items-center gap-[2px]"
           >
@@ -639,7 +639,7 @@ const SellerProfile = () => {
               size={24}
               color="#ccc"
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </View>
 

@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Image } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import LiveCardTemp from "@/components/global/live-product-card/LiveCardTemp";
 import axios from "axios";
@@ -9,6 +9,7 @@ import BottomSheet from "../global/bottom-sheet";
 import SortSheet from "./exploreSortSheet";
 import { catalogSort } from "@/helpers/helpers";
 import ExploreFilterSheet from "./exploreFilterSheet";
+import { icons } from "@/constants";
 
 const FavouriteExplore = ({ category }: any) => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -58,13 +59,57 @@ const FavouriteExplore = ({ category }: any) => {
     return (
       <View
         style={{
-          marginVertical: 40,
-          width: "100%",
+          // paddingHorizontal: 16,
+          alignItems: "center",
         }}
       >
-        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
-          No Streams for this category
-        </Text>
+        <View
+          style={{
+            marginVertical: 24,
+            padding: 24,
+            paddingHorizontal: 48,
+            alignItems: "center",
+            backgroundColor: "#000",
+            borderRadius: 8,
+            flexShrink: 1,
+            paddingBottom: 40,
+          }}
+        >
+          <View
+            style={{
+              width: 102,
+              height: 102,
+              borderRadius: "50%",
+              backgroundColor: "#DDF9E7",
+              justifyContent: "center",
+              alignItems: "center",
+              marginBottom: 32,
+            }}
+          >
+            <Image
+              source={icons.sadEmoji}
+              resizeMode="contain"
+              className="w-[40px] h-[40px]"
+            />
+          </View>
+
+          <Text
+            className="mb-[10px] text-center text-[16px] font-LexendDecaSemiBold text-white"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            No Live Shopping events right now!
+          </Text>
+          <Text
+            className="font-LexendDeca text-[14px] text-[#8F9099] text-center"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            Follow your favourite sellers to get notified when they go live.
+          </Text>
+        </View>
       </View>
     );
   }, [spotLight]);

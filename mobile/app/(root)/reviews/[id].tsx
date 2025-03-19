@@ -16,6 +16,7 @@ import { useGetSingleProductQuery } from "@/services/products";
 import Entypo from "@expo/vector-icons/Entypo";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { getToken } from "@/store/features/auth/utils";
+import MainReviewCard from "@/components/reviews/mainReviewCard";
 
 const { width, height } = Dimensions.get("window");
 
@@ -100,7 +101,7 @@ const ReviewsPage = () => {
         ) : (
           <ScrollView>
             <View className="mt-[20px]">
-              <Text className="text-[#fff] opacity-70 text-[16px] text-center my-0">
+              <Text className="text-[#fff] opacity-70 text-[16px] text-center my-0 font-LexendDeca">
                 Summary
               </Text>
 
@@ -120,7 +121,7 @@ const ReviewsPage = () => {
                         className="flex-row items-center gap-[8px] shrink"
                         key={index}
                       >
-                        <Text className="text-[14px] text-white opacity-70">
+                        <Text className="text-[14px] text-white opacity-70 font-LexendDeca">
                           {val}
                         </Text>
                         <RatingBar width={percentage.toString() + "%"} />
@@ -132,38 +133,18 @@ const ReviewsPage = () => {
                 <View>
                   <View>
                     <View className="flex-row items-center gap-[8px]">
-                      <Text className="text-[24px] text-white">
+                      <Text className="text-[24px] text-white font-LexendDecaSemiBold">
                         {averageRating}
                       </Text>
                       <AntDesign name="star" size={16} color="#FFB400" />
                     </View>
-                    <Text className="text-white text-[12px] opacity-50">
+                    <Text className="text-white text-[12px] opacity-50 font-LexendDeca">
                       {totalReviews} Reviews
                     </Text>
                   </View>
                 </View>
               </View>
             </View>
-
-            {/* {token && (
-              <TouchableOpacity
-                className="bg-[#16783A] px-[16px] py-[8px] mt-[16px] mb-[8px] mx-[18px] justify-center items-center"
-                onPress={() =>
-                  router.push({
-                    pathname: "/createReview/sellerReview",
-                    params: {
-                      id: sellerId,
-                      storeName: storeName,
-                      storeAvatar: storeAvatar,
-                    },
-                  })
-                }
-              >
-                <Text className="text-white text-[15px] light">
-                  Write a review
-                </Text>
-              </TouchableOpacity>
-            )} */}
 
             <Text
               className="px-[18px] text-[14px] leading-[20px] mb-[23px]"
@@ -186,20 +167,12 @@ const ReviewsPage = () => {
                     paddingVertical: 12,
                   }}
                 >
-                  <ReviewCard
+                  <MainReviewCard
                     name={review.buyer.firstName + " " + review.buyer.lastName}
                     rating={review.rating}
                     comment={review.comment}
                     date={review.createdAt}
-                    imageUrl={review?.images[0]?.url || ""}
-                    imageDimensions={
-                      review?.images[0]?.url
-                        ? {
-                            width: "100%",
-                            height: 194,
-                          }
-                        : { width: "100%", height: 0 }
-                    }
+                    images={review?.images}
                   />
                 </View>
               ))}

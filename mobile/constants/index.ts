@@ -33,6 +33,7 @@ import onboarding2 from "@/assets/images/onboarding2.png";
 import onboarding3 from "@/assets/images/onboarding3.png";
 import signUpCar from "@/assets/images/signup-car.png";
 import waving from "@/assets/icons/waving.png";
+import sadEmoji from "@/assets/icons/emoji-sad.png";
 import circleBackArrow from "@/assets/icons/circle-back-arrow.png";
 import sneaker from "@/assets/images/sneaker.png";
 import pant from "@/assets/images/pant.png";
@@ -135,6 +136,7 @@ export const icons = {
   indicatorIcon,
   radio_buttonIcon,
   verifyBadge,
+  sadEmoji,
 };
 
 export const productsData = [
@@ -307,12 +309,13 @@ export const data = {
 };
 
 // API URL
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.yourdomain.com';
+export const API_URL =
+  process.env.EXPO_PUBLIC_API_URL || "https://api.yourdomain.com";
 
 // Socket Events
 export const SOCKET_EVENTS = {
-  VIEWER_JOINED: 'viewer_joined_stream',
-  VIEWER_LEFT: 'viewer_left_stream',
-  NEW_COMMENT: 'new_comment',
-  NEW_PURCHASE: 'new_purchase'
+  VIEWER_JOINED: "viewer_joined_stream",
+  VIEWER_LEFT: "viewer_left_stream",
+  NEW_COMMENT: "new_comment",
+  NEW_PURCHASE: "new_purchase",
 };

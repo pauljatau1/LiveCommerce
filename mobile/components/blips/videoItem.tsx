@@ -499,7 +499,7 @@ const VideoItem = ({
                     <Text className="text-[12px] text-[#000] font-LexendDecaMedium shrink">
                       {item?.discount?.isActive ? (
                         <Text className="text-[#16783A]">
-                          ₦{item?.discount?.value}
+                          ₦{item?.discount?.value?.toFixed(0)}
                           {item?.discount?.type == "percentage" && "%"} off
                         </Text>
                       ) : null}
