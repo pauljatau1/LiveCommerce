@@ -59,6 +59,44 @@ exports.createStream = async (req, res) => {
       });
     }
 
+    // Fetch complete product details from the database for each product
+    // This ensures we have rich, complete data regardless of what the frontend sends
+    const productsWithFullDetails = await Promise.all(
+      products.map(async (p) => {
+        // Get the productId from the frontend data
+        const productId = p.product?.productId;
+        
+        if (!productId) {
+          return p; // If no productId, return as is
+        }
+        
+        // Fetch complete product details from database
+        const completeProduct = await Product.findById(productId).select(
+          '_id name description category images price sku inventory quantity variants'
+        );
+        
+        if (!completeProduct) {
+          return p; // If product not found, return as is
+        }
+        
+        // Return the product with complete details from database
+        return {
+          ...p,
+          product: {
+            productId: completeProduct._id,
+            name: completeProduct.name,
+            category: completeProduct.category,
+            images: completeProduct.images,
+            sku: completeProduct.sku,
+            quantity: completeProduct.inventory?.quantity || 0,
+            price: completeProduct.price,
+            description: completeProduct.description,
+            variants: completeProduct.variants
+          }
+        };
+      })
+    );
+
     // Upload cover image to AWS S3
     let imageData = {};
     if (coverImage && coverImage.data) {
@@ -146,7 +184,7 @@ exports.createStream = async (req, res) => {
       video: videoData,
       category,
       tags: parsedTags,
-      products: products.map(p => ({
+      products: productsWithFullDetails.map(p => ({
         product: p.product,
         minBid: p.minBid,
         maxBid: p.maxBid
@@ -915,12 +953,12 @@ exports.createOpenLiveShow = async (req, res) => {
     // Generate Agora token
     const token = agoraService.generateToken(channelName, req.user.agoraUid);
 
-    // Get all seller's active products
+    // Get all seller's active products with full details
     const sellerProducts = await Product.find({
       seller: req.user.id,
       status: 'active',
       visibility: 'visible'
-    }).select('_id price');
+    }).select('_id name description category images price sku inventory quantity');
 
     if (sellerProducts.length === 0) {
       return res.status(400).json({
@@ -937,7 +975,15 @@ exports.createOpenLiveShow = async (req, res) => {
       category,
       tags: parsedTags,
       products: sellerProducts.map(p => ({
-        product: p._id,
+        product: {
+          productId: p._id,
+          name: p.name,
+          category: p.category,
+          images: p.images,
+          sku: p.sku,
+          quantity: p.inventory?.quantity || 0,
+          price: p.price
+        }
         // For open shows, we don't include minBid and maxBid
       })),
       channelName,
