@@ -72,7 +72,7 @@ exports.createStream = async (req, res) => {
         
         // Fetch complete product details from database
         const completeProduct = await Product.findById(productId).select(
-          '_id name description category images price sku inventory quantity variants'
+          '_id name description category images price sku stock variants'
         );
         
         if (!completeProduct) {
@@ -88,7 +88,7 @@ exports.createStream = async (req, res) => {
             category: completeProduct.category,
             images: completeProduct.images,
             sku: completeProduct.sku,
-            quantity: completeProduct.inventory?.quantity || 0,
+            quantity: completeProduct.stock || 0,
             price: completeProduct.price,
             description: completeProduct.description,
             variants: completeProduct.variants
@@ -958,7 +958,7 @@ exports.createOpenLiveShow = async (req, res) => {
       seller: req.user.id,
       status: 'active',
       visibility: 'visible'
-    }).select('_id name description category images price sku inventory quantity');
+    }).select('_id name description category images price sku stock');
 
     if (sellerProducts.length === 0) {
       return res.status(400).json({
@@ -981,7 +981,7 @@ exports.createOpenLiveShow = async (req, res) => {
           category: p.category,
           images: p.images,
           sku: p.sku,
-          quantity: p.inventory?.quantity || 0,
+          quantity: p.stock || 0,
           price: p.price
         }
         // For open shows, we don't include minBid and maxBid
