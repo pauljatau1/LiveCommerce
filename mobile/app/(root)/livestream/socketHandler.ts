@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin';
   user: string;
   avatar?: string;
   content: string;
@@ -109,6 +109,24 @@ export const initializeSocket = (token: string, onNotification: (notification: S
     }
     
     onNotification(data);
+  });
+
+  // Handle seller rejoining stream events
+  currentSocket.on(SOCKET_EVENTS.SELLER_REJOINED, (data: StreamNotification) => {
+    console.log('Seller rejoined stream:', data);
+    
+    // Convert string timestamp to Date object if needed
+    if (typeof data.timestamp === 'string') {
+      data.timestamp = new Date(data.timestamp);
+    }
+    
+    // Modify the notification type to be consistent with our type system
+    const notificationWithCorrectType = {
+      ...data,
+      type: 'hostRejoin' as const
+    };
+    
+    onNotification(notificationWithCorrectType);
   });
 
   return socket;

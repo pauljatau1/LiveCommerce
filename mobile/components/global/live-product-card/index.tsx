@@ -15,7 +15,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
   return (
     <TouchableOpacity
       onPress={() =>
-        router.push(`/livestream/livestreamStudio?id=${item?._id}`)
+        item.type !== "auction" ? router.push(`/livestream/liveAuctionStudio?id=${item?._id}`) : router.push(`/livestream/livestreamStudio?id=${item?._id}`)
       }
       className=" rounded-lg"
       style={{
@@ -61,7 +61,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
 
         {/* Play Button Overlay */}
         <View className="absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center">
-          <Link href={`/livestream/livestreamStudio?id=${item?._id}`} asChild>
+          <Link href={`${item.type === "auction" ? "/livestream/liveAuctionStudio" : "/livestream/livestreamStudio"}?id=${item?._id}`} asChild>
             <TouchableOpacity className="bg-black/30 rounded-full p-4">
               <Ionicons name="play" size={25} color="white" />
             </TouchableOpacity>

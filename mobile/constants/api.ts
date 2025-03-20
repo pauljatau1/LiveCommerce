@@ -6,5 +6,6 @@ export const SOCKET_EVENTS = {
   VIEWER_JOINED: 'viewer_joined_stream',
   VIEWER_LEFT: 'viewer_left_stream',
   NEW_COMMENT: 'new_comment',
-  NEW_PURCHASE: 'new_purchase'
+  NEW_PURCHASE: 'new_purchase',
+  SELLER_REJOINED: 'seller_rejoined_stream'
 }; 

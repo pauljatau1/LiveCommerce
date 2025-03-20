@@ -19,7 +19,7 @@ const ProductPreview = ({
     isLoading,
     refetch,
     isFetching,
-  } = useGetSingleProductQuery(product?.id || product._id);
+  } = useGetSingleProductQuery(product?.id || product?.productId);
   return (
     <View className="p-[8px] pb-[28px]">
       {isLoading ? (
