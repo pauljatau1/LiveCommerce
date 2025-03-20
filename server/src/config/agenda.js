@@ -669,20 +669,22 @@ agenda.define('create-auction-winner-order', async (job) => {
     try {
       // Initialize Fez API configuration
       const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
-      const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
-      const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB";
       
       // Get fresh auth token for Fez
       const getFezAuthToken = async () => {
         try {
           console.log('Getting fresh Fez authentication token');
-          const response = await axios.post(`${FEZ_API_URL}/authenticate`, {
-            bearerToken: FEZ_BEARER_TOKEN || "BRN-UHQtbWZUUUxKZHh4U0dGV1NIODZCZUF3Y3Q6TEEy"
-          });
+          const authUrl = `${FEZ_API_URL}/user/authenticate`;
+          const authData = {
+            user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
+            password: process.env.FEZ_PASSWORD || "Bolu@123"
+          };
+          
+          const response = await axios.post(authUrl, authData);
       
-          if (response && response.data && response.data.bearerToken) {
+          if (response && response.data && response.data.token) {
             console.log('Successfully got fresh Fez authentication token');
-            return response.data.bearerToken;
+            return response.data.token;
           } else {
             throw new Error('Invalid response from Fez authentication API');
           }
@@ -749,7 +751,7 @@ agenda.define('create-auction-winner-order', async (job) => {
       const fezResponse = await axios.post(`${FEZ_API_URL}/order`, [fezRequest], {
         headers: {
           'Authorization': `Bearer ${authToken}`,
-          'secret-key': FEZ_SECRET_KEY,
+          'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
           'Content-Type': 'application/json'
         }
       });
