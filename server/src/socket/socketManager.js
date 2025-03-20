@@ -724,6 +724,8 @@ function initializeSocket(server) {
       }
     });
 
+    
+
     // Request auction timer update
     socket.on('request_auction_timer', async (productId) => {
       try {
