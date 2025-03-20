@@ -50,20 +50,34 @@ const PopularCard = () => {
               width: 102,
               height: 102,
               borderRadius: "50%",
-              backgroundColor: "#E4ECF7",
+              backgroundColor: "#DDF9E7",
               justifyContent: "center",
               alignItems: "center",
               marginBottom: 32,
             }}
           >
-            <Image source={icons.waving} resizeMode="contain" />
+            <Image
+              source={icons.sadEmoji}
+              resizeMode="contain"
+              className="w-[40px] h-[40px]"
+            />
           </View>
 
-          <Text className="mb-[10px] text-center font-SfPro text-[16px] font-LexendDecaSemiBold text-white">
-            Your Liveshow is Empty!
+          <Text
+            className="mb-[10px] text-center text-[16px] font-LexendDecaSemiBold text-white"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            No Live Shopping events right now!
           </Text>
-          <Text className="font-LexendDeca text-[14px] text-[#8F9099] text-center">
-            If you get any liveshow we will show you here.
+          <Text
+            className="font-LexendDeca text-[14px] text-[#8F9099] text-center"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            Follow your favourite sellers to get notified when they go live.
           </Text>
         </View>
       </View>
@@ -92,7 +106,7 @@ const PopularCard = () => {
                 <LiveProductCard item={item} showLive={true} showBtn={true} />
               </View>
             )}
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item, index) => item._id || index?.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{
