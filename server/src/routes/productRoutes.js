@@ -1768,7 +1768,7 @@ router.post('/:id/blips/:blipId/comments',
  *       404:
  *         description: Product or blip not found
  */
-router.get('/:id/blips/:blipId/comments', productController.getBlipComments);
+router.get('/:id/blips/:blipId/comments', optionalAuth, productController.getBlipComments);
 
 /**
  * @swagger

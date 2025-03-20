@@ -1,5 +1,6 @@
 const Agenda = require('agenda');
 const mongoose = require('mongoose');
+const axios = require('axios');
 
 // Verify SendGrid API key at startup
 const verifySendGridConfig = () => {
@@ -479,6 +480,7 @@ agenda.define('create-auction-winner-order', async (job) => {
     const Seller = mongoose.model('Seller');
     const Order = mongoose.model('Order');
     const Transaction = mongoose.model('Transaction');
+    const axios = require('axios');
 
     console.log('Starting create-auction-winner-order job for product:', productId);
 
@@ -662,6 +664,139 @@ agenda.define('create-auction-winner-order', async (job) => {
       }
     );
     console.log('Buyer wallet updated with deduction:', totalAmount);
+    
+    // Create Fez Delivery shipment
+    try {
+      // Initialize Fez API configuration
+      const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+      const FEZ_BEARER_TOKEN = process.env.FEZ_BEARER_TOKEN;
+      const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB";
+      
+      // Get fresh auth token for Fez
+      const getFezAuthToken = async () => {
+        try {
+          console.log('Getting fresh Fez authentication token');
+          const response = await axios.post(`${FEZ_API_URL}/authenticate`, {
+            bearerToken: FEZ_BEARER_TOKEN || "BRN-UHQtbWZUUUxKZHh4U0dGV1NIODZCZUF3Y3Q6TEEy"
+          });
+      
+          if (response && response.data && response.data.bearerToken) {
+            console.log('Successfully got fresh Fez authentication token');
+            return response.data.bearerToken;
+          } else {
+            throw new Error('Invalid response from Fez authentication API');
+          }
+        } catch (error) {
+          console.error('Error getting Fez authentication token:', error.message);
+          throw error;
+        }
+      };
+      
+      const authToken = await getFezAuthToken();
+      console.log('Using fresh token for auction winner order shipment:', authToken.substring(0, 10) + '...');
+      
+      // Prepare buyer's delivery address
+      const shippingAddress = {
+        recipientAddress: order.delivery_address.line1 + (order.delivery_address.line2 ? `, ${order.delivery_address.line2}` : ''),
+        recipientState: order.delivery_address.state || "Lagos",
+        recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`,
+        recipientPhone: order.delivery_address.phone,
+        recipientEmail: order.delivery_address.email || freshBuyer.email || ''
+      };
+      
+      // Prepare seller's information
+      const sellerSenderInfo = {
+        senderName: `${seller.firstName} ${seller.lastName}`,
+        senderAddress: seller.address || 'Not provided',
+        senderPhone: seller.phoneNumber || 'Not provided',
+        senderEmail: seller.email || ''
+      };
+      
+      // Create unique batch ID for the seller
+      const sellerBatchId = `AUCT-${seller._id.toString().substring(0, 8)}-${Date.now()}`;
+      
+      // Prepare parcel information
+      const sellerParcel = {
+        valueOfItem: bidAmount.toString(),
+        weight: 1, // Default weight of 1kg for auction items
+        itemDescription: `Auction item: ${product.name}`
+      };
+      
+      // Create Fez Delivery request
+      const fezRequest = {
+        recipientAddress: shippingAddress.recipientAddress,
+        recipientState: shippingAddress.recipientState,
+        recipientName: shippingAddress.recipientName,
+        recipientPhone: shippingAddress.recipientPhone,
+        recipientEmail: shippingAddress.recipientEmail,
+        uniqueID: order.order_id,
+        BatchID: sellerBatchId,
+        valueOfItem: sellerParcel.valueOfItem,
+        weight: Math.max(1, Math.round(sellerParcel.weight)),
+        itemDescription: sellerParcel.itemDescription.substring(0, 200), // Ensure it doesn't exceed 200 chars
+        additionalDetails: `Auction order`,
+        isItemCod: false, // Auction orders are always pre-paid
+        thirdparty: "true",
+        senderName: sellerSenderInfo.senderName,
+        senderAddress: sellerSenderInfo.senderAddress,
+        senderPhone: sellerSenderInfo.senderPhone,
+        senderEmail: sellerSenderInfo.senderEmail
+      };
+      
+      console.log('Sending Fez shipment request for auction order:', order.order_id);
+      
+      // Make API call to Fez Delivery
+      const fezResponse = await axios.post(`${FEZ_API_URL}/order`, [fezRequest], {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'secret-key': FEZ_SECRET_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Fez API response for auction order:', {
+        status: fezResponse.data?.status,
+        orderNos: fezResponse.data?.orderNos
+      });
+      
+      // Update order with Fez tracking information
+      if (fezResponse.data && fezResponse.data.status === 'Success') {
+        const fezOrderNo = fezResponse.data.orderNos[order.order_id];
+        
+        if (fezOrderNo) {
+          await Order.findByIdAndUpdate(
+            order._id,
+            {
+              $set: {
+                'shipping.tracking.number': fezOrderNo,
+                'shipping.fez_order_number': fezOrderNo,
+                'shipping.tracking.carrier': 'Fez Delivery',
+                'shipping.tracking.url': `https://fezdelivery.co/track?orderNo=${fezOrderNo}`,
+                'shipping.carrier.name': 'Fez Delivery',
+                'shipping.carrier.reference': fezOrderNo,
+                'shipping.shipment_id': fezOrderNo
+              }
+            }
+          );
+          
+          console.log('Order updated with Fez tracking information:', {
+            orderId: order._id,
+            fezOrderNo
+          });
+        }
+      } else {
+        console.error('Failed to create Fez shipment for auction order:', {
+          orderId: order._id,
+          fezResponse: fezResponse.data
+        });
+      }
+    } catch (fezError) {
+      console.error('Error creating Fez shipment for auction order:', {
+        orderId: order._id,
+        error: fezError.message,
+        response: fezError.response?.data
+      });
+    }
     
     // Schedule notification job
     await agenda.now('send-order-notifications', {
