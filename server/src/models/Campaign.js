@@ -42,7 +42,21 @@ const campaignSchema = new mongoose.Schema({
     totalRecipients: { type: Number, default: 0 },
     opened: { type: Number, default: 0 },
     clicked: { type: Number, default: 0 },
-    sales: { type: Number, default: 0 }
+    sales: { type: Number, default: 0 },
+    uniqueOpens: { type: Number, default: 0 },
+    uniqueClicks: { type: Number, default: 0 },
+    lastOpenAt: Date,
+    lastClickAt: Date,
+    deviceStats: {
+      desktop: { type: Number, default: 0 },
+      mobile: { type: Number, default: 0 },
+      tablet: { type: Number, default: 0 }
+    },
+    locationStats: {
+      type: Map,
+      of: Number,
+      default: new Map()
+    }
   },
   recipients: [{
     buyer: {
@@ -54,9 +68,19 @@ const campaignSchema = new mongoose.Schema({
       enum: ['pending', 'sent', 'delivered', 'opened', 'clicked'],
       default: 'pending'
     },
+    trackingId: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
     deliveredAt: Date,
     openedAt: Date,
-    clickedAt: Date
+    clickedAt: Date,
+    openCount: { type: Number, default: 0 },
+    clickCount: { type: Number, default: 0 },
+    lastDeviceType: String,
+    lastLocation: String,
+    lastUserAgent: String
   }],
   createdAt: {
     type: Date,
@@ -68,5 +92,8 @@ const campaignSchema = new mongoose.Schema({
     lastSent: Date
   }
 });
+
+// Index for tracking ID lookups
+campaignSchema.index({ 'recipients.trackingId': 1 });
 
 module.exports = mongoose.model('Campaign', campaignSchema); 

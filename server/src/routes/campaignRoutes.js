@@ -5,6 +5,10 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Tracking endpoints
+router.get('/track/open/:trackingId', campaignController.trackEmailOpen);
+router.get('/track/click/:trackingId', campaignController.trackEmailClick);
+
 /**
  * @swagger
  * /api/campaigns:

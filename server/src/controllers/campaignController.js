@@ -10,7 +10,7 @@ sgMail.setApiKey('SG.REDACTED');
 // Helper function for sending campaign emails
 async function sendCampaignEmails(campaign, seller, recipients) {
   console.log('Starting to send campaign emails...');
-  console.log('Using SendGrid From Email:', process.env.SENDGRID_FROM_EMAIL || 'campaigns@auqli.com');
+  console.log('Using SendGrid From Email:', process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com');
   try {
     if (!recipients || recipients.length === 0) {
       console.log('No recipients found for campaign');
@@ -22,59 +22,104 @@ async function sendCampaignEmails(campaign, seller, recipients) {
 
     const emailPromises = validRecipients.map(async (recipient) => {
       const buyerEmail = recipient.buyer.email;
+      const buyerName = recipient.buyer.firstName || 'Valued Customer';
       const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com';
+      const sellerName = seller.businessName || seller.firstName;
+      
+      // Generate unique tracking IDs
+      const trackingId = uuidv4();
+      const pixelTrackingUrl = `${process.env.BACKEND_URL}/api/campaigns/track/open/${trackingId}`;
+      
       console.log('Email Configuration:', {
         from: fromEmail,
-        fromName: seller.businessName || 'Auqli Campaigns',
+        fromName: sellerName,
         to: buyerEmail,
-        subject: `New Campaign from ${seller.businessName || seller.firstName}`
+        subject: `${sellerName} shared new products with you`,
+        trackingId
       });
+
+      // Add tracking data to recipient
+      await Campaign.findOneAndUpdate(
+        { _id: campaign._id, 'recipients.buyer': recipient.buyer._id },
+        { 
+          $set: { 
+            'recipients.$.trackingId': trackingId,
+            'recipients.$.status': 'sent'
+          }
+        }
+      );
 
       const msg = {
         to: buyerEmail,
         from: {
           email: fromEmail,
-          name: seller.businessName || 'Auqli Campaigns'
+          name: sellerName
         },
-        subject: `New Campaign from ${seller.businessName || seller.firstName}`,
+        subject: `${sellerName} shared new products with you`,
+        headers: {
+          "List-Unsubscribe": `<${process.env.FRONTEND_URL}/unsubscribe/${recipient.buyer._id}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          "X-Campaign-ID": campaign._id.toString(),
+          "X-Tracking-ID": trackingId
+        },
+        trackingSettings: {
+          clickTracking: { enable: true },
+          openTracking: { enable: true }
+        },
+        customArgs: {
+          campaignId: campaign._id.toString(),
+          trackingId: trackingId,
+          buyerId: recipient.buyer._id.toString()
+        },
         html: `
-          <div style="background-color: #f9fafb; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="font-family: Arial, sans-serif; background-color: #f9fafb; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <h2 style="color: #1f2937; margin-bottom: 20px;">Hi ${buyerName},</h2>
+              
+              <p style="color: #4b5563; line-height: 1.6; margin-bottom: 20px;">
+                ${sellerName} has shared some exciting products with you:
+              </p>
+
               <h1 style="color: #1f2937; margin-bottom: 20px;">${campaign.title}</h1>
               
               <p style="color: #4b5563; line-height: 1.6;">${campaign.message}</p>
               
               ${campaign.selectedProducts?.length > 0 ? `
-                <div style="margin-top: 20px;">
-                  <h2 style="color: #1f2937; font-size: 18px;">Featured Products:</h2>
-                  <ul style="list-style: none; padding: 0;">
+                <div style="margin-top: 30px;">
+                  <h2 style="color: #1f2937; font-size: 18px; margin-bottom: 15px;">Featured Products:</h2>
+                  <div style="background-color: #f9fafb; padding: 15px; border-radius: 6px;">
                     ${campaign.selectedProducts.map(product => `
-                      <li style="margin-bottom: 10px;">
-                        <div style="display: flex; align-items: center;">
-                          <img src="${product.images[0]?.url}" alt="${product.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 10px;">
-                          <div>
-                            <p style="margin: 0; color: #1f2937; font-weight: 500;">${product.name}</p>
-                            <p style="margin: 0; color: #6b7280;">N${product.price.toLocaleString()}</p>
-                          </div>
+                      <div style="display: flex; align-items: center; margin-bottom: 15px; background-color: white; padding: 10px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                        <img src="${product.images[0]?.url}" alt="${product.name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 15px;">
+                        <div>
+                          <p style="margin: 0 0 5px 0; color: #1f2937; font-weight: 500; font-size: 16px;">${product.name}</p>
+                          <p style="margin: 0; color: #6b7280; font-size: 14px;">N${product.price.toLocaleString()}</p>
                         </div>
-                      </li>
+                      </div>
                     `).join('')}
-                  </ul>
+                  </div>
                 </div>
               ` : ''}
               
               <div style="margin-top: 30px; text-align: center;">
-                <a href="${process.env.FRONTEND_URL}/store/${seller._id}" 
-                   style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Visit Store
+                <a href="${process.env.FRONTEND_URL}/store/${seller._id}?utm_source=email&utm_medium=campaign&utm_campaign=${campaign._id}&tid=${trackingId}" 
+                   style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
+                  Visit ${sellerName}'s Store
                 </a>
               </div>
               
-              <p style="color: #6b7280; font-size: 12px; margin-top: 20px; text-align: center;">
-                You're receiving this email because you follow ${seller.businessName || seller.firstName} on Auqli.
-                <br>
-                <a href="${process.env.FRONTEND_URL}/unsubscribe/${recipient.buyer._id}" style="color: #4f46e5;">Unsubscribe</a>
-              </p>
+              <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p style="color: #6b7280; font-size: 12px; text-align: center; margin: 0;">
+                  You're receiving this email because you follow ${sellerName} on Auqli.
+                  <br>
+                  <a href="${process.env.FRONTEND_URL}/unsubscribe/${recipient.buyer._id}?tid=${trackingId}" 
+                     style="color: #4f46e5; text-decoration: underline; margin-top: 5px; display: inline-block;">
+                    Unsubscribe
+                  </a>
+                </p>
+              </div>
+              <!-- Tracking pixel -->
+              <img src="${pixelTrackingUrl}" alt="" width="1" height="1" style="display:none" />
             </div>
           </div>
         `
@@ -84,7 +129,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
         console.log(`Attempting to send email from ${fromEmail} to ${buyerEmail}`);
         await sgMail.send(msg);
         console.log(`Email sent successfully from ${fromEmail} to ${buyerEmail}`);
-        return { success: true, email: buyerEmail, fromEmail };
+        return { success: true, email: buyerEmail, fromEmail, trackingId };
       } catch (error) {
         console.error(`Failed to send email from ${fromEmail} to ${buyerEmail}:`, error);
         return { 
@@ -102,7 +147,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
       total: results.length,
       successful: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length,
-      fromEmail: process.env.SENDGRID_FROM_EMAIL || 'campaigns@auqli.com'
+      fromEmail: process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com'
     });
 
     return results;
@@ -511,6 +556,103 @@ exports.getCampaignStats = async (req, res) => {
       message: 'Failed to fetch campaign statistics',
       error: error.message
     });
+  }
+};
+
+// Track email opens
+exports.trackEmailOpen = async (req, res) => {
+  try {
+    const { trackingId } = req.params;
+    
+    // Find campaign and recipient by tracking ID
+    const campaign = await Campaign.findOne({
+      'recipients.trackingId': trackingId
+    });
+
+    if (!campaign) {
+      console.log('No campaign found for tracking ID:', trackingId);
+      // Return a 1x1 transparent GIF
+      res.writeHead(200, {
+        'Content-Type': 'image/gif',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      res.end(Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'));
+      return;
+    }
+
+    // Update recipient status and stats
+    const recipient = campaign.recipients.find(r => r.trackingId === trackingId);
+    if (recipient && recipient.status !== 'opened') {
+      await Campaign.updateOne(
+        { 
+          _id: campaign._id,
+          'recipients.trackingId': trackingId
+        },
+        { 
+          $set: { 
+            'recipients.$.status': 'opened',
+            'recipients.$.openedAt': new Date()
+          },
+          $inc: { 'stats.opened': 1 }
+        }
+      );
+    }
+
+    // Return a 1x1 transparent GIF
+    res.writeHead(200, {
+      'Content-Type': 'image/gif',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    res.end(Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'));
+  } catch (error) {
+    console.error('Error tracking email open:', error);
+    res.status(500).end();
+  }
+};
+
+// Track email clicks
+exports.trackEmailClick = async (req, res) => {
+  try {
+    const { trackingId } = req.params;
+    const { url } = req.query;
+    
+    // Find campaign and recipient by tracking ID
+    const campaign = await Campaign.findOne({
+      'recipients.trackingId': trackingId
+    });
+
+    if (!campaign) {
+      console.log('No campaign found for tracking ID:', trackingId);
+      return res.redirect(url || '/');
+    }
+
+    // Update recipient status and stats
+    const recipient = campaign.recipients.find(r => r.trackingId === trackingId);
+    if (recipient && recipient.status !== 'clicked') {
+      await Campaign.updateOne(
+        { 
+          _id: campaign._id,
+          'recipients.trackingId': trackingId
+        },
+        { 
+          $set: { 
+            'recipients.$.status': 'clicked',
+            'recipients.$.clickedAt': new Date()
+          },
+          $inc: { 'stats.clicked': 1 }
+        }
+      );
+    }
+
+    // Redirect to the original URL
+    res.redirect(url || '/');
+  } catch (error) {
+    console.error('Error tracking email click:', error);
+    res.redirect(req.query.url || '/');
   }
 };
 
