@@ -94,8 +94,6 @@ const Home = () => {
   };
 
   useEffect(() => {
-    console.log("segments ", segments);
-
     if (segments[3] === "home") {
       return setSelected("Auqli Live");
     }

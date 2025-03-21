@@ -35,7 +35,7 @@ export const LivestreamProvider = ({ children }) => {
       );
       if (response.status === 200) {
         dispatch({ type: "SET_ACTIVE_LIVESTREAM", payload: response.data });
-        console.log("active live streams", response.data);
+        // console.log("active live streams", response.data);
         return response.data;
       }
     } catch (error) {

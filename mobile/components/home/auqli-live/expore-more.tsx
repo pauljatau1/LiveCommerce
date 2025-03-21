@@ -17,7 +17,6 @@ const ExploreMoreSection = () => {
         process.env.EXPO_PUBLIC_API_URL + `api/streams?status=live`,
       );
       if (response.status === 200) {
-        console.log("spotlight streams", response.data?.streams?.length);
         setMoreStreams(response.data?.streams);
       }
     } catch (error) {

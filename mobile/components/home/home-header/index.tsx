@@ -30,7 +30,6 @@ const HomeHeader = () => {
 
   const getAuthUser = async () => {
     const authToken = await getToken();
-    console.log(authToken);
 
     setToken(authToken);
   };
@@ -69,7 +68,6 @@ const HomeHeader = () => {
         },
       );
       setUnreadNotifications(response.data?.unreadCount);
-      console.log("reading note -> ", response.data?.unreadCount);
     } catch (error) {
       console.error("Error fetching more notifications:", error);
     }

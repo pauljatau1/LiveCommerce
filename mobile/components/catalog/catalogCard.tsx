@@ -44,7 +44,6 @@ const CatalogCard: React.FC<ProductCardProps> = ({
 
   const getAuthUser = async () => {
     const authToken = await getToken();
-    console.log(authToken);
 
     setToken(authToken);
   };

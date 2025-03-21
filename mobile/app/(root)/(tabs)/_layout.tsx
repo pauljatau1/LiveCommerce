@@ -27,15 +27,6 @@ const TabsLayout = () => {
     }, 1000);
   }, [hideSplash, status]);
 
-  // useEffect(()=>{
-  //  if (status === "signIn")
-  //  {
-
-  //  }
-  // },[status])
-  console.log("status ===> ", status);
-  console.log("user ===> ", user);
-
   if (status === "signOut") {
     return <Redirect href="/(root)/(auth)/sign-in" />;
   }

@@ -28,7 +28,6 @@ const FavouriteExplore = ({ category }: any) => {
           `api/streams/category/${category?.toLowerCase()}?status=live&type=${liveFilter}&sortByView=${filter}`,
       );
       if (response.status === 200) {
-        console.log("spotlight streams", response.data?.streams?.length);
         setSpotLight(response.data?.streams);
         setFilteredStremas(response.data?.streams);
       }

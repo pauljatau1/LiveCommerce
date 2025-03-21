@@ -19,7 +19,6 @@ const Featured = () => {
           `api/streams/spotlight?status=live&page=${page}&limit=10`,
       );
       if (response.status === 200) {
-        console.log("spotlight streams", response.data?.streams?.length);
         if (response.data?.streams?.length > 0) {
           setSpotLight([...spotLight, ...response.data?.streams]);
           setPage((prevPage) => prevPage + 1);

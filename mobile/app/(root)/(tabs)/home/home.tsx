@@ -12,7 +12,6 @@ const { width, height } = Dimensions.get("window");
 
 const Homepage = () => {
   const { expoPushToken } = usePushNotifications();
-  console.log("token", expoPushToken);
 
   return (
     <>

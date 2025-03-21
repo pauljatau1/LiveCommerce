@@ -1,72 +1,81 @@
-import { useState, useEffect, useRef } from 'react';
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
-import { Platform, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-
+import { useState, useEffect, useRef } from "react";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { Platform, Alert } from "react-native";
+import { useRouter } from "expo-router";
 
 export interface PushNotificationState {
-    notification?: Notifications.Notification;
-    expoPushToken?: Notifications.ExpoPushToken;
-};
+  notification?: Notifications.Notification;
+  expoPushToken?: Notifications.ExpoPushToken;
+}
 
 export const usePushNotifications = (): PushNotificationState => {
-    Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
-            shouldSetBadge: true,
-        }),
-    });
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
 
-    const [expoPushToken, setExpoPushToken] = useState<Notifications.ExpoPushToken | undefined>();
-    const [notification, setNotification] = useState<Notifications.Notification | undefined>();
-    const notificationListener = useRef<Notifications.Subscription>();
-    const responseListener = useRef<Notifications.Subscription>();
-    const router = useRouter();
+  const [expoPushToken, setExpoPushToken] = useState<
+    Notifications.ExpoPushToken | undefined
+  >();
+  const [notification, setNotification] = useState<
+    Notifications.Notification | undefined
+  >();
+  const notificationListener = useRef<Notifications.Subscription>();
+  const responseListener = useRef<Notifications.Subscription>();
+  const router = useRouter();
 
-    const registerForPushNotification = async () => {
-        let token;
+  const registerForPushNotification = async () => {
+    let token;
 
-        if (Device.isDevice) {
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
-            };
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
 
-            if (finalStatus !== 'granted') {
-                Alert.alert( 'Notification failed', 'Permission for notification was denied');
-            };
+      if (finalStatus !== "granted") {
+        Alert.alert(
+          "Notification failed",
+          "Permission for notification was denied",
+        );
+      }
 
-            token = await Notifications.getExpoPushTokenAsync({
-                projectId: Constants.expoConfig?.extra?.eas?.projectId
-            });
+      token = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig?.extra?.eas?.projectId,
+      });
 
-            if (Platform.OS === 'android') {
-                Notifications.setNotificationChannelAsync("default", {
-                    name: 'default',
-                    importance: Notifications.AndroidImportance.MAX,
-                    vibrationPattern: [0, 250, 250, 0, 250, 250],
-                    enableVibrate: true,
-                    lightColor: "#292929",
-                    bypassDnd: true,
-                    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-                    sound: "default",
-                    enableLights: true,
-                });
-            };
+      if (Platform.OS === "android") {
+        Notifications.setNotificationChannelAsync("default", {
+          name: "default",
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 0, 250, 250],
+          enableVibrate: true,
+          lightColor: "#292929",
+          bypassDnd: true,
+          lockscreenVisibility:
+            Notifications.AndroidNotificationVisibility.PUBLIC,
+          sound: "default",
+          enableLights: true,
+        });
+      }
 
-            return token;
-        } else {
-            console.log('Error, please run on an actual physical device')
-        }
+      return token;
+    } else {
+      console.log("Error, please run on an actual physical device");
     }
+  };
 
-    {/*const storeNotification = async (notificationMessage: Notifications.Notification) => {
+  {
+    /*const storeNotification = async (notificationMessage: Notifications.Notification) => {
         try {
             const token = await AsyncStorage.getItem("token");
 
@@ -87,34 +96,37 @@ export const usePushNotifications = (): PushNotificationState => {
         } catch (error) {
             console.log('Failed to store notification:', error);
         }
-    };*/}
+    };*/
+  }
 
-    useEffect(() => {
-        registerForPushNotification().then((token) => setExpoPushToken(token));
-        
-        notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-            setNotification(notification);
-            //storeNotification(notification);
-        });
+  useEffect(() => {
+    registerForPushNotification().then((token) => setExpoPushToken(token));
 
-        responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-            setNotification(response.notification);
-            router.push(response.notification.request.content.data.url);
-        });
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        setNotification(notification);
+        //storeNotification(notification);
+      });
 
-        return () => {
-            Notifications.removeNotificationSubscription(notificationListener.current!);
-            Notifications.removeNotificationSubscription(responseListener.current!);
-        }
-    }, []);
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        setNotification(response.notification);
+        router.push(response.notification.request.content.data.url);
+      });
 
+    return () => {
+      Notifications.removeNotificationSubscription(
+        notificationListener.current!,
+      );
+      Notifications.removeNotificationSubscription(responseListener.current!);
+    };
+  }, []);
 
+  // console.log('expoPushToken', expoPushToken);
+  // console.log('notification', notification)
 
-    console.log('expoPushToken', expoPushToken);
-    console.log('notification', notification)
-
-    return {
-        expoPushToken,
-        notification
-    }
-}
+  return {
+    expoPushToken,
+    notification,
+  };
+};

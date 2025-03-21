@@ -16,7 +16,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { router, useGlobalSearchParams } from "expo-router";
+import {
+  router,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+} from "expo-router";
 import { useGetSingleProductQuery } from "@/services/products";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -56,14 +60,7 @@ configureReanimatedLogger({
 const { width, height } = Dimensions.get("window");
 
 const ProductDescription = () => {
-  const token = useSelector((state: RootState) => state.authState.token);
-  const userLocal = useSelector((state: RootState) => state.authState.user);
-  const socket = initializeSocket(token);
-  socket.connect();
-  const isFocused = useIsFocused();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const { id } = useGlobalSearchParams();
-  const [productDetails, setProductDetails] = useState<any>({});
+  const { id } = useLocalSearchParams();
   const {
     data: product,
     error,
@@ -71,6 +68,14 @@ const ProductDescription = () => {
     refetch,
     isFetching,
   } = useGetSingleProductQuery(id);
+  const token = useSelector((state: RootState) => state.authState.token);
+  const userLocal = useSelector((state: RootState) => state.authState.user);
+  const socket = initializeSocket(token);
+  socket.connect();
+  const isFocused = useIsFocused();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [productDetails, setProductDetails] = useState<any>({});
+
   const [sellerInfo, setSellerInfo] = useState<any>({});
   const [isReviewDropDownShow, setIsReviewDropDownShow] = useState(false);
   const [isShippingDropDownShow, setIsShippingDropDownShow] = useState(false);
@@ -150,11 +155,6 @@ const ProductDescription = () => {
         sellerId: sellerInfo?._id,
       },
     ];
-
-    console.log({
-      state: user?.shippingAddresses[0]?.state,
-      pickupLocations: payload,
-    });
 
     try {
       const token = await getToken();
@@ -252,8 +252,6 @@ const ProductDescription = () => {
   };
 
   const handleAddToCart = async (cartItem: any) => {
-    console.log("got here");
-
     try {
       const cartItems = await AsyncStorage.getItem("cart");
 
@@ -302,50 +300,91 @@ const ProductDescription = () => {
     socket.on("connect", () => {
       console.log("Connected to auctions");
     });
+    console.log("product id ", id);
+
+    socket.emit("join_auction", id);
+
+    socket.on("bid_error", (error) => {
+      console.log("Bid error:", error);
+    });
+
+    socket.on("auction_data", (data) => {
+      setAuctionData(data);
+      console.log("listening to auction data ", data);
+    });
+
+    socket.on("bid_update", (data) => {
+      setAuctionData(data);
+      console.log("gotten bid update", data);
+    });
+
+    socket.on("bid_placed", (data) => {
+      console.log("Bid successfully placed:", data);
+    });
+
+    socket.on("auction_ended", (data) => {
+      // Handle auction end
+    });
+    socket.on("auction_error", (error) => {
+      // Handle auction end
+      console.log("error with auction ", error);
+    });
 
     return () => {
-      socket.off("connect");
+      // socket.off("connect");
+      console.log("leaving");
+
+      socket.emit("leave_auction", productDetails?._id);
+      socket.off("auction_data");
+      socket.off("bid_update");
+      socket.off("auction_timer_update");
+      socket.off("auction_ended");
+      socket.off("bid_placed");
+      socket.off("bid_error");
+      socket.disconnect();
     };
   }, []);
 
-  useEffect(() => {
-    if (productDetails?._id) {
-      socket.emit("join_auction", productDetails?._id);
+  // useEffect(() => {
+  //   if (id) {
 
-      socket.on("bid_error", (error) => {
-        console.log("Bid error:", error);
-      });
+  //   }
+  // }, [id]);
 
-      socket.on("auction_data", (data) => {
-        setAuctionData(data);
-        // console.log("listening to auction data ", data);
-      });
+  // useEffect(() => {
+  //   socket.on("bid_error", (error) => {
+  //     console.log("Bid error:", error);
+  //   });
 
-      socket.on("bid_update", (data) => {
-        setAuctionData(data);
-        console.log("gotten bid update", data);
-      });
+  //   socket.on("auction_data", (data) => {
+  //     setAuctionData(data);
+  //     console.log("listening to auction data ", data);
+  //   });
 
-      socket.on("bid_placed", (data) => {
-        console.log("Bid successfully placed:", data);
-      });
+  //   socket.on("bid_update", (data) => {
+  //     setAuctionData(data);
+  //     console.log("gotten bid update", data);
+  //   });
 
-      socket.on("auction_ended", (data) => {
-        // Handle auction end
-      });
-      return () => {
-        console.log("leaving");
+  //   socket.on("bid_placed", (data) => {
+  //     console.log("Bid successfully placed:", data);
+  //   });
 
-        socket.emit("leave_auction", productDetails?._id);
-        socket.off("auction_data");
-        socket.off("bid_update");
-        socket.off("auction_timer_update");
-        socket.off("auction_ended");
-        socket.off("bid_placed");
-        socket.off("bid_error");
-      };
-    }
-  }, [productDetails, id]);
+  //   socket.on("auction_ended", (data) => {
+  //     // Handle auction end
+  //   });
+  //   return () => {
+  //     console.log("leaving");
+
+  //     socket.emit("leave_auction", productDetails?._id);
+  //     socket.off("auction_data");
+  //     socket.off("bid_update");
+  //     socket.off("auction_timer_update");
+  //     socket.off("auction_ended");
+  //     socket.off("bid_placed");
+  //     socket.off("bid_error");
+  //   };
+  // }, []);
 
   useEffect(() => {
     // refetch();
@@ -390,10 +429,6 @@ const ProductDescription = () => {
 
   useEffect(() => {
     if (user?.shippingAddresses?.length > 0 && sellerInfo?._id) {
-      console.log("starting shipping");
-      console.log(user?.shippingAddresses?.length);
-      console.log(sellerInfo?._id);
-
       getShippingFee();
     }
   }, [user, sellerInfo]);

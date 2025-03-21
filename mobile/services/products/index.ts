@@ -19,6 +19,7 @@ export const products = createApi({
     }),
     { maxRetries: 2 },
   ),
+  // refetchOnFocus: true,
   endpoints: (builder) => ({
     getAllProducts: builder.query({
       query: (credentials) => getRequest(`/products/all`, credentials),
