@@ -1,124 +1,41 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Calendar, ChevronDown, Download } from "lucide-react"
+import { Calendar, ChevronDown, Download, Users, Mail, MousePointerClick, TrendingUp, DollarSign, Globe, Monitor, Smartphone, Tablet } from "lucide-react"
 import { useEffect, useState } from "react"
 import axios from "axios"
 import { useNavigate } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server"
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
 } from 'recharts';
 import toast from "react-hot-toast"
 
-function StatsCard({ title, value, change, prefix = "" }) {
+const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444'];
+
+function StatsCard({ title, value, change, prefix = "", icon: Icon }) {
   const isPositive = parseFloat(change) >= 0
 
   return (
     <Card>
       <CardContent className="p-6">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold">
-            {prefix}
-            {value}
-          </h2>
-          <span className={`text-sm ${isPositive ? "text-green-500" : "text-red-500"}`}>
-            {isPositive ? "+" : ""}
-            {change}%
-          </span>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function TrendsChart() {
-  const [data, setData] = useState([])
-  
-  useEffect(() => {
-    // Fetch campaign trends data
-    const fetchTrends = async () => {
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
-        const response = await axios.get(`${BASE_URL}/campaigns/trends`, {
-          headers: { Authorization: `Bearer ${sellerToken}` }
-        })
-        setData(response.data)
-      } catch (error) {
-        console.error('Error fetching trends:', error)
-      }
-    }
-    fetchTrends()
-  }, [])
-
-  return (
-    <Card className="col-span-2">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Trends Over Time</CardTitle>
-        <Button variant="success">
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="MessagesSent" stroke="#8884d8" />
-            <Line type="monotone" dataKey="Opened" stroke="#82ca9d" />
-            <Line type="monotone" dataKey="Clicked" stroke="#ffc658" />
-            <Line type="monotone" dataKey="Sales" stroke="#ff7300" />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
-  )
-}
-
-function SubscriptionCard() {
-  return (
-    <Card>
-      <CardContent className="p-6 space-y-4">
-        <div className="flex gap-2">
-          <Input type="email" placeholder="E-mail" className="flex-1" />
-          <Button variant="outline" className="bg-white">
-            Subscribe
-          </Button>
-        </div>
-        <p className="text-sm text-muted-foreground">Follow your statistics.</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function DistributionChart() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Message Distribution</CardTitle>
-      </CardHeader>
-      <CardContent className="flex justify-center">
-        <div className="relative w-32 h-32">
-          <svg className="w-full h-full" viewBox="0 0 42 42">
-            <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e6e6e6" strokeWidth="3" />
-            <circle
-              cx="21"
-              cy="21"
-              r="15.91549430918954"
-              fill="transparent"
-              stroke="rgb(22 163 74)"
-              strokeWidth="3"
-              strokeDasharray="75 25"
-              transform="rotate(-90 21 21)"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-2xl font-bold">13</span>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{title}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <h2 className="text-2xl font-bold">
+                {prefix}
+                {value}
+              </h2>
+              <span className={`text-sm ${isPositive ? "text-green-500" : "text-red-500"}`}>
+                {isPositive ? "+" : ""}
+                {change}%
+              </span>
+            </div>
+          </div>
+          <div className="p-2 bg-primary/10 rounded-full">
+            <Icon className="h-5 w-5 text-primary" />
           </div>
         </div>
       </CardContent>
@@ -126,38 +43,148 @@ function DistributionChart() {
   )
 }
 
-function CampaignsTable() {
-  const [campaigns, setCampaigns] = useState([])
-  const [loading, setLoading] = useState(true)
+function TrendsChart({ data }) {
+  return (
+    <Card className="col-span-2">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Campaign Performance</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">Track your campaign metrics over time</p>
+        </div>
+        <Button variant="outline" className="bg-white">
+          <Download className="mr-2 h-4 w-4" />
+          Export Data
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis 
+              dataKey="day" 
+              stroke="#6b7280"
+              tick={{ fill: '#6b7280' }}
+            />
+            <YAxis 
+              stroke="#6b7280"
+              tick={{ fill: '#6b7280' }}
+            />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px'
+              }}
+            />
+            <Legend />
+            <Line 
+              type="monotone" 
+              dataKey="MessagesSent" 
+              stroke="#4f46e5" 
+              strokeWidth={2}
+              dot={false}
+              name="Messages Sent"
+            />
+            <Line 
+              type="monotone" 
+              dataKey="Opened" 
+              stroke="#10b981" 
+              strokeWidth={2}
+              dot={false}
+              name="Opens"
+            />
+            <Line 
+              type="monotone" 
+              dataKey="Clicked" 
+              stroke="#f59e0b" 
+              strokeWidth={2}
+              dot={false}
+              name="Clicks"
+            />
+            <Line 
+              type="monotone" 
+              dataKey="Sales" 
+              stroke="#ef4444" 
+              strokeWidth={2}
+              dot={false}
+              name="Sales"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}
 
-  useEffect(() => {
-    const fetchCampaigns = async () => {
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
-        const response = await axios.get(`${BASE_URL}/campaigns`, {
-          headers: { Authorization: `Bearer ${sellerToken}` }
-        })
-        setCampaigns(response.data.campaigns)
-      } catch (error) {
-        console.error('Error fetching campaigns:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchCampaigns()
-  }, [])
+function DeviceDistribution({ deviceStats }) {
+  const data = [
+    { name: 'Desktop', value: deviceStats?.desktop || 0 },
+    { name: 'Mobile', value: deviceStats?.mobile || 0 },
+    { name: 'Tablet', value: deviceStats?.tablet || 0 }
+  ];
 
   return (
-    <Card className="col-span-3 lg:col-span-3 md:col-span-2 sm:col-span-1">
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Device Distribution</CardTitle>
+        <p className="text-sm text-muted-foreground">How users view your campaigns</p>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mt-4">
+          <div className="flex items-center gap-2">
+            <Monitor className="h-4 w-4 text-primary" />
+            <span className="text-sm">Desktop</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-green-500" />
+            <span className="text-sm">Mobile</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tablet className="h-4 w-4 text-yellow-500" />
+            <span className="text-sm">Tablet</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function CampaignsTable({ campaigns }) {
+  return (
+    <Card className="col-span-3">
       <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
-        <h2 className="text-xl font-semibold">Campaigns</h2>
+        <div>
+          <CardTitle>Recent Campaigns</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">Detailed view of your campaign performance</p>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="bg-white w-full sm:w-auto">
+          <Button variant="outline" className="bg-white">
             <Calendar className="mr-2 h-4 w-4" />
-            Filtering by date
+            Filter by date
           </Button>
-          <Button variant="outline" className="bg-white w-full sm:w-auto">
-            Channel
+          <Button variant="outline" className="bg-white">
+            Status
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         </div>
@@ -167,29 +194,55 @@ function CampaignsTable() {
           <table className="w-full min-w-[800px]">
             <thead>
               <tr className="border-b">
-                <th className="px-6 py-3 text-left">Campaign Name</th>
-                <th className="px-6 py-3 text-left">Date</th>
-                <th className="px-6 py-3 text-left">Recipients</th>
-                <th className="px-6 py-3 text-left">Open Rate</th>
-                <th className="px-6 py-3 text-left">Click Rate</th>
-                <th className="px-6 py-3 text-left">Sales</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-muted-foreground">Campaign Name</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-muted-foreground">Recipients</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-muted-foreground">Open Rate</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-muted-foreground">Click Rate</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-muted-foreground">Sales</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-4">Loading...</td>
-                </tr>
-              ) : campaigns.map((campaign) => (
-                <tr key={campaign._id} className="border-b">
-                  <td className="px-6 py-4">{campaign.title}</td>
+              {campaigns.map((campaign) => (
+                <tr key={campaign._id} className="border-b hover:bg-muted/50 transition-colors">
                   <td className="px-6 py-4">
+                    <div>
+                      <p className="font-medium">{campaign.title}</p>
+                      <p className="text-sm text-muted-foreground">ID: {campaign._id.slice(0, 8)}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
                     {new Date(campaign.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4">{campaign.followers}</td>
-                  <td className="px-6 py-4">{campaign.openRate}</td>
-                  <td className="px-6 py-4">{campaign.clickRate}</td>
-                  <td className="px-6 py-4">{campaign.sales}</td>
+                  <td className="px-6 py-4 text-sm">{campaign.stats.totalRecipients}</td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="text-sm">{campaign.openRate}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {campaign.stats.uniqueOpens} unique opens
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="text-sm">{campaign.clickRate}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {campaign.stats.uniqueClicks} unique clicks
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm">₦{campaign.stats.sales.toLocaleString()}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      campaign.status === 'sent' ? 'bg-green-100 text-green-800' :
+                      campaign.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                      campaign.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -207,35 +260,56 @@ function InboxCampaigns() {
     totalMessagesSent: { value: 0, change: 0 },
     openRate: { value: '0%', change: 0 },
     clickRate: { value: '0%', change: 0 },
-    salesGenerated: { value: 0, change: 0 }
+    salesGenerated: { value: 0, change: 0 },
+    deviceStats: {
+      desktop: 0,
+      mobile: 0,
+      tablet: 0
+    }
   })
+  const [campaigns, setCampaigns] = useState([])
+  const [trendsData, setTrendsData] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
         const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
-        const response = await axios.get(`${BASE_URL}/campaigns/stats`, {
-          headers: { Authorization: `Bearer ${sellerToken}` }
-        })
-        setStats(response.data)
+        const headers = { Authorization: `Bearer ${sellerToken}` }
+
+        const [statsRes, campaignsRes, trendsRes] = await Promise.all([
+          axios.get(`${BASE_URL}/campaigns/stats`, { headers }),
+          axios.get(`${BASE_URL}/campaigns`, { headers }),
+          axios.get(`${BASE_URL}/campaigns/trends`, { headers })
+        ])
+
+        setStats(statsRes.data)
+        setCampaigns(campaignsRes.data.campaigns)
+        setTrendsData(trendsRes.data)
       } catch (error) {
-        console.error('Error fetching campaign stats:', error)
-        toast.error('Failed to load campaign statistics')
+        console.error('Error fetching campaign data:', error)
+        toast.error('Failed to load campaign data')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchStats()
+    fetchData()
   }, [])
 
+  if (loading) {
+    return <div className="p-8 text-center">Loading campaign data...</div>
+  }
+
   return (
-    <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6">
-        <h1 className="text-2xl font-bold">Campaign Analytics</h1>
+    <div className="p-4 sm:p-8 space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+        <div>
+          <h1 className="text-2xl font-bold">Campaign Analytics</h1>
+          <p className="text-muted-foreground mt-1">Track and analyze your campaign performance</p>
+        </div>
         <Button 
-          className="bg-green-600 hover:bg-green-700 w-full sm:w-auto" 
+          className="bg-primary hover:bg-primary/90 text-white w-full sm:w-auto" 
           onClick={() => navigate('/dashboard/inbox-campaigns/create')}
         >
           Create Campaign
@@ -246,40 +320,42 @@ function InboxCampaigns() {
         <StatsCard 
           title="Total Followers" 
           value={stats.totalFollowers.value} 
-          change={stats.totalFollowers.change} 
+          change={stats.totalFollowers.change}
+          icon={Users}
         />
         <StatsCard 
-          title="Total Messages sent" 
+          title="Messages Sent" 
           value={stats.totalMessagesSent.value} 
-          change={stats.totalMessagesSent.change} 
+          change={stats.totalMessagesSent.change}
+          icon={Mail}
         />
         <StatsCard 
           title="Open Rate" 
           value={stats.openRate.value} 
-          change={stats.openRate.change} 
+          change={stats.openRate.change}
+          icon={TrendingUp}
         />
         <StatsCard 
-          title="Click rate" 
+          title="Click Rate" 
           value={stats.clickRate.value} 
-          change={stats.clickRate.change} 
+          change={stats.clickRate.change}
+          icon={MousePointerClick}
         />
         <StatsCard 
-          title="Sales Generated" 
-          value={stats.salesGenerated.value} 
-          change={stats.salesGenerated.change} 
-          prefix="N " 
+          title="Revenue" 
+          value={stats.salesGenerated.value.toLocaleString()} 
+          change={stats.salesGenerated.change}
+          prefix="₦"
+          icon={DollarSign}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <TrendsChart />
-        <div className="space-y-4 lg:col-span-1">
-          <SubscriptionCard />
-          <DistributionChart />
-        </div>
+        <TrendsChart data={trendsData} />
+        <DeviceDistribution deviceStats={stats.deviceStats} />
       </div>
 
-      <CampaignsTable />
+      <CampaignsTable campaigns={campaigns} />
     </div>
   )
 }
