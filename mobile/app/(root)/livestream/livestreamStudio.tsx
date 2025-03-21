@@ -24,7 +24,6 @@ import ProductPreview from '@/components/blips/productPreview';
 import CheckoutNow from '@/components/blips/checkoutNow';
 import LiveAuctionProductCard from './liveAuctionProductCard';
 import BidVariationSelector from '@/app/(root)/livestream/bidVariationSelector';
-import CommentsSheet from '@/components/global/commentsSheet';
 import StreamViewers from './streamViewers';
 import StreamInfo from './StreamInfo';
 
