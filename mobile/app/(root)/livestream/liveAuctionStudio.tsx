@@ -23,7 +23,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ProductPreview from '@/components/blips/productPreview';
 import CheckoutNow from '@/components/blips/checkoutNow';
 import LiveAuctionProductCard from './liveAuctionProductCard';
-import BidVariationSelector from '@/components/blips/bidVariationSelector';
+import BidVariationSelector from '@/app/(root)/livestream/bidVariationSelector';
+import StreamViewers from './streamViewers';
+import StreamInfo from './StreamInfo';
 
 const { width, height } = Dimensions.get('window');
 
@@ -80,6 +82,23 @@ const LiveAuctionStudio = () => {
     const [, forceUpdate] = useState({});
     const { width: screenWidth } = Dimensions.get('window');
 
+    // Add new state for viewers bottom sheet
+    const [showViewers, setShowViewers] = useState(false);
+    // Add new state for stream info bottom sheet
+    const [showStreamInfo, setShowStreamInfo] = useState(false);
+    // Add stream details state
+    const [streamDetails, setStreamDetails] = useState({
+        title: '',
+        description: '',
+        category: '',
+        tags: [],
+        viewerCount: 0,
+        scheduledStartTime: '',
+        actualStartTime: '',
+        status: 'live',
+        type: 'auction'
+    });
+
     useEffect(() => {
         setupLivestream();
 
@@ -133,6 +152,7 @@ const LiveAuctionStudio = () => {
             // Join the stream using the stream ID from route parameters
             const streamDetails = await joinStream(id as string);
             console.log('Stream details:', streamDetails);
+            console.log('stream viewers', streamDetails?.stream?.viewers);
 
             // Set stream metadata if available from API
             if (streamDetails) {
@@ -191,6 +211,23 @@ const LiveAuctionStudio = () => {
 
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
+                }
+                
+                // Set stream details
+                if (streamDetails.stream) {
+                    const stream = streamDetails.stream as any;
+                    setStreamDetails({
+                        title: stream.title || 'Live Auction',
+                        description: stream.description || 'Join our live auction and bid on exclusive items!',
+                        category: stream.category || 'Shopping',
+                        tags: stream.tags || ['auction', 'shopping', 'live'],
+                        viewerCount: typeof stream.viewerCount === 'number' ? stream.viewerCount : 
+                            (Array.isArray(stream.viewers) ? stream.viewers.length : 0),
+                        scheduledStartTime: stream.scheduledStartTime || new Date().toISOString(),
+                        actualStartTime: stream.startTime || new Date().toISOString(),
+                        status: stream.status || 'live',
+                        type: 'auction'
+                    });
                 }
             }
 
@@ -788,6 +825,16 @@ const LiveAuctionStudio = () => {
         setShowBidVariation(true);
     };
 
+    // Add handleShowViewers function
+    const handleShowViewers = () => {
+        setShowViewers(true);
+    };
+
+    // Handle opening the stream info bottom sheet
+    const handleShowStreamInfo = () => {
+        setShowStreamInfo(true);
+    };
+
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -858,14 +905,18 @@ const LiveAuctionStudio = () => {
                                         </TouchableOpacity>
                                     </View>
                                     <View className="flex-row items-center gap-2">
-                                        <View className="flex-row items-center px-3 py-2 rounded-full">
+                                        <TouchableOpacity 
+                                            className="flex-row items-center px-3 py-2 rounded-full"
+                                            onPress={handleShowViewers}
+                                        >
                                             <Octicons name="people" size={22} color="#FFF" />
                                             <Text className="text-white ml-1 font-LexendDecaMedium ">
                                                 {viewerCount > 999
                                                     ? `${(viewerCount / 1000).toFixed(1)}K`
                                                     : viewerCount}
                                             </Text>
-                                        </View>
+                                        </TouchableOpacity>
+                                        
                                         <TouchableOpacity
                                             onPress={toggleMute}
                                             className=" p-2 rounded-full"
@@ -894,18 +945,18 @@ const LiveAuctionStudio = () => {
                                     </View>
 
                                     <View style={styles.actionItem}>
-                                        <TouchableOpacity style={styles.actionButton}>
+                                        <TouchableOpacity style={styles.actionButton} onPress={handleShowStreamInfo}>
                                             <Ionicons name="information-circle-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Info</Text>
                                     </View>
 
-                                    <View style={styles.actionItem}>
+                                    {/*<View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
                                             <Ionicons name="card-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Pay</Text>
-                                    </View>
+                                    </View>*/}
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
@@ -1003,7 +1054,7 @@ const LiveAuctionStudio = () => {
                             {/* Bottom Product Card */}
                             {shouldShowUI && streamProducts.length > 0 && (
                                 <>
-                                    {/* Winning Notification 
+                                    {/* Winning Notification */}
                                     {
                                         !keyboardVisibleRef.current && (
                                             <View style={styles.winningNotificationContainer}>
@@ -1017,7 +1068,7 @@ const LiveAuctionStudio = () => {
                                                 </Text>
                                             </View>
                                         )
-                                    }*/}
+                                    }
 
                                     {/* Auction Product Card */}
                                     <View style={styles.auctionProductCardContainer}>
@@ -1038,6 +1089,8 @@ const LiveAuctionStudio = () => {
                                                     onBid={(amount) => handleSubmitBid(amount)}
                                                     onCustom={() => handleOpenBidVariation(streamProducts[currentProductIndex])}
                                                     formatPrice={formatPrice}
+                                                    category={streamDetails.category}
+                                                    tag={streamDetails.tags}
                                                 />
                                             </>
                                         )}
@@ -1118,6 +1171,48 @@ const LiveAuctionStudio = () => {
                         closeSheet={() => setShowBidVariation(false)}
                     />
                 )}
+            </BottomSheet>
+
+            {/* Add Viewers Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-[11px]"
+                showCloseIcon={false}
+                title=""
+                show={showViewers}
+                snapPoints={["70%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowViewers(false)}
+                keyboardBehavior="interactive"
+            >
+                <StreamViewers 
+                    viewers={activeStreamDetails?.stream?.viewers || []}
+                    hostInfo={{
+                        name: storeInfo.name,
+                        avatar: storeInfo.avatar
+                    }}
+                    closeSheet={() => setShowViewers(false)}
+                />
+            </BottomSheet>
+
+            {/* Add StreamInfo Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-0"
+                showCloseIcon={false}
+                title=""
+                show={showStreamInfo}
+                snapPoints={["100%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowStreamInfo(false)}
+                keyboardBehavior="interactive"
+            >
+                <StreamInfo 
+                    storeInfo={storeInfo}
+                    streamInfo={streamDetails}
+                    isLoading={isLoading}
+                    closeSheet={() => setShowStreamInfo(false)}
+                />
             </BottomSheet>
         </>
     );

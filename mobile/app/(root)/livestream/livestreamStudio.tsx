@@ -22,6 +22,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ProductPreview from '@/components/blips/productPreview';
 import CheckoutNow from '@/components/blips/checkoutNow';
+import LiveAuctionProductCard from './liveAuctionProductCard';
+import BidVariationSelector from '@/app/(root)/livestream/bidVariationSelector';
+import CommentsSheet from '@/components/global/commentsSheet';
+import StreamViewers from './streamViewers';
+import StreamInfo from './StreamInfo';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,7 +58,10 @@ const LivestreamStudio = () => {
     // Bottom sheet state for product preview and checkout
     const [showProductPreview, setShowProductPreview] = useState(false);
     const [showCheckout, setShowCheckout] = useState(false);
+    const [showBidVariation, setShowBidVariation] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedBidProduct, setSelectedBidProduct] = useState<StreamProduct | null>(null);
+    const [bidAmount, setBidAmount] = useState<number | null>(null);
 
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
@@ -74,6 +82,23 @@ const LivestreamStudio = () => {
     const keyboardVisibleRef = useRef(false);
     const [, forceUpdate] = useState({});
     const { width: screenWidth } = Dimensions.get('window');
+
+    // Add state for viewers bottom sheet
+    const [showViewers, setShowViewers] = useState(false);
+    // Add state for stream info bottom sheet
+    const [showStreamInfo, setShowStreamInfo] = useState(false);
+    // Add stream details state
+    const [streamDetails, setStreamDetails] = useState({
+        title: '',
+        description: '',
+        category: '',
+        tags: [],
+        viewerCount: 0,
+        scheduledStartTime: '',
+        actualStartTime: '',
+        status: 'live',
+        type: 'regular'
+    });
 
     useEffect(() => {
         setupLivestream();
@@ -128,6 +153,7 @@ const LivestreamStudio = () => {
             // Join the stream using the stream ID from route parameters
             const streamDetails = await joinStream(id as string);
             console.log('Stream details:', streamDetails);
+            console.log('stream viewers', streamDetails?.stream?.viewers);
 
             // Set stream metadata if available from API
             if (streamDetails) {
@@ -186,6 +212,23 @@ const LivestreamStudio = () => {
 
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
+                }
+                
+                // Set stream details
+                if (streamDetails.stream) {
+                    const stream = streamDetails.stream as any;
+                    setStreamDetails({
+                        title: stream.title || 'Live Stream',
+                        description: stream.description || 'Join our live stream and shop exclusive items!',
+                        category: stream.category || 'Shopping',
+                        tags: stream.tags || ['shopping', 'live', 'exclusive'],
+                        viewerCount: typeof stream.viewerCount === 'number' ? stream.viewerCount : 
+                            (Array.isArray(stream.viewers) ? stream.viewers.length : 0),
+                        scheduledStartTime: stream.scheduledStartTime || new Date().toISOString(),
+                        actualStartTime: stream.startTime || new Date().toISOString(),
+                        status: stream.status || 'live',
+                        type: 'regular'
+                    });
                 }
             }
 
@@ -687,6 +730,16 @@ const LivestreamStudio = () => {
         };
     }, []);
 
+    // Add handleShowViewers function
+    const handleShowViewers = () => {
+        setShowViewers(true);
+    };
+
+    // Add handleShowStreamInfo function
+    const handleShowStreamInfo = () => {
+        setShowStreamInfo(true);
+    };
+
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -757,14 +810,17 @@ const LivestreamStudio = () => {
                                         </TouchableOpacity>
                                     </View>
                                     <View className="flex-row items-center gap-2">
-                                        <View className="flex-row items-center px-3 py-2 rounded-full">
+                                        <TouchableOpacity 
+                                            className="flex-row items-center px-3 py-2 rounded-full"
+                                            onPress={handleShowViewers}
+                                        >
                                             <Octicons name="people" size={22} color="#FFF" />
                                             <Text className="text-white ml-1 font-LexendDecaMedium ">
                                                 {viewerCount > 999
                                                     ? `${(viewerCount / 1000).toFixed(1)}K`
                                                     : viewerCount}
                                             </Text>
-                                        </View>
+                                        </TouchableOpacity>
                                         <TouchableOpacity
                                             onPress={toggleMute}
                                             className=" p-2 rounded-full"
@@ -793,18 +849,18 @@ const LivestreamStudio = () => {
                                     </View>
 
                                     <View style={styles.actionItem}>
-                                        <TouchableOpacity style={styles.actionButton}>
+                                        <TouchableOpacity style={styles.actionButton} onPress={handleShowStreamInfo}>
                                             <Ionicons name="information-circle-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Info</Text>
                                     </View>
 
-                                    <View style={styles.actionItem}>
+                                    {/*<View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
                                         <Ionicons name="card-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Pay</Text>
-                                    </View>
+                                    </View>*/}
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
@@ -984,6 +1040,49 @@ const LivestreamStudio = () => {
                         channel="liveshow"
                     />
                 )}
+            </BottomSheet>
+
+            {/* Viewers Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-0"
+                showCloseIcon={false}
+                title=""
+                show={showViewers}
+                snapPoints={["70%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowViewers(false)}
+                keyboardBehavior="interactive"
+            >
+                <StreamViewers 
+                    viewers={activeStreamDetails?.stream?.viewers || []}
+                    hostInfo={{
+                        name: storeInfo.name,
+                        avatar: storeInfo.avatar
+                    }}
+                    closeSheet={() => setShowViewers(false)}
+                />
+            </BottomSheet>
+
+            {/* Add StreamInfo Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-0"
+                showCloseIcon={false}
+                title=""
+                show={showStreamInfo}
+                snapPoints={["100%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowStreamInfo(false)}
+                keyboardBehavior="interactive"
+                enableContentPanningGesture={true}
+            >
+                <StreamInfo 
+                    storeInfo={storeInfo}
+                    streamInfo={streamDetails}
+                    isLoading={isLoading}
+                    closeSheet={() => setShowStreamInfo(false)}
+                />
             </BottomSheet>
         </>
     );

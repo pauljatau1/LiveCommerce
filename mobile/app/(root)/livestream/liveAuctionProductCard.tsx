@@ -15,12 +15,14 @@ interface LiveAuctionProductCardProps {
         productId: string;
         quantity: number;
     };
+    tag: string | string[];
+    category: string;
     onBid: (amount: number) => void;
     onCustom: () => void;
     formatPrice?: (price: number) => string;
 }
 
-const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice }: LiveAuctionProductCardProps) => {
+const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, category }: LiveAuctionProductCardProps) => {
     // Calculate the next bid amount with a fixed default increment of 500
     const currentBid = product.currentBid || product.minBid || product.price;
     const minBid = product.minBid || product.price;
@@ -36,7 +38,7 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice }: LiveA
     };
 
     // Calculate remaining time (placeholder for now)
-    const remainingTime = "00:05";
+    const remainingTime = "00:30";
 
     return (
         <View style={styles.container}>
@@ -74,10 +76,15 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice }: LiveA
                 <Text style={styles.timerText}>{remainingTime}</Text>
             </View>
 
-            {/* Shipping Text */}
-            <View style={styles.shippingContainer}>
-                <Text style={styles.shippingText}>+ Shipping + Taxes</Text>
-            </View>
+            {/* Category and Tags */}
+            {
+                tag && category && (
+                    <View style={styles.categoryTagsContainer}>
+                        <Text style={styles.categoryTagsText}>
+                            {category} <Text style={styles.dotSeparator}>•</Text> {Array.isArray(tag) ? tag.join(', ') : tag}
+                        </Text>
+                    </View>)
+            }
 
             {/* Action Buttons */}
             <View style={styles.buttonsRow}>
@@ -88,7 +95,7 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice }: LiveA
                 <TouchableOpacity style={styles.bidButton} onPress={() => onBid(nextBidAmount)}>
                     <View style={styles.bidButtonContent}>
                         <Text style={styles.bidButtonText}>Bid {formatPriceDisplay(nextBidAmount)}</Text>
-                        <Ionicons name="swap-horizontal" size={22} color="white" />           
+                        <Ionicons name="swap-horizontal" size={22} color="white" />
                     </View>
                 </TouchableOpacity>
             </View>
@@ -99,7 +106,7 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice }: LiveA
 const styles = StyleSheet.create({
     container: {
         borderRadius: 12,
-        paddingVertical: 12,
+        paddingVertical: 6,
         marginVertical: 8,
     },
     contentRow: {
@@ -225,6 +232,24 @@ const styles = StyleSheet.create({
         fontSize: 20,
         color: 'white',
         fontWeight: 'bold',
+    },
+    categoryTagsContainer: {
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderRadius: 6,
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        marginBottom: 12,
+    },
+    categoryTagsText: {
+        fontSize: 12,
+        color: '#FFFFFF',
+    },
+    dotSeparator: {
+        fontSize: 12,
+        color: '#FFFFFF',
+        opacity: 0.7,
+        marginHorizontal: 4,
     },
 });
 

@@ -32,6 +32,7 @@ type Props = {
   enablePanDownToClose?: boolean;
   footerComponent?: FC<BottomSheetFooterProps>;
   keyboardBehavior: any;
+  enableContentPanningGesture?: boolean;
 };
 
 const BottomSheet = ({
@@ -48,6 +49,7 @@ const BottomSheet = ({
   footerComponent,
   bgColor,
   childrenStyle,
+  enableContentPanningGesture = false,
   ...rest
 }: Props) => {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
@@ -105,7 +107,7 @@ const BottomSheet = ({
         width: !enableDynamicSizing ? 0 : 40,
       }}
       footerComponent={footerComponent}
-      enableContentPanningGesture={false}
+      enableContentPanningGesture={enableContentPanningGesture}
       style={{
         zIndex: 10000000,
       }}

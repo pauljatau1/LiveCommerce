@@ -1,6 +1,7 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import React, { useState, useEffect } from 'react';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 // Predefined bid increment options
 const BID_VARIATIONS = [500, 1000, 1500, 2000];
@@ -45,6 +46,39 @@ const BidVariationSelector = ({
       setSelectedVariation(null);
     }
   };
+
+  // Live validation of custom bid amount
+  const customBidValidation = useMemo(() => {
+    if (!customBidAmount) return null;
+    
+    const numericAmount = Number(customBidAmount);
+    
+    if (isNaN(numericAmount)) {
+      return {
+        isValid: false,
+        message: 'Please enter a valid number'
+      };
+    }
+    
+    if (numericAmount <= 0) {
+      return {
+        isValid: false,
+        message: 'Bid amount must be greater than zero'
+      };
+    }
+    
+    if (numericAmount <= currentBid) {
+      return {
+        isValid: false,
+        message: `Bid must exceed ${formatPriceDisplay(currentBid)}`
+      };
+    }
+    
+    return {
+      isValid: true,
+      message: `Valid bid: ${formatPriceDisplay(numericAmount)}`
+    };
+  }, [customBidAmount, currentBid]);
 
   // Handle bid submission
   const handleSubmitBid = () => {
@@ -111,9 +145,13 @@ const BidVariationSelector = ({
       {/* Custom Bid Option */}
       <View style={styles.customBidContainer}>
         <Text style={styles.sectionTitle}>Or enter custom amount:</Text>
-        <View style={styles.customBidInputContainer}>
+        <View style={[
+          styles.customBidInputContainer,
+          customBidMode && customBidAmount && !customBidValidation?.isValid && styles.invalidBidInput,
+          customBidMode && customBidAmount && customBidValidation?.isValid && styles.validBidInput
+        ]}>
           <Text style={styles.currencySymbol}>₦</Text>
-          <TextInput
+          <BottomSheetTextInput
             style={styles.customBidInput}
             value={customBidAmount}
             onChangeText={setCustomBidAmount}
@@ -122,10 +160,23 @@ const BidVariationSelector = ({
             keyboardType="numeric"
             onFocus={() => setCustomBidMode(true)}
           />
+          {customBidMode && customBidAmount && (
+            <View style={styles.validationIconContainer}>
+              {customBidValidation?.isValid ? (
+                <AntDesign name="checkcircle" size={18} color="#16783A" />
+              ) : (
+                <AntDesign name="exclamationcircle" size={18} color="#FF5733" />
+              )}
+            </View>
+          )}
         </View>
+        
         {customBidMode && customBidAmount && (
-          <Text style={styles.bidPreview}>
-            Your bid: {formatPriceDisplay(Number(customBidAmount))}
+          <Text style={[
+            styles.bidValidationMessage,
+            customBidValidation?.isValid ? styles.validBidText : styles.invalidBidText
+          ]}>
+            {customBidValidation?.message}
           </Text>
         )}
       </View>
@@ -145,10 +196,12 @@ const BidVariationSelector = ({
           <TouchableOpacity 
             style={[
               styles.submitButton,
-              (!selectedVariation && !customBidAmount) && styles.disabledButton
+              (customBidMode && (!customBidAmount || !customBidValidation?.isValid)) || 
+              (!customBidMode && !selectedVariation) ? styles.disabledButton : {}
             ]} 
             onPress={handleSubmitBid}
-            disabled={!selectedVariation && !customBidAmount}
+            disabled={(customBidMode && (!customBidAmount || !customBidValidation?.isValid)) || 
+                      (!customBidMode && !selectedVariation)}
           >
             <Text style={styles.submitButtonText}>Place Bid</Text>
             <MaterialIcons name="arrow-forward-ios" size={16} color="#FFF" />
@@ -232,6 +285,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+  invalidBidInput: {
+    borderColor: '#FF5733',
+    borderWidth: 1,
+  },
+  validBidInput: {
+    borderColor: '#16783A',
+    borderWidth: 1,
+  },
   currencySymbol: {
     color: '#16783A',
     fontSize: 18,
@@ -243,6 +304,20 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     fontSize: 16,
     color: '#FFF',
+  },
+  validationIconContainer: {
+    paddingHorizontal: 8,
+  },
+  bidValidationMessage: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  validBidText: {
+    color: '#16783A',
+  },
+  invalidBidText: {
+    color: '#FF5733',
   },
   bidPreview: {
     marginTop: 8,

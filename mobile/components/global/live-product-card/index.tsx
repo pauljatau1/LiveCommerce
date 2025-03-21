@@ -15,7 +15,7 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
   return (
     <TouchableOpacity
       onPress={() =>
-        item.type !== "auction" ? router.push(`/livestream/liveAuctionStudio?id=${item?._id}`) : router.push(`/livestream/livestreamStudio?id=${item?._id}`)
+        item.type === "auction" ? router.push(`/livestream/liveAuctionStudio?id=${item?._id}`) : router.push(`/livestream/livestreamStudio?id=${item?._id}`)
       }
       className=" rounded-lg"
       style={{
