@@ -28,12 +28,14 @@ export const LiveShowProductCard: React.FC<LiveShowProductCardProps> = ({
     const handleBuyNow = (e: any) => {
         e.stopPropagation(); // Prevent triggering the card's TouchableOpacity
         if (onBuyNow) {
+            console.log("Buy nowproduct", product)
             onBuyNow(product);
         }
     };
 
     const handleCardPress = () => {
         if (onPreview) {
+            console.log("Preview product", product)
             onPreview(product);
         }
     };
@@ -57,10 +59,10 @@ export const LiveShowProductCard: React.FC<LiveShowProductCardProps> = ({
                 </Text>
             </View>
             <TouchableOpacity 
-                className="bg-[#16783A] px-4 py-2 rounded-lg"
+                className="bg-[#16783A] px-4 py-2 rounded-full"
                 onPress={handleBuyNow}
             >
-                <Text className="text-white font-LexendDecaMedium">Buy Now</Text>
+                <Text className="text-white text-sm font-LexendDecaMedium">Buy Now</Text>
             </TouchableOpacity>
         </TouchableOpacity>
     );

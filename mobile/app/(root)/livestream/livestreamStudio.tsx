@@ -22,6 +22,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ProductPreview from '@/components/blips/productPreview';
 import CheckoutNow from '@/components/blips/checkoutNow';
+import LiveAuctionProductCard from './liveAuctionProductCard';
+import BidVariationSelector from '@/app/(root)/livestream/bidVariationSelector';
+import CommentsSheet from '@/components/global/commentsSheet';
+import StreamViewers from './streamViewers';
+import StreamInfo from './StreamInfo';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,16 +58,20 @@ const LivestreamStudio = () => {
     // Bottom sheet state for product preview and checkout
     const [showProductPreview, setShowProductPreview] = useState(false);
     const [showCheckout, setShowCheckout] = useState(false);
+    const [showBidVariation, setShowBidVariation] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedBidProduct, setSelectedBidProduct] = useState<StreamProduct | null>(null);
+    const [bidAmount, setBidAmount] = useState<number | null>(null);
 
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
         id: string;
-        type: 'comment' | 'join' | 'purchase';
+        type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin';
         user: string;
         avatar?: any;
         content: string;
         timestamp: Date;
+        data?: any;
     }>>([]);
     const [commentInput, setCommentInput] = useState('');
     const commentsListRef = useRef<FlatList>(null);
@@ -73,6 +82,23 @@ const LivestreamStudio = () => {
     const keyboardVisibleRef = useRef(false);
     const [, forceUpdate] = useState({});
     const { width: screenWidth } = Dimensions.get('window');
+
+    // Add state for viewers bottom sheet
+    const [showViewers, setShowViewers] = useState(false);
+    // Add state for stream info bottom sheet
+    const [showStreamInfo, setShowStreamInfo] = useState(false);
+    // Add stream details state
+    const [streamDetails, setStreamDetails] = useState({
+        title: '',
+        description: '',
+        category: '',
+        tags: [],
+        viewerCount: 0,
+        scheduledStartTime: '',
+        actualStartTime: '',
+        status: 'live',
+        type: 'regular'
+    });
 
     useEffect(() => {
         setupLivestream();
@@ -127,6 +153,7 @@ const LivestreamStudio = () => {
             // Join the stream using the stream ID from route parameters
             const streamDetails = await joinStream(id as string);
             console.log('Stream details:', streamDetails);
+            console.log('stream viewers', streamDetails?.stream?.viewers);
 
             // Set stream metadata if available from API
             if (streamDetails) {
@@ -185,6 +212,23 @@ const LivestreamStudio = () => {
 
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
+                }
+                
+                // Set stream details
+                if (streamDetails.stream) {
+                    const stream = streamDetails.stream as any;
+                    setStreamDetails({
+                        title: stream.title || 'Live Stream',
+                        description: stream.description || 'Join our live stream and shop exclusive items!',
+                        category: stream.category || 'Shopping',
+                        tags: stream.tags || ['shopping', 'live', 'exclusive'],
+                        viewerCount: typeof stream.viewerCount === 'number' ? stream.viewerCount : 
+                            (Array.isArray(stream.viewers) ? stream.viewers.length : 0),
+                        scheduledStartTime: stream.scheduledStartTime || new Date().toISOString(),
+                        actualStartTime: stream.startTime || new Date().toISOString(),
+                        status: stream.status || 'live',
+                        type: 'regular'
+                    });
                 }
             }
 
@@ -258,7 +302,7 @@ const LivestreamStudio = () => {
         }
     };
 
-    // Handler for WebSocket notifications (joins, comments, purchases)
+    // Handler for WebSocket notifications (joins, comments, purchases, host left/rejoined)
     const handleStreamNotification = useCallback((notification: StreamNotification) => {
         console.log('Received notification:', notification);
 
@@ -299,6 +343,18 @@ const LivestreamStudio = () => {
                 // Update UI to show purchase
                 setLiveComments(prev => [...prev, notification]);
                 break;
+                
+            case 'hostLeft':
+                console.log('Host left stream:', notification.user);
+                // Update UI to show host left event
+                setLiveComments(prev => [...prev, notification]);
+                break;
+                
+            case 'hostRejoin':
+                console.log('Host rejoined stream:', notification.user);
+                // Update UI to show host rejoined event
+                setLiveComments(prev => [...prev, notification]);
+                break;
 
             default:
                 console.warn('Unknown notification type:', notification.type);
@@ -313,7 +369,7 @@ const LivestreamStudio = () => {
                 }
             }, 100);
         });
-    }, []);
+    }, [liveComments]);
 
     const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
         const message = event.nativeEvent.data;
@@ -333,6 +389,69 @@ const LivestreamStudio = () => {
             if (parts.length >= 3) {
                 const mediaType = parts[2]; // Format is "user_published:uid:mediaType"
                 setStatus(`Host ${mediaType} stream playing`);
+                setIsLoading(false);
+            }
+        } else if (message.startsWith('user_unpublished:')) {
+            const parts = message.split(':');
+            if (parts.length >= 3) {
+                const mediaType = parts[2]; // Format is "user_unpublished:uid:mediaType"
+                
+                // Only display notification when a video stream is unpublished
+                if (mediaType === 'video') {
+                    // Add a notification to the chat that host left
+                    const hostLeftNotification = {
+                        id: Date.now().toString(),
+                        type: 'hostLeft' as const,
+                        user: storeInfo.name,
+                        avatar: storeInfo.avatar,
+                        content: 'left room',
+                        timestamp: new Date()
+                    };
+                    
+                    // Add notification to the comments
+                    setLiveComments(prev => [...prev, hostLeftNotification]);
+                    
+                    // Scroll to show the notification
+                    requestAnimationFrame(() => {
+                        setTimeout(() => {
+                            if (commentsListRef.current) {
+                                commentsListRef.current.scrollToEnd({ animated: true });
+                            }
+                        }, 100);
+                    });
+                    
+                    setStatus(`Host ${mediaType} stream ended`);
+                }
+            }
+        } else if (message.startsWith('video_reconnected:') || message.startsWith('user_rejoined:')) {
+            // This message is triggered when a previously disconnected user rejoins
+            // Add notification that host has rejoined if we previously saw them leave
+            const hasHostLeftPreviously = liveComments.some(comment => comment.type === 'hostLeft');
+            
+            if (hasHostLeftPreviously) {
+                const hostRejoinedNotification = {
+                    id: Date.now().toString(),
+                    type: 'hostRejoin' as const,
+                    user: storeInfo.name,
+                    avatar: storeInfo.avatar,
+                    content: 'rejoined room',
+                    timestamp: new Date()
+                };
+                
+                // Add notification to the comments
+                setLiveComments(prev => [...prev, hostRejoinedNotification]);
+                
+                // Scroll to show the notification
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        if (commentsListRef.current) {
+                            commentsListRef.current.scrollToEnd({ animated: true });
+                        }
+                    }, 100);
+                });
+                
+                setStatus('Host video reconnected');
+                setIsVideoPlaying(true);
                 setIsLoading(false);
             }
         } else if (message.startsWith('video_playing:')) {
@@ -499,6 +618,26 @@ const LivestreamStudio = () => {
                     </View>
                 </View>
             );
+        } else if (item.type === 'hostLeft') {
+            return (
+                <View style={styles.hostLeftCommentItem}>
+                    {renderAvatar()}
+                    <View style={styles.hostLeftCommentContent}>
+                        <Text style={styles.commentUser}>{item.user}</Text>
+                        <Text style={styles.hostLeftCommentText}>{item.content}</Text>
+                    </View>
+                </View>
+            );
+        } else if (item.type === 'hostRejoin') {
+            return (
+                <View style={styles.hostRejoinedCommentItem}>
+                    {renderAvatar()}
+                    <View style={styles.hostRejoinedCommentContent}>
+                        <Text style={styles.commentUser}>{item.user}</Text>
+                        <Text style={styles.hostRejoinedCommentText}>{item.content}</Text>
+                    </View>
+                </View>
+            );
         } else {
             return (
                 <View style={styles.regularCommentItem}>
@@ -573,42 +712,6 @@ const LivestreamStudio = () => {
     // Create a single condition to check if UI should be shown
     const shouldShowUI = streamConfig && !isLoading && isVideoPlaying;
 
-    // Update the animated style functions to use the ref directly
-    const getCommentContainerStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 230;
-        const KEYBOARD_OFFSET = 60;
-
-        return {
-            ...styles.commentsContainer,
-            bottom: keyboardVisibleRef.current
-                ? keyboardHeightRef.current + KEYBOARD_OFFSET
-                : DEFAULT_BOTTOM
-        };
-    }, []);
-
-    const getRightActionsStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 230;
-        const KEYBOARD_OFFSET = 200;
-
-        return {
-            ...styles.rightActionsContainer,
-            bottom: keyboardVisibleRef.current
-                ? keyboardHeightRef.current + KEYBOARD_OFFSET
-                : DEFAULT_BOTTOM
-        };
-    }, []);
-
-    const getCommentInputStyle = useCallback(() => {
-        const DEFAULT_BOTTOM = 130;
-        const GAP_SIZE = 15;
-
-        return {
-            ...styles.commentInputContainer,
-            bottom: keyboardVisibleRef.current
-                ? keyboardHeightRef.current - 15
-                : DEFAULT_BOTTOM
-        };
-    }, []);
 
     const handleIncreaseCommentCount = () => {
         setComments(comments + 1);
@@ -626,6 +729,16 @@ const LivestreamStudio = () => {
             disconnectSocket();
         };
     }, []);
+
+    // Add handleShowViewers function
+    const handleShowViewers = () => {
+        setShowViewers(true);
+    };
+
+    // Add handleShowStreamInfo function
+    const handleShowStreamInfo = () => {
+        setShowStreamInfo(true);
+    };
 
     return (
         <>
@@ -678,7 +791,7 @@ const LivestreamStudio = () => {
                     {/* Content Container */}
                     <View style={styles.contentContainer}>
                         {/* Top Actions */}
-                        {shouldShowUI && (
+                        {shouldShowUI && !keyboardVisibleRef.current && (
                             <SafeAreaView style={{ marginTop: insets.top + 15 }}>
                                 <View className={`flex-row justify-between items-center px-4`}>
                                     <View className="flex-row items-center gap-4 ">
@@ -692,19 +805,22 @@ const LivestreamStudio = () => {
                                                 <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
                                             </View>
                                         </View>
-                                        <TouchableOpacity className="bg-[#16783A] h-full px-4 py-1 rounded-md">
+                                        <TouchableOpacity className="bg-[#16783A] h-full px-4 py-1 rounded-full">
                                             <Text className="text-white text-sm">Follow</Text>
                                         </TouchableOpacity>
                                     </View>
                                     <View className="flex-row items-center gap-2">
-                                        <View className="flex-row items-center px-3 py-2 rounded-full">
+                                        <TouchableOpacity 
+                                            className="flex-row items-center px-3 py-2 rounded-full"
+                                            onPress={handleShowViewers}
+                                        >
                                             <Octicons name="people" size={22} color="#FFF" />
                                             <Text className="text-white ml-1 font-LexendDecaMedium ">
                                                 {viewerCount > 999
                                                     ? `${(viewerCount / 1000).toFixed(1)}K`
                                                     : viewerCount}
                                             </Text>
-                                        </View>
+                                        </TouchableOpacity>
                                         <TouchableOpacity
                                             onPress={toggleMute}
                                             className=" p-2 rounded-full"
@@ -721,7 +837,7 @@ const LivestreamStudio = () => {
                         )}
 
                         {/* Main Content Area */}
-                        <View style={styles.mainContentArea}>
+                        <View style={[styles.mainContentArea, { height: keyboardVisibleRef.current ? '55%' : '67%' }]}>
                             {/* Right Side Actions */}
                             {shouldShowUI && !keyboardVisibleRef.current && (
                                 <ScrollView showsVerticalScrollIndicator={false} style={styles.rightActionsContainer}>
@@ -733,18 +849,18 @@ const LivestreamStudio = () => {
                                     </View>
 
                                     <View style={styles.actionItem}>
-                                        <TouchableOpacity style={styles.actionButton}>
+                                        <TouchableOpacity style={styles.actionButton} onPress={handleShowStreamInfo}>
                                             <Ionicons name="information-circle-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Info</Text>
                                     </View>
 
-                                    <View style={styles.actionItem}>
+                                    {/*<View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
                                         <Ionicons name="card-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Pay</Text>
-                                    </View>
+                                    </View>*/}
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
@@ -818,15 +934,24 @@ const LivestreamStudio = () => {
                             {/* Comment Input */}
                             {shouldShowUI && (
                                 <View style={styles.commentInputContainer}>
-                                    <TextInput
-                                        style={styles.commentInput}
-                                        placeholder="Say something..."
-                                        placeholderTextColor="#999"
-                                        value={commentInput}
-                                        onChangeText={setCommentInput}
-                                        returnKeyType="send"
-                                        onSubmitEditing={handleSendComment}
-                                    />
+                                    <View style={styles.inputWithButtonContainer}>
+                                        <TextInput
+                                            style={styles.commentInput}
+                                            placeholder="Say something..."
+                                            placeholderTextColor="#999"
+                                            value={commentInput}
+                                            onChangeText={setCommentInput}
+                                            returnKeyType="send"
+                                            onSubmitEditing={handleSendComment}
+                                        />
+                                        <TouchableOpacity 
+                                            style={styles.sendButton}
+                                            onPress={handleSendComment}
+                                            disabled={!commentInput.trim()}
+                                        >
+                                            <Ionicons name="send" size={22} color={commentInput.trim() ? "#16783A" : "#666"} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             )}
 
@@ -838,7 +963,7 @@ const LivestreamStudio = () => {
                                         autoPlay={true}
                                         autoPlayInterval={9000}
                                         width={screenWidth - 32}
-                                        height={90}
+                                        height={110}
                                         data={streamProducts}
                                         scrollAnimationDuration={500}
                                         onSnapToItem={(index) => setCurrentProductIndex(index)}
@@ -854,6 +979,22 @@ const LivestreamStudio = () => {
                                     />
                                 </View>
                             )}
+                            {/* Disclaimer warning Card 
+                            {shouldShowUI && (
+                                <View style={styles.disclaimerContainer}>
+                                    <View style={styles.disclaimerLeftAccent}></View>
+                                    <View style={styles.disclaimerContent}>
+                                        <View style={styles.disclaimerIconContainer}>
+                                            <MaterialIcons name="security" size={22} color="#FFFFFF" />
+                                        </View>
+                                        <View style={styles.disclaimerTextContainer}>
+                                            <Text style={styles.disclaimerTitle}>Avoid Scams:</Text>
+                                            <Text style={styles.disclaimerText}>For a secure & safe experience, all transactions should be done on Auqli</Text>
+                                        </View>
+                                        <MaterialIcons name="chevron-right" size={20} color="rgba(255,255,255,0.4)" />
+                                    </View>
+                                </View>
+                            )}*/}
                         </View>
                     </View>
                 </View>
@@ -892,13 +1033,56 @@ const LivestreamStudio = () => {
             >
                 {selectedProduct && (
                     <CheckoutNow
-                        productId={selectedProduct._id}
+                        productId={selectedProduct?.productId}
                         closeSheet={() => setShowCheckout(false)}
                         sellerId={(selectedProduct.seller as any)?._id ||
                             (activeStreamDetails?.stream?.seller?._id || '')}
                         channel="liveshow"
                     />
                 )}
+            </BottomSheet>
+
+            {/* Viewers Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-0"
+                showCloseIcon={false}
+                title=""
+                show={showViewers}
+                snapPoints={["70%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowViewers(false)}
+                keyboardBehavior="interactive"
+            >
+                <StreamViewers 
+                    viewers={activeStreamDetails?.stream?.viewers || []}
+                    hostInfo={{
+                        name: storeInfo.name,
+                        avatar: storeInfo.avatar
+                    }}
+                    closeSheet={() => setShowViewers(false)}
+                />
+            </BottomSheet>
+
+            {/* Add StreamInfo Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-0"
+                showCloseIcon={false}
+                title=""
+                show={showStreamInfo}
+                snapPoints={["100%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowStreamInfo(false)}
+                keyboardBehavior="interactive"
+                enableContentPanningGesture={true}
+            >
+                <StreamInfo 
+                    storeInfo={storeInfo}
+                    streamInfo={streamDetails}
+                    isLoading={isLoading}
+                    closeSheet={() => setShowStreamInfo(false)}
+                />
             </BottomSheet>
         </>
     );
@@ -934,7 +1118,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     mainContentArea: {
-        height: '65%',
+        height: '67%',
         position: 'relative',
     },
     bottomArea: {
@@ -944,7 +1128,7 @@ const styles = StyleSheet.create({
     bottomProductCardContainer: {
         position: 'relative',
         padding: 16,
-        marginTop: 10,
+        //marginTop: 10,
     },
     commentInputContainer: {
         paddingHorizontal: 16,
@@ -955,7 +1139,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         right: 13,
         bottom: 50,
-        maxHeight: 300,
+        maxHeight: 220,
         zIndex: 10,
     },
     commentsContainer: {
@@ -1046,13 +1230,27 @@ const styles = StyleSheet.create({
     },
     commentInput: {
         color: '#fff',
-        borderWidth: 1,
-        borderColor: '#ffffff',
+        borderWidth: 0,
         paddingVertical: 15,
         paddingHorizontal: 15,
         fontSize: 14,
-        borderRadius: 10,
-        backgroundColor: 'rgba(50, 50, 50, 0.2)', // Semi-transparent background
+        flex: 1,
+        backgroundColor: 'transparent',
+    },
+    inputWithButtonContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#ffffff',
+        borderRadius: 30,
+        backgroundColor: 'rgba(50, 50, 50, 0.2)',
+    },
+    sendButton: {
+        padding: 12,
+        marginRight: 5,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     playButtonOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -1098,6 +1296,109 @@ const styles = StyleSheet.create({
     currentUserText: {
         color: '#16783A', // Green text for current user
         fontWeight: 'bold',
+    },
+    auctionProductCardContainer: {
+        paddingHorizontal: 16,
+        marginBottom: 20,
+    },
+    disclaimerContainer: {
+        marginHorizontal: 16,
+        marginTop: 88,
+        marginBottom: 15,
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 3.84,
+        elevation: 5,
+        position: 'relative',
+    },
+    disclaimerLeftAccent: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 4,
+        backgroundColor: '#16783A',
+    },
+    disclaimerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        paddingVertical: 16,
+        backgroundColor: 'rgba(25, 25, 25, 0.95)',
+    },
+    disclaimerIconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#16783A',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    disclaimerTextContainer: {
+        flex: 1,
+    },
+    disclaimerTitle: {
+        color: '#FFCC00',
+        fontWeight: 'bold',
+        fontSize: 15,
+        marginBottom: 3,
+    },
+    disclaimerText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        lineHeight: 18,
+        opacity: 0.9,
+    },
+    hostLeftCommentItem: {
+        flexDirection: 'row',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: 0,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
+        flex: 1,
+    },
+    hostLeftCommentContent: {
+        flexDirection: 'column',
+        flex: 1,
+    },
+    hostLeftCommentText: {
+        color: '#ff5555', // Yellow text for "left room"
+        fontSize: 12,
+        fontFamily: 'LexendDeca',
+        fontWeight: 'bold',
+        flexWrap: 'wrap',
+    },
+    hostRejoinedCommentItem: {
+        flexDirection: 'row',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: 0,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
+        flex: 1,
+    },
+    hostRejoinedCommentContent: {
+        flexDirection: 'column',
+        flex: 1,
+    },
+    hostRejoinedCommentText: {
+        color: '#16783A', // Green text for "rejoined room"
+        fontSize: 12,
+        fontFamily: 'LexendDeca',
+        fontWeight: 'bold',
+        flexWrap: 'wrap',
     },
 });
 

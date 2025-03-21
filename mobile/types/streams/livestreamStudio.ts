@@ -12,8 +12,9 @@ export interface ProductImage {
 }
 
 export interface Product {
-    _id: string;
+    productId: string;
     name: string;
+    quantity: number;
     description: string;
     price: number;
     discountedPrice: number;
@@ -31,6 +32,8 @@ export interface Product {
 export interface StreamProduct {
     product: Product;
     currentBid: number;
+    minBid?: number;  // Minimum bid for auction products
+    maxBid?: number;  // Maximum bid for auction products
     _id: string;
 }
 

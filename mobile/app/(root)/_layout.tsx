@@ -184,6 +184,12 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
+        name="livestream/liveAuctionStudio"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="sellerProfile/index"
         options={{
           headerTitle: "",
