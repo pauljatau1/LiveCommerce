@@ -1441,26 +1441,36 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
         select: 'firstName lastName profileImage'
       });
     
-    if (populatedProduct && populatedProduct.auction.winner) {
-      io.to(`auction_${this._id}`).emit('auction_ended', {
-        productId: this._id,
-        winner: {
-          buyer: {
-            _id: populatedProduct.auction.winner.buyer._id,
-            firstName: populatedProduct.auction.winner.buyer.firstName,
-            lastName: populatedProduct.auction.winner.buyer.lastName,
-            profileImage: populatedProduct.auction.winner.buyer.profileImage
-          },
-          bidAmount: populatedProduct.auction.winner.bidAmount,
-          winningDate: populatedProduct.auction.winner.winningDate
+    const winnerData = populatedProduct && populatedProduct.auction.winner ? {
+      productId: this._id,
+      winner: {
+        buyer: {
+          _id: populatedProduct.auction.winner.buyer._id,
+          firstName: populatedProduct.auction.winner.buyer.firstName,
+          lastName: populatedProduct.auction.winner.buyer.lastName,
+          profileImage: populatedProduct.auction.winner.buyer.profileImage
+        },
+        bidAmount: populatedProduct.auction.winner.bidAmount,
+        winningDate: populatedProduct.auction.winner.winningDate
+      }
+    } : {
+      productId: this._id,
+      winner: null
+    };
+    
+    // Emit to authenticated namespace
+    io.to(`auction_${this._id}`).emit('auction_ended', winnerData);
+    
+    // Also emit to public namespace if available
+    if (io.of && typeof io.of === 'function') {
+      try {
+        const publicNamespace = io.of('/public');
+        if (publicNamespace) {
+          publicNamespace.to(`auction_details_${this._id}`).emit('auction_ended', winnerData);
         }
-      });
-    } else {
-      // No winner
-      io.to(`auction_${this._id}`).emit('auction_ended', {
-        productId: this._id,
-        winner: null
-      });
+      } catch (err) {
+        console.error('Error emitting to public namespace:', err);
+      }
     }
   }
   

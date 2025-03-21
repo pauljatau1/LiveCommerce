@@ -26,7 +26,137 @@ function initializeSocket(server) {
     pingInterval: 25000
   });
 
-  // Add debug log for authentication middleware
+  // Create a public namespace that doesn't require authentication
+  const publicIO = io.of('/public');
+  
+  // Set up public auction events that don't require authentication
+  publicIO.on('connection', async (socket) => {
+    console.log('New public socket connection:', {
+      socketId: socket.id
+    });
+    
+    // Public access to auction lists
+    socket.on('join_auction_lists', async () => {
+      try {
+        socket.join('auction_lists');
+        console.log(`Public user joined auction lists room`);
+        
+        // Send initial data about active auctions
+        const activeAuctions = await Product.find({
+          status: 'offline_auction',
+          'auction.status': { $in: ['scheduled', 'ongoing'] }
+        })
+        .select('_id name auction.status auction.startDate auction.endDate auction.minBid auction.currentHighestBid auction.bids')
+        .populate({
+          path: 'auction.currentHighestBid.buyer',
+          select: 'firstName lastName profileImage'
+        })
+        .populate({
+          path: 'auction.bids.buyer',
+          select: 'firstName lastName profileImage'
+        })
+        .limit(20); // Limit to avoid large payloads
+        
+        // Format the data for the client
+        const formattedAuctions = activeAuctions.map(auction => ({
+          _id: auction._id,
+          name: auction.name,
+          status: auction.auction.status,
+          startDate: auction.auction.startDate,
+          endDate: auction.auction.endDate,
+          minBid: auction.auction.minBid,
+          bidsCount: auction?.auction?.bids?.length,
+          currentHighestBid: auction.auction.currentHighestBid ? {
+            amount: auction.auction.currentHighestBid.amount,
+            buyer: auction.auction.currentHighestBid.buyer ? {
+              _id: auction.auction.currentHighestBid.buyer._id,
+              firstName: auction.auction.currentHighestBid.buyer.firstName,
+              lastName: auction.auction.currentHighestBid.buyer.lastName,
+              profileImage: auction.auction.currentHighestBid.buyer.profileImage
+            } : null
+          } : null,
+          timeRemaining: auction.auction.status === 'scheduled' 
+            ? auction.auction.startDate - new Date() 
+            : auction.auction.endDate - new Date()
+        }));
+        
+        socket.emit('auction_lists_data', {
+          auctions: formattedAuctions
+        });
+        
+      } catch (error) {
+        console.error('Error joining auction lists room:', error);
+        socket.emit('auction_error', { message: 'Failed to join auction lists room' });
+      }
+    });
+    
+    // Leave auction lists room
+    socket.on('leave_auction_lists', () => {
+      socket.leave('auction_lists');
+      console.log(`Public user left auction lists room`);
+    });
+    
+    // Join to watch a specific auction product details (read-only)
+    socket.on('join_auction_details', async (productId) => {
+      try {
+        socket.join(`auction_details_${productId}`);
+        console.log(`Public user joined auction details room for product ${productId}`);
+        
+        // Get current auction data and send to the user
+        const product = await Product.findById(productId)
+          .populate({
+            path: 'auction.currentHighestBid.buyer',
+            select: 'firstName lastName profileImage'
+          })
+          .select('name auction status');
+        
+        if (product && product.status === 'offline_auction') {
+          // Calculate time remaining
+          const now = new Date();
+          let timeRemaining = null;
+          
+          if (product.auction.status === 'scheduled') {
+            timeRemaining = product.auction.startDate - now;
+          } else if (product.auction.status === 'ongoing') {
+            timeRemaining = product.auction.endDate - now;
+          }
+          
+          // Send auction details to the user
+          socket.emit('auction_details_data', {
+            productId: product._id,
+            name: product.name,
+            status: product.auction.status,
+            minBid: product.auction.minBid,
+            maxBid: product.auction.maxBid,
+            startDate: product.auction.startDate,
+            endDate: product.auction.endDate,
+            timeRemaining: timeRemaining,
+            bidsCount: product?.auction?.bids?.length,
+            currentHighestBid: product.auction.currentHighestBid ? {
+              amount: product.auction.currentHighestBid.amount,
+              buyer: product.auction.currentHighestBid.buyer ? {
+                _id: product.auction.currentHighestBid.buyer._id,
+                firstName: product.auction.currentHighestBid.buyer.firstName,
+                lastName: product.auction.currentHighestBid.buyer.lastName,
+                profileImage: product.auction.currentHighestBid.buyer.profileImage
+              } : null
+            } : null
+          });
+        }
+      } catch (error) {
+        console.error('Error joining auction details room:', error);
+        socket.emit('auction_error', { message: 'Failed to join auction details room' });
+      }
+    });
+    
+    // Leave auction details room
+    socket.on('leave_auction_details', (productId) => {
+      socket.leave(`auction_details_${productId}`);
+      console.log(`Public user left auction details room for product ${productId}`);
+    });
+  });
+
+  // Add debug log for authentication middleware for the main namespace
   io.use((socket, next) => {
     console.log('Socket authentication attempt:', {
       hasToken: !!socket.handshake.auth.token,
@@ -54,7 +184,7 @@ function initializeSocket(server) {
     }
   });
 
-  // Connection handler
+  // Connection handler for authenticated connections
   io.on('connection', async (socket) => {
     console.log('New socket connection:', {
       socketId: socket.id,
@@ -115,126 +245,6 @@ function initializeSocket(server) {
     });
 
     // AUCTION SPECIFIC EVENTS
-
-    // Join auction lists room to receive updates about all auctions
-    socket.on('join_auction_lists', async () => {
-      try {
-        socket.join('auction_lists');
-        console.log(`User ${socket.user.id} joined auction lists room`);
-        
-        // Send initial data about active auctions
-        const activeAuctions = await Product.find({
-          status: 'offline_auction',
-          'auction.status': { $in: ['scheduled', 'ongoing'] }
-        })
-        .select('_id name auction.status auction.startDate auction.endDate auction.minBid auction.currentHighestBid auction.bids')
-        .populate({
-          path: 'auction.currentHighestBid.buyer',
-          select: 'firstName lastName profileImage'
-        })
-        .populate({
-          path: 'auction.bids.buyer',
-          select: 'firstName lastName profileImage'
-        })
-        .limit(20); // Limit to avoid large payloads
-        
-        // Format the data for the client
-        const formattedAuctions = activeAuctions.map(auction => ({
-          _id: auction._id,
-          name: auction.name,
-          status: auction.auction.status,
-          startDate: auction.auction.startDate,
-          endDate: auction.auction.endDate,
-          minBid: auction.auction.minBid,
-          bidsCount: auction?.auction?.bids?.length,
-          currentHighestBid: auction.auction.currentHighestBid ? {
-            amount: auction.auction.currentHighestBid.amount,
-            buyer: auction.auction.currentHighestBid.buyer ? {
-              _id: auction.auction.currentHighestBid.buyer._id,
-              firstName: auction.auction.currentHighestBid.buyer.firstName,
-              lastName: auction.auction.currentHighestBid.buyer.lastName,
-              profileImage: auction.auction.currentHighestBid.buyer.profileImage
-            } : null
-          } : null,
-          timeRemaining: auction.auction.status === 'scheduled' 
-            ? auction.auction.startDate - new Date() 
-            : auction.auction.endDate - new Date()
-        }));
-        
-        socket.emit('auction_lists_data', {
-          auctions: formattedAuctions
-        });
-        
-      } catch (error) {
-        console.error('Error joining auction lists room:', error);
-        socket.emit('auction_error', { message: 'Failed to join auction lists room' });
-      }
-    });
-    
-    // Leave auction lists room
-    socket.on('leave_auction_lists', () => {
-      socket.leave('auction_lists');
-      console.log(`User ${socket.user.id} left auction lists room`);
-    });
-    
-    // Join to watch a specific auction product details
-    socket.on('join_auction_details', async (productId) => {
-      try {
-        socket.join(`auction_details_${productId}`);
-        console.log(`User ${socket.user.id} joined auction details room for product ${productId}`);
-        
-        // Get current auction data and send to the user
-        const product = await Product.findById(productId)
-          .populate({
-            path: 'auction.currentHighestBid.buyer',
-            select: 'firstName lastName profileImage'
-          })
-          .select('name auction status');
-        
-        if (product && product.status === 'offline_auction') {
-          // Calculate time remaining
-          const now = new Date();
-          let timeRemaining = null;
-          
-          if (product.auction.status === 'scheduled') {
-            timeRemaining = product.auction.startDate - now;
-          } else if (product.auction.status === 'ongoing') {
-            timeRemaining = product.auction.endDate - now;
-          }
-          
-          // Send auction details to the user
-          socket.emit('auction_details_data', {
-            productId: product._id,
-            name: product.name,
-            status: product.auction.status,
-            minBid: product.auction.minBid,
-            maxBid: product.auction.maxBid,
-            startDate: product.auction.startDate,
-            endDate: product.auction.endDate,
-            timeRemaining: timeRemaining,
-            bidsCount: product?.auction?.bids?.length,
-            currentHighestBid: product.auction.currentHighestBid ? {
-              amount: product.auction.currentHighestBid.amount,
-              buyer: product.auction.currentHighestBid.buyer ? {
-                _id: product.auction.currentHighestBid.buyer._id,
-                firstName: product.auction.currentHighestBid.buyer.firstName,
-                lastName: product.auction.currentHighestBid.buyer.lastName,
-                profileImage: product.auction.currentHighestBid.buyer.profileImage
-              } : null
-            } : null
-          });
-        }
-      } catch (error) {
-        console.error('Error joining auction details room:', error);
-        socket.emit('auction_error', { message: 'Failed to join auction details room' });
-      }
-    });
-    
-    // Leave auction details room
-    socket.on('leave_auction_details', (productId) => {
-      socket.leave(`auction_details_${productId}`);
-      console.log(`User ${socket.user.id} left auction details room for product ${productId}`);
-    });
 
     // Join an auction room to receive updates
     socket.on('join_auction', async (productId) => {
@@ -620,6 +630,10 @@ function initializeSocket(server) {
           .populate({
             path: 'auction.currentHighestBid.buyer',
             select: 'firstName lastName profileImage'
+          })
+          .populate({
+            path: 'auction.winner.buyer',
+            select: 'firstName lastName profileImage'
           });
 
         console.log('Bid saved successfully:', {
@@ -631,6 +645,9 @@ function initializeSocket(server) {
         // Get buyer details for the response
         const buyer = await Buyer.findById(buyerId).select('firstName lastName profileImage');
 
+        // Check if this is a winning bid that ended the auction
+        const auctionEnded = updatedProduct.auction.status === 'ended';
+        
         // Prepare bid notification data
         const bidData = {
           productId: updatedProduct._id,
@@ -657,8 +674,17 @@ function initializeSocket(server) {
           },
           bidsCount: updatedProduct?.auction?.bids?.length,
           auctionStatus: updatedProduct?.auction?.status,
-          auctionEnded: false,
-          winner: null
+          auctionEnded: auctionEnded,
+          winner: auctionEnded && updatedProduct?.auction?.winner ? {
+            buyer: updatedProduct.auction.winner.buyer ? {
+              _id: updatedProduct.auction.winner.buyer._id,
+              firstName: updatedProduct.auction.winner.buyer.firstName,
+              lastName: updatedProduct.auction.winner.buyer.lastName,
+              profileImage: updatedProduct.auction.winner.buyer.profileImage
+            } : null,
+            bidAmount: updatedProduct.auction.winner.bidAmount,
+            winningDate: updatedProduct.auction.winner.winningDate
+          } : null
         };
 
         // Emit updates
@@ -669,7 +695,23 @@ function initializeSocket(server) {
         });
 
         io.to(`auction_${productId}`).emit('bid_update', bidData);
-        io.to('auction_lists').emit('auction_list_update', {
+        
+        // If auction has ended, emit the auction_ended event to both namespaces
+        if (auctionEnded && updatedProduct?.auction?.winner) {
+          const auctionEndedData = {
+            productId: updatedProduct._id,
+            winner: bidData.winner
+          };
+          
+          // Emit to authenticated namespace
+          io.to(`auction_${productId}`).emit('auction_ended', auctionEndedData);
+          
+          // Emit to public namespace
+          publicIO.to(`auction_details_${productId}`).emit('auction_ended', auctionEndedData);
+        }
+        
+        // Create list update data that will be sent to both authenticated and public namespaces
+        const listUpdateData = {
           productId: updatedProduct._id,
           name: updatedProduct.name,
           currentHighestBid: {
@@ -684,8 +726,16 @@ function initializeSocket(server) {
           bidsCount: updatedProduct?.auction?.bids?.length,
           status: updatedProduct?.auction?.status,
           timeRemaining: updatedProduct?.auction?.status === 'ongoing' ? updatedProduct?.auction?.endDate - now : 0
-        });
-        io.to(`auction_details_${productId}`).emit('auction_details_update', {
+        };
+        
+        // Send to authenticated namespace
+        io.to('auction_lists').emit('auction_list_update', listUpdateData);
+        
+        // Send to public namespace
+        publicIO.to('auction_lists').emit('auction_list_update', listUpdateData);
+        
+        // Create details update data
+        const detailsUpdateData = {
           productId: updatedProduct._id,
           currentHighestBid: {
             amount: amount,
@@ -699,7 +749,13 @@ function initializeSocket(server) {
           bidsCount: updatedProduct?.auction?.bids?.length,
           status: updatedProduct?.auction?.status,
           timeRemaining: updatedProduct?.auction?.status === 'ongoing' ? updatedProduct?.auction?.endDate - now : 0
-        });
+        };
+        
+        // Send to authenticated namespace
+        io.to(`auction_details_${productId}`).emit('auction_details_update', detailsUpdateData);
+        
+        // Send to public namespace
+        publicIO.to(`auction_details_${productId}`).emit('auction_details_update', detailsUpdateData);
 
         // Confirm to bidder
         console.log('Sending confirmation to bidder:', {

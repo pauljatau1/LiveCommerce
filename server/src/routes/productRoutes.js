@@ -1966,53 +1966,6 @@ router.post('/:productId/blips/:blipId/comments/:commentId/replies/:replyId/like
 
 /**
  * @swagger
- * /api/products/seller/{sellerId}/category/{category}:
- *   get:
- *     summary: Get products by seller and category
- *     description: Retrieve all products for a specific seller filtered by category
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: sellerId
- *         required: true
- *         schema:
- *           type: string
- *         description: ID of the seller
- *       - in: path
- *         name: category
- *         required: true
- *         schema:
- *           type: string
- *         description: Category name to filter products by
- *     responses:
- *       200:
- *         description: List of products
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 count:
- *                   type: integer
- *                   example: 5
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Product'
- *       400:
- *         description: Invalid seller ID format
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Server error
- */
-router.get('/seller/:sellerId/category/:category', optionalAuth, productController.getProductsBySellerAndCategory);
-
-/**
- * @swagger
  * /api/products/seller/{sellerId}/categories:
  *   get:
  *     summary: Get categories where a seller has products
@@ -2457,210 +2410,268 @@ router.get('/seller/:sellerId/auctions', productController.getSellerAuctionProdu
 
 /**
  * @swagger
- * /api/products/{id}/blips/{blipId}:
+ * /api/products/category/{category}/subcategory/{subcategory}:
  *   get:
- *     summary: Get details of a specific blip
+ *     summary: Get products by category and subcategory
+ *     description: Retrieve products filtered by both category and subcategory with pagination and sorting options
  *     tags: [Products]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: category
  *         required: true
  *         schema:
  *           type: string
- *         description: Product ID
+ *         description: Category name
  *       - in: path
- *         name: blipId
+ *         name: subcategory
  *         required: true
  *         schema:
  *           type: string
- *         description: Blip ID
+ *         description: Subcategory name
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *           default: newest
+ *         description: Field to sort by
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
  *     responses:
  *       200:
- *         description: Successfully retrieved blip details
+ *         description: List of products with pagination details
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 _id:
- *                   type: string
- *                   description: Product ID
- *                 blipId:
- *                   type: string
- *                   description: Blip ID
- *                 blipUrl:
- *                   type: string
- *                   description: URL of the blip video
- *                 contentType:
- *                   type: string
- *                   description: Content type of the blip
- *                 productName:
- *                   type: string
- *                   description: Name of the product
- *                 price:
- *                   type: number
- *                   description: Original price of the product
- *                 discountedPrice:
- *                   type: number
- *                   description: Discounted price if applicable
- *                 stock:
- *                   type: number
- *                   description: Current stock of the product
- *                 status:
- *                   type: string
- *                   description: Status of the product
- *                 auctionInfo:
- *                   type: object
- *                   description: Auction information if product is an auction
- *                   properties:
- *                     minBid:
- *                       type: number
- *                     maxBid:
- *                       type: number
- *                     endOnMaxBid:
- *                       type: boolean
- *                     startDate:
- *                       type: string
- *                       format: date-time
- *                     endDate:
- *                       type: string
- *                       format: date-time
- *                     status:
- *                       type: string
- *                     daysLeft:
- *                       type: number
- *                     currentHighestBid:
- *                       type: object
- *                 seller:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                     storeName:
- *                       type: string
- *                     storeAvatar:
- *                       type: string
- *                     isVerified:
- *                       type: boolean
- *                     isFeatured:
- *                       type: boolean
- *                 images:
- *                   type: string
- *                   description: Main product image URL
- *                 blipEngagement:
- *                   type: object
- *                   properties:
- *                     likesCount:
- *                       type: number
- *                     commentsCount:
- *                       type: number
- *                     viewCount:
- *                       type: number
- *                     isLiked:
- *                       type: boolean
- *                 averageRating:
- *                   type: number
- *                   description: Average product rating
- *                 reviewCount:
- *                   type: number
- *                   description: Number of product reviews
- *                 createdAt:
- *                   type: string
- *                   format: date-time
- *       400:
- *         description: Invalid product or blip ID format
- *       404:
- *         description: Blip not found
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 20
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 4
  *       500:
  *         description: Server error
  */
-router.get('/:id/blips/:blipId', optionalAuth, productController.getBlipDetails);
+router.get('/category/:category/subcategory/:subcategory', optionalAuth, productController.getProductsByCategoryAndSubcategory);
 
 /**
  * @swagger
- * /api/products/{productId}/rerun-auction:
- *   post:
- *     summary: Rerun an ended auction
- *     description: Reset and restart an already ended auction. Only the seller of the product can rerun their auction.
+ * /api/products/category/{category}/subcategories:
+ *   get:
+ *     summary: Get all subcategories with products for a category
+ *     description: Retrieve all subcategories that have products for a specific category with product counts
  *     tags: [Products]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: productId
+ *         name: category
  *         required: true
  *         schema:
  *           type: string
- *         description: ID of the auction product to rerun
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               minBid:
- *                 type: number
- *                 description: Minimum bid amount (defaults to previous auction's minBid)
- *               maxBid:
- *                 type: number
- *                 description: Maximum bid amount (defaults to previous auction's maxBid)
- *               endOnMaxBid:
- *                 type: boolean
- *                 description: Whether to end auction when max bid is reached (defaults to previous setting)
- *               startDate:
- *                 type: string
- *                 format: date-time
- *                 description: Start date of the auction (defaults to tomorrow)
- *               endDate:
- *                 type: string
- *                 format: date-time
- *                 description: End date of the auction (defaults to 7 days from now)
+ *         description: Category name
  *     responses:
  *       200:
- *         description: Auction rerun successfully
+ *         description: List of subcategories with product counts
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 message:
- *                   type: string
- *                   example: Auction rerun successfully
- *                 auction:
- *                   type: object
- *                   properties:
- *                     minBid:
- *                       type: number
- *                     maxBid:
- *                       type: number
- *                     endOnMaxBid:
- *                       type: boolean
- *                     startDate:
- *                       type: string
- *                       format: date-time
- *                     endDate:
- *                       type: string
- *                       format: date-time
- *                     status:
- *                       type: string
- *                       enum: [scheduled, ongoing, ended]
- *                     daysLeft:
- *                       type: number
- *       400:
- *         description: Invalid request or product is not an auction
- *       401:
- *         description: Not authenticated
- *       403:
- *         description: Not authorized (only seller can rerun their auction)
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         example: "summer dresses"
+ *                       productCount:
+ *                         type: integer
+ *                         example: 12
  *       404:
- *         description: Product not found
+ *         description: No products found for this category
  *       500:
  *         description: Server error
  */
-router.post('/:productId/rerun-auction',
-  authMiddleware.verifyToken,
-  authMiddleware.isSeller,
-  productController.rerunAuction
-);
+router.get('/category/:category/subcategories', productController.getSubcategoriesWithProducts);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/category/{category}/subcategory/{subcategory}:
+ *   get:
+ *     summary: Get products by seller, category and subcategory
+ *     description: Retrieve products for a specific seller filtered by both category and subcategory with pagination and sorting
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *       - in: path
+ *         name: subcategory
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Subcategory name
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *           default: newest
+ *         description: Field to sort by
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of products with pagination details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 20
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 4
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/category/:category/subcategory/:subcategory', optionalAuth, productController.getProductsBySellerCategoryAndSubcategory);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/category/{category}/subcategories:
+ *   get:
+ *     summary: Get all subcategories with products for a seller and category
+ *     description: Retrieve all subcategories that have products for a specific seller and category with product counts
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *     responses:
+ *       200:
+ *         description: List of subcategories with product counts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         example: "summer dresses"
+ *                       productCount:
+ *                         type: integer
+ *                         example: 8
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: Seller not found or no products found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/category/:category/subcategories', productController.getSellerSubcategoriesWithProducts);
 
 module.exports = router;
