@@ -99,23 +99,6 @@ const Wallet = () => {
     }
   };
 
-  const verifyWalletTopup = async () => {
-    try {
-      const token = await getToken();
-      const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      setWalletBalance(response.data?.balance);
-    } catch (e) {
-      console.log("error fetching buyer wallet balance ", e);
-    }
-  };
-
   const handleAmountSelect = (amount: number) => {
     setAmount(amount);
     setShowPaymentMethodSheet(false);
@@ -313,7 +296,7 @@ const Wallet = () => {
                 My Balance
               </Text>
 
-              {walletBalance ? (
+              {walletBalance?.toString() ? (
                 <Text className="text-[18px] font-LexendDeca text-[#fff] ">
                   {"₦" +
                     walletBalance?.toLocaleString(undefined, {
@@ -321,9 +304,9 @@ const Wallet = () => {
                       maximumFractionDigits: 2,
                     })}
                 </Text>
-              ) : (
-                <ActivityIndicator size={"small"} color={"white"} />
-              )}
+              ) : null
+              // <ActivityIndicator size={"small"} color={"white"} />
+              }
             </View>
             <View className="flex-row gap-[10px] items-center">
               <Text className="text-[14px] font-LexendDecaMedium text-[#fff]">
