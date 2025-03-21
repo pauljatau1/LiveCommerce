@@ -1,7 +1,7 @@
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import React from 'react';
 import { Product } from '@/types/streams/livestreamStudio';
-import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 interface LiveAuctionProductCardProps {
     product: {
@@ -9,16 +9,34 @@ interface LiveAuctionProductCardProps {
         description?: string;
         price: number;
         currentBid?: number;
+        minBid?: number;
+        maxBid?: number;
         images: Array<{ url: string }>;
         productId: string;
+        quantity: number;
     };
     onBid: (amount: number) => void;
     onCustom: () => void;
+    formatPrice?: (price: number) => string;
 }
 
-const LiveAuctionProductCard = ({ product, onBid, onCustom }: LiveAuctionProductCardProps) => {
-    // Calculate the next bid amount (typically current bid + some increment)
-    const nextBidAmount = 23; // Fixed at $23 to match the design
+const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice }: LiveAuctionProductCardProps) => {
+    // Calculate the next bid amount with a fixed default increment of 500
+    const currentBid = product.currentBid || product.minBid || product.price;
+    const minBid = product.minBid || product.price;
+    const DEFAULT_BID_INCREMENT = 500; // Fixed default increment of 500
+    const nextBidAmount = currentBid + DEFAULT_BID_INCREMENT;
+
+    // Format the prices for display
+    const formatPriceDisplay = (price: number) => {
+        if (formatPrice) {
+            return formatPrice(price);
+        }
+        return `₦${price.toLocaleString()}`;
+    };
+
+    // Calculate remaining time (placeholder for now)
+    const remainingTime = "00:05";
 
     return (
         <View style={styles.container}>
@@ -37,18 +55,23 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom }: LiveAuctionProduct
                             {product?.name}
                         </Text>
                         <Text numberOfLines={1} style={styles.productDescription}>
-                            {product?.description || "Satisfy your buddy's cravings for summer grilling all year long..."}
+                            {product?.description || "No description available"}
                         </Text>
                     </View>
                 </View>
 
-                {/* Price and Timer Row */}
+                {/* Price and stock Row */}
                 <View style={styles.priceRow}>
-                    <Text style={styles.priceText}>₦{product?.price}</Text>
-                    <View style={styles.timerContainer}>
-                        <Text style={styles.timerText}>00:05</Text>
+                    <Text style={styles.priceText}>{formatPriceDisplay(currentBid)}</Text>
+                    <View style={styles.stockContainer}>
+                        <Text style={styles.stockText}>{product?.quantity} left</Text>
                     </View>
                 </View>
+            </View>
+
+            {/* Timer */}
+            <View style={styles.timerContainer}>
+                <Text style={styles.timerText}>{remainingTime}</Text>
             </View>
 
             {/* Shipping Text */}
@@ -59,13 +82,13 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom }: LiveAuctionProduct
             {/* Action Buttons */}
             <View style={styles.buttonsRow}>
                 <TouchableOpacity style={styles.customButton} onPress={onCustom}>
-                    <Text style={styles.customButtonText}>Custom</Text>
+                    <Text style={styles.customButtonText}>Custom bid</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.bidButton} onPress={() => onBid(nextBidAmount)}>
                     <View style={styles.bidButtonContent}>
-                        <Text style={styles.bidButtonText}>Bid ₦{nextBidAmount}</Text>
-                        <MaterialIcons name="keyboard-double-arrow-right" size={24} color="white" />    
+                        <Text style={styles.bidButtonText}>Bid {formatPriceDisplay(nextBidAmount)}</Text>
+                        <Ionicons name="swap-horizontal" size={22} color="white" />           
                     </View>
                 </TouchableOpacity>
             </View>
@@ -75,15 +98,12 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom }: LiveAuctionProduct
 
 const styles = StyleSheet.create({
     container: {
-
         borderRadius: 12,
         paddingVertical: 12,
-
         marginVertical: 8,
     },
     contentRow: {
         flexDirection: 'row',
-        marginBottom: 10,
     },
     productImage: {
         width: 70,
@@ -108,25 +128,47 @@ const styles = StyleSheet.create({
     },
     priceRow: {
         flexDirection: 'column',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         marginBottom: 5,
     },
     priceText: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
         color: '#FFFFFF',
     },
     timerContainer: {
         //backgroundColor: 'rgba(255, 255, 255, 0.1)',
         paddingHorizontal: 8,
-        paddingVertical: 2,
+        paddingVertical: 3,
         borderRadius: 4,
-        marginTop: 3,
     },
     timerText: {
         fontSize: 11,
         fontWeight: 'bold',
         color: '#FF3B30', // Orange-red color like in the image
+    },
+    stockContainer: {
+        //backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        paddingVertical: 2,
+        borderRadius: 4,
+
+    },
+    stockText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: '#16783A', // Green color
+    },
+    bidRangeContainer: {
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)', // Translucent glass-like effect
+        borderRadius: 6,
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        marginBottom: 12,
+    },
+    bidRangeText: {
+        fontSize: 12,
+        color: '#FFFFFF',
     },
     shippingContainer: {
         alignSelf: 'flex-start',
@@ -142,12 +184,11 @@ const styles = StyleSheet.create({
     },
     buttonsRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         width: '100%',
         gap: 10,
     },
     customButton: {
-        width: "40%",
+        flex: 1,
         height: 50,
         backgroundColor: 'rgba(255, 255, 255, 0.15)', // Translucent glass-like effect for custom button
         borderRadius: 30,
@@ -160,12 +201,9 @@ const styles = StyleSheet.create({
         color: 'white',
     },
     bidButton: {
-        width: "60%",
+        flex: 1.5,
         height: 50,
-        
         borderRadius: 30,
-        paddingVertical: 4,
-        paddingLeft: 4,
         borderWidth: 1,
         borderColor: '#16783A',
     },
@@ -173,7 +211,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        width: '85%',
         height: '100%',
         paddingHorizontal: 5,
         borderRadius: 30,

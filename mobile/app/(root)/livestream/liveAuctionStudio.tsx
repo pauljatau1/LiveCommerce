@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated, Platform, Keyboard, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated, Platform, Keyboard, ScrollView, Alert } from 'react-native';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useLivestream } from '@/contexts/livestreamContext';
@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ProductPreview from '@/components/blips/productPreview';
 import CheckoutNow from '@/components/blips/checkoutNow';
 import LiveAuctionProductCard from './liveAuctionProductCard';
+import BidVariationSelector from '@/components/blips/bidVariationSelector';
 
 const { width, height } = Dimensions.get('window');
 
@@ -54,7 +55,10 @@ const LiveAuctionStudio = () => {
     // Bottom sheet state for product preview and checkout
     const [showProductPreview, setShowProductPreview] = useState(false);
     const [showCheckout, setShowCheckout] = useState(false);
+    const [showBidVariation, setShowBidVariation] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedBidProduct, setSelectedBidProduct] = useState<StreamProduct | null>(null);
+    const [bidAmount, setBidAmount] = useState<number | null>(null);
 
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
@@ -688,6 +692,102 @@ const LiveAuctionStudio = () => {
         };
     }, []);
 
+    // Format price correctly for Naira (₦)
+    const formatPrice = (price: number) => {
+        // The price is already in Naira, not cents
+        return `₦${price.toLocaleString('en-NG', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        })}`;
+    };
+
+    // Function to handle bid submissions
+    const handleSubmitBid = (bidAmount: number) => {
+        if (!selectedBidProduct) return;
+
+        try {
+            // Validate bid amount against minimum and current bid
+            const currentBid = selectedBidProduct.currentBid;
+
+            if (bidAmount <= currentBid) {
+                Alert.alert('Invalid Bid', `Bid must be higher than current bid of ${formatPrice(currentBid)}`);
+                return;
+            }
+
+            // Get user info for notification
+            getUser().then(user => {
+                if (!user) {
+                    Alert.alert('Authentication Required', 'Please log in to place bids');
+                    return;
+                }
+
+                // Create local notification for the bid
+                const notification: StreamNotification = {
+                    id: Date.now().toString(),
+                    type: 'purchase',
+                    user: user.firstName || 'You',
+                    avatar: user.profileImage?.url || require('@/assets/icons/animoji.png'),
+                    content: `placed a bid of ${formatPrice(bidAmount)} on ${selectedBidProduct.product.name}`,
+                    timestamp: new Date(),
+                    data: {
+                        productId: selectedBidProduct._id,
+                        productName: selectedBidProduct.product.name,
+                        price: bidAmount,
+                        streamId: id as string,
+                        isHost: false
+                    }
+                };
+
+                // Add to live comments
+                setLiveComments(prev => [...prev, notification]);
+
+                // Send the bid to the server via WebSocket
+                const socketInstance = getSocket();
+                if (socketInstance) {
+                    socketInstance.emit('stream:bid', {
+                        streamId: id,
+                        productId: selectedBidProduct._id,
+                        bidAmount: bidAmount
+                    });
+
+                    console.log('Bid sent to server:', {
+                        streamId: id,
+                        productId: selectedBidProduct._id,
+                        bidAmount: bidAmount
+                    });
+                }
+
+                // Update local product with new bid amount (optimistic update)
+                const updatedProducts = streamProducts.map(product => {
+                    if (product._id === selectedBidProduct._id) {
+                        return {
+                            ...product,
+                            currentBid: bidAmount
+                        };
+                    }
+                    return product;
+                });
+
+                setStreamProducts(updatedProducts);
+                
+                // Clear bid state
+                setBidAmount(null);
+                
+                // Show confirmation to user
+                Alert.alert('Bid Placed', `Your bid of ${formatPrice(bidAmount)} has been placed!`);
+            });
+        } catch (error) {
+            console.error('Error submitting bid:', error);
+            Alert.alert('Bid Error', 'There was an error placing your bid. Please try again.');
+        }
+    };
+
+    // Handle opening the custom bid bottom sheet
+    const handleOpenBidVariation = (product: StreamProduct) => {
+        setSelectedBidProduct(product);
+        setShowBidVariation(true);
+    };
+
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -846,7 +946,7 @@ const LiveAuctionStudio = () => {
                                             if (commentsListRef.current && liveComments.length > 0) {
                                                 setTimeout(() => {
                                                     commentsListRef.current?.scrollToEnd({
-                                                        animated: false
+                                                        animated: true
                                                     });
                                                 }, 100);
                                             }
@@ -856,7 +956,7 @@ const LiveAuctionStudio = () => {
                                             if (commentsListRef.current && liveComments.length > 0) {
                                                 setTimeout(() => {
                                                     commentsListRef.current?.scrollToEnd({
-                                                        animated: false
+                                                        animated: true
                                                     });
                                                 }, 100);
                                             }
@@ -921,24 +1021,26 @@ const LiveAuctionStudio = () => {
 
                                     {/* Auction Product Card */}
                                     <View style={styles.auctionProductCardContainer}>
-                                        <LiveAuctionProductCard
-                                            product={{
-                                                name: "Blue Buffalo Nudges Grillers Natural Dog Treats 6 Pack",
-                                                description: "Satisfy your buddy's cravings for summer grilling all year long...",
-                                                price: 21,
-                                                currentBid: 21,
-                                                images: streamProducts[currentProductIndex]?.product?.images || [],
-                                                productId: streamProducts[currentProductIndex]?.product?.productId || ""
-                                            }}
-                                            onBid={(amount) => {
-                                                console.log('Bid amount:', amount);
-                                                // Handle bid
-                                            }}
-                                            onCustom={() => {
-                                                console.log('Custom bid');
-                                                // Handle custom bid
-                                            }}
-                                        />
+                                        {streamProducts.length > 0 && !keyboardVisibleRef.current && (
+                                            <>
+                                                <LiveAuctionProductCard
+                                                    product={{
+                                                        name: streamProducts[currentProductIndex].product.name,
+                                                        description: streamProducts[currentProductIndex].product.description,
+                                                        price: streamProducts[currentProductIndex].product.price,
+                                                        currentBid: streamProducts[currentProductIndex].currentBid || streamProducts[currentProductIndex].minBid,
+                                                        minBid: streamProducts[currentProductIndex].minBid,
+                                                        maxBid: streamProducts[currentProductIndex].maxBid,
+                                                        images: streamProducts[currentProductIndex].product.images || [],
+                                                        productId: streamProducts[currentProductIndex].product.productId,
+                                                        quantity: streamProducts[currentProductIndex].product.quantity
+                                                    }}
+                                                    onBid={(amount) => handleSubmitBid(amount)}
+                                                    onCustom={() => handleOpenBidVariation(streamProducts[currentProductIndex])}
+                                                    formatPrice={formatPrice}
+                                                />
+                                            </>
+                                        )}
                                     </View>
                                 </>
                             )}
@@ -985,6 +1087,35 @@ const LiveAuctionStudio = () => {
                         sellerId={(selectedProduct.seller as any)?._id ||
                             (activeStreamDetails?.stream?.seller?._id || '')}
                         channel="liveshow"
+                    />
+                )}
+            </BottomSheet>
+
+            {/* Bid Variation Selector Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-[11px]"
+                showCloseIcon={false}
+                title=""
+                show={showBidVariation}
+                snapPoints={["80%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowBidVariation(false)}
+                keyboardBehavior="interactive"
+            >
+                {selectedBidProduct && (
+                    <BidVariationSelector
+                        currentBid={selectedBidProduct.currentBid || selectedBidProduct.minBid || selectedBidProduct.product.price}
+                        onSelectBidAmount={(amount) => {
+                            setShowBidVariation(false);
+                            handleSubmitBid(amount);
+                        }}
+                        onCustomBid={(amount) => {
+                            setShowBidVariation(false);
+                            handleSubmitBid(amount);
+                        }}
+                        formatPrice={formatPrice}
+                        closeSheet={() => setShowBidVariation(false)}
                     />
                 )}
             </BottomSheet>
@@ -1281,6 +1412,26 @@ const styles = StyleSheet.create({
         fontFamily: 'LexendDeca',
         fontWeight: 'bold',
         flexWrap: 'wrap',
+    },
+    productNavigationContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+        paddingHorizontal: 10,
+    },
+    navButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    productCounter: {
+        color: '#fff',
+        fontSize: 14,
+        fontFamily: 'LexendDeca',
     },
 });
 
