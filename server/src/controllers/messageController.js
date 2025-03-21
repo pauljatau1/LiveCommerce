@@ -117,10 +117,27 @@ exports.sendTextMessage = async (req, res) => {
     try {
       const userToken = await getToken(recipientId);
       if (userToken && Expo.isExpoPushToken(userToken.token)) {
+        // Get sender name for the notification title
+        let senderName = 'New Message';
+        
+        if (senderModel === 'Seller') {
+          const Seller = require('../models/Seller');
+          const seller = await Seller.findById(senderId);
+          if (seller) {
+            senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
+          }
+        } else if (senderModel === 'Buyer') {
+          const Buyer = require('../models/Buyer');
+          const buyer = await Buyer.findById(senderId);
+          if (buyer) {
+            senderName = `${buyer.firstName} ${buyer.lastName}`;
+          }
+        }
+        
         const pushMessage = {
           to: userToken.token,
           sound: 'default',
-          title: 'New Message',
+          title: `message from ${senderName}`,
           body: content.length > 50 ? `${content.substring(0, 47)}...` : content,
           data: { 
             type: 'message',
@@ -243,6 +260,49 @@ exports.sendMediaMessage = async (req, res) => {
 
     // Create notification
     await createMessageNotifications(savedMessage);
+
+    // Send push notification to recipient if they have a token
+    try {
+      const userToken = await getToken(recipientId);
+      if (userToken && Expo.isExpoPushToken(userToken.token)) {
+        // Get sender name for the notification title
+        let senderName = 'New Message';
+        
+        if (senderModel === 'Seller') {
+          const Seller = require('../models/Seller');
+          const seller = await Seller.findById(senderId);
+          if (seller) {
+            senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
+          }
+        } else if (senderModel === 'Buyer') {
+          const Buyer = require('../models/Buyer');
+          const buyer = await Buyer.findById(senderId);
+          if (buyer) {
+            senderName = `${buyer.firstName} ${buyer.lastName}`;
+          }
+        }
+
+        const messagePreview = content || `Sent ${messageType}`;
+        
+        const pushMessage = {
+          to: userToken.token,
+          sound: 'default',
+          title: `message from ${senderName}`,
+          body: messagePreview.length > 50 ? `${messagePreview.substring(0, 47)}...` : messagePreview,
+          data: { 
+            type: 'message',
+            conversationId: conversation._id.toString(),
+            senderId: senderId.toString(),
+            senderModel
+          },
+        };
+
+        await expo.sendPushNotificationsAsync([pushMessage]);
+      }
+    } catch (pushError) {
+      // Log push notification error but don't fail the request
+      console.error('Push notification error:', pushError);
+    }
 
     res.status(201).json({ 
       message: savedMessage, 
@@ -471,6 +531,48 @@ exports.sendProductMessage = async (req, res) => {
     // Create notification
     await createMessageNotifications(message);
 
+    // Send push notification to recipient if they have a token
+    try {
+      const userToken = await getToken(recipientId);
+      if (userToken && Expo.isExpoPushToken(userToken.token)) {
+        // Get sender name for the notification title
+        let senderName = 'New Message';
+        
+        if (senderModel === 'Seller') {
+          const Seller = require('../models/Seller');
+          const seller = await Seller.findById(senderId);
+          if (seller) {
+            senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
+          }
+        } else if (senderModel === 'Buyer') {
+          const Buyer = require('../models/Buyer');
+          const buyer = await Buyer.findById(senderId);
+          if (buyer) {
+            senderName = `${buyer.firstName} ${buyer.lastName}`;
+          }
+        }
+        
+        const pushMessage = {
+          to: userToken.token,
+          sound: 'default',
+          title: `message from ${senderName}`,
+          body: `Shared product: ${product.name}`,
+          data: { 
+            type: 'message',
+            conversationId: conversation._id.toString(),
+            senderId: senderId.toString(),
+            senderModel,
+            productId: product._id.toString()
+          },
+        };
+
+        await expo.sendPushNotificationsAsync([pushMessage]);
+      }
+    } catch (pushError) {
+      // Log push notification error but don't fail the request
+      console.error('Push notification error:', pushError);
+    }
+
     res.status(201).json({ message });
   } catch (error) {
     console.error('Product message error:', error);
@@ -579,6 +681,48 @@ exports.sendOrderMessage = async (req, res) => {
 
     // Create notification
     await createMessageNotifications(message);
+
+    // Send push notification to recipient if they have a token
+    try {
+      const userToken = await getToken(recipientId);
+      if (userToken && Expo.isExpoPushToken(userToken.token)) {
+        // Get sender name for the notification title
+        let senderName = 'New Message';
+        
+        if (senderModel === 'Seller') {
+          const Seller = require('../models/Seller');
+          const seller = await Seller.findById(senderId);
+          if (seller) {
+            senderName = seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`;
+          }
+        } else if (senderModel === 'Buyer') {
+          const Buyer = require('../models/Buyer');
+          const buyer = await Buyer.findById(senderId);
+          if (buyer) {
+            senderName = `${buyer.firstName} ${buyer.lastName}`;
+          }
+        }
+        
+        const pushMessage = {
+          to: userToken.token,
+          sound: 'default',
+          title: `message from ${senderName}`,
+          body: `Shared order #${order._id}`,
+          data: { 
+            type: 'message',
+            conversationId: conversation._id.toString(),
+            senderId: senderId.toString(),
+            senderModel,
+            orderId: order._id.toString()
+          },
+        };
+
+        await expo.sendPushNotificationsAsync([pushMessage]);
+      }
+    } catch (pushError) {
+      // Log push notification error but don't fail the request
+      console.error('Push notification error:', pushError);
+    }
 
     res.status(201).json({ message });
   } catch (error) {

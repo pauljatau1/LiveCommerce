@@ -1218,8 +1218,8 @@ productSchema.pre('save', async function (next) {
       });
     }
 
-    // Only process if it's an offline auction
-    if (this.status === 'offline_auction') {
+    // Only process if it's an offline auction and status isn't manually set to ended
+    if (this.status === 'offline_auction' && this.auction.status !== 'ended') {
       const now = new Date();
       
       // Calculate auction status and days left
@@ -1317,41 +1317,76 @@ productSchema.methods.placeBid = async function(buyerId, bidAmount) {
     throw new Error('Bid amount is below minimum bid');
   }
 
-  // Check if this is higher than current highest bid
-  if (this.auction.currentHighestBid.amount && bidAmount <= this.auction.currentHighestBid.amount) {
-    throw new Error('Bid amount must be higher than current highest bid');
-  }
-
-  // Mark previous highest bid as outbid if it exists
-  if (this.auction.currentHighestBid.buyer) {
-    const previousHighestBid = this.auction.bids.find(
-      bid => bid.buyer.toString() === this.auction.currentHighestBid.buyer.toString() && 
-      bid.status === 'active'
-    );
-    if (previousHighestBid) {
-      previousHighestBid.status = 'outbid';
-    }
-  }
-
-  // Add new bid
-  this.auction.bids.push({
-    buyer: buyerId,
-    amount: bidAmount,
-    status: 'active'
-  });
-
-  // Update current highest bid
-  this.auction.currentHighestBid = {
-    amount: bidAmount,
-    buyer: buyerId
-  };
-
   // Check if we should end the auction (max bid reached and endOnMaxBid is true)
   if (this.auction.endOnMaxBid && bidAmount >= this.auction.maxBid) {
-    await this.endAuction(true); // Pass true to indicate it's ending due to max bid
+    console.log('Max bid reached, ending auction:', {
+      productId: this._id,
+      maxBid: this.auction.maxBid,
+      bidAmount: bidAmount
+    });
+
+    // First update the auction status directly in the database
+    const result = await this.constructor.findOneAndUpdate(
+      { 
+        _id: this._id,
+        'auction.status': { $ne: 'ended' } // Only update if not already ended
+      },
+      {
+        $set: {
+          'auction.status': 'ended',
+          'auction.winner': {
+            buyer: buyerId,
+            bidAmount: bidAmount,
+            winningDate: new Date()
+          },
+          'auction.currentHighestBid': {
+            amount: bidAmount,
+            buyer: buyerId
+          },
+          'auction.bids': this.auction.bids
+        }
+      },
+      { new: true }
+    );
+
+    if (!result) {
+      console.error('Failed to update auction status - auction may already be ended');
+      throw new Error('Failed to end auction');
+    }
+
+    // Update the current instance to match the database
+    this.auction.status = 'ended';
+    this.auction.winner = {
+      buyer: buyerId,
+      bidAmount: bidAmount,
+      winningDate: new Date()
+    };
+
+    // Update bid statuses
+    this.auction.bids = this.auction.bids.map(bid => ({
+      ...bid,
+      status: bid.buyer.toString() === buyerId.toString() ? 'won' : 'lost'
+    }));
+
+    // Save the bid status updates
+    await this.save();
+
+    // Schedule order creation
+    try {
+      const agenda = require('../config/agenda').agenda;
+      await agenda.now('create-auction-winner-order', { productId: this._id });
+      console.log('Scheduled auction winner order creation for max bid:', this._id);
+    } catch (scheduleError) {
+      console.error('Failed to schedule auction winner order creation:', {
+        productId: this._id,
+        error: scheduleError.message
+      });
+    }
+
     return { ...this.auction.currentHighestBid, auctionEnded: true };
   }
 
+  // If not ending the auction, just save the new bid
   await this.save();
   return { ...this.auction.currentHighestBid, auctionEnded: false };
 };

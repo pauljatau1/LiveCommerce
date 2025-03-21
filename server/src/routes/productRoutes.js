@@ -1768,7 +1768,7 @@ router.post('/:id/blips/:blipId/comments',
  *       404:
  *         description: Product or blip not found
  */
-router.get('/:id/blips/:blipId/comments', productController.getBlipComments);
+router.get('/:id/blips/:blipId/comments', optionalAuth, productController.getBlipComments);
 
 /**
  * @swagger
@@ -2575,5 +2575,92 @@ router.get('/seller/:sellerId/auctions', productController.getSellerAuctionProdu
  *         description: Server error
  */
 router.get('/:id/blips/:blipId', optionalAuth, productController.getBlipDetails);
+
+/**
+ * @swagger
+ * /api/products/{productId}/rerun-auction:
+ *   post:
+ *     summary: Rerun an ended auction
+ *     description: Reset and restart an already ended auction. Only the seller of the product can rerun their auction.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the auction product to rerun
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               minBid:
+ *                 type: number
+ *                 description: Minimum bid amount (defaults to previous auction's minBid)
+ *               maxBid:
+ *                 type: number
+ *                 description: Maximum bid amount (defaults to previous auction's maxBid)
+ *               endOnMaxBid:
+ *                 type: boolean
+ *                 description: Whether to end auction when max bid is reached (defaults to previous setting)
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Start date of the auction (defaults to tomorrow)
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: End date of the auction (defaults to 7 days from now)
+ *     responses:
+ *       200:
+ *         description: Auction rerun successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Auction rerun successfully
+ *                 auction:
+ *                   type: object
+ *                   properties:
+ *                     minBid:
+ *                       type: number
+ *                     maxBid:
+ *                       type: number
+ *                     endOnMaxBid:
+ *                       type: boolean
+ *                     startDate:
+ *                       type: string
+ *                       format: date-time
+ *                     endDate:
+ *                       type: string
+ *                       format: date-time
+ *                     status:
+ *                       type: string
+ *                       enum: [scheduled, ongoing, ended]
+ *                     daysLeft:
+ *                       type: number
+ *       400:
+ *         description: Invalid request or product is not an auction
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized (only seller can rerun their auction)
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/rerun-auction',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.rerunAuction
+);
 
 module.exports = router;

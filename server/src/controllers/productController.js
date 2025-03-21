@@ -17,6 +17,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 const sharp = require('sharp');
+const jwt = require('jsonwebtoken');
 
 // Initialize FFmpeg
 // const ffmpeg = createFFmpeg({ log: true });
@@ -3061,6 +3062,10 @@ exports.getBlipComments = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    // Check if user is authenticated
+    const userId = req.user ? req.user._id : null;
+    const userType = req.user ? req.userType : null;
+
     const product = await Product.findById(productId);
     if (!product) {
       console.log('Product not found with ID:', productId);
@@ -3092,6 +3097,15 @@ exports.getBlipComments = async (req, res) => {
         console.log('Processing comment ID:', comment._id);
         let populatedComment = comment.toObject();
         
+        // Add isLiked field for authenticated users
+        if (userId && userType) {
+          populatedComment.isLiked = comment.likes && comment.likes.some(
+            like => like.user.toString() === userId.toString() && like.userType === userType
+          );
+        } else {
+          populatedComment.isLiked = false;
+        }
+        
         // Populate comment author
         if (comment.buyer) {
           console.log('Fetching buyer info for comment:', comment._id);
@@ -3121,15 +3135,24 @@ exports.getBlipComments = async (req, res) => {
               console.log('Processing reply ID:', reply._id);
               let populatedReply = reply.toObject ? reply.toObject() : {...reply};
               
-              // Handle both new structure (with user field) and old structure
-              const userId = reply.user || reply.buyer; // Try both fields
-              const userType = reply.userType || 'Buyer'; // Default to Buyer for old data
+              // Add isLiked field for replies for authenticated users
+              if (userId && userType) {
+                populatedReply.isLiked = reply.likes && reply.likes.some(
+                  like => like.user.toString() === userId.toString() && like.userType === userType
+                );
+              } else {
+                populatedReply.isLiked = false;
+              }
               
-              if (userId) {
-                console.log('Fetching user info for reply:', reply._id, 'user type:', userType);
+              // Handle both new structure (with user field) and old structure
+              const replyUserId = reply.user || reply.buyer; // Try both fields
+              const replyUserType = reply.userType || 'Buyer'; // Default to Buyer for old data
+              
+              if (replyUserId) {
+                console.log('Fetching user info for reply:', reply._id, 'user type:', replyUserType);
                 try {
-                  const UserModel = mongoose.model(userType);
-                  const user = await UserModel.findById(userId)
+                  const UserModel = mongoose.model(replyUserType);
+                  const user = await UserModel.findById(replyUserId)
                     .select('firstName lastName profileImage storeName');
                   
                   if (user) {
@@ -3141,11 +3164,11 @@ exports.getBlipComments = async (req, res) => {
                       profileImage: user.profileImage
                     };
                     
-                    if (userType === 'Seller' && user.storeName) {
+                    if (replyUserType === 'Seller' && user.storeName) {
                       populatedReply.user.storeName = user.storeName;
                     }
                   } else {
-                    console.log('User not found for reply with user ID:', userId);
+                    console.log('User not found for reply with user ID:', replyUserId);
                   }
                 } catch (err) {
                   console.error('Error fetching user for reply:', err);
@@ -3387,15 +3410,16 @@ exports.likeBlipComment = async (req, res) => {
     }
 
     // Check if user already liked the comment
-    const existingLike = comment.likes.find(
-      like => like.user.toString() === userId.toString() && like.userType === userType
+    const existingLikeIndex = comment.likes.findIndex(
+      like => {
+        // Safely check if like.user exists and matches the userId
+        return like && like.user && like.user.toString() === userId.toString() && like.userType === userType;
+      }
     );
 
-    if (existingLike) {
+    if (existingLikeIndex !== -1) {
       // Unlike if already liked
-      comment.likes = comment.likes.filter(
-        like => !(like.user.toString() === userId.toString() && like.userType === userType)
-      );
+      comment.likes.splice(existingLikeIndex, 1);
       comment.likesCount = comment.likes.length;
       await product.save();
       return res.json({ message: 'Comment unliked successfully', liked: false, likesCount: comment.likesCount });
@@ -3453,15 +3477,16 @@ exports.likeBlipCommentReply = async (req, res) => {
     }
 
     // Check if user already liked the reply
-    const existingLike = reply.likes.find(
-      like => like.user.toString() === userId.toString() && like.userType === userType
+    const existingLikeIndex = reply.likes.findIndex(
+      like => {
+        // Safely check if like.user exists and matches the userId
+        return like && like.user && like.user.toString() === userId.toString() && like.userType === userType;
+      }
     );
 
-    if (existingLike) {
+    if (existingLikeIndex !== -1) {
       // Unlike if already liked
-      reply.likes = reply.likes.filter(
-        like => !(like.user.toString() === userId.toString() && like.userType === userType)
-      );
+      reply.likes.splice(existingLikeIndex, 1);
       reply.likesCount = reply.likes.length;
       await product.save();
       return res.json({ message: 'Reply unliked successfully', liked: false, likesCount: reply.likesCount });
@@ -3565,6 +3590,10 @@ exports.getBlipCommentReplies = async (req, res) => {
     const { productId, blipId, commentId } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    
+    // Check if user is authenticated
+    const userId = req.user ? req.user._id : null;
+    const userType = req.user ? req.userType : null;
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -3598,6 +3627,13 @@ exports.getBlipCommentReplies = async (req, res) => {
     const populatedReplies = await Promise.all(
       replies.map(async (reply) => {
         let userInfo;
+        
+        // Add isLiked field for authenticated users
+        const isLiked = userId && userType ? 
+          (reply.likes && reply.likes.some(
+            like => like.user.toString() === userId.toString() && like.userType === userType
+          )) : false;
+        
         if (reply.userType === 'Buyer') {
           userInfo = await Buyer.findById(reply.user).select('firstName lastName avatar profileImage');
           return {
@@ -3611,7 +3647,8 @@ exports.getBlipCommentReplies = async (req, res) => {
             comment: reply.comment,
             createdAt: reply.createdAt,
             likes: reply.likes,
-            likesCount: reply.likesCount
+            likesCount: reply.likesCount,
+            isLiked: isLiked
           };
         } else {
           userInfo = await Seller.findById(reply.user).select('storeName storeAvatar');
@@ -3626,7 +3663,8 @@ exports.getBlipCommentReplies = async (req, res) => {
             comment: reply.comment,
             createdAt: reply.createdAt,
             likes: reply.likes,
-            likesCount: reply.likesCount
+            likesCount: reply.likesCount,
+            isLiked: isLiked
           };
         }
       })
@@ -3801,32 +3839,7 @@ exports.placeBid = async (req, res) => {
       createdAt: new Date()
     };
     
-    // Track if this is the winning bid
-    let isWinningBid = false;
-    
-    // Check if auction should end (max bid reached and endOnMaxBid is true)
-    if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
-      product.auction.status = 'ended';
-      product.auction.winner = {
-        buyer: buyerObjectId,
-        bidAmount: amount,
-        winningDate: new Date()
-      };
-      isWinningBid = true;
-      
-      // Update all other bids to 'lost'
-      product.auction.bids.forEach(bid => {
-        // Make sure bid.buyer exists before checking toString()
-        if (bid.buyer && bid.buyer.toString() !== buyerObjectId.toString()) {
-          bid.status = 'lost';
-        }
-      });
-      
-      // Set new bid status to 'won' instead of 'active'
-      newBid.status = 'won';
-    }
-    
-    // Now add the new bid to the array
+    // Add the bid to the array first
     product.auction.bids.push(newBid);
     
     // Update current highest bid
@@ -3835,9 +3848,86 @@ exports.placeBid = async (req, res) => {
       buyer: buyerObjectId
     };
     
-    // Save product with updated bids
-    await product.save();
-    console.log(`Updated product ${productId} with new bid of ₦${amount} from buyer ${buyerId}`);
+    // Track if this is the winning bid
+    let isWinningBid = false;
+    
+    console.log('Debug - Before max bid check:', {
+      endOnMaxBid: product.auction.endOnMaxBid,
+      maxBid: product.auction.maxBid,
+      bidAmount: amount,
+      currentStatus: product.auction.status
+    });
+    
+    // Check if auction should end (max bid reached and endOnMaxBid is true)
+    if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
+      console.log('Debug - Max bid condition met:', {
+        bidAmount: amount,
+        maxBid: product.auction.maxBid
+      });
+
+      // Update the status and set winner
+      product.auction.status = 'ended';
+      product.auction.winner = {
+        buyer: buyerObjectId,
+        bidAmount: amount,
+        winningDate: new Date()
+      };
+      isWinningBid = true;
+
+      // Update all bids statuses including the new bid
+      product.auction.bids = product.auction.bids.map(bid => {
+        if (!bid.buyer) return bid; // Skip if no buyer
+        return {
+          ...bid,
+          status: bid.buyer.toString() === buyerObjectId.toString() ? 'won' : 'lost'
+        };
+      });
+
+      console.log('Debug - After setting auction end:', {
+        newStatus: product.auction.status,
+        winningBid: amount,
+        winner: buyerObjectId.toString(),
+        totalBids: product.auction.bids.length
+      });
+    }
+
+    console.log('Debug - Final state before save:', {
+      status: product.auction.status,
+      currentHighestBid: amount,
+      isWinningBid,
+      totalBids: product.auction.bids.length
+    });
+
+    try {
+      // Save all changes in one operation
+      await product.save();
+
+      // Double check the save worked
+      const verifyProduct = await Product.findById(productId);
+      console.log('Debug - Verification after save:', {
+        status: verifyProduct.auction.status,
+        currentHighestBid: verifyProduct.auction.currentHighestBid?.amount,
+        isEnded: verifyProduct.auction.status === 'ended',
+        totalBids: verifyProduct.auction.bids.length
+      });
+
+      // If this was a winning bid, schedule the order creation
+      if (isWinningBid) {
+        try {
+          const agenda = require('../config/agenda').agenda;
+          await agenda.now('create-auction-winner-order', { productId: product._id });
+          console.log('Scheduled auction winner order creation for max bid:', product._id);
+        } catch (scheduleError) {
+          console.error('Failed to schedule auction winner order creation:', {
+            productId: product._id,
+            error: scheduleError.message
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save product or verify save:', error);
+      throw error;
+    }
 
     // Step 4: Update buyer's wallet with new hold (or direct payment if auction ended)
     if (isWinningBid) {
@@ -4464,7 +4554,7 @@ exports.getSellerAuctionProducts = async (req, res) => {
 exports.getBlipDetails = async (req, res) => {
   try {
     const { id, blipId } = req.params;
-    const buyerId = req.user?.id;
+    const userId = req.user ? req.user._id : null;
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(blipId)) {
@@ -4589,8 +4679,22 @@ exports.getBlipDetails = async (req, res) => {
             viewCount: '$blips.viewCount',
             isLiked: {
               $cond: {
-                if: { $in: [new mongoose.Types.ObjectId(buyerId), { $ifNull: ['$blips.likes', []] }] },
-                then: true,
+                if: userId,
+                then: {
+                  $cond: {
+                    if: {
+                      $anyElementTrue: {
+                        $map: {
+                          input: { $ifNull: ['$blips.likes', []] },
+                          as: 'like',
+                          in: { $eq: ['$$like.user', new mongoose.Types.ObjectId(userId)] }
+                        }
+                      }
+                    },
+                    then: true,
+                    else: false
+                  }
+                },
                 else: false
               }
             }
@@ -4623,6 +4727,141 @@ exports.getBlipDetails = async (req, res) => {
     console.error('Error in getBlipDetails:', error);
     res.status(500).json({ 
       message: 'Failed to retrieve blip details', 
+      error: error.message 
+    });
+  }
+};
+
+// Rerun an ended auction
+exports.rerunAuction = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    console.log('Rerun Auction - Debugging Info:', {
+      requestUser: req.user,
+      userId: req.user.id,
+      productId: productId
+    });
+
+    // Find product and verify it's an auction product
+    const product = await Product.findById(productId);
+    if (!product) {
+      console.log('Product not found:', productId);
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    console.log('Product found:', {
+      productId: product._id,
+      productStatus: product.status,
+      sellerId: product.seller,
+      sellerIdString: typeof product.seller === 'object' ? product.seller._id : product.seller,
+      userIdFromReq: req.user.id
+    });
+
+    // Check if it's an auction product
+    if (product.status !== 'offline_auction') {
+      console.log('Not an auction product:', product.status);
+      return res.status(400).json({ message: 'Product is not an auction product' });
+    }
+
+    // Check seller authorization - properly extract seller ID whether it's populated or not
+    const sellerIdStr = typeof product.seller === 'object' 
+      ? product.seller._id.toString() 
+      : product.seller.toString();
+    const userIdStr = req.user.id;
+    
+    console.log('Authorization Check:', {
+      sellerId: sellerIdStr,
+      userId: userIdStr,
+      doTheyMatch: sellerIdStr === userIdStr
+    });
+
+    if (sellerIdStr !== userIdStr) {
+      console.log('Authorization failed - IDs do not match');
+      return res.status(403).json({ message: 'You are not authorized to rerun this auction' });
+    }
+
+    // Get auction parameters from request body with defaults from previous auction
+    const { 
+      minBid = product.auction.minBid, 
+      maxBid = product.auction.maxBid, 
+      endOnMaxBid = product.auction.endOnMaxBid,
+      startDate = new Date(Date.now() + 86400000), // Default: start tomorrow
+      endDate = new Date(Date.now() + 7 * 86400000) // Default: end in 7 days
+    } = req.body;
+
+    // Validate dates
+    const now = new Date();
+    if (new Date(startDate) <= now) {
+      return res.status(400).json({ message: 'Start date must be in the future' });
+    }
+    
+    if (new Date(endDate) <= new Date(startDate)) {
+      return res.status(400).json({ message: 'End date must be after start date' });
+    }
+
+    // Reset auction details
+    product.auction = {
+      minBid,
+      maxBid,
+      endOnMaxBid,
+      startDate,
+      endDate,
+      status: 'scheduled',
+      daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24)),
+      bids: [],
+      currentHighestBid: {
+        amount: null,
+        buyer: null
+      },
+      winner: {
+        buyer: null,
+        bidAmount: null,
+        winningDate: null
+      }
+    };
+
+    // Save the updated product
+    await product.save();
+    console.log('Auction reset successfully for product:', productId);
+
+    // Schedule end auction job
+    const agenda = require('../config/agenda').agenda;
+    await agenda.cancel({ name: 'end-auction', 'data.productId': productId.toString() });
+    await agenda.schedule(new Date(endDate), 'end-auction', { productId: productId.toString() });
+
+    // Send WebSocket notification if available
+    if (req.app.get('io')) {
+      req.app.get('io').to(`auction_${productId}`).emit('auction_rerun', {
+        productId: product._id,
+        auction: {
+          minBid,
+          maxBid,
+          endOnMaxBid,
+          startDate,
+          endDate,
+          status: 'scheduled',
+          daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24))
+        }
+      });
+    }
+
+    res.status(200).json({
+      message: 'Auction rerun successfully',
+      auction: {
+        minBid,
+        maxBid,
+        endOnMaxBid,
+        startDate,
+        endDate,
+        status: 'scheduled',
+        daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24))
+      }
+    });
+  } catch (error) {
+    console.error('Error in rerunAuction:', error);
+    res.status(500).json({ 
+      message: 'Error rerunning auction', 
       error: error.message 
     });
   }

@@ -556,6 +556,59 @@ function initializeSocket(server) {
           buyer: buyerObjectId
         };
 
+        // Check if we should end the auction (max bid reached and endOnMaxBid is true)
+        if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
+          console.log('Max bid reached, ending auction:', {
+            productId: product._id,
+            maxBid: product.auction.maxBid,
+            bidAmount: amount
+          });
+
+          // Set auction status to ended
+          product.auction.status = 'ended';
+          product.auction.winner = {
+            buyer: buyerObjectId,
+            bidAmount: amount,
+            winningDate: new Date()
+          };
+          newBid.status = 'won';
+          
+          // Update all other bids to 'lost'
+          product.auction.bids.forEach(bid => {
+            if (bid.buyer && bid.buyer.toString() !== buyerObjectId.toString()) {
+              bid.status = 'lost';
+            }
+          });
+
+          // Save the changes first
+          await product.save();
+          
+          // Verify the save was successful
+          const verifyProduct = await Product.findById(productId);
+          console.log('Verifying auction end:', {
+            productId: product._id,
+            savedStatus: verifyProduct.auction.status,
+            expectedStatus: 'ended'
+          });
+
+          if (verifyProduct.auction.status !== 'ended') {
+            console.error('Failed to update auction status to ended');
+            throw new Error('Failed to update auction status');
+          }
+
+          // Schedule order creation
+          try {
+            const agenda = require('../config/agenda').agenda;
+            await agenda.now('create-auction-winner-order', { productId: product._id });
+            console.log('Scheduled auction winner order creation for max bid:', product._id);
+          } catch (scheduleError) {
+            console.error('Failed to schedule auction winner order creation:', {
+              productId: product._id,
+              error: scheduleError.message
+            });
+          }
+        }
+
         await product.save();
         
         // Reload the product with populated buyer details
@@ -670,6 +723,8 @@ function initializeSocket(server) {
         socket.emit('bid_error', { message: 'Failed to place bid' });
       }
     });
+
+    
 
     // Request auction timer update
     socket.on('request_auction_timer', async (productId) => {

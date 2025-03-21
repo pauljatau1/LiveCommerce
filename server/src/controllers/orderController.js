@@ -502,7 +502,10 @@ exports.createOrder = async (req, res) => {
           isCashOnDelivery: isItemCod && !paidFromWallet,
           ...(isItemCod && !paidFromWallet ? {} : 
              (paymentMethod === 'paystack' && !isItemCod && !paidFromWallet) ? {} : { paidAt: new Date() })
-        }
+        },
+        // Initialize notification flag
+        // We'll set this to false for all orders and handle notifications in batch
+        notificationsSent: false
       });
       
     
@@ -521,20 +524,12 @@ exports.createOrder = async (req, res) => {
         sellerId: sellerId
       });
       
-      // Schedule the order notification and message creation job with a small delay
-      console.log('Scheduling order notification job:', {
+      // Don't schedule the notification job here - we'll do it once after transaction is committed
+      console.log('Adding order to notification queue:', {
         orderId: order._id.toString(),
         buyerId,
         sellerId
       });
-      
-      await agenda.schedule('in 2 seconds', 'send-order-notifications', {
-        orderId: order._id,
-        buyerId: buyerId,
-        sellerId: sellerId
-      });
-      
-      console.log('Order notification job scheduled successfully');
       
       // Create transaction record for seller earnings (if not COD and not pending Paystack payment)
       if ((!isItemCod || paidFromWallet) && !(paymentMethod === 'paystack' && !isItemCod && !paidFromWallet)) {
@@ -679,18 +674,25 @@ exports.createOrder = async (req, res) => {
 
     console.log('Transaction committed successfully');
 
-    // Now schedule the notifications after transaction is committed
-    for (const notification of orderNotifications) {
-      console.log('Scheduling post-commit notification for order:', notification.orderId.toString());
+    // Now schedule a single batch notification job instead of individual notifications
+    if (orderNotifications.length > 0) {
+      // Get the buyer ID from the first notification
+      const buyerId = orderNotifications[0].buyerId;
       
-      await agenda.schedule('in 1 second', 'send-order-notifications', {
-        orderId: notification.orderId,
-        buyerId: notification.buyerId,
-        sellerId: notification.sellerId
+      console.log('Scheduling batch notification processing for buyer:', buyerId);
+      
+      // Schedule a batch notification job for this buyer
+      await agenda.schedule('in 2 seconds', 'send-order-notifications', {
+        buyerId: buyerId,
+        batchProcess: true
       });
+      
+      console.log('Batch notification job scheduled for buyer:', buyerId);
+    } else {
+      console.log('No orders to send notifications for');
     }
 
-    console.log('All order notifications scheduled');
+    console.log('Order creation completed');
     
     // Prepare response with detailed order information
     const orderDetails = orders.map(order => {
@@ -2586,6 +2588,13 @@ exports.markOrderAsPaid = async (req, res) => {
       }
     }
 
+    // Add a flag to track if notifications have been sent
+    order.notificationsSent = order.notificationsSent || false;
+    const notificationsAlreadySent = order.notificationsSent;
+    
+    // Mark notifications as sent
+    order.notificationsSent = true;
+
     // Update order payment status
     order.paid = true;
     order.paymentInfo.status = 'paid';
@@ -2621,14 +2630,21 @@ exports.markOrderAsPaid = async (req, res) => {
     //   { $inc: { 'wallet.balance': order.totalAmount } }
     // );
 
-    // Create notifications
-    const notificationData = {
-      orderId: order._id,
-      buyerId: order.buyer,
-      sellerId: order.seller._id
-    };
-    
-    agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+    // Only schedule notifications if they haven't been sent yet
+    if (!notificationsAlreadySent) {
+      console.log(`Scheduling order notifications for order ${order.order_id} after manual payment marking`);
+      
+      // Create notifications
+      const notificationData = {
+        orderId: order._id,
+        buyerId: order.buyer,
+        sellerId: order.seller._id
+      };
+      
+      agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+    } else {
+      console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
+    }
 
     res.status(200).json({ 
       message: 'Order marked as paid successfully', 
@@ -2765,7 +2781,29 @@ exports.handlePaystackWebhook = async (req, res) => {
       
       // Check if this is an order payment
       if (metadata.orderId) {
-        return await handleOrderPayment(event.data, res);
+        const result = await handleOrderPayment(event.data, res);
+        
+        // After order payment is processed, check if there are other recent orders from the same buyer
+        // that need notifications, and process them in a batch
+        try {
+          const Order = mongoose.model('Order');
+          const order = await Order.findById(metadata.orderId);
+          
+          if (order) {
+            // Schedule a batch notification job to check for other recent orders from this buyer
+            const { agenda } = require('../config/agenda');
+            await agenda.schedule('in 3 seconds', 'send-order-notifications', {
+              buyerId: order.buyer.toString(),
+              batchProcess: true
+            });
+            console.log('Scheduled batch notification check after payment for buyer:', order.buyer);
+          }
+        } catch (batchError) {
+          console.error('Error scheduling batch notification after payment:', batchError);
+          // Continue with normal response regardless of batch scheduling error
+        }
+        
+        return result;
       }
 
       // If we can't determine the type, just acknowledge
@@ -2804,6 +2842,13 @@ async function handleOrderPayment(paymentData, res) {
   order.paymentInfo.paymentReference = reference;
   order.paymentInfo.paidAt = new Date();
 
+  // Add a flag to track if notifications have been sent
+  order.notificationsSent = order.notificationsSent || false;
+  const notificationsAlreadySent = order.notificationsSent;
+  
+  // Mark notifications as sent
+  order.notificationsSent = true;
+  
   await order.save();
 
   // Create transaction record for seller earnings
@@ -2832,14 +2877,21 @@ async function handleOrderPayment(paymentData, res) {
     { $inc: { 'wallet.balance': order.totalAmount } }
   );
 
-  // Create notifications
-  const notificationData = {
-    orderId: order._id,
-    buyerId: order.buyer,
-    sellerId: order.seller._id
-  };
-  
-  agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+  // Only schedule notifications if they haven't been sent yet
+  if (!notificationsAlreadySent) {
+    console.log(`Scheduling order notifications for order ${order.order_id} after Paystack payment`);
+    
+    // Create notifications
+    const notificationData = {
+      orderId: order._id,
+      buyerId: order.buyer,
+      sellerId: order.seller._id
+    };
+    
+    agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+  } else {
+    console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
+  }
 
   return res.status(200).json({ message: 'Order marked as paid via webhook' });
 }

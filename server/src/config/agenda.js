@@ -1,5 +1,27 @@
 const Agenda = require('agenda');
 const mongoose = require('mongoose');
+const axios = require('axios');
+
+// Verify SendGrid API key at startup
+const verifySendGridConfig = () => {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  
+  if (!apiKey) {
+    console.error('⚠️ SENDGRID_API_KEY is not set in environment variables!');
+    return false;
+  }
+  
+  if (apiKey.startsWith('SG.')) {
+    console.log('✅ SendGrid API key appears to be properly formatted');
+    return true;
+  } else {
+    console.error('⚠️ SendGrid API key does not appear to be properly formatted. Should start with "SG."');
+    return false;
+  }
+};
+
+// Check SendGrid configuration at startup
+verifySendGridConfig();
 
 const agenda = new Agenda({
   db: {
@@ -184,22 +206,47 @@ agenda.define('send-order-notifications', async (job) => {
   try {
     console.log('Starting send-order-notifications job:', job.attrs.data);
     
-    const { orderId, buyerId, sellerId } = job.attrs.data;
+    const { orderId, buyerId, sellerId, batchProcess = false } = job.attrs.data;
+    const notificationController = require('../controllers/notificationController');
+
+    // Process batch notifications if this is a batch job
+    if (batchProcess) {
+      console.log('Processing batch notifications for buyer:', buyerId);
+      
+      // Check if there's already a job in progress for this buyer
+      const runningJobs = await agenda.jobs({
+        name: 'send-order-notifications',
+        'data.buyerId': buyerId,
+        'data.batchProcess': true,
+        $or: [
+          { lockedAt: { $ne: null } },
+          { nextRunAt: { $lt: new Date() } }
+        ]
+      });
+      
+      // If there are already running jobs for this buyer (more than this one), skip
+      if (runningJobs.length > 1) {
+        console.log(`Skipping duplicate batch notification job for buyer: ${buyerId}. Already ${runningJobs.length} jobs in progress.`);
+        return;
+      }
+      
+      await notificationController.processBatchOrderNotifications(buyerId);
+      return;
+    }
     
+    // Fetch the necessary data
+    console.log('Fetching order, buyer, and seller data...', {
+      orderId: orderId?.toString(),
+      buyerId,
+      sellerId
+    });
+
     const Order = mongoose.model('Order');
     const Buyer = mongoose.model('Buyer');
     const Seller = mongoose.model('Seller');
     const Message = mongoose.model('Message');
     const Conversation = mongoose.model('Conversation');
-    const notificationController = require('../controllers/notificationController');
     
-    // Fetch the necessary data
-    console.log('Fetching order, buyer, and seller data...', {
-      orderId: orderId.toString(),
-      buyerId,
-      sellerId
-    });
-
     let order, buyer, seller;
     try {
       order = await Order.findById(orderId)
@@ -207,6 +254,12 @@ agenda.define('send-order-notifications', async (job) => {
         .populate('shipping')
         .populate('delivery_address');
       console.log('Order fetch result:', order ? 'Found' : 'Not found');
+      
+      // Skip if notifications were already sent for this order
+      if (order && order.notificationsSent) {
+        console.log(`Skipping notifications for order ${order.order_id} as they were already sent`);
+        return;
+      }
     } catch (err) {
       console.error('Error fetching order:', err);
     }
@@ -334,6 +387,10 @@ agenda.define('send-order-notifications', async (job) => {
     console.log('Sending notifications...');
     await notificationController.handleOrderCreationNotifications(order, buyer, seller);
     
+    // Mark order as having had notifications sent
+    console.log(`Marking order ${order.order_id} as having had notifications sent`);
+    await Order.findByIdAndUpdate(orderId, { notificationsSent: true });
+    
     console.log('Order notifications and message sent successfully');
   } catch (error) {
     console.error('Error in send-order-notifications job:', error);
@@ -423,6 +480,7 @@ agenda.define('create-auction-winner-order', async (job) => {
     const Seller = mongoose.model('Seller');
     const Order = mongoose.model('Order');
     const Transaction = mongoose.model('Transaction');
+    const axios = require('axios');
 
     console.log('Starting create-auction-winner-order job for product:', productId);
 
@@ -606,6 +664,216 @@ agenda.define('create-auction-winner-order', async (job) => {
       }
     );
     console.log('Buyer wallet updated with deduction:', totalAmount);
+    
+    // Create Fez Delivery shipment
+    try {
+      console.log('Starting Fez shipment creation for auction order:', {
+        orderId: order._id,
+        orderIdString: order.order_id,
+        buyerAddress: order.delivery_address
+      });
+      
+      // Initialize Fez API configuration
+      const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
+      console.log('Using Fez API URL:', FEZ_API_URL);
+      
+      // Get fresh auth token for Fez
+      const getFezAuthToken = async () => {
+        try {
+          console.log('🔑 Attempting to authenticate with Fez Delivery API...');
+          
+          const authUrl = 'https://apisandbox.fezdelivery.co/v1/user/authenticate';
+          const authData = {
+            user_id: process.env.FEZ_USER_ID || "bolu@auqli.com",
+            password: process.env.FEZ_PASSWORD || "Bolu@123"
+          };
+          
+          console.log(`📤 Auth request to: ${authUrl}`);
+          console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
+          
+          const response = await axios.post(authUrl, authData);
+          
+          console.log(`📥 Auth response status: ${response.status}`);
+          console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
+          console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
+          
+          if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+            console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);
+            return response.data.authDetails.authToken;
+          } else {
+            console.error('❌ Authentication failed: Invalid response format');
+            console.error(`Response data: ${JSON.stringify(response.data, null, 2)}`);
+            throw new Error('Failed to authenticate with Fez Delivery: Invalid response format');
+          }
+        } catch (error) {
+          console.error('❌ Fez authentication error:', error.message);
+          
+          if (error.response) {
+            console.error(`Response status: ${error.response.status}`);
+            console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
+          } else if (error.request) {
+            console.error('No response received from server');
+            console.error(`Request details: ${JSON.stringify(error.request, null, 2)}`);
+          } else {
+            console.error(`Error details: ${error.stack}`);
+          }
+          
+          throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+        }
+      };
+      
+      console.log('Calling getFezAuthToken()');
+      const authToken = await getFezAuthToken();
+      console.log('Using fresh token for auction winner order shipment (first 10 chars):', authToken.substring(0, 10) + '...');
+      
+      // Prepare buyer's delivery address
+      const shippingAddress = {
+        recipientAddress: order.delivery_address.line1 + (order.delivery_address.line2 ? `, ${order.delivery_address.line2}` : ''),
+        recipientState: order.delivery_address.state || "Lagos",
+        recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`,
+        recipientPhone: order.delivery_address.phone,
+        recipientEmail: order.delivery_address.email || freshBuyer.email || ''
+      };
+      
+      console.log('Prepared shipping address:', shippingAddress);
+      
+      // Prepare seller's information
+      const sellerSenderInfo = {
+        senderName: `${seller.firstName} ${seller.lastName}`,
+        senderAddress: seller.address || 'Not provided',
+        senderPhone: seller.phoneNumber || 'Not provided',
+        senderEmail: seller.email || ''
+      };
+      
+      console.log('Prepared seller info:', sellerSenderInfo);
+      
+      // Create unique batch ID for the seller
+      const sellerBatchId = `AUCT-${seller._id.toString().substring(0, 8)}-${Date.now()}`;
+      
+      // Prepare parcel information
+      const sellerParcel = {
+        valueOfItem: bidAmount.toString(),
+        weight: 1, // Default weight of 1kg for auction items
+        itemDescription: `Auction item: ${product.name}`
+      };
+      
+      console.log('Prepared parcel info:', sellerParcel);
+      
+      // Create Fez Delivery request
+      const fezRequest = {
+        recipientAddress: shippingAddress.recipientAddress,
+        recipientState: shippingAddress.recipientState,
+        recipientName: shippingAddress.recipientName,
+        recipientPhone: shippingAddress.recipientPhone,
+        recipientEmail: shippingAddress.recipientEmail,
+        uniqueID: order.order_id,
+        BatchID: sellerBatchId,
+        valueOfItem: sellerParcel.valueOfItem,
+        weight: Math.max(1, Math.round(sellerParcel.weight)),
+        itemDescription: sellerParcel.itemDescription.substring(0, 200), // Ensure it doesn't exceed 200 chars
+        additionalDetails: `Auction order`,
+        isItemCod: false, // Auction orders are always pre-paid
+        thirdparty: "true",
+        senderName: sellerSenderInfo.senderName,
+        senderAddress: sellerSenderInfo.senderAddress,
+        senderPhone: sellerSenderInfo.senderPhone,
+        senderEmail: sellerSenderInfo.senderEmail,
+        pickUpState: sellerSenderInfo.senderAddress.includes(",") ? 
+          sellerSenderInfo.senderAddress.split(",").pop().trim() : "Lagos",
+        pickUpDate: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
+      };
+      
+      console.log('Sending Fez shipment request for auction order:', {
+        orderUniqueId: order.order_id,
+        requestBody: JSON.stringify(fezRequest, null, 2)
+      });
+      
+      // Log request headers
+      const requestHeaders = {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+        'Content-Type': 'application/json'
+      };
+      
+      console.log('Request headers:', {
+        Authorization: requestHeaders.Authorization.substring(0, 15) + '...',
+        'secret-key': requestHeaders['secret-key'].substring(0, 10) + '...',
+        'Content-Type': requestHeaders['Content-Type']
+      });
+      
+      // Make API call to Fez Delivery
+      console.log(`Calling Fez API: POST ${FEZ_API_URL}/order`);
+      const fezResponse = await axios.post(`${FEZ_API_URL}/order`, [fezRequest], {
+        headers: requestHeaders
+      });
+      
+      console.log('Fez API response for auction order:', {
+        status: fezResponse.status,
+        statusText: fezResponse.statusText,
+        data: JSON.stringify(fezResponse.data, null, 2)
+      });
+      
+      // Update order with Fez tracking information
+      if (fezResponse.data && fezResponse.data.status === 'Success') {
+        const orderNos = fezResponse.data.orderNos || {};
+        console.log('orderNos from Fez response:', orderNos);
+        console.log('Looking for order_id:', order.order_id);
+        
+        const fezOrderNo = orderNos[order.order_id];
+        console.log('Found fezOrderNo:', fezOrderNo);
+        
+        if (fezOrderNo) {
+          const updateFields = {
+            'shipping.tracking.number': fezOrderNo,
+            'shipping.fez_order_number': fezOrderNo,
+            'shipping.tracking.carrier': 'Fez Delivery',
+            'shipping.tracking.url': `https://fezdelivery.co/track?orderNo=${fezOrderNo}`,
+            'shipping.carrier.name': 'Fez Delivery',
+            'shipping.carrier.reference': fezOrderNo,
+            'shipping.shipment_id': fezOrderNo
+          };
+          
+          console.log('Updating order with fields:', updateFields);
+          
+          const updatedOrder = await Order.findByIdAndUpdate(
+            order._id,
+            { $set: updateFields },
+            { new: true }
+          );
+          
+          console.log('Order updated with Fez tracking information:', {
+            orderId: order._id,
+            fezOrderNo,
+            trackingNumber: updatedOrder.shipping.tracking.number,
+            fezOrderNumber: updatedOrder.shipping.fez_order_number,
+            shipmentId: updatedOrder.shipping.shipment_id
+          });
+        } else {
+          console.error('fezOrderNo not found in response for uniqueID:', order.order_id);
+          console.error('Full orderNos object:', orderNos);
+        }
+      } else {
+        console.error('Failed to create Fez shipment for auction order:', {
+          orderId: order._id,
+          responseStatus: fezResponse.data?.status,
+          responseMessage: fezResponse.data?.message,
+          fullResponse: fezResponse.data
+        });
+      }
+    } catch (fezError) {
+      console.error('Error creating Fez shipment for auction order:', {
+        orderId: order._id,
+        error: fezError.message,
+        stack: fezError.stack
+      });
+      
+      if (fezError.response) {
+        console.error('Error response:', {
+          status: fezError.response.status,
+          data: fezError.response.data
+        });
+      }
+    }
     
     // Schedule notification job
     await agenda.now('send-order-notifications', {
