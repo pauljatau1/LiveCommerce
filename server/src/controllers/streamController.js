@@ -589,6 +589,11 @@ exports.joinStream = async (req, res) => {
       );
     }
 
+    // Get all viewers with detailed information
+    const detailedViewers = await Buyer.find(
+      { _id: { $in: [...stream.viewers.map(v => v._id), req.user.id] } }
+    ).select('_id firstName lastName username profileImage avatarUrl').lean();
+
     // Send notification to stream channel
     req.io.to(stream.channelName).emit('viewerJoined', {
       streamId: stream._id,
@@ -658,6 +663,14 @@ exports.joinStream = async (req, res) => {
           currentBid: product.currentBid,
           minBid: product.minBid,
           maxBid: product.maxBid
+        })),
+        viewers: detailedViewers.map(viewer => ({
+          _id: viewer._id,
+          firstName: viewer.firstName,
+          lastName: viewer.lastName,
+          username: viewer.username,
+          profileImage: viewer.profileImage,
+          avatarUrl: viewer.avatarUrl
         }))
       }
     });
@@ -742,6 +755,11 @@ exports.joinStreamSeller = async (req, res) => {
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
     
+    // Get all viewers with detailed information
+    const detailedViewers = await Buyer.find(
+      { _id: { $in: stream.viewers.map(v => v._id) } }
+    ).select('_id firstName lastName username profileImage avatarUrl').lean();
+    
     res.json({
       message: 'Successfully joined stream as seller',
       channelName: stream.channelName,
@@ -758,6 +776,14 @@ exports.joinStreamSeller = async (req, res) => {
           currentBid: product.currentBid,
           minBid: product.minBid,
           maxBid: product.maxBid
+        })),
+        viewers: detailedViewers.map(viewer => ({
+          _id: viewer._id,
+          firstName: viewer.firstName,
+          lastName: viewer.lastName,
+          username: viewer.username,
+          profileImage: viewer.profileImage,
+          avatarUrl: viewer.avatarUrl
         }))
       }
     });
