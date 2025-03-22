@@ -290,20 +290,48 @@ export default function ChatInterface() {
   useEffect(() => {
     if (!currentConversation) return;
     console.log('Conversation changed, fetching messages');
-    setMessages([]); // Clear existing messages
+    // We don't clear messages here anymore - this allows for smoother transitions
     fetchMessages();
   }, [currentConversation]);
 
+  // Create a more robust scrollToBottom function with direct DOM manipulation
+  const scrollToBottom = (immediate = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      
+      // Use a more aggressive approach with multiple checks
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 0);
+      
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 50);
+      
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 150);
+    }
+  };
+
+  // Update the fetchMessages function to use the improved scrollToBottom
   const fetchMessages = async () => {
     if (!currentConversation) return;
     
+    const conversationId = currentConversation._id;
     setIsLoadingMessages(true);
-    console.log('Fetching messages for conversation:', currentConversation._id);
+    console.log('Fetching messages for conversation:', conversationId);
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
       const response = await fetch(
-        `${BASE_URL}/messages/${currentConversation._id}?limit=99`,
+        `${BASE_URL}/messages/${conversationId}?limit=99`,
         {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
@@ -313,53 +341,44 @@ export default function ChatInterface() {
       const data = await response.json();
       console.log('Received messages:', data.messages);
 
-      // Reverse the messages array to show most recent at bottom
-      const reversedMessages = [...data.messages].reverse();
-      console.log('Reversed messages:', reversedMessages);
+      // Only update if we're still on the same conversation
+      // This prevents messages from being mixed up if the user switches conversations quickly
+      if (currentConversation?._id === conversationId) {
+        // Reverse the messages array to show most recent at bottom
+        const reversedMessages = [...data.messages].reverse();
+        console.log('Reversed messages:', reversedMessages);
 
-      // Set reversed messages
-      setMessages(reversedMessages || []);
-      
-      // Scroll to bottom after loading messages
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 100); // Increased timeout to ensure content is loaded
-
+        // Set reversed messages
+        setMessages(reversedMessages || []);
+        
+        // Force immediate scroll to bottom after loading messages
+        scrollToBottom(true);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');
     } finally {
-      setIsLoadingMessages(false);
-      setInitialLoad(false);
+      // Only update loading state if we're still on the same conversation
+      if (currentConversation?._id === conversationId) {
+        setIsLoadingMessages(false);
+        setInitialLoad(false);
+      }
     }
   };
 
-  // Add new useEffect for automatic scrolling when messages change
+  // Ensure we scroll to bottom whenever messages change
   useEffect(() => {
-    const scrollToBottom = () => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }
-    };
-
-    // Scroll when messages change
-    scrollToBottom();
-
-    // Also scroll after a short delay to handle any dynamic content
-    const timeoutId = setTimeout(scrollToBottom, 100);
-
-    return () => clearTimeout(timeoutId);
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
   }, [messages]);
 
-  // Auto-scroll to bottom for new messages
+  // Add an additional effect specifically for initial load
   useEffect(() => {
-    if (!messagesContainerRef.current || initialLoad) return;
-    
-    const scrollContainer = messagesContainerRef.current;
-    scrollContainer.scrollTop = scrollContainer.scrollHeight;
-  }, [messages.length]);
+    if (!isLoadingMessages && currentConversation && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [isLoadingMessages, currentConversation]);
 
   // Add this effect to mark messages as read when opening a conversation
   useEffect(() => {
@@ -405,12 +424,8 @@ export default function ChatInterface() {
       if (messageData.conversation === currentConversation?._id) {
         setMessages(prev => [...prev, messageData]);
         
-        // Scroll to bottom for new messages
-        setTimeout(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-          }
-        }, 0);
+        // Force immediate scroll to bottom for new messages
+        scrollToBottom(true);
       }
 
       // Update conversations list
@@ -603,12 +618,8 @@ export default function ChatInterface() {
     // Add temporary message at the end
     setMessages(prev => [...prev, tempMessage]);
 
-    // Scroll to bottom immediately after adding temp message
-    setTimeout(() => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }
-    }, 0);
+    // Force immediate scroll to bottom after adding temp message
+    scrollToBottom(true);
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
@@ -667,11 +678,7 @@ export default function ChatInterface() {
       });
 
       // Ensure scroll to bottom after server confirmation
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 100);
+      scrollToBottom(true);
 
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
@@ -721,6 +728,9 @@ export default function ChatInterface() {
 
     // Add message to UI immediately
     setMessages(prev => [...(prev || []), tempMessage]);
+    
+    // Force immediate scroll to bottom
+    scrollToBottom(true);
 
     const formData = new FormData();
     formData.append('recipientId', currentConversation.participant.id);
@@ -782,6 +792,9 @@ export default function ChatInterface() {
         conversationId: currentConversation._id,
         message: serverMessage
       });
+
+      // Force immediate scroll to bottom after server confirmation
+      scrollToBottom(true);
 
       toast.success("Image sent successfully");
     } catch (error) {
@@ -933,14 +946,53 @@ export default function ChatInterface() {
             className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b ${
               currentConversation?._id === conv._id ? 'bg-green-50' : ''
             }`}
-            onClick={() => {
+            onClick={async () => {
+              // First clear the current messages to avoid showing wrong messages
+              setMessages([]);
+              setIsLoadingMessages(true);
+              
+              // Then set the current conversation
+              setCurrentConversation(conv);
+              
+              // Update URL state for history
               navigate('/dashboard/messages', {
                 state: {
                   conversationId: conv._id,
                   participantId: conv.participant.id,
                   participantName: conv.participant.name
-                }
+                },
+                replace: true // Use replace to avoid navigation history stacking
               });
+
+              // Manually fetch messages for this specific conversation
+              try {
+                const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+                const response = await fetch(
+                  `${BASE_URL}/messages/${conv._id}?limit=99`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${sellerToken}`
+                    }
+                  }
+                );
+                const data = await response.json();
+                
+                // Only update if we're still on the same conversation
+                if (currentConversation?._id === conv._id) {
+                  const reversedMessages = [...data.messages].reverse();
+                  setMessages(reversedMessages || []);
+                  
+                  // Force immediate scroll to bottom after loading messages
+                  scrollToBottom(true);
+                }
+              } catch (error) {
+                console.error('Error fetching messages:', error);
+                toast.error('Failed to load messages');
+              } finally {
+                if (currentConversation?._id === conv._id) {
+                  setIsLoadingMessages(false);
+                }
+              }
             }}
           >
             <div className="flex items-start gap-3">
@@ -1011,6 +1063,25 @@ export default function ChatInterface() {
     }
   }, [currentConversation]);
 
+  // Add effect to ensure message input is visible on conversation change
+  useEffect(() => {
+    if (currentConversation) {
+      // Add a small timeout to allow the DOM to update
+      setTimeout(() => {
+        // Ensure the message container is scrolled to the bottom
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+        
+        // Ensure the message input is visible by scrolling the entire view if needed
+        const messageInput = document.querySelector('.message-input-container');
+        if (messageInput) {
+          messageInput.scrollIntoView({ behavior: 'auto', block: 'end' });
+        }
+      }, 100);
+    }
+  }, [currentConversation]);
+
   // Add back button component for mobile
   const BackButton = () => (
     <Button
@@ -1029,10 +1100,9 @@ export default function ChatInterface() {
 
   // Update messages rendering with new styling
   const renderMessages = () => (
-    <ScrollArea 
+    <div 
       ref={messagesContainerRef}
-      className="flex-1 p-4"
-      scrollToBottom={true}
+      className="flex-1 p-4 overflow-y-auto"
     >
       {isLoadingMessages ? (
         <div className="flex flex-col items-center justify-center h-40">
@@ -1127,7 +1197,7 @@ export default function ChatInterface() {
           <div ref={messagesEndRef} />
         </div>
       )}
-    </ScrollArea>
+    </div>
   );
 
   // Update Quick Tools with improved styling
@@ -1539,7 +1609,7 @@ export default function ChatInterface() {
 
   // Update the message input area
   const renderMessageInput = () => (
-    <div className="px-4 py-3 border-t bg-white relative">
+    <div className="px-4 py-3 border-t bg-white relative message-input-container">
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
           <Input
@@ -1706,7 +1776,7 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col ">
+    <div className="h-[calc(100vh-4rem)] flex flex-col">
 
       <div className="flex-1 flex overflow-hidden">
         {/* Chat list - hidden on mobile when conversation is open */}
@@ -1734,11 +1804,14 @@ export default function ChatInterface() {
           md:flex
           flex-1 flex-col 
           bg-white
+          overflow-hidden
         `}>
           {currentConversation ? (
             <>
               <UserDetailsHeader />
-              {renderMessages()}
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {renderMessages()}
+              </div>
               {renderMessageInput()}
             </>
           ) : (

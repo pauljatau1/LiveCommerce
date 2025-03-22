@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Play, Clock, Heart, MessageSquare, Star, Store, Package } from "lucide-react"
+import { Play, Clock, Heart, MessageSquare, Star, Store, Package, Video } from "lucide-react"
 import { format } from "date-fns"
-import LinearProgress from "@mui/material/LinearProgress"
 import { BASE_URL } from "@/Constants/Server"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function BlipsTab({ sellerId }) {
   const [blips, setBlips] = useState([])
@@ -64,86 +64,123 @@ export default function BlipsTab({ sellerId }) {
     setSelectedBlip(selectedBlip?.blipId === blip.blipId ? null : blip)
   }
 
-  if (loading) return <LinearProgress />
-  if (error) return <div className="text-red-500">Error: {error}</div>
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <Skeleton className="w-full h-64" />
+              <div className="p-4 space-y-4">
+                <div className="flex justify-between items-start">
+                  <Skeleton className="h-6 w-3/5" />
+                  <Skeleton className="h-7 w-1/4" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4 rounded-full" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-10" />
+                  <Skeleton className="h-4 w-10" />
+                  <Skeleton className="h-4 w-10" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-12 px-4">
+      <div className="text-red-500 bg-red-50 p-4 rounded-lg border border-red-200 mb-4">
+        <p className="font-medium">Error: {error}</p>
+      </div>
+      <button 
+        onClick={() => { setLoading(true); fetchBlips(); }}
+        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+      >
+        Try Again
+      </button>
+    </div>
+  )
 
   return (
     <div className="space-y-8">
-      {/* Store Info Section */}
-      {/* {blips.length > 0 && (
-        <Card className="bg-gradient-to-r from-purple-50 to-pink-50 p-6">
-          <div className="flex items-center gap-4">
-            <img
-              src={blips[0].seller.storeAvatar.url}
-              alt={blips[0].seller.storeName}
-              className="w-16 h-16 rounded-full object-cover"
-            />
-            <div>
-              <h2 className="text-xl font-bold">{blips[0].seller.storeName}</h2>
-              <p className="text-gray-600">{blips[0].seller.aboutStore}</p>
-            </div>
-          </div>
-        </Card>
-      )} */}
-
       {/* Blips Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {blips.map((blip) => (
-          <Card key={blip.blipId} className="overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="relative">
-              {selectedBlip?.blipId === blip.blipId ? (
-                <video
-                  src={blip.blipUrl}
-                  className="w-full h-64 object-cover"
-                  controls
-                  autoPlay
-                />
-              ) : (
-                <>
-                  <img
-                    src={blip.images}
-                    alt={blip.productName}
+      {blips.length === 0 ? (
+        <div className="text-center py-16 px-4">
+          <Video className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-xl font-medium mb-2">No blips found</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Blips are short product videos that help showcase your items. Create your first blip to engage with customers!
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {blips.map((blip) => (
+            <Card key={blip.blipId} className="overflow-hidden hover:shadow-lg transition-all duration-300 border border-zinc-200 hover:border-zinc-300">
+              <div className="relative">
+                {selectedBlip?.blipId === blip.blipId ? (
+                  <video
+                    src={blip.blipUrl}
                     className="w-full h-64 object-cover"
+                    controls
+                    autoPlay
                   />
-                  <div 
-                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
-                    onClick={() => handleVideoClick(blip)}
-                  >
-                    <Play className="h-12 w-12 text-white" />
-                  </div>
-                </>
-              )}
-              <Badge className="absolute top-2 right-2 bg-black/60">
-                <Clock className="h-3 w-3 mr-1" />
-                {formatDate(blip.createdAt)}
-              </Badge>
-            </div>
+                ) : (
+                  <>
+                    <img
+                      src={blip.images}
+                      alt={blip.productName}
+                      className="w-full h-64 object-cover"
+                    />
+                    <div 
+                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                      onClick={() => handleVideoClick(blip)}
+                    >
+                      <div className="w-16 h-16 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center">
+                        <Play className="h-8 w-8 text-white fill-white" />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <Badge className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {formatDate(blip.createdAt)}
+                </Badge>
+              </div>
 
-            <CardHeader>
-              <div className="space-y-4">
-                {/* Product Info */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg font-bold">{blip.productName}</CardTitle>
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                      <Store className="h-4 w-4" />
-                      <span>{blip.seller.storeName}</span>
+              <CardHeader className="pb-0 pt-4">
+                <div className="space-y-4">
+                  {/* Product Info */}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg font-bold line-clamp-1">{blip.productName}</CardTitle>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <Store className="h-4 w-4" />
+                        <span>{blip.seller.storeName}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-green-600">
+                        ₦{blip.price.toLocaleString()}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-green-600">
-                      ₦{blip.price.toLocaleString()}
-                    </p>
-                  </div>
                 </div>
+              </CardHeader>
 
+              <CardContent className="pt-3">
                 {/* Engagement Stats */}
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 hover:text-red-500 transition-colors cursor-pointer">
                     <Heart className={`h-4 w-4 ${blip.blipEngagement.likesCount > 0 ? 'text-red-500 fill-red-500' : ''}`} />
                     {blip.blipEngagement.likesCount}
                   </span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 hover:text-blue-500 transition-colors cursor-pointer">
                     <MessageSquare className="h-4 w-4" />
                     {blip.blipEngagement.commentsCount}
                   </span>
@@ -154,11 +191,11 @@ export default function BlipsTab({ sellerId }) {
                     </span>
                   )}
                 </div>
-              </div>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 } 
