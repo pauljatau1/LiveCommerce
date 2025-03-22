@@ -128,6 +128,12 @@ const sellerSchema = new mongoose.Schema({
   isFeatured: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },
   walletBalance: { type: Number, default: 0 },
+  // Add fields for message notifications
+  messageNotifications: {
+    lastSentAt: { type: Date, default: null },
+    pendingCount: { type: Number, default: 0 },
+    conversationsWithNewMessages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' }]
+  },
 
   activityFeed: [{
     type: { type: String, enum: ['post', 'product_added', 'product_updated', 'follow', 'promotion'] },

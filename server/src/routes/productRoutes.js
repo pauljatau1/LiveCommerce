@@ -146,6 +146,93 @@ const optionalAuth = (req, res, next) => {
 // Use optional auth middleware for blips routes
 router.get('/blips', optionalAuth, productController.getAllBlips);
 router.get('/seller/:sellerId/blips', optionalAuth, productController.getSellerBlips);
+router.get('/blips/suggested', optionalAuth, productController.getSuggestedBlips);
+
+/**
+ * @swagger
+ * /api/products/blips/suggested:
+ *   get:
+ *     summary: Get suggested blips based on user preferences
+ *     description: For authenticated buyers, returns blips matching their selected categories. For unauthenticated users, returns popular blips.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *         description: Number of blips per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved suggested blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       blipId:
+ *                         type: string
+ *                       blipUrl:
+ *                         type: string
+ *                         description: URL of the blip video
+ *                       productId:
+ *                         type: string
+ *                       productName:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       category:
+ *                         type: string
+ *                       subCategory:
+ *                         type: string
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                           storeAvatar:
+ *                             type: string
+ *                           isFollowing:
+ *                             type: boolean
+ *                       blipEngagement:
+ *                         type: object
+ *                         properties:
+ *                           likesCount:
+ *                             type: integer
+ *                           commentsCount:
+ *                             type: integer
+ *                           viewCount:
+ *                             type: integer
+ *                 isPersonalized:
+ *                   type: boolean
+ *                   description: Indicates if results are personalized based on user preferences
+ *                 currentPage:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 totalBlips:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
 
 /**
  * @swagger

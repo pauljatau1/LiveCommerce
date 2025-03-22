@@ -103,9 +103,9 @@ const getNotificationMessage = (type, data) => {
     case 'order_paid':
       return `Payment of ${data.amount} received for order #${data.order_id} via ${data.paymentMethod}.`;
     case 'pickup_arranged':
-      return `Pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${new Date(data.pickupDate).toLocaleDateString()}.`;
+      return `Pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${data.pickupDate ? new Date(data.pickupDate).toLocaleDateString() : 'the scheduled date'}.`;
     case 'new_follower':
-      return `${data.buyerName} is now following your store.`;
+      return `${data.buyerName || 'Someone'} is now following your store.`;
     case 'low_stock':
       return `Your product "${data.productName}" is running low on stock (${data.currentStock} units remaining).`;
     case 'order_delivered':
@@ -115,9 +115,9 @@ const getNotificationMessage = (type, data) => {
     case 'review_received':
       return `A new review has been posted for your product "${data.productName}".`;
     case 'new_campaign':
-      return `${data.storeName} has a new campaign: ${data.campaignTitle}. ${data.message}`;
+      return `${data.storeName || 'Your store'} has a new campaign: ${data.campaignTitle || 'New Campaign'}. Sent to ${data.recipientCount || 0} followers.`;
     case 'campaign_scheduled':
-      return `${data.storeName} has scheduled a campaign for ${new Date(data.scheduledFor).toLocaleDateString()}: ${data.campaignTitle}`;
+      return `${data.storeName || 'Your store'} has scheduled a campaign for ${data.scheduledFor ? new Date(data.scheduledFor).toLocaleDateString() : 'the future'}: ${data.campaignTitle || 'Scheduled Campaign'}`;
     case 'order_closed':
       const amount = typeof data.amount === 'number' ? data.amount.toLocaleString() : '0';
       const newBalance = typeof data.newWalletBalance === 'number' ? data.newWalletBalance.toLocaleString() : '0';
@@ -127,15 +127,15 @@ const getNotificationMessage = (type, data) => {
     case 'order_shipped':
       return `Your order #${data.order_id} has been shipped! Track your package with ${data.carrier}.`;
     case 'coupon_received':
-      return `${data.sellerName} has sent you a ${data.discount}% discount coupon valid until ${new Date(data.validUntil).toLocaleDateString()}.`;
+      return `${data.sellerName || 'A seller'} has sent you a ${data.discount}% discount coupon valid until ${data.validUntil ? new Date(data.validUntil).toLocaleDateString() : 'soon'}.`;
     case 'price_drop':
       return `Good news! "${data.productName}" is now ${data.discount}% off.`;
     case 'back_in_stock':
       return `"${data.productName}" is back in stock! Don't miss out.`;
     case 'seller_message':
-      return `New message from ${data.sellerName}.`;
+      return `New message from ${data.sellerName || 'a seller'}.`;
     case 'order_reminder':
-      return `Please confirm receipt of order #${data.order_id} delivered on ${new Date(data.deliveryDate).toLocaleDateString()}.`;
+      return `Please confirm receipt of order #${data.order_id} delivered on ${data.deliveryDate ? new Date(data.deliveryDate).toLocaleDateString() : 'the delivery date'}.`;
     case 'review_reminder':
       return `How was your experience with "${data.productName}"? Share your thoughts!`;
     case 'return_created':
@@ -151,9 +151,9 @@ const getNotificationMessage = (type, data) => {
     case 'return_label_created':
       return `Return shipping label has been created for order #${data.order_id}. Tracking number: ${data.trackingNumber}`;
     case 'return_pickup_arranged':
-      return `Return pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${new Date(data.pickupDate).toLocaleDateString()}.`;
+      return `Return pickup has been arranged for order #${data.order_id} with ${data.carrier} on ${data.pickupDate ? new Date(data.pickupDate).toLocaleDateString() : 'the scheduled date'}.`;
     case 'return_request':
-      return `New return request received from ${data.buyerName} for order #${data.order_id}.`;
+      return `New return request received from ${data.buyerName || 'a buyer'} for order #${data.order_id}.`;
     case 'order_placed':
       // Format the items properly
       let orderItemsText = '';
@@ -176,11 +176,11 @@ const getNotificationMessage = (type, data) => {
       const buyerPaymentInfo = data.paymentMethod ? `Payment via ${data.paymentMethod}.` : '';
       const shippingInfo = data.shippingFee ? `Shipping fee: ${data.shippingFee}.` : '';
       
-      return `Your order #${data.order_id} has been placed successfully for ${data.amount}. ${orderItemsText} from ${data.sellerName}. ${buyerDeliveryInfo} ${buyerPaymentInfo} ${shippingInfo}`;
+      return `Your order #${data.order_id} has been placed successfully for ${data.amount}. ${orderItemsText} from ${data.sellerName || 'seller'}. ${buyerDeliveryInfo} ${buyerPaymentInfo} ${shippingInfo}`;
     case 'new_message':
-      return `${data.senderName} sent you a message: "${data.messagePreview}"`;
+      return `${data.senderName || 'Someone'} sent you a message: "${data.messagePreview || 'View message for details'}"`;
     case 'buyer_message':
-      return `${data.buyerName} sent you a message: "${data.messagePreview}"`;
+      return `${data.buyerName || 'A buyer'} sent you a message: "${data.messagePreview || 'View message for details'}"`;
     default:
       return 'You have a new notification.';
   }
@@ -291,8 +291,8 @@ exports.sendEmailNotification = async (seller, notification) => {
           <p><strong>Recipient:</strong> ${orderData.deliveryAddress.recipientName || ''}</p>
           <p><strong>Address:</strong> ${orderData.deliveryAddress.recipientAddress || ''}</p>
           <p><strong>State:</strong> ${orderData.deliveryAddress.recipientState || ''}</p>
-          <p><strong>Phone:</strong> ${orderData.deliveryAddress.recipientPhone || ''}</p>
-          <p><strong>Email:</strong> ${orderData.deliveryAddress.recipientEmail || ''}</p>
+          <p><strong>Phone:</strong> ${maskPhoneNumber(orderData.deliveryAddress.recipientPhone || '')}</p>
+          <p><strong>Email:</strong> ${maskEmail(orderData.deliveryAddress.recipientEmail || '')}</p>
         </div>
       `;
     }
@@ -302,29 +302,36 @@ exports.sendEmailNotification = async (seller, notification) => {
       from: 'Auqli Seller <joseph@auqli.com>',
       subject: notification.title,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
           <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #333;">New Order Received</h2>
-          </div>
-          <p>Hello ${seller.firstName || 'Seller'},</p>
-          <p>You have received a new order from ${orderData.buyerName || 'a customer'}.</p>
-          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-            <p><strong>Order ID:</strong> ${orderData.order_id || ''}</p>
-            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-            <p><strong>Payment Method:</strong> ${orderData.paymentMethod || 'Online Payment'}</p>
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px;">
+            <h2 style="color: #333; margin-top: 15px;">New Order Received</h2>
           </div>
           
-          <h3>Order Details</h3>
+          <p style="color: #555; font-size: 16px;">Hello ${seller.firstName || 'Seller'},</p>
+          <p style="color: #555; font-size: 16px;">You have received a new order from ${orderData.buyerName || 'a customer'}. Please review the details below:</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #4CAF50;">
+            <p style="margin: 5px 0;"><strong style="color: #333;">Order ID:</strong> <span style="color: #555;">${orderData.order_id || ''}</span></p>
+            <p style="margin: 5px 0;"><strong style="color: #333;">Date:</strong> <span style="color: #555;">${new Date().toLocaleDateString()}</span></p>
+            <p style="margin: 5px 0;"><strong style="color: #333;">Payment Method:</strong> <span style="color: #555;">${orderData.paymentMethod || 'Online Payment'}</span></p>
+          </div>
+          
+          <h3 style="color: #4CAF50; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;">Order Details</h3>
           ${itemsHtml}
           
           ${deliveryInfoHtml}
           
-          <p>Please log in to your Auqli seller dashboard to process this order.</p>
-          <div style="text-align: center; margin-top: 20px;">
-            <a href="https://seller.auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order Details</a>
+          <p style="color: #555; font-size: 16px; margin-top: 20px;">Please log in to your Auqli seller dashboard to process this order.</p>
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="https://seller.auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View Order Details</a>
           </div>
-          <p style="margin-top: 20px;">Thank you for selling with Auqli!</p>
-          <p>Best regards,<br>The Auqli Team</p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
+            <p>Thank you for selling with Auqli!</p>
+            <p>If you have any questions, please contact our seller support team.</p>
+            <p style="color: #999; font-size: 12px; margin-top: 15px;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
         </div>
       `,
     };
@@ -418,8 +425,8 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
           <p><strong>Recipient:</strong> ${data.deliveryAddress.recipientName || ''}</p>
           <p><strong>Address:</strong> ${data.deliveryAddress.recipientAddress || ''}</p>
           <p><strong>State:</strong> ${data.deliveryAddress.recipientState || ''}</p>
-          <p><strong>Phone:</strong> ${data.deliveryAddress.recipientPhone || ''}</p>
-          <p><strong>Email:</strong> ${data.deliveryAddress.recipientEmail || ''}</p>
+          <p><strong>Phone:</strong> ${maskPhoneNumber(data.deliveryAddress.recipientPhone || '')}</p>
+          <p><strong>Email:</strong> ${maskEmail(data.deliveryAddress.recipientEmail || '')}</p>
         </div>
       `;
     }
@@ -1360,8 +1367,8 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           <p><strong>Recipient:</strong> ${firstOrder.delivery_address.first_name} ${firstOrder.delivery_address.last_name}</p>
           <p><strong>Address:</strong> ${firstOrder.delivery_address.line1}</p>
           <p><strong>State:</strong> ${firstOrder.delivery_address.state}</p>
-          <p><strong>Phone:</strong> ${firstOrder.delivery_address.phone}</p>
-          <p><strong>Email:</strong> ${firstOrder.delivery_address.email}</p>
+          <p><strong>Phone:</strong> ${maskPhoneNumber(firstOrder.delivery_address.phone)}</p>
+          <p><strong>Email:</strong> ${maskEmail(firstOrder.delivery_address.email)}</p>
         </div>
       `;
       
@@ -1371,30 +1378,44 @@ exports.processBatchOrderNotifications = async (buyerId) => {
         from: 'Auqli <support@auqli.com>',
         subject: `Your Orders Have Been Placed - Auqli`,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="color: #333;">Multiple Orders Confirmation</h2>
-            </div>
-            <p>Hello ${buyer.firstName || 'Customer'},</p>
-            <p>Thank you for your orders! We're pleased to confirm that your orders have been received and are being processed.</p>
-            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-              <p><strong>Orders:</strong> ${uniqueOrders.length} orders from ${allSellers.length} sellers</p>
-              <p><strong>Payment Method:</strong> ${firstOrder.paymentInfo?.method?.charAt(0).toUpperCase() + firstOrder.paymentInfo?.method?.slice(1) || 'Online Payment'}</p>
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px;">
+              <h2 style="color: #333; margin-top: 15px;">Your Orders Are Confirmed!</h2>
             </div>
             
-            <h3>Order Details</h3>
+            <p style="color: #555; font-size: 16px;">Hello ${buyer.firstName || 'Customer'},</p>
+            <p style="color: #555; font-size: 16px;">Thank you for your orders! We're pleased to confirm that your orders have been received and are being processed by our sellers.</p>
+            
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #4CAF50;">
+              <p style="margin: 5px 0;"><strong style="color: #333;">Date:</strong> <span style="color: #555;">${new Date().toLocaleDateString()}</span></p>
+              <p style="margin: 5px 0;"><strong style="color: #333;">Orders:</strong> <span style="color: #555;">${uniqueOrders.length} orders from ${allSellers.length} sellers</span></p>
+              <p style="margin: 5px 0;"><strong style="color: #333;">Payment Method:</strong> <span style="color: #555;">${firstOrder.paymentInfo?.method?.charAt(0).toUpperCase() + firstOrder.paymentInfo?.method?.slice(1) || 'Online Payment'}</span></p>
+            </div>
+            
+            <h3 style="color: #4CAF50; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;">Order Details</h3>
             ${itemsTable}
             
             ${deliveryInfoHtml}
             
-            <p>You can track the status of your orders by logging into your Auqli account.</p>
-            <div style="text-align: center; margin-top: 20px;">
-              <a href="https://auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Track Your Orders</a>
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+              <h4 style="color: #333; margin-top: 0;">What's Next?</h4>
+              <ul style="color: #555; padding-left: 20px;">
+                <li style="margin-bottom: 8px;">Our sellers will prepare your orders</li>
+                <li style="margin-bottom: 8px;">You'll receive updates as your orders are processed</li>
+                <li style="margin-bottom: 8px;">Track your orders anytime through your Auqli account</li>
+              </ul>
             </div>
-            <p style="margin-top: 20px;">If you have any questions about your orders, please contact our customer service team.</p>
-            <p>Thank you for shopping with Auqli!</p>
-            <p>Best regards,<br>The Auqli Team</p>
+            
+            <div style="text-align: center; margin: 25px 0;">
+              <a href="https://auqli.com/orders" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Track Your Orders</a>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
+              <p>Thank you for shopping with Auqli!</p>
+              <p>If you have any questions about your orders, please contact our customer service team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+              <p style="color: #999; font-size: 12px; margin-top: 15px;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            </div>
           </div>
         `
       };
@@ -1440,4 +1461,17 @@ exports.processBatchOrderNotifications = async (buyerId) => {
     console.error('Error in batch order notification processing:', error);
     throw error;
   }
+};
+
+// Helper functions to mask sensitive information
+const maskEmail = (email) => {
+  if (!email) return '';
+  const [username, domain] = email.split('@');
+  if (!username || !domain) return '***@***.com';
+  return `${username.substring(0, 2)}${'*'.repeat(username.length - 2)}@${domain}`;
+};
+
+const maskPhoneNumber = (phone) => {
+  if (!phone) return '';
+  return `${'*'.repeat(Math.max(0, phone.length - 4))}${phone.substring(Math.max(0, phone.length - 4))}`;
 };
