@@ -4867,3 +4867,265 @@ exports.rerunAuction = async (req, res) => {
   }
 };
 
+// Get products by category and subcategory
+exports.getProductsByCategoryAndSubcategory = async (req, res) => {
+  try {
+    const { category, subcategory } = req.params;
+    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc' } = req.query;
+    
+    // Build query
+    const query = { 
+      category, 
+      subCategory: subcategory,
+      status: 'active',
+      visibility: 'visible',
+      status: { $ne: 'offline_auction' }
+    };
+    
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      case 'rating':
+        sortOptions = { 'stats.averageRating': -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
+    }
+    
+    // Find products with pagination
+    const products = await Product.find(query)
+      .sort(sortOptions)
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('seller', sellerPopulationFields)
+      .select('-__v');
+    
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+    
+    return res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+      totalProducts: total,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    console.error('Error fetching products by category and subcategory:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Get all subcategories with products for a specific category
+exports.getSubcategoriesWithProducts = async (req, res) => {
+  try {
+    const { category } = req.params;
+    
+    // Find all products with this category
+    const products = await Product.find({ 
+      category,
+      status: 'active',
+      visibility: 'visible',
+      status: { $ne: 'offline_auction' }
+    });
+    
+    if (!products || products.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'No products found for this category' 
+      });
+    }
+    
+    // Extract unique subcategories and count products in each
+    const subcategories = {};
+    products.forEach(product => {
+      if (product.subCategory) {
+        if (!subcategories[product.subCategory]) {
+          subcategories[product.subCategory] = 0;
+        }
+        subcategories[product.subCategory]++;
+      }
+    });
+    
+    // Convert to array format with counts
+    const result = Object.keys(subcategories).map(subcat => ({
+      name: subcat,
+      productCount: subcategories[subcat]
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error fetching subcategories with products:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Get products by seller, category and subcategory
+exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
+  try {
+    const { sellerId, category, subcategory } = req.params;
+    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc' } = req.query;
+    
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
+    }
+    
+    // Build query
+    const query = { 
+      seller: sellerId,
+      category,
+      subCategory: subcategory
+    };
+    
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      case 'rating':
+        sortOptions = { 'stats.averageRating': -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
+    }
+    
+    // Check if seller exists
+    const seller = await mongoose.model('Seller').findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Seller not found' });
+    }
+    
+    // Find products with pagination
+    const products = await Product.find(query)
+      .sort(sortOptions)
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('seller', sellerPopulationFields)
+      .select('-__v');
+    
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+    
+    return res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+      totalProducts: total,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    console.error('Error fetching seller products by category and subcategory:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Get all subcategories with products for a specific seller and category
+exports.getSellerSubcategoriesWithProducts = async (req, res) => {
+  try {
+    const { sellerId, category } = req.params;
+    
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
+    }
+    
+    // Check if seller exists
+    const seller = await mongoose.model('Seller').findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Seller not found' });
+    }
+    
+    // Find all products with this seller and category
+    const products = await Product.find({ 
+      seller: sellerId,
+      category
+    });
+    
+    if (!products || products.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'No products found for this seller and category' 
+      });
+    }
+    
+    // Extract unique subcategories and count products in each
+    const subcategories = {};
+    products.forEach(product => {
+      if (product.subCategory) {
+        if (!subcategories[product.subCategory]) {
+          subcategories[product.subCategory] = 0;
+        }
+        subcategories[product.subCategory]++;
+      }
+    });
+    
+    // Convert to array format with counts
+    const result = Object.keys(subcategories).map(subcat => ({
+      name: subcat,
+      productCount: subcategories[subcat]
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error fetching seller subcategories with products:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
