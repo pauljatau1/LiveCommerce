@@ -1509,6 +1509,15 @@ exports.getAllBlips = async (req, res) => {
         }
       },
       { $unwind: '$sellerInfo' },
+      // Lookup auction bidder information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.currentHighestBid.buyer',
+          foreignField: '_id',
+          as: 'highestBidder'
+        }
+      },
       // Project needed fields
       {
         $project: {
@@ -1531,8 +1540,27 @@ exports.getAllBlips = async (req, res) => {
                 endDate: '$auction.endDate',
                 status: '$auction.status',
                 daysLeft: '$auction.daysLeft',
-                currentHighestBid: '$auction.currentHighestBid',
-                winner: '$auction.winner'
+                currentHighestBid: {
+                  amount: '$auction.currentHighestBid.amount',
+                  buyer: {
+                    _id: '$auction.currentHighestBid.buyer',
+                    firstName: { $arrayElemAt: ['$highestBidder.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$highestBidder.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$highestBidder.profileImage', 0] }
+                  }
+                },
+                winner: {
+                  buyer: '$auction.winner.buyer',
+                  bidAmount: '$auction.winner.bidAmount',
+                  winningDate: '$auction.winner.winningDate'
+                },
+                bidsCount: {
+                  $cond: {
+                    if: { $isArray: '$auction.bids' },
+                    then: { $size: '$auction.bids' },
+                    else: 0
+                  }
+                }
               },
               else: null
             }
@@ -1745,6 +1773,24 @@ exports.getSellerBlips = async (req, res) => {
       },
       // Unwind the blips array
       { $unwind: '$blips' },
+      // Lookup auction bidder information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.currentHighestBid.buyer',
+          foreignField: '_id',
+          as: 'highestBidder'
+        }
+      },
+      // Lookup auction winner information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.winner.buyer',
+          foreignField: '_id',
+          as: 'auctionWinner'
+        }
+      },
       // Project needed fields with safe handling of likes/comments
       {
         $project: {
@@ -1770,8 +1816,32 @@ exports.getSellerBlips = async (req, res) => {
                 endDate: '$auction.endDate',
                 status: '$auction.status',
                 daysLeft: '$auction.daysLeft',
-                currentHighestBid: '$auction.currentHighestBid',
-                winner: '$auction.winner'
+                currentHighestBid: {
+                  amount: '$auction.currentHighestBid.amount',
+                  buyer: {
+                    _id: '$auction.currentHighestBid.buyer',
+                    firstName: { $arrayElemAt: ['$highestBidder.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$highestBidder.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$highestBidder.profileImage', 0] }
+                  }
+                },
+                winner: {
+                  bidAmount: '$auction.winner.bidAmount',
+                  winningDate: '$auction.winner.winningDate',
+                  buyer: {
+                    _id: '$auction.winner.buyer',
+                    firstName: { $arrayElemAt: ['$auctionWinner.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$auctionWinner.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$auctionWinner.profileImage', 0] }
+                  }
+                },
+                bidsCount: {
+                  $cond: {
+                    if: { $isArray: '$auction.bids' },
+                    then: { $size: '$auction.bids' },
+                    else: 0
+                  }
+                }
               },
               else: null
             }
@@ -4572,7 +4642,10 @@ exports.getBlipDetails = async (req, res) => {
       { 
         "name": 1,
         "seller": 1,
-        "blips.$": 1 
+        "blips.$": 1,
+        "status": 1,
+        "auction": 1,
+        "price": 1
       }
     ).populate({
       path: 'blips.comments.buyer',
@@ -4587,6 +4660,15 @@ exports.getBlipDetails = async (req, res) => {
     }).populate({
       path: 'seller',
       select: '_id firstName lastName storeName storeAvatar businessName'
+    }).populate({
+      path: 'auction.currentHighestBid.buyer',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'auction.winner.buyer',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'auction.bids.buyer',
+      select: '_id firstName lastName profileImage'
     });
 
     if (!product || !product.blips || product.blips.length === 0) {
@@ -4629,6 +4711,8 @@ exports.getBlipDetails = async (req, res) => {
       productInfo: {
         _id: product._id,
         name: product.name,
+        price: product.price,
+        status: product.status,
         seller: {
           _id: product.seller?._id,
           storeName: product.seller?.storeName,
@@ -4637,6 +4721,61 @@ exports.getBlipDetails = async (req, res) => {
         }
       }
     };
+
+    // Add auction details if it's an offline auction product
+    if (product.status === 'offline_auction' && product.auction) {
+      formattedBlip.productInfo.auction = {
+        minBid: product.auction.minBid,
+        maxBid: product.auction.maxBid,
+        endOnMaxBid: product.auction.endOnMaxBid,
+        startDate: product.auction.startDate,
+        endDate: product.auction.endDate,
+        status: product.auction.status,
+        daysLeft: product.auction.daysLeft,
+        bidsCount: product.auction.bids ? product.auction.bids.length : 0,
+        
+        // Format current highest bid with buyer details
+        currentHighestBid: product.auction.currentHighestBid ? {
+          amount: product.auction.currentHighestBid.amount,
+          buyer: product.auction.currentHighestBid.buyer ? {
+            _id: product.auction.currentHighestBid.buyer._id,
+            firstName: product.auction.currentHighestBid.buyer.firstName,
+            lastName: product.auction.currentHighestBid.buyer.lastName,
+            profileImage: product.auction.currentHighestBid.buyer.profileImage
+          } : null
+        } : null,
+        
+        // Format winner with buyer details
+        winner: product.auction.winner && product.auction.winner.buyer ? {
+          bidAmount: product.auction.winner.bidAmount,
+          winningDate: product.auction.winner.winningDate,
+          buyer: {
+            _id: product.auction.winner.buyer._id,
+            firstName: product.auction.winner.buyer.firstName,
+            lastName: product.auction.winner.buyer.lastName,
+            profileImage: product.auction.winner.buyer.profileImage
+          }
+        } : null,
+        
+        // Format recent bids with buyer details (limit to last 5)
+        recentBids: product.auction.bids ? 
+          product.auction.bids
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5)
+            .map(bid => ({
+              _id: bid._id,
+              amount: bid.amount,
+              createdAt: bid.createdAt,
+              status: bid.status,
+              buyer: bid.buyer ? {
+                _id: bid.buyer._id,
+                firstName: bid.buyer.firstName,
+                lastName: bid.buyer.lastName,
+                profileImage: bid.buyer.profileImage
+              } : null
+            })) : []
+      };
+    }
 
     res.json({
       success: true,
