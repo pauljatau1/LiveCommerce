@@ -41,6 +41,8 @@ import AuthSheet from "../auth/authSheet";
 import { data } from "@/constants";
 import Comment from "./comment";
 import CommentsSheet from "./commentsSheet";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
@@ -61,6 +63,7 @@ const VideoItem = ({
   item: any;
   singularBlip: boolean;
 }) => {
+  const token = useSelector((state: RootState) => state.authState?.token);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
@@ -206,13 +209,13 @@ const VideoItem = ({
     }
   }, [isFocused]);
 
-  // useEffect(() => {
-  //   return () => {
-  //     if (videoRef.current) {
-  //       videoRef.current.unloadAsync();
-  //     }
-  //   };
-  // }, []);
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   const tabBarHeight = !singularBlip ? useBottomTabBarHeight() : 10;
 
@@ -364,7 +367,7 @@ const VideoItem = ({
               </View>
             </View>
 
-            {following ? (
+            {!token ? null : following ? (
               <Pressable
                 className="py-[4px] px-[8px] rounded-[8px] items-center justify-center border-[#16783A] border-[1px]"
                 // style={styles.buttonShadow}

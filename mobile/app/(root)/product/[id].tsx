@@ -302,89 +302,74 @@ const ProductDescription = () => {
     });
     console.log("product id ", id);
 
-    socket.emit("join_auction", id);
-
-    socket.on("bid_error", (error) => {
-      console.log("Bid error:", error);
-    });
-
-    socket.on("auction_data", (data) => {
-      setAuctionData(data);
-      console.log("listening to auction data ", data);
-    });
+    // socket.on("bid_error", (error) => {
+    //   console.log("Bid error:", error);
+    // });
 
     socket.on("bid_update", (data) => {
       setAuctionData(data);
       console.log("gotten bid update", data);
     });
 
-    socket.on("bid_placed", (data) => {
-      console.log("Bid successfully placed:", data);
-    });
+    // socket.on("bid_placed", (data) => {
+    //   console.log("Bid successfully placed:", data);
+    //   toast.success("bid placed successfully");
+    // });
 
-    socket.on("auction_ended", (data) => {
-      // Handle auction end
-    });
+    // socket.on("auction_ended", (data) => {
+    //   // Handle auction end
+    // });
     socket.on("auction_error", (error) => {
       // Handle auction end
       console.log("error with auction ", error);
     });
 
+    socket.emit("join_auction", id);
+
+    socket.on("auction_data", (data) => {
+      setAuctionData(data);
+      console.log("listening to auction data ", data);
+    });
+
     return () => {
-      // socket.off("connect");
       console.log("leaving");
 
-      socket.emit("leave_auction", productDetails?._id);
+      socket.emit("leave_auction", id);
       socket.off("auction_data");
       socket.off("bid_update");
-      socket.off("auction_timer_update");
-      socket.off("auction_ended");
-      socket.off("bid_placed");
-      socket.off("bid_error");
+      socket.off("auction_error");
+      // socket.off("auction_timer_update");
+      // socket.off("auction_ended");
+      // socket.off("bid_placed");
+      // socket.off("bid_error");
+      socket.off("connect");
       socket.disconnect();
     };
   }, []);
 
-  // useEffect(() => {
-  //   if (id) {
+  useEffect(() => {
+    socket.on("bid_error", (error) => {
+      console.log("Bid error:", error);
+      toast.error(error?.message || "Error placing bid");
+    });
 
-  //   }
-  // }, [id]);
+    socket.on("bid_placed", (data) => {
+      console.log("Bid successfully placed:", data);
+      toast.success("bid placed successfully");
+    });
 
-  // useEffect(() => {
-  //   socket.on("bid_error", (error) => {
-  //     console.log("Bid error:", error);
-  //   });
+    socket.on("auction_ended", (data) => {
+      // Handle auction end
+    });
+    return () => {
+      // console.log("leaving");
 
-  //   socket.on("auction_data", (data) => {
-  //     setAuctionData(data);
-  //     console.log("listening to auction data ", data);
-  //   });
-
-  //   socket.on("bid_update", (data) => {
-  //     setAuctionData(data);
-  //     console.log("gotten bid update", data);
-  //   });
-
-  //   socket.on("bid_placed", (data) => {
-  //     console.log("Bid successfully placed:", data);
-  //   });
-
-  //   socket.on("auction_ended", (data) => {
-  //     // Handle auction end
-  //   });
-  //   return () => {
-  //     console.log("leaving");
-
-  //     socket.emit("leave_auction", productDetails?._id);
-  //     socket.off("auction_data");
-  //     socket.off("bid_update");
-  //     socket.off("auction_timer_update");
-  //     socket.off("auction_ended");
-  //     socket.off("bid_placed");
-  //     socket.off("bid_error");
-  //   };
-  // }, []);
+      // socket.emit("leave_auction", id);
+      socket.off("auction_ended");
+      socket.off("bid_placed");
+      socket.off("bid_error");
+    };
+  }, [socket]);
 
   useEffect(() => {
     // refetch();
@@ -442,6 +427,9 @@ const ProductDescription = () => {
   //auction functions
 
   const placeBid = (amount: number) => {
+    if (auctionData?.status == "ended") {
+      return toast.error("This Auction has ended!");
+    }
     if (!user?.wallet?.availableBalance && !shippingFee) {
       return toast.error("Unable to place bid . Please try again");
     }
@@ -458,7 +446,7 @@ const ProductDescription = () => {
 
     socket.emit("place_bid", {
       productId: productDetails?._id,
-      amount: amount + 500,
+      amount: amount,
     });
     console.log("placedBid ", amount);
   };
@@ -634,7 +622,7 @@ const ProductDescription = () => {
             ref={scrollViewRef}
             style={{ flex: 1 }}
             contentContainerStyle={{
-              paddingBottom: 80,
+              paddingBottom: Platform.OS == "android" ? 120 : 80,
             }}
           >
             {isLoading || isFetching ? (
@@ -700,21 +688,43 @@ const ProductDescription = () => {
                                 ?.profileImage?.url,
                             }}
                             style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: 10,
+                              width: 30,
+                              height: 30,
+                              borderRadius: 15,
                             }}
                           />
                         )}
 
-                        <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
-                          {auctionData?.currentHighestBid?.buyer?.firstName
-                            ? auctionData?.currentHighestBid?.buyer?.firstName +
-                              " " +
-                              auctionData?.currentHighestBid?.buyer?.lastName +
-                              " is winning"
-                            : "no current winner"}
-                        </Text>
+                        {auctionData?.status == "ended" ? (
+                          <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
+                            {auctionData?.winner?.buyer?.firstName
+                              ? auctionData?.winner?.buyer?.firstName +
+                                " " +
+                                auctionData?.winner?.buyer?.lastName +
+                                " won!"
+                              : "Auction has ended"}
+                          </Text>
+                        ) : (
+                          <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
+                            {auctionData?.currentHighestBid?.buyer?.firstName
+                              ? auctionData?.currentHighestBid?.buyer
+                                  ?.firstName +
+                                " " +
+                                auctionData?.currentHighestBid?.buyer
+                                  ?.lastName +
+                                " is winning!"
+                              : "no current winner"}
+                          </Text>
+                        )}
+
+                        <Image
+                          source={require("../../../assets/icons/verified.png")}
+                          style={{
+                            resizeMode: "contain",
+                            width: 20,
+                            height: 20,
+                          }}
+                        />
                       </View>
                     )}
                     <View className="flex flex-row items-center justify-between ">
@@ -1256,14 +1266,16 @@ const ProductDescription = () => {
               }}
               onPress={() => {
                 placeBid(
-                  auctionData?.currentHighestBid?.amount || auctionData?.minBid,
+                  auctionData?.currentHighestBid?.amount + 500 ||
+                    auctionData?.minBid,
                 );
               }}
             >
               <Text className="text-[10px] text-white font-LexendDecaSemiBold">
                 Bid ₦
                 {(
-                  auctionData?.currentHighestBid?.amount || auctionData?.minBid
+                  auctionData?.currentHighestBid?.amount + 500 ||
+                  auctionData?.minBid
                 )?.toLocaleString()}
               </Text>
             </TouchableOpacity>
