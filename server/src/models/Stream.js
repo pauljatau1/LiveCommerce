@@ -80,6 +80,19 @@ const streamSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Buyer'
   }],
+  departedViewers: [{
+    buyer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Buyer'
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    notificationData: {
+      type: mongoose.Schema.Types.Mixed
+    }
+  }],
   bids: [{
     buyer: {
       type: mongoose.Schema.Types.ObjectId,

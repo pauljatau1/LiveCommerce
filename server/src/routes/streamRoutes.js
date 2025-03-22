@@ -1199,4 +1199,86 @@ router.get('/:streamId/chat',
   streamController.getChatInteractions
 );
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/leave:
+ *   post:
+ *     summary: Leave a live stream as a buyer/viewer
+ *     description: Remove the user from the viewers list, add them to departedViewers list, and notify other participants
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully left the stream
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Successfully left stream
+ *                 streamId:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Stream not found or not active
+ *       500:
+ *         description: Server error
+ */
+router.post('/:streamId/leave',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.leaveStream
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/leave-seller:
+ *   post:
+ *     summary: Leave a live stream as the seller/host
+ *     description: Notify all participants when the host/seller leaves the room
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully left the stream as seller
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Successfully left stream as seller
+ *                 streamId:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Stream not found or you do not have permission
+ *       500:
+ *         description: Server error
+ */
+router.post('/:streamId/leave-seller',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  streamController.leaveStreamSeller
+);
+
 module.exports = router; 

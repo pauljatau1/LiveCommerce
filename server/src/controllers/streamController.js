@@ -585,7 +585,10 @@ exports.joinStream = async (req, res) => {
       // Since we're using lean(), we need to update the database separately
       await Stream.updateOne(
         { _id: req.params.streamId },
-        { $addToSet: { viewers: req.user.id } }
+        { 
+          $addToSet: { viewers: req.user.id },
+          $pull: { departedViewers: { buyer: req.user.id } } // Remove user from departedViewers if they rejoin
+        }
       );
     }
 
@@ -1482,6 +1485,164 @@ exports.getChatInteractions = async (req, res) => {
     console.error('Error getting chat interactions:', error);
     res.status(500).json({
       message: 'Failed to get chat interactions',
+      error: error.message
+    });
+  }
+};
+
+exports.leaveStream = async (req, res) => {
+  try {
+    const stream = await Stream.findOne({
+      _id: req.params.streamId,
+      status: 'live'
+    }).populate('seller', 'storeName businessName');
+
+    if (!stream) {
+      return res.status(404).json({ message: 'Active stream not found' });
+    }
+
+    // Fetch buyer details
+    const buyer = await Buyer.findById(req.user.id).select('firstName lastName username avatarUrl profileImage');
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    // Remove user from viewers if they were there
+    const wasViewer = await Stream.updateOne(
+      { _id: req.params.streamId },
+      { $pull: { viewers: req.user.id } }
+    );
+
+    // Create notification object
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'leave',
+      user: buyer.username || buyer.firstName || 'Viewer',
+      avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
+      content: `left room`,
+      data: {
+        message: `${buyer.username || buyer.firstName} left room`,
+        buyerId: req.user.id.toString(),
+        buyerName: buyer.firstName + " " + buyer.lastName,
+        buyerUsername: buyer.username,
+        buyerAvatar: buyer.profileImage?.url || buyer.avatarUrl || '',
+        streamId: stream._id.toString(),
+        sellerName: stream.seller.storeName || stream.seller.businessName,
+        sellerId: stream.seller._id.toString()
+      }
+      // timestamp will be added automatically by the schema default
+    };
+
+    try {
+      // Add the notification to chat interactions
+      await Stream.findByIdAndUpdate(
+        stream._id,
+        { 
+          $push: { 
+            chatInteractions: notificationObj,
+            departedViewers: {
+              buyer: req.user.id,
+              notificationData: notificationObj
+            }
+          } 
+        }
+      );
+      
+      // Broadcast to all subscribers of stream notifications
+      if (req.app && req.app.get('io')) {
+        const io = req.app.get('io');
+        // Add timestamp for the WebSocket payload
+        notificationObj.timestamp = new Date();
+        io.to('stream_notifications').emit('viewer_left_stream', notificationObj);
+      }
+
+      // Send notification to stream channel
+      req.io?.to(stream.channelName).emit('viewerLeft', {
+        streamId: stream._id,
+        viewer: req.user.id,
+        viewerName: buyer.firstName + " " + buyer.lastName
+      });
+    } catch (error) {
+      console.error('Failed to save chat interaction or send notification:', error);
+      // Continue even if saving the chat interaction fails
+    }
+
+    res.json({
+      message: 'Successfully left stream',
+      streamId: stream._id
+    });
+
+  } catch (error) {
+    console.error('Leave stream error:', error);
+    res.status(500).json({
+      message: 'Failed to leave stream',
+      error: error.message
+    });
+  }
+};
+
+exports.leaveStreamSeller = async (req, res) => {
+  try {
+    const stream = await Stream.findOne({
+      _id: req.params.streamId,
+      seller: req.user.id,
+      status: 'live'
+    }).populate('seller', 'storeName businessName storeAvatar');
+
+    if (!stream) {
+      return res.status(404).json({ message: 'Active stream not found or you do not have permission' });
+    }
+
+    // Create notification object
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'leave',
+      user: stream.seller.storeName || 'Host',
+      avatar: stream.seller.storeAvatar?.url || '',
+      content: 'Host left room',
+      data: {
+        message: 'Host left room',
+        sellerId: req.user.id.toString(),
+        streamId: stream._id.toString(),
+        sellerName: stream.seller.storeName || stream.seller.businessName
+      }
+    };
+
+    try {
+      // Add the notification to the stream's chat interactions
+      await Stream.findByIdAndUpdate(
+        stream._id,
+        { $push: { chatInteractions: notificationObj } }
+      );
+      
+      // Broadcast a notification that the seller has left their stream
+      if (req.app && req.app.get('io')) {
+        const io = req.app.get('io');
+        // Add timestamp for the WebSocket payload
+        notificationObj.timestamp = new Date();
+        io.to('stream_notifications').emit('seller_left_stream', notificationObj);
+      }
+
+      // Send notification to stream channel
+      req.io?.to(stream.channelName).emit('sellerLeft', {
+        streamId: stream._id,
+        sellerId: req.user.id,
+        sellerName: stream.seller.storeName || stream.seller.businessName
+      });
+    } catch (error) {
+      console.error('Failed to save chat interaction or send notification:', error);
+      // Continue even if saving the chat interaction fails
+    }
+
+    res.json({
+      message: 'Successfully left stream as seller',
+      streamId: stream._id
+    });
+
+  } catch (error) {
+    console.error('Leave stream as seller error:', error);
+    res.status(500).json({
+      message: 'Failed to leave stream as seller',
       error: error.message
     });
   }
