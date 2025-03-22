@@ -94,5 +94,6 @@ export interface LivestreamContextType {
     activeStreamDetails: StreamDetails | null;
     joinStream: (streamId: string) => Promise<StreamDetails>;
     fetchActiveStreamDetails: (streamId: string) => Promise<StreamDetails>;
+    leaveStream: (streamId: string) => Promise<any>;
     // Add other properties as needed
 }

@@ -131,7 +131,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
           <Animated.View 
             style={[
               styles.avatar, 
-              { backgroundColor: 'rgba(255, 255, 255, 0.5)' },
+              { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
               pulseStyles
             ]} 
           />
@@ -141,14 +141,14 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
           <Animated.View style={[{
             height: 16,
             width: '60%',
-            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
             borderRadius: 4,
             marginBottom: 8
           }, pulseStyles]} />
           <Animated.View style={[{
             height: 12,
             width: '40%',
-            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
             borderRadius: 4
           }, pulseStyles]} />
         </View>
@@ -312,7 +312,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
   );
 
   return (
-    <View style={styles.container}>
+    <ScrollView showsVerticalScrollIndicator={false} style={styles.container}>
       {renderHeader()}
 
       {hostInfo && renderHostSection()}
@@ -325,6 +325,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
         </View>
       ) : (
         <FlatList
+          scrollEnabled={false}
           data={safeViewers}
           renderItem={renderViewerItem}
           keyExtractor={(item) => item._id || Math.random().toString()}
@@ -333,13 +334,14 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
           showsVerticalScrollIndicator={false}
         />
       )}
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     //flex: 1,
+    height: 300,
     backgroundColor: '#121212',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

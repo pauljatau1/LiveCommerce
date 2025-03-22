@@ -1,6 +1,6 @@
 import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated, Platform, Keyboard, ScrollView, Alert } from 'react-native';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useLivestream } from '@/contexts/livestreamContext';
 import { WebView } from 'react-native-webview';
 import { AntDesign, Feather, MaterialIcons, Ionicons, Octicons, FontAwesome, Entypo, MaterialCommunityIcons, SimpleLineIcons } from '@expo/vector-icons';
@@ -31,8 +31,9 @@ const { width, height } = Dimensions.get('window');
 
 const LiveAuctionStudio = () => {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const { id } = useLocalSearchParams();
-    const { activeStreamDetails, joinStream, fetchActiveStreamDetails } = useLivestream() as LivestreamContextType;
+    const { activeStreamDetails, joinStream, fetchActiveStreamDetails, leaveStream } = useLivestream() as LivestreamContextType;
     const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
     const [status, setStatus] = useState('Initializing...');
     const [isLoading, setIsLoading] = useState(true);
@@ -65,7 +66,7 @@ const LiveAuctionStudio = () => {
     // New state for live comments and events
     const [liveComments, setLiveComments] = useState<Array<{
         id: string;
-        type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin';
+        type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave';
         user: string;
         avatar?: any;
         content: string;
@@ -86,6 +87,8 @@ const LiveAuctionStudio = () => {
     const [showViewers, setShowViewers] = useState(false);
     // Add new state for stream info bottom sheet
     const [showStreamInfo, setShowStreamInfo] = useState(false);
+    // Add state for menu popover
+    const [showMenuPopover, setShowMenuPopover] = useState(false);
     // Add stream details state
     const [streamDetails, setStreamDetails] = useState({
         title: '',
@@ -98,6 +101,9 @@ const LiveAuctionStudio = () => {
         status: 'live',
         type: 'auction'
     });
+
+    // Add state for leave stream loading
+    const [isLeavingStream, setIsLeavingStream] = useState(false);
 
     useEffect(() => {
         setupLivestream();
@@ -355,6 +361,12 @@ const LiveAuctionStudio = () => {
                 setLiveComments(prev => [...prev, notification]);
                 break;
 
+            case 'leave':
+                console.log('User left stream:', notification.user);
+                // Update UI to show leave event
+                setLiveComments(prev => [...prev, notification]);
+                break;
+
             default:
                 console.warn('Unknown notification type:', notification.type);
         }
@@ -607,6 +619,20 @@ const LiveAuctionStudio = () => {
                     </View>
                 </View>
             );
+        } else if (item.type === 'leave') {
+            // Handle viewer leave comments
+            const isCurrentUser = item.data?.buyerId === (getUser() as any)?._id;
+            return (
+                <View style={styles.leaveCommentItem}>
+                    {renderAvatar()}
+                    <View style={styles.leaveCommentContent}>
+                        <Text style={styles.commentUser}>{item.user}</Text>
+                        <Text style={styles.leaveCommentText}>
+                            {item.content}
+                        </Text>
+                    </View>
+                </View>
+            );
         } else if (item.type === 'purchase') {
             return (
                 <View style={styles.purchaseCommentItem}>
@@ -835,6 +861,32 @@ const LiveAuctionStudio = () => {
         setShowStreamInfo(true);
     };
 
+    // Update handleLeaveStream function to actually leave the stream
+    const handleLeaveStream = async () => {
+        if (!id) return;
+        
+        try {
+            setIsLeavingStream(true);
+            console.log('User requested to leave the stream');
+            
+            // Call the leaveStream API endpoint
+            const result = await leaveStream(id as string);
+            console.log('Leave stream result:', result);
+            
+            // Disconnect the socket
+            disconnectSocket();
+            
+            // Navigate back to previous screen
+            router.back();
+        } catch (error) {
+            console.error('Error leaving stream:', error);
+            // Show error message to user if needed
+        } finally {
+            setIsLeavingStream(false);
+            setShowMenuPopover(false);
+        }
+    };
+
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -918,15 +970,74 @@ const LiveAuctionStudio = () => {
                                         </TouchableOpacity>
                                         
                                         <TouchableOpacity
-                                            onPress={toggleMute}
-                                            className=" p-2 rounded-full"
+                                            onPress={() => setShowMenuPopover(!showMenuPopover)}
+                                            className="p-2 rounded-full relative"
                                         >
-                                            {isMuted ? (
-                                                <Ionicons name="volume-mute-outline" size={22} color="#FFF" />
-                                            ) : (
-                                                <Ionicons name="volume-medium-outline" size={22} color="#FFF" />
-                                            )}
+                                            <Entypo name="dots-three-horizontal" size={22} color="#FFF" />
                                         </TouchableOpacity>
+                                        {showMenuPopover && (
+                                                <View style={{
+                                                    position: 'absolute',
+                                                    right: 0,
+                                                    top: 40,
+                                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                                    borderRadius: 8,
+                                                    paddingVertical: 8,
+                                                    paddingHorizontal: 10,
+                                                    width: 160,
+                                                    shadowColor: '#000',
+                                                    shadowOffset: { width: 0, height: 2 },
+                                                    shadowOpacity: 0.25,
+                                                    shadowRadius: 3.84,
+                                                    zIndex: 1000,
+                                                }}>
+                                                    <TouchableOpacity 
+                                                        onPress={() => {
+                                                            toggleMute();
+                                                            setShowMenuPopover(false);
+                                                        }}
+                                                        style={{
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            paddingVertical: 10,
+                                                        }}
+                                                    >
+                                                        {isMuted ? (
+                                                            <Ionicons name="volume-mute-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
+                                                        ) : (
+                                                            <Ionicons name="volume-medium-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
+                                                        )}
+                                                        <Text style={{ color: '#FFF', fontSize: 14 }}>
+                                                            {isMuted ? 'Unmute' : 'Mute'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                    
+                                                    <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 5 }} />
+                                                    
+                                                    <TouchableOpacity 
+                                                        onPress={() => {
+                                                            if (!isLeavingStream) {
+                                                                handleLeaveStream();
+                                                            }
+                                                        }}
+                                                        disabled={isLeavingStream}
+                                                        style={{
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            paddingVertical: 10,
+                                                        }}
+                                                    >
+                                                        {isLeavingStream ? (
+                                                            <ActivityIndicator size="small" color="#FF5555" style={{ marginRight: 10 }} />
+                                                        ) : (
+                                                            <Ionicons name="exit-outline" size={20} color="#FF5555" style={{ marginRight: 10 }} />
+                                                        )}
+                                                        <Text style={{ color: '#FF5555', fontSize: 14 }}>
+                                                            {isLeavingStream ? 'Leaving...' : 'Leave'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                     </View>
                                 </View>
                             </SafeAreaView>
@@ -1155,6 +1266,7 @@ const LiveAuctionStudio = () => {
                 titleColor="!text-white"
                 onRequestClose={() => setShowBidVariation(false)}
                 keyboardBehavior="interactive"
+                enableContentPanningGesture={true}
             >
                 {selectedBidProduct && (
                     <BidVariationSelector
@@ -1180,7 +1292,7 @@ const LiveAuctionStudio = () => {
                 showCloseIcon={false}
                 title=""
                 show={showViewers}
-                snapPoints={["70%"]}
+                snapPoints={["60%"]}
                 titleColor="!text-white"
                 onRequestClose={() => setShowViewers(false)}
                 keyboardBehavior="interactive"
@@ -1202,10 +1314,11 @@ const LiveAuctionStudio = () => {
                 showCloseIcon={false}
                 title=""
                 show={showStreamInfo}
-                snapPoints={["100%"]}
+                snapPoints={["60%"]}
                 titleColor="!text-white"
                 onRequestClose={() => setShowStreamInfo(false)}
                 keyboardBehavior="interactive"
+                //enableContentPanningGesture={true}
             >
                 <StreamInfo 
                     storeInfo={storeInfo}
@@ -1527,6 +1640,27 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
         fontFamily: 'LexendDeca',
+    },
+    leaveCommentItem: {
+        flexDirection: 'row',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: 0,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
+        flex: 1,
+    },
+    leaveCommentContent: {
+        flexDirection: 'column',
+        flex: 1,
+    },
+    leaveCommentText: {
+        color: '#ff5555', // Red text for "left room"
+        fontSize: 12,
+        fontFamily: 'LexendDeca',
+        fontWeight: 'bold',
+        flexWrap: 'wrap',
     },
 });
 

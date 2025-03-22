@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave';
   user: string;
   avatar?: string;
   content: string;
@@ -14,11 +14,12 @@ export interface StreamNotification {
     buyerId?: string;
     buyerName?: string;
     buyerUsername?: string;
+    buyerAvatar?: string;
     productId?: string;
     productName?: string;
     price?: number;
     streamId: string;
-    isHost: boolean;
+    isHost?: boolean;
     viewerCount?: number;
   };
   timestamp: Date;
@@ -127,6 +128,18 @@ export const initializeSocket = (token: string, onNotification: (notification: S
     };
     
     onNotification(notificationWithCorrectType);
+  });
+
+  // Handle viewer left stream events
+  currentSocket.on(SOCKET_EVENTS.VIEWER_LEFT, (data: StreamNotification) => {
+    console.log('Viewer left stream:', data);
+    
+    // Convert string timestamp to Date object if needed
+    if (typeof data.timestamp === 'string') {
+      data.timestamp = new Date(data.timestamp);
+    }
+    
+    onNotification(data);
   });
 
   return socket;
