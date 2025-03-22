@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     customButton: {
         flex: 1,
         height: 50,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)', // Translucent glass-like effect for custom button
+        backgroundColor: 'rgba(255, 255, 255, 0.1)', // Translucent glass-like effect for custom button
         borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     },
     categoryTagsContainer: {
         alignSelf: 'flex-start',
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 6,
         paddingVertical: 4,
         paddingHorizontal: 10,
