@@ -147,7 +147,6 @@ const optionalAuth = (req, res, next) => {
 router.get('/blips', optionalAuth, productController.getAllBlips);
 router.get('/seller/:sellerId/blips', optionalAuth, productController.getSellerBlips);
 
-
 /**
  * @swagger
  * /api/products/auctions:
@@ -1661,9 +1660,112 @@ router.put('/:id/discount',
 
 /**
  * @swagger
+ * /api/products/{id}/blips/{blipId}:
+ *   get:
+ *     summary: Get details of a specific blip
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: Blip details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 blip:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     url:
+ *                       type: string
+ *                     contentType:
+ *                       type: string
+ *                     likesCount:
+ *                       type: number
+ *                     viewCount:
+ *                       type: number
+ *                     commentsCount:
+ *                       type: number
+ *                     isLiked:
+ *                       type: boolean
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     comments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           buyer:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               firstName:
+ *                                 type: string
+ *                               lastName:
+ *                                 type: string
+ *                               profileImage:
+ *                                 type: object
+ *                           comment:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           likesCount:
+ *                             type: number
+ *                           repliesCount:
+ *                             type: number
+ *                     productInfo:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         seller:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                             storeName:
+ *                               type: string
+ *                             businessName:
+ *                               type: string
+ *                             storeAvatar:
+ *                               type: object
+ *       400:
+ *         description: Invalid product or blip ID format
+ *       404:
+ *         description: Product or blip not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/blips/:blipId', optionalAuth, productController.getBlipDetails);
+
+/**
+ * @swagger
  * /api/products/{id}/blips/{blipId}/like:
  *   post:
- *     summary: Like/unlike a product blip
+ *     summary: Toggle like on a product blip
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []

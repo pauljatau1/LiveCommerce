@@ -4554,181 +4554,97 @@ exports.getSellerAuctionProducts = async (req, res) => {
 exports.getBlipDetails = async (req, res) => {
   try {
     const { id, blipId } = req.params;
-    const userId = req.user ? req.user._id : null;
+
+    // Debug logging
+    console.log('Debug - Fetching blip details:', {
+      productId: id,
+      blipId
+    });
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(blipId)) {
       return res.status(400).json({ message: 'Invalid product or blip ID format' });
     }
 
-    const product = await Product.aggregate([
-      // Match the product and blip
+    // Find the product and get the specific blip
+    const product = await Product.findOne(
+      { _id: id, "blips._id": blipId },
       { 
-        $match: { 
-          _id: new mongoose.Types.ObjectId(id),
-          'blips._id': new mongoose.Types.ObjectId(blipId)
-        } 
-      },
-      // Unwind blips to get the specific one
-      { $unwind: '$blips' },
-      // Match the specific blip
-      {
-        $match: {
-          'blips._id': new mongoose.Types.ObjectId(blipId)
-        }
-      },
-      // Lookup seller information
-      {
-        $lookup: {
-          from: 'sellers',
-          localField: 'seller',
-          foreignField: '_id',
-          as: 'sellerInfo'
-        }
-      },
-      { $unwind: '$sellerInfo' },
-      // Project needed fields
-      {
-        $project: {
-          _id: '$_id',
-          blipId: '$blips._id',
-          blipUrl: '$blips.url',
-          contentType: '$blips.contentType',
-          productName: '$name',
-          price: '$price',
-          discountedPrice: {
-            $cond: {
-              if: {
-                $and: [
-                  { $eq: ['$discount.isActive', true] },
-                  {
-                    $or: [
-                      { $eq: [{ $type: '$discount.startDate' }, 'missing'] },
-                      { $lte: ['$discount.startDate', new Date()] }
-                    ]
-                  },
-                  {
-                    $or: [
-                      { $eq: [{ $type: '$discount.endDate' }, 'missing'] },
-                      { $gte: ['$discount.endDate', new Date()] }
-                    ]
-                  }
-                ]
-              },
-              then: {
-                $cond: {
-                  if: { $eq: ['$discount.type', 'percentage'] },
-                  then: {
-                    $round: [
-                      { $multiply: ['$price', { $subtract: [1, { $divide: ['$discount.value', 100] }] }] },
-                      2
-                    ]
-                  },
-                  else: { $subtract: ['$price', '$discount.value'] }
-                }
-              },
-              else: '$price'
-            }
-          },
-          stock: '$stock',
-          status: '$status',
-          auctionInfo: {
-            $cond: {
-              if: { $eq: ['$status', 'offline_auction'] },
-              then: {
-                minBid: '$auction.minBid',
-                maxBid: '$auction.maxBid',
-                endOnMaxBid: '$auction.endOnMaxBid',
-                startDate: '$auction.startDate',
-                endDate: '$auction.endDate',
-                status: '$auction.status',
-                daysLeft: '$auction.daysLeft',
-                currentHighestBid: '$auction.currentHighestBid',
-                winner: '$auction.winner'
-              },
-              else: null
-            }
-          },
-          seller: {
-            _id: '$sellerInfo._id',
-            storeName: '$sellerInfo.storeName',
-            storeAvatar: '$sellerInfo.storeAvatar',
-            isVerified: '$sellerInfo.isVerified',
-            isFeatured: { $ifNull: ['$sellerInfo.isFeatured', false] }
-          },
-          images: { $first: '$images.url' },
-          blipEngagement: {
-            likesCount: {
-              $size: {
-                $cond: {
-                  if: { $isArray: '$blips.likes' },
-                  then: '$blips.likes',
-                  else: []
-                }
-              }
-            },
-            commentsCount: {
-              $size: {
-                $cond: {
-                  if: { $isArray: '$blips.comments' },
-                  then: '$blips.comments',
-                  else: []
-                }
-              }
-            },
-            viewCount: '$blips.viewCount',
-            isLiked: {
-              $cond: {
-                if: userId,
-                then: {
-                  $cond: {
-                    if: {
-                      $anyElementTrue: {
-                        $map: {
-                          input: { $ifNull: ['$blips.likes', []] },
-                          as: 'like',
-                          in: { $eq: ['$$like.user', new mongoose.Types.ObjectId(userId)] }
-                        }
-                      }
-                    },
-                    then: true,
-                    else: false
-                  }
-                },
-                else: false
-              }
-            }
-          },
-          averageRating: {
-            $cond: {
-              if: { $isArray: '$reviews' },
-              then: { $avg: '$reviews.rating' },
-              else: null
-            }
-          },
-          reviewCount: {
-            $cond: {
-              if: { $isArray: '$reviews' },
-              then: { $size: '$reviews' },
-              else: 0
-            }
-          },
-          createdAt: '$blips.createdAt'
-        }
+        "name": 1,
+        "seller": 1,
+        "blips.$": 1 
       }
-    ]);
+    ).populate({
+      path: 'blips.comments.buyer',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'blips.viewedBy.user',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'blips.comments.replies.user',
+      refPath: 'blips.comments.replies.userType',
+      select: '_id firstName lastName profileImage storeName businessName'
+    }).populate({
+      path: 'seller',
+      select: '_id firstName lastName storeName storeAvatar businessName'
+    });
 
-    if (!product || product.length === 0) {
-      return res.status(404).json({ message: 'Blip not found' });
+    if (!product || !product.blips || product.blips.length === 0) {
+      console.log('Debug - Product or blip not found:', { id, blipId });
+      return res.status(404).json({ message: 'Product or blip not found' });
     }
 
-    res.json(product[0]);
+    // Get the blip and format the response
+    const blip = product.blips[0];
+
+    // Check if there's a user in the request (authenticated) to determine like status
+    let isLiked = false;
+    if (req.user && req.user.id) {
+      isLiked = blip.likes.some(like => like.toString() === req.user.id.toString());
+    }
+
+    // Format the response
+    const formattedBlip = {
+      _id: blip._id,
+      url: blip.url,
+      contentType: blip.contentType,
+      likesCount: blip.likesCount || 0,
+      viewCount: blip.viewCount || 0,
+      commentsCount: blip.commentsCount || 0,
+      isLiked,
+      createdAt: blip.createdAt,
+      comments: blip.comments.map(comment => ({
+        _id: comment._id,
+        buyer: {
+          _id: comment.buyer?._id,
+          firstName: comment.buyer?.firstName,
+          lastName: comment.buyer?.lastName,
+          profileImage: comment.buyer?.profileImage
+        },
+        comment: comment.comment,
+        createdAt: comment.createdAt,
+        likesCount: comment.likesCount || 0,
+        repliesCount: comment.replies?.length || 0
+      })),
+      productInfo: {
+        _id: product._id,
+        name: product.name,
+        seller: {
+          _id: product.seller?._id,
+          storeName: product.seller?.storeName,
+          businessName: product.seller?.businessName,
+          storeAvatar: product.seller?.storeAvatar
+        }
+      }
+    };
+
+    res.json({
+      success: true,
+      blip: formattedBlip
+    });
   } catch (error) {
     console.error('Error in getBlipDetails:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve blip details', 
-      error: error.message 
-    });
+    res.status(500).json({ success: false, message: 'Failed to retrieve blip details', error: error.message });
   }
 };
 
