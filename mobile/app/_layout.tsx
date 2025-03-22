@@ -18,6 +18,7 @@ import {
   initialWindowMetrics,
   SafeAreaProvider,
 } from "react-native-safe-area-context";
+import { ToastProvider } from "@/contexts/ToastContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -56,20 +57,22 @@ function RootLayoutNav() {
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <GestureHandlerRootView>
           <BottomSheetModalProvider>
-            <LivestreamProvider>
-              <Stack>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="(categories)"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen name="(root)" options={{ headerShown: false }} />
+            <ToastProvider>
+              <LivestreamProvider>
+                <Stack>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="(categories)"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen name="(root)" options={{ headerShown: false }} />
 
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <FlashMessage floating style={styles.flashMessage} />
-            </LivestreamProvider>
+                  <Stack.Screen name="+not-found" />
+                </Stack>
+                <FlashMessage floating style={styles.flashMessage} />
+              </LivestreamProvider>
+            </ToastProvider>
           </BottomSheetModalProvider>
         </GestureHandlerRootView>
       </SafeAreaProvider>

@@ -26,12 +26,14 @@ import LiveAuctionProductCard from './liveAuctionProductCard';
 import BidVariationSelector from '@/app/(root)/livestream/bidVariationSelector';
 import StreamViewers from './streamViewers';
 import StreamInfo from './StreamInfo';
+import { useToast } from '@/contexts/ToastContext';
 
 const { width, height } = Dimensions.get('window');
 
 const LivestreamStudio = () => {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { show } = useToast();
     const { id } = useLocalSearchParams();
     const { activeStreamDetails, joinStream, fetchActiveStreamDetails, leaveStream } = useLivestream() as LivestreamContextType;
     const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
@@ -506,6 +508,13 @@ const LivestreamStudio = () => {
                 }
             `);
         }
+
+        show({
+            text1: 'Audio ' + (newMuteState ? 'muted' : 'unmuted'),
+            type: 'info',
+            duration: 2000,
+            topPosition: 10
+        });
     }, [isMuted]);
 
     // Product buy handler
