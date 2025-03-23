@@ -1748,7 +1748,7 @@ exports.reportPost = async (req, res) => {
     // Send email notification
     const msg = {
       to: ['support@auqli.com', 'bolu@auqli.com'],
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'New Post Report',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">

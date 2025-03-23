@@ -128,7 +128,7 @@ exports.createProduct = async (req, res) => {
                 timestamps: ['00:00:01.000'],
                 filename: thumbnailKey,
                 folder: os.tmpdir(),
-                size: '320x180'
+                size: '180x320'
               })
               .on('end', resolve)
               .on('error', reject);
@@ -163,10 +163,10 @@ exports.createProduct = async (req, res) => {
             Bucket: 'auqli-uploads',
             Key: thumbnailKey,
             Body: Buffer.from(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
-              '<rect width="320" height="180" fill="#3498db"/>' +
-              '<polygon points="130,90 210,90 170,130" fill="rgba(255,255,255,0.8)"/>' +
-              '<text x="100" y="160" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
+              '<rect width="180" height="320" fill="#3498db"/>' +
+              '<polygon points="65,160 115,160 90,200" fill="rgba(255,255,255,0.8)"/>' +
+              '<text x="45" y="280" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
               '</svg>'
             ),
             ContentType: 'image/svg+xml',
@@ -1014,8 +1014,8 @@ exports.updateProduct = async (req, res) => {
               Bucket: 'auqli-uploads',
               Key: thumbnailKey,
               Body: Buffer.from(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
-                '<rect width="320" height="180" fill="#3498db"/>' +
+                '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
+                '<rect width="180" height="320" fill="#3498db"/>' +
                 '<polygon points="130,90 210,90 170,130" fill="rgba(255,255,255,0.8)"/>' +
                 '<text x="100" y="160" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
                 '</svg>'
@@ -3465,7 +3465,7 @@ exports.toggleBlipLike = async (req, res) => {
     }
 
     const product = await Product.findOne(
-      { _id: id, "blips._id": blipId },
+      { _id: id, "blips._id": new mongoose.Types.ObjectId(blipId) },
       { "blips.$": 1 }
     );
 
@@ -3507,7 +3507,7 @@ exports.toggleBlipLike = async (req, res) => {
     }
 
     const result = await Product.updateOne(
-      { _id: id, "blips._id": blipId },
+      { _id: id, "blips._id": new mongoose.Types.ObjectId(blipId) },
       updateOperation
     );
 
@@ -4762,7 +4762,7 @@ agenda.define('end-auction', async (job) => {
       // Send winner notification
       const winnerEmail = {
         to: product.auction.currentHighestBid.buyer.email,
-        from: 'Auqli Auctions <joseph@auqli.com>',
+        from: 'Auqli Auctions <support@auqli.com>',
         subject: 'Congratulations! You Won the Auction - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -4779,7 +4779,7 @@ agenda.define('end-auction', async (job) => {
       // Send seller notification
       const sellerEmail = {
         to: product.seller.email,
-        from: 'Auqli Auctions <joseph@auqli.com>',
+        from: 'Auqli Auctions <support@auqli.com>',
         subject: 'Your Auction Has Ended - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -5075,6 +5075,10 @@ exports.getSellerAuctionProducts = async (req, res) => {
 exports.getBlipDetails = async (req, res) => {
   try {
     const { id, blipId } = req.params;
+    
+    // Check if user is authenticated
+    const buyerId = req.user?.id;
+    const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
 
     // Debug logging
     console.log('Debug - Fetching blip details:', {
@@ -5087,155 +5091,195 @@ exports.getBlipDetails = async (req, res) => {
       return res.status(400).json({ message: 'Invalid product or blip ID format' });
     }
 
-    // Find the product and get the specific blip
-    const product = await Product.findOne(
-      { _id: id, "blips._id": blipId },
+    // Get the specific blip with aggregation to match getAllBlips structure
+    const blips = await Product.aggregate([
+      // Match the specific product and blip
       { 
-        "name": 1,
-        "seller": 1,
-        "blips.$": 1,
-        "status": 1,
-        "auction": 1,
-        "price": 1
+        $match: { 
+          _id: new mongoose.Types.ObjectId(id),
+          "blips._id": new mongoose.Types.ObjectId(blipId)
+        }
+      },
+      // Unwind the blips array
+      { $unwind: '$blips' },
+      // Match the specific blip
+      { 
+        $match: { 
+          "blips._id": new mongoose.Types.ObjectId(blipId)
+        }
+      },
+      // Lookup seller information
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'sellerInfo'
+        }
+      },
+      { $unwind: '$sellerInfo' },
+      // Lookup auction bidder information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.currentHighestBid.buyer',
+          foreignField: '_id',
+          as: 'highestBidder'
+        }
+      },
+      // Project needed fields
+      {
+        $project: {
+          _id: '$_id', // This is the product ID
+          blipId: '$blips._id', // Add this line to include the blip ID
+          blipUrl: '$blips.url',
+          thumbnail: { 
+            $ifNull: [
+              '$blips.thumbnail', 
+              'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
+            ] 
+          },
+          productId: '$_id',
+          productName: '$name',
+          price: '$price',
+          stock: '$stock',
+          status: '$status',
+          auctionInfo: {
+            $cond: {
+              if: { $eq: ['$status', 'offline_auction'] },
+              then: {
+                minBid: '$auction.minBid',
+                maxBid: '$auction.maxBid',
+                endOnMaxBid: '$auction.endOnMaxBid',
+                startDate: '$auction.startDate',
+                endDate: '$auction.endDate',
+                status: '$auction.status',
+                daysLeft: '$auction.daysLeft',
+                currentHighestBid: {
+                  amount: '$auction.currentHighestBid.amount',
+                  buyer: {
+                    _id: '$auction.currentHighestBid.buyer',
+                    firstName: { $arrayElemAt: ['$highestBidder.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$highestBidder.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$highestBidder.profileImage', 0] }
+                  }
+                },
+                winner: {
+                  buyer: '$auction.winner.buyer',
+                  bidAmount: '$auction.winner.bidAmount',
+                  winningDate: '$auction.winner.winningDate'
+                },
+                bidsCount: {
+                  $cond: {
+                    if: { $isArray: '$auction.bids' },
+                    then: { $size: '$auction.bids' },
+                    else: 0
+                  }
+                }
+              },
+              else: null
+            }
+          },
+          discount: {
+            isActive: '$discount.isActive',
+            type: '$discount.type',
+            value: '$discount.value',
+            startDate: '$discount.startDate',
+            endDate: '$discount.endDate',
+            couponName: '$discount.couponName',
+            discountedPrice: {
+              $cond: {
+                if: '$discount.isActive',
+                then: {
+                  $cond: {
+                    if: { $eq: ['$discount.type', 'percentage'] },
+                    then: { $round: [{ $multiply: ['$price', { $subtract: [1, { $divide: ['$discount.value', 100] }] }] }, 0] },
+                    else: { $subtract: ['$price', '$discount.value'] }
+                  }
+                },
+                else: '$price'
+              }
+            }
+          },
+          seller: {
+            _id: '$sellerInfo._id',
+            firstName: '$sellerInfo.firstName',
+            lastName: '$sellerInfo.lastName',
+            storeName: '$sellerInfo.storeName',
+            storeAvatar: '$sellerInfo.storeAvatar',
+            aboutStore: '$sellerInfo.aboutStore',
+            storeRating: { $ifNull: ['$sellerInfo.stats.averageRating', 0] },
+            totalStoreReviews: { $ifNull: ['$sellerInfo.stats.totalReviews', 0] },
+            isFollowing: {
+              $cond: {
+                if: { $isArray: '$sellerInfo.followers' },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    { $ifNull: ['$sellerInfo.followers.buyerId', []] }
+                  ]
+                },
+                else: false
+              }
+            },
+            isFeatured: { $ifNull: ['$sellerInfo.isFeatured', false] }
+          },
+          images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            },
+            viewCount: '$blips.viewCount'
+          },
+          averageRating: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $avg: '$reviews.rating' },
+              else: null
+            }
+          },
+          reviewCount: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $size: '$reviews' },
+              else: 0
+            }
+          },
+          createdAt: '$blips.createdAt'
+        }
       }
-    ).populate({
-      path: 'blips.comments.buyer',
-      select: '_id firstName lastName profileImage'
-    }).populate({
-      path: 'blips.viewedBy.user',
-      select: '_id firstName lastName profileImage'
-    }).populate({
-      path: 'blips.comments.replies.user',
-      refPath: 'blips.comments.replies.userType',
-      select: '_id firstName lastName profileImage storeName businessName'
-    }).populate({
-      path: 'seller',
-      select: '_id firstName lastName storeName storeAvatar businessName'
-    }).populate({
-      path: 'auction.currentHighestBid.buyer',
-      select: '_id firstName lastName profileImage'
-    }).populate({
-      path: 'auction.winner.buyer',
-      select: '_id firstName lastName profileImage'
-    }).populate({
-      path: 'auction.bids.buyer',
-      select: '_id firstName lastName profileImage'
-    });
+    ]);
 
-    if (!product || !product.blips || product.blips.length === 0) {
+    // If no blip found
+    if (!blips || blips.length === 0) {
       console.log('Debug - Product or blip not found:', { id, blipId });
       return res.status(404).json({ message: 'Product or blip not found' });
     }
 
-    // Get the blip and format the response
-    const blip = product.blips[0];
-
-    // Check if there's a user in the request (authenticated) to determine like status
-    let isLiked = false;
-    if (req.user && req.user.id) {
-      isLiked = blip.likes.some(like => like.toString() === req.user.id.toString());
-    }
-
-    // Format the response
-    const formattedBlip = {
-      _id: blip._id,
-      url: blip.url,
-      contentType: blip.contentType,
-      thumbnail: blip.thumbnail || 'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png',
-      likesCount: blip.likesCount || 0,
-      viewCount: blip.viewCount || 0,
-      commentsCount: blip.commentsCount || 0,
-      isLiked,
-      createdAt: blip.createdAt,
-      comments: blip.comments.map(comment => ({
-        _id: comment._id,
-        buyer: {
-          _id: comment.buyer?._id,
-          firstName: comment.buyer?.firstName,
-          lastName: comment.buyer?.lastName,
-          profileImage: comment.buyer?.profileImage
-        },
-        comment: comment.comment,
-        createdAt: comment.createdAt,
-        likesCount: comment.likesCount || 0,
-        repliesCount: comment.replies?.length || 0
-      })),
-      productInfo: {
-        _id: product._id,
-        name: product.name,
-        price: product.price,
-        status: product.status,
-        seller: {
-          _id: product.seller?._id,
-          storeName: product.seller?.storeName,
-          businessName: product.seller?.businessName,
-          storeAvatar: product.seller?.storeAvatar
-        }
-      }
-    };
-
-    // Add auction details if it's an offline auction product
-    if (product.status === 'offline_auction' && product.auction) {
-      formattedBlip.productInfo.auction = {
-        minBid: product.auction.minBid,
-        maxBid: product.auction.maxBid,
-        endOnMaxBid: product.auction.endOnMaxBid,
-        startDate: product.auction.startDate,
-        endDate: product.auction.endDate,
-        status: product.auction.status,
-        daysLeft: product.auction.daysLeft,
-        bidsCount: product.auction.bids ? product.auction.bids.length : 0,
-        
-        // Format current highest bid with buyer details
-        currentHighestBid: product.auction.currentHighestBid ? {
-          amount: product.auction.currentHighestBid.amount,
-          buyer: product.auction.currentHighestBid.buyer ? {
-            _id: product.auction.currentHighestBid.buyer._id,
-            firstName: product.auction.currentHighestBid.buyer.firstName,
-            lastName: product.auction.currentHighestBid.buyer.lastName,
-            profileImage: product.auction.currentHighestBid.buyer.profileImage
-          } : null
-        } : null,
-        
-        // Format winner with buyer details
-        winner: product.auction.winner && product.auction.winner.buyer ? {
-          bidAmount: product.auction.winner.bidAmount,
-          winningDate: product.auction.winner.winningDate,
-          buyer: {
-            _id: product.auction.winner.buyer._id,
-            firstName: product.auction.winner.buyer.firstName,
-            lastName: product.auction.winner.buyer.lastName,
-            profileImage: product.auction.winner.buyer.profileImage
-          }
-        } : null,
-        
-        // Format recent bids with buyer details (limit to last 5)
-        recentBids: product.auction.bids ? 
-          product.auction.bids
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 5)
-            .map(bid => ({
-              _id: bid._id,
-              amount: bid.amount,
-              createdAt: bid.createdAt,
-              status: bid.status,
-              buyer: bid.buyer ? {
-                _id: bid.buyer._id,
-                firstName: bid.buyer.firstName,
-                lastName: bid.buyer.lastName,
-                profileImage: bid.buyer.profileImage
-              } : null
-            })) : []
-      };
-    }
+    // Get the single blip
+    const processedBlip = blips[0];
 
     res.json({
-      success: true,
-      blip: formattedBlip
+      blips: [processedBlip]
     });
   } catch (error) {
     console.error('Error in getBlipDetails:', error);
-    res.status(500).json({ success: false, message: 'Failed to retrieve blip details', error: error.message });
+    res.status(500).json({ message: 'Failed to retrieve blip details', error: error.message });
   }
 };
 

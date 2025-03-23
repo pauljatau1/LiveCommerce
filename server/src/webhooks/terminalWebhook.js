@@ -131,7 +131,7 @@ const handleShipmentCreated = async (data) => {
     // Send emails with error handling
     try {
       const emailTemplate = getShipmentCreatedEmailTemplate(order, data.tracking_number);
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com';
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com';
       
       if (!order.buyer.email || !order.seller.email) {
         throw new Error('Missing recipient email addresses');

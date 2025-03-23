@@ -4,7 +4,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY); // Ensure you have your SendGrid
 const sendPasswordResetEmail = async (email, token) => {
   const msg = {
     to: email,
-    from: 'Joseph From Auqli <joseph@auqli.com>',
+    from: 'Joseph From Auqli <support@auqli.com>',
     subject: 'Password Reset Request',
     text: `You requested a password reset. Please use the   I sssssing token to reset your password: ${token}`,
     html: `<p>You requested a password reset. Please use the following token to reset your password:</p><p><strong>${token}</strong></p>`,

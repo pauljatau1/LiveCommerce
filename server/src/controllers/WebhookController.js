@@ -298,7 +298,7 @@ async function handleTransferSuccess(data) {
   // Send success email
   await sgMail.send({
     to: withdrawal.seller.email,
-    from: 'Auqli Admin <joseph@auqli.com>',
+    from: 'Auqli Admin <support@auqli.com>',
     subject: 'Withdrawal Completed Successfully - Auqli',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -332,7 +332,7 @@ async function handleTransferFailed(data) {
   // Send failure notification email
   await sgMail.send({
     to: withdrawal.seller.email,
-    from: 'Auqli Admin <joseph@auqli.com>',
+    from: 'Auqli Admin <support@auqli.com>',
     subject: 'Withdrawal Transfer Failed - Auqli',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

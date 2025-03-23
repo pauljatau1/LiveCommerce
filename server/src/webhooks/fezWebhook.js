@@ -358,14 +358,14 @@ const sendStatusEmails = async (order, status, webhookData) => {
     // Send emails
     const buyerEmail = {
       to: order.buyer.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
+      from: 'Auqli Shipping <support@auqli.com>',
       subject: buyerSubject,
       html: buyerHtml
     };
 
     const sellerEmail = {
       to: order.seller.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
+      from: 'Auqli Shipping <support@auqli.com>',
       subject: sellerSubject,
       html: sellerHtml
     };

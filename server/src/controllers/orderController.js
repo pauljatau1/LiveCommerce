@@ -1763,7 +1763,7 @@ exports.arrangePickup = async (req, res) => {
         // Buyer pickup arrangement email
         const buyerEmail = {
           to: populatedOrder.buyer.email,
-          from: 'Auqli Shipping <joseph@auqli.com>',
+          from: 'Auqli Shipping <support@auqli.com>',
           subject: 'Order Pickup Arranged - Auqli',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1791,7 +1791,7 @@ exports.arrangePickup = async (req, res) => {
         // Seller pickup confirmation email
         const sellerEmail = {
           to: populatedOrder.seller.email,
-          from: 'Auqli Shipping <joseph@auqli.com>',
+          from: 'Auqli Shipping <support@auqli.com>',
           subject: 'Pickup Arrangement Confirmed - Auqli',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1988,7 +1988,7 @@ exports.updateOrderOpenStatus = async (req, res) => {
       // Send basic email to buyer
       const buyerEmail = {
         to: order.buyer.email,
-        from: 'Auqli Orders <joseph@auqli.com>',
+        from: 'Auqli Orders <support@auqli.com>',
         subject: 'Order Status Update - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2134,7 +2134,7 @@ exports.cancelShipment = async (req, res) => {
     // Send cancellation emails
     const buyerEmail = {
       to: updatedOrder.buyer.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
+      from: 'Auqli Shipping <support@auqli.com>',
       subject: 'Shipment Cancellation Notice - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2154,7 +2154,7 @@ exports.cancelShipment = async (req, res) => {
 
     const sellerEmail = {
       to: updatedOrder.seller.email,
-      from: 'Auqli Shipping <joseph@auqli.com>',
+      from: 'Auqli Shipping <support@auqli.com>',
       subject: 'Shipment Cancellation Confirmation - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -3231,7 +3231,7 @@ exports.cancelOrderBySeller = async (req, res) => {
     // Send email notifications
     const buyerEmail = {
       to: order.buyer.email,
-      from: 'Auqli Orders <joseph@auqli.com>',
+      from: 'Auqli Orders <support@auqli.com>',
       subject: 'Order Cancelled - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -3248,7 +3248,7 @@ exports.cancelOrderBySeller = async (req, res) => {
 
     const sellerEmail = {
       to: order.seller.email,
-      from: 'Auqli Orders <joseph@auqli.com>',
+      from: 'Auqli Orders <support@auqli.com>',
       subject: 'Order Cancellation Confirmation - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

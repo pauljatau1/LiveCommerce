@@ -155,7 +155,7 @@ agenda.define('closeOrder', async (job) => {
     // Send closure notification emails
     const buyerClosureEmail = {
       to: order.buyer.email,
-      from: 'Auqli Orders <joseph@auqli.com>',
+      from: 'Auqli Orders <support@auqli.com>',
       subject: 'Order Closed Successfully - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -170,7 +170,7 @@ agenda.define('closeOrder', async (job) => {
 
     const sellerClosureEmail = {
       to: order.seller.email,
-      from: 'Auqli Orders <joseph@auqli.com>',
+      from: 'Auqli Orders <support@auqli.com>',
       subject: 'Order Closed and Payment Released - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -420,7 +420,7 @@ agenda.define('update-auction-status', async (job) => {
 
         const notifications = seller.followers.map(follower => ({
           to: follower.buyerId.email,
-          from: 'Auqli Auctions <joseph@auqli.com>',
+          from: 'Auqli Auctions <support@auqli.com>',
           subject: 'New Auction Started! - Auqli',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -890,7 +890,7 @@ agenda.define('create-auction-winner-order', async (job) => {
     
     await sgMail.send({
       to: freshBuyer.email,
-      from: 'Auqli Auctions <joseph@auqli.com>',
+      from: 'Auqli Auctions <support@auqli.com>',
       subject: 'Congratulations on Winning the Auction! - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -916,7 +916,7 @@ agenda.define('create-auction-winner-order', async (job) => {
     // Send email to the seller about the sale
     await sgMail.send({
       to: seller.email,
-      from: 'Auqli Auctions <joseph@auqli.com>',
+      from: 'Auqli Auctions <support@auqli.com>',
       subject: 'Your Auction Item Has Been Sold! - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

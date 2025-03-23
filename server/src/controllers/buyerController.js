@@ -109,7 +109,7 @@ exports.register = async (req, res) => {
 
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Welcome to Auqli! Verify Your Account',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
@@ -526,7 +526,7 @@ exports.resendOTP = async (req, res) => {
 
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Your New Verification Code - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1597,7 +1597,7 @@ exports.verifyIdentity = async (req, res) => {
     // Send email notification to buyer
     const msg = {
       to: buyer.email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Identity Verification Approved - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -2045,7 +2045,7 @@ exports.forgotPassword = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Password Reset Code - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
@@ -2158,7 +2158,7 @@ exports.requestAccountDeletion = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: buyer.email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Account Deletion Request - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -2241,7 +2241,7 @@ exports.confirmAccountDeletion = async (req, res) => {
     // Send confirmation email before deletion
     const msg = {
       to: buyer.email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Account Deleted Successfully - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -2351,7 +2351,7 @@ exports.reportUser = async (req, res) => {
     // Send email notification
     const msg = {
       to: ['support@auqli.com', 'bolu@auqli.com'],
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">

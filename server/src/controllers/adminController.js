@@ -181,7 +181,7 @@ exports.disableSeller = async (req, res) => {
     // Send notification emails
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: 'Important: Your Auqli Account Has Been Disabled',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -204,7 +204,7 @@ exports.disableSeller = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <joseph@auqli.com>',
+        from: 'Auqli Admin <support@auqli.com>',
         subject: 'Important: Business Account Status Update - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -287,7 +287,7 @@ exports.enableSeller = async (req, res) => {
     // Send notification email
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: 'Good News! Your Auqli Account Has Been Reactivated 🎉',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -311,7 +311,7 @@ exports.enableSeller = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <joseph@auqli.com>',
+        from: 'Auqli Admin <support@auqli.com>',
         subject: 'Business Account Reactivated - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -935,7 +935,7 @@ exports.verifyBusinessAccount = async (req, res) => {
     // Send verification emails
     const personalEmailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: 'Your Auqli Account Has Been Verified! 🎉',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -958,7 +958,7 @@ exports.verifyBusinessAccount = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <joseph@auqli.com>',
+        from: 'Auqli Admin <support@auqli.com>',
         subject: 'Business Account Verification Confirmed - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1395,7 +1395,7 @@ exports.updateWithdrawalStatus = async (req, res) => {
     // Send email notification
     const emailMsg = {
       to: withdrawal.seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: 'Withdrawal Request Update',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1453,7 +1453,7 @@ exports.verifyBuyerIdentity = async (req, res) => {
     // Send detailed email notification to buyer
     const emailMsg = {
       to: buyer.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: `Identity Verification ${status === 'verified' ? 'Approved' : 'Rejected'}`,
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1771,7 +1771,7 @@ exports.rejectBusinessAccount = async (req, res) => {
     // Send rejection email to personal email
     const personalEmailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: 'Important: Your Auqli Business Account Application Status',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1805,7 +1805,7 @@ exports.rejectBusinessAccount = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <joseph@auqli.com>',
+        from: 'Auqli Admin <support@auqli.com>',
         subject: 'Business Account Verification Status - Action Required',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2253,7 +2253,7 @@ async function sendStatusUpdateEmail(withdrawal) {
   if (template) {
     await sgMail.send({
       to: withdrawal.seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: template.subject,
       html: template.html
     });
@@ -2601,7 +2601,7 @@ exports.approveBankChangeRequest = async (req, res) => {
     // Send email notification to seller
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: 'Bank Account Change Request Approved',
       html: `
         <h2>Bank Account Change Request Approved</h2>
@@ -2663,7 +2663,7 @@ exports.rejectBankChangeRequest = async (req, res) => {
     // Send email notification to seller
     const emailMsg = {
       to: request.seller.email,
-      from: 'Auqli Admin <joseph@auqli.com>',
+      from: 'Auqli Admin <support@auqli.com>',
       subject: 'Bank Account Change Request Rejected',
       html: `
         <h2>Bank Account Change Request Rejected</h2>
@@ -2744,7 +2744,7 @@ exports.processBankChangeRequest = async (req, res) => {
       // Send approval email to seller
       await sgMail.send({
         to: request.seller.email,
-        from: process.env.SENDGRID_FROM_EMAIL || 'Auqli Admin <joseph@auqli.com>',
+        from: process.env.SENDGRID_FROM_EMAIL || 'Auqli Admin <support@auqli.com>',
         subject: 'Bank Account Change Request Approved',
         html: `
           <h2>Bank Account Change Request Approved</h2>
@@ -2779,7 +2779,7 @@ exports.processBankChangeRequest = async (req, res) => {
       // Send rejection email to seller
       await sgMail.send({
         to: request.seller.email,
-        from: process.env.SENDGRID_FROM_EMAIL || 'Auqli Admin <joseph@auqli.com>',
+        from: process.env.SENDGRID_FROM_EMAIL || 'Auqli Admin <support@auqli.com>',
         subject: 'Bank Account Change Request Rejected',
         html: `
           <h2>Bank Account Change Request Rejected</h2>
