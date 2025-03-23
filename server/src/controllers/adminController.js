@@ -12,6 +12,7 @@ const Withdrawal = require('../models/Withdrawal');
 const Resource = require('../models/Resource');
 const Transaction = require('../models/Transaction');
 const BankChangeRequest = require('../models/BankChangeRequest');
+const Stream = require('../models/Stream');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
@@ -2866,6 +2867,923 @@ exports.getBankChangeRequestStats = async (req, res) => {
     });
   }
 };
+
+// Get financial transactions with filtering
+exports.getFinancialTransactions = async (req, res) => {
+  try {
+    const { 
+      type, 
+      status, 
+      startDate, 
+      endDate, 
+      sellerId, 
+      reference, 
+      limit = 20, 
+      page = 1 
+    } = req.query;
+
+    // Build query
+    const query = {};
+    
+    // Filter by type
+    if (type) {
+      if (type === 'inflow') {
+        query.type = { $in: ['order_payment', 'platform_fee', 'processing_fee'] };
+      } else if (type === 'outflow') {
+        query.type = 'withdrawal';
+      }
+    }
+
+    // Filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    // Filter by date range
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Filter by seller
+    if (sellerId) {
+      query.seller = sellerId;
+    }
+
+    // Filter by reference (orderId or withdrawal reference)
+    if (reference) {
+      const orders = await Order.find({ order_id: { $regex: reference, $options: 'i' } });
+      const orderIds = orders.map(order => order._id);
+      
+      const withdrawals = await Withdrawal.find({ reference: { $regex: reference, $options: 'i' } });
+      
+      if (orderIds.length > 0) {
+        query.orderId = { $in: orderIds };
+      } else if (withdrawals.length > 0) {
+        // For withdrawals, we need to map to the related transactions
+        const withdrawalSellerIds = withdrawals.map(w => w.seller);
+        const withdrawalReferences = withdrawals.map(w => w.reference);
+        
+        query.$or = [
+          { 
+            seller: { $in: withdrawalSellerIds },
+            type: 'withdrawal',
+            description: { $regex: withdrawalReferences.join('|'), $options: 'i' }
+          }
+        ];
+      } else {
+        // If no matching orders or withdrawals, return empty results
+        return res.json({
+          success: true,
+          data: {
+            transactions: [],
+            pagination: {
+              total: 0,
+              page: parseInt(page),
+              limit: parseInt(limit),
+              pages: 0
+            }
+          }
+        });
+      }
+    }
+
+    // Count total matching transactions
+    const total = await Transaction.countDocuments(query);
+    
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pages = Math.ceil(total / parseInt(limit));
+
+    // Get transactions with pagination and populate seller
+    const transactions = await Transaction.find(query)
+      .populate('seller', 'firstName lastName email storeName')
+      .populate('orderId', 'order_id buyer')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Populate buyer information for relevant transactions
+    const populatedTransactions = await Promise.all(transactions.map(async transaction => {
+      let transactionObj = transaction.toObject();
+      
+      // Find associated buyer for order_payment transactions
+      if (transaction.orderId) {
+        const order = transaction.orderId;
+        if (order.buyer) {
+          const buyer = await Buyer.findById(order.buyer).select('firstName lastName email');
+          if (buyer) {
+            transactionObj.buyerInfo = {
+              id: buyer._id,
+              name: `${buyer.firstName} ${buyer.lastName}`,
+              email: buyer.email
+            };
+          }
+        }
+      }
+      
+      return transactionObj;
+    }));
+
+    // Format transactions for the UI response
+    const formattedTransactions = populatedTransactions.map(transaction => {
+      // Determine type (inflow/outflow) and category
+      let type = 'inflow';
+      let category = 'other';
+      
+      if (transaction.type === 'withdrawal') {
+        type = 'outflow';
+        category = 'withdrawal';
+      } else if (transaction.type === 'order_payment') {
+        type = 'inflow';
+        category = 'order';
+      } else if (transaction.type === 'platform_fee' || transaction.type === 'processing_fee') {
+        type = 'inflow';
+        category = 'fee';
+      }
+
+      return {
+        id: transaction._id,
+        reference: transaction.orderId ? transaction.orderId.order_id : 
+                 (transaction.reference || `TXN-${transaction._id.toString().slice(-8)}`),
+        type,
+        category,
+        amount: transaction.amount,
+        status: transaction.status,
+        sender: type === 'inflow' ? 
+                (transaction.buyerInfo ? `${transaction.buyerInfo.name}` : 
+                (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown')) : 
+                'Auqli Platform',
+        recipient: type === 'outflow' ? 
+                  (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown') : 
+                  'Auqli Platform',
+        description: transaction.description,
+        date: transaction.createdAt
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        transactions: formattedTransactions,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching financial transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch financial transactions',
+      error: error.message
+    });
+  }
+};
+
+// Get financial summary
+exports.getFinancialSummary = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Build date range filter
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) {
+        dateFilter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Calculate totals
+    const inflowTransactions = await Transaction.aggregate([
+      { 
+        $match: { 
+          ...dateFilter,
+          type: { $in: ['order_payment', 'platform_fee', 'processing_fee'] },
+          status: 'completed'
+        } 
+      },
+      { 
+        $group: { 
+          _id: null, 
+          total: { $sum: '$amount' },
+          orderPayments: { $sum: { $cond: [{ $eq: ['$type', 'order_payment'] }, '$amount', 0] } },
+          platformFees: { $sum: { $cond: [{ $eq: ['$type', 'platform_fee'] }, '$amount', 0] } },
+          processingFees: { $sum: { $cond: [{ $eq: ['$type', 'processing_fee'] }, '$amount', 0] } }
+        } 
+      }
+    ]);
+
+    const outflowTransactions = await Transaction.aggregate([
+      { 
+        $match: { 
+          ...dateFilter,
+          type: 'withdrawal',
+          status: 'completed'
+        } 
+      },
+      { 
+        $group: { 
+          _id: null, 
+          total: { $sum: '$amount' } 
+        } 
+      }
+    ]);
+
+    const pendingTransactions = await Transaction.aggregate([
+      { 
+        $match: { 
+          ...dateFilter,
+          status: 'pending'
+        } 
+      },
+      { 
+        $group: { 
+          _id: '$type', 
+          amount: { $sum: '$amount' } 
+        } 
+      }
+    ]);
+
+    // Format the response
+    const totalInflow = inflowTransactions.length > 0 ? inflowTransactions[0].total : 0;
+    const totalOutflow = outflowTransactions.length > 0 ? outflowTransactions[0].total : 0;
+    const netBalance = totalInflow - totalOutflow;
+    
+    const pendingAmount = pendingTransactions.reduce((sum, item) => sum + item.amount, 0);
+
+    // Additional breakdowns
+    const revenueBreakdown = inflowTransactions.length > 0 ? {
+      orderPayments: inflowTransactions[0].orderPayments || 0,
+      platformFees: inflowTransactions[0].platformFees || 0,
+      processingFees: inflowTransactions[0].processingFees || 0
+    } : {
+      orderPayments: 0,
+      platformFees: 0,
+      processingFees: 0
+    };
+
+    // Get pending withdrawals count
+    const pendingWithdrawals = await Withdrawal.countDocuments({ 
+      status: 'pending',
+      ...(dateFilter.createdAt ? { requestDate: dateFilter.createdAt } : {})
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalInflow,
+        totalOutflow,
+        netBalance,
+        pendingAmount,
+        revenueBreakdown,
+        pendingWithdrawals
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching financial summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch financial summary',
+      error: error.message
+    });
+  }
+};
+
+// Get transaction details
+exports.getTransactionDetails = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    
+    const transaction = await Transaction.findById(transactionId)
+      .populate('seller', 'firstName lastName email storeName walletBalance')
+      .populate('orderId', 'order_id buyer items totalAmount shipping paymentInfo');
+    
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: 'Transaction not found'
+      });
+    }
+
+    // For order-related transactions, get buyer info
+    let buyerInfo = null;
+    if (transaction.orderId && transaction.orderId.buyer) {
+      const buyer = await Buyer.findById(transaction.orderId.buyer)
+        .select('firstName lastName email');
+      
+      if (buyer) {
+        buyerInfo = {
+          id: buyer._id,
+          name: `${buyer.firstName} ${buyer.lastName}`,
+          email: buyer.email
+        };
+      }
+    }
+
+    // Format the transaction for the response
+    const formattedTransaction = {
+      id: transaction._id,
+      reference: transaction.orderId ? transaction.orderId.order_id : 
+               (transaction.reference || `TXN-${transaction._id.toString().slice(-8)}`),
+      type: transaction.type === 'withdrawal' ? 'outflow' : 'inflow',
+      category: transaction.type === 'order_payment' ? 'order' : 
+               (transaction.type === 'withdrawal' ? 'withdrawal' : 'fee'),
+      amount: transaction.amount,
+      status: transaction.status,
+      date: transaction.createdAt,
+      description: transaction.description,
+      metadata: transaction.metadata || {},
+      seller: transaction.seller ? {
+        id: transaction.seller._id,
+        name: `${transaction.seller.firstName} ${transaction.seller.lastName}`,
+        email: transaction.seller.email,
+        storeName: transaction.seller.storeName,
+        walletBalance: transaction.seller.walletBalance
+      } : null,
+      order: transaction.orderId ? {
+        id: transaction.orderId._id,
+        reference: transaction.orderId.order_id,
+        totalAmount: transaction.orderId.totalAmount,
+        paymentMethod: transaction.orderId.paymentInfo?.method,
+        paymentStatus: transaction.orderId.paymentInfo?.status
+      } : null,
+      buyer: buyerInfo,
+      bankDetails: transaction.bankDetails
+    };
+
+    res.json({
+      success: true,
+      data: formattedTransaction
+    });
+  } catch (error) {
+    console.error('Error fetching transaction details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transaction details',
+      error: error.message
+    });
+  }
+};
+
+// Get financial trends (monthly breakdown)
+exports.getFinancialTrends = async (req, res) => {
+  try {
+    const { year = new Date().getFullYear() } = req.query;
+    
+    // Get monthly data for the specified year
+    const startDate = new Date(parseInt(year), 0, 1); // January 1st
+    const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59); // December 31st
+    
+    // Query for monthly revenue data
+    const monthlyRevenue = await Transaction.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          type: { $in: ['order_payment', 'platform_fee', 'processing_fee'] },
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: { 
+            month: { $month: '$createdAt' },
+            type: '$type'
+          },
+          amount: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: { '_id.month': 1 }
+      }
+    ]);
+    
+    // Query for monthly payouts data
+    const monthlyPayouts = await Transaction.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          type: 'withdrawal',
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' } },
+          amount: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: { '_id.month': 1 }
+      }
+    ]);
+
+    // Format response data
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Initialize data arrays with zeros for all months
+    const revenue = Array(12).fill(0);
+    const platformFees = Array(12).fill(0);
+    const processingFees = Array(12).fill(0);
+    const payouts = Array(12).fill(0);
+    
+    // Fill in actual data
+    monthlyRevenue.forEach(item => {
+      const monthIndex = item._id.month - 1;
+      if (item._id.type === 'order_payment') {
+        revenue[monthIndex] = item.amount;
+      } else if (item._id.type === 'platform_fee') {
+        platformFees[monthIndex] = item.amount;
+      } else if (item._id.type === 'processing_fee') {
+        processingFees[monthIndex] = item.amount;
+      }
+    });
+    
+    monthlyPayouts.forEach(item => {
+      const monthIndex = item._id.month - 1;
+      payouts[monthIndex] = item.amount;
+    });
+    
+    // Calculate net revenue (platform + processing fees)
+    const netRevenue = platformFees.map((fee, index) => fee + processingFees[index]);
+    
+    res.json({
+      success: true,
+      data: {
+        labels: monthNames,
+        datasets: {
+          revenue,
+          platformFees,
+          processingFees,
+          netRevenue,
+          payouts
+        },
+        year: parseInt(year)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching financial trends:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch financial trends',
+      error: error.message
+    });
+  }
+};
+
+// Get seller financial summary
+exports.getSellerFinancialSummary = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    // Verify seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    // Get seller's total revenue
+    const revenue = await Transaction.aggregate([
+      {
+        $match: {
+          seller: mongoose.Types.ObjectId(sellerId),
+          type: 'order_payment',
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Get seller's total fees paid
+    const fees = await Transaction.aggregate([
+      {
+        $match: {
+          seller: mongoose.Types.ObjectId(sellerId),
+          type: { $in: ['platform_fee', 'processing_fee'] },
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: '$type',
+          amount: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    // Get seller's total withdrawals
+    const withdrawals = await Transaction.aggregate([
+      {
+        $match: {
+          seller: mongoose.Types.ObjectId(sellerId),
+          type: 'withdrawal',
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Format the response
+    const totalRevenue = revenue.length > 0 ? revenue[0].total : 0;
+    const totalSales = revenue.length > 0 ? revenue[0].count : 0;
+    
+    const platformFees = fees.find(f => f._id === 'platform_fee');
+    const processingFees = fees.find(f => f._id === 'processing_fee');
+    const totalFees = (platformFees ? platformFees.amount : 0) + (processingFees ? processingFees.amount : 0);
+    
+    const totalWithdrawals = withdrawals.length > 0 ? withdrawals[0].total : 0;
+    const withdrawalCount = withdrawals.length > 0 ? withdrawals[0].count : 0;
+    
+    const netIncome = totalRevenue - totalFees;
+    const currentBalance = seller.walletBalance || 0;
+    
+    res.json({
+      success: true,
+      data: {
+        sellerId: seller._id,
+        sellerName: `${seller.firstName} ${seller.lastName}`,
+        storeName: seller.storeName,
+        totalRevenue,
+        totalSales,
+        fees: {
+          platformFees: platformFees ? platformFees.amount : 0,
+          processingFees: processingFees ? processingFees.amount : 0,
+          totalFees
+        },
+        netIncome,
+        withdrawals: {
+          total: totalWithdrawals,
+          count: withdrawalCount
+        },
+        currentBalance
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching seller financial summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch seller financial summary',
+      error: error.message
+    });
+  }
+};
+
+// ... existing code ...
+
+// Get all streams with filtering
+exports.getAllStreams = async (req, res) => {
+  try {
+    const {
+      status,
+      sellerName,
+      dateRange,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    // Build query object
+    const query = {};
+
+    // Filter by status
+    if (status && ['scheduled', 'live', 'ended', 'expired'].includes(status)) {
+      query.status = status;
+    }
+
+    // Filter by date range
+    if (dateRange) {
+      const [startDate, endDate] = dateRange.split(',');
+      if (startDate && endDate) {
+        query.createdAt = {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate)
+        };
+      }
+    }
+
+    // Find sellers by name if provided
+    if (sellerName) {
+      const sellers = await Seller.find({
+        $or: [
+          { firstName: { $regex: sellerName, $options: 'i' } },
+          { lastName: { $regex: sellerName, $options: 'i' } },
+          { storeName: { $regex: sellerName, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      if (sellers.length > 0) {
+        query.seller = { $in: sellers.map(seller => seller._id) };
+      } else {
+        // If no sellers match, return empty result
+        return res.json({
+          success: true,
+          data: {
+            streams: [],
+            pagination: {
+              total: 0,
+              page: parseInt(page),
+              limit: parseInt(limit),
+              pages: 0
+            }
+          }
+        });
+      }
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Determine sort order
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    // Count total matching streams
+    const total = await Stream.countDocuments(query);
+    const pages = Math.ceil(total / parseInt(limit));
+
+    // Fetch streams with pagination and populate seller information
+    const streams = await Stream.find(query)
+      .populate('seller', 'firstName lastName email storeName')
+      .populate('viewers', 'firstName lastName email')
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Format response
+    const formattedStreams = streams.map(stream => {
+      return {
+        id: stream._id,
+        title: stream.title,
+        description: stream.description,
+        status: stream.status,
+        type: stream.type,
+        category: stream.category,
+        seller: stream.seller ? {
+          id: stream.seller._id,
+          name: `${stream.seller.firstName} ${stream.seller.lastName}`,
+          email: stream.seller.email,
+          storeName: stream.seller.storeName
+        } : null,
+        productsCount: stream.products ? stream.products.length : 0,
+        viewersCount: stream.viewers ? stream.viewers.length : 0,
+        scheduledStartTime: stream.scheduledStartTime,
+        actualStartTime: stream.actualStartTime,
+        endTime: stream.endTime,
+        duration: stream.actualStartTime && stream.endTime 
+          ? Math.round((new Date(stream.endTime) - new Date(stream.actualStartTime)) / 60000) // in minutes
+          : null,
+        createdAt: stream.createdAt,
+        coverImageUrl: stream.coverImage ? stream.coverImage.url : null,
+        bidCount: stream.bids ? stream.bids.length : 0,
+        cancelled: stream.cancelledStream || false
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        streams: formattedStreams,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching streams:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch streams',
+      error: error.message
+    });
+  }
+};
+
+// Get detailed stream information
+exports.getStreamDetails = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    
+    const stream = await Stream.findById(streamId)
+      .populate('seller', 'firstName lastName email storeName')
+      .populate('viewers', 'firstName lastName email')
+      .populate('bids.buyer', 'firstName lastName email')
+      .populate('departedViewers.buyer', 'firstName lastName email');
+    
+    if (!stream) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stream not found'
+      });
+    }
+
+    // Format response
+    const formattedStream = {
+      id: stream._id,
+      title: stream.title,
+      description: stream.description,
+      status: stream.status,
+      type: stream.type,
+      category: stream.category,
+      seller: stream.seller ? {
+        id: stream.seller._id,
+        name: `${stream.seller.firstName} ${stream.seller.lastName}`,
+        email: stream.seller.email,
+        storeName: stream.seller.storeName
+      } : null,
+      products: stream.products ? stream.products.map(product => ({
+        id: product._id,
+        productData: product.product,
+        minBid: product.minBid,
+        maxBid: product.maxBid,
+        currentBid: product.currentBid,
+        currentBidder: product.currentBidder
+      })) : [],
+      viewers: stream.viewers ? stream.viewers.map(viewer => ({
+        id: viewer._id,
+        name: `${viewer.firstName} ${viewer.lastName}`,
+        email: viewer.email
+      })) : [],
+      departedViewers: stream.departedViewers ? stream.departedViewers.map(record => ({
+        viewer: {
+          id: record.buyer?._id,
+          name: record.buyer ? `${record.buyer.firstName} ${record.buyer.lastName}` : 'Unknown',
+          email: record.buyer?.email
+        },
+        timestamp: record.timestamp
+      })) : [],
+      bids: stream.bids ? stream.bids.map(bid => ({
+        bidder: {
+          id: bid.buyer?._id,
+          name: bid.buyer ? `${bid.buyer.firstName} ${bid.buyer.lastName}` : 'Unknown',
+          email: bid.buyer?.email
+        },
+        product: bid.product,
+        amount: bid.amount,
+        timestamp: bid.timestamp
+      })) : [],
+      scheduledStartTime: stream.scheduledStartTime,
+      actualStartTime: stream.actualStartTime,
+      endTime: stream.endTime,
+      duration: stream.actualStartTime && stream.endTime 
+        ? Math.round((new Date(stream.endTime) - new Date(stream.actualStartTime)) / 60000) // in minutes
+        : null,
+      createdAt: stream.createdAt,
+      coverImage: stream.coverImage,
+      video: stream.video,
+      channelName: stream.channelName,
+      cancelled: stream.cancelledStream || false,
+      tags: stream.tags || [],
+      chatInteractions: stream.chatInteractions || []
+    };
+
+    res.json({
+      success: true,
+      data: formattedStream
+    });
+  } catch (error) {
+    console.error('Error fetching stream details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch stream details',
+      error: error.message
+    });
+  }
+};
+
+// Get stream analytics
+exports.getStreamAnalytics = async (req, res) => {
+  try {
+    // Overall stream stats
+    const totalStreams = await Stream.countDocuments();
+    const liveStreams = await Stream.countDocuments({ status: 'live' });
+    const completedStreams = await Stream.countDocuments({ status: 'ended' });
+    const scheduledStreams = await Stream.countDocuments({ status: 'scheduled' });
+    
+    // Get streams with viewer data to calculate average viewers
+    const streams = await Stream.find({ status: 'ended' });
+    
+    let totalViewers = 0;
+    let totalDuration = 0;
+    let totalBids = 0;
+    
+    streams.forEach(stream => {
+      totalViewers += stream.viewers.length + (stream.departedViewers?.length || 0);
+      
+      // Calculate duration if both start and end times exist
+      if (stream.actualStartTime && stream.endTime) {
+        const duration = (new Date(stream.endTime) - new Date(stream.actualStartTime)) / 60000; // in minutes
+        totalDuration += duration;
+      }
+      
+      totalBids += stream.bids?.length || 0;
+    });
+    
+    const averageViewers = streams.length > 0 ? Math.round(totalViewers / streams.length) : 0;
+    const averageDuration = streams.length > 0 ? Math.round(totalDuration / streams.length) : 0;
+    const averageBids = streams.length > 0 ? Math.round(totalBids / streams.length) : 0;
+    
+    // Category breakdown
+    const categoryBreakdown = await Stream.aggregate([
+      { $match: { status: { $in: ['live', 'ended'] } } },
+      { $group: {
+          _id: '$category',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Monthly stream counts (for the current year)
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1);
+    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59);
+    
+    const monthlyStreamCounts = await Stream.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startOfYear, $lte: endOfYear }
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$createdAt' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]);
+    
+    // Format monthly data for all months
+    const monthlyData = Array(12).fill(0);
+    monthlyStreamCounts.forEach(item => {
+      const monthIndex = item._id - 1; // Convert 1-based month to 0-based index
+      monthlyData[monthIndex] = item.count;
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalStreams,
+          liveStreams,
+          completedStreams,
+          scheduledStreams,
+          averageViewers,
+          averageDuration,
+          averageBids
+        },
+        categoryBreakdown: categoryBreakdown.map(category => ({
+          category: category._id || 'Uncategorized',
+          count: category.count
+        })),
+        monthlyTrends: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+          data: monthlyData
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching stream analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch stream analytics',
+      error: error.message
+    });
+  }
+};
+
+// ... existing code ...
 
 
 
