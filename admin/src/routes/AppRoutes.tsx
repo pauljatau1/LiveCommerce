@@ -18,6 +18,7 @@ import OrderDetail from '@/pages/orderDetail';
 import Returns from '@/pages/returns';
 import ReturnDetail from '@/pages/returnDetail';
 import BankRequests from '@/pages/bankrequests';
+import Payments from '@/pages/payments';
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
             <Route path="/dashboard/returns" element={<Returns />} />
             <Route path="/dashboard/return-detail/:id" element={<ReturnDetail />} />
             <Route path="/dashboard/bankrequests" element={<BankRequests />} />
+            <Route path="/dashboard/payments" element={<Payments />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
