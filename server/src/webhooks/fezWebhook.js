@@ -202,8 +202,8 @@ const sendStatusEmails = async (order, status, webhookData) => {
         <p><strong>Recipient:</strong> ${order.delivery_address.first_name} ${order.delivery_address.last_name}</p>
         <p><strong>Address:</strong> ${order.delivery_address.line1}</p>
         <p><strong>State:</strong> ${order.delivery_address.state}</p>
-        <p><strong>Phone:</strong> ${order.delivery_address.phone}</p>
-        <p><strong>Email:</strong> ${order.delivery_address.email}</p>
+        <p><strong>Phone:</strong> ${maskPhoneNumber(order.delivery_address.phone)}</p>
+        <p><strong>Email:</strong> ${maskEmail(order.delivery_address.email)}</p>
       </div>
     `;
 
@@ -240,14 +240,14 @@ const sendStatusEmails = async (order, status, webhookData) => {
     let buyerSubject, buyerHtml, sellerSubject, sellerHtml;
 
     const commonOrderInfo = `
-      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
-        <p><strong>Order ID:</strong> ${order.order_id}</p>
-        <p><strong>Fez Order Number:</strong> ${webhookData.orderNumber}</p>
-        <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-        <p><strong>Current Status:</strong> ${webhookData.status}</p>
+      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #4CAF50;">
+        <p style="margin: 5px 0;"><strong style="color: #333;">Order ID:</strong> <span style="color: #555;">${order.order_id}</span></p>
+        <p style="margin: 5px 0;"><strong style="color: #333;">Fez Order Number:</strong> <span style="color: #555;">${webhookData.orderNumber}</span></p>
+        <p style="margin: 5px 0;"><strong style="color: #333;">Date:</strong> <span style="color: #555;">${new Date().toLocaleDateString()}</span></p>
+        <p style="margin: 5px 0;"><strong style="color: #333;">Current Status:</strong> <span style="color: #555;">${webhookData.status}</span></p>
       </div>
       
-      <h3>Order Details</h3>
+      <h3 style="color: #4CAF50; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;">Order Details</h3>
       ${itemsTable}
       
       ${deliveryInfo}
@@ -255,30 +255,48 @@ const sendStatusEmails = async (order, status, webhookData) => {
       ${statusHistoryTable}
     `;
 
+    const emailContainer = (content) => `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px;">
+          ${content}
+        </div>
+      </div>
+    `;
+
+    const emailFooter = `
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
+        <p>Thank you for using Auqli!</p>
+        <p>If you have any questions, please contact our customer service team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+        <p style="color: #999; font-size: 12px; margin-top: 15px;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+      </div>
+    `;
+
     switch (status) {
       case 'picked_up':
         buyerSubject = 'Your Order Has Been Picked Up - Auqli';
-        buyerHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Your Order Has Been Picked Up!</h2>
-            <p>Dear ${order.buyer.firstName},</p>
-            <p>Great news! Your order has been picked up from ${order.seller.businessName || order.seller.firstName}.</p>
-            ${commonOrderInfo}
-            <p>It's now on its way to our logistics center for processing.</p>
-            <p>Best regards,<br>The Auqli Team</p>
+        buyerHtml = emailContainer(`
+          <h2 style="color: #333; margin-top: 15px;">Your Order Has Been Picked Up!</h2>
+          <p style="color: #555; font-size: 16px;">Hello ${order.buyer.firstName},</p>
+          <p style="color: #555; font-size: 16px;">Great news! Your order has been picked up from ${order.seller.businessName || order.seller.firstName} and is now on its way to our logistics center for processing.</p>
+          ${commonOrderInfo}
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="https://auqli.com/orders/${order.order_id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Track Your Order</a>
           </div>
-        `;
+          ${emailFooter}
+        `);
         
         sellerSubject = 'Order Picked Up - Auqli';
-        sellerHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Order Picked Up Successfully</h2>
-            <p>Dear ${order.seller.firstName},</p>
-            <p>Your order has been picked up successfully.</p>
-            ${commonOrderInfo}
-            <p>Best regards,<br>The Auqli Team</p>
+        sellerHtml = emailContainer(`
+          <h2 style="color: #333; margin-top: 15px;">Order Picked Up Successfully</h2>
+          <p style="color: #555; font-size: 16px;">Hello ${order.seller.firstName},</p>
+          <p style="color: #555; font-size: 16px;">Your order has been picked up successfully and is now in transit.</p>
+          ${commonOrderInfo}
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="https://seller.auqli.com/orders/${order.order_id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View Order Details</a>
           </div>
-        `;
+          ${emailFooter}
+        `);
         break;
         
       case 'in_transit':
@@ -417,6 +435,19 @@ const updateOrderMessages = async (order, status, statusDescription) => {
   } catch (error) {
     console.error('Error updating order messages:', error);
   }
+};
+
+// Helper functions to mask sensitive information
+const maskEmail = (email) => {
+  if (!email) return '';
+  const [username, domain] = email.split('@');
+  if (!username || !domain) return '***@***.com';
+  return `${username.substring(0, 2)}${'*'.repeat(username.length - 2)}@${domain}`;
+};
+
+const maskPhoneNumber = (phone) => {
+  if (!phone) return '';
+  return `${'*'.repeat(Math.max(0, phone.length - 4))}${phone.substring(Math.max(0, phone.length - 4))}`;
 };
 
 module.exports = {

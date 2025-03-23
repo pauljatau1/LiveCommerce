@@ -326,7 +326,8 @@ exports.createCampaign = async (req, res) => {
         campaignId: campaign._id,
         campaignTitle: title,
         recipientCount: recipients.length,
-        scheduledFor
+        scheduledFor,
+        storeName: seller.storeName || seller.businessName || seller.firstName
       }
     );
 

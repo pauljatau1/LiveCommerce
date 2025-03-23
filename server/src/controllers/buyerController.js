@@ -112,35 +112,52 @@ exports.register = async (req, res) => {
       from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Welcome to Auqli! Verify Your Account',
       html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Welcome to Auqli, ${firstName}!</h1>
-            <p style="font-size: 16px; line-height: 1.5;">Thank you for joining our community. We're excited to have you on board!</p>
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 25px; text-align: center;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+            </div>
             
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-              <h3 style="color: #4CAF50; margin-bottom: 15px;">Your Verification Code</h3>
-              <p style="font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px; margin: 20px 0; color: #4CAF50;">${otp}</p>
-              <p style="font-size: 14px; color: #999999;">Please enter this code to verify your email address and activate your account.</p>
+            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Welcome to Auqli, ${firstName}!</h1>
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">We're thrilled to have you join our community of buyers and sellers. Your account has been created, but we need to verify your email to get you started.</p>
+              
+              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Verification Code</h3>
+                <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${otp}</p>
+                <p style="font-size: 14px; color: #bbbbbb;">Enter this code in the app to verify your email</p>
+              </div>
+              
+              <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What's Next?</h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                  <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Verify your email using the code above</span>
+                    </div>
+                  </li>
+                  <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Complete your profile to personalize your experience</span>
+                    </div>
+                  </li>
+                  <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
+                    <div style="display: flex; align-items: center;">
+                      <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                      <span>Start exploring unique products from our sellers</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
             </div>
-
-            <div style="margin: 30px 0;">
-              <h3 style="color: #4CAF50; margin-bottom: 15px;">What's Next?</h3>
-              <ul style="list-style: none; padding: 0;">
-                <li style="margin-bottom: 10px; display: flex; align-items: center;">
-                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> Verify your email using the code above
-                </li>
-                <li style="margin-bottom: 10px; display: flex; align-items: center;">
-                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> Complete your profile
-                </li>
-                <li style="margin-bottom: 10px; display: flex; align-items: center;">
-                  <span style="color: #4CAF50; margin-right: 10px;">✓</span> Start exploring products
-                </li>
-              </ul>
+            
+            <div style="text-align: center; padding: 0 30px 30px 30px;">
+              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
             </div>
-
-            <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           </div>
         </div>
       `
@@ -2031,22 +2048,33 @@ exports.forgotPassword = async (req, res) => {
       from: 'Joseph From Auqli <joseph@auqli.com>',
       subject: 'Password Reset Code - Auqli',
       html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Code</h1>
-            <p style="font-size: 16px; line-height: 1.5;">You requested to reset your password. Here's your verification code:</p>
-            
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-              <h3 style="color: #4CAF50; margin-bottom: 15px;">Your Reset Code</h3>
-              <p style="font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px; margin: 20px 0; color: #4CAF50;">${resetOTP}</p>
-              <p style="font-size: 14px; color: #999999;">This code will expire in 10 minutes.</p>
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 25px; text-align: center;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
             </div>
-
-            <p style="font-size: 14px; line-height: 1.5; color: #999999;">If you didn't request this code, please ignore this email or contact our support team if you have concerns.</p>
-
-            <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            
+            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Password Reset Request</h1>
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">We received a request to reset your password. Use the code below to create a new password for your Auqli account.</p>
+              
+              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Reset Code</h3>
+                <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${resetOTP}</p>
+                <p style="font-size: 14px; color: #bbbbbb;">This code will expire in 10 minutes</p>
+              </div>
+              
+              <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">Security Notice</h3>
+                <p style="font-size: 14px; color: #bbbbbb; text-align: center;">If you didn't request a password reset, please ignore this email or contact our support team immediately. Someone may be trying to access your account.</p>
+              </div>
+            </div>
+            
+            <div style="text-align: center; padding: 0 30px 30px 30px;">
+              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">Need help? Contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            </div>
           </div>
         </div>
       `

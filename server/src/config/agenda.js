@@ -969,10 +969,137 @@ agenda.define('update-order-message-status', async (job) => {
   }
 });
 
+// Define job for processing pending message notifications
+agenda.define('process-pending-message-notifications', async (job) => {
+  try {
+    console.log('Starting process-pending-message-notifications job');
+    
+    const Seller = mongoose.model('Seller');
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    // Find sellers with pending message notifications
+    const sellers = await Seller.find({
+      'messageNotifications.pendingCount': { $gt: 0 },
+      'messageNotifications.conversationsWithNewMessages.0': { $exists: true }
+    }).populate({
+      path: 'messageNotifications.conversationsWithNewMessages',
+      model: 'Conversation',
+      select: 'participants lastMessage'
+    });
+    
+    console.log(`Found ${sellers.length} sellers with pending message notifications`);
+    
+    // Process each seller
+    for (const seller of sellers) {
+      try {
+        // Check if the cooldown period has passed (5 minutes)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        
+        if (!seller.messageNotifications.lastSentAt || 
+            seller.messageNotifications.lastSentAt < fiveMinutesAgo) {
+          
+          console.log(`Processing pending notifications for seller ${seller._id}`);
+          
+          // Skip if seller has opted out of email notifications
+          if (seller.notificationPreferences && seller.notificationPreferences.emailNotifications === false) {
+            console.log(`Seller ${seller._id} has opted out of email notifications, skipping`);
+            continue;
+          }
+          
+          const conversationCount = seller.messageNotifications.conversationsWithNewMessages.length;
+          let emailSubject = '';
+          let emailContent = '';
+          
+          // Build email content based on number of conversations
+          if (conversationCount === 1) {
+            // For a single conversation, get buyer information
+            const conversation = seller.messageNotifications.conversationsWithNewMessages[0];
+            const buyerParticipant = conversation.participants.find(p => p.model === 'Buyer');
+            
+            if (!buyerParticipant) {
+              console.log(`No buyer participant found for conversation ${conversation._id}, skipping`);
+              continue;
+            }
+            
+            // Get buyer name
+            const Buyer = mongoose.model('Buyer');
+            const buyer = await Buyer.findById(buyerParticipant.id);
+            if (!buyer) {
+              console.log(`Buyer ${buyerParticipant.id} not found, skipping`);
+              continue;
+            }
+            
+            const buyerName = `${buyer.firstName} ${buyer.lastName}`;
+            const messagePreview = conversation.lastMessage ? 
+              (conversation.lastMessage.content || `Sent ${conversation.lastMessage.messageType}`) : 
+              'New message';
+            
+            emailSubject = `New message from ${buyerName} - Auqli`;
+            emailContent = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>You have a new message!</h2>
+                <p>Dear ${seller.firstName},</p>
+                <p>${buyerName} has sent you a message: "${messagePreview.length > 50 ? messagePreview.substring(0, 47) + '...' : messagePreview}"</p>
+                <p>Please log in to your Auqli account to respond.</p>
+                <p><a href="${process.env.FRONTEND_URL}/dashboard/messages/${conversation._id}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View Messages</a></p>
+                <p>Best regards,<br>The Auqli Team</p>
+              </div>
+            `;
+          } else {
+            // For multiple conversations
+            emailSubject = `You have ${conversationCount} conversations with new messages - Auqli`;
+            emailContent = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>You have new messages!</h2>
+                <p>Dear ${seller.firstName},</p>
+                <p>You have ${conversationCount} conversations with new messages on Auqli.</p>
+                <p>Please log in to your Auqli account to respond to your customers.</p>
+                <p><a href="${process.env.FRONTEND_URL}/dashboard/messages" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View All Messages</a></p>
+                <p>Best regards,<br>The Auqli Team</p>
+              </div>
+            `;
+          }
+          
+          // Send the email
+          const msg = {
+            to: seller.email,
+            from: 'Auqli Messages <support@auqli.com>',
+            subject: emailSubject,
+            html: emailContent
+          };
+          
+          await sgMail.send(msg);
+          console.log(`Sent pending notification email to seller ${seller._id}`);
+          
+          // Update the seller's notification status
+          seller.messageNotifications.lastSentAt = new Date();
+          seller.messageNotifications.pendingCount = 0;
+          seller.messageNotifications.conversationsWithNewMessages = [];
+          await seller.save();
+        } else {
+          console.log(`Cooldown period not passed for seller ${seller._id}, skipping`);
+        }
+      } catch (sellerError) {
+        console.error(`Error processing seller ${seller._id}:`, sellerError);
+        // Continue to next seller
+      }
+    }
+    
+    console.log('Finished process-pending-message-notifications job');
+  } catch (error) {
+    console.error('Error in process-pending-message-notifications job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();
   console.log('Agenda started successfully');
+  
+  // Schedule the pending message notifications job to run every 5 minutes
+  await agenda.every('5 minutes', 'process-pending-message-notifications');
+  console.log('Scheduled message notification job to run every 5 minutes');
 };
 
 module.exports = { agenda, startAgenda }; 

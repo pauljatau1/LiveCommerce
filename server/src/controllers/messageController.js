@@ -7,6 +7,8 @@ const { createNotification, createBuyerNotification } = require('./notificationC
 const Order = require('../models/Order');
 const { saveToken, getToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
+const sgMail = require('@sendgrid/mail');
+const { agenda } = require('../config/agenda');
 
 const expo = new Expo();
 
@@ -18,6 +20,116 @@ const createMessagePreview = (content, messageType) => {
     return 'Shared a product';
   } else {
     return `Sent ${messageType}`;
+  }
+};
+
+// Helper function to check if we should send an email notification to seller
+// about new messages (respecting 5-minute cooldown)
+const shouldSendSellerNotification = async (sellerId) => {
+  const Seller = require('../models/Seller');
+  const seller = await Seller.findById(sellerId);
+  
+  if (!seller) return false;
+  
+  // If no notification has been sent yet, or it's been more than 5 minutes since the last one
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  
+  if (!seller.messageNotifications.lastSentAt || 
+      seller.messageNotifications.lastSentAt < fiveMinutesAgo) {
+    return true;
+  }
+  
+  return false;
+};
+
+// Helper function to send email notification to seller about new message(s)
+const sendSellerMessageNotification = async (sellerId, buyerName, messagePreview, conversationId) => {
+  try {
+    const Seller = require('../models/Seller');
+    
+    // Find the seller
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      console.error('Seller not found for message notification:', sellerId);
+      return;
+    }
+    
+    // Check notification preferences if the seller has opted out of email notifications
+    if (seller.notificationPreferences && seller.notificationPreferences.emailNotifications === false) {
+      console.log(`Seller ${sellerId} has opted out of email notifications`);
+      return;
+    }
+    
+    // Check if we should send an email notification (respecting 5-minute cooldown)
+    const shouldSend = await shouldSendSellerNotification(sellerId);
+    
+    // Track this conversation as having new messages
+    if (!seller.messageNotifications.conversationsWithNewMessages.includes(conversationId)) {
+      seller.messageNotifications.pendingCount += 1;
+      seller.messageNotifications.conversationsWithNewMessages.push(conversationId);
+      await seller.save();
+    }
+    
+    // If we shouldn't send an email now, just update the counter and exit
+    if (!shouldSend) {
+      console.log(`Skipping message notification email for seller ${sellerId} due to cooldown`);
+      return;
+    }
+    
+    // Set up SendGrid
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    // Get conversation count for message
+    const conversationCount = seller.messageNotifications.conversationsWithNewMessages.length;
+    
+    // Build email content
+    let emailSubject = `New message from ${buyerName} - Auqli`;
+    let emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>You have a new message!</h2>
+        <p>Dear ${seller.firstName},</p>
+        <p>${buyerName} has sent you a message: "${messagePreview}"</p>
+        <p>Please log in to your Auqli account to respond.</p>
+        <p><a href="${process.env.FRONTEND_URL}/dashboard/messages/${conversationId}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View Messages</a></p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `;
+    
+    // If there are multiple conversations with new messages, adjust the email content
+    if (conversationCount > 1) {
+      emailSubject = `You have ${conversationCount} conversations with new messages - Auqli`;
+      emailContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>You have new messages!</h2>
+          <p>Dear ${seller.firstName},</p>
+          <p>You have ${conversationCount} conversations with new messages on Auqli.</p>
+          <p>Please log in to your Auqli account to respond to your customers.</p>
+          <p><a href="${process.env.FRONTEND_URL}/dashboard/messages" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 4px;">View All Messages</a></p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `;
+    }
+    
+    // Send the email
+    const msg = {
+      to: seller.email,
+      from: 'Auqli Messages <support@auqli.com>',
+      subject: emailSubject,
+      html: emailContent
+    };
+    
+    await sgMail.send(msg);
+    console.log(`Message notification email sent to seller ${sellerId}`);
+    
+    // Update the seller's notification status
+    seller.messageNotifications.lastSentAt = new Date();
+    seller.messageNotifications.pendingCount = 0;
+    seller.messageNotifications.conversationsWithNewMessages = [];
+    await seller.save();
+    
+  } catch (error) {
+    console.error('Error sending seller message notification:', error);
+    // Don't throw the error to prevent message sending from failing
   }
 };
 
@@ -45,6 +157,16 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
         messagePreview,
         conversationId: message.conversation
       });
+      
+      // If the sender is a buyer and recipient is a seller, send email notification to seller
+      if (message.sender.model === 'Buyer') {
+        await sendSellerMessageNotification(
+          message.recipient.id, 
+          senderName,
+          messagePreview,
+          message.conversation
+        );
+      }
     } else {
       await createBuyerNotification(message.recipient.id, 'seller_message', {
         sellerName: senderName,
@@ -258,7 +380,7 @@ exports.sendMediaMessage = async (req, res) => {
 
     await conversation.save();
 
-    // Create notification
+    // Create notification and send email notification if recipient is a seller and sender is a buyer
     await createMessageNotifications(savedMessage);
 
     // Send push notification to recipient if they have a token
@@ -528,7 +650,7 @@ exports.sendProductMessage = async (req, res) => {
 
     await conversation.save();
 
-    // Create notification
+    // Create notification and send email notification if recipient is a seller and sender is a buyer
     await createMessageNotifications(message);
 
     // Send push notification to recipient if they have a token
@@ -679,7 +801,7 @@ exports.sendOrderMessage = async (req, res) => {
 
     await conversation.save();
 
-    // Create notification
+    // Create notification and send email notification if recipient is a seller and sender is a buyer
     await createMessageNotifications(message);
 
     // Send push notification to recipient if they have a token

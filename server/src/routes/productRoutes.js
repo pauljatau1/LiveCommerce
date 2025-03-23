@@ -146,7 +146,93 @@ const optionalAuth = (req, res, next) => {
 // Use optional auth middleware for blips routes
 router.get('/blips', optionalAuth, productController.getAllBlips);
 router.get('/seller/:sellerId/blips', optionalAuth, productController.getSellerBlips);
+router.get('/blips/suggested', optionalAuth, productController.getSuggestedBlips);
 
+/**
+ * @swagger
+ * /api/products/blips/suggested:
+ *   get:
+ *     summary: Get suggested blips based on user preferences
+ *     description: For authenticated buyers, returns blips matching their selected categories. For unauthenticated users, returns popular blips.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *         description: Number of blips per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved suggested blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       blipId:
+ *                         type: string
+ *                       blipUrl:
+ *                         type: string
+ *                         description: URL of the blip video
+ *                       productId:
+ *                         type: string
+ *                       productName:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       category:
+ *                         type: string
+ *                       subCategory:
+ *                         type: string
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                           storeAvatar:
+ *                             type: string
+ *                           isFollowing:
+ *                             type: boolean
+ *                       blipEngagement:
+ *                         type: object
+ *                         properties:
+ *                           likesCount:
+ *                             type: integer
+ *                           commentsCount:
+ *                             type: integer
+ *                           viewCount:
+ *                             type: integer
+ *                 isPersonalized:
+ *                   type: boolean
+ *                   description: Indicates if results are personalized based on user preferences
+ *                 currentPage:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 totalBlips:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
 
 /**
  * @swagger
@@ -1661,9 +1747,112 @@ router.put('/:id/discount',
 
 /**
  * @swagger
+ * /api/products/{id}/blips/{blipId}:
+ *   get:
+ *     summary: Get details of a specific blip
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: Blip details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 blip:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     url:
+ *                       type: string
+ *                     contentType:
+ *                       type: string
+ *                     likesCount:
+ *                       type: number
+ *                     viewCount:
+ *                       type: number
+ *                     commentsCount:
+ *                       type: number
+ *                     isLiked:
+ *                       type: boolean
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     comments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           buyer:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               firstName:
+ *                                 type: string
+ *                               lastName:
+ *                                 type: string
+ *                               profileImage:
+ *                                 type: object
+ *                           comment:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           likesCount:
+ *                             type: number
+ *                           repliesCount:
+ *                             type: number
+ *                     productInfo:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         seller:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                             storeName:
+ *                               type: string
+ *                             businessName:
+ *                               type: string
+ *                             storeAvatar:
+ *                               type: object
+ *       400:
+ *         description: Invalid product or blip ID format
+ *       404:
+ *         description: Product or blip not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/blips/:blipId', optionalAuth, productController.getBlipDetails);
+
+/**
+ * @swagger
  * /api/products/{id}/blips/{blipId}/like:
  *   post:
- *     summary: Like/unlike a product blip
+ *     summary: Toggle like on a product blip
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []

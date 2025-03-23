@@ -997,6 +997,190 @@ router.put('/withdrawals/:withdrawalId/status',
 
 /**
  * @swagger
+ * /api/admin/financial/transactions:
+ *   get:
+ *     summary: Get financial transactions with filtering
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [inflow, outflow, all]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [completed, pending, failed]
+ *         description: Filter by transaction status
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for transaction search
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for transaction search
+ *       - in: query
+ *         name: sellerId
+ *         schema:
+ *           type: string
+ *         description: Filter by seller ID
+ *       - in: query
+ *         name: reference
+ *         schema:
+ *           type: string
+ *         description: Search by order or withdrawal reference
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of records to return
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *     responses:
+ *       200:
+ *         description: List of financial transactions
+ *       500:
+ *         description: Server error
+ */
+router.get('/financial/transactions',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getFinancialTransactions
+);
+
+/**
+ * @swagger
+ * /api/admin/financial/summary:
+ *   get:
+ *     summary: Get financial summary statistics
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for summary calculation
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for summary calculation
+ *     responses:
+ *       200:
+ *         description: Financial summary statistics
+ *       500:
+ *         description: Server error
+ */
+router.get('/financial/summary',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getFinancialSummary
+);
+
+/**
+ * @swagger
+ * /api/admin/financial/transactions/{transactionId}:
+ *   get:
+ *     summary: Get detailed information about a specific transaction
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transactionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Transaction ID
+ *     responses:
+ *       200:
+ *         description: Detailed transaction information
+ *       404:
+ *         description: Transaction not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/financial/transactions/:transactionId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getTransactionDetails
+);
+
+/**
+ * @swagger
+ * /api/admin/financial/trends:
+ *   get:
+ *     summary: Get financial trends data
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: integer
+ *         description: Year for which to get trends data (defaults to current year)
+ *     responses:
+ *       200:
+ *         description: Monthly financial trends data
+ *       500:
+ *         description: Server error
+ */
+router.get('/financial/trends',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getFinancialTrends
+);
+
+/**
+ * @swagger
+ * /api/admin/financial/sellers/{sellerId}:
+ *   get:
+ *     summary: Get detailed financial information for a specific seller
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Seller ID
+ *     responses:
+ *       200:
+ *         description: Seller financial summary
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/financial/sellers/:sellerId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getSellerFinancialSummary
+);
+
+/**
+ * @swagger
  * /api/admin/buyers/{buyerId}/verify-identity:
  *   put:
  *     summary: Verify buyer's identity document
@@ -1517,6 +1701,116 @@ router.post('/bank-requests/:id/reject',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.processBankChangeRequest
+);
+
+/**
+ * @swagger
+ * /api/admin/streams:
+ *   get:
+ *     summary: Get all streams with filtering options
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended, expired]
+ *         description: Filter by stream status
+ *       - in: query
+ *         name: sellerName
+ *         schema:
+ *           type: string
+ *         description: Filter by seller name or store name
+ *       - in: query
+ *         name: dateRange
+ *         schema:
+ *           type: string
+ *         description: Filter by date range (format yyyy-mm-dd,yyyy-mm-dd)
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, scheduledStartTime, viewersCount]
+ *         description: Field to sort by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Sort order (ascending or descending)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of streams
+ *       500:
+ *         description: Server error
+ */
+router.get('/streams',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getAllStreams
+);
+
+/**
+ * @swagger
+ * /api/admin/streams/analytics:
+ *   get:
+ *     summary: Get analytics data for all streams
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Stream analytics data
+ *       500:
+ *         description: Server error
+ */
+router.get('/streams/analytics',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getStreamAnalytics
+);
+
+/**
+ * @swagger
+ * /api/admin/streams/{streamId}:
+ *   get:
+ *     summary: Get detailed information about a specific stream
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Stream ID
+ *     responses:
+ *       200:
+ *         description: Detailed stream information
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/streams/:streamId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getStreamDetails
 );
 
 module.exports = router;

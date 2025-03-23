@@ -638,22 +638,22 @@ exports.getProduct = async (req, res) => {
         $set: { 'stats.lastViewed': new Date() }
       });
       
-      // Update seller stats
-      const seller = await Seller.findById(formattedProduct.seller._id);
-      if (seller) {
-        // Increment total store visits
-        seller.storeVisits = (seller.storeVisits || 0) + 1;
+      // // Update seller stats
+      // const seller = await Seller.findById(formattedProduct.seller._id);
+      // if (seller) {
+      //   // Increment total store visits
+      //   seller.storeVisits = (seller.storeVisits || 0) + 0;
   
-        // Update monthly stats for store visits
-        const currentDate = new Date();
-        const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
+      //   // Update monthly stats for store visits
+      //   const currentDate = new Date();
+      //   const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
   
-        // Get current month's visits or initialize to 0
-        const currentMonthVisits = seller.monthlyStats.storeVisits.get(monthKey) || 0;
-        seller.monthlyStats.storeVisits.set(monthKey, currentMonthVisits + 1);
+      //   // Get current month's visits or initialize to 0
+      //   const currentMonthVisits = seller.monthlyStats.storeVisits.get(monthKey) || 0;
+      //   seller.monthlyStats.storeVisits.set(monthKey, currentMonthVisits + 1);
   
-        await seller.save();
-      }
+      //   await seller.save();
+      // }
       
       console.log('Auction product retrieved successfully');
       return res.json(formattedProduct);
@@ -1495,8 +1495,16 @@ exports.getAllBlips = async (req, res) => {
     console.log('Starting getAllBlips aggregation...');
     
     const blips = await Product.aggregate([
-      // Match products that have blips
-      { $match: { blips: { $exists: true, $ne: [] } } },
+      // Match products that have blips and exclude offline_auction products with ended status
+      { $match: { 
+        blips: { $exists: true, $ne: [] },
+        $nor: [
+          { 
+            status: 'offline_auction', 
+            'auction.status': 'ended' 
+          }
+        ]
+      }},
       // Unwind the blips array
       { $unwind: '$blips' },
       // Lookup seller information
@@ -1509,6 +1517,15 @@ exports.getAllBlips = async (req, res) => {
         }
       },
       { $unwind: '$sellerInfo' },
+      // Lookup auction bidder information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.currentHighestBid.buyer',
+          foreignField: '_id',
+          as: 'highestBidder'
+        }
+      },
       // Project needed fields
       {
         $project: {
@@ -1531,8 +1548,27 @@ exports.getAllBlips = async (req, res) => {
                 endDate: '$auction.endDate',
                 status: '$auction.status',
                 daysLeft: '$auction.daysLeft',
-                currentHighestBid: '$auction.currentHighestBid',
-                winner: '$auction.winner'
+                currentHighestBid: {
+                  amount: '$auction.currentHighestBid.amount',
+                  buyer: {
+                    _id: '$auction.currentHighestBid.buyer',
+                    firstName: { $arrayElemAt: ['$highestBidder.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$highestBidder.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$highestBidder.profileImage', 0] }
+                  }
+                },
+                winner: {
+                  buyer: '$auction.winner.buyer',
+                  bidAmount: '$auction.winner.bidAmount',
+                  winningDate: '$auction.winner.winningDate'
+                },
+                bidsCount: {
+                  $cond: {
+                    if: { $isArray: '$auction.bids' },
+                    then: { $size: '$auction.bids' },
+                    else: 0
+                  }
+                }
               },
               else: null
             }
@@ -1642,7 +1678,13 @@ exports.getAllBlips = async (req, res) => {
     });
 
     const total = await Product.countDocuments({
-      blips: { $exists: true, $ne: [] }
+      blips: { $exists: true, $ne: [] },
+      $nor: [
+        {
+          status: 'offline_auction', 
+          'auction.status': 'ended'
+        }
+      ]
     });
 
     console.log(`Total blips count: ${total}`);
@@ -1706,7 +1748,13 @@ exports.getSellerBlips = async (req, res) => {
     // Check if seller has any blips before aggregation
     const hasBlips = await Product.exists({
       seller: new mongoose.Types.ObjectId(sellerId),
-      blips: { $exists: true, $ne: [] }
+      blips: { $exists: true, $ne: [] },
+      $nor: [
+        {
+          status: 'offline_auction', 
+          'auction.status': 'ended'
+        }
+      ]
     });
 
     if (!hasBlips) {
@@ -1736,15 +1784,39 @@ exports.getSellerBlips = async (req, res) => {
     }
 
     const blips = await Product.aggregate([
-      // Match products from this seller that have blips
+      // Match products from this seller that have blips and exclude offline_auction products with ended status
       { 
         $match: { 
           seller: new mongoose.Types.ObjectId(sellerId),
-          blips: { $exists: true, $ne: [] }
+          blips: { $exists: true, $ne: [] },
+          $nor: [
+            {
+              status: 'offline_auction', 
+              'auction.status': 'ended'
+            }
+          ]
         } 
       },
       // Unwind the blips array
       { $unwind: '$blips' },
+      // Lookup auction bidder information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.currentHighestBid.buyer',
+          foreignField: '_id',
+          as: 'highestBidder'
+        }
+      },
+      // Lookup auction winner information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.winner.buyer',
+          foreignField: '_id',
+          as: 'auctionWinner'
+        }
+      },
       // Project needed fields with safe handling of likes/comments
       {
         $project: {
@@ -1770,8 +1842,32 @@ exports.getSellerBlips = async (req, res) => {
                 endDate: '$auction.endDate',
                 status: '$auction.status',
                 daysLeft: '$auction.daysLeft',
-                currentHighestBid: '$auction.currentHighestBid',
-                winner: '$auction.winner'
+                currentHighestBid: {
+                  amount: '$auction.currentHighestBid.amount',
+                  buyer: {
+                    _id: '$auction.currentHighestBid.buyer',
+                    firstName: { $arrayElemAt: ['$highestBidder.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$highestBidder.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$highestBidder.profileImage', 0] }
+                  }
+                },
+                winner: {
+                  bidAmount: '$auction.winner.bidAmount',
+                  winningDate: '$auction.winner.winningDate',
+                  buyer: {
+                    _id: '$auction.winner.buyer',
+                    firstName: { $arrayElemAt: ['$auctionWinner.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$auctionWinner.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$auctionWinner.profileImage', 0] }
+                  }
+                },
+                bidsCount: {
+                  $cond: {
+                    if: { $isArray: '$auction.bids' },
+                    then: { $size: '$auction.bids' },
+                    else: 0
+                  }
+                }
               },
               else: null
             }
@@ -1860,7 +1956,13 @@ exports.getSellerBlips = async (req, res) => {
 
     const total = await Product.countDocuments({
       seller: sellerId,
-      blips: { $exists: true, $ne: [] }
+      blips: { $exists: true, $ne: [] },
+      $nor: [
+        {
+          status: 'offline_auction', 
+          'auction.status': 'ended'
+        }
+      ]
     });
 
     console.log(`Total blips count for seller: ${total}`);
@@ -1888,6 +1990,259 @@ exports.getSellerBlips = async (req, res) => {
   } catch (error) {
     console.error('Detailed error in getSellerBlips:', error);
     res.status(500).json({ message: 'Failed to retrieve blips', error: error.message });
+  }
+};
+
+// Get suggested blips based on user preferences or popular blips
+exports.getSuggestedBlips = async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  
+  // Check if user is authenticated
+  const buyerId = req.user?.id;
+  const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
+
+  try {
+    console.log('Starting getSuggestedBlips aggregation...');
+    
+    let matchStage = { 
+      blips: { $exists: true, $ne: [] },
+      $nor: [
+        {
+          status: 'offline_auction', 
+          'auction.status': 'ended'
+        }
+      ]
+    };
+    
+    // If user is authenticated, get their preferred categories
+    let preferredCategories = [];
+    if (isAuthenticated) {
+      console.log(`Getting preferred categories for buyer: ${buyerId}`);
+      const buyer = await mongoose.model('Buyer').findById(buyerId).select('selectedCategories');
+      
+      if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
+        preferredCategories = buyer.selectedCategories.map(cat => cat.name);
+        console.log(`Found preferred categories: ${preferredCategories.join(', ')}`);
+        
+        if (preferredCategories.length > 0) {
+          matchStage.category = { $in: preferredCategories };
+        }
+      } else {
+        console.log('No preferred categories found for buyer');
+      }
+    }
+    
+    // Default sorting will be based on popularity if no specific categories are available
+    const sortStage = preferredCategories.length > 0 
+      ? { createdAt: -1 } // Newest first for category-matched content
+      : { 'blipEngagement.viewCount': -1, 'blipEngagement.likesCount': -1 }; // Most popular based on views and likes
+    
+    const blips = await mongoose.model('Product').aggregate([
+      // Match products that have blips (and match category if authenticated)
+      { $match: matchStage },
+      // Unwind the blips array
+      { $unwind: '$blips' },
+      // Lookup seller information
+      {
+        $lookup: {
+          from: 'sellers',
+          localField: 'seller',
+          foreignField: '_id',
+          as: 'sellerInfo'
+        }
+      },
+      { $unwind: '$sellerInfo' },
+      // Lookup auction bidder information
+      {
+        $lookup: {
+          from: 'buyers',
+          localField: 'auction.currentHighestBid.buyer',
+          foreignField: '_id',
+          as: 'highestBidder'
+        }
+      },
+      // Project needed fields
+      {
+        $project: {
+          _id: '$_id', // This is the product ID
+          blipId: '$blips._id',
+          blipUrl: '$blips.url',
+          productId: '$_id',
+          productName: '$name',
+          price: '$price',
+          category: '$category',
+          subCategory: '$subCategory',
+          stock: '$stock',
+          status: '$status',
+          auctionInfo: {
+            $cond: {
+              if: { $eq: ['$status', 'offline_auction'] },
+              then: {
+                minBid: '$auction.minBid',
+                maxBid: '$auction.maxBid',
+                endOnMaxBid: '$auction.endOnMaxBid',
+                startDate: '$auction.startDate',
+                endDate: '$auction.endDate',
+                status: '$auction.status',
+                daysLeft: '$auction.daysLeft',
+                currentHighestBid: {
+                  amount: '$auction.currentHighestBid.amount',
+                  buyer: {
+                    _id: '$auction.currentHighestBid.buyer',
+                    firstName: { $arrayElemAt: ['$highestBidder.firstName', 0] },
+                    lastName: { $arrayElemAt: ['$highestBidder.lastName', 0] },
+                    profileImage: { $arrayElemAt: ['$highestBidder.profileImage', 0] }
+                  }
+                },
+                winner: {
+                  buyer: '$auction.winner.buyer',
+                  bidAmount: '$auction.winner.bidAmount',
+                  winningDate: '$auction.winner.winningDate'
+                },
+                bidsCount: {
+                  $cond: {
+                    if: { $isArray: '$auction.bids' },
+                    then: { $size: '$auction.bids' },
+                    else: 0
+                  }
+                }
+              },
+              else: null
+            }
+          },
+          discount: {
+            isActive: '$discount.isActive',
+            type: '$discount.type',
+            value: '$discount.value',
+            startDate: '$discount.startDate',
+            endDate: '$discount.endDate',
+            couponName: '$discount.couponName',
+            discountedPrice: {
+              $cond: {
+                if: '$discount.isActive',
+                then: {
+                  $cond: {
+                    if: { $eq: ['$discount.type', 'percentage'] },
+                    then: { $round: [{ $multiply: ['$price', { $subtract: [1, { $divide: ['$discount.value', 100] }] }] }, 0] },
+                    else: { $subtract: ['$price', '$discount.value'] }
+                  }
+                },
+                else: '$price'
+              }
+            }
+          },
+          seller: {
+            _id: '$sellerInfo._id',
+            firstName: '$sellerInfo.firstName',
+            lastName: '$sellerInfo.lastName',
+            storeName: '$sellerInfo.storeName',
+            storeAvatar: '$sellerInfo.storeAvatar',
+            aboutStore: '$sellerInfo.aboutStore',
+            storeRating: { $ifNull: ['$sellerInfo.stats.averageRating', 0] },
+            totalStoreReviews: { $ifNull: ['$sellerInfo.stats.totalReviews', 0] },
+            isFollowing: {
+              $cond: {
+                if: { $isArray: '$sellerInfo.followers' },
+                then: {
+                  $in: [
+                    { $toObjectId: { $ifNull: [buyerId, null] } },
+                    { $ifNull: ['$sellerInfo.followers.buyerId', []] }
+                  ]
+                },
+                else: false
+              }
+            },
+            isFeatured: { $ifNull: ['$sellerInfo.isFeatured', false] }
+          },
+          images: { $first: '$images.url' },
+          blipEngagement: {
+            likesCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.likes' },
+                  then: '$blips.likes',
+                  else: []
+                }
+              }
+            },
+            commentsCount: {
+              $size: {
+                $cond: {
+                  if: { $isArray: '$blips.comments' },
+                  then: '$blips.comments',
+                  else: []
+                }
+              }
+            },
+            viewCount: '$blips.viewCount'
+          },
+          averageRating: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $avg: '$reviews.rating' },
+              else: null
+            }
+          },
+          reviewCount: {
+            $cond: {
+              if: { $isArray: '$reviews' },
+              then: { $size: '$reviews' },
+              else: 0
+            }
+          },
+          createdAt: '$blips.createdAt'
+        }
+      },
+      // Sort by popularity or recency
+      { $sort: sortStage },
+      // Skip and limit for pagination
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ]);
+
+    console.log(`Found ${blips.length} suggested blips`);
+
+    // Process blips to add isFollowing property
+    const processedBlips = blips.map(blip => {
+      // Create a new object without the followers array
+      const { seller, ...rest } = blip;
+      
+      // Return the processed blip
+      return {
+        ...rest,
+        seller
+      };
+    });
+
+    // Count total number of blips matching the criteria
+    const totalQuery = { 
+      blips: { $exists: true, $ne: [] },
+      $nor: [
+        {
+          status: 'offline_auction', 
+          'auction.status': 'ended'
+        }
+      ]
+    };
+    if (preferredCategories.length > 0) {
+      totalQuery.category = { $in: preferredCategories };
+    }
+    
+    const total = await mongoose.model('Product').countDocuments(totalQuery);
+
+    console.log(`Total suggested blips count: ${total}`);
+
+    res.json({
+      blips: processedBlips,
+      isPersonalized: preferredCategories.length > 0,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalBlips: total
+    });
+  } catch (error) {
+    console.error('Detailed error in getSuggestedBlips:', error);
+    res.status(500).json({ message: 'Failed to retrieve suggested blips', error: error.message });
   }
 };
 
@@ -4554,181 +4909,166 @@ exports.getSellerAuctionProducts = async (req, res) => {
 exports.getBlipDetails = async (req, res) => {
   try {
     const { id, blipId } = req.params;
-    const userId = req.user ? req.user._id : null;
+
+    // Debug logging
+    console.log('Debug - Fetching blip details:', {
+      productId: id,
+      blipId
+    });
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(blipId)) {
       return res.status(400).json({ message: 'Invalid product or blip ID format' });
     }
 
-    const product = await Product.aggregate([
-      // Match the product and blip
+    // Find the product and get the specific blip
+    const product = await Product.findOne(
+      { _id: id, "blips._id": blipId },
       { 
-        $match: { 
-          _id: new mongoose.Types.ObjectId(id),
-          'blips._id': new mongoose.Types.ObjectId(blipId)
-        } 
-      },
-      // Unwind blips to get the specific one
-      { $unwind: '$blips' },
-      // Match the specific blip
-      {
-        $match: {
-          'blips._id': new mongoose.Types.ObjectId(blipId)
-        }
-      },
-      // Lookup seller information
-      {
-        $lookup: {
-          from: 'sellers',
-          localField: 'seller',
-          foreignField: '_id',
-          as: 'sellerInfo'
-        }
-      },
-      { $unwind: '$sellerInfo' },
-      // Project needed fields
-      {
-        $project: {
-          _id: '$_id',
-          blipId: '$blips._id',
-          blipUrl: '$blips.url',
-          contentType: '$blips.contentType',
-          productName: '$name',
-          price: '$price',
-          discountedPrice: {
-            $cond: {
-              if: {
-                $and: [
-                  { $eq: ['$discount.isActive', true] },
-                  {
-                    $or: [
-                      { $eq: [{ $type: '$discount.startDate' }, 'missing'] },
-                      { $lte: ['$discount.startDate', new Date()] }
-                    ]
-                  },
-                  {
-                    $or: [
-                      { $eq: [{ $type: '$discount.endDate' }, 'missing'] },
-                      { $gte: ['$discount.endDate', new Date()] }
-                    ]
-                  }
-                ]
-              },
-              then: {
-                $cond: {
-                  if: { $eq: ['$discount.type', 'percentage'] },
-                  then: {
-                    $round: [
-                      { $multiply: ['$price', { $subtract: [1, { $divide: ['$discount.value', 100] }] }] },
-                      2
-                    ]
-                  },
-                  else: { $subtract: ['$price', '$discount.value'] }
-                }
-              },
-              else: '$price'
-            }
-          },
-          stock: '$stock',
-          status: '$status',
-          auctionInfo: {
-            $cond: {
-              if: { $eq: ['$status', 'offline_auction'] },
-              then: {
-                minBid: '$auction.minBid',
-                maxBid: '$auction.maxBid',
-                endOnMaxBid: '$auction.endOnMaxBid',
-                startDate: '$auction.startDate',
-                endDate: '$auction.endDate',
-                status: '$auction.status',
-                daysLeft: '$auction.daysLeft',
-                currentHighestBid: '$auction.currentHighestBid',
-                winner: '$auction.winner'
-              },
-              else: null
-            }
-          },
-          seller: {
-            _id: '$sellerInfo._id',
-            storeName: '$sellerInfo.storeName',
-            storeAvatar: '$sellerInfo.storeAvatar',
-            isVerified: '$sellerInfo.isVerified',
-            isFeatured: { $ifNull: ['$sellerInfo.isFeatured', false] }
-          },
-          images: { $first: '$images.url' },
-          blipEngagement: {
-            likesCount: {
-              $size: {
-                $cond: {
-                  if: { $isArray: '$blips.likes' },
-                  then: '$blips.likes',
-                  else: []
-                }
-              }
-            },
-            commentsCount: {
-              $size: {
-                $cond: {
-                  if: { $isArray: '$blips.comments' },
-                  then: '$blips.comments',
-                  else: []
-                }
-              }
-            },
-            viewCount: '$blips.viewCount',
-            isLiked: {
-              $cond: {
-                if: userId,
-                then: {
-                  $cond: {
-                    if: {
-                      $anyElementTrue: {
-                        $map: {
-                          input: { $ifNull: ['$blips.likes', []] },
-                          as: 'like',
-                          in: { $eq: ['$$like.user', new mongoose.Types.ObjectId(userId)] }
-                        }
-                      }
-                    },
-                    then: true,
-                    else: false
-                  }
-                },
-                else: false
-              }
-            }
-          },
-          averageRating: {
-            $cond: {
-              if: { $isArray: '$reviews' },
-              then: { $avg: '$reviews.rating' },
-              else: null
-            }
-          },
-          reviewCount: {
-            $cond: {
-              if: { $isArray: '$reviews' },
-              then: { $size: '$reviews' },
-              else: 0
-            }
-          },
-          createdAt: '$blips.createdAt'
-        }
+        "name": 1,
+        "seller": 1,
+        "blips.$": 1,
+        "status": 1,
+        "auction": 1,
+        "price": 1
       }
-    ]);
+    ).populate({
+      path: 'blips.comments.buyer',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'blips.viewedBy.user',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'blips.comments.replies.user',
+      refPath: 'blips.comments.replies.userType',
+      select: '_id firstName lastName profileImage storeName businessName'
+    }).populate({
+      path: 'seller',
+      select: '_id firstName lastName storeName storeAvatar businessName'
+    }).populate({
+      path: 'auction.currentHighestBid.buyer',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'auction.winner.buyer',
+      select: '_id firstName lastName profileImage'
+    }).populate({
+      path: 'auction.bids.buyer',
+      select: '_id firstName lastName profileImage'
+    });
 
-    if (!product || product.length === 0) {
-      return res.status(404).json({ message: 'Blip not found' });
+    if (!product || !product.blips || product.blips.length === 0) {
+      console.log('Debug - Product or blip not found:', { id, blipId });
+      return res.status(404).json({ message: 'Product or blip not found' });
     }
 
-    res.json(product[0]);
+    // Get the blip and format the response
+    const blip = product.blips[0];
+
+    // Check if there's a user in the request (authenticated) to determine like status
+    let isLiked = false;
+    if (req.user && req.user.id) {
+      isLiked = blip.likes.some(like => like.toString() === req.user.id.toString());
+    }
+
+    // Format the response
+    const formattedBlip = {
+      _id: blip._id,
+      url: blip.url,
+      contentType: blip.contentType,
+      likesCount: blip.likesCount || 0,
+      viewCount: blip.viewCount || 0,
+      commentsCount: blip.commentsCount || 0,
+      isLiked,
+      createdAt: blip.createdAt,
+      comments: blip.comments.map(comment => ({
+        _id: comment._id,
+        buyer: {
+          _id: comment.buyer?._id,
+          firstName: comment.buyer?.firstName,
+          lastName: comment.buyer?.lastName,
+          profileImage: comment.buyer?.profileImage
+        },
+        comment: comment.comment,
+        createdAt: comment.createdAt,
+        likesCount: comment.likesCount || 0,
+        repliesCount: comment.replies?.length || 0
+      })),
+      productInfo: {
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        status: product.status,
+        seller: {
+          _id: product.seller?._id,
+          storeName: product.seller?.storeName,
+          businessName: product.seller?.businessName,
+          storeAvatar: product.seller?.storeAvatar
+        }
+      }
+    };
+
+    // Add auction details if it's an offline auction product
+    if (product.status === 'offline_auction' && product.auction) {
+      formattedBlip.productInfo.auction = {
+        minBid: product.auction.minBid,
+        maxBid: product.auction.maxBid,
+        endOnMaxBid: product.auction.endOnMaxBid,
+        startDate: product.auction.startDate,
+        endDate: product.auction.endDate,
+        status: product.auction.status,
+        daysLeft: product.auction.daysLeft,
+        bidsCount: product.auction.bids ? product.auction.bids.length : 0,
+        
+        // Format current highest bid with buyer details
+        currentHighestBid: product.auction.currentHighestBid ? {
+          amount: product.auction.currentHighestBid.amount,
+          buyer: product.auction.currentHighestBid.buyer ? {
+            _id: product.auction.currentHighestBid.buyer._id,
+            firstName: product.auction.currentHighestBid.buyer.firstName,
+            lastName: product.auction.currentHighestBid.buyer.lastName,
+            profileImage: product.auction.currentHighestBid.buyer.profileImage
+          } : null
+        } : null,
+        
+        // Format winner with buyer details
+        winner: product.auction.winner && product.auction.winner.buyer ? {
+          bidAmount: product.auction.winner.bidAmount,
+          winningDate: product.auction.winner.winningDate,
+          buyer: {
+            _id: product.auction.winner.buyer._id,
+            firstName: product.auction.winner.buyer.firstName,
+            lastName: product.auction.winner.buyer.lastName,
+            profileImage: product.auction.winner.buyer.profileImage
+          }
+        } : null,
+        
+        // Format recent bids with buyer details (limit to last 5)
+        recentBids: product.auction.bids ? 
+          product.auction.bids
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5)
+            .map(bid => ({
+              _id: bid._id,
+              amount: bid.amount,
+              createdAt: bid.createdAt,
+              status: bid.status,
+              buyer: bid.buyer ? {
+                _id: bid.buyer._id,
+                firstName: bid.buyer.firstName,
+                lastName: bid.buyer.lastName,
+                profileImage: bid.buyer.profileImage
+              } : null
+            })) : []
+      };
+    }
+
+    res.json({
+      success: true,
+      blip: formattedBlip
+    });
   } catch (error) {
     console.error('Error in getBlipDetails:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve blip details', 
-      error: error.message 
-    });
+    res.status(500).json({ success: false, message: 'Failed to retrieve blip details', error: error.message });
   }
 };
 
