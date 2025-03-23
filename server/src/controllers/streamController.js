@@ -619,7 +619,7 @@ exports.joinStream = async (req, res) => {
       type: 'join',
       user: buyer.username || buyer.firstName || 'Viewer',
       avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-      content: `viewer joined room`,
+      content: `Viewer joined room`,
       data: {
         message: `${buyer.username || buyer.firstName} joined room`,
         buyerId: req.user.id.toString(),
@@ -1505,8 +1505,7 @@ exports.leaveStream = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    // Add to departedViewers array WITHOUT removing from viewers array
-    // This is for analytics purposes to track both total joins and total leaves
+    // First add to departedViewers array for analytics purposes
     await Stream.findByIdAndUpdate(
       stream._id,
       { 
@@ -1515,20 +1514,29 @@ exports.leaveStream = async (req, res) => {
             buyer: req.user.id,
             timestamp: new Date()
           }
-        } 
+        }
+      }
+    );
+    
+    // Then remove the user from the viewers array
+    await Stream.findByIdAndUpdate(
+      stream._id,
+      { 
+        $pull: { viewers: req.user.id }
       }
     );
 
-    // Get fresh stream data after update
+    // Get fresh stream data after both updates
     stream = await Stream.findById(stream._id)
       .populate('seller', 'storeName businessName')
       .populate('viewers')
       .populate('departedViewers.buyer')
       .lean();
 
-    // Calculate accurate active viewer count: viewers array - departedViewers array
-    // This accounts for users who joined but have since left
-    const viewerCount = stream.viewers.length - stream.departedViewers.length;
+    // Calculate accurate active viewer count
+    const activeViewerCount = stream.viewers.length;
+    const totalJoined = activeViewerCount + stream.departedViewers.length;
+    const totalLeft = stream.departedViewers.length;
 
     // Create notification object with accurate viewer count
     const notificationObj = {
@@ -1536,7 +1544,7 @@ exports.leaveStream = async (req, res) => {
       type: 'leave',
       user: buyer.username || buyer.firstName || 'Viewer',
       avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-      content: `viewer left room`,
+      content: `Viewer left room`,
       data: {
         message: `${buyer.username || buyer.firstName} left room`,
         buyerId: req.user.id.toString(),
@@ -1546,9 +1554,9 @@ exports.leaveStream = async (req, res) => {
         streamId: stream._id.toString(),
         sellerName: stream.seller?.storeName || stream.seller?.businessName,
         sellerId: stream.seller?._id.toString(),
-        viewerCount: viewerCount, // Accurate count of active viewers
-        totalJoined: stream.viewers.length, // Total number of people who joined
-        totalLeft: stream.departedViewers.length // Total number of people who left
+        viewerCount: activeViewerCount, // Current active viewers
+        totalJoined: totalJoined, // Total viewers including those who left
+        totalLeft: totalLeft // Total viewers who left
       }
     };
 
@@ -1580,9 +1588,9 @@ exports.leaveStream = async (req, res) => {
         streamId: stream._id,
         viewer: req.user.id,
         viewerName: buyer.firstName + " " + buyer.lastName,
-        viewerCount: viewerCount, // Include accurate count in socket event
-        totalJoined: stream.viewers.length,
-        totalLeft: stream.departedViewers.length
+        viewerCount: activeViewerCount, // Include accurate count in socket event
+        totalJoined: totalJoined,
+        totalLeft: totalLeft
       });
     } catch (error) {
       console.error('Failed to save chat interaction or send notification:', error);
@@ -1592,12 +1600,12 @@ exports.leaveStream = async (req, res) => {
     res.json({
       message: 'Successfully left stream',
       streamId: stream._id,
-      viewerCount: viewerCount,
+      viewerCount: activeViewerCount,
       analytics: {
-        totalJoined: stream.viewers.length,
-        totalLeft: stream.departedViewers.length,
-        retentionRate: stream.viewers.length > 0 
-          ? Math.round(((stream.viewers.length - stream.departedViewers.length) / stream.viewers.length) * 100)
+        totalJoined: totalJoined,
+        totalLeft: totalLeft,
+        retentionRate: totalJoined > 0 
+          ? Math.round(((totalJoined - totalLeft) / totalJoined) * 100)
           : 0
       }
     });
