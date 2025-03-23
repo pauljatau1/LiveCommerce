@@ -536,17 +536,11 @@ exports.getStreamDetails = async (req, res) => {
 
 exports.joinStream = async (req, res) => {
   try {
-    const stream = await Stream.findOne({
+    // First check if the stream exists and is live
+    let stream = await Stream.findOne({
       _id: req.params.streamId,
       status: 'live'
-    })
-    .populate('seller', 'storeName businessName storeAvatar rating')
-    .populate('products.product', 'name description images price stock sku variants')
-    .populate('products.currentBidder', 'firstName lastName username email')
-    .populate('viewers', 'firstName lastName username avatarUrl')
-    .populate('bids.buyer', 'firstName lastName username')
-    .populate('bids.product', 'name price')
-    .lean(); // Convert to plain JavaScript object
+    });
 
     if (!stream) {
       return res.status(404).json({ message: 'Active stream not found' });
@@ -571,34 +565,49 @@ exports.joinStream = async (req, res) => {
       RtcRole.SUBSCRIBER
     );
     
+    // Send push notification if token exists
     const userToken = await getToken(req.user.id);
     if (userToken) {
       await expo.sendPushNotificationsAsync([{
         to: userToken.token,
         title: `Live Show Activity`,
-        body: `You have successfully joined a stream created by ${stream.seller.storeName}`
+        body: `You have successfully joined a stream created by ${stream.seller.storeName || 'the seller'}`
       }]);
     }
 
-    // Add user to viewers if not already there
-    if (!stream.viewers.some(viewer => viewer._id.toString() === req.user.id)) {
-      // Since we're using lean(), we need to update the database separately
+    // Add user to viewers if not already there and remove from departedViewers if they rejoin
+    // Important: Update database first before continuing
+    if (!stream.viewers.includes(req.user.id)) {
       await Stream.updateOne(
         { _id: req.params.streamId },
         { 
           $addToSet: { viewers: req.user.id },
-          $pull: { departedViewers: { buyer: req.user.id } } // Remove user from departedViewers if they rejoin
+          $pull: { departedViewers: { buyer: req.user.id } } 
         }
       );
     }
 
+    // IMPORTANT: Fetch the updated stream with complete data AFTER we've updated the viewers array
+    // This ensures we have the correct viewerCount that includes the new viewer
+    stream = await Stream.findOne({
+      _id: req.params.streamId,
+      status: 'live'
+    })
+    .populate('seller', 'storeName businessName storeAvatar rating')
+    .populate('products.product', 'name description images price stock sku variants')
+    .populate('products.currentBidder', 'firstName lastName username email')
+    .populate('viewers', 'firstName lastName username avatarUrl')
+    .populate('bids.buyer', 'firstName lastName username')
+    .populate('bids.product', 'name price')
+    .lean(); // Convert to plain JavaScript object
+
     // Get all viewers with detailed information
     const detailedViewers = await Buyer.find(
-      { _id: { $in: [...stream.viewers.map(v => v._id), req.user.id] } }
+      { _id: { $in: stream.viewers } }
     ).select('_id firstName lastName username profileImage avatarUrl').lean();
 
     // Send notification to stream channel
-    req.io.to(stream.channelName).emit('viewerJoined', {
+    req.io?.to(stream.channelName).emit('viewerJoined', {
       streamId: stream._id,
       viewer: req.user.id,
       viewerName: buyer.firstName + " " + buyer.lastName
@@ -610,7 +619,7 @@ exports.joinStream = async (req, res) => {
       type: 'join',
       user: buyer.username || buyer.firstName || 'Viewer',
       avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-      content: `joined room`,
+      content: `viewer joined room`,
       data: {
         message: `${buyer.username || buyer.firstName} joined room`,
         buyerId: req.user.id.toString(),
@@ -618,11 +627,10 @@ exports.joinStream = async (req, res) => {
         buyerUsername: buyer.username,
         buyerAvatar: buyer.profileImage?.url || buyer.avatarUrl || '',
         streamId: stream._id.toString(),
-        sellerName: stream.seller.storeName || stream.seller.businessName,
-        sellerId: stream.seller._id.toString(),
-        viewerCount: stream.viewers.length
+        sellerName: stream.seller?.storeName || stream.seller?.businessName,
+        sellerId: stream.seller?._id.toString(),
+        viewerCount: stream.viewers.length // Now this will be correct
       }
-      // timestamp will be added automatically by the schema default
     };
     
     try {
@@ -644,9 +652,6 @@ exports.joinStream = async (req, res) => {
       // Continue even if saving the chat interaction fails
     }
 
-    console.log('agoraUid', tokenUid);
-    console.log('token', token);
-
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
     
@@ -659,7 +664,7 @@ exports.joinStream = async (req, res) => {
       tokenExpiration: Date.now() + (14400) * 1000,
       stream: {
         ...streamData,
-        viewerCount: stream.viewers.length,
+        viewerCount: stream.viewers.length, // This now includes the newly joined viewer
         isLive: stream.status === 'live',
         products: stream.products.map(product => ({
           ...product,
@@ -667,14 +672,7 @@ exports.joinStream = async (req, res) => {
           minBid: product.minBid,
           maxBid: product.maxBid
         })),
-        viewers: detailedViewers.map(viewer => ({
-          _id: viewer._id,
-          firstName: viewer.firstName,
-          lastName: viewer.lastName,
-          username: viewer.username,
-          profileImage: viewer.profileImage,
-          avatarUrl: viewer.avatarUrl
-        }))
+        viewers: detailedViewers
       }
     });
   } catch (error) {
@@ -1492,10 +1490,10 @@ exports.getChatInteractions = async (req, res) => {
 
 exports.leaveStream = async (req, res) => {
   try {
-    const stream = await Stream.findOne({
+    let stream = await Stream.findOne({
       _id: req.params.streamId,
       status: 'live'
-    }).populate('seller', 'storeName businessName');
+    });
 
     if (!stream) {
       return res.status(404).json({ message: 'Active stream not found' });
@@ -1507,19 +1505,38 @@ exports.leaveStream = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    // Remove user from viewers if they were there
-    const wasViewer = await Stream.updateOne(
-      { _id: req.params.streamId },
-      { $pull: { viewers: req.user.id } }
+    // Add to departedViewers array WITHOUT removing from viewers array
+    // This is for analytics purposes to track both total joins and total leaves
+    await Stream.findByIdAndUpdate(
+      stream._id,
+      { 
+        $push: { 
+          departedViewers: {
+            buyer: req.user.id,
+            timestamp: new Date()
+          }
+        } 
+      }
     );
 
-    // Create notification object
+    // Get fresh stream data after update
+    stream = await Stream.findById(stream._id)
+      .populate('seller', 'storeName businessName')
+      .populate('viewers')
+      .populate('departedViewers.buyer')
+      .lean();
+
+    // Calculate accurate active viewer count: viewers array - departedViewers array
+    // This accounts for users who joined but have since left
+    const viewerCount = stream.viewers.length - stream.departedViewers.length;
+
+    // Create notification object with accurate viewer count
     const notificationObj = {
       id: Date.now().toString(),
       type: 'leave',
       user: buyer.username || buyer.firstName || 'Viewer',
       avatar: buyer.profileImage?.url || buyer.avatarUrl || '',
-      content: `left room`,
+      content: `viewer left room`,
       data: {
         message: `${buyer.username || buyer.firstName} left room`,
         buyerId: req.user.id.toString(),
@@ -1527,24 +1544,26 @@ exports.leaveStream = async (req, res) => {
         buyerUsername: buyer.username,
         buyerAvatar: buyer.profileImage?.url || buyer.avatarUrl || '',
         streamId: stream._id.toString(),
-        sellerName: stream.seller.storeName || stream.seller.businessName,
-        sellerId: stream.seller._id.toString()
+        sellerName: stream.seller?.storeName || stream.seller?.businessName,
+        sellerId: stream.seller?._id.toString(),
+        viewerCount: viewerCount, // Accurate count of active viewers
+        totalJoined: stream.viewers.length, // Total number of people who joined
+        totalLeft: stream.departedViewers.length // Total number of people who left
       }
-      // timestamp will be added automatically by the schema default
     };
 
     try {
-      // Add the notification to chat interactions
+      // Update the notificationData in the departedViewers entry and add to chat interactions
       await Stream.findByIdAndUpdate(
         stream._id,
         { 
-          $push: { 
-            chatInteractions: notificationObj,
-            departedViewers: {
-              buyer: req.user.id,
-              notificationData: notificationObj
-            }
-          } 
+          $push: { chatInteractions: notificationObj },
+          $set: { 
+            "departedViewers.$[elem].notificationData": notificationObj 
+          }
+        },
+        {
+          arrayFilters: [{ "elem.buyer": req.user.id }]
         }
       );
       
@@ -1560,7 +1579,10 @@ exports.leaveStream = async (req, res) => {
       req.io?.to(stream.channelName).emit('viewerLeft', {
         streamId: stream._id,
         viewer: req.user.id,
-        viewerName: buyer.firstName + " " + buyer.lastName
+        viewerName: buyer.firstName + " " + buyer.lastName,
+        viewerCount: viewerCount, // Include accurate count in socket event
+        totalJoined: stream.viewers.length,
+        totalLeft: stream.departedViewers.length
       });
     } catch (error) {
       console.error('Failed to save chat interaction or send notification:', error);
@@ -1569,7 +1591,15 @@ exports.leaveStream = async (req, res) => {
 
     res.json({
       message: 'Successfully left stream',
-      streamId: stream._id
+      streamId: stream._id,
+      viewerCount: viewerCount,
+      analytics: {
+        totalJoined: stream.viewers.length,
+        totalLeft: stream.departedViewers.length,
+        retentionRate: stream.viewers.length > 0 
+          ? Math.round(((stream.viewers.length - stream.departedViewers.length) / stream.viewers.length) * 100)
+          : 0
+      }
     });
 
   } catch (error) {
