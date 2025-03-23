@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated, Platform, Keyboard, ScrollView, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Dimensions, SafeAreaView, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Animated, Platform, Keyboard, ScrollView, Alert, BackHandler } from 'react-native';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useLivestream } from '@/contexts/livestreamContext';
@@ -152,6 +152,22 @@ const LiveAuctionStudio = () => {
 
     console.log('keyboardHeightRef', keyboardHeightRef.current);
     console.log('keyboardVisibleRef', keyboardVisibleRef.current);
+
+    // Handle Android back button press
+    {/*useEffect(() => {
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (Platform.OS === 'android') {
+                const backButton = true;
+                handleLeaveStream(backButton);
+                router.back();
+                return true; // Prevent default behavior
+            }
+            return false;
+        });
+
+        return () => backHandler.remove();
+    }, [id]);*/}
+
     const setupLivestream = async () => {
         if (!id) return;
         try {
@@ -367,6 +383,10 @@ const LiveAuctionStudio = () => {
                 console.log('User left stream:', notification.user);
                 // Update UI to show leave event
                 setLiveComments(prev => [...prev, notification]);
+                // Update viewer count if available in notification data
+                if (notification.data && 'viewerCount' in notification.data) {
+                    setViewerCount(notification.data.viewerCount as number);
+                }
                 break;
 
             default:
@@ -417,7 +437,7 @@ const LiveAuctionStudio = () => {
                         type: 'hostLeft' as const,
                         user: storeInfo.name,
                         avatar: storeInfo.avatar,
-                        content: 'left room',
+                        content: 'Host left room',
                         timestamp: new Date()
                     };
                     
@@ -871,7 +891,7 @@ const LiveAuctionStudio = () => {
     };
 
     // Update handleLeaveStream function to actually leave the stream
-    const handleLeaveStream = async () => {
+    const handleLeaveStream = async (backButton: boolean) => {
         if (!id) return;
         
         try {
@@ -886,7 +906,9 @@ const LiveAuctionStudio = () => {
             disconnectSocket();
             
             // Navigate back to previous screen
-            router.back();
+            if (!backButton) {
+                router.back();
+            }
         } catch (error) {
             console.error('Error leaving stream:', error);
             // Show error message to user if needed
@@ -1026,7 +1048,8 @@ const LiveAuctionStudio = () => {
                                                     <TouchableOpacity 
                                                         onPress={() => {
                                                             if (!isLeavingStream) {
-                                                                handleLeaveStream();
+                                                                const backButton = false;
+                                                                handleLeaveStream(backButton);
                                                             }
                                                         }}
                                                         disabled={isLeavingStream}
@@ -1370,7 +1393,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     mainContentArea: {
-        height: '53%',
+        height: '51%',
         position: 'relative',
     },
     bottomArea: {

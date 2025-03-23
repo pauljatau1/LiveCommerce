@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import { AntDesign, Feather, MaterialIcons, Ionicons, Octicons, FontAwesome, Entypo, MaterialCommunityIcons, SimpleLineIcons } from '@expo/vector-icons';
 import { FocusAwareStatusBar } from '@/components/ui/focus-aware-status-bar';
 import BottomSheet from '@/components/global/bottom-sheet';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, BackHandler } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
 import { getToken, getUser } from '@/store/features/auth/utils';
 import axios from 'axios';
@@ -152,6 +152,22 @@ const LivestreamStudio = () => {
 
     console.log('keyboardHeightRef', keyboardHeightRef.current);
     console.log('keyboardVisibleRef', keyboardVisibleRef.current);
+
+    // Handle Android back button press
+   {/* useEffect(() => {
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (Platform.OS === 'android') {
+                const backButton = true;
+                handleLeaveStream(backButton);
+                router.back();
+                return true; // Prevent default behavior
+            }
+            return false;
+        });
+
+        return () => backHandler.remove();
+    }, [id]);*/}
+
     const setupLivestream = async () => {
         if (!id) return;
         try {
@@ -367,6 +383,10 @@ const LivestreamStudio = () => {
                 console.log('User left stream:', notification.user);
                 // Update UI to show leave event
                 setLiveComments(prev => [...prev, notification]);
+                // Update viewer count if available in notification data
+                 if (notification.data && 'viewerCount' in notification.data) {
+                    setViewerCount(notification.data.viewerCount as number);
+                }
                 break;
 
             default:
@@ -417,7 +437,7 @@ const LivestreamStudio = () => {
                         type: 'hostLeft' as const,
                         user: storeInfo.name,
                         avatar: storeInfo.avatar,
-                        content: 'left room',
+                        content: 'Host left room',
                         timestamp: new Date()
                     };
                     
@@ -775,7 +795,7 @@ const LivestreamStudio = () => {
     };
 
     // Update handleLeaveStream function to actually leave the stream
-    const handleLeaveStream = async () => {
+    const handleLeaveStream = async (backButton: boolean) => {
         if (!id) return;
         
         try {
@@ -790,7 +810,9 @@ const LivestreamStudio = () => {
             disconnectSocket();
             
             // Navigate back to previous screen
-            router.back();
+            if (!backButton) {
+                router.back();
+            }
         } catch (error) {
             console.error('Error leaving stream:', error);
             // Show error message to user if needed
@@ -928,7 +950,8 @@ const LivestreamStudio = () => {
                                                     <TouchableOpacity 
                                                         onPress={() => {
                                                             if (!isLeavingStream) {
-                                                                handleLeaveStream();
+                                                                const backButton = false;
+                                                                handleLeaveStream(backButton);
                                                                 setShowMenuPopover(false);
                                                             }
                                                         }}
