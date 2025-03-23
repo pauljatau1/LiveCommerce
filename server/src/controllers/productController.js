@@ -28,7 +28,7 @@ exports.createProduct = async (req, res) => {
     const sellerId = req.user.id;
     
     // Validate required fields
-    const requiredFields = ['name', 'description', 'price', 'category', 'stock', 'sku'];
+    const requiredFields = ['name', 'description', 'price', 'category', 'stock',];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
@@ -101,14 +101,85 @@ exports.createProduct = async (req, res) => {
     if (req.body.blips && Array.isArray(req.body.blips)) {
       for (let blip of req.body.blips) {
         const buffer = Buffer.from(blip.data, 'base64');
-        const params = {
+        const videoKey = `${uuidv4()}.mp4`;
+        const thumbnailKey = `${uuidv4()}_thumbnail.jpg`;
+        
+        // First upload the video
+        const videoParams = {
           Bucket: 'auqli-uploads',
-          Key: `${uuidv4()}.mp4`,
+          Key: videoKey,
           Body: buffer,
           ContentType: blip.contentType,
         };
-        const data = await s3.upload(params).promise();
-        blipsLinks.push({ url: data.Location });
+        const videoData = await s3.upload(videoParams).promise();
+        
+        // Create temporary files for ffmpeg
+        const tempVideoPath = path.join(os.tmpdir(), videoKey);
+        const tempThumbnailPath = path.join(os.tmpdir(), thumbnailKey);
+        
+        try {
+          // Write video buffer to temp file
+          await fs.writeFile(tempVideoPath, buffer);
+          
+          // Extract thumbnail using ffmpeg
+          await new Promise((resolve, reject) => {
+            ffmpeg(tempVideoPath)
+              .screenshots({
+                timestamps: ['00:00:01.000'],
+                filename: thumbnailKey,
+                folder: os.tmpdir(),
+                size: '320x180'
+              })
+              .on('end', resolve)
+              .on('error', reject);
+          });
+          
+          // Read the generated thumbnail
+          const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
+          
+          // Upload the thumbnail
+          const thumbnailParams = {
+            Bucket: 'auqli-uploads',
+            Key: thumbnailKey,
+            Body: thumbnailBuffer,
+            ContentType: 'image/jpeg',
+          };
+          const thumbnailData = await s3.upload(thumbnailParams).promise();
+          
+          // Clean up temp files
+          await fs.unlink(tempVideoPath).catch(() => {});
+          await fs.unlink(tempThumbnailPath).catch(() => {});
+          
+          blipsLinks.push({ 
+            url: videoData.Location,
+            contentType: blip.contentType,
+            thumbnail: thumbnailData.Location
+          });
+        } catch (err) {
+          console.error('Error generating thumbnail:', err);
+          
+          // Fallback to placeholder if ffmpeg fails
+          const fallbackThumbnailParams = {
+            Bucket: 'auqli-uploads',
+            Key: thumbnailKey,
+            Body: Buffer.from(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
+              '<rect width="320" height="180" fill="#3498db"/>' +
+              '<polygon points="130,90 210,90 170,130" fill="rgba(255,255,255,0.8)"/>' +
+              '<text x="100" y="160" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
+              '</svg>'
+            ),
+            ContentType: 'image/svg+xml',
+          };
+          
+          const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
+          
+          blipsLinks.push({ 
+            url: videoData.Location,
+            contentType: blip.contentType,
+            thumbnail: fallbackData.Location
+          });
+        }
       }
     }
 
@@ -871,18 +942,95 @@ exports.updateProduct = async (req, res) => {
       const blipsLinks = [];
       for (let blip of updates.blips) {
         if (blip.data.startsWith('https://')) {
-          blipsLinks.push({ url: blip.data }); // Keep existing S3 video
+          // Keep existing S3 video and its thumbnail
+          const thumbnailUrl = blip.thumbnail || null;
+          blipsLinks.push({ 
+            url: blip.data,
+            contentType: blip.contentType,
+            thumbnail: thumbnailUrl
+          });
         } else {
           // Process new base64 video
           const buffer = Buffer.from(blip.data, 'base64');
-          const params = {
+          const videoKey = `${uuidv4()}.mp4`;
+          const thumbnailKey = `${uuidv4()}_thumbnail.jpg`;
+          
+          // First upload the video
+          const videoParams = {
             Bucket: 'auqli-uploads',
-            Key: `${uuidv4()}.mp4`,
+            Key: videoKey,
             Body: buffer,
             ContentType: blip.contentType,
           };
-          const data = await s3.upload(params).promise();
-          blipsLinks.push({ url: data.Location });
+          const videoData = await s3.upload(videoParams).promise();
+          
+          // Create temporary files for ffmpeg
+          const tempVideoPath = path.join(os.tmpdir(), videoKey);
+          const tempThumbnailPath = path.join(os.tmpdir(), thumbnailKey);
+          
+          try {
+            // Write video buffer to temp file
+            await fs.writeFile(tempVideoPath, buffer);
+            
+            // Extract thumbnail using ffmpeg
+            await new Promise((resolve, reject) => {
+              ffmpeg(tempVideoPath)
+                .screenshots({
+                  timestamps: ['00:00:01.000'],
+                  filename: thumbnailKey,
+                  folder: os.tmpdir(),
+                  size: '320x180'
+                })
+                .on('end', resolve)
+                .on('error', reject);
+            });
+            
+            // Read the generated thumbnail
+            const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
+            
+            // Upload the thumbnail
+            const thumbnailParams = {
+              Bucket: 'auqli-uploads',
+              Key: thumbnailKey,
+              Body: thumbnailBuffer,
+              ContentType: 'image/jpeg',
+            };
+            const thumbnailData = await s3.upload(thumbnailParams).promise();
+            
+            // Clean up temp files
+            await fs.unlink(tempVideoPath).catch(() => {});
+            await fs.unlink(tempThumbnailPath).catch(() => {});
+            
+            blipsLinks.push({ 
+              url: videoData.Location,
+              contentType: blip.contentType,
+              thumbnail: thumbnailData.Location
+            });
+          } catch (err) {
+            console.error('Error generating thumbnail:', err);
+            
+            // Fallback to placeholder if ffmpeg fails
+            const fallbackThumbnailParams = {
+              Bucket: 'auqli-uploads',
+              Key: thumbnailKey,
+              Body: Buffer.from(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
+                '<rect width="320" height="180" fill="#3498db"/>' +
+                '<polygon points="130,90 210,90 170,130" fill="rgba(255,255,255,0.8)"/>' +
+                '<text x="100" y="160" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
+                '</svg>'
+              ),
+              ContentType: 'image/svg+xml',
+            };
+            
+            const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
+            
+            blipsLinks.push({ 
+              url: videoData.Location,
+              contentType: blip.contentType,
+              thumbnail: fallbackData.Location
+            });
+          }
         }
       }
       updates.blips = blipsLinks;
@@ -1532,6 +1680,12 @@ exports.getAllBlips = async (req, res) => {
           _id: '$_id', // This is the product ID
           blipId: '$blips._id', // Add this line to include the blip ID
           blipUrl: '$blips.url',
+          thumbnail: { 
+            $ifNull: [
+              '$blips.thumbnail', 
+              'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
+            ] 
+          },
           productId: '$_id',
           productName: '$name',
           price: '$price',
@@ -1823,6 +1977,12 @@ exports.getSellerBlips = async (req, res) => {
           _id: '$_id',                    // Product ID
           blipId: '$blips._id',          // Actual blip ID
           blipUrl: '$blips.url',
+          thumbnail: { 
+            $ifNull: [
+              '$blips.thumbnail', 
+              'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
+            ] 
+          },
           productId: '$_id',
           productName: '$name',
           price: '$price',
@@ -2068,6 +2228,12 @@ exports.getSuggestedBlips = async (req, res) => {
           _id: '$_id', // This is the product ID
           blipId: '$blips._id',
           blipUrl: '$blips.url',
+          thumbnail: { 
+            $ifNull: [
+              '$blips.thumbnail', 
+              'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
+            ] 
+          },
           productId: '$_id',
           productName: '$name',
           price: '$price',
@@ -4975,6 +5141,7 @@ exports.getBlipDetails = async (req, res) => {
       _id: blip._id,
       url: blip.url,
       contentType: blip.contentType,
+      thumbnail: blip.thumbnail || 'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png',
       likesCount: blip.likesCount || 0,
       viewCount: blip.viewCount || 0,
       commentsCount: blip.commentsCount || 0,

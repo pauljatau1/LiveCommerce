@@ -1646,4 +1646,75 @@ exports.leaveStreamSeller = async (req, res) => {
       error: error.message
     });
   }
+};
+
+exports.getStreamsForYou = async (req, res) => {
+  try {
+    const { status, type, page = 1, limit = 10 } = req.query;
+    
+    // Get the current buyer with selected categories
+    const buyer = await Buyer.findById(req.user.id).select('selectedCategories');
+    
+    if (!buyer || !buyer.selectedCategories || buyer.selectedCategories.length === 0) {
+      return res.json({
+        streams: [],
+        pagination: {
+          total: 0,
+          pages: 0,
+          currentPage: parseInt(page),
+          hasMore: false
+        }
+      });
+    }
+
+    // Extract category names from the buyer's selected categories
+    const categories = buyer.selectedCategories.map(category => category.name);
+    
+    // Build query for streams matching buyer's categories
+    const query = {
+      category: { $in: categories }
+    };
+
+    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
+      query.status = status;
+    }
+
+    if (type && ['auction', 'open_show'].includes(type)) {
+      query.type = type;
+    }
+
+    // Find streams matching buyer's categories
+    const streams = await Stream.find(query)
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+      .sort({ scheduledStartTime: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = streams.map(stream => {
+      const streamObj = stream.toObject();
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      return streamObj;
+    });
+
+    const total = await Stream.countDocuments(query);
+
+    res.json({
+      streams: streamsWithViewerCount,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    console.error('Get for you streams error:', error);
+    res.status(500).json({
+      message: 'Failed to fetch personalized streams',
+      error: error.message
+    });
+  }
 }; 

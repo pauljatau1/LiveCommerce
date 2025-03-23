@@ -103,6 +103,7 @@ variantSchema.virtual('discountedPrice').get(function () {
 const blipSchema = new mongoose.Schema({
   url: { type: String },
   contentType: { type: String },
+  thumbnail: { type: String },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' }],
   likesCount: { type: Number, default: 0 },
   viewCount: { type: Number, default: 0 },
@@ -207,7 +208,7 @@ const productSchema = new mongoose.Schema({
     lastRestocked: { type: Date }
   },
   lowStockAlert: { type: Number, default: 5 },
-  sku: { type: String, required: true },
+  sku: { type: String},
   upc: { type: String },
   condition: { type: String },
   tags: [{ type: String }],
