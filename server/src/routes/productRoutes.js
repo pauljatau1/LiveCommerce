@@ -5,6 +5,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const jwt = require('jsonwebtoken');
+const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 
 /**
  * @swagger
@@ -126,7 +127,8 @@ const jwt = require('jsonwebtoken');
  */
 
 // Public routes for blips
-// First, create an optional auth middleware
+// First, use the imported optionalAuthMiddleware instead of defining it inline
+/*
 const optionalAuth = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -142,11 +144,12 @@ const optionalAuth = (req, res, next) => {
     next();
   }
 };
+*/
 
-// Use optional auth middleware for blips routes
-router.get('/blips', optionalAuth, productController.getAllBlips);
-router.get('/seller/:sellerId/blips', optionalAuth, productController.getSellerBlips);
-router.get('/blips/suggested', optionalAuth, productController.getSuggestedBlips);
+// Use the proper optionalAuthMiddleware
+router.get('/blips', optionalAuthMiddleware, productController.getAllBlips);
+router.get('/seller/:sellerId/blips', optionalAuthMiddleware, productController.getSellerBlips);
+router.get('/blips/suggested', optionalAuthMiddleware, productController.getSuggestedBlips);
 
 /**
  * @swagger
@@ -1846,7 +1849,7 @@ router.put('/:id/discount',
  *       500:
  *         description: Server error
  */
-router.get('/:id/blips/:blipId', optionalAuth, productController.getBlipDetails);
+router.get('/:id/blips/:blipId', optionalAuthMiddleware, productController.getBlipDetails);
 
 /**
  * @swagger
@@ -1957,7 +1960,7 @@ router.post('/:id/blips/:blipId/comments',
  *       404:
  *         description: Product or blip not found
  */
-router.get('/:id/blips/:blipId/comments', optionalAuth, productController.getBlipComments);
+router.get('/:id/blips/:blipId/comments', optionalAuthMiddleware, productController.getBlipComments);
 
 /**
  * @swagger
@@ -2276,7 +2279,7 @@ router.get('/seller/:sellerId/categories', productController.getSellerProductCat
  *       500:
  *         description: Server error
  */
-router.get('/:productId/blips/:blipId/comments/:commentId/replies', productController.getBlipCommentReplies);
+router.get('/:productId/blips/:blipId/comments/:commentId/replies', optionalAuthMiddleware, productController.getBlipCommentReplies);
 
 /**
  * @swagger
@@ -2673,7 +2676,7 @@ router.get('/seller/:sellerId/auctions', productController.getSellerAuctionProdu
  *       500:
  *         description: Server error
  */
-router.get('/category/:category/subcategory/:subcategory', optionalAuth, productController.getProductsByCategoryAndSubcategory);
+router.get('/category/:category/subcategory/:subcategory', optionalAuthMiddleware, productController.getProductsByCategoryAndSubcategory);
 
 /**
  * @swagger
@@ -2807,7 +2810,7 @@ router.get('/category/:category/subcategories', productController.getSubcategori
  *       500:
  *         description: Server error
  */
-router.get('/seller/:sellerId/category/:category/subcategory/:subcategory', optionalAuth, productController.getProductsBySellerCategoryAndSubcategory);
+router.get('/seller/:sellerId/category/:category/subcategory/:subcategory', optionalAuthMiddleware, productController.getProductsBySellerCategoryAndSubcategory);
 
 /**
  * @swagger

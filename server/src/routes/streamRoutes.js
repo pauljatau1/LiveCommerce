@@ -726,6 +726,82 @@ router.get('/spotlight', (req, res, next) => {
 
 /**
  * @swagger
+ * /api/streams/search:
+ *   get:
+ *     summary: Deep search for streams based on multiple criteria
+ *     description: Search streams by name, product names, and category with optional filters for status and type
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search term for stream title, product names, or description
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Category to filter streams by (optional)
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended, expired]
+ *         description: Filter streams by status (optional)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [auction, open_show]
+ *         description: Filter streams by type (optional)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of streams matching search criteria
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       500:
+ *         description: Server error
+ */
+router.get('/search', (req, res, next) => {
+  console.log('[DEBUG] /search route matched with query:', req.query);
+  next();
+}, streamController.searchStreams);
+
+/**
+ * @swagger
  * /api/streams/favorite-sellers:
  *   get:
  *     summary: Get streams from sellers that the buyer follows

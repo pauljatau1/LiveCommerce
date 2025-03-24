@@ -3583,9 +3583,34 @@ exports.getBlipComments = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Check if user is authenticated
-    const userId = req.user ? req.user._id : null;
-    const userType = req.user ? req.userType : null;
+    // Check if user is authenticated and get userId/userType from JWT token
+    const userId = req.user?.id;  // Use req.user.id from verifyToken middleware
+    const userType = req.user?.role; // Use req.user.role from verifyToken middleware
+
+    console.log('DEBUG: User auth in getBlipComments:', {
+      isAuthenticated: !!req.user,
+      user: req.user,
+      userId,
+      userType
+    });
+
+    // DEBUG: Show exact Auth header and token
+    const authHeader = req.headers.authorization;
+    console.log('DEBUG: Auth header:', {
+      header: authHeader,
+      hasToken: authHeader?.startsWith('Bearer ')
+    });
+
+    const token = authHeader?.split(' ')[1];
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.decode(token);
+        console.log('DEBUG: Decoded token:', decoded);
+      } catch (err) {
+        console.error('DEBUG: Error decoding token:', err.message);
+      }
+    }
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -3617,12 +3642,99 @@ exports.getBlipComments = async (req, res) => {
       comments.map(async (comment) => {
         console.log('Processing comment ID:', comment._id);
         let populatedComment = comment.toObject();
+
+        console.log(`DEBUG: Raw comment structure for ${comment._id}:`, JSON.stringify(comment));
         
         // Add isLiked field for authenticated users
         if (userId && userType) {
-          populatedComment.isLiked = comment.likes && comment.likes.some(
-            like => like.user.toString() === userId.toString() && like.userType === userType
-          );
+          // Debug the likes structure in detail
+          console.log(`DEBUG: Comment ${comment._id} Likes Structure:`, {
+            userId: userId,
+            userIdType: typeof userId,
+            userType: userType,
+            likesCount: comment.likes ? comment.likes.length : 0,
+          });
+          
+          // Extra log for detailed view of comment likes
+          console.log(`DEBUG: All comment likes for ${comment._id}:`, JSON.stringify(comment.likes));
+          
+          // Inspect each like object's structure
+          if (comment.likes && comment.likes.length > 0) {
+            comment.likes.forEach((like, idx) => {
+              const likeUserId = like.user ? like.user.toString() : (like._id ? like._id.toString() : 'none');
+              
+              console.log(`DEBUG: Like #${idx} exact structure:`, JSON.stringify(like));
+              console.log(`DEBUG: Like #${idx} comparison:`, {
+                likeUserId,
+                requestUserId: userId.toString(),
+                matches: likeUserId === userId.toString(),
+                likeUserType: like.userType,
+                requestUserType: userType,
+                typeMatches: like.userType === userType
+              });
+            });
+          }
+          
+          // Check all possible like formats in a much more detailed way
+          let isLiked = false;
+          let matchReason = 'none';
+          
+          // Loop through each like to find a match with detailed logging
+          if (comment.likes && comment.likes.length > 0) {
+            for (const like of comment.likes) {
+              if (!like) continue;
+              
+              // Check user/userType format
+              if (like.user && like.user.toString && like.userType) {
+                const userMatches = like.user.toString() === userId.toString();
+                const typeMatches = like.userType === userType;
+                if (userMatches && typeMatches) {
+                  isLiked = true;
+                  matchReason = 'user/userType match';
+                  break;
+                }
+              }
+              
+              // Check _id format
+              if (like._id && like._id.toString) {
+                if (like._id.toString() === userId.toString()) {
+                  isLiked = true; 
+                  matchReason = '_id match';
+                  break;
+                }
+              }
+              
+              // Check string format
+              if (typeof like === 'string') {
+                if (like === userId.toString()) {
+                  isLiked = true;
+                  matchReason = 'string match';
+                  break;
+                }
+              }
+              
+              // Check toString format
+              if (like.toString && typeof like.toString === 'function') {
+                if (like.toString() === userId.toString()) {
+                  isLiked = true;
+                  matchReason = 'toString match';
+                  break;
+                }
+              }
+            }
+          }
+          
+          populatedComment.isLiked = isLiked;
+          
+          // Detailed debug for isLiked final result
+          console.log(`DEBUG: Final isLiked determination for comment ${comment._id}:`, {
+            userId: userId.toString(),
+            userType: userType,
+            isLiked: populatedComment.isLiked,
+            matchReason: matchReason,
+            commentsLikesCount: comment.likes ? comment.likes.length : 0
+          });
+          
         } else {
           populatedComment.isLiked = false;
         }
@@ -3658,9 +3770,78 @@ exports.getBlipComments = async (req, res) => {
               
               // Add isLiked field for replies for authenticated users
               if (userId && userType) {
-                populatedReply.isLiked = reply.likes && reply.likes.some(
-                  like => like.user.toString() === userId.toString() && like.userType === userType
-                );
+                // Debug the likes structure in detail
+                console.log(`DEBUG: Reply ${reply._id} Likes Structure:`, {
+                  userId: userId,
+                  userIdType: typeof userId,
+                  userType: userType,
+                  likesCount: reply.likes ? reply.likes.length : 0,
+                });
+                
+                // Inspect each like object's structure
+                if (reply.likes && reply.likes.length > 0) {
+                  reply.likes.forEach((like, idx) => {
+                    console.log(`DEBUG: Reply Like #${idx} structure:`, {
+                      likeObj: like,
+                      likeObjType: typeof like,
+                      hasUser: like.user !== undefined,
+                      hasUserType: like.userType !== undefined,
+                      has_id: like._id !== undefined,
+                      userValue: like.user ? like.user.toString() : 'N/A',
+                      _idValue: like._id ? like._id.toString() : 'N/A'
+                    });
+                  });
+                }
+                
+                // Check both formats: new format with user/userType and old format with just _id
+                populatedReply.isLiked = reply.likes && reply.likes.some(like => {
+                  // Handle both formats: new structured likes and old format with just _id
+                  if (like.user && like.user.toString && like.userType) {
+                    const matches = like.user.toString() === userId.toString() && like.userType === userType;
+                    console.log(`DEBUG: Checking reply like with user/userType:`, { 
+                      likeUserId: like.user.toString(), 
+                      userId: userId.toString(), 
+                      usersMatch: like.user.toString() === userId.toString(),
+                      likeUserType: like.userType,
+                      userType: userType,
+                      typesMatch: like.userType === userType, 
+                      matches 
+                    });
+                    return matches;
+                  } else if (like._id && like._id.toString) {
+                    // Check if buyer is stored directly in the _id field (legacy format)
+                    const matches = like._id.toString() === userId.toString();
+                    console.log(`DEBUG: Checking reply like with _id:`, { 
+                      likeId: like._id.toString(), 
+                      userId: userId.toString(), 
+                      matches 
+                    });
+                    return matches;
+                  } else if (typeof like === 'string') {
+                    const matches = like === userId.toString();
+                    console.log(`DEBUG: Checking reply like as string:`, { 
+                      likeString: like, 
+                      userId: userId.toString(), 
+                      matches 
+                    });
+                    return matches;
+                  } else if (like.toString && typeof like.toString === 'function') {
+                    const matches = like.toString() === userId.toString();
+                    console.log(`DEBUG: Checking reply like with toString():`, { 
+                      likeString: like.toString(), 
+                      userId: userId.toString(), 
+                      matches 
+                    });
+                    return matches;
+                  }
+                  return false;
+                });
+                
+                // Debug the like checking result
+                console.log(`DEBUG: Reply ${reply._id} isLiked result:`, {
+                  userId: userId,
+                  isLiked: populatedReply.isLiked
+                });
               } else {
                 populatedReply.isLiked = false;
               }
@@ -3907,8 +4088,38 @@ exports.addReplyToBlipComment = async (req, res) => {
 exports.likeBlipComment = async (req, res) => {
   try {
     const { productId, blipId, commentId } = req.params;
-    const userId = req.user._id;
-    const userType = req.userType;
+    
+    // Extract user ID from the JWT token - should always use req.user.id set by verifyToken
+    const userId = req.user?.id;
+    
+    // Get userType from role field in the JWT token
+    let userType = req.user?.role;
+    
+    // Print all user token data for debugging
+    console.log('DEBUG: User token data in likeBlipComment:', {
+      user: req.user,
+      userId,
+      userType
+    });
+
+    // Additional validation for required fields
+    if (!userId) {
+      console.error('DEBUG: Missing userId in likeBlipComment');
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    if (!userType) {
+      console.error('DEBUG: Missing userType in likeBlipComment');
+      userType = 'Buyer'; // Default to Buyer if not specified
+    }
+
+    console.log('DEBUG: Like blip comment request:', {
+      productId,
+      blipId,
+      commentId,
+      userId: userId,
+      userType
+    });
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -3930,30 +4141,82 @@ exports.likeBlipComment = async (req, res) => {
       comment.likes = [];
     }
 
-    // Check if user already liked the comment
-    const existingLikeIndex = comment.likes.findIndex(
-      like => {
-        // Safely check if like.user exists and matches the userId
-        return like && like.user && like.user.toString() === userId.toString() && like.userType === userType;
+    console.log('DEBUG: Current likes structure:', {
+      likes: comment.likes,
+      likesCount: comment.likes.length
+    });
+
+    // Check if user already liked the comment by inspecting all the possible formats
+    let existingLikeIndex = -1;
+    
+    // Check both old and new formats
+    for (let i = 0; i < comment.likes.length; i++) {
+      const like = comment.likes[i];
+      
+      if (!like) {
+        console.log(`DEBUG: Found null or undefined like at index ${i}`);
+        continue;
       }
-    );
+      
+      // Debug each like's format
+      console.log(`DEBUG: Checking existing like at index ${i}:`, like);
+      
+      if (like.user && like.user.toString && like.user.toString() === userId.toString() && like.userType === userType) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching like in user/userType format at index', i);
+        break;
+      } else if (like._id && like._id.toString && like._id.toString() === userId.toString()) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching like in _id format at index', i);
+        break;
+      } else if (typeof like === 'string' && like === userId.toString()) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching like in string format at index', i);
+        break;
+      } else if (like.toString && typeof like.toString === 'function' && like.toString() === userId.toString()) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching like in object.toString() format at index', i);
+        break;
+      }
+    }
+
+    console.log('DEBUG: Existing like index:', existingLikeIndex);
 
     if (existingLikeIndex !== -1) {
       // Unlike if already liked
       comment.likes.splice(existingLikeIndex, 1);
       comment.likesCount = comment.likes.length;
       await product.save();
-      return res.json({ message: 'Comment unliked successfully', liked: false, likesCount: comment.likesCount });
+      
+      console.log('DEBUG: Like removed, new likes count:', comment.likesCount);
+      return res.json({ 
+        message: 'Comment unliked successfully', 
+        liked: false, 
+        likesCount: comment.likesCount 
+      });
     } else {
-      // Add like
-      comment.likes.push({
+      // Add like with complete information
+      const newLike = {
         user: userId,
         userType: userType,
         createdAt: new Date()
-      });
+      };
+      
+      console.log('DEBUG: Adding new like:', newLike);
+      comment.likes.push(newLike);
       comment.likesCount = comment.likes.length;
+      
+      // Debug the updated likes array
+      console.log('DEBUG: Updated likes array after adding:', JSON.stringify(comment.likes));
+      
       await product.save();
-      return res.json({ message: 'Comment liked successfully', liked: true, likesCount: comment.likesCount });
+      
+      console.log('DEBUG: Like added, new likes count:', comment.likesCount);
+      return res.json({ 
+        message: 'Comment liked successfully', 
+        liked: true, 
+        likesCount: comment.likesCount 
+      });
     }
   } catch (error) {
     console.error('Error liking blip comment:', error);
@@ -3965,8 +4228,39 @@ exports.likeBlipComment = async (req, res) => {
 exports.likeBlipCommentReply = async (req, res) => {
   try {
     const { productId, blipId, commentId, replyId } = req.params;
-    const userId = req.user._id;
-    const userType = req.userType;
+    
+    // Extract user ID from the JWT token - should always use req.user.id set by verifyToken
+    const userId = req.user?.id;
+    
+    // Get userType from role field in the JWT token
+    let userType = req.user?.role;
+    
+    // Print all user token data for debugging
+    console.log('DEBUG: User token data in likeBlipCommentReply:', {
+      user: req.user,
+      userId,
+      userType
+    });
+
+    // Additional validation for required fields
+    if (!userId) {
+      console.error('DEBUG: Missing userId in likeBlipCommentReply');
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    if (!userType) {
+      console.error('DEBUG: Missing userType in likeBlipCommentReply');
+      userType = 'Buyer'; // Default to Buyer if not specified
+    }
+
+    console.log('DEBUG: Like blip comment reply request:', {
+      productId,
+      blipId,
+      commentId,
+      replyId,
+      userId: userId,
+      userType
+    });
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -3983,10 +4277,6 @@ exports.likeBlipCommentReply = async (req, res) => {
       return res.status(404).json({ message: 'Comment not found' });
     }
 
-    if (!comment.replies) {
-      return res.status(404).json({ message: 'No replies found' });
-    }
-
     const reply = comment.replies.id(replyId);
     if (!reply) {
       return res.status(404).json({ message: 'Reply not found' });
@@ -3997,30 +4287,82 @@ exports.likeBlipCommentReply = async (req, res) => {
       reply.likes = [];
     }
 
-    // Check if user already liked the reply
-    const existingLikeIndex = reply.likes.findIndex(
-      like => {
-        // Safely check if like.user exists and matches the userId
-        return like && like.user && like.user.toString() === userId.toString() && like.userType === userType;
+    console.log('DEBUG: Current reply likes structure:', {
+      likes: reply.likes,
+      likesCount: reply.likes.length
+    });
+
+    // Check if user already liked the reply with detailed logging
+    let existingLikeIndex = -1;
+    
+    // Check both old and new formats with detailed logging
+    for (let i = 0; i < reply.likes.length; i++) {
+      const like = reply.likes[i];
+      
+      if (!like) {
+        console.log(`DEBUG: Found null or undefined like at index ${i}`);
+        continue;
       }
-    );
+      
+      // Debug each like's format
+      console.log(`DEBUG: Checking existing reply like at index ${i}:`, like);
+      
+      if (like.user && like.user.toString && like.user.toString() === userId.toString() && like.userType === userType) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching reply like in user/userType format at index', i);
+        break;
+      } else if (like._id && like._id.toString && like._id.toString() === userId.toString()) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching reply like in _id format at index', i);
+        break;
+      } else if (typeof like === 'string' && like === userId.toString()) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching reply like in string format at index', i);
+        break;
+      } else if (like.toString && typeof like.toString === 'function' && like.toString() === userId.toString()) {
+        existingLikeIndex = i;
+        console.log('DEBUG: Found matching reply like in object.toString() format at index', i);
+        break;
+      }
+    }
+
+    console.log('DEBUG: Existing reply like index:', existingLikeIndex);
 
     if (existingLikeIndex !== -1) {
       // Unlike if already liked
       reply.likes.splice(existingLikeIndex, 1);
       reply.likesCount = reply.likes.length;
       await product.save();
-      return res.json({ message: 'Reply unliked successfully', liked: false, likesCount: reply.likesCount });
+      
+      console.log('DEBUG: Reply like removed, new likes count:', reply.likesCount);
+      return res.json({ 
+        message: 'Reply unliked successfully', 
+        liked: false, 
+        likesCount: reply.likesCount 
+      });
     } else {
-      // Add like
-      reply.likes.push({
+      // Add like with complete information
+      const newLike = {
         user: userId,
         userType: userType,
         createdAt: new Date()
-      });
+      };
+      
+      console.log('DEBUG: Adding new reply like:', newLike);
+      reply.likes.push(newLike);
       reply.likesCount = reply.likes.length;
+      
+      // Debug the updated likes array
+      console.log('DEBUG: Updated reply likes array after adding:', JSON.stringify(reply.likes));
+      
       await product.save();
-      return res.json({ message: 'Reply liked successfully', liked: true, likesCount: reply.likesCount });
+      
+      console.log('DEBUG: Reply like added, new likes count:', reply.likesCount);
+      return res.json({ 
+        message: 'Reply liked successfully', 
+        liked: true, 
+        likesCount: reply.likesCount 
+      });
     }
   } catch (error) {
     console.error('Error liking blip comment reply:', error);
@@ -4111,10 +4453,36 @@ exports.getBlipCommentReplies = async (req, res) => {
     const { productId, blipId, commentId } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    
-    // Check if user is authenticated
-    const userId = req.user ? req.user._id : null;
-    const userType = req.user ? req.userType : null;
+    const skip = (page - 1) * limit;
+
+    // Check if user is authenticated and get userId/userType from JWT token
+    const userId = req.user?.id;  // Use req.user.id from verifyToken middleware
+    const userType = req.user?.role; // Use req.user.role from verifyToken middleware
+
+    console.log('DEBUG: User auth in getBlipCommentReplies:', {
+      isAuthenticated: !!req.user,
+      user: req.user,
+      userId,
+      userType
+    });
+
+    // DEBUG: Show exact Auth header and token
+    const authHeader = req.headers.authorization;
+    console.log('DEBUG: Auth header in getBlipCommentReplies:', {
+      header: authHeader,
+      hasToken: authHeader?.startsWith('Bearer ')
+    });
+
+    const token = authHeader?.split(' ')[1];
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.decode(token);
+        console.log('DEBUG: Decoded token in getBlipCommentReplies:', decoded);
+      } catch (err) {
+        console.error('DEBUG: Error decoding token in getBlipCommentReplies:', err.message);
+      }
+    }
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -4130,63 +4498,192 @@ exports.getBlipCommentReplies = async (req, res) => {
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }
+    
+    if (!comment.replies) {
+      return res.status(404).json({ message: 'No replies found' });
+    }
 
-    // Get total number of replies
+    // Get total replies count
     const totalReplies = comment.replies ? comment.replies.length : 0;
     const totalPages = Math.ceil(totalReplies / limit);
 
-    // Calculate pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-
     // Get paginated replies
     const replies = comment.replies
-      ? comment.replies.slice(startIndex, endIndex)
+      ? comment.replies
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(skip, skip + limit)
       : [];
+
+    console.log('DEBUG: Processing', replies.length, 'replies after pagination');
 
     // Populate user information for each reply
     const populatedReplies = await Promise.all(
       replies.map(async (reply) => {
-        let userInfo;
+        console.log('DEBUG: Processing reply ID:', reply._id);
         
         // Add isLiked field for authenticated users
-        const isLiked = userId && userType ? 
-          (reply.likes && reply.likes.some(
-            like => like.user.toString() === userId.toString() && like.userType === userType
-          )) : false;
+        let isLiked = false;
         
+        console.log(`DEBUG: Raw reply structure for ${reply._id}:`, JSON.stringify(reply));
+        
+        if (userId && userType) {
+          // Debug the likes structure in detail
+          console.log(`DEBUG: Reply ${reply._id} Likes Structure:`, {
+            userId: userId,
+            userIdType: typeof userId,
+            userType: userType,
+            likesCount: reply.likes ? reply.likes.length : 0
+          });
+          
+          // Extra log for detailed view of reply likes
+          console.log(`DEBUG: All reply likes for ${reply._id}:`, JSON.stringify(reply.likes));
+          
+          // Inspect each like object's structure
+          if (reply.likes && reply.likes.length > 0) {
+            reply.likes.forEach((like, idx) => {
+              const likeUserId = like.user ? like.user.toString() : (like._id ? like._id.toString() : 'none');
+              
+              console.log(`DEBUG: Reply like #${idx} exact structure:`, JSON.stringify(like));
+              console.log(`DEBUG: Reply like #${idx} comparison:`, {
+                likeUserId,
+                requestUserId: userId.toString(),
+                matches: likeUserId === userId.toString(),
+                likeUserType: like.userType,
+                requestUserType: userType,
+                typeMatches: like.userType === userType
+              });
+            });
+          }
+          
+          // Check all possible like formats in a much more detailed way
+          let matchReason = 'none';
+          
+          // Loop through each like to find a match with detailed logging
+          if (reply.likes && reply.likes.length > 0) {
+            for (const like of reply.likes) {
+              if (!like) continue;
+              
+              // Check user/userType format
+              if (like.user && like.user.toString && like.userType) {
+                const userMatches = like.user.toString() === userId.toString();
+                const typeMatches = like.userType === userType;
+                if (userMatches && typeMatches) {
+                  isLiked = true;
+                  matchReason = 'user/userType match';
+                  break;
+                }
+              }
+              
+              // Check _id format
+              if (like._id && like._id.toString) {
+                if (like._id.toString() === userId.toString()) {
+                  isLiked = true; 
+                  matchReason = '_id match';
+                  break;
+                }
+              }
+              
+              // Check string format
+              if (typeof like === 'string') {
+                if (like === userId.toString()) {
+                  isLiked = true;
+                  matchReason = 'string match';
+                  break;
+                }
+              }
+              
+              // Check toString format
+              if (like.toString && typeof like.toString === 'function') {
+                if (like.toString() === userId.toString()) {
+                  isLiked = true;
+                  matchReason = 'toString match';
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Detailed debug for isLiked final result
+          console.log(`DEBUG: Final isLiked determination for reply ${reply._id}:`, {
+            userId: userId.toString(),
+            userType: userType,
+            isLiked: isLiked,
+            matchReason: matchReason,
+            replyLikesCount: reply.likes ? reply.likes.length : 0
+          });
+        }
+        
+        let userInfo;
+        
+        // Determine which model to use for populating user info
         if (reply.userType === 'Buyer') {
-          userInfo = await Buyer.findById(reply.user).select('firstName lastName avatar profileImage');
-          return {
-            _id: reply._id,
-            user: {
-              _id: userInfo._id,
-              name: `${userInfo.firstName} ${userInfo.lastName}`,
-              avatar: userInfo.profileImage?.url || userInfo.avatar // Include profile image, fallback to avatar
-            },
-            userType: reply.userType,
-            comment: reply.comment,
-            createdAt: reply.createdAt,
-            likes: reply.likes,
-            likesCount: reply.likesCount,
-            isLiked: isLiked
-          };
+          try {
+            userInfo = await mongoose.model('Buyer').findById(reply.user).select('firstName lastName avatar profileImage');
+            if (!userInfo) {
+              console.log(`DEBUG: Buyer not found with ID: ${reply.user}`);
+              userInfo = { firstName: 'Unknown', lastName: 'User' };
+            }
+            return {
+              _id: reply._id,
+              user: {
+                _id: userInfo._id || null,
+                name: `${userInfo.firstName} ${userInfo.lastName}`,
+                avatar: userInfo.profileImage?.url || userInfo.avatar || null // Include profile image, fallback to avatar
+              },
+              userType: reply.userType,
+              comment: reply.comment,
+              createdAt: reply.createdAt,
+              likes: reply.likes,
+              likesCount: reply.likesCount || 0,
+              isLiked: isLiked
+            };
+          } catch (err) {
+            console.error(`DEBUG: Error fetching buyer for reply:`, err);
+            return {
+              _id: reply._id,
+              user: { _id: null, name: 'Unknown User', avatar: null },
+              userType: reply.userType,
+              comment: reply.comment,
+              createdAt: reply.createdAt,
+              likes: reply.likes,
+              likesCount: reply.likesCount || 0,
+              isLiked: isLiked
+            };
+          }
         } else {
-          userInfo = await Seller.findById(reply.user).select('storeName storeAvatar');
-          return {
-            _id: reply._id,
-            user: {
-              _id: userInfo._id,
-              name: userInfo.storeName,
-              avatar: userInfo.storeAvatar?.url // Include store avatar
-            },
-            userType: reply.userType,
-            comment: reply.comment,
-            createdAt: reply.createdAt,
-            likes: reply.likes,
-            likesCount: reply.likesCount,
-            isLiked: isLiked
-          };
+          try {
+            userInfo = await mongoose.model('Seller').findById(reply.user).select('storeName storeAvatar');
+            if (!userInfo) {
+              console.log(`DEBUG: Seller not found with ID: ${reply.user}`);
+              userInfo = { storeName: 'Unknown Store' };
+            }
+            return {
+              _id: reply._id,
+              user: {
+                _id: userInfo._id || null,
+                name: userInfo.storeName,
+                avatar: userInfo.storeAvatar?.url || null // Include store avatar
+              },
+              userType: reply.userType,
+              comment: reply.comment,
+              createdAt: reply.createdAt,
+              likes: reply.likes,
+              likesCount: reply.likesCount || 0,
+              isLiked: isLiked
+            };
+          } catch (err) {
+            console.error(`DEBUG: Error fetching seller for reply:`, err);
+            return {
+              _id: reply._id,
+              user: { _id: null, name: 'Unknown Store', avatar: null },
+              userType: reply.userType,
+              comment: reply.comment,
+              createdAt: reply.createdAt,
+              likes: reply.likes,
+              likesCount: reply.likesCount || 0,
+              isLiked: isLiked
+            };
+          }
         }
       })
     );
@@ -4196,12 +4693,13 @@ exports.getBlipCommentReplies = async (req, res) => {
       pagination: {
         currentPage: page,
         totalPages,
-        totalReplies
+        totalReplies,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
       }
     });
-
   } catch (error) {
-    console.error('Error getting blip comment replies:', error);
+    console.error('Error fetching blip comment replies:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

@@ -1755,4 +1755,115 @@ exports.getStreamsForYou = async (req, res) => {
       error: error.message
     });
   }
+};
+
+exports.searchStreams = async (req, res) => {
+  try {
+    const { query, category, status, type, page = 1, limit = 10 } = req.query;
+    
+    // Build search criteria
+    const searchQuery = {};
+    const aggregationPipeline = [];
+    
+    // Start with matching any existing filters
+    if (category) {
+      searchQuery.category = category;
+    }
+    
+    if (status && ['scheduled', 'live', 'ended', 'expired'].includes(status)) {
+      searchQuery.status = status;
+    }
+    
+    if (type && ['auction', 'open_show'].includes(type)) {
+      searchQuery.type = type;
+    }
+    
+    // If we have filters, add them to the pipeline
+    if (Object.keys(searchQuery).length > 0) {
+      aggregationPipeline.push({ $match: searchQuery });
+    }
+    
+    // Text search criteria for title, description
+    if (query) {
+      // First populate products to perform search on product data
+      aggregationPipeline.push(
+        { 
+          $lookup: {
+            from: 'products',
+            localField: 'products.product',
+            foreignField: '_id',
+            as: 'populatedProducts'
+          }
+        },
+        {
+          $match: {
+            $or: [
+              { title: { $regex: query, $options: 'i' } },
+              { description: { $regex: query, $options: 'i' } },
+              { 'populatedProducts.name': { $regex: query, $options: 'i' } }
+            ]
+          }
+        }
+      );
+    }
+    
+    // Add sorting 
+    aggregationPipeline.push(
+      { $sort: { scheduledStartTime: -1, createdAt: -1 } }
+    );
+    
+    // Add count metadata for pagination
+    aggregationPipeline.push(
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          streams: [
+            { $skip: (parseInt(page) - 1) * parseInt(limit) },
+            { $limit: parseInt(limit) }
+          ]
+        }
+      }
+    );
+    
+    // Execute the aggregation pipeline
+    const result = await Stream.aggregate(aggregationPipeline);
+    
+    // Extract metadata and streams
+    const metadata = result[0].metadata[0] || { total: 0 };
+    let streams = result[0].streams || [];
+    
+    // Now populate the seller and product details fully
+    if (streams.length > 0) {
+      streams = await Stream.populate(streams, [
+        { path: 'seller', select: 'storeName businessName storeAvatar rating' },
+        { path: 'products.product', select: 'name description images price' }
+      ]);
+    }
+    
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = streams.map(stream => {
+      // Convert to plain object if not already
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      streamObj.isLive = stream.status === 'live';
+      return streamObj;
+    });
+    
+    // Format response with pagination info
+    res.json({
+      streams: streamsWithViewerCount,
+      pagination: {
+        total: metadata.total,
+        pages: Math.ceil(metadata.total / limit),
+        currentPage: parseInt(page),
+        hasMore: page * limit < metadata.total
+      }
+    });
+  } catch (error) {
+    console.error('Search streams error:', error);
+    res.status(500).json({
+      message: 'Failed to search streams',
+      error: error.message
+    });
+  }
 }; 
