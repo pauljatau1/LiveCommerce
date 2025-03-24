@@ -118,7 +118,12 @@ const Comment = ({
         {item.buyer?.profileImage?.url ? (
           <Image
             source={{ uri: item.buyer?.profileImage?.url }}
-            className="w-[30px] h-[30px] rounded-[50%]"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+            }}
+            contentFit="cover"
           />
         ) : (
           <Text className="text-white text-[10px] font-LexendDeca">

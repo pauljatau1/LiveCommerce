@@ -331,6 +331,12 @@ const Checkout = () => {
       }
     }
 
+    if (deliveryFee + cartTotal > 50000 && selectedPayment == 2) {
+      return toast.info(
+        "Cash on Delivery is unavailable for orders over ₦50,000",
+      );
+    }
+
     const order = {
       items: cart?.map((item) => {
         return {
@@ -651,13 +657,13 @@ const Checkout = () => {
                       </View>
                     </View>
                   </View>
-                  <View>
+                  {/* <View>
                     <Entypo
                       name="chevron-right"
                       size={16}
                       color="rgba(204, 204, 204, 0.8)"
                     />
-                  </View>
+                  </View> */}
                 </Pressable>
               </View>
 

@@ -120,7 +120,9 @@ const Notifications = () => {
           </View>
 
           <TouchableOpacity style={styles.sectionRow} activeOpacity={0.5}>
-            <Text style={styles.sectionText}>{item?.message}</Text>
+            <Text style={styles.sectionText} numberOfLines={4}>
+              {item?.message}
+            </Text>
             <Text style={styles.date}>
               {formatMessageDate(item?.createdAt)}
             </Text>

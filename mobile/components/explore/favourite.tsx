@@ -23,7 +23,6 @@ const FavouriteExplore = ({ category }: any) => {
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
 
   const fetchSpotlightLiveStreams = async () => {
-    // setLoading(true);
     if (hasReachedEnd) {
       return;
     }
