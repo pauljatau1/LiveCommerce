@@ -32,6 +32,7 @@ const LiveStreamCatalog = ({ query }: any) => {
 
   const handleSelectSortType = (type: string) => {
     setPage(1);
+    setHasReachedEnd(false);
     setShowSortSheet(false);
     setFilter(type);
   };
@@ -59,7 +60,7 @@ const LiveStreamCatalog = ({ query }: any) => {
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/streams/search?query=${query}&status=ongoing&type=${liveFilter}&sortByView=${filter}&page=${page}&limit=10`,
+          `api/streams/search?query=${query}&status=live&type=${liveFilter}&sortByView=${filter}&page=${page}&limit=10`,
       );
       if (response.status === 200) {
         if (page == 1) {

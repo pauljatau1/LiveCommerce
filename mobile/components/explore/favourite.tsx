@@ -19,18 +19,34 @@ const FavouriteExplore = ({ category }: any) => {
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
   const [filteredStreams, setFilteredStremas] = useState<any[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
 
   const fetchSpotlightLiveStreams = async () => {
-    setLoading(true);
+    // setLoading(true);
+    if (hasReachedEnd) {
+      return;
+    }
+    if (page == 1) {
+      setLoading(true);
+    }
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/streams/category/${category?.toLowerCase()}?status=live&type=${liveFilter}&sortByView=${filter}`,
+          `api/streams/category/${category?.toLowerCase()}?status=ended&type=${liveFilter}&sortByView=${filter}&page=${page}&limit=10`,
       );
       if (response.status === 200) {
-        setSpotLight(response.data?.streams);
-        setFilteredStremas(response.data?.streams);
+        if (page == 1) {
+          setSpotLight(response.data?.streams);
+        } else {
+          setSpotLight([...spotLight, ...response.data?.streams]);
+        }
       }
+
+      if (!response.data?.pagination.hasMore) {
+        return setHasReachedEnd(true);
+      }
+      setPage((prevPage) => prevPage + 1);
     } catch (error) {
       console.log(error);
     } finally {
@@ -39,6 +55,8 @@ const FavouriteExplore = ({ category }: any) => {
   };
 
   const handleSelectSortType = (type: string) => {
+    setPage(1);
+    setHasReachedEnd(false);
     setShowSortSheet(false);
     setFilter(type);
     const sortedStreams = catalogSort([], type);
@@ -50,6 +68,8 @@ const FavouriteExplore = ({ category }: any) => {
   }, []);
 
   const handleSelectFilterType = (type: string) => {
+    setPage(1);
+    setHasReachedEnd(false);
     setShowFilterSheet(false);
     setLiveFilter(type);
   };
@@ -193,6 +213,8 @@ const FavouriteExplore = ({ category }: any) => {
               numColumns={2}
               columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
               scrollEnabled={false}
+              onEndReached={fetchSpotlightLiveStreams}
+              onEndReachedThreshold={0.5}
               ListHeaderComponent={renderListHeader}
               ListEmptyComponent={renderEmptyStreams}
             />
