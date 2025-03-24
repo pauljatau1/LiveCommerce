@@ -646,7 +646,7 @@ const VideoItem = ({
             productId={product.id}
             closeSheet={handleCloseCheckout}
             sellerId={seller._id}
-            channel="marketplace"
+            channel="blips"
           />
         </BottomSheet>
 

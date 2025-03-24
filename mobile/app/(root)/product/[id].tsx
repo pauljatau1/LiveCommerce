@@ -1112,7 +1112,7 @@ const ProductDescription = () => {
                                 return setShowAuthSheet(true);
                               }
                               router.push({
-                                pathname: `/(root)/messageRoom/${sellerInfo._id}`,
+                                pathname: `../../(root)/messageRoom/${sellerInfo._id}`,
                                 params: {
                                   name:
                                     sellerInfo?.storeName ||
@@ -1433,6 +1433,7 @@ const ProductDescription = () => {
           productId={productDetails?._id}
           closeSheet={() => setShowCheckout(false)}
           sellerId={sellerInfo?._id}
+          channel="marketplace"
         />
       </BottomSheet>
     </View>
