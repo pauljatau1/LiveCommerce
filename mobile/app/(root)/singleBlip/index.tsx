@@ -27,7 +27,7 @@ const singleBlip = () => {
           },
         },
       );
-      setBlip(response.data);
+      setBlip(response.data?.blips?.[0]);
     } catch (error) {
       console.error("Error fetching more blips:", error);
     } finally {

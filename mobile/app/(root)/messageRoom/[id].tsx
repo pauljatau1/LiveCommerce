@@ -121,6 +121,7 @@ const MessageRoom = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
       allowsMultipleSelection: false,
+      allowsEditing: false,
       base64: false,
     });
 
@@ -128,7 +129,7 @@ const MessageRoom = () => {
       const newImages = result.assets.map((asset) => ({
         uri: asset.uri,
         name: `media_${Date.now()}.${asset.mimeType?.split("/")[1] || "application/octet-stream"}`,
-        mimeType: asset.mimeType,
+        type: asset.mimeType,
       }));
       const remainingSlots = 4 - selectedMedia.length;
       const imagesToAdd = newImages.slice(0, remainingSlots);
@@ -508,13 +509,16 @@ const MessageRoom = () => {
     setShowReportUser(true);
   };
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
-      style={{ flex: 1, backgroundColor: "#121212" }}
-    >
-      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="flex-1 h-full">
+    <SafeAreaView className="flex-1 h-full bg-[#121212]">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
+        style={{ flex: 1, backgroundColor: "#121212" }}
+      >
+        <FocusAwareStatusBar
+          barStyle="light-content"
+          backgroundColor="#121212"
+        />
         <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#888787]">
           <View className="flex-row items-center gap-[12px]">
             <TouchableOpacity className="" onPress={() => router.back()}>
@@ -896,8 +900,8 @@ const MessageRoom = () => {
             closeSheet={() => setShowReportUser(false)}
           />
         </BottomSheet>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

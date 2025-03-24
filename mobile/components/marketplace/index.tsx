@@ -17,8 +17,13 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import { useGetAllCategoriesQuery } from "@/services/categories";
 import GeneralCategory from "./general";
 import axios from "axios";
+import TabHeader from "../skeleton/tabHeader";
+import TabHeaderSkeleton from "../skeleton/tabHeader";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 const Marketplace = () => {
+  const { user, token } = useSelector((state: RootState) => state.authState);
   const tabBarHeight = useBottomTabBarHeight();
   const {
     data: allCategories,
@@ -33,10 +38,9 @@ const Marketplace = () => {
 
   const getSelectedCategories = async () => {
     try {
-      const user = await getUser();
-      const token = await getToken();
-      let cat = user.selectedCategories;
-      if (cat?.length < 1) {
+      let cat = user?.selectedCategories;
+
+      if (!cat || cat?.length < 1) {
         const response = await axios.get(
           process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
           {
@@ -47,7 +51,7 @@ const Marketplace = () => {
         );
         cat = response.data.categories;
       }
-      if (token) {
+      if (token && cat) {
         setCategories(["For You", ...cat.map((ct: any) => ct.name)]);
         return setSelected("For You");
       }
@@ -80,7 +84,15 @@ const Marketplace = () => {
     <View className="pt-[30px]" style={{ flex: 1 }}>
       <HomeHeader />
       <View className="">
-        <Tags tags={categories} selected={selected} setSelected={setSelected} />
+        {categories?.length < 1 ? (
+          <TabHeaderSkeleton />
+        ) : (
+          <Tags
+            tags={categories}
+            selected={selected}
+            setSelected={setSelected}
+          />
+        )}
       </View>
       <ScrollView
         style={{ flex: 1 }}

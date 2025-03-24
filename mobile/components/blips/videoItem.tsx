@@ -30,7 +30,11 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Shadow, ShadowProps } from "react-native-shadow-2";
 import BottomSheet from "../global/bottom-sheet";
-import { formatNumber, timeFromNow } from "@/helpers/helpers";
+import {
+  formatNumber,
+  formatTimeFromNow,
+  timeFromNow,
+} from "@/helpers/helpers";
 import { TextInput } from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import moment from "moment";
@@ -84,6 +88,22 @@ const VideoItem = ({
   const [following, setFollowing] = useState<boolean>(
     item?.seller?.isFollowing || false,
   );
+  const [blipType, setBlipType] = useState<string>(item?.status);
+  const [offlineAuctionData, setOfflineAuctionData] = useState<any>(
+    item?.status == "offline_auction" ? item?.auctionInfo : null,
+  );
+  const [liveStreamData, setLiveStreamData] = useState<any>();
+  const [liveAuctionData, setLiveAuctionData] = useState<any>();
+  const [bidTime, setBidTime] = useState<any>();
+
+  const handleActionBtn = () => {
+    switch (blipType) {
+      case "active":
+        return handleBuyNow();
+      case "offline_auction":
+        return router?.push(`/product/${item?._id}`);
+    }
+  };
 
   const onShare = async () => {
     try {
@@ -252,6 +272,17 @@ const VideoItem = ({
     }
   };
 
+  useEffect(() => {
+    if (offlineAuctionData) {
+      const timer = setInterval(
+        () => setBidTime(formatTimeFromNow(offlineAuctionData?.endDate)),
+        1000,
+      );
+
+      return () => clearInterval(timer);
+    }
+  }, []);
+
   return (
     <TouchableWithoutFeedback
       onPress={() => {
@@ -302,7 +333,8 @@ const VideoItem = ({
           <View className="flex-row items-center gap-[8px] ">
             {singularBlip ? (
               <Pressable
-                onPress={() => router.replace("/blips")}
+                // onPress={() => router.replace("/blips")}
+                onPress={() => router.back()}
                 style={styles.buttonShadow}
               >
                 <Entypo name="chevron-left" size={24} color="#fff" />
@@ -472,61 +504,80 @@ const VideoItem = ({
           </View>
           <View>
             <Pressable
-              className="px-[10px] py-[4px] gap-[12px] bg-[#f2f2f2] mb-[8px] rounded-[5px] flex-row items-center"
+              className="px-[10px] py-[4px]  bg-[#f2f2f2] mb-[8px] rounded-[5px] "
               style={{
                 backgroundColor: "rgba(255,255,255,0.6)",
               }}
               onPress={() => setShowProduct(true)}
             >
-              <Image
-                source={{ uri: product?.image }}
-                resizeMode="contain"
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 4,
-                }}
-              />
-              <View className="shrink">
-                <Text className="text-[12px] text-[#000] font-LexendDecaSemiBold shrink">
-                  {product?.name}
-                </Text>
-                <View className="flex-row items-end gap-[8px] justify-between w-full shrink">
-                  <View className="flex-row items-end gap-[8px] flex-wrap shrink">
-                    <Text className="text-[18px] text-[#000] font-LexendDecaMedium">
-                      ₦
-                      {item?.discount?.isActive
-                        ? item?.discount?.discountedPrice?.toLocaleString() || 0
-                        : item?.price?.toLocaleString()}
-                    </Text>
-                    <Text className="text-[12px] text-[#000] font-LexendDecaMedium shrink">
+              <View className="flex-row items-center gap-[12px]">
+                <Image
+                  source={{ uri: product?.image }}
+                  resizeMode="contain"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 4,
+                  }}
+                />
+                <View className="shrink">
+                  <Text
+                    className="text-[12px] text-[#000] font-LexendDecaSemiBold shrink"
+                    numberOfLines={2}
+                  >
+                    {product?.name}
+                  </Text>
+                  <View className="flex-row items-end gap-[8px] justify-between w-full shrink">
+                    <View className="flex-row items-end gap-[8px] flex-wrap shrink">
+                      <Text className="text-[18px] text-[#000] font-LexendDecaMedium">
+                        ₦
+                        {item?.discount?.isActive
+                          ? item?.discount?.discountedPrice?.toLocaleString() ||
+                            0
+                          : item?.price?.toLocaleString()}
+                      </Text>
+                      <Text className="text-[12px] text-[#000] font-LexendDecaMedium shrink">
+                        {item?.discount?.isActive ? (
+                          <Text className="text-[#16783A]">
+                            ₦{item?.discount?.value?.toFixed(0)}
+                            {item?.discount?.type == "percentage" && "%"} off
+                          </Text>
+                        ) : null}
+                      </Text>
                       {item?.discount?.isActive ? (
-                        <Text className="text-[#16783A]">
-                          ₦{item?.discount?.value?.toFixed(0)}
-                          {item?.discount?.type == "percentage" && "%"} off
+                        <Text className="text-[12px] text-[#FF0A0A] font-LexendDecaMedium line-through">
+                          ₦{item?.price?.toLocaleString()}
                         </Text>
                       ) : null}
+                    </View>
+                    <Text
+                      className={`text-[14px] ${item?.stock < 10 ? "text-[#FF6652]" : "text-[#000]"} font-LexendDecaMedium `}
+                    >
+                      {formatNumber(item.stock)} left
                     </Text>
-                    {item?.discount?.isActive ? (
-                      <Text className="text-[12px] text-[#FF0A0A] font-LexendDecaMedium line-through">
-                        ₦{item?.price?.toLocaleString()}
-                      </Text>
-                    ) : null}
                   </View>
-                  <Text
-                    className={`text-[14px] ${item?.stock < 10 ? "text-[#FF6652]" : "text-[#000]"} font-LexendDecaMedium `}
-                  >
-                    {formatNumber(item.stock)} left
-                  </Text>
                 </View>
               </View>
+
+              {offlineAuctionData && (
+                <View className="p-[4px] flex-row items-center gap-[16px]">
+                  <Text className="text-[#16783A] text-[14px] font-LexendDecaMedium">
+                    {offlineAuctionData?.bidsCount} bids
+                  </Text>
+                  <Text className="font-LexendDecaBold !text-[#FF0A0A]  text-[14px]">
+                    {bidTime || formatTimeFromNow(offlineAuctionData?.endDate)}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <TouchableOpacity
               className="p-[12px] rounded-[6px] bg-[#16783A] items-center justify-center"
-              onPress={handleBuyNow}
+              onPress={handleActionBtn}
               style={styles.buttonShadow}
             >
-              <Text className="text-white tex-[12px] font-[600]">Buy now</Text>
+              <Text className="text-white tex-[12px] font-[600]">
+                {offlineAuctionData ? "Bid Now" : "Buy now"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

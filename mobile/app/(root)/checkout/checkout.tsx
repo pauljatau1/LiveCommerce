@@ -34,8 +34,7 @@ const { width, height } = Dimensions.get("window");
 const mockDeliveryOtions = [
   {
     name: "Standard Delivery",
-    description:
-      "Guaranteed delivery within 3 business days.Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ",
+    description: "Guaranteed delivery within 2-4 business days",
   },
 ];
 

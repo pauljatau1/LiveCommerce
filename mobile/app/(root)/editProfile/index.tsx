@@ -71,6 +71,7 @@ const EditProfile = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
       allowsMultipleSelection: false,
+      allowsEditing: false,
       base64: false,
     });
 
@@ -78,7 +79,7 @@ const EditProfile = () => {
       const newImages = result.assets.map((asset) => ({
         uri: asset.uri,
         name: `media_${Date.now()}.${asset.mimeType?.split("/")[1] || "application/octet-stream"}`,
-        mimeType: asset.mimeType,
+        type: asset.mimeType,
       }));
       const remainingSlots = 4 - selectedMedia.length;
       const imagesToAdd = newImages.slice(0, remainingSlots);
@@ -89,31 +90,32 @@ const EditProfile = () => {
   };
 
   const updateAvatar = async () => {
-    try {
-      setLoading(true);
+    setLoading(true);
 
+    try {
       const token = await getToken();
+      const user = await getUser();
+
       const formData = new FormData();
       selectedMedia.forEach((image, index) => {
         formData.append(`avatar`, image);
       });
+
+      const config = {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: "Bearer " + token,
+        },
+        transformRequest: () => {
+          return formData;
+        },
+      };
+
       const response = await axios.put(
         process.env.EXPO_PUBLIC_API_URL + "api/buyer/profile/avatar",
         formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: "Bearer " + token,
-          },
-        },
+        config,
       );
-      const user = await getUser();
-      console.log(response.data);
-
-      // await setUser({
-      //   ...user,
-      //   profileImage: { url: response.data.buyer?.profileImage?.url },
-      // });
 
       dispatch(
         setUserData({
@@ -172,7 +174,8 @@ const EditProfile = () => {
   };
 
   const handleUpdateProfile = () => {
-    setShowPasswordValidation(false);
+    // setShowPasswordValidation(false);
+
     if (hasChanged) {
       updateAvatar();
     } else {
@@ -324,7 +327,6 @@ const EditProfile = () => {
             <Text style={styles.updateBtnText}>Update</Text>
           </Pressable>
         </ScrollView>
-        <LoadingModal isVisible={loading} />
 
         <BottomSheet
           bgColor="#121212"
@@ -339,6 +341,7 @@ const EditProfile = () => {
           <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
         </BottomSheet>
       </KeyboardAvoidingView>
+      <LoadingModal isVisible={loading} />
     </View>
   );
 };

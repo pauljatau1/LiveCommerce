@@ -22,7 +22,7 @@ const Comment = ({
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [showReplies, setShowReplies] = useState<boolean>(false);
   const [replies, setReplies] = useState<any[]>(item?.replies?.slice(0, 5));
-  const [liked, setLiked] = useState<boolean>(false);
+  const [liked, setLiked] = useState<boolean>(item?.isLiked || false);
   const [likes, setLikes] = useState<number>(item?.likesCount);
   const [loading, setLoading] = useState<boolean>(false);
 

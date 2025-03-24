@@ -15,24 +15,34 @@ import ShopCard from "../sellerProfile/shopItem";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import SellerCategories from "./sellerCategories";
+import BlipsAuctions from "./blipsAuctions";
 
-const tabs = ["Auctions", "Buy Now", "Categories"];
+const tabs = ["Auctions", "Buy Now"];
 
 const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
-  const { data, isLoading, isFetching, isError, refetch } =
-    useGetSellerProductsQuery({ id });
-
   const [tab, setTab] = useState<string>("Buy Now");
   const [page, setPage] = useState<number>(1);
+
+  const { data, isLoading, isFetching, isError, refetch } =
+    useGetSellerProductsQuery({ id, page, limit: 15 });
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [products, setProducts] = useState<any[]>([]);
   const [seller, setSeller] = useState<any>();
 
-  const fetchMoreProducts = useCallback(() => {
+  const fetchMoreProducts = () => {
     if (!isFetching && !hasReachedEnd) {
+      console.log("details ", {
+        isFetching,
+        hasReachedEnd,
+      });
+
       setPage((prev) => prev + 1);
     }
-  }, [isFetching, hasReachedEnd]);
+  };
+
+  useEffect(() => {
+    refetch();
+  }, [page]);
 
   const getSellerProfile = useCallback(async () => {
     const token = await getToken();
@@ -52,8 +62,12 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
   }, []);
 
   useEffect(() => {
-    if (data?.products) {
+    if (data?.products?.length > 0) {
       setProducts([...products, ...data.products]);
+    }
+
+    if (data?.currentPage == data?.totalPages || data?.totalPages < 1) {
+      setHasReachedEnd(true);
     }
   }, [data]);
 
@@ -96,22 +110,14 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
         </View>
       );
     },
-    [tab],
+    [tab, page, products],
   );
 
   const renderAuctions = useCallback(
     (item: any) => {
       return (
         <View style={{ width: "100%" }}>
-          <Text
-            style={{
-              marginHorizontal: "auto",
-              marginVertical: 12,
-              color: "#fff",
-            }}
-          >
-            Auctions
-          </Text>
+          <BlipsAuctions id={item?._id} closeSheet={closeSheet} />
         </View>
       );
     },
@@ -176,7 +182,7 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
             <FlatList
               data={
                 tab == "Auctions"
-                  ? [{ _id: 1 }]
+                  ? [{ _id: id }]
                   : tab == "Buy Now"
                     ? products
                     : [{ _id: 1 }]
@@ -191,7 +197,6 @@ const BlipsShop = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
               keyExtractor={(item, index) => item?._id.toString()}
               numColumns={2}
               onEndReached={fetchMoreProducts}
-              onEndReachedThreshold={0.5}
               columnWrapperStyle={{
                 justifyContent: "space-between",
                 marginBottom: 16,

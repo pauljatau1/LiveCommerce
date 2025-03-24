@@ -9,7 +9,7 @@ import { Skeleton } from "@rneui/themed";
 import ProductSkeleton from "@/components/skeleton/productSkeleton";
 
 const ForYouSection = () => {
-  const { data: products, error, isLoading } = useGetForYouQuery({});
+  const { data: products, error, isLoading } = useGetForYouQuery({ limit: 10 });
 
   const numColumns = products?.products.length <= 2 ? 1 : 2;
   const forYouProducts = products?.products ?? [];
@@ -24,22 +24,36 @@ const ForYouSection = () => {
     [forYouProducts],
   );
 
-  const renderContent = useCallback(({ item: row }: any) => {
+  const renderContent = useCallback(({ item }: any) => {
     return (
-      <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-        {row?.map((item: any) => (
-          <ProductCard
-            key={item._id}
-            id={item._id}
-            title={item.name}
-            price={item.price}
-            category={item.category}
-            sellerName={item.seller?.storeName}
-            imageUrl={item.images}
-            sellerRating={item.stats?.averageRating}
-            moreDetails={item}
-          />
-        ))}
+      <View
+        className="w-[100%] basis-[49%] h-[299px]"
+        style={{
+          flexShrink: 1,
+        }}
+      >
+        <ProductCard
+          key={item._id}
+          id={item._id}
+          title={item.name}
+          price={item.price}
+          category={item.category}
+          sellerName={item.seller?.storeName}
+          imageUrl={item.images}
+          sellerRating={item.stats?.averageRating}
+          moreDetails={item}
+          width={"100%"}
+        />
+      </View>
+    );
+  }, []);
+
+  const renderEmptyPlaceholder = useCallback(() => {
+    return (
+      <View className="">
+        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
+          No Products
+        </Text>
       </View>
     );
   }, []);
@@ -95,15 +109,20 @@ const ForYouSection = () => {
       {isLoading ? (
         <ProductSkeleton numOfLoaders={2} height={157} padding={16} />
       ) : (
-        <View style={{ paddingLeft: 16 }}>
+        <View style={{ paddingHorizontal: 16 }}>
           <FlatList
             key={2}
-            data={groupedforYouProducts}
+            data={products?.products}
             renderItem={renderContent}
-            keyExtractor={(item, index) => `group-${index}`}
-            horizontal
-            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, index) => item?._id || `group-${index}`}
+            numColumns={2}
+            columnWrapperStyle={{
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+            showsVerticalScrollIndicator={false}
             className="pt-[14px]"
+            ListEmptyComponent={renderEmptyPlaceholder}
           />
         </View>
       )}

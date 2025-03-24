@@ -101,6 +101,7 @@ const createPost = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       quality: 1,
       allowsMultipleSelection: true,
+      allowsEditing: false,
       base64: false,
     });
 
@@ -108,7 +109,7 @@ const createPost = () => {
       const newImages = result.assets.map((asset) => ({
         uri: asset.uri,
         name: `media_${Date.now()}.${asset.mimeType?.split("/")[1] || "application/octet-stream"}`,
-        mimeType: asset.mimeType,
+        type: asset.mimeType,
       }));
       const remainingSlots = 4 - selectedMedia.length;
       const imagesToAdd = newImages.slice(0, remainingSlots);

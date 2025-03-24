@@ -28,6 +28,11 @@ export const products = createApi({
       query: (credentials) => getRequest(`/products/auctions`, credentials),
       extraOptions: { refetchOnFocus: true },
     }),
+    getAllSellerAuctionProducts: builder.query({
+      query: (credentials) =>
+        getRequest(`/products/seller/${credentials?.id}/auctions`, credentials),
+      extraOptions: { refetchOnFocus: true },
+    }),
     deepSearchProducts: builder.query({
       query: (credentials) => getRequest(`/products/search`, credentials),
     }),
@@ -53,6 +58,7 @@ export const products = createApi({
 export const {
   useGetAllProductsQuery,
   useGetAllAuctionProductsQuery,
+  useGetAllSellerAuctionProductsQuery,
   useGetNewAuqliQuery,
   useGetTrendingQuery,
   useGetSingleProductQuery,

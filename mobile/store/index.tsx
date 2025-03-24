@@ -3,7 +3,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { auth } from "@/services/auth";
 
 import authStateReducer from "./features/auth/authSlice";
-import { rtkQueryErrorLogger } from "./middlewares";
+import { rtkQueryErrorLogger, socketMiddleware } from "./middlewares";
 import { category } from "@/services/categories";
 import { products } from "@/services/products";
 import { posts } from "@/services/posts";
@@ -25,6 +25,7 @@ export const store = configureStore({
       products.middleware,
       posts.middleware,
       rtkQueryErrorLogger,
+      // socketMiddleware,
     ),
 });
 

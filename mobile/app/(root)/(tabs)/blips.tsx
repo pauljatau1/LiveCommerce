@@ -101,21 +101,21 @@ const Blips = () => {
 
   const renderVideo = ({ item, index }: { item: any; index: number }) => (
     <VideoItem
-      id={item.blipId}
+      id={item?.blipId}
       item={item}
-      videoUrl={item.blipUrl}
+      videoUrl={item?.blipUrl}
       isVisible={index === currentIndex}
-      seller={item.seller}
+      seller={item?.seller}
       engagement={{
         likes: item?.blipEngagement?.likesCount,
         comments: item?.blipEngagement?.commentsCount,
         views: item?.blipEngagement?.viewCount,
       }}
       product={{
-        id: item._id,
-        name: item.productName,
-        price: item.price,
-        image: item.images,
+        id: item?._id,
+        name: item?.productName,
+        price: item?.price,
+        image: item?.images,
       }}
       singularBlip={false}
     />
@@ -177,7 +177,7 @@ const Blips = () => {
             ref={flatListRef}
             data={videos}
             renderItem={renderVideo}
-            keyExtractor={(item, index) => index.toString()}
+            keyExtractor={(item, index) => item?.blipId || index.toString()}
             pagingEnabled
             onEndReached={fetchMoreVideos}
             onEndReachedThreshold={1.5}
