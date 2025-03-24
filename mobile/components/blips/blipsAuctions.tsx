@@ -42,12 +42,27 @@ const BlipsAuctions = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
     },
     [id],
   );
+
+  const renderEmptyAuctions = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+        }}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Auctions right now
+        </Text>
+      </View>
+    );
+  }, [products?.products]);
   return (
     <View>
       <FlatList
         data={products?.products}
         renderItem={renderShopProducts}
-        keyExtractor={(item, index) => item?._id.toString()}
+        keyExtractor={(item, index) => item?._id || index.toString()}
         numColumns={2}
         // onEndReached={getMoreAuctions}
         columnWrapperStyle={{
@@ -60,6 +75,7 @@ const BlipsAuctions = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
         }}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled={true}
+        ListEmptyComponent={renderEmptyAuctions}
       />
     </View>
   );

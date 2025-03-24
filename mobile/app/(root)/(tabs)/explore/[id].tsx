@@ -75,17 +75,22 @@ const SingleExplore = () => {
   //   );
   // };
 
-  const renderSubCategory = (name: string) => {
+  const renderSubCategory = (subCat: string) => {
     return (
       <TouchableOpacity
         className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
         style={{
           marginRight: 10,
         }}
-        onPress={() => setSubCategory(name)}
+        onPress={() =>
+          router.push({
+            pathname: "/(root)/catalog/subCategoriesCatalog",
+            params: { name: subCat, mainCat: categoryName, subCat },
+          })
+        }
       >
         <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
-          {name}
+          {subCat}
         </Text>
       </TouchableOpacity>
     );

@@ -12,7 +12,7 @@ import { toast } from "@/core/toast";
 import { getToken } from "@/store/features/auth/utils";
 import AuthSheet from "../auth/authSheet";
 
-const CatalogCard: React.FC<ProductCardProps> = ({
+const CatalogCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
   id,
   profileImage,

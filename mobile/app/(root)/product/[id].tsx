@@ -300,7 +300,6 @@ const ProductDescription = () => {
     socket.on("connect", () => {
       console.log("Connected to auctions");
     });
-    console.log("product id ", id);
 
     // socket.on("bid_error", (error) => {
     //   console.log("Bid error:", error);

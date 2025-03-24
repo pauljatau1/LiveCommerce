@@ -20,39 +20,39 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { TabBar, TabBarItem, TabView } from "react-native-tab-view";
 import CatalogCard from "@/components/catalog/catalogCard";
 import CatalogComponent from "@/components/catalog/catalogComponent";
+import LiveStreamCatalog from "@/components/catalog/liveStreamCatalog";
 
 const CatalogPage = () => {
-  const { id } = useLocalSearchParams();
+  const { id, searchTab } = useLocalSearchParams();
   const layout = useWindowDimensions();
 
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(
+    searchTab ? parseInt(searchTab?.toString()) : 0,
+  );
   const [routes] = useState([
     { key: "Auqli Live", title: "Auqli Live" },
     { key: "Products", title: "Products" },
   ]);
 
-  const renderScene = useCallback(({ route }: { route: any }) => {
-    switch (route.key) {
-      case "Auqli Live":
-        return (
-          <View className="px-[23px] mt-[20px]">
-            <Text className="text-white self-center font-LexendDeca">
-              No lives right now
-            </Text>
-          </View>
-        );
-      case "Products":
-        return <CatalogComponent searchQuery={id} />;
+  const renderScene = useCallback(
+    ({ route }: { route: any }) => {
+      switch (route.key) {
+        case "Auqli Live":
+          return <LiveStreamCatalog query={id} />;
+        case "Products":
+          return <CatalogComponent searchQuery={id} />;
 
-      default:
-        return null;
-    }
-  }, []);
+        default:
+          return null;
+      }
+    },
+    [id],
+  );
   return (
     <SafeAreaView className="h-full flex-1 bg-[#121212]">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       <View className="mt-[30px]">
-        <CatalogHeader searchQuery={id} />
+        <CatalogHeader searchQuery={id} searchTab={index} />
       </View>
 
       <TabView
@@ -105,7 +105,13 @@ const CatalogPage = () => {
 };
 
 const CatalogHeader = memo(
-  ({ searchQuery }: { searchQuery: string | string[] }) => {
+  ({
+    searchQuery,
+    searchTab,
+  }: {
+    searchQuery: string | string[];
+    searchTab: number;
+  }) => {
     return (
       <View className="flex-row items-center justify-between w-full px-[23px] gap-[10px]">
         <Pressable onPress={() => router.back()} style={{ marginLeft: -8 }}>
@@ -123,7 +129,12 @@ const CatalogHeader = memo(
             borderColor: "#c6c6c6",
             paddingVertical: 12,
           }}
-          onPress={() => router.push("/(root)/(modals)/search")}
+          onPress={() =>
+            router.push({
+              pathname: "/(root)/(modals)/search",
+              params: { searchTab },
+            })
+          }
         >
           <EvilIcons
             name="search"

@@ -6,7 +6,7 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, memo } from "react";
 import {
   useDeepSearchProductsQuery,
   useGetAllProductsQuery,
@@ -18,6 +18,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import BottomSheet from "../global/bottom-sheet";
 import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import FilterSheet from "./filterSheet";
+import ProductEmptyState from "../global/empty-states/productEmptyState";
 
 const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   const { data, isLoading, isFetching, isError } = useDeepSearchProductsQuery({
@@ -85,14 +86,8 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   };
 
   const renderEmptyPlaceholder = useCallback(() => {
-    return (
-      <View className="">
-        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
-          No Products
-        </Text>
-      </View>
-    );
-  }, []);
+    return <ProductEmptyState />;
+  }, [filteredProducts]);
 
   useEffect(() => {
     setProducts(data);
@@ -266,4 +261,4 @@ const SortSheet = ({
   );
 };
 
-export default CatalogComponent;
+export default memo(CatalogComponent);

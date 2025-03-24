@@ -11,7 +11,7 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import EvilIcons from "@expo/vector-icons/EvilIcons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { TouchableWithoutFeedback } from "react-native-gesture-handler";
 import { useIsFocused } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -20,12 +20,9 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 const Search = () => {
   const searchRef = useRef<TextInput>(null);
   const isFocused = useIsFocused();
+  const { searchTab } = useLocalSearchParams();
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchHistory, setSearchHistory] = useState<string[]>([
-    "apple",
-    "laptops",
-    "jewelry",
-  ]);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
   const getSearchHistory = async () => {
     const history = await AsyncStorage.getItem("searchHistory");
@@ -38,7 +35,10 @@ const Search = () => {
     if (/^[a-zA-Z0-9\s]+$/.test(searchQuery)) {
       const newHistory = [...searchHistory, searchQuery];
       await AsyncStorage.setItem("searchHistory", JSON.stringify(newHistory));
-      router.replace(`/(root)/catalog/${searchQuery}`);
+      router.replace({
+        pathname: `../../(root)/catalog/${searchQuery}`,
+        params: { searchTab },
+      });
       return;
     }
     return Keyboard.dismiss();
@@ -121,7 +121,12 @@ const Search = () => {
             <Pressable
               className="py-[12px] w-full flex-row items-center justify-between"
               key={index}
-              onPress={() => router.replace(`/(root)/catalog/${term}`)}
+              onPress={() =>
+                router.replace({
+                  pathname: `../../(root)/catalog/${term}`,
+                  params: { searchTab },
+                })
+              }
             >
               <Text className="text-[14px] text-[#ccc] font-LexendDecaLight">
                 {term}
