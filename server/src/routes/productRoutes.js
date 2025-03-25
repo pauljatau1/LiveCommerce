@@ -331,7 +331,8 @@ router.get('/auctions', productController.getAuctionProducts);
  * @swagger
  * /api/products/search:
  *   get:
- *     summary: Deep search products
+ *     summary: Search products by query
+ *     description: Search products by name, description, category, brand, tags, or SKU
  *     tags: [Products]
  *     parameters:
  *       - in: query
@@ -339,9 +340,51 @@ router.get('/auctions', productController.getAuctionProducts);
  *         schema:
  *           type: string
  *         required: true
+ *         description: Search query term
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of products per page
  *     responses:
  *       200:
- *         description: Products retrieved successfully
+ *         description: Successfully retrieved products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       description: Total number of products matching query
+ *                     page:
+ *                       type: integer
+ *                       description: Current page number
+ *                     limit:
+ *                       type: integer
+ *                       description: Number of products per page
+ *                     pages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *       500:
+ *         description: Server error
  */
 router.get('/search', productController.deepSearchProducts);
 

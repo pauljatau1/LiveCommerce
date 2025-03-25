@@ -1258,9 +1258,12 @@ exports.deleteProduct = async (req, res) => {
 // Search products
 exports.searchProducts = async (req, res) => {
   const { query } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
 
   try {
-    const products = await Product.find({
+    const queryFilter = {
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
@@ -1270,9 +1273,27 @@ exports.searchProducts = async (req, res) => {
         { brand: { $regex: query, $options: 'i' } },
         { tags: { $regex: query, $options: 'i' } },
       ],
-    }).populate('seller', 'name avatarUrl about').populate('reviews.buyer', 'firstName lastName');
+    };
 
-    res.json(products);
+    // Get total count for pagination info
+    const totalProducts = await Product.countDocuments(queryFilter);
+    
+    // Get paginated results
+    const products = await Product.find(queryFilter)
+      .populate('seller', 'name avatarUrl about')
+      .populate('reviews.buyer', 'firstName lastName')
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      products,
+      pagination: {
+        total: totalProducts,
+        page,
+        limit,
+        pages: Math.ceil(totalProducts / limit)
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: 'Failed to search products', error: error.message });
   }
@@ -1341,9 +1362,12 @@ exports.updateProductStock = async (req, res) => {
 // Deep search products
 exports.deepSearchProducts = async (req, res) => {
   const { query } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
 
   try {
-    const products = await Product.find({
+    const queryFilter = {
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
@@ -1352,9 +1376,27 @@ exports.deepSearchProducts = async (req, res) => {
         { tags: { $regex: query, $options: 'i' } },
         { sku: { $regex: query, $options: 'i' } },
       ],
-    }).populate('seller', 'name avatarUrl about').populate('reviews.buyer', 'firstName lastName');
+    };
 
-    res.json(products);
+    // Get total count for pagination info
+    const totalProducts = await Product.countDocuments(queryFilter);
+    
+    // Get paginated results
+    const products = await Product.find(queryFilter)
+      .populate('seller', 'name avatarUrl about')
+      .populate('reviews.buyer', 'firstName lastName')
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      products,
+      pagination: {
+        total: totalProducts,
+        page,
+        limit,
+        pages: Math.ceil(totalProducts / limit)
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: 'Failed to deep search products', error: error.message });
   }
