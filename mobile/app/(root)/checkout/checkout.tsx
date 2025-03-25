@@ -182,8 +182,6 @@ const Checkout = () => {
           cart.seller.shippingInfo?.warehouseDetails?.contactNumber ||
           cart.seller.personalInfo?.phoneNumber;
 
-        console.log("phone number", phoneNumber);
-
         const pickup_address = {
           first_name:
             cart.seller.personalInfo?.firstName || cart.seller.firstName,
