@@ -15,9 +15,9 @@ const Home = () => {
       console.log("isFirstTime", isFirstTime);
 
       if (isFirstTime) {
-        router.navigate("../(root)/(tabs)/home");
+        router.replace("../(root)/(tabs)/home");
       } else {
-        router.navigate("../(root)/(auth)/welcome");
+        router.replace("../(root)/(auth)/welcome");
       }
     }
     getToken();
