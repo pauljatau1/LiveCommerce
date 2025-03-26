@@ -13,6 +13,7 @@ import { getToken } from "@/store/features/auth/utils";
 import AuthSheet from "../auth/authSheet";
 import AddedToCart from "../product/productAddedToCart";
 import CartSheet from "../product/productCartSheet";
+import { formatNumber } from "@/helpers/helpers";
 
 const CatalogCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
@@ -100,9 +101,12 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
         />
       )}
       {/* Product Details */}
-      <View className="gap-[4px]">
-        <Text className="text-white text-[10px] capitalize font-LexendDecaBold  text-normal pt-3">
-          {title?.slice(0, 25)}
+      <View className="gap-[2px]">
+        <Text
+          className="text-white text-[10px] capitalize font-LexendDecaBold  text-normal pt-3 h-[40px]"
+          numberOfLines={2}
+        >
+          {title}
         </Text>
         {moreDetails?.discount?.isActive ? (
           <View className="flex-row items-center gap-[4px] flex-wrap">
@@ -115,10 +119,10 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
             <Text className="text-[#16783A] text-[8px] font-LexendDecaMedium line-through">
               ₦{moreDetails?.discount?.isActive && price.toLocaleString()}
             </Text>
-            <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
+            {/* <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
               {moreDetails?.discount?.value?.toFixed(0)}
               {moreDetails?.discount?.type == "percentage" && "%"} off
-            </Text>
+            </Text> */}
           </View>
         ) : (
           <Text className="text-white font-LexendDecaBold  text-[10px]">
@@ -130,37 +134,59 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
         </Text>
       </View>
       {/* Seller Information */}
-      <View className="relative flex-row gap-x-2 items-center">
-        <Image
-          source={
-            moreDetails?.seller?.storeAvatar.url
-              ? { uri: moreDetails?.seller?.storeAvatar.url }
-              : require("../../assets/icons/user-image-empty.png")
-          }
-          resizeMode="contain"
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 20,
-          }}
-        />
-        <View>
-          <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
-            {sellerName || moreDetails?.seller?.businessName}
-          </Text>
-          {sellerRating > 0 && (
-            <View className="flex-row items-center">
-              {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
+      <View className=" flex-row  justify-between items-center shrink">
+        <View className="flex-row gap-x-2  items-center">
+          <Image
+            source={
+              moreDetails?.seller?.storeAvatar.url
+                ? { uri: moreDetails?.seller?.storeAvatar.url }
+                : require("../../assets/icons/user-image-empty.png")
+            }
+            resizeMode="contain"
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 20,
+            }}
+          />
+          <View>
+            <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
+              {sellerName || moreDetails?.seller?.businessName}
+            </Text>
+            <View className="flex-row items-center gap-[4px]">
+              {moreDetails?.seller?.isVerified && (
+                <View
+                  style={{
+                    paddingHorizontal: 6,
+                    paddingVertical: 1,
+                    borderRadius: 1.5,
+                    backgroundColor: "#A0EEBD",
+                  }}
+                >
+                  <Text
+                    className="font-LexendDecaMedium text-[4px] "
+                    style={{
+                      fontSize: 5,
+                    }}
+                  >
+                    Verified
+                  </Text>
+                </View>
+              )}
+              {moreDetails?.seller?.stats?.averageRating > 0 && (
+                <View className="flex-row items-center">
+                  {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
                       Rating:{"  "}
                     </Text> */}
-              <Image source={icons.starIcon} />
-              <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
-                {sellerRating.toFixed(1)}
-              </Text>
+                  <Image source={icons.starIcon} />
+                  <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
+                    {moreDetails?.seller?.stats?.averageRating?.toFixed(1)}
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
 
-          {/* <View className="flex-row items-center gap-x-1">
+            {/* <View className="flex-row items-center gap-x-1"> 
                   <View className="flex-row items-center gap-x-2">
                     <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDeca font-bold">
                       Top seller
@@ -173,13 +199,17 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
                     </Text>
                   </View>
                 </View> */}
+          </View>
         </View>
-        {/* {isVerified && (
-                <Image
-                  source={icons.verifyBadge}
-                  className="w-[17.06px] h-[17.06px]"
-                />
-              )} */}
+        <Text
+          className="font-LexendDecaMedium"
+          style={{
+            fontSize: 8,
+            color: "#E8C300",
+          }}
+        >
+          {formatNumber(moreDetails?.stock)}pcs
+        </Text>
       </View>
       {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
         Lagos, Nigeria

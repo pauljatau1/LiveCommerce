@@ -27,9 +27,9 @@ const TabsLayout = () => {
     }, 1000);
   }, [hideSplash, status]);
 
-  if (status === "signOut") {
-    return <Redirect href="/(root)/(auth)/sign-in" />;
-  }
+  // if (status === "signOut") {
+  //   return <Redirect href="/(root)/(auth)/sign-in" />;
+  // }
   return (
     <Tabs
       // scenecovererStyle={{

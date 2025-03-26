@@ -58,6 +58,9 @@ const HomeHeader = () => {
   const handleGetNotifications = async () => {
     try {
       const token = await getToken();
+      if (!token) {
+        return;
+      }
 
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/notifications/unread`,

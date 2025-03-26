@@ -30,7 +30,7 @@ import message from "@/assets/images/message.png";
 import noResult from "@/assets/images/no-result.png";
 import onboarding1 from "@/assets/images/onboarding1.png";
 import onboarding2 from "@/assets/images/onboarding2.png";
-import onboarding3 from "@/assets/images/onboarding3.png";
+import onboarding3 from "@/assets/images/onboarding3.jpg";
 import signUpCar from "@/assets/images/signup-car.png";
 import waving from "@/assets/icons/waving.png";
 import sadEmoji from "@/assets/icons/emoji-sad.png";
@@ -235,23 +235,22 @@ export const productsData = [
 export const onboarding = [
   {
     id: 1,
-    title: "Auqli",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+    title: "Cash on Delivery or E-payment",
+    description: "Fastest Delivery you can count onanytime, anyday.",
     image: images.onboarding1,
   },
   {
     id: 2,
-    title: "Auqli",
+    title: "Delivery Right to Your Door Step",
     description:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+      "Our delivery will ensure your items are delivered right to the door steps",
     image: images.onboarding2,
   },
   {
     id: 3,
-    title: "Auqli",
+    title: "Welcome to AUQLI",
     description:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+      "Auqli is the best solution to shop live and track your  goods from local and world shipping.",
     image: images.onboarding3,
   },
 ];
