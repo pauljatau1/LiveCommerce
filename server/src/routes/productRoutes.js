@@ -3051,4 +3051,84 @@ router.get('/seller/:sellerId/category/:category/subcategories', productControll
  */
 router.get('/blips/personalized', optionalAuthMiddleware, productController.getPersonalizedBlips);
 
+/**
+ * @swagger
+ * /api/products/{productId}/rerun-auction:
+ *   post:
+ *     summary: Rerun an ended offline auction
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the auction product
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: New start date for the auction (optional, defaults to current time)
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 required: true
+ *                 description: New end date for the auction
+ *               minBid:
+ *                 type: number
+ *                 description: New minimum bid amount (optional, defaults to previous minBid)
+ *               maxBid:
+ *                 type: number
+ *                 description: New maximum bid amount (optional, defaults to previous maxBid)
+ *               endOnMaxBid:
+ *                 type: boolean
+ *                 description: Whether to end auction when max bid is reached (optional)
+ *     responses:
+ *       200:
+ *         description: Auction successfully rerun
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Auction successfully rerun
+ *                 auction:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: scheduled
+ *                     startDate:
+ *                       type: string
+ *                       format: date-time
+ *                     endDate:
+ *                       type: string
+ *                       format: date-time
+ *                     minBid:
+ *                       type: number
+ *                     maxBid:
+ *                       type: number
+ *       400:
+ *         description: Invalid request or auction cannot be rerun
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not the owner of the auction
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/rerun-auction', authMiddleware.verifyToken, authMiddleware.isSeller, productController.rerunOfflineAuction);
+
 module.exports = router;

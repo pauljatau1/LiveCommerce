@@ -936,9 +936,16 @@ exports.getBuyerNotifications = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
+    // Define excluded notification types
+    const excludedTypes = ['seller_message', 'buyer_message', 'new_message', 'notification'];
+
     const notifications = await Notification.find({ 
       buyer: req.user.id,
-      recipient: 'buyer'
+      recipient: 'buyer',
+      // Exclude message notifications and default notifications from the list
+      type: { $nin: excludedTypes },
+      // Ensure the notification has a valid title that's not just 'Notification'
+      title: { $ne: 'Notification' }
     })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -946,7 +953,10 @@ exports.getBuyerNotifications = async (req, res) => {
 
     const total = await Notification.countDocuments({ 
       buyer: req.user.id,
-      recipient: 'buyer'
+      recipient: 'buyer',
+      // Use same exclusion filters for consistency
+      type: { $nin: excludedTypes },
+      title: { $ne: 'Notification' }
     });
 
     res.json({
@@ -967,7 +977,9 @@ exports.markBuyerNotificationAsRead = async (req, res) => {
       { 
         _id: req.params.id, 
         buyer: req.user.id,
-        recipient: 'buyer'
+        recipient: 'buyer',
+        // Add the same type exclusion here to be consistent
+        type: { $nin: ['seller_message', 'buyer_message', 'new_message', 'notification'] }
       },
       { isRead: true },
       { new: true }
@@ -990,7 +1002,9 @@ exports.markAllBuyerNotificationsAsRead = async (req, res) => {
       { 
         buyer: req.user.id,
         recipient: 'buyer',
-        isRead: false 
+        isRead: false,
+        // Add the same type exclusion here to be consistent
+        type: { $nin: ['seller_message', 'buyer_message', 'new_message', 'notification'] }
       },
       { isRead: true }
     );

@@ -5823,140 +5823,7 @@ exports.getBlipDetails = async (req, res) => {
   }
 };
 
-// Rerun an ended auction
-exports.rerunAuction = async (req, res) => {
-  try {
-    const { productId } = req.params;
 
-    console.log('Rerun Auction - Debugging Info:', {
-      requestUser: req.user,
-      userId: req.user.id,
-      productId: productId
-    });
-
-    // Find product and verify it's an auction product
-    const product = await Product.findById(productId);
-    if (!product) {
-      console.log('Product not found:', productId);
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    console.log('Product found:', {
-      productId: product._id,
-      productStatus: product.status,
-      sellerId: product.seller,
-      sellerIdString: typeof product.seller === 'object' ? product.seller._id : product.seller,
-      userIdFromReq: req.user.id
-    });
-
-    // Check if it's an auction product
-    if (product.status !== 'offline_auction') {
-      console.log('Not an auction product:', product.status);
-      return res.status(400).json({ message: 'Product is not an auction product' });
-    }
-
-    // Check seller authorization - properly extract seller ID whether it's populated or not
-    const sellerIdStr = typeof product.seller === 'object' 
-      ? product.seller._id.toString() 
-      : product.seller.toString();
-    const userIdStr = req.user.id;
-    
-    console.log('Authorization Check:', {
-      sellerId: sellerIdStr,
-      userId: userIdStr,
-      doTheyMatch: sellerIdStr === userIdStr
-    });
-
-    if (sellerIdStr !== userIdStr) {
-      console.log('Authorization failed - IDs do not match');
-      return res.status(403).json({ message: 'You are not authorized to rerun this auction' });
-    }
-
-    // Get auction parameters from request body with defaults from previous auction
-    const { 
-      minBid = product.auction.minBid, 
-      maxBid = product.auction.maxBid, 
-      endOnMaxBid = product.auction.endOnMaxBid,
-      startDate = new Date(Date.now() + 86400000), // Default: start tomorrow
-      endDate = new Date(Date.now() + 7 * 86400000) // Default: end in 7 days
-    } = req.body;
-
-    // Validate dates
-    const now = new Date();
-    if (new Date(startDate) <= now) {
-      return res.status(400).json({ message: 'Start date must be in the future' });
-    }
-    
-    if (new Date(endDate) <= new Date(startDate)) {
-      return res.status(400).json({ message: 'End date must be after start date' });
-    }
-
-    // Reset auction details
-    product.auction = {
-      minBid,
-      maxBid,
-      endOnMaxBid,
-      startDate,
-      endDate,
-      status: 'scheduled',
-      daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24)),
-      bids: [],
-      currentHighestBid: {
-        amount: null,
-        buyer: null
-      },
-      winner: {
-        buyer: null,
-        bidAmount: null,
-        winningDate: null
-      }
-    };
-
-    // Save the updated product
-    await product.save();
-    console.log('Auction reset successfully for product:', productId);
-
-    // Schedule end auction job
-    const agenda = require('../config/agenda').agenda;
-    await agenda.cancel({ name: 'end-auction', 'data.productId': productId.toString() });
-    await agenda.schedule(new Date(endDate), 'end-auction', { productId: productId.toString() });
-
-    // Send WebSocket notification if available
-    if (req.app.get('io')) {
-      req.app.get('io').to(`auction_${productId}`).emit('auction_rerun', {
-        productId: product._id,
-        auction: {
-          minBid,
-          maxBid,
-          endOnMaxBid,
-          startDate,
-          endDate,
-          status: 'scheduled',
-          daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24))
-        }
-      });
-    }
-
-    res.status(200).json({
-      message: 'Auction rerun successfully',
-      auction: {
-        minBid,
-        maxBid,
-        endOnMaxBid,
-        startDate,
-        endDate,
-        status: 'scheduled',
-        daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24))
-      }
-    });
-  } catch (error) {
-    console.error('Error in rerunAuction:', error);
-    res.status(500).json({ 
-      message: 'Error rerunning auction', 
-      error: error.message 
-    });
-  }
-};
 
 // Get products by category and subcategory
 exports.getProductsByCategoryAndSubcategory = async (req, res) => {
@@ -6390,6 +6257,112 @@ exports.getPersonalizedBlips = async (req, res) => {
       status: false,
       message: 'Failed to fetch personalized blips',
       error: error.message
+    });
+  }
+};
+
+// Rerun an ended offline auction
+exports.rerunOfflineAuction = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { startDate, endDate, minBid, maxBid, endOnMaxBid } = req.body;
+
+    // Validate required fields
+    if (!endDate) {
+      return res.status(400).json({ message: 'End date is required' });
+    }
+
+    // Find the product and verify it's an auction product
+    const product = await Product.findById(productId).populate('seller');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify the seller owns this product
+    if (product.seller._id.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to rerun this auction' });
+    }
+
+    // Verify it's an offline auction product
+    if (product.status !== 'offline_auction') {
+      return res.status(400).json({ message: 'This product is not an offline auction' });
+    }
+
+    // Verify the auction has ended
+    if (product.auction.status !== 'ended') {
+      return res.status(400).json({ message: 'Cannot rerun an auction that has not ended' });
+    }
+
+    // Parse and validate dates
+    let parsedStartDate;
+    let parsedEndDate;
+
+    try {
+      // If startDate is provided, parse it, otherwise use current date
+      parsedStartDate = startDate ? new Date(startDate) : new Date();
+      parsedEndDate = new Date(endDate);
+
+      // Validate that the dates are valid
+      if (isNaN(parsedStartDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid start date format' });
+      }
+      if (isNaN(parsedEndDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid end date format' });
+      }
+
+      // Validate date order
+      if (parsedEndDate <= parsedStartDate) {
+        return res.status(400).json({ message: 'End date must be after start date' });
+      }
+    } catch (error) {
+      return res.status(400).json({ message: 'Invalid date format', error: error.message });
+    }
+
+    // Calculate days left
+    const daysLeft = Math.ceil((parsedEndDate - parsedStartDate) / (1000 * 60 * 60 * 24));
+
+    // Validate bid amounts if provided
+    if (minBid && maxBid && minBid >= maxBid) {
+      return res.status(400).json({ message: 'Maximum bid must be greater than minimum bid' });
+    }
+
+    // Reset auction data
+    product.auction = {
+      minBid: minBid || product.auction.minBid,
+      maxBid: maxBid || product.auction.maxBid,
+      endOnMaxBid: endOnMaxBid !== undefined ? endOnMaxBid : product.auction.endOnMaxBid,
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      status: 'scheduled',
+      daysLeft: daysLeft,
+      bids: [],
+      currentHighestBid: {
+        amount: null,
+        buyer: null
+      },
+      winner: {
+        buyer: null,
+        bidAmount: null,
+        winningDate: null
+      }
+    };
+
+    await product.save();
+
+    res.status(200).json({
+      message: 'Auction successfully rerun',
+      auction: product.auction
+    });
+
+  } catch (error) {
+    console.error('Error rerunning auction:', error);
+    res.status(500).json({ 
+      message: 'Error rerunning auction', 
+      error: error.message,
+      details: error.errors ? Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      })) : null
     });
   }
 };
