@@ -5,7 +5,7 @@ import CustomButton from "../button/CustomButton";
 import { formatTimeFromNow } from "@/helpers/helpers";
 import { router } from "expo-router";
 
-const AuctionCard = ({ item }: any) => {
+const AuctionCard = ({ item, closeSheet }: any) => {
   const [bidTime, setBidTime] = useState<any>();
 
   useEffect(() => {
@@ -19,7 +19,10 @@ const AuctionCard = ({ item }: any) => {
   return (
     <Pressable
       className=" bg-black rounded-lg p-[11.85px]  w-[173px] min-h-[299px]"
-      onPress={() => router.push(`/product/${item?._id}`)}
+      onPress={() => {
+        closeSheet();
+        router.push(`/product/${item?._id}`);
+      }}
     >
       {/* Product Image */}
       <Image
@@ -104,7 +107,10 @@ const AuctionCard = ({ item }: any) => {
         textStyle="!text-[8px] !font-semibold  !py-0"
         title="Bid"
         className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
-        onPress={() => router.push(`/product/${item?._id}`)}
+        onPress={() => {
+          closeSheet();
+          router.push(`/product/${item?._id}`);
+        }}
       />
     </Pressable>
   );
