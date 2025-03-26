@@ -6272,8 +6272,6 @@ exports.getPersonalizedBlips = async (req, res) => {
       },
       {
         $addFields: {
-          // Combine engagement score with random factor
-          // We'll weight engagement at 70% and randomness at 30%
           finalScore: {
             $add: [
               { $multiply: ["$engagementScore", 0.7] },
@@ -6283,20 +6281,24 @@ exports.getPersonalizedBlips = async (req, res) => {
         }
       },
       { $sort: { finalScore: -1 } },
-      // Get a larger pool first
       { $limit: limit * 3 },
-      // Then randomly sample from this pool
       { $sample: { size: limit } },
       { $skip: skip },
       {
         $project: {
           _id: 1,
           name: 1,
+          price: 1,
+          stock: 1,
+          status: 1,
           category: 1,
           subCategory: 1,
           seller: 1,
+          discount: 1,
+          images: { $arrayElemAt: ["$images.url", 0] },
           blip: "$blips",
-          engagementScore: 1
+          reviews: 1,
+          createdAt: 1
         }
       }
     ]).exec();
@@ -6305,51 +6307,74 @@ exports.getPersonalizedBlips = async (req, res) => {
     await Product.populate(products, [
       {
         path: 'seller',
-        select: 'storeName businessName storeAvatar isVerified'
-      },
-      {
-        path: 'blip.likes',
-        select: 'firstName lastName profileImage'
-      },
-      {
-        path: 'blip.comments.buyer',
-        select: 'firstName lastName profileImage'
+        select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured'
       }
     ]);
 
     // Get total count for pagination
     const total = await Product.countDocuments(query);
 
-    res.json({
-      status: true,
-      message: 'Blips fetched successfully',
-      data: {
-        blips: products.map(product => ({
-          _id: product._id,
-          productName: product.name,
-          category: product.category,
-          subCategory: product.subCategory,
-          seller: product.seller,
-          blip: {
-            url: product.blip.url,
-            thumbnail: product.blip.thumbnail,
-            contentType: product.blip.contentType,
-            likes: product.blip.likes,
-            likesCount: product.blip.likesCount,
-            viewCount: product.blip.viewCount,
-            comments: product.blip.comments,
-            commentsCount: product.blip.commentsCount,
-            createdAt: product.blip.createdAt
-          }
-        })),
-        pagination: {
-          total,
-          pages: Math.ceil(total / limit),
-          currentPage: page,
-          limit
-        }
+    // Transform the data to match getAllBlips structure
+    const transformedBlips = products.map(product => ({
+      discount: {
+        isActive: product.discount?.isActive || false,
+        type: product.discount?.type || "percentage",
+        value: product.discount?.value || 0,
+        discountedPrice: product.discount?.discountedPrice || product.price
+      },
+      _id: product._id,
+      blipId: product.blip._id,
+      blipUrl: product.blip.url,
+      thumbnail: product.blip.thumbnail,
+      productId: product._id,
+      productName: product.name,
+      price: product.price,
+      stock: product.stock,
+      status: product.status,
+      auctionInfo: product.status === 'offline_auction' ? {
+        minBid: product.auction?.minBid,
+        maxBid: product.auction?.maxBid,
+        endOnMaxBid: product.auction?.endOnMaxBid,
+        startDate: product.auction?.startDate,
+        endDate: product.auction?.endDate,
+        status: product.auction?.status,
+        daysLeft: product.auction?.daysLeft,
+        currentHighestBid: product.auction?.currentHighestBid,
+        winner: product.auction?.winner,
+        bidsCount: product.auction?.bids?.length || 0
+      } : null,
+      images: product.images,
+      blipEngagement: {
+        likesCount: product.blip.likesCount || 0,
+        commentsCount: product.blip.commentsCount || 0,
+        viewCount: product.blip.viewCount || 0
+      },
+      averageRating: product.reviews?.length > 0 
+        ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length 
+        : null,
+      reviewCount: product.reviews?.length || 0,
+      createdAt: product.blip.createdAt,
+      seller: {
+        _id: product.seller._id,
+        firstName: product.seller.firstName,
+        lastName: product.seller.lastName,
+        storeName: product.seller.storeName,
+        storeAvatar: product.seller.storeAvatar,
+        aboutStore: product.seller.aboutStore,
+        storeRating: product.seller.storeRating,
+        totalStoreReviews: product.seller.totalStoreReviews,
+        isFollowing: false, // This would need to be calculated based on the user's following status
+        isFeatured: product.seller.isFeatured
       }
+    }));
+
+    res.json({
+      blips: transformedBlips,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalBlips: total
     });
+
   } catch (error) {
     res.status(500).json({
       status: false,
