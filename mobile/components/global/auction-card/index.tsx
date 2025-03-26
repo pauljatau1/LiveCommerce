@@ -20,7 +20,9 @@ const AuctionCard = ({ item, closeSheet }: any) => {
     <Pressable
       className=" bg-black rounded-lg p-[11.85px]  w-[173px] min-h-[299px]"
       onPress={() => {
-        closeSheet();
+        if (closeSheet) {
+          closeSheet();
+        }
         router.push(`/product/${item?._id}`);
       }}
     >
@@ -108,7 +110,9 @@ const AuctionCard = ({ item, closeSheet }: any) => {
         title="Bid"
         className="mt-[8px] bg-primary-200 !p-0 !px-[9.872px] !rounded-[2.962px] py-[5px]"
         onPress={() => {
-          closeSheet();
+          if (closeSheet) {
+            closeSheet();
+          }
           router.push(`/product/${item?._id}`);
         }}
       />
