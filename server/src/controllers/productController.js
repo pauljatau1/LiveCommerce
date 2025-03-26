@@ -6220,3 +6220,142 @@ exports.getSellerSubcategoriesWithProducts = async (req, res) => {
   }
 };
 
+exports.getPersonalizedBlips = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    let query = {};
+
+    // Add blips existence condition
+    query['blips.0'] = { $exists: true }; // Only products with blips
+
+    if (req.user) {
+      // Authenticated user - personalize based on their preferences
+      const buyer = await Buyer.findById(req.user.id).select('selectedCategories');
+      
+      if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
+        // Get all category names including subcategories
+        const categories = buyer.selectedCategories.reduce((acc, cat) => {
+          acc.push(cat.name);
+          if (cat.subCategories) {
+            acc.push(...cat.subCategories.map(sub => sub.name));
+          }
+          return acc;
+        }, []);
+
+        query = {
+          $or: [
+            { category: { $in: categories } },
+            { subCategory: { $in: categories } }
+          ]
+        };
+      }
+    }
+
+    // First, get a pool of products with high engagement
+    const products = await Product.aggregate([
+      { $match: query },
+      { $unwind: "$blips" },
+      {
+        $addFields: {
+          engagementScore: {
+            $add: [
+              { $multiply: ["$blips.likesCount", 2] }, // Likes weight
+              { $multiply: ["$blips.viewCount", 1] }, // Views weight
+              { $multiply: ["$blips.commentsCount", 3] } // Comments weight
+            ]
+          },
+          randomScore: { $rand: {} } // Add random score between 0 and 1
+        }
+      },
+      {
+        $addFields: {
+          // Combine engagement score with random factor
+          // We'll weight engagement at 70% and randomness at 30%
+          finalScore: {
+            $add: [
+              { $multiply: ["$engagementScore", 0.7] },
+              { $multiply: ["$randomScore", 0.3] }
+            ]
+          }
+        }
+      },
+      { $sort: { finalScore: -1 } },
+      // Get a larger pool first
+      { $limit: limit * 3 },
+      // Then randomly sample from this pool
+      { $sample: { size: limit } },
+      { $skip: skip },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          category: 1,
+          subCategory: 1,
+          seller: 1,
+          blip: "$blips",
+          engagementScore: 1
+        }
+      }
+    ]).exec();
+
+    // Populate necessary fields
+    await Product.populate(products, [
+      {
+        path: 'seller',
+        select: 'storeName businessName storeAvatar isVerified'
+      },
+      {
+        path: 'blip.likes',
+        select: 'firstName lastName profileImage'
+      },
+      {
+        path: 'blip.comments.buyer',
+        select: 'firstName lastName profileImage'
+      }
+    ]);
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+
+    res.json({
+      status: true,
+      message: 'Blips fetched successfully',
+      data: {
+        blips: products.map(product => ({
+          _id: product._id,
+          productName: product.name,
+          category: product.category,
+          subCategory: product.subCategory,
+          seller: product.seller,
+          blip: {
+            url: product.blip.url,
+            thumbnail: product.blip.thumbnail,
+            contentType: product.blip.contentType,
+            likes: product.blip.likes,
+            likesCount: product.blip.likesCount,
+            viewCount: product.blip.viewCount,
+            comments: product.blip.comments,
+            commentsCount: product.blip.commentsCount,
+            createdAt: product.blip.createdAt
+          }
+        })),
+        pagination: {
+          total,
+          pages: Math.ceil(total / limit),
+          currentPage: page,
+          limit
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch personalized blips',
+      error: error.message
+    });
+  }
+};
+

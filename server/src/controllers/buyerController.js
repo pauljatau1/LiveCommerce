@@ -333,14 +333,17 @@ exports.getProfile = async (req, res) => {
         role: 1,
         wallet: 1,
         bio: 1,
+        
         notificationPreferences: {
           orderUpdates: 1,
           liveShows: 1,
           messages: 1,
           communityActivity: 1,
           promotionsAndSales: 1
-        }
+        },
+        isActive: 1  
       })
+
       .lean();
 
     if (!buyer) {
@@ -3061,6 +3064,38 @@ exports.getPublicProfile = async (req, res) => {
       message: 'Error fetching buyer profile',
       error: error.message
     });
+  }
+};
+
+exports.toggleActivityStatus = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    buyer.isActive = !buyer.isActive;
+    await buyer.save();
+
+    res.json({
+      message: `Account successfully ${buyer.isActive ? 'activated' : 'deactivated'}`,
+      isActive: buyer.isActive
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error toggling activity status', error: error.message });
+  }
+};
+
+exports.getActivityStatus = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id).select('isActive');
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.json({ isActive: buyer.isActive });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching activity status', error: error.message });
   }
 };
 

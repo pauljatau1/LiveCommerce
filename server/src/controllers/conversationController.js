@@ -396,4 +396,58 @@ exports.unmuteConversation = async (req, res) => {
   }
 };
 
+exports.getBlockedUsers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userModel = req.user.role;
+
+    // Find all conversations where the current user is a participant
+    const conversations = await Conversation.find({
+      'participants': {
+        $elemMatch: { id: userId, model: userModel }
+      }
+    })
+    .populate({
+      path: 'participants.id',
+      refPath: 'participants.model',
+      select: 'firstName lastName profileImage storeName storeAvatar businessName'
+    });
+
+    // Extract blocked users from conversations
+    const blockedUsers = [];
+    conversations.forEach(conversation => {
+      const otherParticipant = conversation.participants.find(
+        p => p.id._id.toString() !== userId
+      );
+
+      if (otherParticipant?.settings?.isBlocked && otherParticipant?.settings?.blockedBy?.toString() === userId) {
+        const userData = {
+          id: otherParticipant.id._id,
+          userType: otherParticipant.model,
+        };
+
+        // Set name and profile image based on user type
+        if (otherParticipant.model === 'Buyer') {
+          userData.name = `${otherParticipant.id.firstName} ${otherParticipant.id.lastName}`.trim();
+          userData.profileImage = otherParticipant.id.profileImage?.url || null;
+        } else {
+          userData.name = otherParticipant.id.storeName || otherParticipant.id.businessName;
+          userData.profileImage = otherParticipant.id.storeAvatar?.url || null;
+        }
+
+        blockedUsers.push(userData);
+      }
+    });
+
+    res.json({ blockedUsers });
+  } catch (error) {
+    console.error('Get blocked users error:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve blocked users', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
 module.exports = exports; 

@@ -128,6 +128,42 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 /**
  * @swagger
+ * /api/conversations/blocked-users:
+ *   get:
+ *     summary: Get list of blocked users
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of blocked users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blockedUsers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       userType:
+ *                         type: string
+ *                         enum: [Buyer, Seller]
+ *                       profileImage:
+ *                         type: string
+ *                         nullable: true
+ *       500:
+ *         description: Server error
+ */
+router.get('/blocked-users', authMiddleware.verifyToken, conversationController.getBlockedUsers);
+
+/**
+ * @swagger
  * /api/conversations:
  *   get:
  *     summary: Get all conversations for the current user

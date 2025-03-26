@@ -2909,4 +2909,146 @@ router.get('/seller/:sellerId/category/:category/subcategory/:subcategory', opti
  */
 router.get('/seller/:sellerId/category/:category/subcategories', productController.getSellerSubcategoriesWithProducts);
 
+/**
+ * @swagger
+ * /api/products/blips/personalized:
+ *   get:
+ *     summary: Get personalized blips feed
+ *     description: Returns a personalized feed of blips based on user preferences if authenticated, or popular blips if not
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Successful response with blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     blips:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           productName:
+ *                             type: string
+ *                           category:
+ *                             type: string
+ *                           subCategory:
+ *                             type: string
+ *                           seller:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               storeName:
+ *                                 type: string
+ *                               businessName:
+ *                                 type: string
+ *                               storeAvatar:
+ *                                 type: string
+ *                               isVerified:
+ *                                 type: boolean
+ *                           blip:
+ *                             type: object
+ *                             properties:
+ *                               url:
+ *                                 type: string
+ *                               thumbnail:
+ *                                 type: string
+ *                               contentType:
+ *                                 type: string
+ *                               likes:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     _id:
+ *                                       type: string
+ *                                     firstName:
+ *                                       type: string
+ *                                     lastName:
+ *                                       type: string
+ *                                     profileImage:
+ *                                       type: string
+ *                               likesCount:
+ *                                 type: number
+ *                               viewCount:
+ *                                 type: number
+ *                               comments:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     buyer:
+ *                                       type: object
+ *                                       properties:
+ *                                         _id:
+ *                                           type: string
+ *                                         firstName:
+ *                                           type: string
+ *                                         lastName:
+ *                                           type: string
+ *                                         profileImage:
+ *                                           type: string
+ *                                     comment:
+ *                                       type: string
+ *                                     createdAt:
+ *                                       type: string
+ *                                       format: date-time
+ *                               commentsCount:
+ *                                 type: number
+ *                               createdAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                         pages:
+ *                           type: number
+ *                         currentPage:
+ *                           type: number
+ *                         limit:
+ *                           type: number
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
+ */
+router.get('/blips/personalized', optionalAuthMiddleware, productController.getPersonalizedBlips);
+
 module.exports = router;
