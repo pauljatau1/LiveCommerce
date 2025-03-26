@@ -388,8 +388,8 @@ router.get('/buyer/:buyerId', authMiddleware.verifyToken, orderController.getOrd
  * @swagger
  * /api/order/seller/{sellerId}:
  *   get:
- *     summary: Get all orders for a seller
- *     description: Retrieves all orders associated with a specific seller
+ *     summary: Get all orders for a seller with pagination
+ *     description: Retrieves paginated orders associated with a specific seller, with optional filters
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -399,15 +399,80 @@ router.get('/buyer/:buyerId', authMiddleware.verifyToken, orderController.getOrd
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of orders per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, processing, shipped, delivered, cancelled]
+ *         description: Filter orders by status
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter orders created after this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter orders created before this date
+ *       - in: query
+ *         name: isOpen
+ *         schema:
+ *           type: boolean
+ *         description: Filter by order open/closed status
+ *       - in: query
+ *         name: channel
+ *         schema:
+ *           type: string
+ *           enum: [marketplace, liveshow, auction]
+ *         description: Filter by order channel
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           default: "-createdAt"
+ *         description: Sort orders by field (prefix with - for descending)
  *     responses:
  *       200:
  *         description: Orders retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Order'
+ *               type: object
+ *               properties:
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                       description: Total number of orders
+ *                     pages:
+ *                       type: number
+ *                       description: Total number of pages
+ *                     currentPage:
+ *                       type: number
+ *                       description: Current page number
+ *                     limit:
+ *                       type: number
+ *                       description: Number of orders per page
  *       401:
  *         description: Unauthorized
  *       500:

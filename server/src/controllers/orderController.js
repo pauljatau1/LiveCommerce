@@ -820,35 +820,68 @@ exports.getOrdersForBuyer = async (req, res) => {
 
 // Get all orders for a seller
 exports.getOrdersForSeller = async (req, res) => {
-  const { sellerId } = req.params;
-
   try {
-    const orders = await Order.find({ seller: sellerId }).sort({ createdAt: -1 })
-      .populate('buyer', 'firstName lastName')
-      .populate('seller', 'name');
+    const sellerId = req.user.id;
+    const { 
+      page = 1, 
+      limit = 10,
+      status,
+      startDate,
+      endDate,
+      isOpen,
+      channel,
+      sort = '-createdAt'  // Default sort by newest first
+    } = req.query;
 
-    // Get associated return requests for these orders
-    const Return = mongoose.model('Return');
-    const returnRequests = await Return.find({
-      order: { $in: orders.map(order => order._id) }
-    }, '_id order status');
+    // Build query
+    const query = { seller: sellerId };
 
-    // Create a map of order IDs to return request details
-    const returnMap = new Map(returnRequests.map(r => [r.order.toString(), { returnId: r._id, status: r.status }]));
-
-    // Add return request info to orders
-    const ordersWithReturns = orders.map(order => {
-      const orderObj = order.toObject();
-      const returnInfo = returnMap.get(order._id.toString());
-      if (returnInfo) {
-        orderObj.returnRequestId = returnInfo.returnId;
+    // Add filters if provided
+    if (status) {
+      query['items.status'] = status;
+    }
+    if (typeof isOpen === 'boolean' || ['true', 'false'].includes(isOpen)) {
+      query.isOpen = isOpen === 'true' || isOpen === true;
+    }
+    if (channel) {
+      query.channel = channel;
+    }
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
       }
-      return orderObj;
-    });
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
 
-    res.json(ordersWithReturns);
+    // Execute query with pagination
+    const orders = await Order.find(query)
+      .populate('buyer', 'firstName lastName email phoneNumber')
+      .populate('items.product', 'name images price')
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Get total count for pagination
+    const total = await Order.countDocuments(query);
+
+    res.json({
+      orders,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve orders for seller', error: error.message });
+    console.error('Error in getOrdersForSeller:', error);
+    res.status(500).json({
+      message: 'Failed to get orders',
+      error: error.message
+    });
   }
 };
 

@@ -6254,7 +6254,10 @@ exports.getPersonalizedBlips = async (req, res) => {
       }
     }
 
-    // First, get a pool of products with high engagement
+    // Get total count before pagination
+    const total = await Product.countDocuments(query);
+
+    // Get products with proper pagination
     const products = await Product.aggregate([
       { $match: query },
       { $unwind: "$blips" },
@@ -6280,10 +6283,19 @@ exports.getPersonalizedBlips = async (req, res) => {
           }
         }
       },
+      {
+        $group: {
+          _id: "$_id",
+          doc: { $first: "$$ROOT" },
+          finalScore: { $first: "$finalScore" }
+        }
+      },
       { $sort: { finalScore: -1 } },
-      { $limit: limit * 3 },
-      { $sample: { size: limit } },
       { $skip: skip },
+      { $limit: limit },
+      {
+        $replaceRoot: { newRoot: "$doc" }
+      },
       {
         $project: {
           _id: 1,
@@ -6295,6 +6307,7 @@ exports.getPersonalizedBlips = async (req, res) => {
           subCategory: 1,
           seller: 1,
           discount: 1,
+          auction: 1,
           images: { $arrayElemAt: ["$images.url", 0] },
           blip: "$blips",
           reviews: 1,
@@ -6310,9 +6323,6 @@ exports.getPersonalizedBlips = async (req, res) => {
         select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured'
       }
     ]);
-
-    // Get total count for pagination
-    const total = await Product.countDocuments(query);
 
     // Transform the data to match getAllBlips structure
     const transformedBlips = products.map(product => ({
