@@ -159,76 +159,63 @@ export default function OrdersDashboard() {
   const [activeTab, setActiveTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage, setOrdersPerPage] = useState(20);
-  const [totalOrders, setTotalOrders] = useState(0);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    pages: 0,
+    currentPage: 1,
+    limit: 20
+  });
   const [date, setDate] = useState();
   const [searchTerm, setSearchTerm] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
-  const [sortConfig, setSortConfig] = useState({ key: "createdAt", direction: "desc" });
+  const [sortConfig, setSortConfig] = useState("-createdAt");
 
   useEffect(() => {
     setHeaderName("Orders");
     setNavName("");
   }, []);
 
-  // Filter orders based on active tab
-  const filteredOrders = orders.filter((order) => {
-    if (activeTab === "all") return true;
-    if (activeTab === "process") return order.shipping.tracking.status === "pending";
-    if (activeTab === "transit") 
-      return ["pickup_arranged", "picked_up", "in_transit", "in-transit"].includes(order.shipping.tracking.status);
-    if (activeTab === "delivered") return order.shipping.tracking.status === "delivered";
-    if (activeTab === "cancelled") return ["cancelled", "failed"].includes(order.shipping.tracking.status);
-    return true;
-  });
+  const fetchOrders = async (id, token, params = {}) => {
+    try {
+      const queryParams = new URLSearchParams({
+        page: params.page || currentPage,
+        limit: params.limit || ordersPerPage,
+        ...(date?.from && date?.to && {
+          startDate: date.from.toISOString(),
+          endDate: date.to.toISOString()
+        }),
+        ...(searchTerm && { search: searchTerm }),
+        ...(paymentFilter !== "all" && { paymentStatus: paymentFilter }),
+        ...(channelFilter !== "all" && { channel: channelFilter }),
+        ...(activeTab !== "all" && {
+          status: activeTab === "process" ? "pending" :
+                 activeTab === "transit" ? "in_transit" :
+                 activeTab === "delivered" ? "delivered" :
+                 activeTab === "cancelled" ? "cancelled" : undefined
+        }),
+        sort: sortConfig
+      });
 
-  // Filter function
-  const getFilteredOrders = () => {
-    return filteredOrders.filter((order) => {
-      // Date range filter
-      const orderDate = new Date(order?.createdAt);
-      const dateInRange = date?.from && date?.to
-        ? orderDate >= date.from && orderDate <= date.to
-        : true;
-
-      // Search filter
-      const searchMatch = searchTerm
-        ? order?._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order?.buyer?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order?.buyer?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order?.items?.some(item => item?.productName?.toLowerCase().includes(searchTerm.toLowerCase()))
-        : true;
-
-      // Payment status filter
-      const paymentMatch = paymentFilter === "all" ? true : order?.paymentInfo?.status === paymentFilter;
-
-      // Channel filter
-      const channelMatch = channelFilter === "all" ? true : order?.channel === channelFilter;
-
-      return dateInRange && searchMatch && paymentMatch && channelMatch;
-    }).sort((a, b) => {
-      const aValue = a[sortConfig.key] || '';
-      const bValue = b[sortConfig.key] || '';
-      return sortConfig.direction === 'asc'
-        ? (aValue > bValue ? 1 : -1)
-        : (aValue < bValue ? 1 : -1);
-    });
+      const response = await fetch(`${BASE_URL}/order/seller/${id}?${queryParams}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      setOrders(data.orders);
+      setPagination({
+        total: data.pagination.total,
+        pages: data.pagination.pages,
+        currentPage: data.pagination.currentPage,
+        limit: data.pagination.limit
+      });
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const handleOrdersPerPageChange = (e) => {
-    setOrdersPerPage(Number.parseInt(e, 10));
-    setCurrentPage(1);
-  };
-
-  const handlePrevPage = () => {
-    setCurrentPage((prevPage) => Math.max(1, prevPage - 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage((prevPage) => Math.min(Math.ceil(totalOrders / ordersPerPage), prevPage + 1));
-  };
-
-  console.log(sellerId);
 
   useEffect(() => {
     const fetchSellerProfile = async () => {
@@ -252,25 +239,29 @@ export default function OrdersDashboard() {
       }
     };
 
-    const fetchOrders = async (id, token) => {
-      try {
-        const response = await fetch(`${BASE_URL}/order/seller/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = await response.json();
-        setOrders(data);
-        setTotalOrders(data.length);
-      } catch (error) {
-        console.error("Error fetching orders:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchSellerProfile();
   }, []);
+
+  // Refetch orders when filters change
+  useEffect(() => {
+    if (sellerId) {
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken"));
+      fetchOrders(sellerId, sellerToken.data);
+    }
+  }, [currentPage, ordersPerPage, date, searchTerm, paymentFilter, channelFilter, activeTab, sortConfig]);
+
+  const handleOrdersPerPageChange = (e) => {
+    setOrdersPerPage(Number.parseInt(e, 10));
+    setCurrentPage(1);
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage((prevPage) => Math.max(1, prevPage - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prevPage) => Math.min(pagination.pages, prevPage + 1));
+  };
 
   if (loading) {
     return <OrderSkeleton />;
@@ -289,10 +280,6 @@ export default function OrdersDashboard() {
     };
     return statusColors[status] || "bg-gray-100 text-gray-700";
   };
-
-  const startIndex = (currentPage - 1) * ordersPerPage;
-  const endIndex = startIndex + ordersPerPage;
-  const paginatedOrders = getFilteredOrders().slice(startIndex, endIndex);
 
   return (
     <>
@@ -428,7 +415,7 @@ export default function OrdersDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedOrders.map((order) => (
+                  {orders.map((order) => (
                     <TableRow key={order._id} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="space-y-1">
@@ -550,7 +537,7 @@ export default function OrdersDashboard() {
               </Select>
               <div className="flex items-center gap-4">
                 <span className="text-sm font-inter text-gray-500">
-                  Page {currentPage} of {Math.ceil(totalOrders / ordersPerPage)}
+                  Page {pagination.currentPage} of {pagination.pages}
                 </span>
                 <div className="flex gap-4">
                   <Button variant="outline" className="bg-white" onClick={handlePrevPage} disabled={currentPage === 1}>
@@ -560,7 +547,7 @@ export default function OrdersDashboard() {
                     variant="outline"
                     className="bg-white"
                     onClick={handleNextPage}
-                    disabled={currentPage === Math.ceil(totalOrders / ordersPerPage)}
+                    disabled={currentPage === pagination.pages}
                   >
                     Next →
                   </Button>

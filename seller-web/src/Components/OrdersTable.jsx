@@ -9,7 +9,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 
-const OrdersTable = ({ orders }) => {
+const OrdersTable = ({ orders = { orders: [] } }) => {
   const [date, setDate] = useState()
 
   const getStatusColor = (status) => {
@@ -26,7 +26,10 @@ const OrdersTable = ({ orders }) => {
     return statusColors[status] || "bg-gray-100 text-gray-700"
   }
 
-  const filteredOrders = orders.filter((order) => {
+  // Handle the case where orders is undefined or not in the expected format
+  const ordersList = Array.isArray(orders?.orders) ? orders.orders : Array.isArray(orders) ? orders : [];
+
+  const filteredOrders = ordersList.filter((order) => {
     const orderDate = new Date(order.createdAt)
     const dateInRange = date?.from && date?.to ? orderDate >= date.from && orderDate <= date.to : true
     return dateInRange
