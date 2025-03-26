@@ -225,7 +225,7 @@ PreStreamDesktopUi.propTypes = {
   handleStartStream: PropTypes.func,
   liveStreamDetails: PropTypes.object,
   deviceError: PropTypes.string,
-  existingLivestream: PropTypes.bool,
+  existingLivestream: PropTypes.object,
   getInitials: PropTypes.func,
   firstName: PropTypes.string,
   lastName: PropTypes.string,

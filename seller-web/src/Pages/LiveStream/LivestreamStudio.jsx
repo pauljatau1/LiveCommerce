@@ -159,11 +159,11 @@ const LivestreamStudio = () => {
                 return false;
             }
 
-            // Set up a timeout promise that rejects after 60 seconds
+            // Set up a timeout promise that rejects after 120 seconds
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => {
-                    reject(new Error('Device initialization timeout after 60 seconds'));
-                }, 60000);
+                    reject(new Error('Device initialization timeout after 120 seconds'));
+                }, 120000);
             });
 
             // Try to get media with a timeout
@@ -204,7 +204,7 @@ const LivestreamStudio = () => {
             let errorMessage = `Device error: ${error.message}.`;
             
             if (error.message.includes('timeout')) {
-                errorMessage = 'Camera and microphone did not initialize within 60 seconds. Please check your device connections.';
+                errorMessage = 'Camera and microphone did not initialize within 120 seconds. Please check your device connections.';
             } else if (error.name === 'NotFoundError') {
                 errorMessage = 'Camera or microphone not found. Please connect your devices and try again.';
             } else if (error.name === 'NotReadableError' || error.name === 'AbortError') {
@@ -417,7 +417,7 @@ const LivestreamStudio = () => {
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
                 },
                 { 
-                    timeout: 60000,
+                    timeout: 120000,
                     retry: 3
                 }
             );
@@ -433,8 +433,8 @@ const LivestreamStudio = () => {
 
                 setTimeout(() => {
                     clearInterval(checkInterval);
-                    reject(new Error('Video container not found after 5 seconds'));
-                }, 15000);
+                    reject(new Error('Video container not found after 30 seconds'));
+                }, 30000);
             });
 
             // 9. Play and publish
@@ -899,6 +899,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [RECONNECT 9/18] Fetching fresh stream data from server');
             const streamId = mostRecentStream.streamId;
             const freshData = await joinLiveStreamAsHost(streamId);
+            console.log('🔄 [RECONNECT 9/18] Fresh stream data:', freshData);
             
             if (!freshData) {
                 console.error('❌ [RECONNECT] Failed to get fresh stream data from server');
@@ -998,7 +999,7 @@ const LivestreamStudio = () => {
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
                 },
                 { 
-                    timeout: 60000,
+                    timeout: 120000,
                     retry: 3
                 }
             );
@@ -1016,8 +1017,8 @@ const LivestreamStudio = () => {
 
                 setTimeout(() => {
                     clearInterval(checkInterval);
-                    reject(new Error('Video container not found after 5 seconds'));
-                }, 5000);
+                    reject(new Error('Video container not found after 30 seconds'));
+                }, 30000);
             });
             console.log('🔄 [TRACK 4/6] Video container is ready');
 

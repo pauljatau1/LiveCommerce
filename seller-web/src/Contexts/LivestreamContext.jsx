@@ -119,7 +119,8 @@ export const LivestreamProvider = ({ children }) => {
             case 'SET_JOIN_LIVE_STREAM_DATA':
                 return {
                     ...state,
-                    joinLiveStreamData: action.payload
+                    joinLiveStreamData: action.payload,
+                    liveStreamDetails: action.payload.stream,
                 }
             default:
                 return state;

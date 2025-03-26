@@ -100,7 +100,7 @@ const StreamDesktopUi = ({
                                 {
                                     products?.length > 0 ? (
                                         products?.map((item) => (
-                                            <div key={item?.product._id} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
+                                            <div key={item?.product.productId} className="bg-[#161A1E] flex flex-wrap gap-4 rounded-xl p-3">
                                                 <div className="">
                                                     <img
                                                         src={item?.product?.images[0]?.url}
@@ -114,6 +114,10 @@ const StreamDesktopUi = ({
                                                         {formatCurrency(item?.product?.price)}
                                                     </p>
                                                 </div>
+                                                <button className="text-[#14AE5C] flex justify-center items-center gap-2 w-full mt-2 border border-[#14AE5C] rounded-lg p-2 hover:bg-[#14AE5C]/10 transition-all duration-300">
+                                                    <p className="text-xs 2xl:text-sm font-inter font-medium">Start Bid</p>
+                                                    <Icon icon="solar:arrow-right-linear" className="w-5 h-5" />
+                                                </button>
                                             </div>
                                         ))
                                     ) : (

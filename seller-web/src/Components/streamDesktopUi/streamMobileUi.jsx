@@ -110,7 +110,7 @@ const StreamMobileUi = ({
                                     {
                                         products?.length > 0 ? (
                                             products?.map((item) => (
-                                                <div key={item?.product._id} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
+                                                <div key={item?.product.productId} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
                                                     <div className="">
                                                         <img
                                                             src={item?.product?.images[0]?.url}
