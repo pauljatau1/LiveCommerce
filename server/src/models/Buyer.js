@@ -67,6 +67,7 @@ const buyerSchema = new mongoose.Schema({
       return this.authProvider === 'local'; // Only required for local auth
     }
   },
+  isActive: { type: Boolean, default: true },
   profileImage: {
     url: { type: String },
     public_id: { type: String },

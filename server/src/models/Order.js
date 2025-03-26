@@ -385,7 +385,7 @@ orderSchema.pre('save', async function(next) {
         const sellerEmail = {
           to: updatedSeller.email,
           from: {
-            email: 'joseph@auqli.com',
+            email: 'support@auqli.com',
             name: 'Auqli Orders'
           },
           subject: 'Order Closed and Payment Released',

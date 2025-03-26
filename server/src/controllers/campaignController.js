@@ -10,7 +10,7 @@ sgMail.setApiKey('SG.REDACTED');
 // Helper function for sending campaign emails
 async function sendCampaignEmails(campaign, seller, recipients) {
   console.log('Starting to send campaign emails...');
-  console.log('Using SendGrid From Email:', process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com');
+  console.log('Using SendGrid From Email:', process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com');
   try {
     if (!recipients || recipients.length === 0) {
       console.log('No recipients found for campaign');
@@ -23,7 +23,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
     const emailPromises = validRecipients.map(async (recipient) => {
       const buyerEmail = recipient.buyer.email;
       const buyerName = recipient.buyer.firstName || 'Valued Customer';
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com';
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com';
       const sellerName = seller.businessName || seller.firstName;
       
       // Generate unique tracking IDs
@@ -147,7 +147,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
       total: results.length,
       successful: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length,
-      fromEmail: process.env.SENDGRID_FROM_EMAIL || 'joseph@auqli.com'
+      fromEmail: process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com'
     });
 
     return results;

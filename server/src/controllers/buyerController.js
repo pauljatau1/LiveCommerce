@@ -109,7 +109,7 @@ exports.register = async (req, res) => {
 
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Welcome to Auqli! Verify Your Account',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
@@ -333,14 +333,17 @@ exports.getProfile = async (req, res) => {
         role: 1,
         wallet: 1,
         bio: 1,
+        
         notificationPreferences: {
           orderUpdates: 1,
           liveShows: 1,
           messages: 1,
           communityActivity: 1,
           promotionsAndSales: 1
-        }
+        },
+        isActive: 1  
       })
+
       .lean();
 
     if (!buyer) {
@@ -526,7 +529,7 @@ exports.resendOTP = async (req, res) => {
 
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Your New Verification Code - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1597,7 +1600,7 @@ exports.verifyIdentity = async (req, res) => {
     // Send email notification to buyer
     const msg = {
       to: buyer.email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Identity Verification Approved - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -2045,7 +2048,7 @@ exports.forgotPassword = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Password Reset Code - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
@@ -2158,7 +2161,7 @@ exports.requestAccountDeletion = async (req, res) => {
     // Send email with OTP
     const msg = {
       to: buyer.email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Account Deletion Request - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -2241,7 +2244,7 @@ exports.confirmAccountDeletion = async (req, res) => {
     // Send confirmation email before deletion
     const msg = {
       to: buyer.email,
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: 'Account Deleted Successfully - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -2351,7 +2354,7 @@ exports.reportUser = async (req, res) => {
     // Send email notification
     const msg = {
       to: ['support@auqli.com', 'bolu@auqli.com'],
-      from: 'Joseph From Auqli <joseph@auqli.com>',
+      from: 'Joseph From Auqli <support@auqli.com>',
       subject: `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -3061,6 +3064,38 @@ exports.getPublicProfile = async (req, res) => {
       message: 'Error fetching buyer profile',
       error: error.message
     });
+  }
+};
+
+exports.toggleActivityStatus = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    buyer.isActive = !buyer.isActive;
+    await buyer.save();
+
+    res.json({
+      message: `Account successfully ${buyer.isActive ? 'activated' : 'deactivated'}`,
+      isActive: buyer.isActive
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error toggling activity status', error: error.message });
+  }
+};
+
+exports.getActivityStatus = async (req, res) => {
+  try {
+    const buyer = await Buyer.findById(req.user.id).select('isActive');
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.json({ isActive: buyer.isActive });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching activity status', error: error.message });
   }
 };
 

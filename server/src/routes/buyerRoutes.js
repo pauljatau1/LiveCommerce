@@ -2281,4 +2281,68 @@ router.get('/sellers',
  */
 router.get('/public-profile/:buyerId', buyerController.getPublicProfile);
 
+/**
+ * @swagger
+ * /api/buyer/toggle-activity:
+ *   post:
+ *     summary: Toggle buyer's activity status
+ *     description: Toggles the buyer's account between active and inactive states
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Activity status toggled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Account successfully deactivated
+ *                 isActive:
+ *                   type: boolean
+ *                   example: false
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/toggle-activity', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isBuyer, 
+  buyerController.toggleActivityStatus
+);
+
+/**
+ * @swagger
+ * /api/buyer/activity-status:
+ *   get:
+ *     summary: Get buyer's activity status
+ *     tags: [Buyer]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved activity status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 isActive:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/activity-status', authMiddleware.verifyToken, buyerController.getActivityStatus);
+
 module.exports = router;

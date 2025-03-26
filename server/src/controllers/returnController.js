@@ -634,7 +634,7 @@ exports.resolveDispute = async (req, res) => {
     // Send emails based on resolution
     const buyerEmail = {
       to: returnRequest.buyer.email,
-      from: 'Auqli Returns <joseph@auqli.com>',
+      from: 'Auqli Returns <support@auqli.com>',
       subject: `Return Dispute Resolution - ${resolution === 'BUYER_FAVORED' ? 'Approved' : 'Rejected'}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -652,7 +652,7 @@ exports.resolveDispute = async (req, res) => {
 
     const sellerEmail = {
       to: returnRequest.seller.email,
-      from: 'Auqli Returns <joseph@auqli.com>',
+      from: 'Auqli Returns <support@auqli.com>',
       subject: `Return Dispute Resolution - ${resolution === 'SELLER_FAVORED' ? 'In Your Favor' : 'Against'}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -836,7 +836,7 @@ async function sendRefundConfirmationEmails(returnRequest) {
   // Email to buyer
   const buyerEmail = {
     to: returnRequest.buyer.email,
-    from: 'Joseph From Auqli <joseph@auqli.com>',
+    from: 'Joseph From Auqli <support@auqli.com>',
     subject: 'Refund Processed for Your Return',
     html: `
       <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -869,7 +869,7 @@ async function sendRefundConfirmationEmails(returnRequest) {
   // Email to seller
   const sellerEmail = {
     to: returnRequest.seller.email,
-    from: 'Joseph From Auqli <joseph@auqli.com>',
+    from: 'Joseph From Auqli <support@auqli.com>',
     subject: 'Return Refund Processed',
     html: `
       <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1638,7 +1638,7 @@ exports.rejectReturnRequest = async (req, res) => {
     // Send email to buyer
     const buyerEmail = {
       to: returnRequest.buyer.email,
-      from: 'Auqli Returns <joseph@auqli.com>',
+      from: 'Auqli Returns <support@auqli.com>',
       subject: 'Return Request Rejected - Dispute Created',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1657,7 +1657,7 @@ exports.rejectReturnRequest = async (req, res) => {
     // Send email to seller
     const sellerEmail = {
       to: returnRequest.seller.email,
-      from: 'Auqli Returns <joseph@auqli.com>',
+      from: 'Auqli Returns <support@auqli.com>',
       subject: 'Return Request Rejection Confirmed',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1675,8 +1675,8 @@ exports.rejectReturnRequest = async (req, res) => {
 
     // Send email to admin
     const adminEmail = {
-      to: 'joseph@auqli.com',
-      from: 'Auqli Returns <joseph@auqli.com>',
+      to: 'support@auqli.com',
+      from: 'Auqli Returns <support@auqli.com>',
       subject: 'New Return Dispute Created',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1772,12 +1772,12 @@ exports.adminUpdateStatus = async (req, res) => {
       sgMail.send({
         ...emailTemplate,
         to: returnRequest.buyer.email,
-        from: 'Auqli Returns <joseph@auqli.com>'
+        from: 'Auqli Returns <support@auqli.com>'
       }),
       sgMail.send({
         ...emailTemplate,
         to: returnRequest.seller.email,
-        from: 'Auqli Returns <joseph@auqli.com>'
+        from: 'Auqli Returns <support@auqli.com>'
       })
     ]);
 

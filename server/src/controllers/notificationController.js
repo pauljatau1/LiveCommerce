@@ -299,7 +299,7 @@ exports.sendEmailNotification = async (seller, notification) => {
     
     const msg = {
       to: seller.email,
-      from: 'Auqli Seller <joseph@auqli.com>',
+      from: 'Auqli Seller <support@auqli.com>',
       subject: notification.title,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -692,7 +692,7 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
       const msg = {
         to: recipient.buyer.email,
         from: {
-          email: 'joseph@auqli.com',
+          email: 'support@auqli.com',
           name: 'Auqli Campaigns'
         },
         subject: `New Campaign from ${seller.businessName || seller.firstName}`,
