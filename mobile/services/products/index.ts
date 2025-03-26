@@ -17,15 +17,28 @@ export const products = createApi({
         return headers;
       },
     }),
+
     { maxRetries: 2 },
   ),
+  tagTypes: [
+    "allProducts",
+    "foryouProducts",
+    "newProducts",
+    "trendingProducts",
+  ],
   // refetchOnFocus: true,
   endpoints: (builder) => ({
     getAllProducts: builder.query({
       query: (credentials) => getRequest(`/products/all`, credentials),
+      providesTags: ["allProducts"],
     }),
     getAllAuctionProducts: builder.query({
       query: (credentials) => getRequest(`/products/auctions`, credentials),
+      extraOptions: { refetchOnFocus: true },
+    }),
+    getAllSellerAuctionProducts: builder.query({
+      query: (credentials) =>
+        getRequest(`/products/seller/${credentials?.id}/auctions`, credentials),
       extraOptions: { refetchOnFocus: true },
     }),
     deepSearchProducts: builder.query({
@@ -40,12 +53,15 @@ export const products = createApi({
     }),
     getNewAuqli: builder.query({
       query: (credentials) => getRequest(`/products/just-arrived`, credentials),
+      providesTags: ["newProducts"],
     }),
     getTrending: builder.query({
       query: (credentials) => getRequest(`/products/trending`, credentials),
+      providesTags: ["trendingProducts"],
     }),
     getForYou: builder.query({
       query: (credentials) => getRequest(`/products/personalized`, credentials),
+      providesTags: ["foryouProducts"],
     }),
   }),
 });
@@ -53,6 +69,7 @@ export const products = createApi({
 export const {
   useGetAllProductsQuery,
   useGetAllAuctionProductsQuery,
+  useGetAllSellerAuctionProductsQuery,
   useGetNewAuqliQuery,
   useGetTrendingQuery,
   useGetSingleProductQuery,

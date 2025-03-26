@@ -101,6 +101,42 @@ export const LivestreamProvider = ({ children }) => {
     }
   };
 
+  const leaveStream = async (streamId) => {
+    try {
+      dispatch({ type: "SET_IS_LOADING", payload: true });
+      const token = await AsyncStorage.getItem("token");
+      const userToken = JSON.parse(token);
+
+      if (!userToken) {
+        throw new Error("No authentication token found");
+      }
+
+      console.log("Leaving stream with ID:", streamId);
+
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + `api/streams/${streamId}/leave`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        console.log("Successfully left stream:", response.data);
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Error leaving stream:", error);
+      throw new Error(
+        error?.response?.data?.message || "Failed to leave stream"
+      );
+    } finally {
+      dispatch({ type: "SET_IS_LOADING", payload: false });
+    }
+  };
+
   return (
     <LivestreamContext.Provider
       value={{
@@ -108,6 +144,7 @@ export const LivestreamProvider = ({ children }) => {
         fetchAllActiveLiveStreams,
         fetchActiveStreamDetails,
         joinStream,
+        leaveStream,
         dispatch,
       }}
     >

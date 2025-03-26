@@ -22,7 +22,7 @@ const Comment = ({
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [showReplies, setShowReplies] = useState<boolean>(false);
   const [replies, setReplies] = useState<any[]>(item?.replies?.slice(0, 5));
-  const [liked, setLiked] = useState<boolean>(false);
+  const [liked, setLiked] = useState<boolean>(item?.isLiked || false);
   const [likes, setLikes] = useState<number>(item?.likesCount);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -118,7 +118,12 @@ const Comment = ({
         {item.buyer?.profileImage?.url ? (
           <Image
             source={{ uri: item.buyer?.profileImage?.url }}
-            className="w-[30px] h-[30px] rounded-[50%]"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+            }}
+            contentFit="cover"
           />
         ) : (
           <Text className="text-white text-[10px] font-LexendDeca">

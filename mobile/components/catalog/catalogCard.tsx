@@ -12,7 +12,7 @@ import { toast } from "@/core/toast";
 import { getToken } from "@/store/features/auth/utils";
 import AuthSheet from "../auth/authSheet";
 
-const CatalogCard: React.FC<ProductCardProps> = ({
+const CatalogCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
   id,
   profileImage,
@@ -444,7 +444,10 @@ const AddedToCart = ({
           style={{ width: 73, height: 73, borderRadius: 4 }}
         />
         <View className="justify-between py-2 gap-[20px] shrink">
-          <Text className="text-[12px] font-LexendDecaMedium leading-[18px]">
+          <Text
+            className="text-[12px] font-LexendDecaMedium leading-[18px]"
+            numberOfLines={2}
+          >
             {cartData?.name}
           </Text>
           <View className="flex-row items-center gap-[8px]">

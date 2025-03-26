@@ -97,13 +97,13 @@ const ProductDescription = () => {
   const [cartData, setCartData] = useState<any[]>([]);
   const [productSpecifications, setProductSpecifications] = useState<{}>({});
   const [user, setUser] = useState<any>(null);
-  const [userToken, setUserToken] = useState<string>("");
+  const [userToken, settoken] = useState<string>("");
   const [conversations, setConversations] = useState<any[]>([]);
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
   const [auctionData, setAuctionData] = useState<any>();
   const [showRules, setShowRules] = useState<boolean>(false);
-  const [shippingFee, setShippingFee] = useState<any>();
+  const [shippingFee, setShippingFee] = useState<any>(100);
 
   const handleCloseRules = useCallback(() => {
     setShowRules(false);
@@ -300,7 +300,6 @@ const ProductDescription = () => {
     socket.on("connect", () => {
       console.log("Connected to auctions");
     });
-    console.log("product id ", id);
 
     // socket.on("bid_error", (error) => {
     //   console.log("Bid error:", error);
@@ -309,6 +308,10 @@ const ProductDescription = () => {
     socket.on("bid_update", (data) => {
       setAuctionData(data);
       console.log("gotten bid update", data);
+      // if(data?.winner?.buyer?.firstName)
+      // {
+
+      // }
     });
 
     // socket.on("bid_placed", (data) => {
@@ -422,12 +425,15 @@ const ProductDescription = () => {
     if (shippingFee && productDetails?.status == "offline_auction") {
       setShowRules(shippingFee);
     }
-  }, [shippingFee]);
+  }, [shippingFee, productDetails?.status]);
 
   //auction functions
 
   const placeBid = (amount: number) => {
-    if (auctionData?.status == "ended") {
+    if (
+      auctionData?.auctionStatus == "ended" ||
+      auctionData?.status == "ended"
+    ) {
       return toast.error("This Auction has ended!");
     }
     if (!user?.wallet?.availableBalance && !shippingFee) {
@@ -566,7 +572,7 @@ const ProductDescription = () => {
             {/* <TouchableOpacity
               className=" relative "
               onPress={() => {
-                if (userToken) {
+                if (token) {
                   return;
                 }
                 return setShowAuthSheet(true);
@@ -577,7 +583,7 @@ const ProductDescription = () => {
             <TouchableOpacity
               className=" flex justify-center items-center "
               onPress={() => {
-                if (userToken) {
+                if (token) {
                   return router.push("/cart/cart");
                 }
                 return setShowAuthSheet(true);
@@ -695,7 +701,8 @@ const ProductDescription = () => {
                           />
                         )}
 
-                        {auctionData?.status == "ended" ? (
+                        {auctionData?.status == "ended" ||
+                        auctionData?.auctionStatus == "ended" ? (
                           <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
                             {auctionData?.winner?.buyer?.firstName
                               ? auctionData?.winner?.buyer?.firstName +
@@ -728,20 +735,33 @@ const ProductDescription = () => {
                       </View>
                     )}
                     <View className="flex flex-row items-center justify-between ">
-                      <View className="flex flex-row items-end">
-                        <Text className="text-[22px] text-white font-LexendDecaMedium">
-                          ₦
-                          {productDetails?.discount?.isActive
-                            ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
-                              0
-                            : productDetails?.price?.toLocaleString()}
-                        </Text>
-                        {productDetails?.discount?.isActive && (
-                          <Text className="text-[8px] text-[#09AF46] font-LexendDecaMedium line-through absolute bottom-[-5px] right-[-25px]">
-                            ₦{productDetails?.price?.toLocaleString()}
+                      {productDetails?.status == "offline_auction" ? (
+                        <View className="flex flex-row items-end">
+                          <Text className="text-[22px] text-white font-LexendDecaMedium">
+                            ₦
+                            {(
+                              auctionData?.currentHighestBid?.amount ||
+                              auctionData?.minBid
+                            )?.toLocaleString()}
                           </Text>
-                        )}
-                      </View>
+                        </View>
+                      ) : (
+                        <View className="flex flex-row items-end">
+                          <Text className="text-[22px] text-white font-LexendDecaMedium">
+                            ₦
+                            {productDetails?.discount?.isActive
+                              ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
+                                0
+                              : productDetails?.price?.toLocaleString()}
+                          </Text>
+                          {productDetails?.discount?.isActive && (
+                            <Text className="text-[8px] text-[#09AF46] font-LexendDecaMedium line-through absolute bottom-[-5px] right-[-25px]">
+                              ₦{productDetails?.price?.toLocaleString()}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+
                       <View className="flex flex-row items-center gap-[6px]">
                         {productDetails?.discount?.isActive ? (
                           <View className=" bg-[#FFD700] py-[5px] px-[17px] rounded-[14px]">
@@ -1047,7 +1067,7 @@ const ProductDescription = () => {
 
                   <View className="px-[20px] py-[14px] ">
                     <View
-                      className="py-[15px] px-[20px] rounded-[7px] border-white border-[0.7px] flex-row gap-[16px]"
+                      className="py-[15px] px-[10px] rounded-[7px] border-white border-[0.7px] flex-row gap-[16px]"
                       style={{ backgroundColor: "rgba(22, 120, 58, 0.38)" }}
                     >
                       <View className="">
@@ -1087,11 +1107,11 @@ const ProductDescription = () => {
                           <TouchableOpacity
                             className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
                             onPress={() => {
-                              if (!userToken) {
+                              if (!token) {
                                 return setShowAuthSheet(true);
                               }
                               router.push({
-                                pathname: `/(root)/messageRoom/${sellerInfo._id}`,
+                                pathname: `../../(root)/messageRoom/${sellerInfo._id}`,
                                 params: {
                                   name:
                                     sellerInfo?.storeName ||
@@ -1107,7 +1127,7 @@ const ProductDescription = () => {
                                         convo.participant.id == sellerInfo._id,
                                     )?._id || "",
                                   userId: user?._id,
-                                  token: userToken,
+                                  token: token,
                                   model: "Seller",
                                 },
                               });
@@ -1137,8 +1157,8 @@ const ProductDescription = () => {
                         </View>
                       </View>
 
-                      <View className="justify-between">
-                        <View className="flex-row items-center gap-[16px]">
+                      <View className="justify-between flex-row gap-[16px]">
+                        <View className="  gap-[16px] justify-between">
                           <View className="gap-[4px]">
                             <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
                               Items Sold
@@ -1150,25 +1170,6 @@ const ProductDescription = () => {
                               Items
                             </Text>
                           </View>
-                          <View className="gap-[4px] mr-[24px] ml-[10px]">
-                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
-                              Rating
-                            </Text>
-                            <View className="flex-row items-center gap-[4px]">
-                              <AntDesign
-                                name="star"
-                                size={11}
-                                color="#FFD700"
-                              />
-                              <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
-                                {sellerInfo?.ratings?.average} (
-                                {sellerInfo?.ratings?.total})
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        <View className="flex-row items-center gap-[16px]">
                           <View className="gap-[4px]">
                             <View className="flex-row items-center gap-[4px]">
                               <Octicons name="video" size={10} color="white" />
@@ -1183,7 +1184,23 @@ const ProductDescription = () => {
                               )}{" "}
                             </Text>
                           </View>
-                          <View className="gap-[4px] mr-[24px] ml-[10px]">
+                        </View>
+
+                        <View className=" gap-[16px] justify-between">
+                          <View className="gap-[4px]">
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                              Rating
+                            </Text>
+                            <View className="flex-row items-center gap-[4px]">
+                              <AntDesign name="star" size={8} color="#FFD700" />
+                              <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                                {sellerInfo?.ratings?.average} (
+                                {sellerInfo?.ratings?.total})
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View className="gap-[4px]">
                             <View className="flex-row items-center gap-[4px]">
                               <Ionicons
                                 name="location-sharp"
@@ -1266,18 +1283,27 @@ const ProductDescription = () => {
               }}
               onPress={() => {
                 placeBid(
-                  auctionData?.currentHighestBid?.amount + 500 ||
-                    auctionData?.minBid,
+                  auctionData?.currentHighestBid?.amount
+                    ? auctionData?.currentHighestBid?.amount + 500
+                    : auctionData?.minBid,
                 );
               }}
             >
-              <Text className="text-[10px] text-white font-LexendDecaSemiBold">
-                Bid ₦
-                {(
-                  auctionData?.currentHighestBid?.amount + 500 ||
-                  auctionData?.minBid
-                )?.toLocaleString()}
-              </Text>
+              {auctionData?.winner?.buyer?.firstName ||
+              auctionData?.status == "ended" ||
+              auctionData?.auctionStatus == "ended" ? (
+                <Text className="text-[10px] text-white font-LexendDecaSemiBold">
+                  Auction is Over!
+                </Text>
+              ) : (
+                <Text className="text-[10px] text-white font-LexendDecaSemiBold">
+                  Bid ₦
+                  {(auctionData?.currentHighestBid?.amount
+                    ? auctionData?.currentHighestBid?.amount + 500
+                    : auctionData?.minBid
+                  )?.toLocaleString()}
+                </Text>
+              )}
             </TouchableOpacity>
           ) : (
             <>
@@ -1290,7 +1316,7 @@ const ProductDescription = () => {
                   minWidth: 130,
                 }}
                 onPress={() => {
-                  if (userToken) {
+                  if (token) {
                     return setShowCartSheet(true);
                   }
                   return setShowAuthSheet(true);
@@ -1311,7 +1337,7 @@ const ProductDescription = () => {
                   minWidth: 130,
                 }}
                 onPress={async () => {
-                  if (userToken) {
+                  if (token) {
                     return setShowCheckout(true);
                   }
                   return setShowAuthSheet(true);
@@ -1406,6 +1432,7 @@ const ProductDescription = () => {
           productId={productDetails?._id}
           closeSheet={() => setShowCheckout(false)}
           sellerId={sellerInfo?._id}
+          channel="marketplace"
         />
       </BottomSheet>
     </View>
@@ -1614,7 +1641,10 @@ const AddedToCart = ({
           style={{ width: 73, height: 73, borderRadius: 4 }}
         />
         <View className="justify-between py-2 gap-[20px] shrink">
-          <Text className="text-[12px] font-LexendDecaMedium leading-[18px]">
+          <Text
+            className="text-[12px] font-LexendDecaMedium leading-[18px]"
+            numberOfLines={2}
+          >
             {cartData?.name}
           </Text>
           <View className="flex-row items-center gap-[8px]">

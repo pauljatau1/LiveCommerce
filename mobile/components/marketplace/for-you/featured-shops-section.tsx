@@ -82,7 +82,7 @@ const ForYouFeaturedShopsSection = () => {
       </View>
       <View
         style={{
-          paddingLeft: 16,
+          // paddingLeft: 16,
           width: "100%",
         }}
       >
@@ -102,9 +102,9 @@ const ForYouFeaturedShopsSection = () => {
           onScroll={handleScroll}
           ListEmptyComponent={renderEmptySellers}
           numColumns={2}
-          style={{
+          contentContainerStyle={{
             justifyContent: "space-between",
-            paddingRight: 20,
+            paddingHorizontal: 16,
           }}
         />
       </View>

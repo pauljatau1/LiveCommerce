@@ -34,8 +34,7 @@ const { width, height } = Dimensions.get("window");
 const mockDeliveryOtions = [
   {
     name: "Standard Delivery",
-    description:
-      "Guaranteed delivery within 3 business days.Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ",
+    description: "Guaranteed delivery within 2-4 business days",
   },
 ];
 
@@ -330,6 +329,12 @@ const Checkout = () => {
       if (walletBalance < deliveryFee + cartTotal) {
         return toast.error("Insufficient Wallet Balance");
       }
+    }
+
+    if (deliveryFee + cartTotal > 50000 && selectedPayment == 2) {
+      return toast.info(
+        "Cash on Delivery is unavailable for orders over ₦50,000",
+      );
     }
 
     const order = {
@@ -652,13 +657,13 @@ const Checkout = () => {
                       </View>
                     </View>
                   </View>
-                  <View>
+                  {/* <View>
                     <Entypo
                       name="chevron-right"
                       size={16}
                       color="rgba(204, 204, 204, 0.8)"
                     />
-                  </View>
+                  </View> */}
                 </Pressable>
               </View>
 

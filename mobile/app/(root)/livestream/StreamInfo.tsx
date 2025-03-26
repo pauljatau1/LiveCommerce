@@ -272,17 +272,15 @@ const StreamInfo = ({ storeInfo, streamInfo, isLoading = false, closeSheet }: St
   };
 
   return (
-    <ScrollView className="h-full">
+    <ScrollView className="h-[400px]">
       {/*{renderHeader()}*/}
       
-      <ScrollView 
-        className="h-full"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+      <View 
+        style={styles.scrollContent}
       >
         {renderStoreSection()}
         {renderStreamDetails()}
-      </ScrollView>
+      </View>
     </ScrollView>
   );
 };
@@ -299,6 +297,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   scrollContent: {
+
     paddingBottom: 40,
   },
   header: {

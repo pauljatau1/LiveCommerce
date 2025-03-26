@@ -9,10 +9,12 @@ const AuctionCard = ({ item }: any) => {
   const [bidTime, setBidTime] = useState<any>();
 
   useEffect(() => {
-    setInterval(
+    const timer = setInterval(
       () => setBidTime(formatTimeFromNow(item?.auction?.endDate)),
       1000,
     );
+
+    return () => clearInterval(timer);
   }, []);
   return (
     <Pressable

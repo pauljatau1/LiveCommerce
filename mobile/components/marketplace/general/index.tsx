@@ -6,6 +6,7 @@ import ProductCard from "@/components/global/product-card";
 import CatalogCard from "@/components/catalog/catalogCard";
 import ProductSkeleton from "@/components/skeleton/productSkeleton";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
+import { router } from "expo-router";
 
 interface GeneralCategoryProps {
   name: string;
@@ -24,17 +25,22 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     (subcat: any) => subcat.name,
   );
 
-  const renderSubCategory = (name: string) => {
+  const renderSubCategory = (subCat: string) => {
     return (
       <TouchableOpacity
         className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
         style={{
           marginRight: 10,
         }}
-        onPress={() => setSubCategory(name)}
+        onPress={() =>
+          router.push({
+            pathname: "/(root)/catalog/subCategoriesCatalog",
+            params: { name: subCat, mainCat: name, subCat },
+          })
+        }
       >
         <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
-          {name}
+          {subCat}
         </Text>
       </TouchableOpacity>
     );

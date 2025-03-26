@@ -12,7 +12,7 @@ import { toast } from "@/core/toast";
 import AuthSheet from "@/components/auth/authSheet";
 import { getToken } from "@/store/features/auth/utils";
 
-const ProductCard: React.FC<ProductCardProps> = ({
+const ProductCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
   id,
   profileImage,
@@ -28,6 +28,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isVerified,
   showNike = true,
   moreDetails,
+  width,
   ...props
 }) => {
   const firstImage =
@@ -79,7 +80,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      className=" bg-black rounded-lg p-[11.85px]  w-[173px] h-[299px]"
+      className={`bg-black rounded-lg p-[11.85px] h-[299px]`}
+      style={{
+        width: width || 173,
+      }}
       onPress={() => router.push(`/product/${id}`)}
     >
       {/* Product Image */}
@@ -449,7 +453,10 @@ const AddedToCart = ({
           style={{ width: 73, height: 73, borderRadius: 4 }}
         />
         <View className="justify-between py-2 gap-[20px] shrink">
-          <Text className="text-[12px] font-LexendDecaMedium leading-[18px]">
+          <Text
+            className="text-[12px] font-LexendDecaMedium leading-[18px]"
+            numberOfLines={2}
+          >
             {cartData?.name}
           </Text>
           <View className="flex-row items-center gap-[8px]">
