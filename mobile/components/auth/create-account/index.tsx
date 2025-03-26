@@ -20,7 +20,7 @@ import PhoneNumberInput from "@/components/global/custom-input";
 import CustomButton from "@/components/global/button/CustomButton";
 import CheckBox from "@/components/global/check-box";
 // import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import Select, { OptionComponent, Trigger } from "@/components/global/select";
+// import Select, { OptionComponent, Trigger } from "@/components/global/select";
 import { useSignUpMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
 import PhoneInput, { isValidNumber } from "react-native-phone-number-input";

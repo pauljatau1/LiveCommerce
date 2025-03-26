@@ -1,7 +1,10 @@
 import { View, Text, FlatList } from "react-native";
 import React, { useCallback, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
-import { useGetAllAuctionProductsQuery } from "@/services/products";
+import {
+  useGetAllAuctionProductsQuery,
+  useGetAllSellerAuctionProductsQuery,
+} from "@/services/products";
 import AuctionCard from "../global/auction-card";
 
 const BlipsAuctions = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
@@ -14,7 +17,7 @@ const BlipsAuctions = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
     isLoading,
     isFetching,
     refetch,
-  } = useGetAllAuctionProductsQuery({
+  } = useGetAllSellerAuctionProductsQuery({
     id,
     status: "ongoing",
     page: 1,

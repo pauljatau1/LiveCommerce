@@ -160,7 +160,7 @@ const Settings = () => {
               />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.sectionRow}
+              style={[styles.sectionRow, styles.inactiveRow]}
               activeOpacity={0.5}
               onPress={() => router.push("/(root)/settings/communityActivity")}
             >

@@ -9,17 +9,20 @@ const Home = () => {
   useInitializeAuthState();
   console.log("expoPushToken", expoPushToken);
 
-  // useEffect(() => {
-  //   async function getToken() {
-  //     const token = await AsyncStorage.getItem("token");
-  //     if (token) {
-  //       router.navigate("/(root)/(tabs)/home");
-  //     } else {
-  //       router.navigate("/(root)/(auth)/welcome");
-  //     }
-  //   }
-  //   getToken();
-  // }, []);
+  useEffect(() => {
+    async function getToken() {
+      const isFirstTime = await AsyncStorage.getItem("isFirstTime");
+      console.log("isFirstTime", isFirstTime);
+
+      if (isFirstTime) {
+        router.navigate("../(root)/(tabs)/home");
+      } else {
+        router.navigate("../(root)/(auth)/welcome");
+      }
+    }
+    getToken();
+  }, []);
+  return null;
   return <Redirect href={"../(root)/(tabs)/home"} />;
 };
 
