@@ -1080,6 +1080,80 @@ function initializeSocket(server) {
         console.error('Error handling stream comment:', error);
       }
     });
+    
+    // Handler for product bidding actions in stream
+    socket.on('product_bidding_update', async (data) => {
+      try {
+        // Ensure streamId and productId are provided
+        if (!data.streamId || !data.productId) {
+          console.error('Missing streamId or productId in product_bidding_update event');
+          return;
+        }
+        
+        // Find the stream
+        const stream = await Stream.findById(data.streamId)
+          .populate('seller', 'storeName storeAvatar')
+          .populate('products.product', 'name images');
+          
+        if (!stream) {
+          console.error(`Stream not found: ${data.streamId}`);
+          return;
+        }
+        
+        // Find the product
+        const productIndex = stream.products.findIndex(p => 
+          p.product._id && p.product._id.toString() === data.productId ||
+          p.product && p.product.toString() === data.productId
+        );
+        
+        if (productIndex === -1) {
+          console.error(`Product not found in stream: ${data.productId}`);
+          return;
+        }
+        
+        const product = stream.products[productIndex];
+        
+        // Log the product bidding update
+        console.log(`Product bidding update for ${product.product.name || 'a product'} in stream ${data.streamId}`);
+        console.log(`Status: ${product.bidStatus}, Current bid: ${product.currentBid}`);
+        
+        // Create an update notification if requested
+        if (data.createNotification && data.notificationType) {
+          // Default content based on notification type
+          let content = 'Product bidding updated';
+          
+          if (data.notificationType === 'auction_start') {
+            content = `Bidding started for ${product.product.name || 'a product'}`;
+          } else if (data.notificationType === 'auction_end') {
+            content = `Bidding ended for ${product.product.name || 'a product'}`;
+          } else if (data.notificationType === 'new_bid') {
+            content = `New bid for ${product.product.name || 'a product'}: $${product.currentBid}`;
+          }
+          
+          // Create notification object
+          const notificationObj = {
+            id: Date.now().toString(),
+            type: data.notificationType,
+            user: stream.seller.storeName || 'Host',
+            avatar: stream.seller.storeAvatar?.url || '',
+            content: data.content || content,
+            data: {
+              message: data.content || content,
+              streamId: stream._id.toString(),
+              sellerId: stream.seller._id.toString(),
+              storeName: stream.seller.storeName || 'Unknown Store',
+              product: product
+            },
+            timestamp: new Date()
+          };
+          
+          // Broadcast to all subscribers
+          io.to('stream_notifications').emit('stream_notification', notificationObj);
+        }
+      } catch (error) {
+        console.error('Error handling product bidding update:', error);
+      }
+    });
 
     socket.on('leave_stream_monitor', (data) => {
       socket.leave(`stream_${data.streamId}`);
