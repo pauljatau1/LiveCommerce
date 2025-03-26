@@ -200,6 +200,167 @@ router.post('/:streamId/start',
 
 /**
  * @swagger
+ * /api/streams/{streamId}/activate-product-bidding:
+ *   post:
+ *     summary: Activate bidding for a specific product in an auction stream
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to activate bidding for
+ *     responses:
+ *       200:
+ *         description: Product bidding activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 product:
+ *                   type: object
+ *       400:
+ *         description: Invalid request or stream is not an auction
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Stream or product not found
+ */
+router.post('/:streamId/activate-product-bidding',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  streamController.activateProductBidding
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/end-product-bidding:
+ *   post:
+ *     summary: End bidding for a specific product in an auction stream
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to end bidding for
+ *     responses:
+ *       200:
+ *         description: Product bidding ended successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 product:
+ *                   type: object
+ *       400:
+ *         description: Invalid request or product bidding is not active
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Stream or product not found
+ */
+router.post('/:streamId/end-product-bidding',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  streamController.endProductBidding
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/place-bid:
+ *   post:
+ *     summary: Place a bid on a product in an auction stream
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *               - bidAmount
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to bid on
+ *               bidAmount:
+ *                 type: number
+ *                 description: Amount of the bid
+ *     responses:
+ *       200:
+ *         description: Bid placed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 bid:
+ *                   type: object
+ *                 product:
+ *                   type: object
+ *                 isWinner:
+ *                   type: boolean
+ *       400:
+ *         description: Invalid request or bidding is not active
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Stream or product not found
+ */
+router.post('/:streamId/place-bid',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.placeBid
+);
+
+/**
+ * @swagger
  * /api/streams/{streamId}/end:
  *   post:
  *     summary: End an active stream
