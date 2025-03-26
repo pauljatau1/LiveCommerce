@@ -209,7 +209,7 @@ function CustomerDetail() {
               {/* NOT ALLOWED FOR SECURITY REASONS <span className="text-indigo-600 font-medium">{customerData.email}</span>*/}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="sm:flex gap-2">
             <Button 
               variant="primary" 
               className="lg:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
@@ -219,7 +219,7 @@ function CustomerDetail() {
             </Button>
             <Button
               variant={isFollowing ? "outline" : "primary"}
-              className={`lg:ml-4 transition-all duration-300 ${
+              className={`lg:ml-4 mt-2 sm:mt-0 transition-all duration-300 ${
                 isFollowing 
                   ? 'border-red-500 text-red-500 hover:bg-red-50' 
                   : 'bg-blue-600 text-white hover:bg-blue-700'

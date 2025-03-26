@@ -38,8 +38,8 @@ const ProductsPage = () => {
     const dispatch = useDispatch();
     const { products, auctionProducts, isLoading, isLoadingAuctions, deleteStatus } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
-    const [activeTab, setActiveTab] = useState('products'); // 'products' or 'auctions'
-    const [sortType, setSortType] = useState('newest-to-oldest'); // Updated default sort
+    const [activeTab, setActiveTab] = useState('products'); 
+    const [sortType, setSortType] = useState('newest-to-oldest'); 
     
     // Dialog states
     const [showDateDialog, setShowDateDialog] = useState(false);
@@ -134,7 +134,7 @@ const ProductsPage = () => {
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={() => setActiveTab('products')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm sm:text-base transition-all duration-300 ${
                                         activeTab === 'products'
                                             ? 'bg-[#17171B] text-white'
                                             : 'bg-[#0BB24817] text-[#17171B] hover:bg-[#0BB24820]'
@@ -144,7 +144,7 @@ const ProductsPage = () => {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('auctions')}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm sm:text-base transition-all duration-300 ${
                                         activeTab === 'auctions'
                                             ? 'bg-[#17171B] text-white'
                                             : 'bg-[#0BB24817] text-[#17171B] hover:bg-[#0BB24820]'
@@ -156,90 +156,99 @@ const ProductsPage = () => {
                             
                             <div className="flex items-center flex-wrap gap-4">
                                 {displayedProducts.length > 0 && (
-                                    <div className="flex items-center justify-between flex-wrap gap-2">
-                                        <p className="text-base font-cabin font-normal text-[#17171B]">Sort By:</p>
+                                    <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">
+                                        <p className="text-base font-cabin font-normal text-[#17171B] mb-2 sm:mb-0">Sort By:</p>
                                         <div className="flex items-center flex-wrap gap-2">
                                             {/* Date Sort Button */}
                                             <button 
                                                 onClick={() => setShowDateDialog(true)}
-                                                className={`flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="solar:calendar-outline" width="20" height="20" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#17171B"} />
-                                                <p className={`text-sm font-cabin font-normal`}>Date</p>
+                                                <Icon icon="solar:calendar-outline" width="18" height="18" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#17171B"} />
+                                                <p className={`text-xs sm:text-sm font-cabin font-normal`}>Date</p>
                                             </button>
 
                                             {/* Status Sort Button */}
                                             <button 
                                                 onClick={() => setShowStatusDialog(true)}
-                                                className={`flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="iconamoon:clock-thin" width="20" height="20" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#17171B"} />
-                                                <p className={`text-sm font-cabin font-normal`}>Status</p>
+                                                <Icon icon="iconamoon:clock-thin" width="18" height="18" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#17171B"} />
+                                                <p className={`text-xs sm:text-sm font-cabin font-normal`}>Status</p>
                                             </button>
 
                                             {/* Price Sort Button */}
                                             <button 
                                                 onClick={() => setShowPriceDialog(true)}
-                                                className={`flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-3 px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="solar:sort-by-time-linear" width="20" height="20" color={sortType.includes('price') ? "#FFFFFF" : "#17171B"} />
-                                                <p className={`text-sm font-cabin font-normal`}>Price</p>
+                                                <Icon icon="solar:sort-by-time-linear" width="18" height="18" color={sortType.includes('price') ? "#FFFFFF" : "#17171B"} />
+                                                <p className={`text-xs sm:text-sm font-cabin font-normal`}>Price</p>
                                             </button>
                                         </div>
                                     </div>
                                 )}
-                                <NavLink to="/dashboard/add-products" className="flex items-center gap-2 text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-3 px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out">
-                                    <Icon icon="tabler:plus" width="20" height="20" color="#FFFFFF" />
-                                    <p className="text-sm font-cabin font-normal text-[#FFFFFF]">Add Product</p>
+                                <NavLink 
+                                    to={activeTab === 'auctions' ? "/dashboard/add-products?type=auction" : "/dashboard/add-products"} 
+                                    className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out"
+                                >
+                                    <Icon icon="tabler:plus" width="18" height="18" color="#FFFFFF" />
+                                    <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">
+                                        {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
+                                    </p>
                                 </NavLink>
                             </div>
                         </div>
-                        <div className="flex flex-col w-full bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-                            {/* Table Headers - Desktop */}
-                            <div className="hidden lg:grid grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px] gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white">
-                                <div className="text-sm font-medium text-[#05031F]">Image</div>
-                                <div className="text-sm font-medium text-[#05031F]">Product Name</div>
-                                <div className="text-sm font-medium text-[#05031F]">Upload Status</div>
-                                <div className="text-sm font-medium text-[#05031F]">
-                                    {activeTab === 'auctions' ? 'Auction Status' : 'Stock'}
-                                </div>
-                                <div className="text-sm font-medium text-[#05031F]">
-                                    {activeTab === 'auctions' ? 'Current Bid' : 'Price'}
-                                </div>
-                                <div className="text-sm font-medium text-[#05031F] text-center">
-                                    {activeTab === 'auctions' ? 'Time Left' : 'Stock Status'}
-                                </div>
-                                <div className="text-sm font-medium text-[#05031F] text-center">Actions</div>
-                            </div>
-
-                            {/* Products List */}
-                            <div className="divide-y divide-[#E5E7EB]">
-                                {displayedProducts.length > 0 ? (
-                                    memoizedProducts
-                                ) : (
-                                    <div className="flex flex-col h-[50dvh] items-center justify-center gap-4">
-                                        <img src={NotFound} alt="not-found" className="w-[180px] md:w-[220px] h-[180px] md:h-[220px]" />
-                                        <p className="text-base font-cabin font-normal text-[#05031F]">
-                                            No {activeTab === 'auctions' ? 'auction' : ''} products found
-                                        </p>
+                        <div className="w-full overflow-x-auto">
+                            <div className="flex flex-col w-full bg-white rounded-xl border border-[#E5E7EB] overflow-hidden min-w-[768px]">
+                                {/* Table Headers - Now visible on all screen sizes with min-width */}
+                                <div className={`grid ${activeTab === 'auctions' ? 'grid-cols-[80px_1fr_1fr_1fr_100px_100px]' : 'grid-cols-[80px_1fr_1fr_1fr_1fr_100px_100px]'} gap-4 px-6 py-4 border-b border-[#E5E7EB] bg-white`}>
+                                    <div className="text-sm font-medium text-[#05031F]">Image</div>
+                                    <div className="text-sm font-medium text-[#05031F]">Product Name</div>
+                                    {activeTab !== 'auctions' && (
+                                        <div className="text-sm font-medium text-[#05031F]">Upload Status</div>
+                                    )}
+                                    <div className="text-sm font-medium text-[#05031F]">
+                                        {activeTab === 'auctions' ? 'Auction Status' : 'Stock'}
                                     </div>
-                                )}
+                                    <div className="text-sm font-medium text-[#05031F]">
+                                        {activeTab === 'auctions' ? 'Current Bid' : 'Price'}
+                                    </div>
+                                    <div className="text-sm font-medium text-[#05031F] text-center">
+                                        {activeTab === 'auctions' ? 'Time Left' : 'Stock Status'}
+                                    </div>
+                                    <div className="text-sm font-medium text-[#05031F] text-center">Actions</div>
+                                </div>
+
+                                {/* Products List */}
+                                <div className="divide-y divide-[#E5E7EB]">
+                                    {displayedProducts.length > 0 ? (
+                                        memoizedProducts
+                                    ) : (
+                                        <div className="flex flex-col h-[50dvh] items-center justify-center gap-4">
+                                            <img src={NotFound} alt="not-found" className="w-[120px] sm:w-[180px] md:w-[220px] h-[120px] sm:h-[180px] md:h-[220px]" />
+                                            <p className="text-sm sm:text-base font-cabin font-normal text-[#05031F] text-center px-4">
+                                                No {activeTab === 'auctions' ? 'auction' : ''} products found
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         {
                             displayedProducts.length > 20 && (
-                                <div className="flex items-center justify-center flex-wrap gap-4 mt-4  lg:mt-8 w-full">
-                                    <button className="text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-2 rounded-full py-3 px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
-                                        <Icon icon="gg:arrow-long-left" width="20" height="20" color="#FFFFFF" />
-                                        <p className="text-sm font-cabin font-normal text-[#FFFFFF]">Previous</p>
+                                <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-4 mt-4 lg:mt-8 w-full">
+                                    <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                                        <Icon icon="gg:arrow-long-left" width="16" height="16" color="#FFFFFF" />
+                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">Previous</p>
                                     </button>
-                                    <button className="text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-2 rounded-full py-3 px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
-                                        <p className="text-sm font-cabin font-normal text-[#FFFFFF]">Next</p>
-                                        <Icon icon="gg:arrow-long-right" width="20" height="20" color="#FFFFFF" />
+                                    <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">Next</p>
+                                        <Icon icon="gg:arrow-long-right" width="16" height="16" color="#FFFFFF" />
                                     </button>
-                                    <button className="text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-2 rounded-full py-3 px-4  whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
-                                        <p className="text-sm font-cabin font-normal text-[#FFFFFF]">20 per page</p>
-                                        <Icon icon="simple-line-icons:arrow-down" width="10" height="10" color="#FFFFFF" />
+                                    <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">20 per page</p>
+                                        <Icon icon="simple-line-icons:arrow-down" width="8" height="8" color="#FFFFFF" />
                                     </button>
                                 </div>
                             )
@@ -250,7 +259,7 @@ const ProductsPage = () => {
 
             {/* Date Sort Dialog */}
             <Dialog open={showDateDialog} onOpenChange={setShowDateDialog}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[425px] p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle>Sort by Date</DialogTitle>
                         <DialogDescription>

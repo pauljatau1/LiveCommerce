@@ -1332,7 +1332,7 @@ const EditProduct = () => {
                                                             </div>
                                                         </div>*/}
                                                         <div className="space-y-2">
-                                                            <Label>Weight (Optional)</Label>
+                                                            <Label>Weight</Label>
                                                             <div className="flex gap-2">
                                                                 <Input
                                                                     type="number"

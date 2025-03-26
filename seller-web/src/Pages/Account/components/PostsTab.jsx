@@ -4,9 +4,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Heart, MessageCircle, Share2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreVertical, Pencil, Trash2, FileText } from "lucide-react";
 import { BASE_URL } from "@/Constants/Server";
-import LinearProgress from "@mui/material/LinearProgress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -250,18 +250,79 @@ export default function PostsTab({ sellerId }) {
     return null;
   };
 
+  const PostSkeleton = () => (
+    <Card className="overflow-hidden animate-pulse">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div>
+            <Skeleton className="h-4 w-32 mb-2" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-8 w-8 rounded-md" />
+      </CardHeader>
+
+      <CardContent className="pb-4 space-y-4">
+        <div className="px-4">
+          <Skeleton className="h-5 w-3/4 mb-2" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full mt-1" />
+        </div>
+
+        <Skeleton className="h-64 w-full rounded-md mx-4" />
+
+        <div className="flex gap-2 overflow-x-auto py-2 px-4">
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-6 w-20 rounded-full" />
+        </div>
+
+        <div className="flex items-center gap-4 pt-2 px-4">
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-16" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
-      <div className="flex justify-center p-8">
-        <LinearProgress color="success" className="w-1/3" />
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+          <PostSkeleton key={i} />
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center p-8 text-red-500">
-        Error: {error}
+      <div className="flex flex-col items-center justify-center py-12 px-4">
+        <div className="text-red-500 bg-red-50 p-4 rounded-lg border border-red-200 mb-4">
+          <p className="font-medium">Error: {error}</p>
+        </div>
+        <Button 
+          onClick={() => { setLoading(true); fetchPosts(); }}
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (posts.length === 0) {
+    return (
+      <div className="text-center py-16 px-4 bg-zinc-50 rounded-lg border border-zinc-200">
+        <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-xl font-medium mb-2">No Posts Yet</h3>
+        <p className="text-muted-foreground max-w-md mx-auto mb-6">
+          Share updates about your products, business, or promotions to engage with your customers!
+        </p>
+        <Button className="bg-green-600 hover:bg-green-700">
+          Create Your First Post
+        </Button>
       </div>
     );
   }
@@ -269,12 +330,14 @@ export default function PostsTab({ sellerId }) {
   return (
     <div className="space-y-6">
       {posts.map((post) => (
-        <Card key={post._id} className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4">
+        <Card key={post._id} className="overflow-hidden hover:shadow-md transition-all duration-200 border border-zinc-200 hover:border-zinc-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 bg-white border-b border-zinc-100">
             <div className="flex items-center space-x-4">
-              <Avatar>
+              <Avatar className="ring-2 ring-zinc-100 border border-zinc-200">
                 <AvatarImage src={post.author?.image || "/placeholder.svg"} />
-                <AvatarFallback>{post.author?.name?.[0]}</AvatarFallback>
+                <AvatarFallback className="bg-gradient-to-br from-green-100 to-green-200 text-green-800">
+                  {post.author?.name?.[0]}
+                </AvatarFallback>
               </Avatar>
               <div>
                 <h3 className="font-semibold">{post.author?.name}</h3>
@@ -285,18 +348,18 @@ export default function PostsTab({ sellerId }) {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-zinc-100">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openUpdateModal(post)}>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => openUpdateModal(post)} className="cursor-pointer">
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit Post
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => openDeleteModal(post)}
-                  className="text-red-600"
+                  className="text-red-600 focus:text-red-700 cursor-pointer"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete Post
@@ -305,22 +368,22 @@ export default function PostsTab({ sellerId }) {
             </DropdownMenu>
           </CardHeader>
 
-          <CardContent className="pb-4 space-y-4">
+          <CardContent className="pb-4 space-y-4 pt-3">
             <div className="px-4">
-              <h4 className="font-semibold mb-2">{post.title}</h4>
-              <p className="text-muted-foreground">{post.body}</p>
+              <h4 className="font-semibold mb-2 text-lg">{post.title}</h4>
+              <p className="text-muted-foreground leading-relaxed">{post.body}</p>
             </div>
 
             {renderMediaGallery(post)}
 
             {/* Tagged Products */}
             {post.products && post.products.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto py-2 px-4">
+              <div className="flex gap-2 overflow-x-auto py-2 px-4 no-scrollbar">
                 {post.products.filter((p) => p.id).map((product) => (
                   <Badge
                     key={product.id}
                     variant="secondary"
-                    className="flex items-center gap-2 px-3 py-1.5"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 transition-colors border border-green-200 whitespace-nowrap"
                   >
                     <img
                       src={product.images[0]?.url}
@@ -337,7 +400,7 @@ export default function PostsTab({ sellerId }) {
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 px-4">
                 {post.tags.map((tag) => (
-                  <Badge key={tag} variant="outline">
+                  <Badge key={tag} variant="outline" className="text-zinc-600 hover:text-zinc-900 transition-colors">
                     #{tag}
                   </Badge>
                 ))}
@@ -345,16 +408,28 @@ export default function PostsTab({ sellerId }) {
             )}
 
             {/* Interaction Buttons */}
-            <div className="flex items-center gap-4 pt-2 px-4">
-              <Button variant="ghost" size="sm" className="text-red-500">
+            <div className="flex items-center gap-4 pt-2 px-4 border-t border-zinc-100 mt-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-zinc-600 hover:text-red-500 hover:bg-red-50 transition-colors"
+              >
                 <Heart className="h-4 w-4 mr-2" />
                 {post.stats?.likeCount || 0}
               </Button>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-zinc-600 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+              >
                 <MessageCircle className="h-4 w-4 mr-2" />
                 {post.comments?.length || 0}
               </Button>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-zinc-600 hover:text-green-500 hover:bg-green-50 transition-colors"
+              >
                 <Share2 className="h-4 w-4 mr-2" />
                 {post.stats?.shareCount || 0}
               </Button>
@@ -382,6 +457,7 @@ export default function PostsTab({ sellerId }) {
                   ...prev,
                   title: e.target.value
                 }))}
+                className="focus-visible:ring-green-500"
               />
             </div>
             <div className="grid gap-2">
@@ -393,6 +469,7 @@ export default function PostsTab({ sellerId }) {
                   ...prev,
                   body: e.target.value
                 }))}
+                className="focus-visible:ring-green-500 min-h-[100px]"
               />
             </div>
             <div className="grid gap-2">
@@ -404,6 +481,8 @@ export default function PostsTab({ sellerId }) {
                   ...prev,
                   tags: e.target.value
                 }))}
+                className="focus-visible:ring-green-500"
+                placeholder="e.g. sale, announcement, fashion"
               />
             </div>
           </div>
@@ -411,7 +490,12 @@ export default function PostsTab({ sellerId }) {
             <Button variant="outline" onClick={() => setIsUpdateModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdatePost}>Save changes</Button>
+            <Button 
+              onClick={handleUpdatePost}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Save changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -420,16 +504,17 @@ export default function PostsTab({ sellerId }) {
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Post</DialogTitle>
+            <DialogTitle className="text-red-600">Delete Post</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this post? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeletePost}>
+              <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
           </DialogFooter>

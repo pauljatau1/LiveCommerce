@@ -7,29 +7,29 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
 
-const OrdersTable = ({ orders }) => {
+const OrdersTable = ({ orders = { orders: [] } }) => {
   const [date, setDate] = useState()
-
-  const getTotalProductQuantityOrdered = (orders) => {
-    const productsInAnOrder = orders?.items.length
-    const totalQuantity = orders?.items.reduce((total, product) => total + product.quantity, 0)
-    return { productsInAnOrder, totalQuantity }
-  }
 
   const getStatusColor = (status) => {
     const statusColors = {
-      pending: "bg-yellow-100 text-yellow-700",
-      pickup_arranged: "bg-blue-100 text-blue-700",
-      picked_up: "bg-green-100 text-green-700",
-      in_transit: "bg-purple-100 text-purple-700",
-      delivered: "bg-green-100 text-green-700",
-      failed: "bg-red-100 text-red-700",
+      pending: "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md py-1 text-yellow-700",
+      pickup_arranged: "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 rounded-md py-1 text-blue-700",
+      picked_up: "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
+      "in-transit": "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
+      in_transit: "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md py-1 text-purple-700",
+      delivered: "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md py-1 text-green-700",
+      failed: "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
+      cancelled: "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md py-1 text-red-700",
     }
     return statusColors[status] || "bg-gray-100 text-gray-700"
   }
 
-  const filteredOrders = orders.filter((order) => {
+  // Handle the case where orders is undefined or not in the expected format
+  const ordersList = Array.isArray(orders?.orders) ? orders.orders : Array.isArray(orders) ? orders : [];
+
+  const filteredOrders = ordersList.filter((order) => {
     const orderDate = new Date(order.createdAt)
     const dateInRange = date?.from && date?.to ? orderDate >= date.from && orderDate <= date.to : true
     return dateInRange
@@ -84,13 +84,15 @@ const OrdersTable = ({ orders }) => {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead className="hidden md:table-cell font-semibold text-[#8492A6] font-inter text-sm">Order ID</TableHead>
-              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Items</TableHead>
-              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Order Date</TableHead>
-              <TableHead className="hidden md:table-cell font-semibold text-[#8492A6] font-inter text-sm">Price</TableHead>
-              <TableHead className="hidden md:table-cell font-semibold text-[#8492A6] font-inter text-sm">Payment</TableHead>
-              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Status</TableHead>
-              <TableHead className="font-semibold text-[#425466] font-inter text-sm">Action</TableHead>
+              <TableHead className="font-semibold">Order Details</TableHead>
+              <TableHead className="font-semibold">Customer</TableHead>
+              <TableHead className="font-semibold">Items</TableHead>
+              <TableHead className="font-semibold">Shipping</TableHead>
+              <TableHead className="font-semibold">Payment</TableHead>
+              <TableHead className="font-semibold">Amount</TableHead>
+              <TableHead className="font-semibold">Channel</TableHead>
+              <TableHead className="font-semibold">Order Status</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -99,61 +101,83 @@ const OrdersTable = ({ orders }) => {
                 ?.slice(0, 10)
                 .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                 .map((order) => (
-                  <TableRow key={order?._id} className="hover:bg-gray-50 transition-colors">
-                    <TableCell className="hidden md:table-cell">
-                      <span className="font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                        {order?.order_id}
-                      </span>
+                  <TableRow key={order?._id} className="hover:bg-gray-50">
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{order?.order_id}</div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(order.createdAt).toLocaleDateString("en-US", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        {order?.items.map((item, index) => (
-                          <div key={index} className="text-sm font-inter capitalize text-[#425466]">
-                            {item.productName} x {item.quantity}
+                        <div className="font-medium capitalize">{`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}</div>
+                        <div className="text-sm capitalize text-gray-500">{order?.delivery_address?.city}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        {order.items.map((item, index) => (
+                          <div key={index} className="capitalize text-sm">
+                            {item?.productName?.length > 20
+                              ? `${item?.productName?.slice(0, 20)}...`
+                              : item?.productName}
                           </div>
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="text-[#425466] font-inter">
-                      {new Date(order?.createdAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell font-inter font-medium text-[#425466]">
-                      {order?.totalAmount.toLocaleString("en-NG", {
-                        style: "currency",
-                        currency: "NGN",
-                      })}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <span
-                        className={`inline-flex items-center px-3 capitalize font-inter py-1.5 rounded-md text-xs font-medium
-                                                ${order?.paymentInfo?.status === "paid"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                          }`}
-                      >
-                        {order?.paymentInfo?.status}
-                      </span>
+                    <TableCell>
+                      <Badge className={getStatusColor(order.shipping.tracking.status)}>
+                        {order.shipping.tracking.status.replace("_", " ")}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={`inline-flex items-center uppercase font-inter px-3 py-1.5 rounded-md text-xs font-medium ${getStatusColor(
-                          order?.shipping?.tracking?.status,
-                        )}`}
+                      <Badge
+                        className={
+                          order.paymentInfo.status === "paid"
+                            ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
+                            : order.paymentInfo.status === "pending"
+                              ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
+                              : order.paymentInfo.status === "awaiting_cod"
+                                ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
+                                : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
+                        }
                       >
-                        {order?.shipping?.tracking?.status?.replace("_", " ")}
-                      </span>
+                        {order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
+                    <TableCell>{order.channel}</TableCell>
+                    <TableCell>
+                      <div className="space-y-2">
+                        <Badge
+                          className={
+                            order.isOpen
+                              ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
+                              : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
+                          }
+                        >
+                          {order.isOpen ? "Open" : "Closed"}
+                        </Badge>
+                        {!order.orderStatus?.hasReturn ? (
+                          <Badge className="bg-green-100 ml-4 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
+                            No Issues
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-orange-100 ml-4 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
+                            Order Issues
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Link to={`/dashboard/order/${order._id}`}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-green-600 font-inter font-light border-green-300 hover:bg-green-50 hover:border-green-300 transition-colors"
-                        >
+                        <Button variant="secondary" className="bg-green-600 font-inter px-2 lg:px-3 text-white hover:bg-green-700">
                           View Details
                         </Button>
                       </Link>
@@ -162,7 +186,7 @@ const OrdersTable = ({ orders }) => {
                 ))
             ) : (
               <TableRow>
-                <TableCell colSpan="7" className="text-center py-8 text-gray-500">
+                <TableCell colSpan="9" className="text-center py-8 text-gray-500">
                   No orders found
                 </TableCell>
               </TableRow>

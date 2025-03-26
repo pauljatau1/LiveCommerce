@@ -58,7 +58,7 @@ export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerA
         const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/auctions`, {
             params: {
                 page: 1,
-                limit: 10
+                limit: 100
             }
         });
         if (response.status === 200) {
