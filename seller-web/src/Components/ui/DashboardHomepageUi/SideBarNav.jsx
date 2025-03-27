@@ -19,7 +19,6 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/', { replace: true });
   };
 
   const handleSubNavOpen = (id) => {

@@ -1,8 +1,12 @@
 import { Icon } from '@iconify/react';
+import { useState } from 'react';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
 import ChatEmpty from '../../assets/Chat Empty.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
+import BidConfirmationModal from '../BidConfirmationModal';
+import ActiveBidProductCard from '../ActiveBidProductCard';
+import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 
 const StreamDesktopUi = ({
     viewers = [],
@@ -20,6 +24,29 @@ const StreamDesktopUi = ({
     isToolsSidebarOpen,
     setIsToolsSidebarOpen
 }) => {
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showBidModal, setShowBidModal] = useState(false);
+    const { activateProductBidding, isActivatingBid } = useLivestreamContext();
+
+    const handleStartBid = (product) => {
+        setSelectedProduct(product);
+        setShowBidModal(true);
+    };
+
+    const handleConfirmBid = async () => {
+        if (!selectedProduct || !liveStreamDetails) return;
+        
+        try {
+            await activateProductBidding(liveStreamDetails._id, selectedProduct.product.productId);
+            setShowBidModal(false);
+        } catch (error) {
+            console.error("Error activating bid:", error);
+        }
+    };
+
+    // Check if any product has active bidding
+    const hasActiveBidding = products?.some(product => product.bidStatus === 'active');
+
     return (
         <div className="hidden xl:block">
             {/** HEADER */}
@@ -99,27 +126,47 @@ const StreamDesktopUi = ({
                             <div className="space-y-4 max-h-[calc(100vh-500px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                                 {
                                     products?.length > 0 ? (
-                                        products?.map((item) => (
-                                            <div key={item?.product.productId} className="bg-[#161A1E] flex flex-wrap gap-4 rounded-xl p-3">
-                                                <div className="">
-                                                    <img
-                                                        src={item?.product?.images[0]?.url}
-                                                        alt={item?.product?.name}
-                                                        className="w-[62px] h-[62px] object-contain rounded-lg"
+                                        products?.map((item) => {
+                                            // If product is actively bidding, show the active bid card
+                                            if (item.bidStatus === 'active') {
+                                                return (
+                                                    <ActiveBidProductCard 
+                                                        key={item?.product.productId} 
+                                                        product={item} 
+                                                        formatCurrency={formatCurrency} 
                                                     />
+                                                );
+                                            }
+                                            
+                                            // Otherwise show the regular product card
+                                            return (
+                                                <div key={item?.product.productId} className="bg-[#161A1E] flex flex-wrap gap-4 rounded-xl p-3">
+                                                    <div className="">
+                                                        <img
+                                                            src={item?.product?.images[0]?.url}
+                                                            alt={item?.product?.name}
+                                                            className="w-[62px] h-[62px] object-contain rounded-lg"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
+                                                        <p className="text-sm text-[#718096] font-inter font-medium">
+                                                            {formatCurrency(item?.product?.price)}
+                                                        </p>
+                                                    </div>
+                                                    <button 
+                                                        className={`text-[#14AE5C] flex justify-center items-center gap-2 w-full mt-2 border border-[#14AE5C] rounded-lg p-2 hover:bg-[#14AE5C]/10 transition-all duration-300 ${
+                                                            hasActiveBidding ? 'opacity-50 cursor-not-allowed' : ''
+                                                        }`}
+                                                        onClick={() => !hasActiveBidding && handleStartBid(item)}
+                                                        disabled={hasActiveBidding}
+                                                    >
+                                                        <p className="text-xs 2xl:text-sm font-inter font-medium">Start Bid</p>
+                                                        <Icon icon="solar:arrow-right-linear" className="w-5 h-5" />
+                                                    </button>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
-                                                    <p className="text-sm text-[#718096] font-inter font-medium">
-                                                        {formatCurrency(item?.product?.price)}
-                                                    </p>
-                                                </div>
-                                                <button className="text-[#14AE5C] flex justify-center items-center gap-2 w-full mt-2 border border-[#14AE5C] rounded-lg p-2 hover:bg-[#14AE5C]/10 transition-all duration-300">
-                                                    <p className="text-xs 2xl:text-sm font-inter font-medium">Start Bid</p>
-                                                    <Icon icon="solar:arrow-right-linear" className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     ) : (
                                         <div className="flex flex-col mt-10 items-center justify-center h-full">
                                             <p className="text-sm text-[#7A828A] font-inter">No products added yet</p>
@@ -210,6 +257,16 @@ const StreamDesktopUi = ({
                     </div>
                 </div>
             </div>
+
+            {/* Bid Confirmation Modal */}
+            {showBidModal && (
+                <BidConfirmationModal
+                    product={selectedProduct}
+                    onClose={() => setShowBidModal(false)}
+                    onConfirm={handleConfirmBid}
+                    isLoading={isActivatingBid}
+                />
+            )}
         </div>
     );
 };
@@ -227,6 +284,8 @@ StreamDesktopUi.propTypes = {
     products: PropTypes.array,
     formatCurrency: PropTypes.func,
     seller: PropTypes.object,
+    isToolsSidebarOpen: PropTypes.bool,
+    setIsToolsSidebarOpen: PropTypes.func
 };
 
 export default StreamDesktopUi;
