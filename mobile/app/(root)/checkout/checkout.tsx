@@ -439,10 +439,9 @@ const Checkout = () => {
       setOrderloading(false);
       console.log("could not create order", e);
       toast.error("Could not create order");
+    } finally {
+      setOrderloading(false);
     }
-    // finally {
-    //   setOrderloading(false);
-    // }
   }, [selectedAddress, deliveryFee, selectedPayment, cartTotal, cart]);
 
   useEffect(() => {
