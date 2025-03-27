@@ -5823,140 +5823,7 @@ exports.getBlipDetails = async (req, res) => {
   }
 };
 
-// Rerun an ended auction
-exports.rerunAuction = async (req, res) => {
-  try {
-    const { productId } = req.params;
 
-    console.log('Rerun Auction - Debugging Info:', {
-      requestUser: req.user,
-      userId: req.user.id,
-      productId: productId
-    });
-
-    // Find product and verify it's an auction product
-    const product = await Product.findById(productId);
-    if (!product) {
-      console.log('Product not found:', productId);
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    console.log('Product found:', {
-      productId: product._id,
-      productStatus: product.status,
-      sellerId: product.seller,
-      sellerIdString: typeof product.seller === 'object' ? product.seller._id : product.seller,
-      userIdFromReq: req.user.id
-    });
-
-    // Check if it's an auction product
-    if (product.status !== 'offline_auction') {
-      console.log('Not an auction product:', product.status);
-      return res.status(400).json({ message: 'Product is not an auction product' });
-    }
-
-    // Check seller authorization - properly extract seller ID whether it's populated or not
-    const sellerIdStr = typeof product.seller === 'object' 
-      ? product.seller._id.toString() 
-      : product.seller.toString();
-    const userIdStr = req.user.id;
-    
-    console.log('Authorization Check:', {
-      sellerId: sellerIdStr,
-      userId: userIdStr,
-      doTheyMatch: sellerIdStr === userIdStr
-    });
-
-    if (sellerIdStr !== userIdStr) {
-      console.log('Authorization failed - IDs do not match');
-      return res.status(403).json({ message: 'You are not authorized to rerun this auction' });
-    }
-
-    // Get auction parameters from request body with defaults from previous auction
-    const { 
-      minBid = product.auction.minBid, 
-      maxBid = product.auction.maxBid, 
-      endOnMaxBid = product.auction.endOnMaxBid,
-      startDate = new Date(Date.now() + 86400000), // Default: start tomorrow
-      endDate = new Date(Date.now() + 7 * 86400000) // Default: end in 7 days
-    } = req.body;
-
-    // Validate dates
-    const now = new Date();
-    if (new Date(startDate) <= now) {
-      return res.status(400).json({ message: 'Start date must be in the future' });
-    }
-    
-    if (new Date(endDate) <= new Date(startDate)) {
-      return res.status(400).json({ message: 'End date must be after start date' });
-    }
-
-    // Reset auction details
-    product.auction = {
-      minBid,
-      maxBid,
-      endOnMaxBid,
-      startDate,
-      endDate,
-      status: 'scheduled',
-      daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24)),
-      bids: [],
-      currentHighestBid: {
-        amount: null,
-        buyer: null
-      },
-      winner: {
-        buyer: null,
-        bidAmount: null,
-        winningDate: null
-      }
-    };
-
-    // Save the updated product
-    await product.save();
-    console.log('Auction reset successfully for product:', productId);
-
-    // Schedule end auction job
-    const agenda = require('../config/agenda').agenda;
-    await agenda.cancel({ name: 'end-auction', 'data.productId': productId.toString() });
-    await agenda.schedule(new Date(endDate), 'end-auction', { productId: productId.toString() });
-
-    // Send WebSocket notification if available
-    if (req.app.get('io')) {
-      req.app.get('io').to(`auction_${productId}`).emit('auction_rerun', {
-        productId: product._id,
-        auction: {
-          minBid,
-          maxBid,
-          endOnMaxBid,
-          startDate,
-          endDate,
-          status: 'scheduled',
-          daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24))
-        }
-      });
-    }
-
-    res.status(200).json({
-      message: 'Auction rerun successfully',
-      auction: {
-        minBid,
-        maxBid,
-        endOnMaxBid,
-        startDate,
-        endDate,
-        status: 'scheduled',
-        daysLeft: Math.ceil((new Date(startDate) - now) / (1000 * 60 * 60 * 24))
-      }
-    });
-  } catch (error) {
-    console.error('Error in rerunAuction:', error);
-    res.status(500).json({ 
-      message: 'Error rerunning auction', 
-      error: error.message 
-    });
-  }
-};
 
 // Get products by category and subcategory
 exports.getProductsByCategoryAndSubcategory = async (req, res) => {
@@ -6227,34 +6094,67 @@ exports.getPersonalizedBlips = async (req, res) => {
     const skip = (page - 1) * limit;
 
     let query = {};
-
+    let viewedBlips = [];
+    
     // Add blips existence condition
     query['blips.0'] = { $exists: true }; // Only products with blips
 
+    // Get buyer ID for isFollowing check
+    const buyerId = req.user?.id;
+    const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
+
     if (req.user) {
       // Authenticated user - personalize based on their preferences
-      const buyer = await Buyer.findById(req.user.id).select('selectedCategories');
+      const buyer = await Buyer.findById(req.user.id).select('selectedCategories viewedBlips');
       
-      if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
-        // Get all category names including subcategories
-        const categories = buyer.selectedCategories.reduce((acc, cat) => {
-          acc.push(cat.name);
-          if (cat.subCategories) {
-            acc.push(...cat.subCategories.map(sub => sub.name));
-          }
-          return acc;
-        }, []);
+      if (buyer) {
+        // Get viewed blips
+        viewedBlips = buyer.viewedBlips || [];
 
-        query = {
-          $or: [
-            { category: { $in: categories } },
-            { subCategory: { $in: categories } }
-          ]
-        };
+        if (buyer.selectedCategories && buyer.selectedCategories.length > 0) {
+          // Get all category names including subcategories
+          const categories = buyer.selectedCategories.reduce((acc, cat) => {
+            acc.push(cat.name);
+            if (cat.subCategories) {
+              acc.push(...cat.subCategories.map(sub => sub.name));
+            }
+            return acc;
+          }, []);
+
+          // Add categories to query with reduced weight
+          query = {
+            $and: [
+              { 'blips.0': { $exists: true } },
+              {
+                $or: [
+                  { category: { $in: categories } },
+                  { subCategory: { $in: categories } },
+                  { category: { $exists: true } } // Allow some non-matching categories
+                ]
+              }
+            ]
+          };
+        }
       }
     }
 
-    // First, get a pool of products with high engagement
+    // Exclude viewed blips if any exist
+    if (viewedBlips.length > 0) {
+      query['blips._id'] = { $nin: viewedBlips };
+    }
+
+    // Get total count before pagination
+    const total = await Product.countDocuments(query);
+
+    // If all blips in preferred categories are viewed, remove category filter
+    if (total === 0 && req.user) {
+      query = {
+        'blips.0': { $exists: true },
+        'blips._id': { $nin: viewedBlips }
+      };
+    }
+
+    // Get products with proper pagination and randomization
     const products = await Product.aggregate([
       { $match: query },
       { $unwind: "$blips" },
@@ -6262,28 +6162,37 @@ exports.getPersonalizedBlips = async (req, res) => {
         $addFields: {
           engagementScore: {
             $add: [
-              { $multiply: ["$blips.likesCount", 2] }, // Likes weight
-              { $multiply: ["$blips.viewCount", 1] }, // Views weight
-              { $multiply: ["$blips.commentsCount", 3] } // Comments weight
+              { $multiply: ["$blips.likesCount", 1] }, // Reduced weight for likes
+              { $multiply: ["$blips.viewCount", 0.5] }, // Reduced weight for views
+              { $multiply: ["$blips.commentsCount", 1.5] } // Reduced weight for comments
             ]
           },
-          randomScore: { $rand: {} } // Add random score between 0 and 1
+          randomScore: { $rand: {} } // Random score between 0 and 1
         }
       },
       {
         $addFields: {
           finalScore: {
             $add: [
-              { $multiply: ["$engagementScore", 0.7] },
-              { $multiply: ["$randomScore", 0.3] }
+              { $multiply: ["$engagementScore", 0.3] }, // Reduced weight for engagement
+              { $multiply: ["$randomScore", 0.7] } // Increased weight for randomness
             ]
           }
         }
       },
+      {
+        $group: {
+          _id: "$_id",
+          doc: { $first: "$$ROOT" },
+          finalScore: { $first: "$finalScore" }
+        }
+      },
       { $sort: { finalScore: -1 } },
-      { $limit: limit * 3 },
-      { $sample: { size: limit } },
       { $skip: skip },
+      { $limit: limit },
+      {
+        $replaceRoot: { newRoot: "$doc" }
+      },
       {
         $project: {
           _id: 1,
@@ -6295,6 +6204,7 @@ exports.getPersonalizedBlips = async (req, res) => {
           subCategory: 1,
           seller: 1,
           discount: 1,
+          auction: 1,
           images: { $arrayElemAt: ["$images.url", 0] },
           blip: "$blips",
           reviews: 1,
@@ -6307,66 +6217,96 @@ exports.getPersonalizedBlips = async (req, res) => {
     await Product.populate(products, [
       {
         path: 'seller',
-        select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured'
+        select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured followers'
       }
     ]);
 
-    // Get total count for pagination
-    const total = await Product.countDocuments(query);
+    // If user is authenticated, update their viewed blips
+    if (req.user && products.length > 0) {
+      const newBlipIds = products.map(product => product.blip._id);
+      await Buyer.findByIdAndUpdate(
+        req.user.id,
+        { 
+          $addToSet: { 
+            viewedBlips: { 
+              $each: newBlipIds 
+            } 
+          } 
+        },
+        { upsert: true }
+      );
+    }
 
     // Transform the data to match getAllBlips structure
-    const transformedBlips = products.map(product => ({
-      discount: {
-        isActive: product.discount?.isActive || false,
-        type: product.discount?.type || "percentage",
-        value: product.discount?.value || 0,
-        discountedPrice: product.discount?.discountedPrice || product.price
-      },
-      _id: product._id,
-      blipId: product.blip._id,
-      blipUrl: product.blip.url,
-      thumbnail: product.blip.thumbnail,
-      productId: product._id,
-      productName: product.name,
-      price: product.price,
-      stock: product.stock,
-      status: product.status,
-      auctionInfo: product.status === 'offline_auction' ? {
-        minBid: product.auction?.minBid,
-        maxBid: product.auction?.maxBid,
-        endOnMaxBid: product.auction?.endOnMaxBid,
-        startDate: product.auction?.startDate,
-        endDate: product.auction?.endDate,
-        status: product.auction?.status,
-        daysLeft: product.auction?.daysLeft,
-        currentHighestBid: product.auction?.currentHighestBid,
-        winner: product.auction?.winner,
-        bidsCount: product.auction?.bids?.length || 0
-      } : null,
-      images: product.images,
-      blipEngagement: {
-        likesCount: product.blip.likesCount || 0,
-        commentsCount: product.blip.commentsCount || 0,
-        viewCount: product.blip.viewCount || 0
-      },
-      averageRating: product.reviews?.length > 0 
-        ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length 
-        : null,
-      reviewCount: product.reviews?.length || 0,
-      createdAt: product.blip.createdAt,
-      seller: {
-        _id: product.seller._id,
-        firstName: product.seller.firstName,
-        lastName: product.seller.lastName,
-        storeName: product.seller.storeName,
-        storeAvatar: product.seller.storeAvatar,
-        aboutStore: product.seller.aboutStore,
-        storeRating: product.seller.storeRating,
-        totalStoreReviews: product.seller.totalStoreReviews,
-        isFollowing: false, // This would need to be calculated based on the user's following status
-        isFeatured: product.seller.isFeatured
+    const transformedBlips = products.map(product => {
+      // Check if the buyer is following this seller
+      const isFollowing = product.seller.followers && buyerId ? 
+        product.seller.followers.some(follower => 
+          follower.buyerId && follower.buyerId.toString() === buyerId.toString()
+        ) : false;
+
+      return {
+        discount: {
+          isActive: product.discount?.isActive || false,
+          type: product.discount?.type || "percentage",
+          value: product.discount?.value || 0,
+          discountedPrice: product.discount?.discountedPrice || product.price
+        },
+        _id: product._id,
+        blipId: product.blip._id,
+        blipUrl: product.blip.url,
+        thumbnail: product.blip.thumbnail,
+        productId: product._id,
+        productName: product.name,
+        price: product.price,
+        stock: product.stock,
+        status: product.status,
+        auctionInfo: product.status === 'offline_auction' ? {
+          minBid: product.auction?.minBid,
+          maxBid: product.auction?.maxBid,
+          endOnMaxBid: product.auction?.endOnMaxBid,
+          startDate: product.auction?.startDate,
+          endDate: product.auction?.endDate,
+          status: product.auction?.status,
+          daysLeft: product.auction?.daysLeft,
+          currentHighestBid: product.auction?.currentHighestBid,
+          winner: product.auction?.winner,
+          bidsCount: product.auction?.bids?.length || 0
+        } : null,
+        images: product.images,
+        blipEngagement: {
+          likesCount: product.blip.likesCount || 0,
+          commentsCount: product.blip.commentsCount || 0,
+          viewCount: product.blip.viewCount || 0
+        },
+        averageRating: product.reviews?.length > 0 
+          ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length 
+          : null,
+        reviewCount: product.reviews?.length || 0,
+        createdAt: product.blip.createdAt,
+        seller: {
+          _id: product.seller._id,
+          firstName: product.seller.firstName,
+          lastName: product.seller.lastName,
+          storeName: product.seller.storeName,
+          storeAvatar: product.seller.storeAvatar,
+          aboutStore: product.seller.aboutStore,
+          storeRating: product.seller.storeRating,
+          totalStoreReviews: product.seller.totalStoreReviews,
+          isFollowing: isFollowing,
+          isFeatured: product.seller.isFeatured
+        }
+      };
+    });
+
+    // For unauthenticated users, add an additional randomization step
+    if (!req.user) {
+      // Fisher-Yates shuffle algorithm for additional randomization
+      for (let i = transformedBlips.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [transformedBlips[i], transformedBlips[j]] = [transformedBlips[j], transformedBlips[i]];
       }
-    }));
+    }
 
     res.json({
       blips: transformedBlips,
@@ -6380,6 +6320,112 @@ exports.getPersonalizedBlips = async (req, res) => {
       status: false,
       message: 'Failed to fetch personalized blips',
       error: error.message
+    });
+  }
+};
+
+// Rerun an ended offline auction
+exports.rerunOfflineAuction = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { startDate, endDate, minBid, maxBid, endOnMaxBid } = req.body;
+
+    // Validate required fields
+    if (!endDate) {
+      return res.status(400).json({ message: 'End date is required' });
+    }
+
+    // Find the product and verify it's an auction product
+    const product = await Product.findById(productId).populate('seller');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Verify the seller owns this product
+    if (product.seller._id.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to rerun this auction' });
+    }
+
+    // Verify it's an offline auction product
+    if (product.status !== 'offline_auction') {
+      return res.status(400).json({ message: 'This product is not an offline auction' });
+    }
+
+    // Verify the auction has ended
+    if (product.auction.status !== 'ended') {
+      return res.status(400).json({ message: 'Cannot rerun an auction that has not ended' });
+    }
+
+    // Parse and validate dates
+    let parsedStartDate;
+    let parsedEndDate;
+
+    try {
+      // If startDate is provided, parse it, otherwise use current date
+      parsedStartDate = startDate ? new Date(startDate) : new Date();
+      parsedEndDate = new Date(endDate);
+
+      // Validate that the dates are valid
+      if (isNaN(parsedStartDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid start date format' });
+      }
+      if (isNaN(parsedEndDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid end date format' });
+      }
+
+      // Validate date order
+      if (parsedEndDate <= parsedStartDate) {
+        return res.status(400).json({ message: 'End date must be after start date' });
+      }
+    } catch (error) {
+      return res.status(400).json({ message: 'Invalid date format', error: error.message });
+    }
+
+    // Calculate days left
+    const daysLeft = Math.ceil((parsedEndDate - parsedStartDate) / (1000 * 60 * 60 * 24));
+
+    // Validate bid amounts if provided
+    if (minBid && maxBid && minBid >= maxBid) {
+      return res.status(400).json({ message: 'Maximum bid must be greater than minimum bid' });
+    }
+
+    // Reset auction data
+    product.auction = {
+      minBid: minBid || product.auction.minBid,
+      maxBid: maxBid || product.auction.maxBid,
+      endOnMaxBid: endOnMaxBid !== undefined ? endOnMaxBid : product.auction.endOnMaxBid,
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      status: 'scheduled',
+      daysLeft: daysLeft,
+      bids: [],
+      currentHighestBid: {
+        amount: null,
+        buyer: null
+      },
+      winner: {
+        buyer: null,
+        bidAmount: null,
+        winningDate: null
+      }
+    };
+
+    await product.save();
+
+    res.status(200).json({
+      message: 'Auction successfully rerun',
+      auction: product.auction
+    });
+
+  } catch (error) {
+    console.error('Error rerunning auction:', error);
+    res.status(500).json({ 
+      message: 'Error rerunning auction', 
+      error: error.message,
+      details: error.errors ? Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      })) : null
     });
   }
 };

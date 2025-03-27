@@ -1401,7 +1401,8 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
 
   this.auction.status = 'ended';
   
-  if (this.auction.currentHighestBid.buyer) {
+  // Always set the winner to the highest bidder when ending auction
+  if (this.auction.currentHighestBid && this.auction.currentHighestBid.buyer) {
     // Set the winner
     this.auction.winner = {
       buyer: this.auction.currentHighestBid.buyer,

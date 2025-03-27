@@ -424,6 +424,7 @@ exports.getBlockedUsers = async (req, res) => {
         const userData = {
           id: otherParticipant.id._id,
           userType: otherParticipant.model,
+          conversationId: conversation._id
         };
 
         // Set name and profile image based on user type
