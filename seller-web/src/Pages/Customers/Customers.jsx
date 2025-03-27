@@ -299,9 +299,9 @@ function Customers() {
                         <div className="flex items-center gap-2">
                           <FiMapPin className="w-4 h-4 text-gray-400" />
                           <span className="text-gray-600">
-                            {follower.mainAddress ?
-                              `${follower.mainAddress.city}, ${follower.mainAddress.country}` :
-                              'N/A'
+                            {follower.mainAddress ? 
+                              `${follower.mainAddress.city || 'Unknown City'}, ${follower.mainAddress.country === 'NG' ? 'Nigeria' : follower.mainAddress.country}` :
+                              'Location not set'
                             }
                           </span>
                         </div>
