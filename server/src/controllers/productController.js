@@ -6094,7 +6094,6 @@ exports.getPersonalizedBlips = async (req, res) => {
     const skip = (page - 1) * limit;
 
     let query = {};
-    let viewedBlips = [];
     
     // Add blips existence condition
     query['blips.0'] = { $exists: true }; // Only products with blips
@@ -6105,94 +6104,55 @@ exports.getPersonalizedBlips = async (req, res) => {
 
     if (req.user) {
       // Authenticated user - personalize based on their preferences
-      const buyer = await Buyer.findById(req.user.id).select('selectedCategories viewedBlips');
+      const buyer = await Buyer.findById(req.user.id).select('selectedCategories');
       
-      if (buyer) {
-        // Get viewed blips
-        viewedBlips = buyer.viewedBlips || [];
+      if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
+        // Get all category names including subcategories
+        const categories = buyer.selectedCategories.reduce((acc, cat) => {
+          acc.push(cat.name);
+          if (cat.subCategories) {
+            acc.push(...cat.subCategories.map(sub => sub.name));
+          }
+          return acc;
+        }, []);
 
-        if (buyer.selectedCategories && buyer.selectedCategories.length > 0) {
-          // Get all category names including subcategories
-          const categories = buyer.selectedCategories.reduce((acc, cat) => {
-            acc.push(cat.name);
-            if (cat.subCategories) {
-              acc.push(...cat.subCategories.map(sub => sub.name));
+        // Add categories to query with reduced weight
+        query = {
+          $and: [
+            { 'blips.0': { $exists: true } },
+            {
+              $or: [
+                { category: { $in: categories } },
+                { subCategory: { $in: categories } },
+                { category: { $exists: true } } // Allow some non-matching categories
+              ]
             }
-            return acc;
-          }, []);
-
-          // Add categories to query with reduced weight
-          query = {
-            $and: [
-              { 'blips.0': { $exists: true } },
-              {
-                $or: [
-                  { category: { $in: categories } },
-                  { subCategory: { $in: categories } },
-                  { category: { $exists: true } } // Allow some non-matching categories
-                ]
-              }
-            ]
-          };
-        }
+          ]
+        };
       }
     }
 
-    // Exclude viewed blips if any exist
-    if (viewedBlips.length > 0) {
-      query['blips._id'] = { $nin: viewedBlips };
+    // Get total count for pagination
+    const total = await Product.countDocuments({ 'blips.0': { $exists: true } });
+    
+    // If there are no results with category filtering, just show all blips
+    if ((await Product.countDocuments(query)) === 0) {
+      query = { 'blips.0': { $exists: true } };
     }
 
-    // Get total count before pagination
-    const total = await Product.countDocuments(query);
-
-    // If all blips in preferred categories are viewed, remove category filter
-    if (total === 0 && req.user) {
-      query = {
-        'blips.0': { $exists: true },
-        'blips._id': { $nin: viewedBlips }
-      };
-    }
-
-    // Get products with proper pagination and randomization
+    // Get products with proper pagination and increased randomization
     const products = await Product.aggregate([
       { $match: query },
       { $unwind: "$blips" },
       {
         $addFields: {
-          engagementScore: {
-            $add: [
-              { $multiply: ["$blips.likesCount", 1] }, // Reduced weight for likes
-              { $multiply: ["$blips.viewCount", 0.5] }, // Reduced weight for views
-              { $multiply: ["$blips.commentsCount", 1.5] } // Reduced weight for comments
-            ]
-          },
+          // Increase the weight of randomness to ensure more shuffling on each fetch
           randomScore: { $rand: {} } // Random score between 0 and 1
         }
       },
-      {
-        $addFields: {
-          finalScore: {
-            $add: [
-              { $multiply: ["$engagementScore", 0.3] }, // Reduced weight for engagement
-              { $multiply: ["$randomScore", 0.7] } // Increased weight for randomness
-            ]
-          }
-        }
-      },
-      {
-        $group: {
-          _id: "$_id",
-          doc: { $first: "$$ROOT" },
-          finalScore: { $first: "$finalScore" }
-        }
-      },
-      { $sort: { finalScore: -1 } },
+      { $sort: { randomScore: -1 } }, // Sort primarily by random score
       { $skip: skip },
       { $limit: limit },
-      {
-        $replaceRoot: { newRoot: "$doc" }
-      },
       {
         $project: {
           _id: 1,
@@ -6220,22 +6180,6 @@ exports.getPersonalizedBlips = async (req, res) => {
         select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured followers'
       }
     ]);
-
-    // If user is authenticated, update their viewed blips
-    if (req.user && products.length > 0) {
-      const newBlipIds = products.map(product => product.blip._id);
-      await Buyer.findByIdAndUpdate(
-        req.user.id,
-        { 
-          $addToSet: { 
-            viewedBlips: { 
-              $each: newBlipIds 
-            } 
-          } 
-        },
-        { upsert: true }
-      );
-    }
 
     // Transform the data to match getAllBlips structure
     const transformedBlips = products.map(product => {
@@ -6299,13 +6243,10 @@ exports.getPersonalizedBlips = async (req, res) => {
       };
     });
 
-    // For unauthenticated users, add an additional randomization step
-    if (!req.user) {
-      // Fisher-Yates shuffle algorithm for additional randomization
-      for (let i = transformedBlips.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [transformedBlips[i], transformedBlips[j]] = [transformedBlips[j], transformedBlips[i]];
-      }
+    // Further randomize the blips using Fisher-Yates shuffle
+    for (let i = transformedBlips.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [transformedBlips[i], transformedBlips[j]] = [transformedBlips[j], transformedBlips[i]];
     }
 
     res.json({
