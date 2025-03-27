@@ -139,7 +139,7 @@ const CheckoutSummary = () => {
 
       const response = await axios(config);
       console.log("order payment Response ==> ", response.data);
-      return router.push("/(root)/orders/orders");
+      return router.replace("/(root)/orders/orders");
 
       if (response.status == 200) {
         await AsyncStorage.removeItem("order");
@@ -148,7 +148,7 @@ const CheckoutSummary = () => {
       }
     } catch (e: any) {
       if (e?.response.status == 400) {
-        return router.push("/(root)/orders/orders");
+        return router.replace("/(root)/orders/orders");
       }
       console.log("could not Pay for  order", e?.response?.message);
       toast.error("Could not Pay for order");

@@ -10,7 +10,7 @@ import React, { useState } from "react";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 
 const conditions = [
-  { label: "Open Shows", value: "open_shows" },
+  { label: "Open Shows", value: "open_show" },
   { label: "Live Auctions", value: "auction" },
 ];
 
