@@ -6094,37 +6094,67 @@ exports.getPersonalizedBlips = async (req, res) => {
     const skip = (page - 1) * limit;
 
     let query = {};
-
+    let viewedBlips = [];
+    
     // Add blips existence condition
     query['blips.0'] = { $exists: true }; // Only products with blips
 
+    // Get buyer ID for isFollowing check
+    const buyerId = req.user?.id;
+    const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
+
     if (req.user) {
       // Authenticated user - personalize based on their preferences
-      const buyer = await Buyer.findById(req.user.id).select('selectedCategories');
+      const buyer = await Buyer.findById(req.user.id).select('selectedCategories viewedBlips');
       
-      if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
-        // Get all category names including subcategories
-        const categories = buyer.selectedCategories.reduce((acc, cat) => {
-          acc.push(cat.name);
-          if (cat.subCategories) {
-            acc.push(...cat.subCategories.map(sub => sub.name));
-          }
-          return acc;
-        }, []);
+      if (buyer) {
+        // Get viewed blips
+        viewedBlips = buyer.viewedBlips || [];
 
-        query = {
-          $or: [
-            { category: { $in: categories } },
-            { subCategory: { $in: categories } }
-          ]
-        };
+        if (buyer.selectedCategories && buyer.selectedCategories.length > 0) {
+          // Get all category names including subcategories
+          const categories = buyer.selectedCategories.reduce((acc, cat) => {
+            acc.push(cat.name);
+            if (cat.subCategories) {
+              acc.push(...cat.subCategories.map(sub => sub.name));
+            }
+            return acc;
+          }, []);
+
+          // Add categories to query with reduced weight
+          query = {
+            $and: [
+              { 'blips.0': { $exists: true } },
+              {
+                $or: [
+                  { category: { $in: categories } },
+                  { subCategory: { $in: categories } },
+                  { category: { $exists: true } } // Allow some non-matching categories
+                ]
+              }
+            ]
+          };
+        }
       }
+    }
+
+    // Exclude viewed blips if any exist
+    if (viewedBlips.length > 0) {
+      query['blips._id'] = { $nin: viewedBlips };
     }
 
     // Get total count before pagination
     const total = await Product.countDocuments(query);
 
-    // Get products with proper pagination
+    // If all blips in preferred categories are viewed, remove category filter
+    if (total === 0 && req.user) {
+      query = {
+        'blips.0': { $exists: true },
+        'blips._id': { $nin: viewedBlips }
+      };
+    }
+
+    // Get products with proper pagination and randomization
     const products = await Product.aggregate([
       { $match: query },
       { $unwind: "$blips" },
@@ -6132,20 +6162,20 @@ exports.getPersonalizedBlips = async (req, res) => {
         $addFields: {
           engagementScore: {
             $add: [
-              { $multiply: ["$blips.likesCount", 2] }, // Likes weight
-              { $multiply: ["$blips.viewCount", 1] }, // Views weight
-              { $multiply: ["$blips.commentsCount", 3] } // Comments weight
+              { $multiply: ["$blips.likesCount", 1] }, // Reduced weight for likes
+              { $multiply: ["$blips.viewCount", 0.5] }, // Reduced weight for views
+              { $multiply: ["$blips.commentsCount", 1.5] } // Reduced weight for comments
             ]
           },
-          randomScore: { $rand: {} } // Add random score between 0 and 1
+          randomScore: { $rand: {} } // Random score between 0 and 1
         }
       },
       {
         $addFields: {
           finalScore: {
             $add: [
-              { $multiply: ["$engagementScore", 0.7] },
-              { $multiply: ["$randomScore", 0.3] }
+              { $multiply: ["$engagementScore", 0.3] }, // Reduced weight for engagement
+              { $multiply: ["$randomScore", 0.7] } // Increased weight for randomness
             ]
           }
         }
@@ -6187,63 +6217,96 @@ exports.getPersonalizedBlips = async (req, res) => {
     await Product.populate(products, [
       {
         path: 'seller',
-        select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured'
+        select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured followers'
       }
     ]);
 
+    // If user is authenticated, update their viewed blips
+    if (req.user && products.length > 0) {
+      const newBlipIds = products.map(product => product.blip._id);
+      await Buyer.findByIdAndUpdate(
+        req.user.id,
+        { 
+          $addToSet: { 
+            viewedBlips: { 
+              $each: newBlipIds 
+            } 
+          } 
+        },
+        { upsert: true }
+      );
+    }
+
     // Transform the data to match getAllBlips structure
-    const transformedBlips = products.map(product => ({
-      discount: {
-        isActive: product.discount?.isActive || false,
-        type: product.discount?.type || "percentage",
-        value: product.discount?.value || 0,
-        discountedPrice: product.discount?.discountedPrice || product.price
-      },
-      _id: product._id,
-      blipId: product.blip._id,
-      blipUrl: product.blip.url,
-      thumbnail: product.blip.thumbnail,
-      productId: product._id,
-      productName: product.name,
-      price: product.price,
-      stock: product.stock,
-      status: product.status,
-      auctionInfo: product.status === 'offline_auction' ? {
-        minBid: product.auction?.minBid,
-        maxBid: product.auction?.maxBid,
-        endOnMaxBid: product.auction?.endOnMaxBid,
-        startDate: product.auction?.startDate,
-        endDate: product.auction?.endDate,
-        status: product.auction?.status,
-        daysLeft: product.auction?.daysLeft,
-        currentHighestBid: product.auction?.currentHighestBid,
-        winner: product.auction?.winner,
-        bidsCount: product.auction?.bids?.length || 0
-      } : null,
-      images: product.images,
-      blipEngagement: {
-        likesCount: product.blip.likesCount || 0,
-        commentsCount: product.blip.commentsCount || 0,
-        viewCount: product.blip.viewCount || 0
-      },
-      averageRating: product.reviews?.length > 0 
-        ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length 
-        : null,
-      reviewCount: product.reviews?.length || 0,
-      createdAt: product.blip.createdAt,
-      seller: {
-        _id: product.seller._id,
-        firstName: product.seller.firstName,
-        lastName: product.seller.lastName,
-        storeName: product.seller.storeName,
-        storeAvatar: product.seller.storeAvatar,
-        aboutStore: product.seller.aboutStore,
-        storeRating: product.seller.storeRating,
-        totalStoreReviews: product.seller.totalStoreReviews,
-        isFollowing: false, // This would need to be calculated based on the user's following status
-        isFeatured: product.seller.isFeatured
+    const transformedBlips = products.map(product => {
+      // Check if the buyer is following this seller
+      const isFollowing = product.seller.followers && buyerId ? 
+        product.seller.followers.some(follower => 
+          follower.buyerId && follower.buyerId.toString() === buyerId.toString()
+        ) : false;
+
+      return {
+        discount: {
+          isActive: product.discount?.isActive || false,
+          type: product.discount?.type || "percentage",
+          value: product.discount?.value || 0,
+          discountedPrice: product.discount?.discountedPrice || product.price
+        },
+        _id: product._id,
+        blipId: product.blip._id,
+        blipUrl: product.blip.url,
+        thumbnail: product.blip.thumbnail,
+        productId: product._id,
+        productName: product.name,
+        price: product.price,
+        stock: product.stock,
+        status: product.status,
+        auctionInfo: product.status === 'offline_auction' ? {
+          minBid: product.auction?.minBid,
+          maxBid: product.auction?.maxBid,
+          endOnMaxBid: product.auction?.endOnMaxBid,
+          startDate: product.auction?.startDate,
+          endDate: product.auction?.endDate,
+          status: product.auction?.status,
+          daysLeft: product.auction?.daysLeft,
+          currentHighestBid: product.auction?.currentHighestBid,
+          winner: product.auction?.winner,
+          bidsCount: product.auction?.bids?.length || 0
+        } : null,
+        images: product.images,
+        blipEngagement: {
+          likesCount: product.blip.likesCount || 0,
+          commentsCount: product.blip.commentsCount || 0,
+          viewCount: product.blip.viewCount || 0
+        },
+        averageRating: product.reviews?.length > 0 
+          ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length 
+          : null,
+        reviewCount: product.reviews?.length || 0,
+        createdAt: product.blip.createdAt,
+        seller: {
+          _id: product.seller._id,
+          firstName: product.seller.firstName,
+          lastName: product.seller.lastName,
+          storeName: product.seller.storeName,
+          storeAvatar: product.seller.storeAvatar,
+          aboutStore: product.seller.aboutStore,
+          storeRating: product.seller.storeRating,
+          totalStoreReviews: product.seller.totalStoreReviews,
+          isFollowing: isFollowing,
+          isFeatured: product.seller.isFeatured
+        }
+      };
+    });
+
+    // For unauthenticated users, add an additional randomization step
+    if (!req.user) {
+      // Fisher-Yates shuffle algorithm for additional randomization
+      for (let i = transformedBlips.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [transformedBlips[i], transformedBlips[j]] = [transformedBlips[j], transformedBlips[i]];
       }
-    }));
+    }
 
     res.json({
       blips: transformedBlips,
