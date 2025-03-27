@@ -387,8 +387,7 @@ exports.placeBid = async (req, res) => {
 
     // Find the product in the stream's products array
     const productIndex = stream.products.findIndex(p => 
-      p.product._id && p.product._id.toString() === productId ||
-      p.product && p.product.toString() === productId
+      p.product && p.product.productId.toString() === productId
     );
 
     if (productIndex === -1) {
@@ -1803,7 +1802,6 @@ exports.activateProductBidding = async (req, res) => {
 
     // Find the product in the stream's products array
     const productIndex = stream.products.findIndex(p => 
-      p.product._id && p.product._id.toString() === productId ||
       p.product && p.product.productId.toString() === productId
     );
 
