@@ -85,6 +85,7 @@ const CheckoutNow = ({
   const [orderId, setOrderId] = useState<string>("");
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
 
   const generateReference = () => {
     const prefix = "ORDER";
@@ -224,7 +225,7 @@ const CheckoutNow = ({
     } catch (e) {
       console.log("error fetching delivery fee ", e);
     } finally {
-      setLoading(false);
+      setShippingFeeLoading(false);
     }
   };
 
@@ -255,7 +256,9 @@ const CheckoutNow = ({
         {
           productId: product._id,
           quantity: 1,
-          price: product?.discount?.discountedPrice || product.price,
+          price: product?.discount?.isActive
+            ? product?.discount?.discountedPrice
+            : product.price,
           weight: product.weight?.toFixed(0) * 1,
           seller: {
             sellerId: product.seller._id,
@@ -641,29 +644,40 @@ const CheckoutNow = ({
                 <Text className="text-white text-[16px] font-LexendDecaSemiBold">
                   Shipping Fee
                 </Text>
-                <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                  {deliveryFee
-                    ? "₦" +
-                      deliveryFee?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
-                    : "-"}
-                </Text>
+                {shippingFeeLoading ? (
+                  <ActivityIndicator size={10} color="white" />
+                ) : (
+                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    {deliveryFee
+                      ? "₦" +
+                        deliveryFee?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "-"}
+                  </Text>
+                )}
               </View>
               <View className="flex-row justify-between items-center">
                 <Text className="text-white text-[16px] font-LexendDecaSemiBold">
                   Total
                 </Text>
-                <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                  {deliveryFee && productTotal
-                    ? "₦" +
-                      (deliveryFee + productTotal)?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
-                    : "-"}
-                </Text>
+                {shippingFeeLoading ? (
+                  <ActivityIndicator size={10} color="white" />
+                ) : (
+                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    {deliveryFee && productTotal
+                      ? "₦" +
+                        (deliveryFee + productTotal)?.toLocaleString(
+                          undefined,
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )
+                      : "-"}
+                  </Text>
+                )}
               </View>
             </View>
 

@@ -438,7 +438,7 @@ const CheckoutSummary = () => {
       </SafeAreaView>
       {loading ? null : (
         <View
-          className={`absolute w-full bottom-0 left-0 p-[16px] bg-[#121212] ${!(shippingFee && subtotal) ? "opacity-50" : " "}`}
+          className={`absolute w-full bottom-[20px] left-0 p-[16px] bg-[#121212] ${!(shippingFee && subtotal) ? "opacity-50" : " "}`}
         >
           <TouchableOpacity
             className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A] "

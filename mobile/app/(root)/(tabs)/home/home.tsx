@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RootState } from "@/store";
 import CreateAccountModal from "@/components/global/create-account-prompt";
+import OrderPopup from "@/components/global/orders/order-popup";
 
 const { width, height } = Dimensions.get("window");
 
@@ -60,6 +61,7 @@ const Homepage = () => {
       >
         <Home />
         <CreateAccountModal isVisible={isVisible} closeModal={closeModal} />
+        {/* <OrderPopup isVisible={true} closeModal={closeModal} /> */}
       </View>
     </>
   );

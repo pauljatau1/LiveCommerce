@@ -28,6 +28,9 @@ import LoadingModal from "@/components/global/loading-modal";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { useIsFocused } from "@react-navigation/native";
 import { Paystack } from "react-native-paystack-webview";
+import OrderPopup from "@/components/global/orders/order-popup";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 const { width, height } = Dimensions.get("window");
 
@@ -58,6 +61,7 @@ const paymentOptions = [
 
 const Checkout = () => {
   const isFocused = useIsFocused();
+  const token = useSelector((state: RootState) => state.authState.token);
   const [loading, setLoading] = useState<boolean>(true);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
@@ -81,6 +85,20 @@ const Checkout = () => {
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [totalWalletBalance, setTotalWalletBalance] = useState<number>(0);
+  const [isSuccessVisible, setIsSuccessVisible] = useState<boolean>(false);
+  const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
+
+  const closeSuccessPopup = useCallback(
+    (form: string) => {
+      setIsSuccessVisible(false);
+      if (form == "home") {
+        router.replace("/(root)/(tabs)/home/home");
+      } else {
+        router.replace("/(root)/orders/orders");
+      }
+    },
+    [isSuccessVisible],
+  );
 
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
@@ -110,7 +128,6 @@ const Checkout = () => {
 
   const getWalletBalance = async () => {
     try {
-      const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/balance`,
         {
@@ -131,7 +148,6 @@ const Checkout = () => {
   };
   const getAddresses = async () => {
     try {
-      const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + "api/buyer/addresses",
         {
@@ -152,7 +168,7 @@ const Checkout = () => {
         };
 
         setSelectedAddress(delivery_address);
-        await getShippingFee();
+        // await getShippingFee();
       }
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
@@ -238,7 +254,6 @@ const Checkout = () => {
       };
     });
     try {
-      const token = await getToken();
       const response = await axios.post(
         process.env.EXPO_PUBLIC_API_URL + "api/order/delivery-cost",
         {
@@ -257,53 +272,57 @@ const Checkout = () => {
     } catch (e) {
       console.log("error fetching delivery fee ", e);
     } finally {
-      setLoading(false);
+      setShippingFeeLoading(false);
     }
   };
 
-  const onPaystackSuccess = async (paystackResponse: any) => {
-    setShowPaystack(false);
-    try {
-      const token = await getToken();
-      const payload = {
-        paymentReference: paystackResponse.data.transactionRef.reference,
-      };
-      const config = {
-        method: "PATCH",
-        url:
-          process.env.EXPO_PUBLIC_API_URL + `api/order/${orderId}/mark-as-paid`,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-        },
-        data: payload,
-      };
+  const onPaystackSuccess = useCallback(
+    async (paystackResponse: any) => {
+      setShowPaystack(false);
+      try {
+        const payload = {
+          paymentReference: paystackResponse.data.transactionRef.reference,
+        };
+        const config = {
+          method: "PATCH",
+          url:
+            process.env.EXPO_PUBLIC_API_URL +
+            `api/order/${orderId}/mark-as-paid`,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+          },
+          data: payload,
+        };
 
-      const response = await axios(config);
-      console.log("order payment Response ==> ", response.data);
-      return router.push("/(root)/orders/orders");
-
-      if (response.status == 200) {
-        await AsyncStorage.removeItem("order");
-        toast.success("Order paid successfully");
-        router.replace(`/`);
-      }
-    } catch (e: any) {
-      if (e?.response.status == 400) {
+        const response = await axios(config);
+        console.log("order payment Response ==> ", response.data);
+        return setIsSuccessVisible(true);
         return router.push("/(root)/orders/orders");
-      }
-      console.log("could not Pay for  order", e?.response?.message);
-      toast.error("Could not Pay for order");
-    } finally {
-      setPayLoading(false);
-    }
-  };
 
-  const onPaystackClose = () => {
+        if (response.status == 200) {
+          await AsyncStorage.removeItem("order");
+          toast.success("Order paid successfully");
+          router.replace(`/`);
+        }
+      } catch (e: any) {
+        if (e?.response.status == 400) {
+          return router.replace("/(root)/orders/orders");
+        }
+        console.log("could not Pay for  order", e?.response?.message);
+        toast.error("Could not Pay for order");
+      } finally {
+        setPayLoading(false);
+      }
+    },
+    [showPaystack, orderId],
+  );
+
+  const onPaystackClose = useCallback(() => {
     setShowPaystack(false);
     setPayLoading(false);
     toast.info("Payment Cancelled");
-  };
+  }, [showPaystack]);
 
   const generateReference = () => {
     const prefix = "ORDER";
@@ -312,10 +331,12 @@ const Checkout = () => {
   };
 
   useEffect(() => {
-    getShippingFee();
+    if (selectedAddress?.recipientState) {
+      getShippingFee();
+    }
   }, [selectedAddress]);
 
-  const handleCompleteOrder = async () => {
+  const handleCompleteOrder = useCallback(async () => {
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
@@ -340,7 +361,9 @@ const Checkout = () => {
         return {
           productId: item._id,
           quantity: item.quantity,
-          price: item?.discount?.discountedPrice || item.price,
+          price: item?.discount?.isActive
+            ? item?.discount?.discountedPrice
+            : item.price,
           weight: item.weight?.toFixed(0) * item.quantity,
           seller: {
             sellerId: item.seller._id,
@@ -377,13 +400,8 @@ const Checkout = () => {
       paidFromWallet: selectedPayment == 1,
     };
 
-    // const order = {};
-    console.log(JSON.stringify(order));
-
+    setOrderloading(true);
     try {
-      setOrderloading(true);
-      const token = await getToken();
-      // console.log("order ==> ", order);
       const config = {
         method: "POST",
         url: process.env.EXPO_PUBLIC_API_URL + `api/order`,
@@ -395,39 +413,38 @@ const Checkout = () => {
       };
 
       const response = await axios(config);
-      // console.log("order Response ==> ", response.data);
-      if (response.status == 201) {
+
+      if (selectedPayment == 0) {
         setOrderId(response.data.orders[0]?.orderId);
-        await AsyncStorage.setItem(
-          "orders",
-          JSON.stringify(response.data.orders),
-        );
-        const cart = await AsyncStorage.getItem("cart");
-        const newCart = JSON.parse(cart!).filter(
+        setTimeout(() => setShowPaystack(true), 500);
+      } else if (selectedPayment == 2) {
+        setTimeout(() => setIsSuccessVisible(true), 500);
+      } else {
+        setTimeout(() => setIsSuccessVisible(true), 500);
+      }
+
+      const cart = await AsyncStorage.getItem("cart");
+
+      if (cart) {
+        const newCart = JSON.parse(cart!)?.filter(
           (item: any) => !item.includeInOrder,
         );
-        if (newCart.length < 1) {
+        if (newCart?.length < 1) {
           await AsyncStorage.removeItem("cart");
         } else {
           await AsyncStorage.setItem("cart", JSON.stringify(newCart));
         }
-
-        if (selectedPayment == 0) {
-          setShowPaystack(true);
-        } else if (selectedPayment == 2) {
-          router.replace("/(root)/orders/orders");
-        } else {
-          router.replace("/(root)/orders/orders");
-        }
-        // router.replace(`/checkout/${response.data.orders[0].orderId}`);
       }
     } catch (e: any) {
-      console.log("could not create order", e?.response);
-      toast.error("Could not create order");
-    } finally {
       setOrderloading(false);
+      console.log("could not create order", e);
+      toast.error("Could not create order");
     }
-  };
+    // finally {
+    //   setOrderloading(false);
+    // }
+  }, [selectedAddress, deliveryFee, selectedPayment, cartTotal, cart]);
+
   useEffect(() => {
     async function getUserInfo() {
       const user = await getUser();
@@ -717,29 +734,37 @@ const Checkout = () => {
                   <Text className="text-white text-[16px] font-LexendDecaSemiBold">
                     Shipping Fee
                   </Text>
-                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                    {deliveryFee
-                      ? "₦" +
-                        deliveryFee?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : "-"}
-                  </Text>
+                  {shippingFeeLoading ? (
+                    <ActivityIndicator size={10} color="white" />
+                  ) : (
+                    <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                      {deliveryFee
+                        ? "₦" +
+                          deliveryFee?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : "-"}
+                    </Text>
+                  )}
                 </View>
                 <View className="flex-row justify-between items-center">
                   <Text className="text-white text-[16px] font-LexendDecaSemiBold">
                     Net Total
                   </Text>
-                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                    {deliveryFee && cartTotal
-                      ? "₦" +
-                        (deliveryFee + cartTotal)?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : "-"}
-                  </Text>
+                  {shippingFeeLoading ? (
+                    <ActivityIndicator size={10} color="white" />
+                  ) : (
+                    <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                      {deliveryFee && cartTotal
+                        ? "₦" +
+                          (deliveryFee + cartTotal)?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : "-"}
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -800,6 +825,10 @@ const Checkout = () => {
         )}
 
         <LoadingModal isVisible={orderLoading} />
+        <OrderPopup
+          isVisible={isSuccessVisible}
+          closePopup={closeSuccessPopup}
+        />
         <BottomSheet
           bgColor="#3A3A3A"
           childrenStyle="!px-[11px]"

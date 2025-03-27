@@ -19,6 +19,7 @@ import BottomSheet from "../global/bottom-sheet";
 import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import FilterSheet from "./filterSheet";
 import ProductEmptyState from "../global/empty-states/productEmptyState";
+import AuctionCard from "../global/auction-card";
 
 const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   const [page, setPage] = useState<number>(1);
