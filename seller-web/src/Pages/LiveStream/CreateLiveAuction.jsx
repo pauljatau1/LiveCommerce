@@ -979,7 +979,7 @@ const CreateLiveAuction = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-0">
+            <table className="min-w-full overflow-y-scroll border-separate border-spacing-0">
               <thead>
                 <tr>
                   <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
@@ -1016,15 +1016,15 @@ const CreateLiveAuction = () => {
                         className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                       />
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <td className="px-4 pr-12 xl:pr-0 py-3">
+                      <div className="flex items-center gap-2">
                         <img
                           src={product.images[0].url}
                           alt={product.name}
                           className="w-10 h-10 rounded-lg object-cover"
                         />
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900">{product.name}</span>
+                          <span className="text-sm truncate max-w-[150px] font-medium text-gray-900">{product.name}</span>
                           <span className="text-xs text-gray-500">{product.category}</span>
                         </div>
                       </div>
