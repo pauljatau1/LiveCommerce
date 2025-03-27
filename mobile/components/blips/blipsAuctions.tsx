@@ -39,7 +39,7 @@ const BlipsAuctions = ({ id, closeSheet }: { id: string; closeSheet: any }) => {
             flexBasis: "47%",
           }}
         >
-          <AuctionCard item={item} showNike={false} />
+          <AuctionCard item={item} showNike={false} closeSheet={closeSheet} />
         </View>
       );
     },

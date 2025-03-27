@@ -83,13 +83,19 @@ const ForYouFeaturedShopsSection = () => {
       <View
         style={{
           // paddingLeft: 16,
+          paddingHorizontal: 16,
           width: "100%",
         }}
       >
         <FlatList
           data={shops}
           renderItem={({ item: row }) => (
-            <View className=" mb-[5.54px] w-[50%]">
+            <View
+              className=" mb-[5.54px] w-[50%] shrink"
+              style={{
+                flexShrink: 1,
+              }}
+            >
               <FollowCard item={row?._id} data={row} />
             </View>
           )}
@@ -104,7 +110,6 @@ const ForYouFeaturedShopsSection = () => {
           numColumns={2}
           contentContainerStyle={{
             justifyContent: "space-between",
-            paddingHorizontal: 16,
           }}
         />
       </View>

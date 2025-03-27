@@ -53,6 +53,9 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
           },
         })
       }
+      style={{
+        flexShrink: 1,
+      }}
     >
       <View className="border-[1.5px] border-[#CCCCCC1A] rounded-[10px] py-[8px] px-[12px] ">
         <View className="flex flex-col items-center justify-center">

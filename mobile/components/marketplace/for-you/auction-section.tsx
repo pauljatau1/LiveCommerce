@@ -81,7 +81,7 @@ const ForYouAuctionSection = () => {
             horizontal
             showsHorizontalScrollIndicator={false}
             className="pt-[15px]"
-            pagingEnabled
+            // pagingEnabled
             ListEmptyComponent={renderEmptyAuctions}
             onScroll={handleScroll}
           />

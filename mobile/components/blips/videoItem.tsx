@@ -35,7 +35,13 @@ import {
   formatTimeFromNow,
   timeFromNow,
 } from "@/helpers/helpers";
-import { TextInput } from "react-native-gesture-handler";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+  TapGestureHandler,
+  TextInput,
+} from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import moment from "moment";
 import CheckoutNow from "./checkoutNow";

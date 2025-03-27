@@ -15,15 +15,27 @@ interface GeneralCategoryProps {
 
 const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   const [limit, setLimit] = useState<number>(10);
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [subCategory, setSubCategory] = useState<string>("");
-  const {
-    data: categoryData,
-    error,
-    isLoading,
-  } = useGetAllProductsQuery({ category: name, limit, subCategory });
+  const { data, isFetching, refetch, error, isLoading } =
+    useGetAllProductsQuery({ category: name, page, limit, subCategory });
+
+  const [products, setProducts] = useState<any[]>([]);
   const strippedCategory = category?.subCategories?.map(
     (subcat: any) => subcat.name,
   );
+
+  const fetchMoreProducts = () => {
+    if (!isFetching && !hasReachedEnd) {
+      console.log("catalog pagination ", {
+        isFetching,
+        hasReachedEnd,
+      });
+
+      setPage((prev) => prev + 1);
+    }
+  };
 
   const renderSubCategory = (subCat: string) => {
     return (
@@ -68,6 +80,23 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     return <ProductEmptyState />;
   };
 
+  useEffect(() => {
+    if (data?.data?.products?.length > 0) {
+      setProducts([...products, ...data?.data?.products]);
+
+      if (
+        data?.data?.pagination.currentPage == data?.pagination?.totalPages ||
+        data?.data?.pagination?.totalPages == 0
+      ) {
+        setHasReachedEnd(true);
+      }
+    }
+  }, [data]);
+
+  useEffect(() => {
+    refetch();
+  }, [page]);
+
   return (
     <View className="w-full ">
       <View className="w-full mb-[20px]">
@@ -88,7 +117,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
       ) : (
         <View className="w-full justify-between gap-[8px] px-[16px]">
           <FlatList
-            data={categoryData?.data?.products}
+            data={products}
             renderItem={({ item, index }) => renderCategoryData(item)}
             keyExtractor={(item, index) => index.toString()}
             numColumns={2}
@@ -98,6 +127,8 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
             }}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyPlaceholder}
+            onEndReached={fetchMoreProducts}
+            onEndReachedThreshold={0.5}
           />
         </View>
       )}

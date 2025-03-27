@@ -17,7 +17,7 @@ const { width, height } = Dimensions.get("window");
 const Homepage = () => {
   const { expoPushToken } = usePushNotifications();
   const insets = Platform.OS == "ios" ? useSafeAreaInsets() : { top: 0 };
-  const token = useSelector((state: RootState) => state.authState.token);
+  // const token = useSelector((state: RootState) => state.authState.token);
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const tries = useRef<number>(0);
   // const dispatch = useDispatch();
@@ -39,12 +39,17 @@ const Homepage = () => {
     async function setIsFirstTime() {
       await AsyncStorage.setItem("isFirstTime", "false");
     }
-    setIsFirstTime();
 
-    if (!token && tries?.current == 0) {
-      setTimeout(() => setIsVisible(true), 3000);
-      tries.current = 1;
+    async function checkIfLoggedIn() {
+      const token = await AsyncStorage.getItem("token");
+      console.log("getting token home", token);
+      if (!token && tries?.current == 0) {
+        setTimeout(() => setIsVisible(true), 3000);
+        tries.current = 1;
+      }
     }
+    setIsFirstTime();
+    checkIfLoggedIn();
   }, []);
   return (
     <>

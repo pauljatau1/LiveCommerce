@@ -105,7 +105,7 @@ const ProductDescription = () => {
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
   const [auctionData, setAuctionData] = useState<any>();
   const [showRules, setShowRules] = useState<boolean>(false);
-  const [shippingFee, setShippingFee] = useState<any>(100);
+  const [shippingFee, setShippingFee] = useState<any>();
 
   const handleCloseRules = useCallback(() => {
     setShowRules(false);
@@ -114,7 +114,7 @@ const ProductDescription = () => {
   const getUserInfo = async () => {
     const token = await getToken();
     if (!token) {
-      return setShowAuthSheet(true);
+      return;
     }
     try {
       const response = await axios.get(
