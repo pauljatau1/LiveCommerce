@@ -4,6 +4,7 @@ const Message = mongoose.model('Message');
 const Conversation = mongoose.model('Conversation');
 const notificationController = require('../controllers/notificationController');
 const sgMail = require('@sendgrid/mail');
+const { agenda } = require('../config/agenda');
 
 /**
  * Handle Fez webhook for order status updates
@@ -82,10 +83,14 @@ const handleOrderStatusUpdate = async (webhookData) => {
       shippingUpdate.$set['shipping.delivery.actualDate'] = new Date();
       shippingUpdate.$set['items.$[].status'] = 'delivered';
       
-      // Schedule auto-close job for 1 day after delivery
-      const { agenda } = require('../config/agenda');
-      await agenda.schedule('in 24 hours', 'closeOrder', { orderId: order._id });
-      console.log(`Scheduled auto-close job for order ${order.order_id} in 24 hours`);
+      // Schedule auto-close job for 1 minute after delivery (for testing purposes)
+      try {
+        await agenda.schedule('in 1 minute', 'closeOrder', { orderId: order._id });
+        console.log(`Scheduled auto-close job for order ${order.order_id} in 1 minute (TEST MODE)`);
+      } catch (scheduleError) {
+        console.error('Error scheduling auto-close job:', scheduleError);
+        // Continue execution despite scheduling error
+      }
     } else if (internalStatus === 'cancelled') {
       shippingUpdate.$set['items.$[].status'] = 'cancelled';
     } else {
