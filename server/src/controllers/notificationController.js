@@ -518,7 +518,10 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
       buyerId: buyer._id,
       buyerName: `${buyer.firstName} ${buyer.lastName}`,
       sellerId: seller._id,
-      sellerName: seller.businessName || `${seller.firstName} ${seller.lastName}`
+      sellerName: seller.businessName || `${seller.firstName} ${seller.lastName}`,
+      paymentMethod: order.paymentInfo?.method,
+      paymentStatus: order.paymentInfo?.status,
+      isPaid: order.paid
     });
     
     // Get detailed product information
@@ -579,8 +582,19 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
       }
     );
     
-    // Send email to buyer
-    await exports.sendEmailToBuyer(buyer, buyerNotification);
+    // Check payment method and status before sending email to buyer
+    // Skip sending confirmation email for Paystack orders that are not yet paid
+    const isPaystackPending = order.paymentInfo?.method === 'paystack' && 
+                              !order.paid && 
+                              order.paymentInfo?.status === 'pending';
+    
+    if (isPaystackPending) {
+      console.log(`Skipping confirmation email for Paystack order ${order.order_id} - payment pending`);
+    } else {
+      // Send email to buyer for non-Paystack orders or paid Paystack orders
+      console.log(`Sending confirmation email for order ${order.order_id} (Payment: ${paymentMethod}, Status: ${order.paymentInfo?.status})`);
+      await exports.sendEmailToBuyer(buyer, buyerNotification);
+    }
     
     console.log(`Order creation notifications sent for order: ${order.order_id}`);
     return { sellerNotification, buyerNotification };

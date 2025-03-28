@@ -302,9 +302,9 @@ JWT_REDACTED\
 {
   "items": [
     {
-      "productId": "678c1bcbdb92f522edacd425",
+      "productId": "67e09afb86efe511af6871d8",
       "quantity": 2,
-      "price": 1400000,
+      "price": 95000,
       "weight": 1.2, 
       "specifications": {
         "color": "red",
@@ -314,7 +314,7 @@ JWT_REDACTED\
       "seller": {
         "sellerId": "6757fc4e814b66b9f8cdc3e3",
         "senderInfo": {
-          "senderName": "Tech Gadgets Store",
+          "senderName": "Top G stores",
           "senderAddress": "15 Marina Road, Ikeja",
           "senderPhone": "+2348012345678",
           "senderEmail": "bolu@auqli.com",
@@ -322,14 +322,14 @@ JWT_REDACTED\
         },
         "shippingFee": 2500,
         "parcelInfo": {
-          "itemDescription": "iPhone 14 Pro Max"
+          "itemDescription": "Samsung Galaxy A56"
         }
       }
     },
     {
-      "productId": "6790119d004a17308c9663e2",
+      "productId": "67dde009e2849a61cb930894",
       "quantity": 1,
-      "price": 75000,
+      "price": 38000,
       "weight": 0.8,
       "specifications": {
         "color": "black",
@@ -339,14 +339,14 @@ JWT_REDACTED\
       "seller": {
         "sellerId": "67900f78004a17308c966218",
         "senderInfo": {
-          "senderName": "Luxury Leather Goods",
+          "senderName": "Fruty",
           "senderAddress": "25 Broad Street, Victoria Island",
           "senderPhone": "+2349087654321",
           "senderEmail": "bolu@falconaero.org",
           "pickUpState": "Lagos"
         },
         "parcelInfo": {
-          "itemDescription": "Premium Leather shoe"
+          "itemDescription": "MK 1"
         }
       }
     }

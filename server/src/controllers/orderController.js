@@ -515,6 +515,39 @@ exports.createOrder = async (req, res) => {
         order_id: order.order_id
       });
       
+      // Update product stock for each item in the order
+      for (const item of sellerItemsList) {
+        // Find the product before update to log its current stock
+        const productBefore = await Product.findById(item.product);
+        console.log('Product before stock update:', {
+          productId: productBefore._id,
+          currentStock: productBefore.stock,
+          currentInventoryQuantity: productBefore.inventory.quantity,
+          currentSoldCount: productBefore.stats.soldCount,
+          itemQuantity: item.quantity
+        });
+
+        const updateResult = await Product.findByIdAndUpdate(
+          item.product,
+          { 
+            $inc: { 
+              'stats.soldCount': item.quantity,
+              'stock': -item.quantity,
+              'inventory.quantity': -item.quantity 
+            }
+          },
+          { new: true, session } // Return the updated document and use the transaction session
+        );
+
+        console.log('Product after stock update:', {
+          productId: updateResult._id,
+          newStock: updateResult.stock,
+          newInventoryQuantity: updateResult.inventory.quantity,
+          newSoldCount: updateResult.stats.soldCount,
+          updateSuccessful: !!updateResult
+        });
+      }
+      
       orders.push(order);
       
       // Add to our local array for processing after transaction
@@ -2637,32 +2670,6 @@ exports.markOrderAsPaid = async (req, res) => {
 
     const updatedOrder = await order.save();
 
-    // // Create transaction record for seller earnings
-    // const Transaction = mongoose.model('Transaction');
-    // const transaction = new Transaction({
-    //   seller: order.seller._id,
-    //   orderId: order._id,
-    //   amount: order.totalAmount,
-    //   type: 'order_payment',
-    //   status: 'completed',
-    //   description: `Payment for order #${order.order_id} (products only, excluding shipping fee)`,
-    //   metadata: {
-    //     itemTotal: order.totalAmount,
-    //     processingFeePercent: 0,
-    //     categoryName: order.items[0]?.productName || 'Mixed',
-    //     categoryFee: 0,
-    //     paymentReference: paymentReference || null
-    //   }
-    // });
-    
-    // await transaction.save();
-    
-    // // Update seller's balance
-    // await Seller.findByIdAndUpdate(
-    //   order.seller._id,
-    //   { $inc: { 'wallet.balance': order.totalAmount } }
-    // );
-
     // Only schedule notifications if they haven't been sent yet
     if (!notificationsAlreadySent) {
       console.log(`Scheduling order notifications for order ${order.order_id} after manual payment marking`);
@@ -2677,6 +2684,19 @@ exports.markOrderAsPaid = async (req, res) => {
       agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
     } else {
       console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
+    }
+
+    // Send order confirmation email directly for Paystack payment
+    try {
+      const Buyer = mongoose.model('Buyer');
+      const buyer = await Buyer.findById(order.buyer);
+      if (buyer) {
+        console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id}`);
+        await exports.sendOrderConfirmationEmail(updatedOrder, buyer);
+      }
+    } catch (emailError) {
+      console.error('Error sending order confirmation email for paid Paystack order:', emailError);
+      // Continue processing even if email fails
     }
 
     res.status(200).json({ 
@@ -2766,6 +2786,19 @@ exports.verifyPaymentByReference = async (req, res) => {
       };
       
       agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
+
+      // Send order confirmation email directly for paid Paystack order
+      try {
+        const Buyer = mongoose.model('Buyer');
+        const buyer = await Buyer.findById(order.buyer);
+        if (buyer) {
+          console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id} (reference verification)`);
+          await exports.sendOrderConfirmationEmail(updatedOrder, buyer);
+        }
+      } catch (emailError) {
+        console.error('Error sending order confirmation email for reference verified payment:', emailError);
+        // Continue processing even if email fails
+      }
 
       return res.status(200).json({ 
         message: 'Order marked as paid successfully', 
@@ -2882,7 +2915,7 @@ async function handleOrderPayment(paymentData, res) {
   // Mark notifications as sent
   order.notificationsSent = true;
   
-  await order.save();
+  const updatedOrder = await order.save();
 
   // Create transaction record for seller earnings
   const Transaction = mongoose.model('Transaction');
@@ -2924,6 +2957,19 @@ async function handleOrderPayment(paymentData, res) {
     agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
   } else {
     console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
+  }
+
+  // Send order confirmation email directly for paid Paystack order
+  try {
+    const Buyer = mongoose.model('Buyer');
+    const buyer = await Buyer.findById(order.buyer);
+    if (buyer) {
+      console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id} (webhook)`);
+      await exports.sendOrderConfirmationEmail(updatedOrder, buyer);
+    }
+  } catch (emailError) {
+    console.error('Error sending order confirmation email for Paystack webhook payment:', emailError);
+    // Continue processing even if email fails
   }
 
   return res.status(200).json({ message: 'Order marked as paid via webhook' });

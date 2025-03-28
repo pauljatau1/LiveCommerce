@@ -33,7 +33,16 @@ const agenda = new Agenda({
 // Define the job processor for order closure
 agenda.define('closeOrder', async (job) => {
   try {
+    console.log('Starting closeOrder job with data:', job.attrs.data);
     const { orderId } = job.attrs.data;
+    
+    if (!orderId) {
+      console.error('No orderId provided for closeOrder job');
+      return;
+    }
+    
+    console.log(`Processing auto-close for order: ${orderId}`);
+    
     const Order = mongoose.model('Order');
     const Transaction = mongoose.model('Transaction');
     const Category = mongoose.model('Category');
@@ -46,13 +55,35 @@ agenda.define('closeOrder', async (job) => {
       .populate('seller', 'email firstName businessName')
       .populate('items.product', 'name category');
 
-    if (!order || !order.isOpen || !order.paid) return;
+    if (!order) {
+      console.error(`Order not found with ID: ${orderId}`);
+      return;
+    }
+    
+    if (!order.isOpen) {
+      console.log(`Order ${order.order_id} is already closed, skipping auto-close`);
+      return;
+    }
+    
+    if (!order.paid) {
+      console.log(`Order ${order.order_id} is not paid, skipping auto-close`);
+      return;
+    }
+    
+    console.log(`Found order to close: ${order.order_id}`, {
+      isOpen: order.isOpen,
+      paid: order.paid,
+      itemCount: order.items.length
+    });
 
     // Calculate fees and amounts
+    console.log('Fetching categories for fee calculation');
     const categories = await Category.find({});
     const categoryFeeMap = new Map(
       categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
     );
+    
+    console.log(`Found ${categories.length} categories for fee calculation`);
 
     let totalPlatformFee = 0;
     let totalAmount = 0;
@@ -68,12 +99,28 @@ agenda.define('closeOrder', async (job) => {
       const categoryFee = categoryFeeMap.get(categoryName) || 0;
       const itemPlatformFee = itemTotal * (categoryFee / 100);
       totalPlatformFee += itemPlatformFee;
+      
+      console.log(`Calculated fees for item: ${item.productName}`, {
+        category: categoryName,
+        categoryFee: `${categoryFee}%`,
+        itemTotal,
+        platformFee: itemPlatformFee
+      });
     });
 
     // Calculate payment processing fee (1.5%)
     const paymentProcessingFee = totalAmount * 0.015;
     const totalDeductions = totalPlatformFee + paymentProcessingFee;
     const sellerAmount = totalAmount - totalDeductions;
+    
+    console.log('Final calculations for order:', {
+      orderId: order.order_id,
+      totalAmount,
+      platformFee: totalPlatformFee,
+      processingFee: paymentProcessingFee,
+      totalDeductions,
+      sellerAmount
+    });
 
     // Create transaction records
     const transactionPromises = [];
@@ -133,26 +180,41 @@ agenda.define('closeOrder', async (job) => {
         status: 'completed'
       })
     );
+    
+    console.log(`Created ${transactionPromises.length} transaction records`);
 
     // Update seller's wallet and close order
-    await Promise.all([
-      Seller.findByIdAndUpdate(
-        order.seller._id,
-        { $inc: { walletBalance: sellerAmount } }
-      ),
-      Order.findByIdAndUpdate(
-        order._id,
-        {
-          isOpen: false,
-          closedAt: new Date(),
-          closedBy: 'auto',
-          closedReason: 'Auto-closed after 1 day of delivery with no reported issues'
-        }
-      ),
-      ...transactionPromises
-    ]);
+    console.log(`Updating seller wallet and closing order ${order.order_id}`);
+    try {
+      const [updatedSeller] = await Promise.all([
+        Seller.findByIdAndUpdate(
+          order.seller._id,
+          { $inc: { walletBalance: sellerAmount } },
+          { new: true }
+        ),
+        Order.findByIdAndUpdate(
+          order._id,
+          {
+            isOpen: false,
+            closedAt: new Date(),
+            closedBy: 'auto',
+            closedReason: 'Auto-closed after delivery with no reported issues'
+          },
+          { new: true }
+        ),
+        ...transactionPromises
+      ]);
+      
+      console.log(`Successfully closed order ${order.order_id} and updated seller wallet`, {
+        newWalletBalance: updatedSeller.walletBalance
+      });
+    } catch (updateError) {
+      console.error('Error updating seller wallet or closing order:', updateError);
+      throw updateError; // Rethrow to prevent sending emails
+    }
 
     // Send closure notification emails
+    console.log(`Sending closure notification emails for order ${order.order_id}`);
     const buyerClosureEmail = {
       to: order.buyer.email,
       from: 'Auqli Orders <support@auqli.com>',
@@ -191,11 +253,20 @@ agenda.define('closeOrder', async (job) => {
       `
     };
 
-    await Promise.all([
-      sgMail.send(buyerClosureEmail),
-      sgMail.send(sellerClosureEmail)
-    ]);
-
+    try {
+      await Promise.all([
+        sgMail.send(buyerClosureEmail),
+        sgMail.send(sellerClosureEmail)
+      ]);
+      console.log(`Closure notification emails sent successfully for order ${order.order_id}`);
+    } catch (emailError) {
+      console.error('Error sending closure notification emails:', emailError);
+      if (emailError.response) {
+        console.error('SendGrid response:', emailError.response.body);
+      }
+    }
+    
+    console.log(`Successfully completed closeOrder job for order ${order.order_id}`);
   } catch (error) {
     console.error('Error in closeOrder job:', error);
   }
