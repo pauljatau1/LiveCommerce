@@ -8,4 +8,5 @@ export const SOCKET_EVENTS = {
   NEW_COMMENT: 'new_comment',
   NEW_PURCHASE: 'new_purchase',
   SELLER_REJOINED: 'seller_rejoined_stream',
+  AUCTION_START: 'auction_start',
 }; 

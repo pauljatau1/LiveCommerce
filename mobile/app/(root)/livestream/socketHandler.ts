@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start';
   user: string;
   avatar?: string;
   content: string;
@@ -21,6 +21,7 @@ export interface StreamNotification {
     streamId: string;
     isHost?: boolean;
     viewerCount?: number;
+    product?: any; // For auction_start notification
   };
   timestamp: Date;
 }
@@ -133,6 +134,18 @@ export const initializeSocket = (token: string, onNotification: (notification: S
   // Handle viewer left stream events
   currentSocket.on(SOCKET_EVENTS.VIEWER_LEFT, (data: StreamNotification) => {
     console.log('Viewer left stream:', data);
+    
+    // Convert string timestamp to Date object if needed
+    if (typeof data.timestamp === 'string') {
+      data.timestamp = new Date(data.timestamp);
+    }
+    
+    onNotification(data);
+  });
+
+  // Handle auction start events
+  currentSocket.on(SOCKET_EVENTS.AUCTION_START, (data: StreamNotification) => {
+    console.log('Auction started for product:', data);
     
     // Convert string timestamp to Date object if needed
     if (typeof data.timestamp === 'string') {

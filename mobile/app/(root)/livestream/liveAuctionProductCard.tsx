@@ -14,6 +14,7 @@ interface LiveAuctionProductCardProps {
         images: Array<{ url: string }>;
         productId: string;
         quantity: number;
+        bidStatus?: 'pending' | 'active' | 'ongoing' | 'ended';
     };
     tag: string | string[];
     category: string;
@@ -28,6 +29,8 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, ca
     const minBid = product.minBid || product.price;
     const DEFAULT_BID_INCREMENT = 500; // Fixed default increment of 500
     const nextBidAmount = currentBid + DEFAULT_BID_INCREMENT;
+
+    console.log('current bid product image:', product?.images?.[0]?.url);
 
     // Format the prices for display
     const formatPriceDisplay = (price: number) => {
@@ -88,16 +91,24 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, ca
 
             {/* Action Buttons */}
             <View style={styles.buttonsRow}>
-                <TouchableOpacity style={styles.customButton} onPress={onCustom}>
-                    <Text style={styles.customButtonText}>Custom bid</Text>
-                </TouchableOpacity>
+                {product.bidStatus === 'active' ? (
+                    <>
+                        <TouchableOpacity style={styles.customButton} onPress={onCustom}>
+                            <Text style={styles.customButtonText}>Custom bid</Text>
+                        </TouchableOpacity>
 
-                <TouchableOpacity style={styles.bidButton} onPress={() => onBid(nextBidAmount)}>
-                    <View style={styles.bidButtonContent}>
-                        <Text style={styles.bidButtonText}>Bid {formatPriceDisplay(nextBidAmount)}</Text>
-                        <Ionicons name="swap-horizontal" size={22} color="white" />
-                    </View>
-                </TouchableOpacity>
+                        <TouchableOpacity style={styles.bidButton} onPress={() => onBid(nextBidAmount)}>
+                            <View style={styles.bidButtonContent}>
+                                <Text style={styles.bidButtonText}>Bid {formatPriceDisplay(nextBidAmount)}</Text>
+                                <Ionicons name="swap-horizontal" size={22} color="white" />
+                            </View>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <TouchableOpacity style={styles.awaitingButton} disabled={true}>
+                        <Text style={styles.awaitingButtonText}>Awaiting Bid Start</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </View>
     );
@@ -250,6 +261,20 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         opacity: 0.7,
         marginHorizontal: 4,
+    },
+    awaitingButton: {
+        flex: 1,
+        height: 50,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        opacity: 0.6,
+    },
+    awaitingButtonText: {
+        fontWeight: 'bold',
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.7)',
     },
 });
 

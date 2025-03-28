@@ -166,9 +166,9 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
             <Text style={styles.viewerCountText}>{safeViewers.length}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={closeSheet} style={styles.closeButton}>
+        {/*<TouchableOpacity onPress={closeSheet} style={styles.closeButton}>
           <AntDesign name="close" size={18} color="#FFF" />
-        </TouchableOpacity>
+        </TouchableOpacity>*/}
       </View>
     </View>
   );

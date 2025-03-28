@@ -48,6 +48,7 @@ const LiveAuctionStudio = () => {
     const [comment, setComment] = useState('');
     const [streamProducts, setStreamProducts] = useState<StreamProduct[]>([]);
     const [currentProductIndex, setCurrentProductIndex] = useState(0);
+    const [activeAuctionProduct, setActiveAuctionProduct] = useState<any>(null);
     const [storeInfo, setStoreInfo] = useState({
         name: 'Store Name',
         username: '@username',
@@ -65,10 +66,10 @@ const LiveAuctionStudio = () => {
     const [selectedBidProduct, setSelectedBidProduct] = useState<StreamProduct | null>(null);
     const [bidAmount, setBidAmount] = useState<number | null>(null);
 
-    // New state for live comments and events
+    // Array of live comments
     const [liveComments, setLiveComments] = useState<Array<{
         id: string;
-        type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave';
+        type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start';
         user: string;
         avatar?: any;
         content: string;
@@ -186,10 +187,48 @@ const LiveAuctionStudio = () => {
 
                 // Set products from stream data
                 if (streamDetails.products && streamDetails.products.length > 0) {
-                    setStreamProducts(streamDetails.products);
-                } else if (streamDetails.stream?.products && streamDetails.stream.products.length > 0) {
-                    console.log('New Stream products:', streamDetails.stream.products);
-                    setStreamProducts(streamDetails.stream.products);
+                    console.log('Setting products from streamDetails.products:', streamDetails.products);
+                    // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
+                    const productsWithStatus = streamDetails.products.map(product => ({
+                        ...product,
+                        bidStatus: product.bidStatus || 'pending'
+                    }));
+                    setStreamProducts(productsWithStatus);
+                    
+                    // Find if there's an active product for bidding and set it as current
+                    const activeProductIndex = productsWithStatus.findIndex(product => 
+                        product.bidStatus === 'active' || product.bidStatus === 'ongoing'
+                    );
+                    
+                    console.log('Active product index on join:', activeProductIndex);
+                    
+                    if (activeProductIndex !== -1) {
+                        setCurrentProductIndex(activeProductIndex);
+                        console.log('Setting current product to active bid product:', productsWithStatus[activeProductIndex]);
+                    }
+                } else if (streamDetails?.stream?.products && streamDetails?.stream?.products?.length > 0) {
+                    console.log('Setting products from streamDetails.stream.products:', streamDetails.stream.products);
+                    // Make sure each product has a bidStatus, defaulting to 'pending' if not specified
+                    const productsWithStatus = streamDetails.stream.products.map(product => ({
+                        ...product,
+                        bidStatus: product.bidStatus || 'pending'
+                    }));
+
+                    console.log('productsWithStatus', productsWithStatus);
+                    setStreamProducts(productsWithStatus);
+                    console.log('streamProductsFirstAllocation', streamProducts);
+                    
+                    // Find if there's an active product for bidding and set it as current
+                    const activeProductIndex = productsWithStatus.findIndex(product => 
+                        product.bidStatus === 'active' || product.bidStatus === 'ended'
+                    );
+                    
+                    console.log('Active product index on join:', activeProductIndex);
+                    
+                    if (activeProductIndex !== -1) {
+                        setCurrentProductIndex(activeProductIndex);
+                        console.log('Setting current product to active bid product:', productsWithStatus[activeProductIndex]);
+                    }
                 }
 
                 // Debug seller information
@@ -325,6 +364,8 @@ const LiveAuctionStudio = () => {
         }
     };
 
+    console.log('streamProductsSecondAllocation', streamProducts);
+
     // Handler for WebSocket notifications (joins, comments, purchases, host left/rejoined)
     const handleStreamNotification = useCallback((notification: StreamNotification) => {
         console.log('Received notification:', notification);
@@ -389,6 +430,61 @@ const LiveAuctionStudio = () => {
                 }
                 break;
 
+            case 'auction_start':
+                console.log('Auction started for product:', notification);
+                // Update UI to show auction start event
+                setLiveComments(prev => [...prev, notification]);
+                
+                // Update the active auction product from the notification data
+                if (notification.data && notification.data.product) {
+                    console.log('Setting active auction product:', notification.data.product);
+                    setActiveAuctionProduct(notification.data.product);
+                    
+                    // Find the product in streamProducts and update it
+                    const productId = notification.data.product.product?.productId;
+                    console.log('realtime bid productId:', productId);
+                    
+                    if (productId) {
+                        setStreamProducts(prevProducts => {
+                            console.log('prevProducts in functional update:', prevProducts);
+                            
+                            // Find the index of the product in the current streamProducts array
+                            const productIndex = prevProducts.findIndex(p => 
+                                p.product.productId === productId
+                            );
+                            console.log('realtime bid productIndex:', productIndex);
+                            
+                            // If product found, set it as the current product
+                            if (productIndex !== -1) {
+                                setCurrentProductIndex(productIndex);
+                                console.log('Setting current product index to:', productIndex);
+                            }
+                            
+                            // Update the product status to active
+                            return prevProducts.map(p => {
+                                if (p.product.productId === productId) {
+                                    return {
+                                        ...p,
+                                        bidStatus: 'active',
+                                        currentBid: notification.data?.product.currentBid,
+                                        minBid: notification.data?.product.minBid,
+                                        maxBid: notification.data?.product.maxBid
+                                    };
+                                }
+                                // Mark other products as 'ended' if they were 'active'
+                                if (p.bidStatus === 'active') {
+                                    return {
+                                        ...p,
+                                        bidStatus: 'ended'
+                                    };
+                                }
+                                return p;
+                            });
+                        });
+                    }
+                }
+                break;
+
             default:
                 console.warn('Unknown notification type:', notification.type);
         }
@@ -402,7 +498,7 @@ const LiveAuctionStudio = () => {
                 }
             }, 100);
         });
-    }, [liveComments]);
+    }, [liveComments, streamProducts]);
 
     const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
         const message = event.nativeEvent.data;
@@ -689,6 +785,17 @@ const LiveAuctionStudio = () => {
                     <View style={styles.hostRejoinedCommentContent}>
                         <Text style={styles.commentUser}>{item.user}</Text>
                         <Text style={styles.hostRejoinedCommentText}>{item.content}</Text>
+                    </View>
+                </View>
+            );
+        } else if (item.type === 'auction_start') {
+            // Handle auction start notification
+            return (
+                <View style={styles.auctionStartCommentItem}>
+                    {renderAvatar()}
+                    <View style={styles.auctionStartCommentContent}>
+                        <Text style={styles.auctionCommentUser}>{item.user}</Text>
+                        <Text style={styles.auctionStartCommentText}>{item.content}</Text>
                     </View>
                 </View>
             );
@@ -1227,7 +1334,8 @@ const LiveAuctionStudio = () => {
                                                         maxBid: streamProducts[currentProductIndex].maxBid,
                                                         images: streamProducts[currentProductIndex].product.images || [],
                                                         productId: streamProducts[currentProductIndex].product.productId,
-                                                        quantity: streamProducts[currentProductIndex].product.quantity
+                                                        quantity: streamProducts[currentProductIndex].product.quantity,
+                                                        bidStatus: streamProducts[currentProductIndex].bidStatus || 'pending'
                                                     }}
                                                     onBid={(amount) => handleSubmitBid(amount)}
                                                     onCustom={() => handleOpenBidVariation(streamProducts[currentProductIndex])}
@@ -1692,6 +1800,32 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: 'LexendDeca',
         fontWeight: 'bold',
+        flexWrap: 'wrap',
+    },
+    auctionStartCommentItem: {
+        flexDirection: 'row',
+        borderRadius: 20,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        marginVertical: 8,
+        maxWidth: '100%',
+        alignSelf: 'flex-start',
+        flex: 1,
+        backgroundColor: 'rgba(255, 235, 59, 0.2)', // Light Yellow background (#FFEB3B)
+    },
+    auctionStartCommentContent: {
+        flexDirection: 'column',
+        flex: 1,
+    },
+    auctionCommentUser: {
+        color: '#FFEB3B',
+        fontWeight: 'bold',
+    },
+    auctionStartCommentText: {
+        color: '#fff',
+        fontSize: 12,
+        fontFamily: 'LexendDeca',
+        fontWeight: 'semibold',
         flexWrap: 'wrap',
     },
 });
