@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner';
   user: string;
   avatar?: string;
   content: string;
@@ -22,6 +22,30 @@ export interface StreamNotification {
     isHost?: boolean;
     viewerCount?: number;
     product?: any; // For auction_start notification
+    bidAmount?: number;
+    isError?: boolean;
+    currentBidder?: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      username: string;
+      profileImage?: {
+        url?: string;
+      };
+    };
+    bidWinner?: {
+      buyer: {
+        _id: string;
+        firstName: string;
+        lastName: string;
+        username: string;
+        profileImage?: {
+          url?: string;
+        };
+      };
+      bidAmount: number;
+      timestamp: Date;
+    };
   };
   timestamp: Date;
 }
@@ -57,7 +81,7 @@ export const initializeSocket = (token: string, onNotification: (notification: S
     currentSocket.emit('stream_notification_subscribe');
   });
 
-  // Handle general stream notifications (including comments from other users)
+  // Handle stream notifications (regular bids and auction winners)
   currentSocket.on('stream_notification', (data: StreamNotification) => {
     console.log('Received stream notification:', data);
     
@@ -67,6 +91,29 @@ export const initializeSocket = (token: string, onNotification: (notification: S
     }
     
     onNotification(data);
+  });
+
+  // Handle bid error events
+  currentSocket.on('bid_error', (data: { message: string }) => {
+    console.error('Bid error:', data.message);
+    // Pass this to the notification handler as an error notification
+    const errorNotification: StreamNotification = {
+      id: Date.now().toString(),
+      type: 'comment', // Using comment type but will handle differently in UI
+      user: 'System',
+      content: `Bid error: ${data.message}`,
+      data: {
+        streamId: 'error',
+        isError: true
+      },
+      timestamp: new Date()
+    };
+    onNotification(errorNotification);
+  });
+
+  // Handle bid success events
+  currentSocket.on('bid_placed', (data: any) => {
+    console.log('Bid placed successfully:', data);
   });
 
   currentSocket.on('disconnect', (reason) => {

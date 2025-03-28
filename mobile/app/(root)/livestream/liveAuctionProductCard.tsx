@@ -21,16 +21,18 @@ interface LiveAuctionProductCardProps {
     onBid: (amount: number) => void;
     onCustom: () => void;
     formatPrice?: (price: number) => string;
+    bidIncrement?: number;
 }
 
-const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, category }: LiveAuctionProductCardProps) => {
+const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, category, bidIncrement = 500 }: LiveAuctionProductCardProps) => {
     // Calculate the next bid amount with a fixed default increment of 500
     const currentBid = product.currentBid || product.minBid || product.price;
     const minBid = product.minBid || product.price;
-    const DEFAULT_BID_INCREMENT = 500; // Fixed default increment of 500
-    const nextBidAmount = currentBid + DEFAULT_BID_INCREMENT;
+    // Use the provided bidIncrement or default to 500
+    const nextBidAmount = currentBid + bidIncrement;
 
     console.log('current bid product image:', product?.images?.[0]?.url);
+    console.log('using bid increment:', bidIncrement);
 
     // Format the prices for display
     const formatPriceDisplay = (price: number) => {
@@ -43,7 +45,7 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, ca
     // Calculate remaining time (placeholder for now)
     const remainingTime = "00:30";
 
-    return (
+  return (
         <View style={styles.container}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <View style={styles.contentRow}>
@@ -77,7 +79,7 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, ca
             {/* Timer */}
             <View style={styles.timerContainer}>
                 <Text style={styles.timerText}>{remainingTime}</Text>
-            </View>
+    </View>
 
             {/* Category and Tags */}
             {
@@ -104,6 +106,10 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, ca
                             </View>
                         </TouchableOpacity>
                     </>
+                ) : product.bidStatus === 'ongoing' ? (
+                    <TouchableOpacity style={styles.ongoingButton} disabled={true}>
+                        <Text style={styles.ongoingButtonText}>Awaiting Next Item</Text>
+                    </TouchableOpacity>
                 ) : (
                     <TouchableOpacity style={styles.awaitingButton} disabled={true}>
                         <Text style={styles.awaitingButtonText}>Awaiting Bid Start</Text>
@@ -272,6 +278,20 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     awaitingButtonText: {
+        fontWeight: 'bold',
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.7)',
+    },
+    ongoingButton: {
+        flex: 1,
+        height: 50,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        opacity: 0.6,
+    },
+    ongoingButtonText: {
         fontWeight: 'bold',
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.7)',
