@@ -29,6 +29,10 @@ function initializeSocket(server) {
   // Create a public namespace that doesn't require authentication
   const publicIO = io.of('/public');
   
+  // Set up dedicated namespaces 
+  const streamNotifications = io.of('/stream_notifications');
+  const auctionBidding = io.of('/stream_auction_bidding');
+  
   // Set up public auction events that don't require authentication
   publicIO.on('connection', async (socket) => {
     console.log('New public socket connection:', {
@@ -1153,6 +1157,237 @@ function initializeSocket(server) {
       } catch (error) {
         console.error('Error handling product bidding update:', error);
       }
+    });
+
+    // Handler for real-time auction bids
+    socket.on('stream_place_bid', async (data) => {
+      try {
+        console.log(`Received bid from ${socket.user.id} for stream ${data.streamId}, product ${data.productId}, amount: ${data.bidAmount}`);
+        
+        // Ensure required data is provided
+        if (!data.streamId || !data.productId || !data.bidAmount) {
+          console.error('Missing required data for bid');
+          socket.emit('bid_error', { message: 'Stream ID, Product ID, and Bid Amount are required' });
+          return;
+        }
+
+        const streamId = data.streamId;
+        const productId = data.productId;
+        const bidAmount = data.bidAmount;
+        const buyerId = socket.user.id;
+
+        // Validate user is a buyer
+        if (socket.user.role !== 'buyer') {
+          socket.emit('bid_error', { message: 'Only buyers can place bids' });
+          return;
+        }
+
+        // Find the stream
+        const stream = await Stream.findById(streamId)
+          .populate('seller', 'storeName storeAvatar')
+          .populate('products.currentBidder', 'firstName lastName username profileImage');
+
+        if (!stream) {
+          socket.emit('bid_error', { message: 'Stream not found' });
+          return;
+        }
+
+        // Check if stream type is auction
+        if (stream.type !== 'auction') {
+          socket.emit('bid_error', { message: 'Stream type must be auction to place a bid' });
+          return;
+        }
+
+        // Check if stream is live
+        if (stream.status !== 'live') {
+          socket.emit('bid_error', { message: 'Stream must be live to place a bid' });
+          return;
+        }
+
+        // Find the product in the stream's products array
+        const productIndex = stream.products.findIndex(p => 
+          p.product && p.product.productId && p.product.productId.toString() === productId
+        );
+
+        if (productIndex === -1) {
+          socket.emit('bid_error', { message: 'Product not found in stream' });
+          return;
+        }
+
+        const product = stream.products[productIndex];
+
+        // Check if bidding is active for this product
+        if (product.bidStatus !== 'active') {
+          socket.emit('bid_error', { message: 'Bidding is not currently active for this product' });
+          return;
+        }
+
+        // Validate bid amount
+        if (bidAmount < product.minBid) {
+          socket.emit('bid_error', { message: `Bid amount must be at least ${product.minBid}` });
+          return;
+        }
+
+        // Check if bid is higher than current bid
+        if (product.currentBid > 0 && bidAmount <= product.currentBid) {
+          socket.emit('bid_error', { message: `Bid amount must be higher than current bid of ${product.currentBid}` });
+          return;
+        }
+
+        // Get buyer details
+        const Buyer = mongoose.model('Buyer');
+        const buyer = await Buyer.findById(buyerId).select('firstName lastName username profileImage wallet');
+
+        if (!buyer) {
+          socket.emit('bid_error', { message: 'Buyer not found' });
+          return;
+        }
+
+        // Add new bid to the bids array
+        const newBid = {
+          buyer: buyerId,
+          product: productId,
+          amount: bidAmount,
+          timestamp: new Date()
+        };
+
+        stream.bids.push(newBid);
+
+        // Update product's currentBid and currentBidder with full buyer details
+        stream.products[productIndex].currentBid = bidAmount;
+        stream.products[productIndex].currentBidder = {
+          _id: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          username: buyer.username,
+          profileImage: buyer.profileImage
+        };
+
+        // Check if bidding should end (reached maxBid)
+        if (bidAmount >= product.maxBid) {
+          stream.products[productIndex].bidStatus = 'ongoing';
+          stream.products[productIndex].bidWinner = {
+            buyer: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              username: buyer.username,
+              profileImage: buyer.profileImage
+            },
+            bidAmount: bidAmount,
+            winningTime: new Date()
+          };
+
+          // Create bid winner notification
+          const winnerNotification = {
+            id: Date.now().toString(),
+            type: 'auction_winner',
+            user: stream.seller.storeName || 'Host',
+            avatar: stream.seller.storeAvatar?.url || '',
+            content: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+            data: {
+              message: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+              streamId: stream._id.toString(),
+              sellerId: stream.seller._id.toString(),
+              storeName: stream.seller.storeName || 'Unknown Store',
+              product: stream.products[productIndex],
+              bidWinner: {
+                buyer: {
+                  _id: buyer._id,
+                  firstName: buyer.firstName,
+                  lastName: buyer.lastName,
+                  username: buyer.username,
+                  profileImage: buyer.profileImage
+                },
+                bidAmount: bidAmount,
+                timestamp: new Date()
+              }
+            },
+            timestamp: new Date()
+          };
+
+          // Add the notification to stream chat interactions
+          stream.chatInteractions.push(winnerNotification);
+          
+          // Save the stream
+          await stream.save();
+          
+          // Broadcast to all subscribers
+          io.to('stream_notifications').emit('stream_notification', winnerNotification);
+          //io.to('stream_auction_bidding').emit('auction_bid_update', winnerNotification);
+          
+          // Send success message to bidder
+          socket.emit('bid_placed', {
+            success: true,
+            message: 'Bid placed successfully and auction won',
+            bid: newBid,
+            product: stream.products[productIndex],
+            isWinner: true
+          });
+          
+          return;
+        }
+
+        // Create bid notification for regular bids
+        const bidNotification = {
+          id: Date.now().toString(),
+          type: 'new_bid',
+          user: buyer.username || buyer.firstName || 'Buyer',
+          avatar: buyer.profileImage?.url || '',
+          content: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+          data: {
+            message: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+            streamId: stream._id.toString(),
+            buyerId: buyer._id.toString(),
+            buyerName: buyer.firstName + " " + buyer.lastName,
+            product: stream.products[productIndex],
+            bidAmount: bidAmount,
+            currentBidder: {
+              _id: buyer._id,
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              username: buyer.username,
+              profileImage: buyer.profileImage
+            },
+            timestamp: new Date()
+          },
+          timestamp: new Date()
+        };
+
+        // Add the notification to stream chat interactions
+        stream.chatInteractions.push(bidNotification);
+        
+        // Save the stream
+        await stream.save();
+        
+        // Broadcast to all subscribers
+        io.to('stream_notifications').emit('stream_notification', bidNotification);
+        //io.to('stream_auction_bidding').emit('auction_bid_update', bidNotification);
+
+        // Send success message to bidder
+        socket.emit('bid_placed', {
+          success: true,
+          message: 'Bid placed successfully',
+          bid: newBid,
+          product: stream.products[productIndex]
+        });
+
+      } catch (error) {
+        console.error('Error processing bid via socket:', error);
+        socket.emit('bid_error', { message: 'Failed to place bid: ' + error.message });
+      }
+    });
+
+    // Join auction bidding room
+    socket.on('join_auction_bidding', (streamId) => {
+      socket.join('stream_auction_bidding');
+      console.log(`User ${socket.user.id} joined auction bidding room for stream ${streamId}`);
+    });
+
+    // Leave auction bidding room
+    socket.on('leave_auction_bidding', () => {
+      socket.leave('stream_auction_bidding');
+      console.log(`User ${socket.user.id} left auction bidding room`);
     });
 
     socket.on('leave_stream_monitor', (data) => {

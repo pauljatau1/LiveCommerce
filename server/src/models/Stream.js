@@ -62,12 +62,12 @@ const streamSchema = new mongoose.Schema({
       default: 0
     },
     currentBidder: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.Mixed,
       ref: 'Buyer'
     },
     bidStatus: {
       type: String,
-      enum: ['pending', 'active', 'ended'],
+      enum: ['pending', 'active', 'ongoing', 'ended'],
       default: 'pending'
     },
     bidWinner: {

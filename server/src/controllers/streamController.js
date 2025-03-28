@@ -433,15 +433,27 @@ exports.placeBid = async (req, res) => {
 
     stream.bids.push(newBid);
 
-    // Update product's currentBid and currentBidder
+    // Update product's currentBid and currentBidder with full buyer details
     stream.products[productIndex].currentBid = bidAmount;
-    stream.products[productIndex].currentBidder = buyerId;
+    stream.products[productIndex].currentBidder = {
+      _id: buyer._id,
+      firstName: buyer.firstName,
+      lastName: buyer.lastName,
+      username: buyer.username,
+      profileImage: buyer.profileImage
+    };
 
     // Check if bidding should end (reached maxBid)
     if (bidAmount >= product.maxBid) {
-      stream.products[productIndex].bidStatus = 'ended';
+      stream.products[productIndex].bidStatus = 'ongoing';
       stream.products[productIndex].bidWinner = {
-        buyer: buyerId,
+        buyer: {
+          _id: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          username: buyer.username,
+          profileImage: buyer.profileImage
+        },
         bidAmount: bidAmount,
         winningTime: new Date()
       };
@@ -452,14 +464,14 @@ exports.placeBid = async (req, res) => {
         type: 'auction_winner',
         user: stream.seller.storeName || 'Host',
         avatar: stream.seller.storeAvatar?.url || '',
-        content: `${buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+        content: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
         data: {
-          message: `${buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+          message: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
           streamId: stream._id.toString(),
           sellerId: stream.seller._id.toString(),
           storeName: stream.seller.storeName || 'Unknown Store',
           product: stream.products[productIndex],
-          winner: {
+          bidWinner: {
             buyer: {
               _id: buyer._id,
               firstName: buyer.firstName,
@@ -481,6 +493,7 @@ exports.placeBid = async (req, res) => {
       
       // Send WebSocket notification
       req.app.get('io').to('stream_notifications').emit('stream_notification', winnerNotification);
+      //req.app.get('io').to('stream_auction_bidding').emit('auction_bid_update', winnerNotification);
 
       return res.status(200).json({
         message: 'Bid placed successfully and auction won',
@@ -494,16 +507,23 @@ exports.placeBid = async (req, res) => {
     const bidNotification = {
       id: Date.now().toString(),
       type: 'new_bid',
-      user: buyer.firstName || buyer.username || 'Buyer',
+      user: buyer.username || buyer.firstName || 'Buyer',
       avatar: buyer.profileImage?.url || '',
-      content: `${buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+      content: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
       data: {
-        message: `${buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+        message: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
         streamId: stream._id.toString(),
         buyerId: buyer._id.toString(),
         buyerName: buyer.firstName + " " + buyer.lastName,
         product: stream.products[productIndex],
         bidAmount: bidAmount,
+        currentBidder: {
+          _id: buyer._id,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          username: buyer.username,
+          profileImage: buyer.profileImage
+        },
         timestamp: new Date()
       }
     };
@@ -516,6 +536,7 @@ exports.placeBid = async (req, res) => {
     
     // Send WebSocket notification
     req.app.get('io').to('stream_notifications').emit('stream_notification', bidNotification);
+    //req.app.get('io').to('stream_auction_bidding').emit('auction_bid_update', bidNotification);
 
     return res.status(200).json({
       message: 'Bid placed successfully',

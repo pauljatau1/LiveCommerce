@@ -304,7 +304,8 @@ router.post('/:streamId/end-product-bidding',
  * @swagger
  * /api/streams/{streamId}/place-bid:
  *   post:
- *     summary: Place a bid on a product in an auction stream
+ *     summary: Place a bid on a product in an auction stream (REST API fallback - WebSocket preferred)
+ *     description: This endpoint is provided as a fallback. For real-time bidding, use the WebSocket connection with 'stream_place_bid' event.
  *     tags: [Streams]
  *     security:
  *       - bearerAuth: []
