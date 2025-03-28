@@ -53,6 +53,15 @@ const autoOrderMessages = [
   "Logistics Inquiry",
 ];
 
+const autoOrderMessagesText = {
+  "Ask Availability": (sellerName: string, orderName: string): string =>
+    `Hi ${sellerName}, I just placed an order:${orderName}. Can you please confirm stock status and shipping times. Thank you!`,
+  "Order Request": (sellerName: string, orderName: string): string =>
+    `Hello ${sellerName}, I'd like to request details for order: ${orderName}`,
+  "Logistics Inquiry": (sellerName: string, orderName: string): string =>
+    `Hello ${sellerName}, I just placed an order:${orderName}. Could you share details about shipping methods, estimated delivery times, and any handling fees?`,
+} as any;
+
 const MessageRoom = () => {
   const {
     id,
@@ -200,12 +209,8 @@ const MessageRoom = () => {
   }, [orderId]);
 
   const handleSendAutoMessage = () => {
-    setNewMessage(
-      `${autoOrderMessage?.message}: ${orderDetails?.order?.order_id}`,
-    );
-    handleSendMessage(
-      `${autoOrderMessage?.message}: ${orderDetails?.order?.order_id}`,
-    );
+    setNewMessage(`${autoOrderMessage?.message}`);
+    handleSendMessage(`${autoOrderMessage?.message}`);
   };
 
   const handleReadMessages = async () => {
@@ -477,7 +482,7 @@ const MessageRoom = () => {
       fetchOrder();
     }
 
-    setTimeout(() => setShowOrderDetails(false), 5000);
+    // setTimeout(() => setShowOrderDetails(false), 5000);
   }, [orderId]);
   const scrollToBottom = useCallback(() => {
     if (listRef.current && messages.length > 0) {
@@ -743,7 +748,10 @@ const MessageRoom = () => {
                             onPress={() =>
                               setAutoOrderMessage({
                                 index,
-                                message,
+                                message: autoOrderMessagesText[message](
+                                  name,
+                                  orderDetails?.order?.order_id,
+                                ),
                               })
                             }
                           >

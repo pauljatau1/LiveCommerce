@@ -177,7 +177,9 @@ const Blips = () => {
             ref={flatListRef}
             data={videos}
             renderItem={renderVideo}
-            keyExtractor={(item, index) => item?.blipId || index.toString()}
+            keyExtractor={(item, index) =>
+              item?.blipId + index.toString() || index.toString()
+            }
             pagingEnabled
             onEndReached={fetchMoreVideos}
             onEndReachedThreshold={1.5}

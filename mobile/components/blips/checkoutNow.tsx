@@ -234,9 +234,6 @@ const CheckoutNow = ({
     if (orderLoading) {
       return;
     }
-    if (orderLoading) {
-      return;
-    }
     if (!selectedAddress) {
       return toast.info("Please add a delivery address");
     }
@@ -249,6 +246,12 @@ const CheckoutNow = ({
       if (walletBalance < deliveryFee + productTotal) {
         return toast.error("Insufficient Wallet Balance");
       }
+    }
+
+    if (deliveryFee + productTotal > 50000 && selectedPayment == 2) {
+      return toast.info(
+        "Cash on Delivery is unavailable for orders over ₦50,000",
+      );
     }
 
     const order = {
@@ -340,7 +343,7 @@ const CheckoutNow = ({
     } catch (e: any) {
       if (e?.response.status == 400) {
         closeSheet();
-
+        toast.success("Order Placed successfully");
         return router.push("/(root)/orders/orders");
       }
       console.log("could not Pay for  order", e?.response?.message);
@@ -375,9 +378,11 @@ const CheckoutNow = ({
         }, 500);
       } else if (selectedPayment == 2) {
         closeSheet();
+        toast.success("Order Placed successfully");
         router.push("/(root)/orders/orders");
       } else {
         closeSheet();
+        toast.success("Order Placed successfully");
         router.push("/(root)/orders/orders");
       }
       setOrderloading(false);
