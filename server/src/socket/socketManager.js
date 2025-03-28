@@ -1003,9 +1003,9 @@ function initializeSocket(server) {
 
         // Get user details based on role (buyer or seller)
         let userDetails;
-        let userRole = socket.user.role || 'buyer'; // Default to buyer if role not specified
+        let userRole = socket.user.role; // Default to buyer if role not specified
 
-        if (userRole === 'seller') {
+        if (userRole === 'Seller') {
           userDetails = await Seller.findById(socket.user.id).select('storeName storeAvatar');
           
           if (!userDetails) {
@@ -1176,8 +1176,13 @@ function initializeSocket(server) {
         const bidAmount = data.bidAmount;
         const buyerId = socket.user.id;
 
-        // Validate user is a buyer
-        if (socket.user.role !== 'buyer') {
+        // Validate user is a buyer (more lenient check)
+        const userRole = socket.user.role ; // Default to buyer if role not specified
+        if (userRole !== 'Buyer') {
+          console.log('Bid rejected: User is not a buyer', {
+            socketId: socket.id,
+            userRole: userRole
+          });
           socket.emit('bid_error', { message: 'Only buyers can place bids' });
           return;
         }
