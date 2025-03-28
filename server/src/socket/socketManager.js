@@ -1268,6 +1268,21 @@ function initializeSocket(server) {
           profileImage: buyer.profileImage
         };
 
+        // Helper function to format product name to max 3 words
+        const formatProductName = (name) => {
+          if (!name) return 'a product';
+          
+          // Split by spaces and take first 3 words
+          const words = name.split(' ');
+          const truncatedName = words.slice(0, 3).join(' ');
+          
+          // Add ellipsis if there were more than 3 words
+          return words.length > 3 ? `${truncatedName}...` : truncatedName;
+        };
+
+        // Format the product name
+        const formattedProductName = formatProductName(product.product.name);
+
         // Check if bidding should end (reached maxBid)
         if (bidAmount >= product.maxBid) {
           stream.products[productIndex].bidStatus = 'ongoing';
@@ -1289,9 +1304,9 @@ function initializeSocket(server) {
             type: 'auction_winner',
             user: stream.seller.storeName || 'Host',
             avatar: stream.seller.storeAvatar?.url || '',
-            content: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+            content: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
             data: {
-              message: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+              message: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
               streamId: stream._id.toString(),
               sellerId: stream.seller._id.toString(),
               storeName: stream.seller.storeName || 'Unknown Store',
@@ -1339,9 +1354,9 @@ function initializeSocket(server) {
           type: 'new_bid',
           user: buyer.username || buyer.firstName || 'Buyer',
           avatar: buyer.profileImage?.url || '',
-          content: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+          content: `placed a bid of ₦${bidAmount.toLocaleString()} on ${formattedProductName}`,
           data: {
-            message: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+            message: `placed a bid of ₦${bidAmount.toLocaleString()} on ${formattedProductName}`,
             streamId: stream._id.toString(),
             buyerId: buyer._id.toString(),
             buyerName: buyer.firstName + " " + buyer.lastName,
