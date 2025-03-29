@@ -129,10 +129,10 @@ const SignUpPage = () => {
             />
             <div>
               <h1 className='text-4xl font-bold text-white max-w-[500px] mb-20'>
-                I see you're a first timer here.
+                Welcome to Auqli Seller Center
               </h1>
               <p className='text-white max-w-[450px] text-lg'>
-                Maybe some text here will help me see it better. Oh God. Oke, let&apos;s do it then.
+                Join our interactive live shopping platform to connect with customers in real-time and boost your sales.
               </p>
             </div>
           </div>

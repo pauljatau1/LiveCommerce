@@ -27,13 +27,16 @@ export const LivestreamProvider = ({ children }) => {
         liveStreamDetails: null,
         hasLiveStreamStarted: false,
         hasLiveStreamEnded: false,
-        joinLiveStreamData: null
+        joinLiveStreamData: null,
+        isActivatingBid: false
     };
 
     const [state, dispatch] = useReducer((state, action) => {
         switch (action.type) {
             case 'SET_LOADING':
                 return { ...state, isLoading: action.payload };
+            case 'SET_ACTIVATING_BID':
+                return { ...state, isActivatingBid: action.payload };
             case 'SET_LIVESTREAM_DATA':
                 return {
                     ...state,
@@ -103,6 +106,14 @@ export const LivestreamProvider = ({ children }) => {
                     ...state,
                     liveStreamDetails: action.payload
                 }
+            case 'UPDATE_PRODUCT_BID_STATUS':
+                return {
+                    ...state,
+                    liveStreamDetails: {
+                        ...state.liveStreamDetails,
+                        products: action.payload
+                    }
+                }
             case 'RESET_SCHEDULE_DATA':
                 return {
                     ...state,
@@ -119,7 +130,8 @@ export const LivestreamProvider = ({ children }) => {
             case 'SET_JOIN_LIVE_STREAM_DATA':
                 return {
                     ...state,
-                    joinLiveStreamData: action.payload
+                    joinLiveStreamData: action.payload,
+                    liveStreamDetails: action.payload.stream,
                 }
             default:
                 return state;
@@ -361,6 +373,72 @@ export const LivestreamProvider = ({ children }) => {
         }
     }
 
+    const activateProductBidding = async (streamId, productId) => {
+        try {
+            dispatch({ type: 'SET_ACTIVATING_BID', payload: true });
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+
+            if (!tokenData?.data) {
+                throw new Error('No authentication token found');
+            }
+
+            const response = await axios.post(
+                `${BASE_URL}/streams/${streamId}/activate-product-bidding`,
+                { productId },
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (response.status === 200) {
+                // Update the product's bid status in the state
+                const updatedProducts = state.liveStreamDetails.products.map(product => {
+                    // Set the activated product to active
+                    if (product.product.productId === productId) {
+                        return { ...product, ...response.data.product };
+                    }
+                    // Set all other active products to ended (since only one can be active)
+                    if (product.bidStatus === 'active') {
+                        return { ...product, bidStatus: 'pending' };
+                    }
+                    return product;
+                });
+
+                dispatch({ type: 'UPDATE_PRODUCT_BID_STATUS', payload: updatedProducts });
+                
+                toast.success('Product bidding activated successfully', {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+                
+                return response.data.product;
+            }
+            return null;
+        } catch (error) {
+            console.error('Activate product bidding error:', error);
+            dispatch({
+                type: 'SET_ERROR',
+                payload: error.response?.data?.message || error.message
+            });
+            toast.error('Error activating product bidding', {
+                description: error.response?.data?.message || 'Something went wrong',
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+            throw error;
+        } finally {
+            dispatch({ type: 'SET_ACTIVATING_BID', payload: false });
+        }
+    };
+
     return (
         <LivestreamContext.Provider value={{
             ...state,
@@ -371,6 +449,7 @@ export const LivestreamProvider = ({ children }) => {
             getLiveStreamFullDetails,
             endLiveStream,
             joinLiveStreamAsHost,
+            activateProductBidding,
             dispatch
         }}>
             {children}

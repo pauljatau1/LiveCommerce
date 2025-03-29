@@ -172,7 +172,7 @@ export default function OrdersDashboard() {
   }, []);
 
   // Filter orders based on active tab
-  const filteredOrders = orders?.filter((order) => {
+  const filteredOrders = orders.filter((order) => {
     if (activeTab === "all") return true;
     if (activeTab === "process") return order.shipping.tracking.status === "pending";
     if (activeTab === "transit") 
@@ -260,11 +260,10 @@ export default function OrdersDashboard() {
           },
         });
         const data = await response.json();
-        setOrders(Array.isArray(data.orders) ? data.orders : []);
-        setTotalOrders(data.orders?.length || 0);
+        setOrders(data);
+        setTotalOrders(data.length);
       } catch (error) {
         console.error("Error fetching orders:", error);
-        setOrders([]);
       } finally {
         setLoading(false);
       }

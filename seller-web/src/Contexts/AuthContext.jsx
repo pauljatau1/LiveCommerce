@@ -79,6 +79,7 @@ function AuthProvider({ children }) {
             case "RESET":
                 return {
                     ...state,
+                    isLoading: false,
                     seller: null,
                     isAuthenticated: false,
                     message: "",

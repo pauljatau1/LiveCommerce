@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { useDispatch, useSelector } from 'react-redux';
 import { deleteProduct } from '../../../Redux/Slices/ProductSlice';
@@ -34,7 +34,7 @@ import {
 } from "../../ui/dialog";
 
 // Auction Performance Modal component
-const AuctionPerformanceModal = ({ open, onClose, auctionId }) => {
+const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
     const [auctionData, setAuctionData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -149,10 +149,10 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId }) => {
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-[800px] max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-bold">Auction Performance</DialogTitle>
-                    <DialogDescription>
+            <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+                <DialogHeader className="space-y-3">
+                    <DialogTitle className="text-xl sm:text-2xl font-bold text-[#05031F]">Auction Performance</DialogTitle>
+                    <DialogDescription className="text-sm sm:text-base">
                         Detailed information about this auction's performance
                     </DialogDescription>
                 </DialogHeader>
@@ -168,23 +168,23 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId }) => {
                     </div>
                 ) : auctionData ? (
                     <div className="space-y-6">
-                        {/* Product Basic Info */}
-                        <div className="flex gap-4 items-start">
-                            {auctionData.images && auctionData.images.length > 0 && (
+                        {/* Product Basic Info - More responsive */}
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="w-full sm:w-auto">
                                 <img 
                                     src={auctionData.images[0].url} 
                                     alt={auctionData.name} 
-                                    className="w-24 h-24 rounded-lg object-cover"
+                                    className="w-full sm:w-24 h-24 rounded-lg object-cover"
                                 />
-                            )}
-                            <div>
+                            </div>
+                            <div className="space-y-1">
                                 <h3 className="text-lg font-medium">{auctionData.name}</h3>
                                 <p className="text-sm text-gray-500">{auctionData.category} • {auctionData.subCategory}</p>
                             </div>
                         </div>
                         
-                        {/* Auction Stats */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {/* Auction Stats - More responsive grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <p className="text-sm text-gray-500">Status</p>
                                 <p className="text-lg font-medium capitalize">
@@ -211,10 +211,10 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId }) => {
                             </div>
                         </div>
                         
-                        {/* Auction Timeline */}
+                        {/* Auction Timeline - Better mobile layout */}
                         <div className="bg-gray-50 p-4 rounded-lg">
                             <h4 className="font-medium mb-4">Auction Timeline</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-sm text-gray-500">Start Date</p>
                                     <p className="font-medium">{formatDate(auctionData.auction?.startDate)}</p>
@@ -223,7 +223,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId }) => {
                                     <p className="text-sm text-gray-500">End Date</p>
                                     <p className="font-medium">{formatDate(auctionData.auction?.endDate)}</p>
                                 </div>
-                                <div className="md:col-span-2">
+                                <div className="sm:col-span-2">
                                     <p className="text-sm text-gray-500">End on Max Bid</p>
                                     <p className="font-medium">{auctionData.auction?.endOnMaxBid ? "Yes" : "No"}</p>
                                 </div>
@@ -281,90 +281,85 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId }) => {
                         {canRerun && (
                             <div className="flex justify-center">
                                 <button 
-                                    onClick={handleRerunAuction}
-                                    disabled={isRerunLoading}
+                                    onClick={() => {
+                                        onClose();
+                                        setShowRerunDialog(true);
+                                    }}
                                     className="bg-[#05031F] text-white px-6 py-3 rounded-md hover:bg-[#05031F]/90 transition-all duration-200 flex items-center gap-2"
                                 >
-                                    {isRerunLoading ? (
-                                        <>
-                                            <CircularProgress size={20} color="inherit" />
-                                            <span>Processing...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Icon icon="solar:restart-bold" className="w-5 h-5" />
-                                            <span>Rerun Auction</span>
-                                        </>
-                                    )}
+                                    <Icon icon="solar:restart-bold" className="w-5 h-5" />
+                                    <span>Rerun Auction</span>
                                 </button>
                             </div>
                         )}
                         
-                        {/* Bid History */}
+                        {/* Bid History - Responsive table */}
                         {auctionData.auction?.bids && auctionData.auction.bids.length > 0 && (
-                            <div>
-                                <h4 className="font-medium mb-4">Bid History ({auctionData.auction.bids.length})</h4>
-                                <div className="border rounded-lg overflow-hidden">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Bidder
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Amount
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Date
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Status
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {auctionData.auction.bids.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((bid) => (
-                                                <tr key={bid._id}>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            {bid.buyer?.profileImage && (
-                                                                <div className="flex-shrink-0 h-8 w-8 mr-3">
-                                                                    <img className="h-8 w-8 rounded-full" src={bid.buyer.profileImage.url} alt="" />
-                                                                </div>
-                                                            )}
-                                                            <div>
-                                                                <div className="text-sm font-medium text-gray-900">
-                                                                    {bid.buyer?.firstName} {bid.buyer?.lastName}
+                            <div className="overflow-x-auto">
+                                <div className="min-w-full">
+                                    <h4 className="font-medium mb-4">Bid History ({auctionData.auction.bids.length})</h4>
+                                    <div className="border rounded-lg overflow-hidden">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Bidder
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Amount
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Date
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Status
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {auctionData.auction.bids.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((bid) => (
+                                                    <tr key={bid._id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center">
+                                                                {bid.buyer?.profileImage && (
+                                                                    <div className="flex-shrink-0 h-8 w-8 mr-3">
+                                                                        <img className="h-8 w-8 rounded-full" src={bid.buyer.profileImage.url} alt="" />
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    <div className="text-sm font-medium text-gray-900">
+                                                                        {bid.buyer?.firstName} {bid.buyer?.lastName}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm text-gray-900">{formatCurrency(bid.amount)}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm text-gray-500">{formatDate(bid.createdAt)}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                            bid.status === 'won' ? 'bg-green-100 text-green-800' : 
-                                                            bid.amount === currentLeader?.amount ? 'bg-purple-100 text-purple-800' : 
-                                                            'bg-gray-100 text-gray-800'
-                                                        }`}>
-                                                            {bid.status === 'won' ? 'Won' : 
-                                                             bid.amount === currentLeader?.amount ? 'Leading' : 'Lost'}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm text-gray-900">{formatCurrency(bid.amount)}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm text-gray-500">{formatDate(bid.createdAt)}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                                bid.status === 'won' ? 'bg-green-100 text-green-800' : 
+                                                                bid.amount === currentLeader?.amount ? 'bg-purple-100 text-purple-800' : 
+                                                                'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                                {bid.status === 'won' ? 'Won' : 
+                                                                 bid.amount === currentLeader?.amount ? 'Leading' : 'Lost'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         )}
                         
-                        {/* Analytics */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Analytics - Responsive grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <p className="text-sm text-gray-500">Product Views</p>
                                 <p className="text-xl font-medium">{auctionData.stats?.views || 0}</p>
@@ -392,7 +387,8 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId }) => {
 AuctionPerformanceModal.propTypes = {
     open: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    auctionId: PropTypes.string
+    auctionId: PropTypes.string,
+    setShowRerunDialog: PropTypes.func.isRequired
 };
 
 // Create a separate component for the stock update modal
@@ -543,7 +539,7 @@ StockUpdateModal.propTypes = {
 };
 
 // Product Details Modal component
-const ProductDetailsModal = ({ open, onClose, productId }) => {
+const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
     const [productData, setProductData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -741,7 +737,7 @@ const ProductDetailsModal = ({ open, onClose, productId }) => {
                             <button
                                 onClick={() => {
                                     onClose();
-                                    handleProductDelete(productData._id);
+                                    handleDelete(productId);
                                 }}
                                 className="px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-all duration-200 flex items-center gap-2"
                             >
@@ -763,7 +759,248 @@ const ProductDetailsModal = ({ open, onClose, productId }) => {
 ProductDetailsModal.propTypes = {
     open: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    productId: PropTypes.string
+    productId: PropTypes.string,
+    handleDelete: PropTypes.func.isRequired
+};
+
+// Add RerunAuctionDialog component before the ProductCard component
+const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues }) => {
+    const [formData, setFormData] = useState({
+        startDate: '',
+        endDate: '',
+        minBid: defaultValues?.minBid || '',
+        maxBid: defaultValues?.maxBid || '',
+        endOnMaxBid: defaultValues?.endOnMaxBid || false
+    });
+    const [formErrors, setFormErrors] = useState({});
+
+    const handleStartNow = () => {
+        setFormData(prev => ({
+            ...prev,
+            startDate: new Date().toISOString().slice(0, 16)
+        }));
+    };
+
+    useEffect(() => {
+        if (defaultValues) {
+            setFormData(prev => ({
+                ...prev,
+                minBid: defaultValues.minBid || '',
+                maxBid: defaultValues.maxBid || '',
+                endOnMaxBid: defaultValues.endOnMaxBid || false
+            }));
+        }
+    }, [defaultValues]);
+
+    const validateForm = () => {
+        const errors = {};
+        if (!formData.endDate) {
+            errors.endDate = "End date is required";
+        } else {
+            const endDate = new Date(formData.endDate);
+            const now = new Date();
+            if (endDate <= now) {
+                errors.endDate = "End date must be in the future";
+            }
+            if (formData.startDate && new Date(formData.startDate) >= endDate) {
+                errors.startDate = "Start date must be before end date";
+            }
+        }
+        if (formData.minBid && formData.maxBid && Number(formData.minBid) >= Number(formData.maxBid)) {
+            errors.minBid = "Minimum bid must be less than maximum bid";
+            errors.maxBid = "Maximum bid must be greater than minimum bid";
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+        // Clear error when field is changed
+        if (formErrors[name]) {
+            setFormErrors(prev => ({
+                ...prev,
+                [name]: undefined
+            }));
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!validateForm()) {
+            return;
+        }
+        const submitData = {
+            ...formData,
+            minBid: formData.minBid ? Number(formData.minBid) : undefined,
+            maxBid: formData.maxBid ? Number(formData.maxBid) : undefined
+        };
+        onSubmit(submitData);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[500px] p-6">
+                <DialogHeader className="space-y-3">
+                    <DialogTitle className="text-2xl font-bold text-[#05031F]">Rerun Auction</DialogTitle>
+                    <DialogDescription className="text-base">
+                        Configure the new auction parameters. End date is required, other fields are optional.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700">Start Date</label>
+                                <button
+                                    type="button"
+                                    onClick={handleStartNow}
+                                    className="text-sm text-[#05031F] hover:text-[#05031F]/80 font-medium flex items-center gap-1"
+                                >
+                                    <Icon icon="solar:play-bold" className="w-4 h-4" />
+                                    Start Now
+                                </button>
+                            </div>
+                            <input
+                                type="datetime-local"
+                                name="startDate"
+                                value={formData.startDate}
+                                onChange={handleChange}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                    formErrors.startDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                }`}
+                                min={new Date().toISOString().slice(0, 16)}
+                            />
+                            {formErrors.startDate && (
+                                <p className="text-sm text-red-500 flex items-center gap-1">
+                                    <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                    {formErrors.startDate}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">End Date (Required)</label>
+                            <input
+                                type="datetime-local"
+                                name="endDate"
+                                value={formData.endDate}
+                                onChange={handleChange}
+                                required
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                    formErrors.endDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                }`}
+                                min={new Date().toISOString().slice(0, 16)}
+                            />
+                            {formErrors.endDate && (
+                                <p className="text-sm text-red-500 flex items-center gap-1">
+                                    <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                    {formErrors.endDate}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Minimum Bid</label>
+                                <input
+                                    type="number"
+                                    name="minBid"
+                                    value={formData.minBid}
+                                    onChange={handleChange}
+                                    placeholder={`Previous: ₦${defaultValues?.minBid || 0}`}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                        formErrors.minBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                    min="0"
+                                />
+                                {formErrors.minBid && (
+                                    <p className="text-sm text-red-500 flex items-center gap-1">
+                                        <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                        {formErrors.minBid}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Maximum Bid</label>
+                                <input
+                                    type="number"
+                                    name="maxBid"
+                                    value={formData.maxBid}
+                                    onChange={handleChange}
+                                    placeholder={`Previous: ₦${defaultValues?.maxBid || 0}`}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#05031F]/20 focus:border-[#05031F] transition-all ${
+                                        formErrors.maxBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                    min="0"
+                                />
+                                {formErrors.maxBid && (
+                                    <p className="text-sm text-red-500 flex items-center gap-1">
+                                        <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                        {formErrors.maxBid}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 bg-gray-50 p-4 rounded-lg">
+                            <input
+                                type="checkbox"
+                                name="endOnMaxBid"
+                                id="endOnMaxBid"
+                                checked={formData.endOnMaxBid}
+                                onChange={handleChange}
+                                className="rounded border-gray-300 text-[#05031F] focus:ring-[#05031F]"
+                            />
+                            <label htmlFor="endOnMaxBid" className="text-sm font-medium text-gray-700">
+                                End auction when max bid is reached
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-3 border rounded-lg hover:bg-gray-50 font-medium transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isLoading || !formData.endDate}
+                            className="px-6 py-3 bg-[#05031F] text-white rounded-lg hover:bg-[#05031F]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <CircularProgress size={20} color="inherit" />
+                                    <span>Processing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Icon icon="solar:restart-bold" className="w-5 h-5" />
+                                    <span>Rerun Auction</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+RerunAuctionDialog.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    onSubmit: PropTypes.func.isRequired,
+    isLoading: PropTypes.bool.isRequired,
+    defaultValues: PropTypes.object
 };
 
 const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
@@ -777,8 +1014,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const { isLoading, deleteStatus, deletedProductId } = useSelector(state => state.product);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isRerunLoading, setIsRerunLoading] = useState(false);
-
-
+    const [showRerunDialog, setShowRerunDialog] = useState(false);
 
     const getStockStatus = (stock) => {
         if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
@@ -831,16 +1067,15 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const status = isAuction ? getAuctionStatus(item.auction) : getStockStatus(item?.stock);
     const uploadStatus = getUploadStatus(item.status);
 
-    const handleProductDelete = (productId) => {
+    const handleProductDelete = useCallback((productId) => {
         dispatch(deleteProduct(productId));
-    };
+    }, [dispatch]);
 
     console.log(item)
 
     const SpecificDeletedProduct = item._id === deletedProductId;
     console.log('attempted deleted product', deletedProductId)
     console.log('specific deleted product', SpecificDeletedProduct)
-
 
     const handleStockUpdate = async (newStock) => {
         try {
@@ -876,15 +1111,14 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
         return false
     }
 
-    // Add function to handle rerun auction
-    const handleRerunAuction = async (e) => {
-        e.stopPropagation();
+    // Update handleRerunAuction function
+    const handleRerunAuction = async (formData) => {
         setIsRerunLoading(true);
         try {
             const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
             
-            const response = await axios.post(`${BASE_URL}/products/${item._id}/rerun-auction`, {}, {
+            const response = await axios.post(`${BASE_URL}/products/${item._id}/rerun-auction`, formData, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`,
                     'Content-Type': 'application/json'
@@ -893,13 +1127,13 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             
             if (response.status === 200) {
                 toast.success("Auction rerun successfully", {
-                    description: "Your auction has been rescheduled with previous settings",
+                    description: "Your auction has been rescheduled with the new settings",
                     style: {
                         background: '#05031F',
                         color: '#fff',
                     }
                 });
-                // Refresh product data
+                setShowRerunDialog(false);
                 setIsStockUpdated(prev => !prev);
             }
         } catch (error) {
@@ -913,6 +1147,12 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
         } finally {
             setIsRerunLoading(false);
         }
+    };
+
+    // Update the rerun button click handler
+    const handleRerunClick = (e) => {
+        e.stopPropagation();
+        setShowRerunDialog(true);
     };
 
     // Check if the auction is ended and can be rerun
@@ -945,18 +1185,11 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 </div>
                 {canRerunAuction && (
                     <button
-                        onClick={handleRerunAuction}
-                        disabled={isRerunLoading}
+                        onClick={handleRerunClick}
                         className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
                     >
-                        {isRerunLoading ? (
-                            <CircularProgress size={14} color="inherit" />
-                        ) : (
-                            <>
-                                <Icon icon="solar:restart-bold" className="w-3 h-3" />
-                                Rerun Auction
-                            </>
-                        )}
+                        <Icon icon="solar:restart-bold" className="w-3 h-3" />
+                        <span>Rerun Auction</span>
                     </button>
                 )}
             </div>
@@ -1026,10 +1259,10 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                     {canRerunAuction && (
                                         <CommandItem onSelect={() => {
                                             setIsDesktopPopoverOpen(false);
-                                            handleRerunAuction(new Event('click'));
+                                            setShowRerunDialog(true);
                                         }} className="cursor-pointer">
                                             <Icon icon="solar:restart-bold" className="w-6 h-6 text-[#05031F]" />
-                                            <span className="ml-2 text-[#05031F]">Rerun Auction</span>
+                                            <span className="ml-2 text-[#05031F]">Rerun Auction ...</span>
                                         </CommandItem>
                                     )}
                                 </CommandGroup>
@@ -1078,18 +1311,11 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                 </div>
                                 {canRerunAuction && (
                                     <button
-                                        onClick={handleRerunAuction}
-                                        disabled={isRerunLoading}
+                                        onClick={handleRerunClick}
                                         className="mt-1 flex items-center gap-1.5 px-2 py-1 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
                                     >
-                                        {isRerunLoading ? (
-                                            <CircularProgress size={14} color="inherit" />
-                                        ) : (
-                                            <>
-                                                <Icon icon="solar:restart-bold" className="w-3 h-3" />
-                                                Rerun Auction
-                                            </>
-                                        )}
+                                        <Icon icon="solar:restart-bold" className="w-3 h-3" />
+                                        <span>Rerun Auction</span>
                                     </button>
                                 )}
                             </>
@@ -1165,7 +1391,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                         {canRerunAuction && (
                                             <CommandItem onSelect={() => {
                                                 setIsMobilePopoverOpen(false);
-                                                handleRerunAuction(new Event('click'));
+                                                setShowRerunDialog(true);
                                             }} className="cursor-pointer">
                                                 <Icon icon="solar:restart-bold" className="w-6 h-6 text-[#05031F]" />
                                                 <span className="ml-2 text-[#05031F]">Rerun Auction</span>
@@ -1210,12 +1436,22 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 open={openAuctionModal}
                 onClose={() => setOpenAuctionModal(false)}
                 auctionId={item._id}
+                setShowRerunDialog={setShowRerunDialog}
             />
 
             <ProductDetailsModal
                 open={openProductDetails}
                 onClose={() => setOpenProductDetails(false)}
                 productId={item._id}
+                handleDelete={handleProductDelete}
+            />
+
+            <RerunAuctionDialog
+                open={showRerunDialog}
+                onClose={() => setShowRerunDialog(false)}
+                onSubmit={handleRerunAuction}
+                isLoading={isRerunLoading}
+                defaultValues={item.auction}
             />
         </>
     );
