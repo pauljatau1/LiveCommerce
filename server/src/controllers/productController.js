@@ -5119,6 +5119,23 @@ exports.getAuctionBids = async (req, res) => {
   try {
     const { productId } = req.params;
 
+    // First check if the auction should be ended
+    const now = new Date();
+    await Product.updateMany(
+      { 
+        _id: productId,
+        status: 'offline_auction', 
+        'auction.status': 'ongoing',
+        'auction.endDate': { $lt: now } 
+      },
+      { 
+        $set: { 
+          'auction.status': 'ended',
+          'auction.daysLeft': 0
+        } 
+      }
+    );
+
     const product = await Product.findById(productId)
       .populate({
         path: 'auction.bids.buyer',
@@ -5138,12 +5155,18 @@ exports.getAuctionBids = async (req, res) => {
     }
 
     // Calculate days left
-    const now = new Date();
     let daysLeft = 0;
     if (product.auction.status === 'scheduled') {
       daysLeft = Math.ceil((product.auction.startDate - now) / (1000 * 60 * 60 * 24));
     } else if (product.auction.status === 'ongoing') {
       daysLeft = Math.ceil((product.auction.endDate - now) / (1000 * 60 * 60 * 24));
+      
+      // Double-check if this auction should be ended (defensive check)
+      if (product.auction.endDate < now) {
+        await product.endAuction();
+        product.auction.status = 'ended';
+        daysLeft = 0;
+      }
     }
 
     // Format the response
@@ -5200,17 +5223,44 @@ exports.getBuyerBids = async (req, res) => {
   try {
     const buyerId = req.user._id;
     
+    // First, update any auctions that should be ended
+    const now = new Date();
+    await Product.updateMany(
+      { 
+        status: 'offline_auction', 
+        'auction.status': 'ongoing',
+        'auction.endDate': { $lt: now } 
+      },
+      { 
+        $set: { 
+          'auction.status': 'ended',
+          'auction.daysLeft': 0
+        } 
+      }
+    );
+    
     const products = await Product.find({
       status: 'offline_auction',
       'auction.bids.buyer': buyerId
     })
     .populate('seller', 'businessName storeName')
-    .select('name auction.bids auction.currentHighestBid auction.winner auction.status auction.daysLeft images');
+    .select('name auction.bids auction.currentHighestBid auction.winner auction.status auction.daysLeft auction.endDate images');
 
     const bids = products.map(product => {
       const buyerBids = product.auction.bids.filter(
         bid => bid.buyer.toString() === buyerId.toString()
       );
+      
+      // Double-check if this auction should be ended (defensive check)
+      let auctionStatus = product.auction.status;
+      let daysLeft = product.auction.daysLeft;
+      
+      if (auctionStatus === 'ongoing' && product.auction.endDate < now) {
+        auctionStatus = 'ended';
+        daysLeft = 0;
+      } else if (auctionStatus === 'ongoing') {
+        daysLeft = Math.ceil((product.auction.endDate - now) / (1000 * 60 * 60 * 24));
+      }
       
       return {
         productId: product._id,
@@ -5220,8 +5270,8 @@ exports.getBuyerBids = async (req, res) => {
         bids: buyerBids,
         isHighestBidder: product.auction.currentHighestBid.buyer?.toString() === buyerId.toString(),
         isWinner: product.auction.winner?.buyer?.toString() === buyerId.toString(),
-        auctionStatus: product.auction.status,
-        daysLeft: product.auction.daysLeft
+        auctionStatus: auctionStatus,
+        daysLeft: daysLeft
       };
     });
 
@@ -5379,6 +5429,22 @@ exports.getAuctionProducts = async (req, res) => {
         sortObj = { 'auction.endDate': 1 };
     }
 
+    // First, update any auctions that should be ended
+    const now = new Date();
+    await Product.updateMany(
+      { 
+        status: 'offline_auction', 
+        'auction.status': 'ongoing',
+        'auction.endDate': { $lt: now } 
+      },
+      { 
+        $set: { 
+          'auction.status': 'ended',
+          'auction.daysLeft': 0
+        } 
+      }
+    );
+
     // Execute query with pagination
     const [products, totalProducts] = await Promise.all([
       Product.find(query)
@@ -5406,7 +5472,6 @@ exports.getAuctionProducts = async (req, res) => {
     const totalPages = Math.ceil(totalProducts / limit);
 
     // Update days left and clean up buyer data
-    const now = new Date();
     const cleanedProducts = products.map(product => {
       const cleanedProduct = product.toObject();
 
@@ -5415,6 +5480,11 @@ exports.getAuctionProducts = async (req, res) => {
         cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.startDate - now) / (1000 * 60 * 60 * 24));
       } else if (cleanedProduct.auction.status === 'ongoing') {
         cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.endDate - now) / (1000 * 60 * 60 * 24));
+        // Double-check if this auction should be ended (defensive check)
+        if (cleanedProduct.auction.endDate < now) {
+          cleanedProduct.auction.status = 'ended';
+          cleanedProduct.auction.daysLeft = 0;
+        }
       } else {
         cleanedProduct.auction.daysLeft = 0;
       }
@@ -5511,6 +5581,23 @@ exports.getSellerAuctionProducts = async (req, res) => {
         sortObj = { 'auction.endDate': 1 };
     }
 
+    // First, update any auctions that should be ended
+    const now = new Date();
+    await Product.updateMany(
+      { 
+        status: 'offline_auction',
+        seller: sellerId,
+        'auction.status': 'ongoing',
+        'auction.endDate': { $lt: now } 
+      },
+      { 
+        $set: { 
+          'auction.status': 'ended',
+          'auction.daysLeft': 0
+        } 
+      }
+    );
+
     // Execute query with pagination
     const [products, totalProducts] = await Promise.all([
       Product.find(query)
@@ -5538,7 +5625,6 @@ exports.getSellerAuctionProducts = async (req, res) => {
     const totalPages = Math.ceil(totalProducts / limit);
 
     // Update days left and clean up buyer data
-    const now = new Date();
     const cleanedProducts = products.map(product => {
       const cleanedProduct = product.toObject();
 
@@ -5547,6 +5633,11 @@ exports.getSellerAuctionProducts = async (req, res) => {
         cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.startDate - now) / (1000 * 60 * 60 * 24));
       } else if (cleanedProduct.auction.status === 'ongoing') {
         cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.endDate - now) / (1000 * 60 * 60 * 24));
+        // Double-check if this auction should be ended (defensive check)
+        if (cleanedProduct.auction.endDate < now) {
+          cleanedProduct.auction.status = 'ended';
+          cleanedProduct.auction.daysLeft = 0;
+        }
       } else {
         cleanedProduct.auction.daysLeft = 0;
       }
@@ -6371,3 +6462,211 @@ exports.rerunOfflineAuction = async (req, res) => {
   }
 };
 
+// Get auction products where the logged-in buyer has active bids
+exports.getBuyerAuctionProducts = async (req, res) => {
+  try {
+    // Check if req.user and req.user.id exist
+    if (!req.user || !req.user.id) {
+      console.log('User or user ID is missing:', req.user);
+      return res.status(401).json({ message: 'User authentication error' });
+    }
+
+    const buyerId = req.user.id.toString();
+    console.log('Finding auction products for buyer ID:', buyerId);
+
+    const { status, sort = 'endDate', page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    // First, update any auctions that should be ended
+    const now = new Date();
+    await Product.updateMany(
+      { 
+        status: 'offline_auction', 
+        'auction.status': 'ongoing',
+        'auction.endDate': { $lt: now } 
+      },
+      { 
+        $set: { 
+          'auction.status': 'ended',
+          'auction.daysLeft': 0
+        } 
+      }
+    );
+
+    // Get all offline auction products
+    const allAuctionProducts = await Product.find({ 
+      status: 'offline_auction',
+      ...(status ? { 'auction.status': status } : {})
+    })
+    .populate('seller', 'businessName storeName storeAvatar storeBanner stats firstName lastName email phoneNumber isVerified createdAt aboutStore')
+    .populate({
+      path: 'auction.bids.buyer',
+      select: 'firstName lastName country profileImage _id'
+    })
+    .populate({
+      path: 'auction.currentHighestBid.buyer',
+      select: 'firstName lastName country profileImage _id'
+    })
+    .populate({
+      path: 'auction.winner.buyer',
+      select: 'firstName lastName country profileImage _id'
+    })
+    .select('name description images auction seller');
+
+    console.log(`Found ${allAuctionProducts.length} total auction products`);
+
+    // Filter for products where the buyer has bids
+    const productsWithBuyerBids = allAuctionProducts.filter(product => {
+      if (!product.auction || !product.auction.bids || !Array.isArray(product.auction.bids)) {
+        return false;
+      }
+      
+      return product.auction.bids.some(bid => {
+        return bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId;
+      });
+    });
+
+    console.log(`Found ${productsWithBuyerBids.length} auction products with bids from buyer ${buyerId}`);
+
+    // Apply pagination
+    const paginatedProducts = productsWithBuyerBids
+      .sort((a, b) => {
+        // Apply sorting based on the sort parameter
+        switch (sort) {
+          case 'endDate':
+            return new Date(a.auction.endDate) - new Date(b.auction.endDate);
+          case 'startDate':
+            return new Date(a.auction.startDate) - new Date(b.auction.startDate);
+          case 'currentBid':
+            return (b.auction.currentHighestBid?.amount || 0) - (a.auction.currentHighestBid?.amount || 0);
+          case 'myBidAmount':
+            // Get buyer's bids for both products
+            const aBuyerBids = a.auction.bids.filter(bid => bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId);
+            const bBuyerBids = b.auction.bids.filter(bid => bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId);
+            
+            // Get highest bid amounts (or 0 if no bids)
+            const aHighestBid = aBuyerBids.length > 0 
+              ? Math.max(...aBuyerBids.map(bid => bid.amount)) 
+              : 0;
+            
+            const bHighestBid = bBuyerBids.length > 0 
+              ? Math.max(...bBuyerBids.map(bid => bid.amount)) 
+              : 0;
+            
+            return bHighestBid - aHighestBid;
+          default:
+            return new Date(a.auction.endDate) - new Date(b.auction.endDate);
+        }
+      })
+      .slice(skip, skip + parseInt(limit));
+
+    // Calculate total pages
+    const totalProducts = productsWithBuyerBids.length;
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    // Update days left and clean up buyer data
+    const cleanedProducts = paginatedProducts.map(product => {
+      const cleanedProduct = product.toObject();
+
+      // Calculate days left
+      if (cleanedProduct.auction.status === 'scheduled') {
+        cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.startDate - now) / (1000 * 60 * 60 * 24));
+      } else if (cleanedProduct.auction.status === 'ongoing') {
+        cleanedProduct.auction.daysLeft = Math.ceil((cleanedProduct.auction.endDate - now) / (1000 * 60 * 60 * 24));
+        // Double-check if this auction should be ended (defensive check)
+        if (cleanedProduct.auction.endDate < now) {
+          cleanedProduct.auction.status = 'ended';
+          cleanedProduct.auction.daysLeft = 0;
+        }
+      } else {
+        cleanedProduct.auction.daysLeft = 0;
+      }
+
+      // Add flag to indicate if the current buyer is the highest bidder
+      cleanedProduct.isHighestBidder = 
+        product.auction.currentHighestBid &&
+        product.auction.currentHighestBid.buyer && 
+        product.auction.currentHighestBid.buyer._id && 
+        product.auction.currentHighestBid.buyer._id.toString() === buyerId;
+      
+      // Add flag to indicate if the current buyer is the winner
+      cleanedProduct.isWinner = 
+        product.auction.winner &&
+        product.auction.winner.buyer && 
+        product.auction.winner.buyer._id && 
+        product.auction.winner.buyer._id.toString() === buyerId;
+      
+      // Add the buyer's highest bid
+      const buyerBids = product.auction.bids.filter(
+        bid => bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId
+      );
+      
+      if (buyerBids.length > 0) {
+        // Sort bids by amount (descending) to get the highest
+        const highestBid = [...buyerBids].sort((a, b) => b.amount - a.amount)[0];
+        cleanedProduct.myHighestBid = {
+          amount: highestBid.amount,
+          status: highestBid.status,
+          createdAt: highestBid.createdAt
+        };
+      }
+
+      // Clean up bids
+      if (cleanedProduct.auction.bids) {
+        cleanedProduct.auction.bids = cleanedProduct.auction.bids.map(bid => ({
+          _id: bid._id,
+          amount: bid.amount,
+          status: bid.status,
+          createdAt: bid.createdAt,
+          buyer: bid.buyer ? {
+            firstName: bid.buyer.firstName,
+            lastName: bid.buyer.lastName,
+            country: bid.buyer.country,
+            profileImage: bid.buyer.profileImage
+          } : null
+        }));
+      }
+
+      // Clean up current highest bid
+      if (cleanedProduct.auction.currentHighestBid && cleanedProduct.auction.currentHighestBid.buyer) {
+        cleanedProduct.auction.currentHighestBid = {
+          amount: cleanedProduct.auction.currentHighestBid.amount,
+          buyer: {
+            firstName: cleanedProduct.auction.currentHighestBid.buyer.firstName,
+            lastName: cleanedProduct.auction.currentHighestBid.buyer.lastName,
+            country: cleanedProduct.auction.currentHighestBid.buyer.country,
+            profileImage: cleanedProduct.auction.currentHighestBid.buyer.profileImage
+          }
+        };
+      }
+
+      // Clean up winner
+      if (cleanedProduct.auction.winner && cleanedProduct.auction.winner.buyer) {
+        cleanedProduct.auction.winner = {
+          bidAmount: cleanedProduct.auction.winner.bidAmount,
+          buyer: {
+            firstName: cleanedProduct.auction.winner.buyer.firstName,
+            lastName: cleanedProduct.auction.winner.buyer.lastName,
+            country: cleanedProduct.auction.winner.buyer.country,
+            profileImage: cleanedProduct.auction.winner.buyer.profileImage
+          }
+        };
+      }
+
+      return cleanedProduct;
+    });
+
+    res.json({
+      products: cleanedProducts,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalProducts
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getBuyerAuctionProducts:', error);
+    res.status(500).json({ message: 'Error retrieving your auction products', error: error.message });
+  }
+};

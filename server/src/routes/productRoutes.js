@@ -327,6 +327,191 @@ router.get('/blips/suggested', optionalAuthMiddleware, productController.getSugg
  */
 router.get('/auctions', productController.getAuctionProducts);
 
+
+/**
+ * @swagger
+ * /api/products/buyer/bids:
+ *   get:
+ *     summary: Get all bids placed by the authenticated buyer
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of buyer's bids retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   productId:
+ *                     type: string
+ *                   productName:
+ *                     type: string
+ *                   productImage:
+ *                     type: object
+ *                   seller:
+ *                     type: object
+ *                     properties:
+ *                       businessName:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                   bids:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       properties:
+ *                         amount:
+ *                           type: number
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                         status:
+ *                           type: string
+ *                           enum: [active, outbid, won, lost]
+ *                   isHighestBidder:
+ *                     type: boolean
+ *                   isWinner:
+ *                     type: boolean
+ *                   auctionStatus:
+ *                     type: string
+ *                     enum: [scheduled, ongoing, ended]
+ *                   daysLeft:
+ *                     type: number
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/buyer/bids',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.getBuyerBids
+);
+
+/**
+ * @swagger
+ * /api/products/buyer/auctions:
+ *   get:
+ *     summary: Get auction products where the buyer has active bids
+ *     description: Retrieve offline auction products where the logged-in buyer has placed bids
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, ongoing, ended]
+ *         description: Filter by auction status
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [endDate, startDate, currentBid, myBidAmount]
+ *         description: Sort order for results (default is endDate)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of auction products with buyer bids
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                       seller:
+ *                         type: object
+ *                       auction:
+ *                         type: object
+ *                         properties:
+ *                           startDate:
+ *                             type: string
+ *                             format: date-time
+ *                           endDate:
+ *                             type: string
+ *                             format: date-time
+ *                           status:
+ *                             type: string
+ *                             enum: [scheduled, ongoing, ended]
+ *                           daysLeft:
+ *                             type: number
+ *                           minBid:
+ *                             type: number
+ *                           currentHighestBid:
+ *                             type: object
+ *                             properties:
+ *                               amount:
+ *                                 type: number
+ *                               buyer:
+ *                                 type: object
+ *                           bids:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                           winner:
+ *                             type: object
+ *                       isHighestBidder:
+ *                         type: boolean
+ *                       isWinner:
+ *                         type: boolean
+ *                       myHighestBid:
+ *                         type: object
+ *                         properties:
+ *                           amount:
+ *                             type: number
+ *                           status:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *       401:
+ *         description: Not authenticated
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyer/auctions',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.getBuyerAuctionProducts
+);
+
 /**
  * @swagger
  * /api/products/search:
@@ -2483,67 +2668,7 @@ router.post('/:productId/bid',
  */
 router.get('/:productId/bids', productController.getAuctionBids);
 
-/**
- * @swagger
- * /api/products/buyer/bids:
- *   get:
- *     summary: Get all bids placed by the authenticated buyer
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of buyer's bids retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   productId:
- *                     type: string
- *                   productName:
- *                     type: string
- *                   productImage:
- *                     type: object
- *                   seller:
- *                     type: object
- *                     properties:
- *                       businessName:
- *                         type: string
- *                       storeName:
- *                         type: string
- *                   bids:
- *                     type: array
- *                     items:
- *                       type: object
- *                       properties:
- *                         amount:
- *                           type: number
- *                         createdAt:
- *                           type: string
- *                           format: date-time
- *                         status:
- *                           type: string
- *                           enum: [active, outbid, won, lost]
- *                   isHighestBidder:
- *                     type: boolean
- *                   isWinner:
- *                     type: boolean
- *                   auctionStatus:
- *                     type: string
- *                     enum: [scheduled, ongoing, ended]
- *                   daysLeft:
- *                     type: number
- *       401:
- *         description: Not authenticated
- */
-router.get('/buyer/bids',
-  authMiddleware.verifyToken,
-  authMiddleware.isBuyer,
-  productController.getBuyerBids
-);
+
 
 /**
  * @swagger
