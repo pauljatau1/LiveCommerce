@@ -335,7 +335,7 @@ const SignUpPage = () => {
 
               <div className="text-center mb-4">
                 <span className="text-sm text-gray-500">or</span>{' '}
-                <Link to="/" className="text-[#0BB248] font-inter text-sm md:text-base font-bold hover:underline">
+                <Link to="/login" className="text-[#0BB248] font-inter text-sm md:text-base font-bold hover:underline">
                   Sign In
                 </Link>
               </div>
