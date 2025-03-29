@@ -2414,6 +2414,95 @@ exports.getDeliveryCost = async (req, res) => {
 };
 
 /**
+ * Internal version of getDeliveryCost that can be called from other controllers
+ * Returns the cost data directly instead of sending an HTTP response
+ */
+exports.calculateDeliveryCostInternal = async (shippingDetails) => {
+  try {
+    console.log('🚚 Starting internal delivery cost calculation...');
+    const { state, pickupLocations } = shippingDetails;
+    
+    // Validate input
+    if (!Array.isArray(pickupLocations)) {
+      throw new Error('pickupLocations must be an array');
+    }
+
+    // Get a fresh authentication token
+    console.log('🔄 Getting fresh authentication token...');
+    const authToken = await getFezAuthToken();
+    console.log(`🔑 Using token: ${authToken.substring(0, 10)}...`);
+    
+    // Prepare the request URL and headers
+    const url = 'https://apisandbox.fezdelivery.co/v1/order/cost';
+    const headers = {
+      'Authorization': `Bearer ${authToken}`,
+      'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+      'Content-Type': 'application/json'
+    };
+    
+    // Make parallel requests for each pickup location
+    const costPromises = pickupLocations.map(async (location) => {
+      const { pickUpState, weight, sellerId } = location;
+      
+      console.log(`📤 Internal cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, weight }, null, 2)}`);
+      
+      try {
+        const response = await axios.post(url, {
+          state,
+          pickUpState,
+          weight
+        }, { 
+          headers,
+          timeout: 30000 // 30 seconds timeout
+        });
+
+        return {
+          sellerId,
+          pickUpState,
+          weight,
+          ...response.data
+        };
+      } catch (error) {
+        console.error(`Error fetching cost for seller ${sellerId}:`, error.message);
+        return {
+          sellerId,
+          pickUpState,
+          weight,
+          error: error.message,
+          status: 'Error'
+        };
+      }
+    });
+
+    // Wait for all requests to complete
+    const results = await Promise.all(costPromises);
+
+    // Calculate total shipping cost
+    const successfulResults = results.filter(r => r.status === 'Success');
+    const totalCost = successfulResults.reduce((sum, r) => sum + Number(r.Cost?.cost || 0), 0);
+
+    console.log('✅ Successfully retrieved internal delivery costs');
+    return {
+      status: 'Success',
+      description: 'Costs Fetched Successfully',
+      costs: results.map(result => ({
+        sellerId: result.sellerId,
+        pickUpState: result.pickUpState,
+        weight: result.weight,
+        cost: result.Cost?.cost || null,
+        status: result.status,
+        error: result.error || null
+      })),
+      totalCost
+    };
+
+  } catch (error) {
+    console.error('❌ Error in internal delivery cost calculation:', error);
+    throw new Error(`Failed to calculate delivery costs: ${error.message}`);
+  }
+};
+
+/**
  * Track an order using Fez Delivery API
  * This endpoint doesn't require authentication
  */

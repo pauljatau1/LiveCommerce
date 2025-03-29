@@ -355,73 +355,235 @@ exports.startStream = async (req, res) => {
 
 exports.placeBid = async (req, res) => {
   try {
-    const { streamId } = req.params;
-    const { productId, bidAmount } = req.body;
+    console.log(`[RESTBID] 1. Received bid request via REST API:`, {
+      streamId: req.body.streamId,
+      productId: req.body.productId,
+      bidAmount: req.body.bidAmount,
+      userId: req.user.id
+    });
+
+    const { streamId, productId, bidAmount } = req.body;
     const buyerId = req.user.id;
 
-    // Validate required fields
     if (!streamId || !productId || !bidAmount) {
-      return res.status(400).json({
-        message: 'Stream ID, Product ID, and Bid Amount are required'
-      });
+      console.error('[RESTBID] 2. FAILED: Missing required bid data');
+      return res.status(400).json({ message: 'Stream ID, Product ID, and Bid Amount are required' });
     }
 
-    // Find the stream
-    const stream = await Stream.findById(streamId)
-      .populate('seller', 'storeName storeAvatar')
-      .populate('products.currentBidder', 'firstName lastName username profileImage');
+    console.log(`[RESTBID] 3. Processing bid with validated data`, {
+      streamId,
+      productId,
+      bidAmount,
+      buyerId
+    });
+
+    // Verify user is a buyer
+    if (req.user.role !== 'Buyer') {
+      console.log('[RESTBID] 4. FAILED: User is not a buyer', {
+        userId: req.user.id,
+        userRole: req.user.role
+      });
+      return res.status(403).json({ message: 'Only buyers can place bids' });
+    }
+
+    console.log('[RESTBID] 5. User role validated as Buyer');
+
+    // Get buyer details including shipping address
+    console.log('[RESTBID] 6. Retrieving buyer details for ID:', buyerId);
+    const Buyer = mongoose.model('Buyer');
+    const buyer = await Buyer.findById(buyerId).select('firstName lastName username profileImage wallet shippingAddresses');
+
+    if (!buyer) {
+      console.error('[RESTBID] 7. FAILED: Buyer not found in database');
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    console.log('[RESTBID] 8. Buyer details retrieved successfully', {
+      buyerId: buyer._id,
+      name: `${buyer.firstName} ${buyer.lastName}`,
+      hasShippingAddresses: buyer.shippingAddresses && buyer.shippingAddresses.length > 0,
+      walletBalance: buyer.wallet?.balance
+    });
+
+    // Check if buyer has shipping address
+    if (!buyer.shippingAddresses || buyer.shippingAddresses.length === 0) {
+      console.error('[RESTBID] 9. FAILED: Buyer has no shipping addresses');
+      return res.status(400).json({ message: 'Please add a shipping address to your profile before bidding' });
+    }
+
+    // Find the stream and populate the seller information for shipping cost calculation
+    console.log('[RESTBID] 10. Retrieving stream data for ID:', streamId);
+    const stream = await Stream.findById(streamId).populate('seller', 'storeName storeAvatar warehouseDetails businessAddress');
 
     if (!stream) {
+      console.error('[RESTBID] 11. FAILED: Stream not found');
       return res.status(404).json({ message: 'Stream not found' });
+    }
+
+    console.log('[RESTBID] 12. Stream data retrieved successfully', {
+      streamId: stream._id,
+      title: stream.title,
+      sellerName: stream.seller?.storeName,
+      status: stream.status,
+      type: stream.type,
+      productCount: stream.products?.length
+    });
+
+    // Get available balance from wallet
+    const availableBalance = buyer.wallet.balance - (buyer.wallet.onHoldAmount || 0);
+    const balance = buyer.wallet.balance;
+    const walletToUse = availableBalance > 0 ? availableBalance : balance;
+
+    console.log('[RESTBID] 13. Calculated available wallet balance', {
+      totalBalance: buyer.wallet.balance,
+      onHoldAmount: buyer.wallet.onHoldAmount || 0,
+      availableBalance,
+      walletToUse
+    });
+
+    // Get seller details for delivery cost calculation
+    const sellerInfo = stream.seller;
+    console.log('[RESTBID] 14. Retrieved seller info for shipping calculation', {
+      sellerId: sellerInfo._id,
+      sellerName: sellerInfo.storeName
+    });
+
+    // Find the product in the stream's products array
+    console.log('[RESTBID] 15. Looking for product in stream products array with ID:', productId);
+    const productIndex = stream.products.findIndex(p => 
+      p.product && p.product.productId && p.product.productId.toString() === productId
+    );
+
+    if (productIndex === -1) {
+      console.error('[RESTBID] 16. FAILED: Product not found in stream products');
+      return res.status(404).json({ message: 'Product not found in stream' });
+    }
+
+    const product = stream.products[productIndex];
+    const productDetails = product.product;
+
+    console.log('[RESTBID] 17. Found product in stream', {
+      productIndex,
+      productName: productDetails.name,
+      currentBid: product.currentBid,
+      minBid: product.minBid,
+      maxBid: product.maxBid,
+      bidStatus: product.bidStatus
+    });
+
+    // Fetch the full product details to get the weight
+    console.log('[RESTBID] 18. Fetching full product details from database');
+    const Product = mongoose.model('Product');
+    const fullProductDetails = await Product.findById(productDetails.productId);
+    
+    if (!fullProductDetails) {
+      console.warn('[RESTBID] 19. WARNING: Could not retrieve full product details, using default weight');
+    } else {
+      console.log('[RESTBID] 20. Full product details retrieved', {
+        productId: fullProductDetails._id,
+        name: fullProductDetails.name,
+        weight: fullProductDetails.weight || 1
+      });
+    }
+    
+    // Calculate shipping fee
+    console.log('[RESTBID] 21. Preparing shipping fee calculation payload');
+    const payload = [
+      {
+        pickUpState:
+          sellerInfo?.warehouseDetails?.state ||
+          sellerInfo?.warehouseDetails?.address?.state ||
+          sellerInfo?.warehouse?.address?.state ||
+          sellerInfo?.contactInformation?.sellerAddress?.state ||
+          sellerInfo?.addresses?.sellerAddress?.state ||
+          sellerInfo?.addresses?.warehouseAddress?.state ||
+          sellerInfo?.businessAddress?.state,
+        weight: fullProductDetails?.weight || 1, // Use weight from full product details
+        sellerId: sellerInfo?._id,
+      },
+    ];
+
+    // Prepare shipping details
+    const shippingDetails = {
+      state: buyer?.shippingAddresses[0]?.state,
+      pickupLocations: payload,
+    };
+
+    console.log('[RESTBID] 22. Shipping details prepared', {
+      buyerState: shippingDetails.state,
+      pickupState: payload[0].pickUpState,
+      weight: payload[0].weight
+    });
+
+    // Get delivery cost
+    let shippingFee = 0;
+    try {
+      console.log('[RESTBID] 23. Calculating shipping fee with delivery service');
+      // Use the orderController's getDeliveryCost logic directly
+      const orderController = require('./orderController');
+      const costResponse = await orderController.calculateDeliveryCostInternal(shippingDetails);
+      shippingFee = costResponse.totalCost || 0;
+      console.log('[RESTBID] 24. Shipping fee calculated', {
+        shippingFee,
+        response: costResponse
+      });
+    } catch (error) {
+      console.error('[RESTBID] 25. Error calculating shipping fee:', error);
+      // Default to 0 if calculation fails, but let bid continue
+    }
+
+    // Check if buyer has enough funds
+    console.log('[RESTBID] 26. Checking if buyer has sufficient funds', {
+      bidAmount,
+      shippingFee,
+      totalRequired: bidAmount + shippingFee,
+      available: walletToUse
+    });
+    
+    if (bidAmount + shippingFee > walletToUse) {
+      console.error('[RESTBID] 27. FAILED: Insufficient funds in wallet');
+      return res.status(400).json({ 
+        message: 'Insufficient funds in your wallet. Please top up your wallet.',
+        details: {
+          bidAmount,
+          shippingFee,
+          totalRequired: bidAmount + shippingFee,
+          available: walletToUse
+        }
+      });
     }
 
     // Check if stream type is auction
     if (stream.type !== 'auction') {
+      console.error('[RESTBID] 28. FAILED: Stream type is not auction', { type: stream.type });
       return res.status(400).json({ message: 'Stream type must be auction to place a bid' });
     }
 
     // Check if stream is live
     if (stream.status !== 'live') {
+      console.error('[RESTBID] 29. FAILED: Stream is not live', { status: stream.status });
       return res.status(400).json({ message: 'Stream must be live to place a bid' });
     }
 
-    // Find the product in the stream's products array
-    const productIndex = stream.products.findIndex(p => 
-      p.product && p.product.productId.toString() === productId
-    );
-
-    if (productIndex === -1) {
-      return res.status(404).json({ message: 'Product not found in stream' });
-    }
-
-    const product = stream.products[productIndex];
-
     // Check if bidding is active for this product
     if (product.bidStatus !== 'active') {
+      console.error('[RESTBID] 30. FAILED: Bidding not active for product', { bidStatus: product.bidStatus });
       return res.status(400).json({ message: 'Bidding is not currently active for this product' });
     }
 
     // Validate bid amount
     if (bidAmount < product.minBid) {
-      return res.status(400).json({
-        message: `Bid amount must be at least ${product.minBid}`
-      });
+      console.error('[RESTBID] 31. FAILED: Bid amount below minimum', { bidAmount, minBid: product.minBid });
+      return res.status(400).json({ message: `Bid amount must be at least ${product.minBid}` });
     }
 
     // Check if bid is higher than current bid
     if (product.currentBid > 0 && bidAmount <= product.currentBid) {
-      return res.status(400).json({
-        message: `Bid amount must be higher than current bid of ${product.currentBid}`
-      });
+      console.error('[RESTBID] 32. FAILED: Bid not higher than current bid', { bidAmount, currentBid: product.currentBid });
+      return res.status(400).json({ message: `Bid amount must be higher than current bid of ${product.currentBid}` });
     }
 
-    // Get buyer details
-    const Buyer = mongoose.model('Buyer');
-    const buyer = await Buyer.findById(buyerId).select('firstName lastName username profileImage wallet');
-
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
-    }
+    console.log('[RESTBID] 33. All validation checks passed, preparing to place bid');
 
     // Add new bid to the bids array
     const newBid = {
@@ -432,6 +594,7 @@ exports.placeBid = async (req, res) => {
     };
 
     stream.bids.push(newBid);
+    console.log('[RESTBID] 34. Added new bid to stream bids array');
 
     // Update product's currentBid and currentBidder with full buyer details
     stream.products[productIndex].currentBid = bidAmount;
@@ -442,10 +605,28 @@ exports.placeBid = async (req, res) => {
       username: buyer.username,
       profileImage: buyer.profileImage
     };
+    console.log('[RESTBID] 35. Updated product current bid and bidder information');
+
+    // Helper function to format product name to max 3 words
+    const formatProductName = (name) => {
+      if (!name) return 'a product';
+      
+      // Split by spaces and take first 3 words
+      const words = name.split(' ');
+      const truncatedName = words.slice(0, 3).join(' ');
+      
+      // Add ellipsis if there were more than 3 words
+      return words.length > 3 ? `${truncatedName}...` : truncatedName;
+    };
+
+    // Format the product name
+    const formattedProductName = formatProductName(product.product.name);
 
     // Check if bidding should end (reached maxBid)
+    console.log('[RESTBID] 36. Checking if bid amount reached max bid', { bidAmount, maxBid: product.maxBid });
     if (bidAmount >= product.maxBid) {
-      stream.products[productIndex].bidStatus = 'ongoing';
+      console.log('[RESTBID] 37. Bid has reached or exceeded max bid, marking as winner');
+      stream.products[productIndex].bidStatus = 'completed';
       stream.products[productIndex].bidWinner = {
         buyer: {
           _id: buyer._id,
@@ -464,9 +645,9 @@ exports.placeBid = async (req, res) => {
         type: 'auction_winner',
         user: stream.seller.storeName || 'Host',
         avatar: stream.seller.storeAvatar?.url || '',
-        content: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+        content: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
         data: {
-          message: `${buyer.username || buyer.firstName || 'Buyer'} won the auction for ${product.product.name || 'a product'} with a bid of ${bidAmount}`,
+          message: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
           streamId: stream._id.toString(),
           sellerId: stream.seller._id.toString(),
           storeName: stream.seller.storeName || 'Unknown Store',
@@ -482,20 +663,22 @@ exports.placeBid = async (req, res) => {
             bidAmount: bidAmount,
             timestamp: new Date()
           }
-        }
+        },
+        timestamp: new Date()
       };
 
       // Add the notification to stream chat interactions
       stream.chatInteractions.push(winnerNotification);
+      console.log('[RESTBID] 38. Added winner notification to stream chat interactions');
       
       // Save the stream
+      console.log('[RESTBID] 39. Saving stream with updated bid information');
       await stream.save();
-      
-      // Send WebSocket notification
-      req.app.get('io').to('stream_notifications').emit('stream_notification', winnerNotification);
-      //req.app.get('io').to('stream_auction_bidding').emit('auction_bid_update', winnerNotification);
+      console.log('[RESTBID] 40. Stream saved successfully');
 
+      console.log('[RESTBID] 41. Sending winning bid response to client');      
       return res.status(200).json({
+        success: true,
         message: 'Bid placed successfully and auction won',
         bid: newBid,
         product: stream.products[productIndex],
@@ -503,15 +686,16 @@ exports.placeBid = async (req, res) => {
       });
     }
 
-    // Create bid notification
+    // Create bid notification for regular bids
+    console.log('[RESTBID] 42. Creating regular bid notification');
     const bidNotification = {
       id: Date.now().toString(),
       type: 'new_bid',
       user: buyer.username || buyer.firstName || 'Buyer',
       avatar: buyer.profileImage?.url || '',
-      content: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+      content: `placed a bid of ₦${bidAmount.toLocaleString()} on ${formattedProductName}`,
       data: {
-        message: `${buyer.username || buyer.firstName || 'Someone'} placed a bid of ${bidAmount} on ${product.product.name || 'a product'}`,
+        message: `placed a bid of ₦${bidAmount.toLocaleString()} on ${formattedProductName}`,
         streamId: stream._id.toString(),
         buyerId: buyer._id.toString(),
         buyerName: buyer.firstName + " " + buyer.lastName,
@@ -525,30 +709,29 @@ exports.placeBid = async (req, res) => {
           profileImage: buyer.profileImage
         },
         timestamp: new Date()
-      }
+      },
+      timestamp: new Date()
     };
 
     // Add the notification to stream chat interactions
     stream.chatInteractions.push(bidNotification);
+    console.log('[RESTBID] 43. Added bid notification to stream chat interactions');
     
     // Save the stream
+    console.log('[RESTBID] 44. Saving stream with updated bid information');
     await stream.save();
-    
-    // Send WebSocket notification
-    req.app.get('io').to('stream_notifications').emit('stream_notification', bidNotification);
-    //req.app.get('io').to('stream_auction_bidding').emit('auction_bid_update', bidNotification);
+    console.log('[RESTBID] 45. Stream saved successfully');
 
+    console.log('[RESTBID] 46. Sending successful bid response to client');
     return res.status(200).json({
+      success: true,
       message: 'Bid placed successfully',
       bid: newBid,
       product: stream.products[productIndex]
     });
   } catch (error) {
-    console.error('Error placing bid:', error);
-    return res.status(500).json({
-      message: 'Failed to place bid',
-      error: error.message
-    });
+    console.error('[RESTBID] ERROR: Failed to place bid:', error);
+    return res.status(500).json({ message: 'Failed to place bid: ' + error.message });
   }
 };
 
