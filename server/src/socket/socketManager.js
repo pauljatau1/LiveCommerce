@@ -1465,8 +1465,8 @@ function initializeSocket(server) {
           const winnerNotification = {
             id: Date.now().toString(),
             type: 'auction_winner',
-            user: stream.seller.storeName || 'Host',
-            avatar: stream.seller.storeAvatar?.url || '',
+            user: buyer.username || buyer.firstName || 'Buyer',
+            avatar: buyer.profileImage?.url || '',
             content: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
             data: {
               message: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
