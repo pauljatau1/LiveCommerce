@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import React from 'react';
 import { Product } from '@/types/streams/livestreamStudio';
 import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -22,9 +22,19 @@ interface LiveAuctionProductCardProps {
     onCustom: () => void;
     formatPrice?: (price: number) => string;
     bidIncrement?: number;
+    isBidSending?: boolean;
 }
 
-const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, category, bidIncrement = 500 }: LiveAuctionProductCardProps) => {
+const LiveAuctionProductCard = ({ 
+    product, 
+    onBid, 
+    onCustom, 
+    formatPrice, 
+    tag, 
+    category, 
+    bidIncrement = 500,
+    isBidSending = false
+}: LiveAuctionProductCardProps) => {
     // Calculate the next bid amount with a fixed default increment of 500
     const currentBid = product.currentBid || product.minBid || product.price;
     const minBid = product.minBid || product.price;
@@ -95,14 +105,32 @@ const LiveAuctionProductCard = ({ product, onBid, onCustom, formatPrice, tag, ca
             <View style={styles.buttonsRow}>
                 {product.bidStatus === 'active' ? (
                     <>
-                        <TouchableOpacity style={styles.customButton} onPress={onCustom}>
-                            <Text style={styles.customButtonText}>Custom bid</Text>
+                        <TouchableOpacity 
+                            style={styles.customButton} 
+                            onPress={onCustom}
+                            disabled={isBidSending}
+                        >
+                            <Text style={[
+                                styles.customButtonText,
+                                isBidSending && styles.disabledButtonText
+                            ]}>Custom bid</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.bidButton} onPress={() => onBid(nextBidAmount)}>
+                        <TouchableOpacity 
+                            style={[
+                                styles.bidButton,
+                                isBidSending && styles.disabledBidButton
+                            ]} 
+                            onPress={() => onBid(nextBidAmount)}
+                            disabled={isBidSending}
+                        >
                             <View style={styles.bidButtonContent}>
                                 <Text style={styles.bidButtonText}>Bid {formatPriceDisplay(nextBidAmount)}</Text>
-                                <Ionicons name="swap-horizontal" size={22} color="white" />
+                                {isBidSending ? (
+                                    <ActivityIndicator size="small" color="white" />
+                                ) : (
+                                    <Ionicons name="swap-horizontal" size={22} color="white" />
+                                )}
                             </View>
                         </TouchableOpacity>
                     </>
@@ -230,6 +258,13 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         borderWidth: 1,
         borderColor: '#16783A',
+    },
+    disabledBidButton: {
+        borderColor: '#0f4f26',
+        opacity: 0.8,
+    },
+    disabledButtonText: {
+        opacity: 0.7,
     },
     bidButtonContent: {
         flexDirection: 'row',

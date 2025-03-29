@@ -52,7 +52,11 @@ export interface StreamNotification {
 
 let socket: Socket | null = null;
 
-export const initializeSocket = (token: string, onNotification: (notification: StreamNotification) => void) => {
+export const initializeSocket = (
+  token: string, 
+  onNotification: (notification: StreamNotification) => void,
+  setIsBidSending?: React.Dispatch<React.SetStateAction<boolean>>
+) => {
   if (socket && socket.connected) {
     console.log('Socket already connected');
     return socket;
@@ -96,6 +100,12 @@ export const initializeSocket = (token: string, onNotification: (notification: S
   // Handle bid error events
   currentSocket.on('bid_error', (data: { message: string }) => {
     console.error('Bid error:', data.message);
+    
+    // Update bidding state if the setter is provided
+    if (setIsBidSending) {
+      setIsBidSending(false);
+    }
+    
     // Pass this to the notification handler as an error notification
     const errorNotification: StreamNotification = {
       id: Date.now().toString(),
@@ -104,7 +114,8 @@ export const initializeSocket = (token: string, onNotification: (notification: S
       content: `Bid error: ${data.message}`,
       data: {
         streamId: 'error',
-        isError: true
+        isError: true,
+        message: data.message // Add the raw message separately for easy access
       },
       timestamp: new Date()
     };
@@ -114,6 +125,11 @@ export const initializeSocket = (token: string, onNotification: (notification: S
   // Handle bid success events
   currentSocket.on('bid_placed', (data: any) => {
     console.log('Bid placed successfully:', data);
+    
+    // Update bidding state if the setter is provided
+    if (setIsBidSending) {
+      setIsBidSending(false);
+    }
   });
 
   currentSocket.on('disconnect', (reason) => {

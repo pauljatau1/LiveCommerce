@@ -28,6 +28,7 @@ import LiveAuctionProductCard from './liveAuctionProductCard';
 import BidVariationSelector from '@/app/(root)/livestream/bidVariationSelector';
 import StreamViewers from './streamViewers';
 import StreamInfo from './StreamInfo';
+import BidErrorMessage from './BidErrorMessage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -110,6 +111,11 @@ const LiveAuctionStudio = () => {
         bidAmount?: number;
         isWinner: boolean;
     } | null>(null);
+
+    // Add state for bid error bottom sheet
+    const [showBidError, setShowBidError] = useState(false);
+    const [bidErrorMessage, setBidErrorMessage] = useState('');
+    const [isBidSending, setIsBidSending] = useState(false);
 
     // Helper function to get initials from name
     const getInitials = (firstName?: string, lastName?: string): string => {
@@ -209,14 +215,14 @@ const LiveAuctionStudio = () => {
                         bidStatus: product.bidStatus || 'pending'
                     }));
                     setStreamProducts(productsWithStatus);
-                    
+
                     // Find if there's an active product for bidding and set it as current
-                    const activeProductIndex = productsWithStatus.findIndex(product => 
+                    const activeProductIndex = productsWithStatus.findIndex(product =>
                         product.bidStatus === 'active' || product.bidStatus === 'ongoing'
                     );
-                    
+
                     console.log('Active product index on join:', activeProductIndex);
-                    
+
                     if (activeProductIndex !== -1) {
                         setCurrentProductIndex(activeProductIndex);
                         console.log('Setting current product to active bid product:', productsWithStatus[activeProductIndex]);
@@ -232,14 +238,14 @@ const LiveAuctionStudio = () => {
                     console.log('productsWithStatus', productsWithStatus);
                     setStreamProducts(productsWithStatus);
                     console.log('streamProductsFirstAllocation', streamProducts);
-                    
+
                     // Find if there's an active product for bidding and set it as current
-                    const activeProductIndex = productsWithStatus.findIndex(product => 
+                    const activeProductIndex = productsWithStatus.findIndex(product =>
                         product.bidStatus === 'active' || product.bidStatus === 'ended'
                     );
-                    
+
                     console.log('Active product index on join:', activeProductIndex);
-                    
+
                     if (activeProductIndex !== -1) {
                         setCurrentProductIndex(activeProductIndex);
                         console.log('Setting current product to active bid product:', productsWithStatus[activeProductIndex]);
@@ -290,7 +296,7 @@ const LiveAuctionStudio = () => {
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
                 }
-                
+
                 // Set stream details
                 if (streamDetails.stream) {
                     const stream = streamDetails.stream as any;
@@ -299,7 +305,7 @@ const LiveAuctionStudio = () => {
                         description: stream.description || 'Join our live auction and bid on exclusive items!',
                         category: stream.category || 'Shopping',
                         tags: stream.tags || ['auction', 'shopping', 'live'],
-                        viewerCount: typeof stream.viewerCount === 'number' ? stream.viewerCount : 
+                        viewerCount: typeof stream.viewerCount === 'number' ? stream.viewerCount :
                             (Array.isArray(stream.viewers) ? stream.viewers.length : 0),
                         scheduledStartTime: stream.scheduledStartTime || new Date().toISOString(),
                         actualStartTime: stream.startTime || new Date().toISOString(),
@@ -312,7 +318,7 @@ const LiveAuctionStudio = () => {
             // Set initial viewer count if available
             if (streamDetails?.stream) {
                 const streamData = streamDetails.stream as any;
-                console.log('Stream view count data:', streamData);    
+                console.log('Stream view count data:', streamData);
                 if (typeof streamData.viewerCount === 'number') {
                     console.log('Viewer count:', streamData.viewerCount);
                     setViewerCount(streamData.viewerCount);
@@ -333,7 +339,7 @@ const LiveAuctionStudio = () => {
 
             // Get the current user's information
             const user = await getUser();
-            
+
             // Create a join event for the current user
             const userJoinEvent = {
                 id: Date.now().toString(),
@@ -354,7 +360,7 @@ const LiveAuctionStudio = () => {
             setLiveComments(updatedChatInteractions);
 
             console.log(`Loaded ${updatedChatInteractions.length} chat interactions from server`);
-            
+
             // Use requestAnimationFrame and setTimeout for more reliable scrolling
             if (updatedChatInteractions.length > 0) {
                 requestAnimationFrame(() => {
@@ -371,7 +377,7 @@ const LiveAuctionStudio = () => {
             // Initialize socket connection for real-time chat
             const userToken = await getToken();
             if (userToken) {
-                initializeSocket(userToken, handleStreamNotification);
+                initializeSocket(userToken, handleStreamNotification, setIsBidSending);
             }
         } catch (error) {
             console.error('Error setting up livestream:', error);
@@ -399,6 +405,14 @@ const LiveAuctionStudio = () => {
 
             case 'comment':
                 console.log('New comment received:', notification.content);
+                // Check if this is an error notification from bid_error event
+                if (notification.data?.isError) {
+                    console.log('Displaying bid error message:', notification.content);
+                    // Use the message field directly if available, otherwise extract from content
+                    const errorMessage = notification.data.message || notification.content.replace('Bid error: ', '');
+                    setBidErrorMessage(errorMessage);
+                    setShowBidError(true);
+                }
                 // Update UI to show comment
                 setLiveComments(prev => [...prev, notification]);
                 // Increment comment count
@@ -416,7 +430,7 @@ const LiveAuctionStudio = () => {
                 // Update UI to show host left event
                 setLiveComments(prev => [...prev, notification]);
                 break;
-                
+
             case 'hostRejoin':
                 console.log('Host rejoined stream:', notification.user);
                 // Update UI to show host rejoined event
@@ -437,32 +451,32 @@ const LiveAuctionStudio = () => {
                 console.log('Auction started for product:', notification);
                 // Update UI to show auction start event
                 setLiveComments(prev => [...prev, notification]);
-                
+
                 // Update the active auction product from the notification data
                 if (notification.data && notification.data.product) {
                     console.log('Setting active auction product:', notification.data.product);
                     setActiveAuctionProduct(notification.data.product);
-                    
+
                     // Find the product in streamProducts and update it
                     const productId = notification.data.product.product?.productId;
                     console.log('realtime bid productId:', productId);
-                    
+
                     if (productId) {
                         setStreamProducts(prevProducts => {
                             console.log('prevProducts in functional update:', prevProducts);
-                            
+
                             // Find the index of the product in the current streamProducts array
-                            const productIndex = prevProducts.findIndex(p => 
+                            const productIndex = prevProducts.findIndex(p =>
                                 p.product.productId === productId
                             );
                             console.log('realtime bid productIndex:', productIndex);
-                            
+
                             // If product found, set it as the current product
                             if (productIndex !== -1) {
                                 setCurrentProductIndex(productIndex);
                                 console.log('Setting current product index to:', productIndex);
                             }
-                            
+
                             // Update the product status to active
                             return prevProducts.map(p => {
                                 if (p.product.productId === productId) {
@@ -492,30 +506,30 @@ const LiveAuctionStudio = () => {
                 console.log('New bid received:', notification);
                 // Update UI to show new bid event
                 setLiveComments(prev => [...prev, notification]);
-                
+
                 // Update the product with new bid amount
                 if (notification.data && notification.data.product) {
                     console.log('Updating product with new bid:', notification.data.product);
-                    
+
                     // Find the product in streamProducts and update it
                     const productId = notification.data.product.product?.productId;
                     console.log('realtime bid productId:', productId);
-                    
+
                     if (productId) {
                         setStreamProducts(prevProducts => {
                             console.log('prevProducts in functional update:', prevProducts);
-                            
+
                             // Find the index of the product in the current streamProducts array
-                            const productIndex = prevProducts.findIndex(p => 
+                            const productIndex = prevProducts.findIndex(p =>
                                 p.product.productId === productId
                             );
                             console.log('realtime bid productIndex:', productIndex);
-                            
+
                             // If product found, don't change current product index since we're in an active bid
                             if (productIndex !== -1) {
                                 console.log('Updating product at index:', productIndex);
                             }
-                            
+
                             // Update the product
                             return prevProducts.map(p => {
                                 if (p.product.productId === productId) {
@@ -529,14 +543,14 @@ const LiveAuctionStudio = () => {
                             });
                         });
                     }
-                    
+
                     // Update the winning notification with the current bidder
                     if (notification.data.currentBidder) {
                         const bidder = notification.data.currentBidder;
                         const username = bidder.username || `${bidder.firstName} ${bidder.lastName}`.trim();
                         const avatar = bidder.profileImage?.url || undefined;
                         const initials = getInitials(bidder.firstName, bidder.lastName);
-                        
+
                         setCurrentBidWinner({
                             username,
                             avatar,
@@ -547,35 +561,35 @@ const LiveAuctionStudio = () => {
                     }
                 }
                 break;
-            
+
             case 'auction_winner':
                 console.log('Auction winner notification:', notification);
                 // Update UI to show auction winner event
                 setLiveComments(prev => [...prev, notification]);
-                
+
                 // Update the product with the winner and mark as ongoing
                 if (notification.data && notification.data.product) {
                     console.log('Updating product with winner:', notification.data.product);
-                    
+
                     // Find the product in streamProducts and update it
                     const productId = notification.data.product.product?.productId;
                     console.log('auction winner productId:', productId);
-                    
+
                     if (productId) {
                         setStreamProducts(prevProducts => {
                             console.log('prevProducts in functional update:', prevProducts);
-                            
+
                             // Find the index of the product in the current streamProducts array
-                            const productIndex = prevProducts.findIndex(p => 
+                            const productIndex = prevProducts.findIndex(p =>
                                 p.product.productId === productId
                             );
                             console.log('auction winner productIndex:', productIndex);
-                            
+
                             // If product found, don't change current product index yet
                             if (productIndex !== -1) {
                                 console.log('Updating product at index to ongoing:', productIndex);
                             }
-                            
+
                             // Update the product status to ongoing
                             return prevProducts.map(p => {
                                 if (p.product.productId === productId) {
@@ -590,14 +604,14 @@ const LiveAuctionStudio = () => {
                             });
                         });
                     }
-                    
+
                     // Update the winning notification with the winner
                     if (notification.data.bidWinner && notification.data.bidWinner.buyer) {
                         const winner = notification.data.bidWinner.buyer;
                         const username = winner.username || `${winner.firstName} ${winner.lastName}`.trim();
                         const avatar = winner.profileImage?.url || undefined;
                         const initials = getInitials(winner.firstName, winner.lastName);
-                        
+
                         setCurrentBidWinner({
                             username,
                             avatar,
@@ -651,7 +665,7 @@ const LiveAuctionStudio = () => {
             const parts = message.split(':');
             if (parts.length >= 3) {
                 const mediaType = parts[2]; // Format is "user_unpublished:uid:mediaType"
-                
+
                 // Only display notification when a video stream is unpublished
                 if (mediaType === 'video') {
                     // Add a notification to the chat that host left
@@ -663,10 +677,10 @@ const LiveAuctionStudio = () => {
                         content: 'Host left room',
                         timestamp: new Date()
                     };
-                    
+
                     // Add notification to the comments
                     setLiveComments(prev => [...prev, hostLeftNotification]);
-                    
+
                     // Scroll to show the notification
                     requestAnimationFrame(() => {
                         setTimeout(() => {
@@ -675,7 +689,7 @@ const LiveAuctionStudio = () => {
                             }
                         }, 100);
                     });
-                    
+
                     setStatus(`Host ${mediaType} stream ended`);
                 }
             }
@@ -683,7 +697,7 @@ const LiveAuctionStudio = () => {
             // This message is triggered when a previously disconnected user rejoins
             // Add notification that host has rejoined if we previously saw them leave
             const hasHostLeftPreviously = liveComments.some(comment => comment.type === 'hostLeft');
-            
+
             if (hasHostLeftPreviously) {
                 const hostRejoinedNotification = {
                     id: Date.now().toString(),
@@ -693,10 +707,10 @@ const LiveAuctionStudio = () => {
                     content: 'rejoined room',
                     timestamp: new Date()
                 };
-                
+
                 // Add notification to the comments
                 setLiveComments(prev => [...prev, hostRejoinedNotification]);
-                
+
                 // Scroll to show the notification
                 requestAnimationFrame(() => {
                     setTimeout(() => {
@@ -705,7 +719,7 @@ const LiveAuctionStudio = () => {
                         }
                     }, 100);
                 });
-                
+
                 setStatus('Host video reconnected');
                 setIsVideoPlaying(true);
                 setIsLoading(false);
@@ -751,7 +765,7 @@ const LiveAuctionStudio = () => {
                 }
             `);
         }
-        
+
         show({
             text1: 'Audio ' + (newMuteState ? 'muted' : 'unmuted'),
             type: 'info',
@@ -1029,46 +1043,58 @@ const LiveAuctionStudio = () => {
 
     // Function to handle bid submissions
     const handleSubmitBid = (bidAmount: number) => {
-        // Use the current product if selectedBidProduct is not set
-        const product = selectedBidProduct || (streamProducts.length > 0 ? streamProducts[currentProductIndex] : null);
-        
-        if (!product) return;
+        // Get current product if not already selected
+        const product = selectedBidProduct || (currentProductIndex !== null && streamProducts && streamProducts.length > 0 ? streamProducts[currentProductIndex] : null);
+
+        if (!product) {
+            console.error('No product selected for bid');
+            return;
+        }
 
         try {
-            // Validate bid amount against minimum and current bid
-            const currentBid = product.currentBid || product.minBid || product.product.price;
-
-            if (bidAmount <= currentBid) {
-                Alert.alert('Invalid Bid', `Bid must be higher than current bid of ${formatPrice(currentBid)}`);
+            // Validate the bid amount
+            if (product.currentBid && bidAmount <= product.currentBid) {
+                // Show error alert
+                Alert.alert('Invalid Bid', `Your bid must be higher than the current bid of ${formatPrice(product.currentBid)}`);
                 return;
             }
 
-            // Get user info for notification
             getUser().then(user => {
+                console.log('User:', user);
                 if (!user) {
                     Alert.alert('Authentication Required', 'Please log in to place bids');
                     return;
                 }
 
-                // Create local notification for the bid
-                const notification: StreamNotification = {
+                // Create a local notification for the bid
+                console.log(`Submitting bid of ${bidAmount} for product:`, product);
+
+                // Add to user's list of notifications
+                const bidNotification: StreamNotification = {
                     id: Date.now().toString(),
-                    type: 'purchase',
-                    user: user.firstName || 'You',
-                    avatar: user.profileImage?.url || require('@/assets/icons/animoji.png'),
-                    content: `placed a bid of ${formatPrice(bidAmount)} on ${product.product.name}`,
-                    timestamp: new Date(),
+                    type: 'new_bid',
+                    user: 'You',  // Simplify to just "You" since we're showing user's own bids
+                    content: `Your bid of ${formatPrice(bidAmount)} was submitted`,
                     data: {
-                        productId: product._id,
-                        productName: product.product.name,
-                        price: bidAmount,
                         streamId: id as string,
-                        isHost: false
-                    }
+                        productId: product.product.productId,
+                        productName: product.product.name,
+                        bidAmount: bidAmount,
+                    },
+                    timestamp: new Date()
                 };
 
-                // Add to live comments
-                //setLiveComments(prev => [...prev, notification]);
+                // Display notification in chat interactions
+                setLiveComments(prev => [...prev, bidNotification]);
+
+                // Get the WebView ready to refresh if needed
+                webViewRef.current?.injectJavaScript(`
+                // Add code here to refresh or update the UI with the new bid
+                true;
+            `);
+
+                // Set bid sending state to true
+                setIsBidSending(true);
 
                 // Send the bid to the server via WebSocket
                 const socketInstance = getSocket();
@@ -1088,17 +1114,18 @@ const LiveAuctionStudio = () => {
                 } else {
                     console.error('Socket not connected, cannot submit bid');
                     Alert.alert('Connection Error', 'Unable to connect to bidding service. Please try again.');
+                    setIsBidSending(false);
                 }
 
                 // Note: We no longer do optimistic updates here as we'll get real-time updates from the server
                 // Actual product updates will happen when we receive the 'stream_notification' event
-                
+
                 // Clear bid state
                 setBidAmount(null);
             });
         } catch (error) {
             console.error('Error submitting bid:', error);
-            Alert.alert('Bid Error', 'There was an error placing your bid. Please try again.');
+            setIsBidSending(false);
         }
     };
 
@@ -1121,18 +1148,18 @@ const LiveAuctionStudio = () => {
     // Update handleLeaveStream function to actually leave the stream
     const handleLeaveStream = async (backButton: boolean) => {
         if (!id) return;
-        
+
         try {
             setIsLeavingStream(true);
             console.log('User requested to leave the stream');
-            
+
             // Call the leaveStream API endpoint
             const result = await leaveStream(id as string);
             console.log('Leave stream result:', result);
-            
+
             // Disconnect the socket
             disconnectSocket();
-            
+
             // Navigate back to previous screen
             if (!backButton) {
                 router.back();
@@ -1149,7 +1176,7 @@ const LiveAuctionStudio = () => {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-            <View 
+            <View
                 style={{ flex: 1 }}
             >
                 <View className="flex-1 bg-black">
@@ -1216,7 +1243,7 @@ const LiveAuctionStudio = () => {
                                         </TouchableOpacity>
                                     </View>
                                     <View className="flex-row items-center gap-2">
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             className="flex-row items-center px-3 py-2 rounded-full"
                                             onPress={handleShowViewers}
                                         >
@@ -1227,7 +1254,7 @@ const LiveAuctionStudio = () => {
                                                     : viewerCount}
                                             </Text>
                                         </TouchableOpacity>
-                                        
+
                                         <TouchableOpacity
                                             onPress={() => setShowMenuPopover(!showMenuPopover)}
                                             className="p-2 rounded-full relative"
@@ -1235,69 +1262,69 @@ const LiveAuctionStudio = () => {
                                             <Entypo name="dots-three-horizontal" size={22} color="#FFF" />
                                         </TouchableOpacity>
                                         {showMenuPopover && (
-                                                <View style={{
-                                                    position: 'absolute',
-                                                    right: 0,
-                                                    top: 40,
-                                                    backgroundColor: 'rgba(255,255,255,0.1)',
-                                                    borderRadius: 8,
-                                                    paddingVertical: 8,
-                                                    paddingHorizontal: 10,
-                                                    width: 160,
-                                                    shadowColor: '#000',
-                                                    shadowOffset: { width: 0, height: 2 },
-                                                    shadowOpacity: 0.25,
-                                                    shadowRadius: 3.84,
-                                                    zIndex: 1000,
-                                                }}>
-                                                    <TouchableOpacity 
-                                                        onPress={() => {
-                                                            toggleMute();
-                                                            setShowMenuPopover(false);
-                                                        }}
-                                                        style={{
-                                                            flexDirection: 'row',
-                                                            alignItems: 'center',
-                                                            paddingVertical: 10,
-                                                        }}
-                                        >
-                                            {isMuted ? (
-                                                            <Ionicons name="volume-mute-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
-                                                        ) : (
-                                                            <Ionicons name="volume-medium-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
-                                                        )}
-                                                        <Text style={{ color: '#FFF', fontSize: 14 }}>
-                                                            {isMuted ? 'Unmute' : 'Mute'}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                    
-                                                    <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 5 }} />
-                                                    
-                                                    <TouchableOpacity 
-                                                        onPress={() => {
-                                                            if (!isLeavingStream) {
-                                                                const backButton = false;
-                                                                handleLeaveStream(backButton);
-                                                            }
-                                                        }}
-                                                        disabled={isLeavingStream}
-                                                        style={{
-                                                            flexDirection: 'row',
-                                                            alignItems: 'center',
-                                                            paddingVertical: 10,
-                                                        }}
-                                                    >
-                                                        {isLeavingStream ? (
-                                                            <ActivityIndicator size="small" color="#FF5555" style={{ marginRight: 10 }} />
-                                                        ) : (
-                                                            <Ionicons name="exit-outline" size={20} color="#FF5555" style={{ marginRight: 10 }} />
-                                                        )}
-                                                        <Text style={{ color: '#FF5555', fontSize: 14 }}>
-                                                            {isLeavingStream ? 'Leaving...' : 'Leave'}
-                                                        </Text>
-                                        </TouchableOpacity>
-                                                </View>
-                                            )}
+                                            <View style={{
+                                                position: 'absolute',
+                                                right: 0,
+                                                top: 40,
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                borderRadius: 8,
+                                                paddingVertical: 8,
+                                                paddingHorizontal: 10,
+                                                width: 160,
+                                                shadowColor: '#000',
+                                                shadowOffset: { width: 0, height: 2 },
+                                                shadowOpacity: 0.25,
+                                                shadowRadius: 3.84,
+                                                zIndex: 1000,
+                                            }}>
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        toggleMute();
+                                                        setShowMenuPopover(false);
+                                                    }}
+                                                    style={{
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        paddingVertical: 10,
+                                                    }}
+                                                >
+                                                    {isMuted ? (
+                                                        <Ionicons name="volume-mute-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
+                                                    ) : (
+                                                        <Ionicons name="volume-medium-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
+                                                    )}
+                                                    <Text style={{ color: '#FFF', fontSize: 14 }}>
+                                                        {isMuted ? 'Unmute' : 'Mute'}
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 5 }} />
+
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        if (!isLeavingStream) {
+                                                            const backButton = false;
+                                                            handleLeaveStream(backButton);
+                                                        }
+                                                    }}
+                                                    disabled={isLeavingStream}
+                                                    style={{
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        paddingVertical: 10,
+                                                    }}
+                                                >
+                                                    {isLeavingStream ? (
+                                                        <ActivityIndicator size="small" color="#FF5555" style={{ marginRight: 10 }} />
+                                                    ) : (
+                                                        <Ionicons name="exit-outline" size={20} color="#FF5555" style={{ marginRight: 10 }} />
+                                                    )}
+                                                    <Text style={{ color: '#FF5555', fontSize: 14 }}>
+                                                        {isLeavingStream ? 'Leaving...' : 'Leave'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
                             </SafeAreaView>
@@ -1331,14 +1358,14 @@ const LiveAuctionStudio = () => {
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
-                                        <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
+                                            <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Orders</Text>
                                     </View>
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
-                                        <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
+                                            <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Shop</Text>
                                     </View>
@@ -1411,7 +1438,7 @@ const LiveAuctionStudio = () => {
                                             returnKeyType="send"
                                             onSubmitEditing={handleSendComment}
                                         />
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={styles.sendButton}
                                             onPress={handleSendComment}
                                             disabled={!commentInput.trim()}
@@ -1431,9 +1458,9 @@ const LiveAuctionStudio = () => {
                                             <View style={styles.winningNotificationContainer}>
                                                 <View style={styles.winningNotificationAvatar}>
                                                     {currentBidWinner.avatar ? (
-                                                        <Image 
-                                                            source={{uri: currentBidWinner.avatar}} 
-                                                            style={styles.winningAvatarImage} 
+                                                        <Image
+                                                            source={{ uri: currentBidWinner.avatar }}
+                                                            style={styles.winningAvatarImage}
                                                         />
                                                     ) : (
                                                         <Text style={styles.avatarLetter}>
@@ -1479,10 +1506,11 @@ const LiveAuctionStudio = () => {
                                                     category={streamDetails.category}
                                                     tag={streamDetails.tags}
                                                     bidIncrement={selectedBidIncrement}
+                                                    isBidSending={isBidSending}
                                                 />
                                             </>
                                         )}
-                                </View>
+                                    </View>
                                 </>
                             )}
                         </View>
@@ -1561,7 +1589,7 @@ const LiveAuctionStudio = () => {
                             // Calculate and save the selected increment
                             const currentBid = selectedBidProduct.currentBid || selectedBidProduct.minBid || selectedBidProduct.product.price;
                             const increment = amount - currentBid;
-                            setSelectedBidIncrement(increment);
+                            //setSelectedBidIncrement(increment);
                             handleSubmitBid(amount);
                         }}
                         formatPrice={formatPrice}
@@ -1582,7 +1610,7 @@ const LiveAuctionStudio = () => {
                 onRequestClose={() => setShowViewers(false)}
                 keyboardBehavior="interactive"
             >
-                <StreamViewers 
+                <StreamViewers
                     viewers={activeStreamDetails?.stream?.viewers || []}
                     hostInfo={{
                         name: storeInfo.name,
@@ -1603,13 +1631,31 @@ const LiveAuctionStudio = () => {
                 titleColor="!text-white"
                 onRequestClose={() => setShowStreamInfo(false)}
                 keyboardBehavior="interactive"
-                //enableContentPanningGesture={true}
+            //enableContentPanningGesture={true}
             >
-                <StreamInfo 
+                <StreamInfo
                     storeInfo={storeInfo}
                     streamInfo={streamDetails}
                     isLoading={isLoading}
                     closeSheet={() => setShowStreamInfo(false)}
+                />
+            </BottomSheet>
+
+            {/* Add Bid Error Bottom Sheet */}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-0"
+                showCloseIcon={false}
+                title=""
+                show={showBidError}
+                snapPoints={["40%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowBidError(false)}
+                keyboardBehavior="interactive"
+            >
+                <BidErrorMessage
+                    errorMessage={bidErrorMessage}
+                    closeSheet={() => setShowBidError(false)}
                 />
             </BottomSheet>
         </GestureHandlerRootView>
