@@ -629,6 +629,18 @@ export default function OrderDetails() {
                     <div className="flex justify-between text-gray-600">
                       <div className="flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                        <span>VAT (7.5% of commission)</span>
+                      </div>
+                      <span className="text-red-600">
+                        -₦{(order?.paymentBreakdown?.fees?.totalPlatformFee * 0.075)?.toLocaleString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
                           <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
                           <line x1="1" y1="10" x2="23" y2="10"></line>
                         </svg>

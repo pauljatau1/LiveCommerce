@@ -344,12 +344,13 @@ export default function ChatInterface() {
       // Only update if we're still on the same conversation
       // This prevents messages from being mixed up if the user switches conversations quickly
       if (currentConversation?._id === conversationId) {
-        // Reverse the messages array to show most recent at bottom
-        const reversedMessages = [...data.messages].reverse();
-        console.log('Reversed messages:', reversedMessages);
+        // The API returns messages in reverse chronological order (newest first)
+        // We need to reverse them to show oldest first
+        const chronologicalMessages = [...data.messages].reverse();
+        console.log('Chronological messages (oldest first):', chronologicalMessages);
 
-        // Set reversed messages
-        setMessages(reversedMessages || []);
+        // Set messages in chronological order (oldest first, newest last)
+        setMessages(chronologicalMessages || []);
         
         // Force immediate scroll to bottom after loading messages
         scrollToBottom(true);
@@ -422,6 +423,7 @@ export default function ChatInterface() {
 
       // Update messages if the message belongs to current conversation
       if (messageData.conversation === currentConversation?._id) {
+        // Add new messages at the end (chronologically newest at the bottom)
         setMessages(prev => [...prev, messageData]);
         
         // Force immediate scroll to bottom for new messages
@@ -476,6 +478,23 @@ export default function ChatInterface() {
 
         if (existingConversation) {
           setCurrentConversation(existingConversation);
+          
+          // Fetch messages for the existing conversation
+          const messagesResponse = await fetch(
+            `${BASE_URL}/messages/${existingConversation._id}?limit=99`,
+            {
+              headers: {
+                'Authorization': `Bearer ${sellerToken}`
+              }
+            }
+          );
+          
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            // Reverse the message order to show oldest first
+            const chronologicalMessages = [...messagesData.messages].reverse();
+            setMessages(chronologicalMessages || []);
+          }
         } else {
           // If no conversation exists, create one by sending first message
           const response = await fetch(`${BASE_URL}/messages`, {
@@ -571,7 +590,9 @@ export default function ChatInterface() {
         if (!messagesResponse.ok) throw new Error('Failed to fetch messages');
         
         const messagesData = await messagesResponse.json();
-        setMessages(messagesData.messages || []);
+        // Reverse the message order to show oldest first
+        const chronologicalMessages = [...messagesData.messages].reverse();
+        setMessages(chronologicalMessages || []);
 
       } catch (error) {
         console.error('Error loading conversation:', error);
@@ -582,7 +603,7 @@ export default function ChatInterface() {
     handleNavigatedConversation();
   }, [location.state?.conversationId]);
 
-  // Update handleSendMessage to add new messages at the end
+  // Update handleSendMessage to append new messages at the end
   const handleSendMessage = async () => {
     if (!messageInput.trim()) {
       toast.error("Please enter a message");
@@ -615,7 +636,7 @@ export default function ChatInterface() {
 
     console.log('Adding temporary message:', tempMessage);
 
-    // Add temporary message at the end
+    // Add temporary message at the end (chronologically newest at the bottom)
     setMessages(prev => [...prev, tempMessage]);
 
     // Force immediate scroll to bottom after adding temp message
@@ -726,7 +747,7 @@ export default function ChatInterface() {
       conversation: currentConversation._id,
     };
 
-    // Add message to UI immediately
+    // Add message to UI immediately at the end (chronologically newest at the bottom)
     setMessages(prev => [...(prev || []), tempMessage]);
     
     // Force immediate scroll to bottom
@@ -857,7 +878,7 @@ export default function ChatInterface() {
       conversation: currentConversation._id,
     };
 
-    // Add message to UI immediately
+    // Add message to UI immediately at the end (chronologically newest at the bottom)
     setMessages(prev => [...(prev || []), tempMessage]);
 
     try {
@@ -979,8 +1000,10 @@ export default function ChatInterface() {
                 
                 // Only update if we're still on the same conversation
                 if (currentConversation?._id === conv._id) {
-                  const reversedMessages = [...data.messages].reverse();
-                  setMessages(reversedMessages || []);
+                  // Make sure messages are displayed with the oldest first (LAST PRICCR) 
+                  // and newest last (You don't respond on time)
+                  const chronologicalMessages = [...data.messages].reverse();
+                  setMessages(chronologicalMessages || []);
                   
                   // Force immediate scroll to bottom after loading messages
                   scrollToBottom(true);
