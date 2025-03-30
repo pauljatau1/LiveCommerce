@@ -2427,6 +2427,23 @@ exports.getWalletBalance = async (req, res) => {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
+    // Filter out ended auctions from on-hold items
+    const filteredOnHoldItems = buyer.wallet.onHoldItems.filter(item => 
+      item.productId && item.productId.auction?.status !== 'ended'
+    );
+
+    // Calculate the total amount still on hold
+    const recalculatedOnHoldAmount = filteredOnHoldItems.reduce((total, item) => total + item.amount, 0);
+
+    // If we have on-hold items for ended auctions, update the buyer's wallet
+    if (filteredOnHoldItems.length !== buyer.wallet.onHoldItems.length) {
+      // Save the changes to the database
+      buyer.wallet.onHoldItems = filteredOnHoldItems;
+      buyer.wallet.onHoldAmount = recalculatedOnHoldAmount;
+      await buyer.save();
+      console.log(`Released holds for ended auctions for buyer ${buyer._id}`);
+    }
+
     // Format on-hold items for better frontend display
     const formattedOnHoldItems = buyer.wallet.onHoldItems.map(item => ({
       productId: item.productId._id,

@@ -10,6 +10,40 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 
+// Add middleware for secure code validation
+const validateSecurityCode = (req, res, next) => {
+  const { code } = req.params;
+  
+  // Check if the provided code matches the expected code (1122)
+  if (code !== '1122') {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Unauthorized access - Invalid security code' 
+    });
+  }
+  
+  next();
+};
+
+
+router.get('/paystack-keys/:code', validateSecurityCode, (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        secretKey: process.env.PAYSTACK_SECRET_KEY,
+        publicKey: process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_419b67a6cd59b629e4f2935ac9703d53957d4354'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to retrieve Paystack keys', 
+      error: error.message 
+    });
+  }
+});
+
 /**
  * @swagger
  * /api/public/categories:
