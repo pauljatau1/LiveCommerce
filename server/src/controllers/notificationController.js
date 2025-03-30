@@ -347,6 +347,23 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
   try {
     console.log(`Sending direct email to buyer: ${buyer.email} for notification: ${notification.type}`);
     
+    // Get order data from notification
+    const data = notification.data || {};
+    const orderId = data.order_id;
+    const paymentMethod = data.paymentMethod?.toLowerCase() || '';
+    
+    // Double-check if this is a Paystack order that might not be paid yet
+    if (orderId && paymentMethod.includes('paystack')) {
+      // Check the order's payment status in the database
+      const Order = mongoose.model('Order');
+      const order = await Order.findOne({ order_id: orderId });
+      
+      if (order && !order.paid) {
+        console.log(`FINAL CHECK: Skipping email for unpaid Paystack order ${orderId}`);
+        return false;
+      }
+    }
+    
     // Ensure we have a valid API key
     const apiKey = process.env.SENDGRID_API_KEY;
     if (!apiKey) {
@@ -358,7 +375,6 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
     sgMail.setApiKey(apiKey);
     
     // Extract data from notification
-    const data = notification.data || {};
     const orderInfo = parseNotificationData(data);
     
     // Generate appropriate subject based on notification type
@@ -569,13 +585,25 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
     // 3. Any already paid orders
     // 4. Non-Paystack payment methods
     // Skip sending confirmation email only for Paystack orders that are not yet paid
-    const isPaystackUnpaid = order.paymentInfo?.method === 'paystack' && !order.paid;
+    const paymentMethodLower = (order.paymentInfo?.method || '').toLowerCase();
+    const isPaystack = paymentMethodLower === 'paystack';
+    const isPaystackUnpaid = isPaystack && (!order.paid || order.paymentInfo?.status === 'pending');
+    
+    console.log(`Order ${order.order_id} payment details:`, { 
+      paymentMethod: order.paymentInfo?.method,
+      isCOD: order.paymentInfo?.isCashOnDelivery === true, 
+      isPaid: order.paid,
+      paymentStatus: order.paymentInfo?.status,
+      isPaystack,
+      isPaystackUnpaid,
+      willSendEmail: !isPaystackUnpaid
+    });
     
     if (isPaystackUnpaid) {
-      console.log(`Skipping confirmation email for Paystack order ${order.order_id} - payment pending`);
+      console.log(`SKIPPING confirmation email for Paystack order ${order.order_id} - payment pending. Status: ${order.paymentInfo?.status}, Paid flag: ${order.paid}`);
     } else {
       // Send email to buyer for COD orders, wallet payments, or paid Paystack orders
-      console.log(`Sending confirmation email for order ${order.order_id} (Payment: ${paymentMethod}, Status: ${order.paymentInfo?.status || 'N/A'}, isPaid: ${order.paid}, isCOD: ${order.paymentInfo?.isCashOnDelivery === true})`);
+      console.log(`SENDING confirmation email for order ${order.order_id} - Payment: ${paymentMethod}, Status: ${order.paymentInfo?.status || 'N/A'}, isPaid: ${order.paid}, isCOD: ${order.paymentInfo?.isCashOnDelivery === true}`);
       await exports.sendEmailToBuyer(buyer, buyerNotification);
     }
     
@@ -820,13 +848,44 @@ exports.simulateFezWebhook = async (req, res) => {
       });
     }
 
+    // Always use current timestamp for webhook simulation to reflect real-world behavior
+    const simulatedTimestamp = new Date();
+    
+    console.log(`Simulating ${status} with current timestamp: ${simulatedTimestamp.toISOString()}`);
+
     // Create mock webhook data
     const mockWebhookData = {
       orderNumber,
       status,
       location: "Lagos, NG",
-      timestamp: new Date().toISOString()
+      timestamp: simulatedTimestamp.toISOString(),
+      statusDescription: getStatusDescription(status),
+      orderStatus: status,
+      recipientName: order.delivery_address?.first_name + " " + order.delivery_address?.last_name || "Customer",
+      recipientAddress: order.delivery_address?.line1 || "Delivery Address",
+      recipientState: order.delivery_address?.state || "Lagos",
+      senderName: order.seller?.businessName || "Seller",
+      createdAt: order.createdAt.toISOString(),
+      statusCreationDate: simulatedTimestamp.toISOString()
     };
+
+    // Helper function to get descriptive status message
+    function getStatusDescription(status) {
+      switch(status) {
+        case 'Pending Pick-Up': 
+          return 'Your package is awaiting pickup from the seller';
+        case 'Picked-Up': 
+          return 'Your package has been picked up from the seller';
+        case 'Dispatched': 
+          return 'Your package is on its way to the delivery address';
+        case 'Delivered': 
+          return 'Your package has been delivered successfully';
+        case 'Cancelled': 
+          return 'The delivery has been cancelled';
+        default: 
+          return 'Status updated';
+      }
+    }
 
     // Import the handler dynamically to avoid circular dependencies
     const { handleOrderStatusUpdate } = require('../webhooks/fezWebhook');

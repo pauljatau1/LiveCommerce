@@ -2663,11 +2663,36 @@ exports.handleFezWebhook = async (req, res) => {
       });
     }
     
+    // Extract timestamp information if available in the payload
+    // Fez might send different timestamp formats, so we need to handle them
+    let timestamp = null;
+    
+    if (req.body.timestamp) {
+      // Direct timestamp field
+      timestamp = req.body.timestamp;
+    } else if (req.body.statusDate || req.body.statusCreationDate) {
+      // Alternative timestamp fields that Fez might use
+      timestamp = req.body.statusDate || req.body.statusCreationDate;
+    } else if (req.body.event && req.body.event.timestamp) {
+      // Nested event object
+      timestamp = req.body.event.timestamp;
+    } else {
+      // If no timestamp is provided, use current time
+      timestamp = new Date().toISOString();
+      console.log('No timestamp provided in webhook, using current time:', timestamp);
+    }
+    
+    // Prepare enhanced webhook data
+    const webhookData = {
+      ...req.body,
+      timestamp: timestamp
+    };
+    
     // Import the handler dynamically to avoid circular dependencies
     const { handleOrderStatusUpdate } = require('../webhooks/fezWebhook');
     
-    // Process the webhook
-    await handleOrderStatusUpdate(req.body);
+    // Process the webhook with enhanced data
+    await handleOrderStatusUpdate(webhookData);
     
     // Respond to Fez
     return res.status(200).json({ 

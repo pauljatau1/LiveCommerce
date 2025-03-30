@@ -6189,6 +6189,24 @@ exports.getPersonalizedBlips = async (req, res) => {
     // Add blips existence condition
     query['blips.0'] = { $exists: true }; // Only products with blips
 
+    // Filter out offline auctions that have ended
+    const now = new Date();
+    query.$and = [
+      { 'blips.0': { $exists: true } },
+      {
+        $or: [
+          { status: { $ne: 'offline_auction' } }, // Include non-auction products
+          { 
+            $and: [ 
+              { status: 'offline_auction' },
+              { 'auction.status': { $ne: 'ended' } },
+              { 'auction.endDate': { $gt: now } }
+            ]
+          } // Include only ongoing or scheduled auctions
+        ]
+      }
+    ];
+
     // Get buyer ID for isFollowing check
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
@@ -6208,27 +6226,38 @@ exports.getPersonalizedBlips = async (req, res) => {
         }, []);
 
         // Add categories to query with reduced weight
-        query = {
-          $and: [
-            { 'blips.0': { $exists: true } },
-            {
-              $or: [
-                { category: { $in: categories } },
-                { subCategory: { $in: categories } },
-                { category: { $exists: true } } // Allow some non-matching categories
-              ]
-            }
+        query.$and.push({
+          $or: [
+            { category: { $in: categories } },
+            { subCategory: { $in: categories } },
+            { category: { $exists: true } } // Allow some non-matching categories
           ]
-        };
+        });
       }
     }
 
-    // Get total count for pagination
-    const total = await Product.countDocuments({ 'blips.0': { $exists: true } });
+    // Get total count for pagination (excluding ended auctions)
+    const total = await Product.countDocuments(query);
     
-    // If there are no results with category filtering, just show all blips
+    // If there are no results with category filtering, just show all valid blips
     if ((await Product.countDocuments(query)) === 0) {
-      query = { 'blips.0': { $exists: true } };
+      query = {
+        $and: [
+          { 'blips.0': { $exists: true } },
+          {
+            $or: [
+              { status: { $ne: 'offline_auction' } },
+              { 
+                $and: [ 
+                  { status: 'offline_auction' },
+                  { 'auction.status': { $ne: 'ended' } },
+                  { 'auction.endDate': { $gt: now } }
+                ]
+              }
+            ]
+          }
+        ]
+      };
     }
 
     // Get products with proper pagination and increased randomization

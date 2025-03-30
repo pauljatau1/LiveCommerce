@@ -58,6 +58,25 @@ const handleOrderStatusUpdate = async (webhookData) => {
         statusDescription = `Order status updated to ${webhookData.status}`;
     }
 
+    // Calculate appropriate timestamp based on status sequence and existing history
+    let newTimestamp;
+    
+    // Define the expected sequence of statuses
+    const statusSequence = ['pending_pickup', 'picked_up', 'in_transit', 'delivered'];
+    const currentStatusIndex = statusSequence.indexOf(internalStatus);
+    
+    if (webhookData.timestamp) {
+      // If the webhook includes a timestamp, use it
+      newTimestamp = new Date(webhookData.timestamp);
+    } else {
+      // Always use the current date/time for new status updates
+      // This ensures the timestamps reflect when the status actually changed
+      newTimestamp = new Date();
+      
+      // Log the timestamp being used
+      console.log(`Using current timestamp for status update: ${newTimestamp.toISOString()}`);
+    }
+
     // Update order shipping information and status history
     const shippingUpdate = {
       $set: {
@@ -67,13 +86,13 @@ const handleOrderStatusUpdate = async (webhookData) => {
       $push: {
         'shipping.tracking.history': {
           status: internalStatus,
-          timestamp: new Date(),
+          timestamp: newTimestamp,
           location: webhookData.location || 'Unknown',
           description: statusDescription
         },
         'items.$[].statusHistory': {
           status: internalStatus,
-          timestamp: new Date(),
+          timestamp: newTimestamp,
           note: statusDescription
         }
       }
