@@ -1977,53 +1977,81 @@ exports.activateProductBidding = async (req, res) => {
   try {
     const { streamId } = req.params;
     const { productId } = req.body;
+    
+    console.log('[ACTIVATE_BID] 1. Received request to activate product bidding', {
+      streamId,
+      productId,
+      sellerId: req.user.id
+    });
 
     // Validate required fields
     if (!streamId || !productId) {
+      console.error('[ACTIVATE_BID] 2. FAILED: Missing streamId or productId');
       return res.status(400).json({
         message: 'Stream ID and Product ID are required'
       });
     }
 
     // Find the stream and check if it's an auction
+    console.log('[ACTIVATE_BID] 3. Finding stream');
     const stream = await Stream.findById(streamId)
       .populate('seller', 'storeName storeAvatar')
       .populate('products.currentBidder', 'firstName lastName username');
 
     if (!stream) {
+      console.error('[ACTIVATE_BID] 4. FAILED: Stream not found');
       return res.status(404).json({ message: 'Stream not found' });
     }
+    
+    console.log('[ACTIVATE_BID] 5. Stream found', { 
+      streamId: stream._id,
+      title: stream.title
+    });
 
     // Check if stream type is auction
     if (stream.type !== 'auction') {
+      console.error('[ACTIVATE_BID] 6. FAILED: Stream type is not auction', { type: stream.type });
       return res.status(400).json({ message: 'Stream type must be auction to activate product bidding' });
     }
 
     // Check if stream is live
     if (stream.status !== 'live') {
+      console.error('[ACTIVATE_BID] 7. FAILED: Stream is not live', { status: stream.status });
       return res.status(400).json({ message: 'Stream must be live to activate product bidding' });
     }
 
     // Find the product in the stream's products array
+    console.log('[ACTIVATE_BID] 8. Looking for product in stream products array');
     const productIndex = stream.products.findIndex(p =>
       p.product && p.product.productId.toString() === productId
     );
 
     if (productIndex === -1) {
+      console.error('[ACTIVATE_BID] 9. FAILED: Product not found in stream');
       return res.status(404).json({ message: 'Product not found in stream' });
     }
+    
+    console.log('[ACTIVATE_BID] 10. Found product in stream', {
+      productIndex,
+      productName: stream.products[productIndex].product.name
+    });
 
     // Update product's bidStatus to active
     stream.products[productIndex].bidStatus = 'active';
+    console.log('[ACTIVATE_BID] 11. Updated product bidStatus to active');
 
     // Set other products to 'ended' if any are 'active'
     stream.products.forEach((product, index) => {
       if (index !== productIndex && product.bidStatus === 'active') {
+        console.log('[ACTIVATE_BID] 12. Setting other active product to ended', { 
+          productName: product.product.name 
+        });
         product.bidStatus = 'ended';
       }
     });
 
     await stream.save();
+    console.log('[ACTIVATE_BID] 13. Stream saved successfully');
 
     // Create notification object for WebSocket
     const notificationObj = {
@@ -2038,24 +2066,50 @@ exports.activateProductBidding = async (req, res) => {
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
         product: stream.products[productIndex]
-      }
-      // timestamp will be added automatically by the schema default
+      },
+      timestamp: new Date()
     };
 
     // Send WebSocket notification
+    console.log('[ACTIVATE_BID] 14. Broadcasting start notification to subscribers');
     req.app.get('io').to('stream_notifications').emit('stream_notification', notificationObj);
 
     // Add the notification to stream chat interactions
     stream.chatInteractions.push(notificationObj);
     await stream.save();
+    
+    // Set up a 30-second timer using Agenda
+    console.log('[ACTIVATE_BID] 15. Setting up 30-second timer with Agenda');
+    
+    // Get the agenda instance
+    const { agenda } = require('../config/agenda');
+    
+    // Create a unique job ID for this bid timer
+    const jobId = `bid_timer_${stream._id}_${productId}_${Date.now()}`;
+    
+    // Schedule the job to run immediately
+    await agenda.schedule('now', 'bid_timer', { 
+      streamId: stream._id.toString(),
+      productId,
+      sellerId: stream.seller._id.toString(),
+      jobId,
+      activeProductIndex: productIndex,
+      productName: stream.products[productIndex].product.name || 'Product'
+    });
+    
+    console.log('[ACTIVATE_BID] 16. Agenda job scheduled successfully', { jobId });
 
-    // Return the updated product information
+    // Return the updated product information with timer details
     return res.status(200).json({
       message: 'Product bidding activated successfully',
-      product: stream.products[productIndex]
+      product: stream.products[productIndex],
+      timerDetails: {
+        duration: 30,
+        jobId
+      }
     });
   } catch (error) {
-    console.error('Error activating product bidding:', error);
+    console.error('[ACTIVATE_BID] ERROR: Failed to activate product bidding:', error);
     return res.status(500).json({
       message: 'Failed to activate product bidding',
       error: error.message
@@ -2066,57 +2120,341 @@ exports.activateProductBidding = async (req, res) => {
 exports.endProductBidding = async (req, res) => {
   try {
     const { streamId } = req.params;
-    const { productId } = req.body;
+    const { productId, sellerId } = req.body;
 
-    // Validate required fields
+    console.log('[END_BID] 1. Received request to end product bidding', {
+      streamId,
+      productId,
+      sellerId
+    });
+
     if (!streamId || !productId) {
-      return res.status(400).json({
-        message: 'Stream ID and Product ID are required'
-      });
+      console.error('[END_BID] 2. FAILED: Missing streamId or productId');
+      return res.status(400).json({ message: 'Stream ID and Product ID are required' });
     }
 
-    // Find the stream
+    console.log('[END_BID] 3. Retrieving stream data');
+    // Get the stream by stream ID and populate necessary fields
     const stream = await Stream.findById(streamId)
-      .populate('seller', 'storeName storeAvatar')
-      .populate('products.currentBidder', 'firstName lastName username');
+      .populate('seller', 'storeName storeAvatar warehouseDetails businessAddress')
+      .populate('products.currentBidder', 'firstName lastName username profileImage');
 
     if (!stream) {
+      console.error('[END_BID] 4. FAILED: Stream not found');
       return res.status(404).json({ message: 'Stream not found' });
     }
 
+    console.log('[END_BID] 5. Stream found', {
+      streamId: stream._id,
+      title: stream.title,
+      sellerName: stream.seller?.storeName
+    });
+
     // Check if stream type is auction
     if (stream.type !== 'auction') {
+      console.error('[END_BID] 6. FAILED: Stream type is not auction', { type: stream.type });
       return res.status(400).json({ message: 'Stream type must be auction to end product bidding' });
     }
 
     // Find the product in the stream's products array
+    console.log('[END_BID] 7. Looking for product in stream products array with ID:', productId);
     const productIndex = stream.products.findIndex(p =>
-      p.product._id && p.product._id.toString() === productId ||
-      p.product && p.product.toString() === productId
+      (p.product._id && p.product._id.toString() === productId) ||
+      (p.product.productId && p.product.productId.toString() === productId) ||
+      (p.product && p.product.toString() === productId)
     );
 
     if (productIndex === -1) {
+      console.error('[END_BID] 8. FAILED: Product not found in stream');
       return res.status(404).json({ message: 'Product not found in stream' });
     }
 
+    const product = stream.products[productIndex];
+    console.log('[END_BID] 9. Found product in stream', {
+      productIndex,
+      productName: product.product.name,
+      currentBid: product.currentBid,
+      bidStatus: product.bidStatus
+    });
+
     // Check if bidStatus is active
-    if (stream.products[productIndex].bidStatus !== 'active') {
+    if (product.bidStatus !== 'active') {
+      console.error('[END_BID] 10. FAILED: Product bidding is not active', { bidStatus: product.bidStatus });
       return res.status(400).json({ message: 'Product bidding is not active' });
     }
 
-    // Update product's bidStatus to ended
-    stream.products[productIndex].bidStatus = 'ended';
+    // Update product's bidStatus to ongoing (not ended as it's in process of being finalized)
+    stream.products[productIndex].bidStatus = 'ongoing';
+    console.log('[END_BID] 11. Updated product bidStatus to ongoing');
 
     // Set winner if there is a current bidder
     if (stream.products[productIndex].currentBidder) {
+      console.log('[END_BID] 12. Setting bid winner', {
+        buyer: stream.products[productIndex].currentBidder._id,
+        bidAmount: stream.products[productIndex].currentBid
+      });
+
       stream.products[productIndex].bidWinner = {
-        buyer: stream.products[productIndex].currentBidder,
+        buyer: {
+          _id: stream.products[productIndex].currentBidder._id,
+          firstName: stream.products[productIndex].currentBidder.firstName,
+          lastName: stream.products[productIndex].currentBidder.lastName,
+          username: stream.products[productIndex].currentBidder.username,
+          profileImage: stream.products[productIndex].currentBidder.profileImage
+        },
         bidAmount: stream.products[productIndex].currentBid,
         winningTime: new Date()
       };
+
+      // Helper function to format product name to max 3 words
+      const formatProductName = (name) => {
+        if (!name) return 'a product';
+
+        // Split by spaces and take first 3 words
+        const words = name.split(' ');
+        const truncatedName = words.slice(0, 3).join(' ');
+
+        // Add ellipsis if there were more than 3 words
+        return words.length > 3 ? `${truncatedName}...` : truncatedName;
+      };
+
+      // Format the product name
+      const formattedProductName = formatProductName(product.product.name);
+
+      // Create bid winner notification
+      const winnerNotification = {
+        id: Date.now().toString(),
+        type: 'auction_winner',
+        user: stream.seller.storeName || 'Host',
+        avatar: stream.seller.storeAvatar?.url || '',
+        content: `${stream.products[productIndex].currentBidder.username || stream.products[productIndex].currentBidder.firstName} won the auction for ${formattedProductName} with a bid of ₦${stream.products[productIndex].currentBid.toLocaleString()}`,
+        data: {
+          message: `${stream.products[productIndex].currentBidder.username || stream.products[productIndex].currentBidder.firstName} won the auction for ${formattedProductName} with a bid of ₦${stream.products[productIndex].currentBid.toLocaleString()}`,
+          streamId: stream._id.toString(),
+          sellerId: stream.seller._id.toString(),
+          storeName: stream.seller.storeName || 'Unknown Store',
+          product: stream.products[productIndex],
+          bidWinner: {
+            buyer: {
+              _id: stream.products[productIndex].currentBidder._id,
+              firstName: stream.products[productIndex].currentBidder.firstName,
+              lastName: stream.products[productIndex].currentBidder.lastName,
+              username: stream.products[productIndex].currentBidder.username,
+              profileImage: stream.products[productIndex].currentBidder.profileImage
+            },
+            bidAmount: stream.products[productIndex].currentBid,
+            timestamp: new Date()
+          }
+        },
+        timestamp: new Date()
+      };
+
+      // Add the notification to stream chat interactions
+      stream.chatInteractions.push(winnerNotification);
+      console.log('[END_BID] 13. Added winner notification to stream chat interactions');
+
+      // Create an order for the auction winner
+      console.log('[END_BID] 14. Creating order for auction winner');
+
+      try {
+        // Fetch full product details
+        console.log('[END_BID] 15. Fetching full product details');
+        const Product = mongoose.model('Product');
+        // Get productId from the stream product
+        const productIdToFetch = product.product.productId || product.product._id;
+        const fullProductDetails = await Product.findById(productIdToFetch).populate('seller');
+
+        if (!fullProductDetails) {
+          console.error('[END_BID] 16. FAILED: Could not retrieve full product details');
+          throw new Error('Product details not found');
+        }
+
+        console.log('[END_BID] 17. Full product details retrieved', {
+          productId: fullProductDetails._id,
+          name: fullProductDetails.name,
+          weight: fullProductDetails.weight || 1
+        });
+
+        // Fetch buyer details
+        console.log('[END_BID] 18. Fetching buyer details');
+        const Buyer = mongoose.model('Buyer');
+        const buyerId = stream.products[productIndex].currentBidder._id;
+        const buyer = await Buyer.findById(buyerId).select('firstName lastName email phoneNumber wallet shippingAddresses');
+
+        if (!buyer) {
+          console.error('[END_BID] 19. FAILED: Buyer not found');
+          throw new Error('Buyer not found');
+        }
+
+        if (!buyer.shippingAddresses || buyer.shippingAddresses.length === 0) {
+          console.error('[END_BID] 20. FAILED: Buyer has no shipping addresses');
+          throw new Error('Buyer has no shipping addresses');
+        }
+
+        console.log('[END_BID] 21. Buyer details retrieved', {
+          buyerId: buyer._id,
+          name: `${buyer.firstName} ${buyer.lastName}`,
+          hasShippingAddresses: buyer.shippingAddresses?.length > 0
+        });
+
+        // Prepare shipping address
+        const selectedAddress = {
+          recipientName: `${buyer.firstName} ${buyer.lastName}`,
+          recipientEmail: buyer.email,
+          recipientPhone: buyer.phoneNumber?.replaceAll("-", "")?.length > 14 ?
+            buyer.phoneNumber.replaceAll("-", "").replace("0", "") :
+            buyer.phoneNumber.replaceAll("-", ""),
+          recipientAddress: buyer.shippingAddresses[0].addressLine1,
+          recipientState: buyer.shippingAddresses[0].state,
+        };
+
+        console.log('[END_BID] 22. Prepared shipping address', selectedAddress);
+
+        // Prepare seller pickup address
+        const seller = fullProductDetails.seller;
+        const pickupAddress = {
+          senderName: `${seller.firstName} ${seller.lastName}`,
+          senderEmail: seller.businessEmail || seller.email,
+          senderPhone: seller.phoneNumber,
+          senderAddress: seller.warehouseDetails?.address?.addressLine1 ||
+            seller.businessAddress?.addressLine1 ||
+            seller.sellerAddress?.addressLine1,
+          pickUpState: seller.warehouseDetails?.address?.state ||
+            seller.businessAddress?.state ||
+            seller.sellerAddress?.state,
+        };
+
+        console.log('[END_BID] 23. Prepared seller pickup address', pickupAddress);
+
+        // Calculate shipping fee
+        console.log('[END_BID] 24. Calculating shipping fee');
+        const payload = [
+          {
+            pickUpState: pickupAddress.pickUpState,
+            weight: fullProductDetails.weight || 1,
+            sellerId: seller._id,
+          },
+        ];
+
+        // Prepare shipping details
+        const shippingDetails = {
+          state: selectedAddress.recipientState,
+          pickupLocations: payload,
+        };
+
+        console.log('[END_BID] 25. Prepared shipping details', {
+          buyerState: shippingDetails.state,
+          pickupState: payload[0].pickUpState,
+          weight: payload[0].weight
+        });
+
+        // Calculate delivery cost
+        let shippingFee = 0;
+        try {
+          console.log('[END_BID] 26. Calculating delivery cost');
+          const orderController = require('./orderController');
+          const costResponse = await orderController.calculateDeliveryCostInternal(shippingDetails);
+          shippingFee = costResponse.totalCost || 0;
+          console.log('[END_BID] 27. Shipping fee calculated', {
+            shippingFee,
+            response: costResponse
+          });
+        } catch (error) {
+          console.error('[END_BID] 28. Error calculating shipping fee:', error);
+          // Default to 0 if calculation fails, but continue with order creation
+          shippingFee = 0;
+        }
+
+        // Prepare order data
+        const orderData = {
+          items: [
+            {
+              productId: fullProductDetails._id,
+              quantity: 1,
+              price: fullProductDetails?.discount?.discountedPrice || fullProductDetails.price,
+              weight: fullProductDetails.weight?.toFixed(0) * 1 || 1,
+              seller: {
+                sellerId: seller._id,
+                senderInfo: pickupAddress,
+                shippingFee: shippingFee,
+                parcelInfo: {
+                  itemDescription: fullProductDetails?.name?.slice(0, 199),
+                },
+              },
+              specifications: {
+                color: fullProductDetails.colors?.length > 0 ? fullProductDetails.colors[0] : "",
+                size: fullProductDetails.fashion_sizes?.length > 0 ? fullProductDetails.fashion_sizes[0] : "",
+                material: fullProductDetails.fashion_material || "",
+              },
+            },
+          ],
+          shippingAddress: selectedAddress,
+          paymentMethod: "Auqli Wallet",
+          isItemCod: false,
+          shippingFee: shippingFee,
+          additionalDetails: "Please handle with care",
+          paidFromWallet: true,
+          channel: "auction"
+        };
+
+        console.log('[END_BID] 29. Prepared order data', orderData);
+
+        // Create the order
+        console.log('[END_BID] 30. Creating order using order controller');
+
+        const orderController = require('./orderController');
+
+        // Create a mock request and response object for the createOrderFromAuction function
+        const mockReq = {
+          body: orderData,
+          user: {
+            id: buyerId
+          },
+          get: (name) => name === 'host' ? 'auqli.com' : null
+        };
+
+        const mockRes = {
+          status: (code) => ({
+            json: (data) => ({
+              statusCode: code,
+              data
+            })
+          })
+        };
+
+        // Call the createOrderFromAuction function
+        const orderResult = await orderController.createOrderFromAuction(mockReq, mockRes, stream._id, productIndex);
+
+        if (orderResult && orderResult.orders && orderResult.orders.length > 0) {
+          console.log('[END_BID] 31. Order created successfully', {
+            orderId: orderResult.orders[0].orderId,
+            orderTotal: orderResult.totals.grandTotal
+          });
+
+          // Emit socket notification about order creation
+          req.app.get('io').to(buyerId.toString()).emit('auction_order_created', {
+            success: true,
+            message: 'Order created for auction win',
+            orderId: orderResult.orders[0].orderId,
+            streamId: stream._id,
+            productName: fullProductDetails.name,
+            amount: stream.products[productIndex].currentBid,
+            shippingFee: shippingFee,
+            total: stream.products[productIndex].currentBid + shippingFee
+          });
+        } else {
+          console.error('[END_BID] 32. Failed to create order');
+        }
+      } catch (orderError) {
+        console.error('[END_BID] ERROR: Failed to create order:', orderError);
+        // Don't stop the process, just log the error
+      }
     }
 
+    // Save the stream with the updated product information
+    console.log('[END_BID] 33. Saving stream with updated bid information');
     await stream.save();
+    console.log('[END_BID] 34. Stream saved successfully');
 
     // Create notification object for WebSocket
     const notificationObj = {
@@ -2131,24 +2469,26 @@ exports.endProductBidding = async (req, res) => {
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
         product: stream.products[productIndex]
-      }
-      // timestamp will be added automatically by the schema default
+      },
+      timestamp: new Date()
     };
 
     // Send WebSocket notification
+    console.log('[END_BID] 35. Broadcasting end notification to subscribers');
     req.app.get('io').to('stream_notifications').emit('stream_notification', notificationObj);
 
     // Add the notification to stream chat interactions
     stream.chatInteractions.push(notificationObj);
     await stream.save();
 
+    console.log('[END_BID] 36. Successfully ended bidding for product');
     // Return the updated product information
     return res.status(200).json({
       message: 'Product bidding ended successfully',
       product: stream.products[productIndex]
     });
   } catch (error) {
-    console.error('Error ending product bidding:', error);
+    console.error('[END_BID] ERROR: Failed to end product bidding:', error);
     return res.status(500).json({
       message: 'Failed to end product bidding',
       error: error.message

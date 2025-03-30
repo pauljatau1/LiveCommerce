@@ -1163,6 +1163,130 @@ agenda.define('process-pending-message-notifications', async (job) => {
   }
 });
 
+// Define job for timer-based bid ending
+agenda.define('bid_timer', async (job) => {
+  try {
+    console.log('[BID_TIMER] Starting bid timer job with data:', job.attrs.data);
+    const { streamId, productId, sellerId, jobId, activeProductIndex, productName } = job.attrs.data;
+    
+    if (!streamId || !productId) {
+      console.error('[BID_TIMER] Missing required data for bid timer job');
+      return;
+    }
+    
+    console.log(`[BID_TIMER] Starting 30-second timer for product "${productName}" in stream ${streamId}`);
+    
+    // Initialize socket.io from the app
+    const app = require('../app');
+    const io = app.get('io');
+    
+    // Duration in seconds
+    const duration = 30;
+    
+    // Room to emit timer updates to (stream-specific)
+    const room = `stream_${streamId}`;
+    
+    // Create and format the time for initial message
+    const formatTime = (seconds) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins.toString().padStart(2, '0')}.${secs.toString().padStart(2, '0')}`;
+    };
+    
+    // Function to emit timer updates
+    const emitTimerUpdate = (secondsLeft) => {
+      const formattedTime = formatTime(secondsLeft);
+      
+      io.to(room).emit('bid_timer_update', {
+        streamId,
+        productId,
+        secondsLeft,
+        formattedTime,
+        jobId,
+        productIndex: activeProductIndex,
+        productName
+      });
+      
+      console.log(`[BID_TIMER] Emitted timer update: ${formattedTime} seconds left for product "${productName}"`);
+    };
+    
+    // Start the countdown by emitting the initial value
+    emitTimerUpdate(duration);
+    
+    // Countdown function using setTimeout for each second
+    const countdown = (secondsLeft) => {
+      if (secondsLeft <= 0) {
+        // Timer has reached zero
+        console.log(`[BID_TIMER] Timer reached zero for product "${productName}" in stream ${streamId}`);
+        
+        // Emit final timer update
+        io.to(room).emit('bid_timer_complete', {
+          streamId,
+          productId,
+          jobId,
+          productIndex: activeProductIndex,
+          productName
+        });
+        
+        // Call the endProductBidding endpoint
+        callEndProductBidding();
+        return;
+      }
+      
+      // Wait one second, then emit the next timer update
+      setTimeout(() => {
+        secondsLeft -= 1;
+        emitTimerUpdate(secondsLeft);
+        countdown(secondsLeft);
+      }, 1000);
+    };
+    
+    // Start the countdown from duration-1 (since we already emitted the initial value)
+    countdown(duration - 1);
+    
+    // Function to call the endProductBidding endpoint
+    const callEndProductBidding = async () => {
+      try {
+        console.log(`[BID_TIMER] Calling endProductBidding for product "${productName}" in stream ${streamId}`);
+        
+        // Import stream controller
+        const streamController = require('../controllers/streamController');
+        
+        // Create mock request and response objects
+        const mockReq = {
+          params: { streamId },
+          body: { productId, sellerId },
+          app: app,
+          user: { id: sellerId },
+          get: (name) => name === 'host' ? 'auqli.com' : null
+        };
+        
+        const mockRes = {
+          status: function(code) {
+            this.statusCode = code;
+            return this;
+          },
+          json: function(data) {
+            this.data = data;
+            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`, data);
+            return this;
+          }
+        };
+        
+        // Call the endProductBidding function
+        await streamController.endProductBidding(mockReq, mockRes);
+        
+        console.log(`[BID_TIMER] Successfully ended bidding for product "${productName}" in stream ${streamId}`);
+      } catch (error) {
+        console.error(`[BID_TIMER] Error calling endProductBidding:`, error);
+      }
+    };
+    
+  } catch (error) {
+    console.error('[BID_TIMER] Error in bid_timer job:', error);
+  }
+});
+
 // Start Agenda
 const startAgenda = async () => {
   await agenda.start();

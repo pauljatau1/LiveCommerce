@@ -3466,4 +3466,304 @@ exports.cancelOrderBySeller = async (req, res) => {
   }
 };
 
+// Create order from auction win
+exports.createOrderFromAuction = async (req, res, streamId, productIndex) => {
+  try {
+    console.log('[CREATE_AUCTION_ORDER] 1. Starting order creation from auction win');
+    const buyerId = req.user.id;
+    
+    // Validate and parse the request body
+    const { items = [], shippingAddress, paymentMethod = 'Auqli Wallet', isItemCod = false, shippingFee = 0, additionalDetails = '', paidFromWallet = true, channel = 'auction' } = req.body;
+
+    console.log('[CREATE_AUCTION_ORDER] 2. Request body validated, processing buyer ID:', buyerId);
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      console.error('[CREATE_AUCTION_ORDER] 3. FAILED: No items provided');
+      return res.status(400).json({ message: 'Order items are required' });
+    }
+
+    if (!shippingAddress) {
+      console.error('[CREATE_AUCTION_ORDER] 4. FAILED: No shipping address provided');
+      return res.status(400).json({ message: 'Shipping address is required' });
+    }
+
+    console.log('[CREATE_AUCTION_ORDER] 5. Items and shipping address validated');
+
+    // Fetch the buyer
+    const buyer = await Buyer.findById(buyerId).select('firstName lastName email wallet availableBalance onHold onHoldItems');
+    if (!buyer) {
+      console.error('[CREATE_AUCTION_ORDER] 6. FAILED: Buyer not found');
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    console.log('[CREATE_AUCTION_ORDER] 7. Buyer fetched', { buyerId: buyer._id });
+
+    // Get the wallet balance
+    const wallet = buyer.wallet || 0;
+    const onHold = buyer.onHold || 0;
+    const availableBalance = wallet - onHold;
+
+    console.log('[CREATE_AUCTION_ORDER] 8. Buyer wallet checked', { 
+      wallet, 
+      onHold, 
+      availableBalance 
+    });
+
+    // Sort the items by seller
+    const sellerItems = {};
+    items.forEach(item => {
+      if (!sellerItems[item.seller.sellerId]) {
+        sellerItems[item.seller.sellerId] = {
+          sellerId: item.seller.sellerId,
+          senderInfo: item.seller.senderInfo,
+          shippingFee: item.seller.shippingFee || 0,
+          items: []
+        };
+      }
+      sellerItems[item.seller.sellerId].items.push(item);
+    });
+
+    console.log('[CREATE_AUCTION_ORDER] 9. Items grouped by seller', {
+      sellerCount: Object.keys(sellerItems).length
+    });
+
+    // Calculate the total amount
+    let totalAmount = 0;
+    for (const sellerId in sellerItems) {
+      const sellerInfo = sellerItems[sellerId];
+      let sellerTotal = 0;
+      
+      sellerInfo.items.forEach(item => {
+        sellerTotal += item.price * item.quantity;
+      });
+      
+      totalAmount += sellerTotal + sellerInfo.shippingFee;
+    }
+
+    console.log('[CREATE_AUCTION_ORDER] 10. Total order amount calculated', { totalAmount });
+
+    // Check if there's enough balance in the wallet if paying from wallet
+    if (paidFromWallet && availableBalance < totalAmount) {
+      console.error('[CREATE_AUCTION_ORDER] 11. FAILED: Insufficient wallet balance', { 
+        required: totalAmount, 
+        available: availableBalance 
+      });
+      return res.status(400).json({ message: 'Insufficient wallet balance' });
+    }
+
+    console.log('[CREATE_AUCTION_ORDER] 12. Wallet balance is sufficient for this order');
+
+    // Process the order
+    console.log('[CREATE_AUCTION_ORDER] 13. Creating orders for each seller');
+    
+    const orderIds = [];
+    const createdOrders = [];
+    const orderPromises = [];
+
+    for (const sellerId in sellerItems) {
+      const sellerInfo = sellerItems[sellerId];
+      
+      // Subtotal for this seller's items
+      let sellerSubtotal = 0;
+      sellerInfo.items.forEach(item => {
+        sellerSubtotal += item.price * item.quantity;
+      });
+      
+      // Generate a unique order ID (prefix with AUC for auction)
+      const orderId = `AUC${Date.now()}${Math.floor(Math.random() * 1000)}`;
+      
+      // Add to tracking
+      orderIds.push(orderId);
+      
+      // Create order items array
+      const orderItems = await Promise.all(sellerInfo.items.map(async item => {
+        // Get the product from database
+        const product = await Product.findById(item.productId);
+        if (!product) {
+          throw new Error(`Product with ID ${item.productId} not found`);
+        }
+        
+        return {
+          product: item.productId,
+          name: product.name,
+          price: item.price,
+          quantity: item.quantity,
+          specifications: item.specifications || {},
+          images: product.images.map(img => img.url).filter(Boolean).slice(0, 3)
+        };
+      }));
+      
+      // Create the order document
+      const orderData = {
+        orderId,
+        buyer: buyerId,
+        seller: sellerId,
+        items: orderItems,
+        status: 'Pending',
+        paymentStatus: paidFromWallet ? 'Paid' : 'Pending',
+        paymentMethod,
+        subtotal: sellerSubtotal,
+        shippingFee: sellerInfo.shippingFee,
+        totalAmount: sellerSubtotal + sellerInfo.shippingFee,
+        shippingAddress,
+        deliveryDetails: {
+          senderInfo: sellerInfo.senderInfo,
+          recipientInfo: {
+            name: shippingAddress.recipientName,
+            phone: shippingAddress.recipientPhone,
+            email: shippingAddress.recipientEmail,
+            address: shippingAddress.recipientAddress,
+            state: shippingAddress.recipientState
+          },
+          parcelInfo: sellerInfo.items[0].seller.parcelInfo || {}
+        },
+        additionalDetails,
+        channel: channel || 'auction'
+      };
+      
+      // Create the order
+      const orderPromise = Order.create(orderData);
+      orderPromises.push(orderPromise);
+      
+      console.log('[CREATE_AUCTION_ORDER] 14. Order created for seller', { 
+        sellerId, 
+        orderId, 
+        subtotal: sellerSubtotal, 
+        shippingFee: sellerInfo.shippingFee
+      });
+      
+      // Add to tracking
+      createdOrders.push({
+        orderId,
+        sellerId,
+        subtotal: sellerSubtotal,
+        shippingFee: sellerInfo.shippingFee,
+        totalAmount: sellerSubtotal + sellerInfo.shippingFee
+      });
+    }
+    
+    // Wait for all orders to be created
+    await Promise.all(orderPromises);
+    
+    console.log('[CREATE_AUCTION_ORDER] 15. All orders created successfully');
+    
+    // Process payment from wallet if required
+    if (paidFromWallet) {
+      console.log('[CREATE_AUCTION_ORDER] 16. Processing wallet payment');
+      
+      // Create a transaction record
+      const transaction = new Transaction({
+        buyerId: buyerId,
+        amount: totalAmount,
+        currency: 'NGN',
+        status: 'successful',
+        type: 'debit',
+        method: 'Auqli Wallet',
+        description: `Payment for order(s): ${orderIds.join(', ')}`,
+        metadata: {
+          orderIds,
+          channel: 'auction'
+        }
+      });
+      
+      // Save the transaction
+      await transaction.save();
+      
+      console.log('[CREATE_AUCTION_ORDER] 17. Transaction created', { 
+        transactionId: transaction._id,
+        amount: totalAmount
+      });
+      
+      // Update buyer's wallet balance
+      buyer.wallet -= totalAmount;
+      await buyer.save();
+      
+      console.log('[CREATE_AUCTION_ORDER] 18. Buyer wallet updated', { 
+        newBalance: buyer.wallet 
+      });
+
+      // Update stream to mark completed order
+      try {
+        if (streamId && productIndex !== undefined) {
+          console.log('[CREATE_AUCTION_ORDER] 19. Updating stream with order information');
+          const stream = await Stream.findById(streamId);
+          
+          if (stream && stream.products[productIndex]) {
+            stream.products[productIndex].orderCreated = true;
+            stream.products[productIndex].orderId = orderIds[0];
+            stream.products[productIndex].bidStatus = 'ended';
+            await stream.save();
+            
+            console.log('[CREATE_AUCTION_ORDER] 20. Stream updated with order information');
+          }
+        }
+      } catch (streamError) {
+        console.error('[CREATE_AUCTION_ORDER] ERROR: Failed to update stream with order info:', streamError);
+        // Continue with the process
+      }
+    }
+    
+    // Create notifications for the orders
+    try {
+      console.log('[CREATE_AUCTION_ORDER] 21. Creating order notifications');
+      
+      // Find the seller details for each order
+      for (const order of createdOrders) {
+        // Notification for the buyer
+        await Notification.create({
+          recipient: buyerId,
+          type: 'order',
+          title: 'New Order Placed',
+          message: `Your order #${order.orderId} has been placed successfully.`,
+          data: {
+            orderId: order.orderId
+          },
+          isRead: false
+        });
+        
+        // Notification for the seller
+        await Notification.create({
+          recipient: order.sellerId,
+          type: 'order',
+          title: 'New Order Received',
+          message: `You have received a new order #${order.orderId}.`,
+          data: {
+            orderId: order.orderId
+          },
+          isRead: false
+        });
+      }
+      
+      console.log('[CREATE_AUCTION_ORDER] 22. Order notifications created successfully');
+    } catch (notifError) {
+      console.error('[CREATE_AUCTION_ORDER] ERROR: Failed to create notifications:', notifError);
+      // Continue with the process
+    }
+    
+    // Prepare the response
+    const totals = {
+      subtotal: createdOrders.reduce((acc, order) => acc + order.subtotal, 0),
+      shippingFee: createdOrders.reduce((acc, order) => acc + order.shippingFee, 0),
+      grandTotal: totalAmount
+    };
+    
+    console.log('[CREATE_AUCTION_ORDER] 23. Order creation completed successfully');
+    
+    // Return the response
+    return {
+      success: true,
+      message: 'Order created successfully',
+      orders: createdOrders,
+      totals
+    };
+  } catch (error) {
+    console.error('[CREATE_AUCTION_ORDER] ERROR: Failed to create order:', error);
+    return {
+      success: false,
+      message: 'Failed to create order',
+      error: error.message
+    };
+  }
+};
+
 
