@@ -87,7 +87,7 @@ const ReturnReasonSheet = ({ closeSheet, setRefundReason }: Props) => {
       <View>
         {refundReasons.map((reason, index) => renderReason(reason, index))}
       </View>
-      <View className="px-[16px]">
+      <View className="px-[16px] mb-[20px]">
         <Pressable
           style={{
             paddingVertical: 12,

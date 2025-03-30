@@ -344,6 +344,7 @@ const ProductDescription = () => {
     socket.on("bid_placed", (data) => {
       console.log("Bid successfully placed:", data);
       toast.success("bid placed successfully");
+      // setPlacingBid(false);
     });
 
     socket.on("auction_ended", (data) => {
@@ -435,10 +436,18 @@ const ProductDescription = () => {
       return toast.info("Please add a correct address to bid");
     }
 
-    socket.emit("place_bid", {
-      productId: productDetails?._id,
-      amount: amount,
-    });
+    socket.emit(
+      "place_bid",
+      {
+        productId: productDetails?._id,
+        amount: amount,
+      },
+      () => {
+        console.log("ack");
+      },
+    );
+    // setPlacingBid(true);
+
     console.log("placedBid ", amount);
   };
 
@@ -1267,6 +1276,8 @@ const ProductDescription = () => {
                 minWidth: 130,
               }}
               onPress={() => {
+                // setPlacingBid(true);
+
                 placeBid(
                   auctionData?.currentHighestBid?.amount
                     ? auctionData?.currentHighestBid?.amount + bidIncrement

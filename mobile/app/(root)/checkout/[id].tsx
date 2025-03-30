@@ -49,6 +49,27 @@ const CheckoutSummary = () => {
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [orderId, setOrderId] = useState<string>("");
+  const [paystackKey, setPaystackKey] = useState<any>();
+
+  const getPaystackKey = useCallback(async () => {
+    const token = await getToken();
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      console.log(response.data?.data?.publicKey);
+
+      setPaystackKey(response.data?.data);
+    } catch (e) {
+      console.log("error getting keys");
+    }
+  }, []);
 
   const getOrderInfo = async (orderId: string) => {
     try {
@@ -176,6 +197,7 @@ const CheckoutSummary = () => {
       setOrders(JSON.parse(orders!));
       setUser(user);
     }
+    getPaystackKey();
     getUserInfo();
     getOrderInfo(id?.toString());
   }, []);
@@ -458,7 +480,7 @@ const CheckoutSummary = () => {
       {showPaystack && (
         <Paystack
           refNumber={generateReference()}
-          paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
+          paystackKey={paystackKey?.publicKey}
           amount={shippingFee! + subtotal}
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}

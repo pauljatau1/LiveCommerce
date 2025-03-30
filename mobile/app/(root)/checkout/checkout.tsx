@@ -88,6 +88,27 @@ const Checkout = () => {
   const [isSuccessVisible, setIsSuccessVisible] = useState<boolean>(false);
   const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
 
+  const [paystackKey, setPaystackKey] = useState<any>();
+
+  const getPaystackKey = useCallback(async () => {
+    const token = await getToken();
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      console.log(response.data?.data?.publicKey);
+      setPaystackKey(response.data?.data);
+    } catch (e) {
+      console.log("error getting keys");
+    }
+  }, []);
+
   const closeSuccessPopup = useCallback(
     (form: string) => {
       setIsSuccessVisible(false);
@@ -449,6 +470,7 @@ const Checkout = () => {
       const user = await getUser();
       setUser(user);
     }
+    getPaystackKey();
     getUserInfo();
     getCart();
     getWalletBalance();
@@ -566,7 +588,7 @@ const Checkout = () => {
           {loading ? (
             <ActivityIndicator
               size={"small"}
-              color={"#16783A"}
+              color={"#fff"}
               style={{ marginTop: 30 }}
             />
           ) : (
@@ -790,7 +812,7 @@ const Checkout = () => {
         {showPaystack && (
           <Paystack
             refNumber={generateReference()}
-            paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
+            paystackKey={paystackKey?.publicKey}
             amount={deliveryFee! + cartTotal}
             billingEmail={user?.email}
             billingName={`${user?.firstName + " " + user?.lastName}`}

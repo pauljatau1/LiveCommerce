@@ -52,6 +52,27 @@ const Wallet = () => {
   const [showSelectAmount, setShowSelectAmount] = useState(false);
   const [payLoading, setPayLoading] = useState<boolean>(false);
 
+  const [paystackKey, setPaystackKey] = useState<any>();
+
+  const getPaystackKey = useCallback(async () => {
+    const token = await getToken();
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setPaystackKey(response.data?.data);
+    } catch (e) {
+      console.log("error getting keys");
+    }
+  }, []);
+
   const generateReference = () => {
     const newReference = `WALLET-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     return newReference;
@@ -84,7 +105,8 @@ const Wallet = () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/buyer/wallet/transactions`,
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/buyer/wallet/transactions?limit=30`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -107,6 +129,7 @@ const Wallet = () => {
 
   useEffect(() => {
     if (isFocused) {
+      getPaystackKey();
       getUserInfo();
       getWalletBalance();
       getWalletTransactions();
@@ -296,16 +319,17 @@ const Wallet = () => {
                 My Balance
               </Text>
 
-              {walletBalance?.toString() ? (
-                <Text className="text-[18px] font-LexendDeca text-[#fff] ">
-                  {"₦" +
-                    walletBalance?.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                </Text>
-              ) : null
-              // <ActivityIndicator size={"small"} color={"white"} />
+              {
+                walletBalance?.toString() ? (
+                  <Text className="text-[18px] font-LexendDeca text-[#fff] ">
+                    {"₦" +
+                      walletBalance?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                  </Text>
+                ) : null
+                // <ActivityIndicator size={"small"} color={"white"} />
               }
             </View>
             <View className="flex-row gap-[10px] items-center">
@@ -427,7 +451,7 @@ const Wallet = () => {
       {showPaystack && (
         <Paystack
           refNumber={generateReference()}
-          paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
+          paystackKey={paystackKey?.publicKey}
           amount={amount}
           billingEmail={userInfo?.email}
           billingName={`${userInfo?.firstName + " " + userInfo?.lastName}`}
