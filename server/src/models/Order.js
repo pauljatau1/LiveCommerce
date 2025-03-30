@@ -212,10 +212,25 @@ const orderSchema = new mongoose.Schema({
 orderSchema.pre('save', async function(next) {
   if (this.isModified('isOpen') && !this.isOpen) {
     try {
-      console.log('Order closing process started:', {
+      console.log('Order closing process started - payment will be released to seller:', {
         orderId: this._id,
-        items: this.items.length
+        order_id: this.order_id,
+        items: this.items.length,
+        isNew: this.isNew,
+        currentIsOpen: this.isOpen,
+        paymentMethod: this.paymentInfo?.method,
+        isCashOnDelivery: this.paymentInfo?.isCashOnDelivery,
+        isPaid: this.paid
       });
+
+      // Check if this order is already being processed elsewhere (to avoid duplicate processing)
+      if (this._orderClosingProcessed) {
+        console.log('Order closing already processed for this session, skipping:', this._id);
+        return next();
+      }
+      
+      // Mark this order as processed to avoid duplicate processing
+      this._orderClosingProcessed = true;
 
       // Populate the products
       await this.populate('items.product', 'name category');
@@ -311,11 +326,19 @@ orderSchema.pre('save', async function(next) {
       });
 
       // Update seller's wallet
-      const updatedSeller = await Seller.findByIdAndUpdate(
-        this.seller,
+      const Seller = mongoose.model('Seller');
+      const Transaction = mongoose.model('Transaction');
+      
+      // Use findOneAndUpdate to prevent race conditions
+      const updatedSeller = await Seller.findOneAndUpdate(
+        { _id: this.seller },
         { $inc: { walletBalance: sellerAmount } },
         { new: true }
       );
+
+      if (!updatedSeller) {
+        throw new Error(`Seller not found with ID: ${this.seller}`);
+      }
 
       console.log('Seller wallet updated:', {
         sellerId: updatedSeller._id,
@@ -325,20 +348,33 @@ orderSchema.pre('save', async function(next) {
       // Create transaction records with detailed metadata
       const transactionPromises = [];
 
-      // Order payment transaction
+      // Order payment transaction - include payment method info
       transactionPromises.push(
         Transaction.create({
           seller: this.seller,
           type: 'order_payment',
           amount: totalAmount,
           orderId: this._id,
-          description: `Payment for order #${this.order_id}`,
+          description: `Payment for order #${this.order_id}${this.paymentInfo?.isCashOnDelivery ? ' (Cash on Delivery)' : this.paymentInfo?.method ? ` (${this.paymentInfo.method})` : ''}`,
+          metadata: {
+            paymentMethod: this.paymentInfo?.method || 'unknown',
+            isCashOnDelivery: this.paymentInfo?.isCashOnDelivery || false,
+            closedBy: this.closedBy
+          },
           status: 'completed'
         })
       );
+      
+      console.log(`Creating payment transactions for order ${this.order_id}`, {
+        paymentMethod: this.paymentInfo?.method,
+        isCashOnDelivery: this.paymentInfo?.isCashOnDelivery,
+        totalAmount: totalAmount,
+        sellerAmount: sellerAmount,
+        closedBy: this.closedBy
+      });
 
       // Platform fee transactions for each item
-      this.items.forEach(item => {
+      for (const item of this.items) {
         const itemTotal = item.price * item.quantity;
         const categoryFee = categoryFeeMap.get(typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null) || 0;
         const itemPlatformFee = itemTotal * (categoryFee / 100);
@@ -360,7 +396,7 @@ orderSchema.pre('save', async function(next) {
             })
           );
         }
-      });
+      }
 
       // Processing fee transaction
       transactionPromises.push(
@@ -378,10 +414,19 @@ orderSchema.pre('save', async function(next) {
         })
       );
 
-      await Promise.all(transactionPromises);
+      try {
+        await Promise.all(transactionPromises);
+        console.log(`Successfully created ${transactionPromises.length} transaction records for order ${this.order_id}`);
+      } catch (txnError) {
+        console.error(`Error creating transaction records for order ${this.order_id}:`, txnError);
+        // Continue execution - the seller's wallet was already updated
+      }
 
       // Send email notification to seller
       try {
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        
         const sellerEmail = {
           to: updatedSeller.email,
           from: {
@@ -396,6 +441,7 @@ orderSchema.pre('save', async function(next) {
               <p>Order #${this.order_id} has been closed and the payment has been released to your wallet.</p>
               <p><strong>Payment Details:</strong></p>
               <ul>
+                <li>Payment Method: ${this.paymentInfo?.isCashOnDelivery ? 'Cash on Delivery' : (this.paymentInfo?.method || 'Standard Payment')}</li>
                 <li>Total Order Amount: ₦${totalAmount.toLocaleString()}</li>
                 
                 <li style="margin-top: 10px;"><strong>Platform Fees Breakdown:</strong></li>
@@ -415,7 +461,7 @@ orderSchema.pre('save', async function(next) {
                 <li style="margin-top: 10px;">Payment Processing Fee (1.5%): ₦${paymentProcessingFee.toLocaleString()}</li>
                 <li>Total Deductions: ₦${totalDeductions.toLocaleString()}</li>
                 <li style="margin-top: 10px; font-weight: bold;">Amount Released: ₦${sellerAmount.toLocaleString()}</li>
-                <li>New Wallet Balance: ₦${updatedSeller.walletBalance.toLocaleString()}</li>
+               
               </ul>
               <p>The platform fees have been deducted based on your products' category rates, and a 1.5% payment processing fee has been applied.</p>
               <p>Best regards,<br>The Auqli Team</p>
@@ -431,8 +477,6 @@ orderSchema.pre('save', async function(next) {
         });
 
         // Send directly with sgMail instead of using the notification controller
-        const sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         await sgMail.send(sellerEmail);
         
         console.log('Email sent successfully');

@@ -501,46 +501,26 @@ const parseNotificationData = (data) => {
 // Function to handle order creation notifications
 exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
   try {
-    // Validate input parameters
-    if (!order || !buyer || !seller) {
-      console.error('Missing required parameters for order notifications:', {
-        orderProvided: !!order,
-        buyerProvided: !!buyer,
-        sellerProvided: !!seller
-      });
-      throw new Error('Missing required parameters for order notifications');
-    }
+    console.log(`Creating notifications for order: ${order.order_id}`);
     
-    // Log the input parameters for debugging
-    console.log('handleOrderCreationNotifications called with:', {
-      orderId: order._id,
-      orderNumber: order.order_id,
-      buyerId: buyer._id,
-      buyerName: `${buyer.firstName} ${buyer.lastName}`,
-      sellerId: seller._id,
-      sellerName: seller.businessName || `${seller.firstName} ${seller.lastName}`,
-      paymentMethod: order.paymentInfo?.method,
-      paymentStatus: order.paymentInfo?.status,
-      isPaid: order.paid
-    });
-    
-    // Get detailed product information
+    // Format the items for notification
     const items = order.items.map(item => ({
       productName: item.productName || 'Product',
       quantity: item.quantity,
       price: item.price
     }));
     
-    // Get shipping fee
-    const shippingFee = order.shipping && order.shipping.fee ? 
-      order.shipping.fee.amount.toLocaleString() : '0';
+    // Format the shipping fee
+    const shippingFee = `₦${(order.shipping?.fee?.amount || 0).toLocaleString()}`;
     
-    // Get payment method
-    const paymentMethod = order.paymentInfo && order.paymentInfo.method ? 
-      order.paymentInfo.method.charAt(0).toUpperCase() + order.paymentInfo.method.slice(1) : 
-      'Online Payment';
+    // Get the payment method
+    const paymentMethod = order.paymentInfo?.isCashOnDelivery 
+      ? 'Cash on Delivery'
+      : order.paymentInfo?.method
+        ? order.paymentInfo.method.charAt(0).toUpperCase() + order.paymentInfo.method.slice(1)
+        : 'Online Payment';
     
-    // Get delivery address
+    // Format delivery address for notification
     const deliveryAddress = {
       recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
       recipientAddress: order.delivery_address.line1,
@@ -583,23 +563,26 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
     );
     
     // Check payment method and status before sending email to buyer
-    // Skip sending confirmation email for Paystack orders that are not yet paid
-    const isPaystackPending = order.paymentInfo?.method === 'paystack' && 
-                              !order.paid && 
-                              order.paymentInfo?.status === 'pending';
+    // Send email immediately for:
+    // 1. Cash on Delivery orders
+    // 2. Wallet payments
+    // 3. Any already paid orders
+    // 4. Non-Paystack payment methods
+    // Skip sending confirmation email only for Paystack orders that are not yet paid
+    const isPaystackUnpaid = order.paymentInfo?.method === 'paystack' && !order.paid;
     
-    if (isPaystackPending) {
+    if (isPaystackUnpaid) {
       console.log(`Skipping confirmation email for Paystack order ${order.order_id} - payment pending`);
     } else {
-      // Send email to buyer for non-Paystack orders or paid Paystack orders
-      console.log(`Sending confirmation email for order ${order.order_id} (Payment: ${paymentMethod}, Status: ${order.paymentInfo?.status})`);
+      // Send email to buyer for COD orders, wallet payments, or paid Paystack orders
+      console.log(`Sending confirmation email for order ${order.order_id} (Payment: ${paymentMethod}, Status: ${order.paymentInfo?.status || 'N/A'}, isPaid: ${order.paid}, isCOD: ${order.paymentInfo?.isCashOnDelivery === true})`);
       await exports.sendEmailToBuyer(buyer, buyerNotification);
     }
     
     console.log(`Order creation notifications sent for order: ${order.order_id}`);
     return { sellerNotification, buyerNotification };
   } catch (error) {
-    console.error('Error handling order creation notifications:', error);
+    console.error('Error sending notifications:', error);
     throw error;
   }
 };
