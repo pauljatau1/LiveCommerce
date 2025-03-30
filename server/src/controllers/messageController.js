@@ -446,53 +446,19 @@ exports.getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.id;
     
-    console.log('Getting messages for conversation:', {
-      conversationId,
-      userId,
-      userRole: req.user.role
-    });
-    
     // Get pagination parameters
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     
-    // If no page is specified, get the last 20 messages
+    // Count total messages in conversation
     const totalMessages = await Message.countDocuments({ conversation: conversationId });
-    console.log('Total messages in conversation:', totalMessages);
-    
     const totalPages = Math.ceil(totalMessages / limit);
     
-    // If no page specified, calculate the last page
-    const effectivePage = !req.query.page ? totalPages : page;
-    
-    console.log('Pagination details:', {
-      page,
-      limit,
-      totalPages,
-      effectivePage
-    });
-    
-    // Debug: Check all message types in this conversation
-    const messageTypesInConversation = await Message.distinct('messageType', { conversation: conversationId });
-    console.log('All message types in conversation:', messageTypesInConversation);
-
-    // Debug: Count of each message type
-    const messageCounts = await Message.aggregate([
-      { $match: { conversation: new mongoose.Types.ObjectId(conversationId) } },
-      { $group: { _id: '$messageType', count: { $sum: 1 } } }
-    ]);
-    console.log('Message type counts:', messageCounts);
-
-    // Explicitly set up the query to ensure we get all message types
-    const query = {
-      conversation: conversationId
-    };
-
-    // Always start from the beginning for first page
+    // Calculate skip count for pagination
     const skipCount = (page - 1) * limit;
-
-    console.log('Skip and limit:', { skipCount, limit, page });
-
+    
+    // Query messages
+    const query = { conversation: conversationId };
     const messages = await Message.find(query)
       .populate({
         path: 'sender.id',
@@ -509,16 +475,10 @@ exports.getMessages = async (req, res) => {
         model: 'Product',
         select: 'name price images description inventory.sku category'
       })
-      .sort({ createdAt: -1 }) // Sort oldest first
+      .sort({ createdAt: -1 }) 
       .skip(skipCount)
       .limit(limit)
       .lean();
-
-    // Add debug logging for the actual messages being returned
-    console.log('Retrieved messages count:', messages.length);
-    console.log('First message timestamp:', messages[0]?.createdAt);
-    console.log('Last message timestamp:', messages[messages.length - 1]?.createdAt);
-    console.log('Message types in this batch:', messages.map(m => m.messageType));
 
     // Transform messages to include formatted participant info
     const formattedMessages = messages.map(message => {
@@ -568,11 +528,11 @@ exports.getMessages = async (req, res) => {
     res.json({
       messages: formattedMessages,
       pagination: {
-        currentPage: effectivePage,
+        currentPage: page,
         totalPages,
         totalMessages,
-        hasMore: effectivePage < totalPages,
-        hasPrevious: effectivePage > 1
+        hasMore: page < totalPages,
+        hasPrevious: page > 1
       }
     });
   } catch (error) {
