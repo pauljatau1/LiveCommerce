@@ -271,6 +271,18 @@ exports.createOrder = async (req, res) => {
       productMap[product._id.toString()] = product;
     });
     
+    // Validate that all products have sufficient stock
+    for (const item of items) {
+      const product = productMap[item.productId];
+      if (!product) continue;
+      
+      if (product.stock < item.quantity) {
+        return res.status(400).json({ 
+          message: `Insufficient stock for product "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`
+        });
+      }
+    }
+    
     // Group items by seller
     const sellerItems = {};
     let totalAmount = 0;
@@ -3597,6 +3609,17 @@ exports.createOrderFromAuction = async (req, res, streamId, productIndex) => {
         const product = await Product.findById(item.productId);
         if (!product) {
           throw new Error(`Product with ID ${item.productId} not found`);
+        }
+        
+        // Validate stock availability
+        if (product.stock < item.quantity) {
+          console.error('[CREATE_AUCTION_ORDER] FAILED: Insufficient product stock', {
+            productId: product._id,
+            productName: product.name,
+            available: product.stock,
+            requested: item.quantity
+          });
+          throw new Error(`Insufficient stock for product "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`);
         }
         
         return {

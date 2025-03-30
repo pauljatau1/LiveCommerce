@@ -690,6 +690,22 @@ agenda.define('create-auction-winner-order', async (job) => {
       return;
     }
 
+    // Validate that product has stock available
+    if (product.stock < 1) {
+      console.error('Insufficient stock for auction product:', {
+        productId: product._id,
+        productName: product.name,
+        availableStock: product.stock,
+        requiredStock: 1
+      });
+      
+      // Reschedule job to retry later or notify admin
+      job.schedule('in 12 hours');
+      await job.save();
+      console.log('Rescheduled order creation job due to insufficient product stock');
+      return;
+    }
+
     const buyer = product.auction.winner.buyer;
     const seller = product.seller;
     const bidAmount = product.auction.winner.bidAmount;
@@ -830,6 +846,19 @@ agenda.define('create-auction-winner-order', async (job) => {
     // Save the order
     await order.save();
     console.log('Order created successfully for auction winner:', order._id);
+
+    // Update product stock
+    await Product.findByIdAndUpdate(
+      product._id,
+      { 
+        $inc: { 
+          'stats.soldCount': 1,
+          'stock': -1,
+          'inventory.quantity': -1 
+        }
+      }
+    );
+    console.log('Product stock updated for auction item:', product._id);
 
     // Update buyer's wallet - reduce the balance
     await Buyer.findByIdAndUpdate(
