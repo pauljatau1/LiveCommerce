@@ -2042,9 +2042,10 @@ exports.activateProductBidding = async (req, res) => {
 
     // Set other products to 'ended' if any are 'active'
     stream.products.forEach((product, index) => {
-      if (index !== productIndex && product.bidStatus === 'active') {
-        console.log('[ACTIVATE_BID] 12. Setting other active product to ended', { 
-          productName: product.product.name 
+      if (index !== productIndex && (product.bidStatus === 'active' || product.bidStatus === 'ongoing')) {
+        console.log('[ACTIVATE_BID] 12. Setting other active/ongoing product to ended', { 
+          productName: product.product.name,
+          previousStatus: product.bidStatus
         });
         product.bidStatus = 'ended';
       }
