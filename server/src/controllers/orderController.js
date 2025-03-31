@@ -2229,6 +2229,7 @@ exports.updateOrderOpenStatus = async (req, res) => {
 exports.cancelShipment = async (req, res) => {
   try {
     const { orderId } = req.params;
+    const { reason } = req.body || {};
     
     // Find order and check permissions
     const order = await Order.findById(orderId)
@@ -2248,7 +2249,7 @@ exports.cancelShipment = async (req, res) => {
     }
 
     // Only attempt to cancel with Fez if order is paid and has tracking number
-    if (order.paid && order.shipping.tracking.number) {
+    if (order.shipping.tracking.number) {
       try {
         // Get a fresh authentication token for Fez Delivery
         const authToken = await getFezAuthToken();
@@ -2275,7 +2276,7 @@ exports.cancelShipment = async (req, res) => {
       } catch (fezError) {
         console.log('Fez API error:', fezError.message);
         if (fezError.response) {
-          console.log('Fez API error response:', fezError.response.data);
+          console.log('Fez API error details:', fezError.response.data);
         }
         // Continue with local cancellation despite Fez API error
       }
@@ -2284,7 +2285,7 @@ exports.cancelShipment = async (req, res) => {
     // Create new tracking entry
     const newTrackingEntry = {
       status: 'cancelled',
-      description: `Shipment cancelled by ${req.user.role === 'admin' ? 'admin' : 'seller'}`,
+      description: `Shipment cancelled by ${req.user.role === 'admin' ? 'admin' : req.user.role}`,
       timestamp: new Date()
     };
 
@@ -2299,6 +2300,20 @@ exports.cancelShipment = async (req, res) => {
       }
     };
 
+    // Check if the order was paid and create a refund request if necessary
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      console.log('Creating refund request for paid order:', order.order_id);
+      
+      shippingUpdate.$set['refundRequest.requested'] = true;
+      shippingUpdate.$set['refundRequest.requestedAt'] = new Date();
+      shippingUpdate.$set['refundRequest.requestedBy'] = req.user.role || 'buyer';
+      shippingUpdate.$set['refundRequest.reason'] = reason || 'Shipment cancelled';
+      shippingUpdate.$set['refundRequest.status'] = 'pending';
+      
+      // Also update the order status to indicate it has a refund
+      shippingUpdate.$set['orderStatus.hasRefund'] = true;
+    }
+
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
       shippingUpdate,
@@ -2307,24 +2322,38 @@ exports.cancelShipment = async (req, res) => {
      .populate('buyer', 'email firstName lastName');
 
     // Send cancellation emails
+    let buyerEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Shipment Cancellation Notice</h2>
+        <p>Dear ${updatedOrder.buyer.firstName},</p>
+        <p>The shipment for your order #${updatedOrder.order_id} has been cancelled.</p>
+        <p><strong>Order Details:</strong></p>
+        <ul>
+          <li>Order ID: ${updatedOrder.order_id}</li>
+          <li>Seller: ${updatedOrder.seller.storeName}</li>
+          <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
+        </ul>
+    `;
+    
+    // Add refund information if applicable
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      buyerEmailHtml += `
+        <p><strong>Refund Information:</strong></p>
+        <p>Since you've already paid for this order, a refund request has been automatically created. Our admin team will process your refund shortly.</p>
+        <p>Refund status: Pending</p>
+      `;
+    }
+    
+    buyerEmailHtml += `
+        <p>If you have any questions, please contact our support team.</p>
+      </div>
+    `;
+
     const buyerEmail = {
       to: updatedOrder.buyer.email,
       from: 'Auqli Shipping <support@auqli.com>',
       subject: 'Shipment Cancellation Notice - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Shipment Cancellation Notice</h2>
-          <p>Dear ${updatedOrder.buyer.firstName},</p>
-          <p>The shipment for your order #${updatedOrder._id} has been cancelled.</p>
-          <p><strong>Order Details:</strong></p>
-          <ul>
-            <li>Order ID: ${updatedOrder._id}</li>
-            <li>Seller: ${updatedOrder.seller.storeName}</li>
-            <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
-          </ul>
-          <p>If you have any questions, please contact our support team.</p>
-        </div>
-      `
+      html: buyerEmailHtml
     };
 
     const sellerEmail = {
@@ -2335,17 +2364,58 @@ exports.cancelShipment = async (req, res) => {
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Shipment Cancellation Confirmation</h2>
           <p>Dear ${updatedOrder.seller.firstName},</p>
-          <p>The shipment for order #${updatedOrder._id} has been successfully cancelled.</p>
+          <p>The shipment for order #${updatedOrder.order_id} has been successfully cancelled.</p>
           <p><strong>Order Details:</strong></p>
           <ul>
-            <li>Order ID: ${updatedOrder._id}</li>
+            <li>Order ID: ${updatedOrder.order_id}</li>
             <li>Buyer: ${updatedOrder.buyer.firstName} ${updatedOrder.buyer.lastName}</li>
             <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
           </ul>
+          ${order.paid ? `<p>Since this was a paid order, a refund request has been automatically created for the buyer.</p>` : ''}
           <p>If you need to arrange a new shipment, please do so through your seller dashboard.</p>
         </div>
       `
     };
+
+    // Send admin notification if refund is needed
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      const Admin = mongoose.model('Admin');
+      const admins = await Admin.find({});
+      
+      if (admins && admins.length > 0) {
+        const adminEmails = admins.map(admin => admin.email).filter(Boolean);
+        
+        if (adminEmails.length > 0) {
+          const adminEmail = {
+            to: adminEmails,
+            from: 'Auqli Refunds <support@auqli.com>',
+            subject: `New Refund Request - Order #${updatedOrder.order_id}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>New Refund Request</h2>
+                <p>A new refund request has been created for a cancelled order.</p>
+                <p><strong>Order Details:</strong></p>
+                <ul>
+                  <li>Order ID: ${updatedOrder.order_id}</li>
+                  <li>Buyer: ${updatedOrder.buyer.firstName} ${updatedOrder.buyer.lastName}</li>
+                  <li>Seller: ${updatedOrder.seller.storeName}</li>
+                  <li>Amount: ${updatedOrder.totalAmount}</li>
+                  <li>Payment Method: ${updatedOrder.paymentInfo?.method || 'Unknown'}</li>
+                  <li>Reason: Shipment cancellation</li>
+                </ul>
+                <p>Please process this refund request at your earliest convenience.</p>
+              </div>
+            `
+          };
+          
+          try {
+            await sgMail.send(adminEmail);
+          } catch (emailError) {
+            console.error('Error sending admin notification:', emailError);
+          }
+        }
+      }
+    }
 
     await Promise.all([
       sgMail.send(buyerEmail),
@@ -3518,25 +3588,89 @@ exports.cancelOrderBySeller = async (req, res) => {
       });
     }
 
+    // Check if the order was paid and create a refund request if necessary
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      console.log('Creating refund request for paid order:', order.order_id);
+      
+      order.refundRequest = {
+        requested: true,
+        requestedAt: new Date(),
+        requestedBy: 'seller',
+        reason: reason || 'Order cancelled by seller',
+        status: 'pending'
+      };
+      
+      // Also update the order status to indicate it has a refund
+      order.orderStatus.hasRefund = true;
+    }
+
+    // Only attempt to cancel with Fez if order is paid and has tracking number
+    if (order.paid && order.shipping.tracking.number) {
+      try {
+        // Get a fresh authentication token for Fez Delivery
+        const authToken = await getFezAuthToken();
+        console.log('Using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
+        
+        // Cancel shipment with Fez Delivery
+        const cancelResponse = await axios.delete(`${FEZ_API_URL}/order`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB",
+            'Content-Type': 'application/json'
+          },
+          data: {
+            orderNo: order.shipping.tracking.number
+          }
+        });
+
+        if (cancelResponse.data && cancelResponse.data.status === 'Success') {
+          console.log('Fez API cancellation successful:', cancelResponse.data.description);
+        } else {
+          console.log('Fez API cancellation failed:', cancelResponse.data);
+          // Continue with local cancellation despite Fez API error
+        }
+      } catch (fezError) {
+        console.log('Fez API error:', fezError.message);
+        if (fezError.response) {
+          console.log('Fez API error details:', fezError.response.data);
+        }
+        // Continue with local cancellation despite Fez API error
+      }
+    }
+
     // Save the order
     await order.save();
 
     // Send email notifications
+    let buyerEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Order Cancellation Notice</h2>
+        <p>Dear ${order.buyer.firstName},</p>
+        <p>Your order #${order.order_id} has been cancelled by the seller.</p>
+        <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
+        <p><strong>Seller:</strong> ${order.seller.businessName}</p>
+    `;
+    
+    // Add refund information if applicable
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      buyerEmailHtml += `
+        <p><strong>Refund Information:</strong></p>
+        <p>Since you've already paid for this order, a refund request has been automatically created. Our admin team will process your refund shortly.</p>
+        <p>Refund status: Pending</p>
+      `;
+    }
+    
+    buyerEmailHtml += `
+        <p>If you have any questions, please contact our support team.</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `;
+
     const buyerEmail = {
       to: order.buyer.email,
       from: 'Auqli Orders <support@auqli.com>',
       subject: 'Order Cancelled - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Order Cancellation Notice</h2>
-          <p>Dear ${order.buyer.firstName},</p>
-          <p>Your order #${order.order_id} has been cancelled by the seller.</p>
-          <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
-          <p><strong>Seller:</strong> ${order.seller.businessName}</p>
-          <p>If you have any questions, please contact our support team.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
+      html: buyerEmailHtml
     };
 
     const sellerEmail = {
@@ -3550,11 +3684,52 @@ exports.cancelOrderBySeller = async (req, res) => {
           <p>You have successfully cancelled order #${order.order_id}.</p>
           <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
           <p><strong>Buyer:</strong> ${order.buyer.firstName} ${order.buyer.lastName}</p>
+          ${order.paid ? `<p>Since this was a paid order, a refund request has been automatically created for the buyer.</p>` : ''}
           <p>The buyer has been notified of this cancellation.</p>
           <p>Best regards,<br>The Auqli Team</p>
         </div>
       `
     };
+
+    // Send admin notification if refund is needed
+    if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
+      const Admin = mongoose.model('Admin');
+      const admins = await Admin.find({});
+      
+      if (admins && admins.length > 0) {
+        const adminEmails = admins.map(admin => admin.email).filter(Boolean);
+        
+        if (adminEmails.length > 0) {
+          const adminEmail = {
+            to: adminEmails,
+            from: 'Auqli Refunds <support@auqli.com>',
+            subject: `New Refund Request - Order #${order.order_id}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>New Refund Request</h2>
+                <p>A new refund request has been created for a cancelled order.</p>
+                <p><strong>Order Details:</strong></p>
+                <ul>
+                  <li>Order ID: ${order.order_id}</li>
+                  <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+                  <li>Seller: ${order.seller.businessName}</li>
+                  <li>Amount: ${order.totalAmount}</li>
+                  <li>Payment Method: ${order.paymentInfo?.method || 'Unknown'}</li>
+                  <li>Reason: ${reason || 'Order cancelled by seller'}</li>
+                </ul>
+                <p>Please process this refund request at your earliest convenience.</p>
+              </div>
+            `
+          };
+          
+          try {
+            await sgMail.send(adminEmail);
+          } catch (emailError) {
+            console.error('Error sending admin notification:', emailError);
+          }
+        }
+      }
+    }
 
     try {
       await Promise.all([
@@ -3578,7 +3753,8 @@ exports.cancelOrderBySeller = async (req, res) => {
         })),
         shipping: {
           tracking: order.shipping?.tracking
-        }
+        },
+        refundRequest: order.refundRequest
       }
     });
 
@@ -3586,6 +3762,375 @@ exports.cancelOrderBySeller = async (req, res) => {
     console.error('Error cancelling order:', error);
     res.status(500).json({ 
       message: 'Error cancelling order', 
+      error: error.message 
+    });
+  }
+};
+
+// Get all refund requests for admin
+exports.getRefundRequests = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 10, search } = req.query;
+    
+    // Build query filters
+    const query = {
+      'refundRequest.requested': true
+    };
+    
+    // Filter by status if provided
+    if (status) {
+      query['refundRequest.status'] = status;
+    }
+    
+    // Search by order ID or buyer/seller name
+    if (search) {
+      query.$or = [
+        { order_id: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Count total matching documents
+    const totalRefundRequests = await Order.countDocuments(query);
+    
+    // Calculate pagination
+    const totalPages = Math.ceil(totalRefundRequests / limit);
+    const skip = (page - 1) * limit;
+    
+    // Get orders with refund requests
+    const orders = await Order.find(query)
+      .populate('buyer', 'firstName lastName email')
+      .populate('seller', 'firstName lastName email businessName storeName')
+      .sort({ 'refundRequest.requestedAt': -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    // Format the response
+    const refundRequests = orders.map(order => ({
+      orderId: order._id,
+      orderNumber: order.order_id,
+      refundRequest: order.refundRequest,
+      buyer: {
+        id: order.buyer._id,
+        name: `${order.buyer.firstName} ${order.buyer.lastName}`,
+        email: order.buyer.email
+      },
+      seller: {
+        id: order.seller._id,
+        name: order.seller.businessName || order.seller.storeName,
+        email: order.seller.email
+      },
+      amount: order.totalAmount,
+      paymentMethod: order.paymentInfo?.method,
+      paidAt: order.paymentInfo?.paidAt,
+      isCashOnDelivery: order.paymentInfo?.isCashOnDelivery || false,
+      createdAt: order.createdAt
+    }));
+    
+    res.json({
+      refundRequests,
+      pagination: {
+        total: totalRefundRequests,
+        pages: totalPages,
+        currentPage: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching refund requests:', error);
+    res.status(500).json({ 
+      message: 'Error fetching refund requests', 
+      error: error.message 
+    });
+  }
+};
+
+// Process a refund request (approve/reject)
+exports.processRefundRequest = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status, notes } = req.body;
+    
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ 
+        message: 'Status must be either "approved" or "rejected"' 
+      });
+    }
+    
+    // Find the order with all necessary data
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName expoPushToken')
+      .populate('seller', 'email firstName lastName');
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    
+    // Check if order has a refund request
+    if (!order.refundRequest || !order.refundRequest.requested) {
+      return res.status(400).json({ message: 'No refund request found for this order' });
+    }
+    
+    // Check if refund request is already processed
+    if (order.refundRequest.status !== 'pending') {
+      return res.status(400).json({ 
+        message: `Refund request has already been ${order.refundRequest.status}` 
+      });
+    }
+    
+    // Update the refund request
+    order.refundRequest.status = status;
+    order.refundRequest.processedAt = new Date();
+    order.refundRequest.processedBy = 'admin';
+    order.refundRequest.notes = notes;
+    
+    // Add a note to the order
+    order.notes.push({
+      type: 'admin',
+      content: `Refund request ${status}. ${notes ? `Notes: ${notes}` : ''}`,
+      createdAt: new Date()
+    });
+    
+    let refundAmount = 0;
+    let refundDetails = {};
+    
+    // Process the refund if approved
+    if (status === 'approved') {
+      try {
+        // Get the buyer to update their wallet
+        const Buyer = mongoose.model('Buyer');
+        const buyer = await Buyer.findById(order.buyer._id);
+        
+        if (!buyer) {
+          throw new Error(`Buyer not found with ID: ${order.buyer._id}`);
+        }
+        
+        // Refund the full order amount (do not deduct shipping fee)
+        refundAmount = order.totalAmount;
+        
+        refundDetails = {
+          originalAmount: order.totalAmount,
+          refundAmount: refundAmount
+        };
+        
+        console.log(`Processing refund for order ${order.order_id}:`, refundDetails);
+        
+        // Generate a unique payment reference for the wallet transaction
+        const paymentReference = `REF-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        
+        // Add the refund amount to buyer's wallet
+        if (!buyer.wallet) {
+          buyer.wallet = {
+            balance: 0,
+            currency: 'NGN',
+            transactions: []
+          };
+        }
+        
+        // Update wallet balance
+        buyer.wallet.balance += refundAmount;
+        
+        // Add transaction record
+        buyer.wallet.transactions.push({
+          type: 'credit',
+          amount: refundAmount,
+          paymentReference: paymentReference,
+          description: `Refund for cancelled order #${order.order_id}`,
+          status: 'completed',
+          createdAt: new Date()
+        });
+        
+        // Save the buyer with updated wallet
+        await buyer.save();
+        
+        console.log(`Refund processed successfully. Buyer wallet updated:`, {
+          buyerId: buyer._id,
+          newBalance: buyer.wallet.balance,
+          refundAmount: refundAmount
+        });
+        
+        // Also save the refund details in the order for reference
+        order.refundRequest.refundAmount = refundAmount;
+        order.refundRequest.paymentReference = paymentReference;
+      } catch (refundError) {
+        console.error('Error processing refund to wallet:', refundError);
+        // Continue with the approval but note the error
+        order.notes.push({
+          type: 'admin',
+          content: `Error processing refund: ${refundError.message}`,
+          createdAt: new Date()
+        });
+      }
+    }
+    
+    // Save the order
+    await order.save();
+    
+    // Prepare email based on status
+    let emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Refund Request ${status === 'approved' ? 'Approved' : 'Rejected'}</h2>
+        <p>Dear ${order.buyer.firstName},</p>
+        <p>Your refund request for order #${order.order_id} has been ${status}.</p>
+    `;
+    
+    if (status === 'approved') {
+      emailHtml += `
+        <p><strong>Refund Details:</strong></p>
+        <ul>
+          <li>Order Amount: ₦${refundDetails.originalAmount?.toLocaleString() || order.totalAmount.toLocaleString()}</li>
+          <li>Refund Amount: ₦${refundAmount.toLocaleString()}</li>
+        </ul>
+        <p>The full order amount has been added to your Auqli wallet balance. You can use this balance for future purchases on our platform.</p>
+      `;
+    } else {
+      emailHtml += `
+        <p><strong>Reason for Rejection:</strong> ${notes || 'No specific reason provided.'}</p>
+        <p>If you believe this decision was made in error or have any questions, please contact our support team.</p>
+      `;
+    }
+    
+    emailHtml += `
+        <p><strong>Order Details:</strong></p>
+        <ul>
+          <li>Order ID: ${order.order_id}</li>
+          <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
+          <li>Seller: ${order.seller.firstName} ${order.seller.lastName}</li>
+        </ul>
+        <p>If you have any questions, please contact our support team.</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `;
+    
+    const buyerEmail = {
+      to: order.buyer.email,
+      from: 'Auqli Refunds <support@auqli.com>',
+      subject: `Refund Request ${status === 'approved' ? 'Approved' : 'Rejected'} - Order #${order.order_id}`,
+      html: emailHtml
+    };
+    
+    try {
+      await sgMail.send(buyerEmail);
+    } catch (emailError) {
+      console.error('Error sending email to buyer:', emailError);
+    }
+    
+    // Send notification to buyer
+    try {
+      await createNotification(order.buyer._id, 'refund_request_processed', {
+        orderId: order._id,
+        status: status,
+        orderNumber: order.order_id,
+        refundAmount: status === 'approved' ? refundAmount : 0
+      });
+      
+      // Send push notification if buyer has an expo push token
+      if (order.buyer.expoPushToken) {
+        const notificationController = require('./notificationController');
+        await notificationController.sendPushNotification(
+          order.buyer.expoPushToken,
+          `Refund Request ${status === 'approved' ? 'Approved' : 'Rejected'}`,
+          status === 'approved' 
+            ? `Your refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed and added to your wallet.`
+            : `Your refund request for order #${order.order_id} has been rejected. Reason: ${notes || 'No specific reason provided.'}`
+        );
+      }
+    } catch (notifError) {
+      console.error('Error sending notification to buyer:', notifError);
+    }
+    
+    res.json({
+      message: `Refund request ${status} successfully`,
+      order: {
+        _id: order._id,
+        order_id: order.order_id,
+        refundRequest: order.refundRequest
+      },
+      refundDetails: status === 'approved' ? {
+        refundAmount,
+        addedToWallet: true
+      } : undefined
+    });
+    
+  } catch (error) {
+    console.error('Error processing refund request:', error);
+    res.status(500).json({ 
+      message: 'Error processing refund request', 
+      error: error.message 
+    });
+  }
+};
+
+// Get refund requests for a buyer
+exports.getBuyerRefundRequests = async (req, res) => {
+  try {
+    const buyerId = req.params.buyerId || req.user.id;
+    const { status, page = 1, limit = 10 } = req.query;
+    
+    // Ensure the requesting user can only access their own refund requests
+    if (req.user.role !== 'admin' && req.user.id !== buyerId) {
+      return res.status(403).json({ message: 'You are not authorized to view these refund requests' });
+    }
+    
+    // Build query filters
+    const query = {
+      buyer: buyerId,
+      'refundRequest.requested': true
+    };
+    
+    // Filter by status if provided
+    if (status) {
+      query['refundRequest.status'] = status;
+    }
+    
+    // Count total matching documents
+    const totalRefundRequests = await Order.countDocuments(query);
+    
+    // Calculate pagination
+    const totalPages = Math.ceil(totalRefundRequests / limit);
+    const skip = (page - 1) * limit;
+    
+    // Get orders with refund requests
+    const orders = await Order.find(query)
+      .populate('seller', 'firstName lastName email businessName storeName')
+      .sort({ 'refundRequest.requestedAt': -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    // Format the response
+    const refundRequests = orders.map(order => ({
+      orderId: order._id,
+      orderNumber: order.order_id,
+      refundRequest: order.refundRequest,
+      seller: {
+        id: order.seller._id,
+        name: order.seller.businessName || order.seller.storeName,
+        email: order.seller.email
+      },
+      amount: order.totalAmount,
+      refundAmount: order.refundRequest.refundAmount,
+      paymentMethod: order.paymentInfo?.method,
+      requestedAt: order.refundRequest.requestedAt,
+      processedAt: order.refundRequest.processedAt,
+      status: order.refundRequest.status,
+      reason: order.refundRequest.reason,
+      createdAt: order.createdAt
+    }));
+    
+    res.json({
+      refundRequests,
+      pagination: {
+        total: totalRefundRequests,
+        pages: totalPages,
+        currentPage: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching buyer refund requests:', error);
+    res.status(500).json({ 
+      message: 'Error fetching refund requests', 
       error: error.message 
     });
   }

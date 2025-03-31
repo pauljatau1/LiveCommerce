@@ -219,6 +219,19 @@ exports.createNotification = async (sellerId, type, data) => {
     console.log('Saving notification...');
     await notification.save();
     console.log('Notification saved successfully');
+    
+    // Send push notification if seller has expo token
+    try {
+      const Seller = mongoose.model('Seller');
+      const seller = await Seller.findById(actualSellerId).select('expoPushToken');
+      if (seller && seller.expoPushToken) {
+        await exports.sendPushNotification(seller.expoPushToken, title, message, data);
+      }
+    } catch (pushError) {
+      console.error('Error sending push notification to seller:', pushError);
+      // Continue execution even if push notification fails
+    }
+    
     return notification;
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -920,7 +933,7 @@ exports.simulateFezWebhook = async (req, res) => {
 };
 
 // Helper function to send push notification
-const sendPushNotification = async (expoPushToken, title, body, data = {}) => {
+exports.sendPushNotification = async (expoPushToken, title, body, data = {}) => {
   try {
     if (!Expo.isExpoPushToken(expoPushToken)) {
       console.error('Invalid Expo push token:', expoPushToken);
@@ -981,7 +994,7 @@ exports.createBuyerNotification = async (buyerId, type, data) => {
     try {
       const buyer = await mongoose.model('Buyer').findById(actualBuyerId).select('expoPushToken');
       if (buyer && buyer.expoPushToken) {
-        await sendPushNotification(buyer.expoPushToken, title, message, data);
+        await exports.sendPushNotification(buyer.expoPushToken, title, message, data);
       }
     } catch (pushError) {
       console.error('Error sending push notification:', pushError);

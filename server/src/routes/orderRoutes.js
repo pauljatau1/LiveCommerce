@@ -3,6 +3,179 @@ const router = express.Router();
 const orderController = require('../controllers/orderController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
+// First, add a special middleware for the order/:orderId route
+// to handle refund-requests and other special routes
+const handleSpecialOrderRoutes = (req, res, next) => {
+  // List of special routes that should not be treated as order IDs
+  const specialRoutes = ['refund-requests', 'buyer', 'seller', 'shipping-rates', 'export', 'revenue-analytics',
+    'bulk-update', 'test-webhook', 'delivery-cost', 'track', 'delivery-time-estimate', 'paystack-webhook',
+    'simple-mark-paid', 'verify-payment'];
+  
+  if (specialRoutes.includes(req.params.orderId)) {
+    // This is a special route, not an order ID
+    return res.status(404).json({
+      message: `Route not found. You might be looking for /api/order/${req.params.orderId} (without orderId parameter)`
+    });
+  }
+  
+  // Continue to the actual order lookup
+  next();
+};
+
+/**
+ * @swagger
+ * /api/order/refund-requests:
+ *   get:
+ *     summary: Get all refund requests (admin only)
+ *     description: Retrieves a paginated list of all refund requests across the platform
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *         description: Filter by refund request status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of requests per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by order ID
+ *     responses:
+ *       200:
+ *         description: Refund requests retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 refundRequests:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       orderId:
+ *                         type: string
+ *                       orderNumber:
+ *                         type: string
+ *                       refundRequest:
+ *                         type: object
+ *                       buyer:
+ *                         type: object
+ *                       seller:
+ *                         type: object
+ *                       amount:
+ *                         type: number
+ *                       paymentMethod:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                     pages:
+ *                       type: number
+ *                     currentPage:
+ *                       type: number
+ *                     limit:
+ *                       type: number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User is not an admin
+ *       500:
+ *         description: Server error
+ */
+router.get('/refund-requests', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  orderController.getRefundRequests
+);
+
+/**
+ * @swagger
+ * /api/order/{orderId}/process-refund:
+ *   post:
+ *     summary: Process a refund request (admin only)
+ *     description: Approve or reject a refund request for a cancelled order
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the order with the refund request
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [approved, rejected]
+ *                 description: Status to set for the refund request
+ *               notes:
+ *                 type: string
+ *                 description: Optional notes about the decision
+ *     responses:
+ *       200:
+ *         description: Refund request processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 order:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     order_id:
+ *                       type: string
+ *                     refundRequest:
+ *                       type: object
+ *       400:
+ *         description: Invalid request or refund request already processed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User is not an admin
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:orderId/process-refund', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isAdmin, 
+  orderController.processRefundRequest
+);
 
 /**
  * @swagger
@@ -240,7 +413,6 @@ const authMiddleware = require('../middlewares/authMiddleware');
  */
 router.post('/', authMiddleware.verifyToken, orderController.createOrder);
 
-
 /**
  * @swagger
  * /api/order/shipping-rates/{shipmentId}:
@@ -351,8 +523,6 @@ router.post('/', authMiddleware.verifyToken, orderController.createOrder);
  */
 router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderController.getShippingRates);
 
-
-
 /**
  * @swagger
  * /api/order/buyer/{buyerId}:
@@ -436,6 +606,93 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *         description: Server error
  */
 router.get('/buyer/:buyerId', authMiddleware.verifyToken, orderController.getOrdersForBuyer);
+
+/**
+ * @swagger
+ * /api/order/buyer/{buyerId}/refunds:
+ *   get:
+ *     summary: Get refund requests for a buyer
+ *     description: Retrieves all refund requests for a specific buyer with optional filtering by status
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the buyer (can only access own refunds unless admin)
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *         description: Filter by refund status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of refunds per page
+ *     responses:
+ *       200:
+ *         description: Refund requests retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 refundRequests:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       orderId:
+ *                         type: string
+ *                       orderNumber:
+ *                         type: string
+ *                       refundRequest:
+ *                         type: object
+ *                       seller:
+ *                         type: object
+ *                       amount:
+ *                         type: number
+ *                       refundAmount:
+ *                         type: number
+ *                       status:
+ *                         type: string
+ *                       requestedAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                     pages:
+ *                       type: number
+ *                     currentPage:
+ *                       type: number
+ *                     limit:
+ *                       type: number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Cannot access another buyer's refunds
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyer/:buyerId/refunds', 
+  authMiddleware.verifyToken, 
+  orderController.getBuyerRefundRequests
+);
 
 /**
  * @swagger
@@ -532,11 +789,6 @@ router.get('/buyer/:buyerId', authMiddleware.verifyToken, orderController.getOrd
  *         description: Server error
  */
 router.get('/seller/:sellerId', authMiddleware.verifyToken, orderController.getOrdersForSeller);
-
-
-
-
-
 
 /**
  * @swagger
@@ -671,11 +923,6 @@ router.post('/:orderId/dispute', authMiddleware.verifyToken, orderController.cre
  */
 router.put('/:orderId/dispute/:disputeId', authMiddleware.verifyToken, orderController.updateDispute);
 
-
-
-
-
-
 /**
  * @swagger
  * /api/order/export:
@@ -744,45 +991,6 @@ router.get('/export', authMiddleware.verifyToken, orderController.exportOrders);
  *         description: Server error
  */
 router.get('/revenue-analytics', authMiddleware.verifyToken, orderController.getRevenueAnalytics);
-
-// /**
-//  * @swagger
-//  * /api/order/bulk-update:
-//  *   put:
-//  *     summary: Bulk update orders
-//  *     description: Updates multiple orders in bulk
-//  *     tags: [Order]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     requestBody:
-//  *       required: true
-//  *       content:
-//  *         application/json:
-//  *           schema:
-//  *             type: object
-//  *             required:
-//  *               - orderIds
-//  *               - update
-//  *             properties:
-//  *               orderIds:
-//  *                 type: array
-//  *                 items:
-//  *                   type: string
-//  *               update:
-//  *                 type: object
-//  *     responses:
-//  *       200:
-//  *         description: Orders updated successfully
-//  *       400:
-//  *         description: Invalid request body
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden
-//  *       500:
-//  *         description: Server error
-//  */
-// router.put('/bulk-update', authMiddleware.verifyToken, orderController.bulkUpdateOrders);
 
 /**
  * @swagger
