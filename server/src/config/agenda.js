@@ -50,30 +50,58 @@ agenda.define('closeOrder', async (job) => {
     const sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-    const order = await Order.findById(orderId)
-      .populate('buyer', 'email firstName')
-      .populate('seller', 'email firstName businessName')
-      .populate('items.product', 'name category');
-
-    if (!order) {
+    // First, verify if the order is still open and needs processing
+    const orderCheck = await Order.findById(orderId);
+    if (!orderCheck) {
       console.error(`Order not found with ID: ${orderId}`);
       return;
     }
-    
-    if (!order.isOpen) {
-      console.log(`Order ${order.order_id} is already closed, skipping auto-close`);
+
+    if (!orderCheck.isOpen) {
+      console.log(`Order ${orderCheck.order_id} is already closed, skipping auto-close`);
+      return;
+    }
+
+    // For non-COD orders, check if it's paid
+    const isCOD = orderCheck.paymentInfo?.isCashOnDelivery;
+    if (!orderCheck.paid && !isCOD) {
+      console.log(`Order ${orderCheck.order_id} is not paid and not COD, skipping auto-close`);
       return;
     }
     
-    if (!order.paid) {
-      console.log(`Order ${order.order_id} is not paid, skipping auto-close`);
+    console.log(`Processing auto-close for order ${orderCheck.order_id}. Will release payment to seller upon closing.`, {
+      paymentMethod: orderCheck.paymentInfo?.method,
+      isCashOnDelivery: isCOD,
+      isPaid: orderCheck.paid
+    });
+
+    // Now load the full order data with populated references
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName')
+      .populate('seller', 'email firstName businessName walletBalance')
+      .populate('items.product', 'name category');
+
+    if (!order) {
+      console.error(`Error retrieving populated order with ID: ${orderId}`);
+      return;
+    }
+    
+    // Verify shipping status is delivered
+    const shippingStatus = order.shipping?.tracking?.status?.toLowerCase();
+    if (shippingStatus !== 'delivered') {
+      console.log(`Order ${order.order_id} shipping status is ${shippingStatus}, not ready for auto-close`);
+      // Reschedule the job for later if the shipping status isn't delivered yet
+      job.schedule('in 5 minutes');
+      await job.save();
+      console.log(`Rescheduled auto-close job for order ${order.order_id} in 5 minutes`);
       return;
     }
     
     console.log(`Found order to close: ${order.order_id}`, {
       isOpen: order.isOpen,
       paid: order.paid,
-      itemCount: order.items.length
+      itemCount: order.items.length,
+      shippingStatus
     });
 
     // Calculate fees and amounts
@@ -122,77 +150,35 @@ agenda.define('closeOrder', async (job) => {
       sellerAmount
     });
 
-    // Create transaction records
-    const transactionPromises = [];
-
-    // Order payment transaction
-    transactionPromises.push(
-      Transaction.create({
-        seller: order.seller._id,
-        type: 'order_payment',
-        amount: totalAmount,
-        orderId: order._id,
-        description: `Payment for order #${order.order_id}`,
-        status: 'completed'
-      })
-    );
-
-    // Platform fee transactions for each item
-    order.items.forEach(item => {
-      const itemTotal = item.price * item.quantity;
-      const categoryName = typeof item.product?.category === 'string' 
-        ? item.product.category.toLowerCase() 
-        : null;
-      const categoryFee = categoryFeeMap.get(categoryName) || 0;
-      const itemPlatformFee = itemTotal * (categoryFee / 100);
-
-      if (itemPlatformFee > 0) {
-        transactionPromises.push(
-          Transaction.create({
-            seller: order.seller._id,
-            type: 'platform_fee',
-            amount: itemPlatformFee,
-            orderId: order._id,
-            description: `Platform fee for ${item.productName} in order #${order.order_id}`,
-            metadata: {
-              categoryFee: categoryFee,
-              categoryName: categoryName,
-              itemTotal: itemTotal
-            },
-            status: 'completed'
-          })
-        );
-      }
-    });
-
-    // Processing fee transaction
-    transactionPromises.push(
-      Transaction.create({
-        seller: order.seller._id,
-        type: 'processing_fee',
-        amount: paymentProcessingFee,
-        orderId: order._id,
-        description: `Payment processing fee for order #${order.order_id}`,
-        metadata: {
-          processingFeePercent: 1.5,
-          itemTotal: totalAmount
-        },
-        status: 'completed'
-      })
-    );
-    
-    console.log(`Created ${transactionPromises.length} transaction records`);
-
     // Update seller's wallet and close order
     console.log(`Updating seller wallet and closing order ${order.order_id}`);
+    let updatedSeller;
+    let updatedOrder;
+    
     try {
-      const [updatedSeller] = await Promise.all([
-        Seller.findByIdAndUpdate(
+      // Use a session to ensure transaction atomicity
+      const session = await mongoose.startSession();
+      await session.withTransaction(async () => {
+        // Update seller's wallet
+        updatedSeller = await Seller.findByIdAndUpdate(
           order.seller._id,
           { $inc: { walletBalance: sellerAmount } },
-          { new: true }
-        ),
-        Order.findByIdAndUpdate(
+          { new: true, session }
+        );
+        
+        if (!updatedSeller) {
+          throw new Error(`Failed to update seller ${order.seller._id}`);
+        }
+        
+        console.log(`Seller wallet updated:`, {
+          sellerId: updatedSeller._id,
+          previousBalance: order.seller.walletBalance || 0,
+          newBalance: updatedSeller.walletBalance,
+          increment: sellerAmount
+        });
+        
+        // Update order status
+        updatedOrder = await Order.findByIdAndUpdate(
           order._id,
           {
             isOpen: false,
@@ -200,17 +186,134 @@ agenda.define('closeOrder', async (job) => {
             closedBy: 'auto',
             closedReason: 'Auto-closed after delivery with no reported issues'
           },
-          { new: true }
-        ),
-        ...transactionPromises
-      ]);
+          { new: true, session }
+        );
+        
+        if (!updatedOrder) {
+          throw new Error(`Failed to update order ${order._id}`);
+        }
+        
+        console.log(`Order closed:`, {
+          orderId: updatedOrder._id,
+          isOpen: updatedOrder.isOpen,
+          closedBy: updatedOrder.closedBy,
+          closedAt: updatedOrder.closedAt
+        });
+        
+        // Create transaction records directly with the session
+        const txnPromises = [];
+        
+        // Add payment method info to order payment transaction
+        txnPromises.push(
+          new Transaction({
+            seller: order.seller._id,
+            type: 'order_payment',
+            amount: totalAmount,
+            orderId: order._id,
+            description: `Payment for order #${order.order_id}${order.paymentInfo?.isCashOnDelivery ? ' (Cash on Delivery)' : order.paymentInfo?.method ? ` (${order.paymentInfo.method})` : ''}`,
+            metadata: {
+              paymentMethod: order.paymentInfo?.method || 'unknown',
+              isCashOnDelivery: order.paymentInfo?.isCashOnDelivery || false
+            },
+            status: 'completed'
+          }).save({ session })
+        );
+        
+        console.log(`Creating transaction records for order ${order.order_id}`, {
+          paymentMethod: order.paymentInfo?.method,
+          isCashOnDelivery: order.paymentInfo?.isCashOnDelivery,
+          totalAmount: totalAmount,
+          sellerAmount: sellerAmount
+        });
+        
+        // 2. Platform fee transactions for each item
+        order.items.forEach(item => {
+          const itemTotal = item.price * item.quantity;
+          const categoryName = typeof item.product?.category === 'string' 
+            ? item.product.category.toLowerCase() 
+            : null;
+          const categoryFee = categoryFeeMap.get(categoryName) || 0;
+          const itemPlatformFee = itemTotal * (categoryFee / 100);
+
+          if (itemPlatformFee > 0) {
+            txnPromises.push(
+              new Transaction({
+                seller: order.seller._id,
+                type: 'platform_fee',
+                amount: itemPlatformFee,
+                orderId: order._id,
+                description: `Platform fee for ${item.productName} in order #${order.order_id}`,
+                metadata: {
+                  categoryFee: categoryFee,
+                  categoryName: categoryName,
+                  itemTotal: itemTotal
+                },
+                status: 'completed'
+              }).save({ session })
+            );
+          }
+        });
+        
+        // 3. Processing fee transaction
+        txnPromises.push(
+          new Transaction({
+            seller: order.seller._id,
+            type: 'processing_fee',
+            amount: paymentProcessingFee,
+            orderId: order._id,
+            description: `Payment processing fee for order #${order.order_id}`,
+            metadata: {
+              processingFeePercent: 1.5,
+              itemTotal: totalAmount
+            },
+            status: 'completed'
+          }).save({ session })
+        );
+        
+        // Wait for all transaction saves to complete
+        await Promise.all(txnPromises);
+        console.log(`Created and saved ${txnPromises.length} transaction records within session`);
+      });
+      
+      await session.endSession();
       
       console.log(`Successfully closed order ${order.order_id} and updated seller wallet`, {
         newWalletBalance: updatedSeller.walletBalance
       });
     } catch (updateError) {
       console.error('Error updating seller wallet or closing order:', updateError);
-      throw updateError; // Rethrow to prevent sending emails
+      // Check if order is still open and reschedule job
+      const retryCheck = await Order.findById(orderId);
+      if (retryCheck && retryCheck.isOpen) {
+        job.schedule('in 10 minutes');
+        await job.save();
+        console.log(`Rescheduled auto-close job for order ${order.order_id} after error`);
+      }
+      return; // Exit early without sending emails
+    }
+
+    // Verify that the order was actually closed
+    const verifyOrder = await Order.findById(orderId);
+    if (verifyOrder && verifyOrder.isOpen) {
+      console.error(`Order ${order.order_id} is still open after close attempt. Forcing update.`);
+      
+      try {
+        // Force direct update as last resort
+        await Order.updateOne(
+          { _id: order._id },
+          {
+            $set: {
+              isOpen: false,
+              closedAt: new Date(),
+              closedBy: 'auto',
+              closedReason: 'Auto-closed after delivery (forced update)'
+            }
+          }
+        );
+        console.log(`Forced order closure for ${order.order_id}`);
+      } catch (forceError) {
+        console.error('Error forcing order closure:', forceError);
+      }
     }
 
     // Send closure notification emails
@@ -241,11 +344,13 @@ agenda.define('closeOrder', async (job) => {
           <p>Order #${order.order_id} has been automatically closed and payment has been released to your wallet.</p>
           <p><strong>Payment Details:</strong></p>
           <ul>
+            <li>Payment Method: ${order.paymentInfo?.isCashOnDelivery ? 'Cash on Delivery' : (order.paymentInfo?.method || 'Standard Payment')}</li>
             <li>Total Order Amount: ₦${totalAmount.toLocaleString()}</li>
             <li style="margin-top: 10px;"><strong>Platform Fees:</strong> ₦${totalPlatformFee.toLocaleString()}</li>
             <li>Payment Processing Fee (1.5%): ₦${paymentProcessingFee.toLocaleString()}</li>
             <li>Total Deductions: ₦${totalDeductions.toLocaleString()}</li>
             <li style="margin-top: 10px; font-weight: bold;">Amount Released: ₦${sellerAmount.toLocaleString()}</li>
+            
           </ul>
           <p>Thank you for selling with Auqli!</p>
           <p>Best regards,<br>The Auqli Team</p>
@@ -585,6 +690,22 @@ agenda.define('create-auction-winner-order', async (job) => {
       return;
     }
 
+    // Validate that product has stock available
+    if (product.stock < 1) {
+      console.error('Insufficient stock for auction product:', {
+        productId: product._id,
+        productName: product.name,
+        availableStock: product.stock,
+        requiredStock: 1
+      });
+      
+      // Reschedule job to retry later or notify admin
+      job.schedule('in 12 hours');
+      await job.save();
+      console.log('Rescheduled order creation job due to insufficient product stock');
+      return;
+    }
+
     const buyer = product.auction.winner.buyer;
     const seller = product.seller;
     const bidAmount = product.auction.winner.bidAmount;
@@ -725,6 +846,19 @@ agenda.define('create-auction-winner-order', async (job) => {
     // Save the order
     await order.save();
     console.log('Order created successfully for auction winner:', order._id);
+
+    // Update product stock
+    await Product.findByIdAndUpdate(
+      product._id,
+      { 
+        $inc: { 
+          'stats.soldCount': 1,
+          'stock': -1,
+          'inventory.quantity': -1 
+        }
+      }
+    );
+    console.log('Product stock updated for auction item:', product._id);
 
     // Update buyer's wallet - reduce the balance
     await Buyer.findByIdAndUpdate(

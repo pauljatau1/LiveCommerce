@@ -271,6 +271,18 @@ exports.createOrder = async (req, res) => {
       productMap[product._id.toString()] = product;
     });
     
+    // Validate that all products have sufficient stock
+    for (const item of items) {
+      const product = productMap[item.productId];
+      if (!product) continue;
+      
+      if (product.stock < item.quantity) {
+        return res.status(400).json({ 
+          message: `Insufficient stock for product "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`
+        });
+      }
+    }
+    
     // Group items by seller
     const sellerItems = {};
     let totalAmount = 0;
@@ -2663,11 +2675,36 @@ exports.handleFezWebhook = async (req, res) => {
       });
     }
     
+    // Extract timestamp information if available in the payload
+    // Fez might send different timestamp formats, so we need to handle them
+    let timestamp = null;
+    
+    if (req.body.timestamp) {
+      // Direct timestamp field
+      timestamp = req.body.timestamp;
+    } else if (req.body.statusDate || req.body.statusCreationDate) {
+      // Alternative timestamp fields that Fez might use
+      timestamp = req.body.statusDate || req.body.statusCreationDate;
+    } else if (req.body.event && req.body.event.timestamp) {
+      // Nested event object
+      timestamp = req.body.event.timestamp;
+    } else {
+      // If no timestamp is provided, use current time
+      timestamp = new Date().toISOString();
+      console.log('No timestamp provided in webhook, using current time:', timestamp);
+    }
+    
+    // Prepare enhanced webhook data
+    const webhookData = {
+      ...req.body,
+      timestamp: timestamp
+    };
+    
     // Import the handler dynamically to avoid circular dependencies
     const { handleOrderStatusUpdate } = require('../webhooks/fezWebhook');
     
-    // Process the webhook
-    await handleOrderStatusUpdate(req.body);
+    // Process the webhook with enhanced data
+    await handleOrderStatusUpdate(webhookData);
     
     // Respond to Fez
     return res.status(200).json({ 
@@ -2703,30 +2740,11 @@ const verifyPaystackTransaction = async (reference) => {
 // Mark order as paid (for Paystack payments)
 exports.markOrderAsPaid = async (req, res) => {
   const { id } = req.params;
-  let { transactionId, paymentReference } = req.body;
-
-  if (!transactionId && !paymentReference) {
-    return res.status(400).json({ 
-      message: 'Either transactionId or paymentReference is required' 
-    });
-  }
+  const { paymentReference, transactionId = uuidv4(), manualNote } = req.body;
 
   try {
-    const order = await Order.findById(id).populate('seller');
-    
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // Verify this is a Paystack order that's not already paid
-    if (order.paymentInfo.method !== 'paystack' || order.paid) {
-      return res.status(400).json({ 
-        message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
-      });
-    }
-
-    // If payment reference is provided, verify with Paystack
-    let verificationResult = { success: true };
+    // Verify Paystack transaction if reference is provided
+    let verificationResult = null;
     if (paymentReference) {
       verificationResult = await verifyPaystackTransaction(paymentReference);
       
@@ -2736,16 +2754,23 @@ exports.markOrderAsPaid = async (req, res) => {
           error: verificationResult.error 
         });
       }
-      
-      // Use the transaction ID from Paystack if available
-      if (verificationResult.data && verificationResult.data.id) {
-        transactionId = verificationResult.data.id.toString();
-      }
+    }
+
+    // Find order and check if it exists
+    const order = await Order.findById(id)
+      .populate('seller', 'email firstName lastName businessName walletBalance');
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if order is already paid
+    if (order.paid) {
+      return res.status(400).json({ message: 'Order is already marked as paid' });
     }
 
     // Add a flag to track if notifications have been sent
-    order.notificationsSent = order.notificationsSent || false;
-    const notificationsAlreadySent = order.notificationsSent;
+    const notificationsAlreadySent = order.notificationsSent || false;
     
     // Mark notifications as sent
     order.notificationsSent = true;
@@ -2775,7 +2800,8 @@ exports.markOrderAsPaid = async (req, res) => {
       console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
     }
 
-    // Send order confirmation email directly for Paystack payment
+    // Always send order confirmation email for paid Paystack order, regardless of notification status
+    // This ensures the buyer gets their confirmation email that was skipped at order creation
     try {
       const Buyer = mongoose.model('Buyer');
       const buyer = await Buyer.findById(order.buyer);
@@ -2876,7 +2902,8 @@ exports.verifyPaymentByReference = async (req, res) => {
       
       agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
 
-      // Send order confirmation email directly for paid Paystack order
+      // Always send order confirmation email for paid Paystack order, regardless of notification status
+      // This ensures the buyer gets their confirmation email that was skipped at order creation
       try {
         const Buyer = mongoose.model('Buyer');
         const buyer = await Buyer.findById(order.buyer);
@@ -3048,7 +3075,8 @@ async function handleOrderPayment(paymentData, res) {
     console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
   }
 
-  // Send order confirmation email directly for paid Paystack order
+  // Always send order confirmation email for paid Paystack order, regardless of notification status
+  // This ensures the buyer gets their confirmation email that was skipped at order creation
   try {
     const Buyer = mongoose.model('Buyer');
     const buyer = await Buyer.findById(order.buyer);

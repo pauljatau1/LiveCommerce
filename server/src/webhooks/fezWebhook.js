@@ -45,6 +45,7 @@ const handleOrderStatusUpdate = async (webhookData) => {
         statusDescription = 'Order is in transit';
         break;
       case 'Delivered':
+      case 'delivered':
         internalStatus = 'delivered';
         statusDescription = 'Order has been delivered';
         break;
@@ -57,6 +58,25 @@ const handleOrderStatusUpdate = async (webhookData) => {
         statusDescription = `Order status updated to ${webhookData.status}`;
     }
 
+    // Calculate appropriate timestamp based on status sequence and existing history
+    let newTimestamp;
+    
+    // Define the expected sequence of statuses
+    const statusSequence = ['pending_pickup', 'picked_up', 'in_transit', 'delivered'];
+    const currentStatusIndex = statusSequence.indexOf(internalStatus);
+    
+    if (webhookData.timestamp) {
+      // If the webhook includes a timestamp, use it
+      newTimestamp = new Date(webhookData.timestamp);
+    } else {
+      // Always use the current date/time for new status updates
+      // This ensures the timestamps reflect when the status actually changed
+      newTimestamp = new Date();
+      
+      // Log the timestamp being used
+      console.log(`Using current timestamp for status update: ${newTimestamp.toISOString()}`);
+    }
+
     // Update order shipping information and status history
     const shippingUpdate = {
       $set: {
@@ -66,13 +86,13 @@ const handleOrderStatusUpdate = async (webhookData) => {
       $push: {
         'shipping.tracking.history': {
           status: internalStatus,
-          timestamp: new Date(),
+          timestamp: newTimestamp,
           location: webhookData.location || 'Unknown',
           description: statusDescription
         },
         'items.$[].statusHistory': {
           status: internalStatus,
-          timestamp: new Date(),
+          timestamp: newTimestamp,
           note: statusDescription
         }
       }
@@ -83,13 +103,127 @@ const handleOrderStatusUpdate = async (webhookData) => {
       shippingUpdate.$set['shipping.delivery.actualDate'] = new Date();
       shippingUpdate.$set['items.$[].status'] = 'delivered';
       
+      // Add logging to clarify that payment isn't processed yet
+      console.log(`Order ${order.order_id} marked as delivered. Payment will be processed when order is closed after 1 day.`, {
+        paymentMethod: order.paymentInfo?.method,
+        isCashOnDelivery: order.paymentInfo?.isCashOnDelivery,
+        isPaid: order.paid
+      });
+      
       // Schedule auto-close job for 1 minute after delivery (for testing purposes)
       try {
-        await agenda.schedule('in 1 minute', 'closeOrder', { orderId: order._id });
-        console.log(`Scheduled auto-close job for order ${order.order_id} in 1 minute (TEST MODE)`);
+        // First ensure the job doesn't already exist
+        const existingJobs = await agenda.jobs({
+          name: 'closeOrder',
+          'data.orderId': order._id.toString()
+        });
+
+        console.log(`Checking for existing close jobs for order ${order.order_id}:`, {
+          found: existingJobs.length > 0,
+          count: existingJobs.length,
+          orderId: order._id.toString()
+        });
+
+        if (existingJobs.length > 0) {
+          console.log(`Auto-close job already scheduled for order ${order.order_id}, skipping`);
+        } else {
+          // Schedule job to run 1 minute from now
+          const job = await agenda.schedule('in 1 day', 'closeOrder', { orderId: order._id.toString() });
+          console.log(`Scheduled auto-close job for order ${order.order_id} in 1 day`, {
+            jobId: job.attrs._id.toString()
+          });
+        }
+        
+        // If for some reason the job fails to close the order,
+        // make sure we have a direct update fallback
+        // Schedule a direct update after 2 minutes if still open
+        setTimeout(async () => {
+          try {
+            const checkOrder = await Order.findById(order._id);
+            if (checkOrder && checkOrder.isOpen) {
+              console.log(`Fallback: Directly closing order ${order.order_id} as scheduled job may have failed`);
+              // Update order to closed status directly
+              const updatedOrder = await Order.findByIdAndUpdate(
+                order._id,
+                {
+                  isOpen: false,
+                  closedAt: new Date(),
+                  closedBy: 'auto',
+                  closedReason: 'Auto-closed after delivery (fallback method)'
+                },
+                { new: true }
+              );
+              
+              if (updatedOrder && !updatedOrder.isOpen) {
+                console.log(`Fallback successfully closed order ${order.order_id}`);
+                // Explicitly trigger the pre-save middleware by calling save
+                try {
+                  // This will trigger the pre-save hooks to process the payment
+                  await updatedOrder.save();
+                  console.log(`Successfully triggered payment processing via save hook for order ${order.order_id}`);
+                } catch (saveError) {
+                  console.error(`Error triggering save hook for order ${order.order_id}:`, saveError);
+                }
+              } else {
+                console.error(`Fallback failed to close order ${order.order_id}`);
+              }
+            }
+          } catch (fallbackError) {
+            console.error('Error in fallback order closing:', fallbackError);
+          }
+        }, 93600000); // 26 hours (1 day + 2 hours buffer)
+        
       } catch (scheduleError) {
         console.error('Error scheduling auto-close job:', scheduleError);
-        // Continue execution despite scheduling error
+        // Try direct update if scheduling fails
+        try {
+          const directUpdate = {
+            ...shippingUpdate.$set,
+            isOpen: false,
+            closedAt: new Date(),
+            closedBy: 'auto',
+            closedReason: 'Auto-closed after delivery (direct method)'
+          };
+          
+          console.log(`Attempting direct order close for ${order.order_id} as scheduling failed`, directUpdate);
+          
+          // First attempt to update directly
+          const updatedOrder = await Order.findByIdAndUpdate(
+            order._id,
+            directUpdate,
+            { new: true }
+          );
+          
+          if (updatedOrder && !updatedOrder.isOpen) {
+            console.log(`Successfully closed order ${order.order_id} directly`);
+            // Trigger the save event to ensure proper payment processing
+            try {
+              await updatedOrder.save();
+              console.log(`Successfully triggered payment processing via save hook for order ${order.order_id}`);
+            } catch (saveError) {
+              console.error(`Error during save hook for order ${order.order_id}:`, saveError);
+              
+              // Try one more option - get the order and manually close it
+              try {
+                const freshOrder = await Order.findById(order._id);
+                if (freshOrder && freshOrder.isOpen) {
+                  freshOrder.isOpen = false;
+                  freshOrder.closedAt = new Date();
+                  freshOrder.closedBy = 'auto';
+                  freshOrder.closedReason = 'Auto-closed after delivery (emergency method)';
+                  await freshOrder.save();
+                  console.log(`Emergency close successful for order ${order.order_id}`);
+                }
+              } catch (emergencyError) {
+                console.error(`Emergency close failed for order ${order.order_id}:`, emergencyError);
+              }
+            }
+          } else {
+            console.error(`Failed to close order ${order.order_id} directly`);
+          }
+        } catch (directUpdateError) {
+          console.error('Error in direct order closing:', directUpdateError);
+        }
       }
     } else if (internalStatus === 'cancelled') {
       shippingUpdate.$set['items.$[].status'] = 'cancelled';
@@ -337,7 +471,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
             <p>Dear ${order.buyer.firstName},</p>
             <p>Great news! Your order from ${order.seller.businessName || order.seller.firstName} has been delivered.</p>
             ${commonOrderInfo}
-            <p>We hope you enjoy your purchase! The order will be automatically closed in 2 days if no issues are reported.</p>
+            <p>We hope you enjoy your purchase! The order will be automatically closed in 1 day if no issues are reported.</p>
             <p>Don't forget to leave a review for the seller and the products.</p>
             <p>Best regards,<br>The Auqli Team</p>
           </div>
@@ -350,7 +484,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
             <p>Dear ${order.seller.firstName},</p>
             <p>Your order has been delivered successfully to the customer.</p>
             ${commonOrderInfo}
-            <p>The order will be automatically closed and payment will be released in 2 days if no issues are reported.</p>
+            <p>The order will be automatically closed and payment will be released in 1 day if no issues are reported.</p>
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `;
