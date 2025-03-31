@@ -5,7 +5,7 @@ const cors = require('cors');
 const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
 const http = require('http');
-const initializeSocket = require('./socket/socketManager');
+const socketManager = require('./socket/socketManager');
 const compression = require('compression');
 const passport = require('./config/passport');
 
@@ -34,7 +34,11 @@ const campaignRoutes = require('./routes/campaignRoutes');
 
 const app = express();
 const server = http.createServer(app);
-const io = initializeSocket(server);
+socketManager.initializeSocket(server);
+
+// Get the socket.io instance and store it in the app
+const io = socketManager.getIO();
+app.set('io', io);
 
 // Middleware to log requests
 app.use((req, res, next) => {
@@ -114,9 +118,6 @@ app.use((err, req, res, next) => {
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
-
-// Store io instance for use in other parts of the application
-app.set('io', io);
 
 // Add passport middleware
 app.use(passport.initialize());

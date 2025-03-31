@@ -66,20 +66,20 @@ exports.createStream = async (req, res) => {
       products.map(async (p) => {
         // Get the productId from the frontend data
         const productId = p.product?.productId;
-
+        
         if (!productId) {
           return p; // If no productId, return as is
         }
-
+        
         // Fetch complete product details from database
         const completeProduct = await Product.findById(productId).select(
           '_id name description category images price sku stock variants'
         );
-
+        
         if (!completeProduct) {
           return p; // If product not found, return as is
         }
-
+        
         // Return the product with complete details from database
         return {
           ...p,
@@ -131,7 +131,7 @@ exports.createStream = async (req, res) => {
       try {
         // Handle video data properly whether it comes from FormData or JSON
         let processedVideo = video;
-
+        
         // Only try to parse if it's a string that looks like JSON (starts with { or [)
         if (typeof video === 'string' && (video.trim().startsWith('{') || video.trim().startsWith('['))) {
           try {
@@ -142,7 +142,7 @@ exports.createStream = async (req, res) => {
             processedVideo = video;
           }
         }
-
+        
         // Now handle the video data
         if (processedVideo && processedVideo.data) {
           const buffer = Buffer.from(processedVideo.data, 'base64');
@@ -153,7 +153,7 @@ exports.createStream = async (req, res) => {
             Body: buffer,
             ContentType: processedVideo.contentType || 'video/mp4',
           };
-
+          
           const uploadResult = await s3.upload(params).promise();
           videoData = {
             url: uploadResult.Location,
@@ -271,10 +271,10 @@ exports.startStream = async (req, res) => {
     stream.actualStartTime = new Date();
     stream.agoraUid = seller.agoraUid;
     stream.agoraToken = freshToken;
-
+    
     // Save stream first with basic updates
     await stream.save();
-
+    
     // Create notification object
     const notificationObj = {
       id: Date.now().toString(),
@@ -291,14 +291,14 @@ exports.startStream = async (req, res) => {
       }
       // timestamp will be added automatically by the schema default
     };
-
+    
     try {
       // Create a new chat interaction document
       await Stream.findByIdAndUpdate(
         stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
-
+      
       // Send WebSocket notification if IO is available
       if (req.app && req.app.get('io')) {
         const io = req.app.get('io');
@@ -673,7 +673,7 @@ exports.placeBid = async (req, res) => {
 
       // Save the stream
       console.log('[RESTBID] 39. Saving stream with updated bid information');
-      await stream.save();
+    await stream.save();
       console.log('[RESTBID] 40. Stream saved successfully');
 
       console.log('[RESTBID] 41. Sending winning bid response to client');
@@ -847,10 +847,10 @@ exports.joinStream = async (req, res) => {
 
     const token = agoraService.generateToken(
       stream.channelName,
-      tokenUid,
+      tokenUid, 
       RtcRole.SUBSCRIBER
     );
-
+    
     // Send push notification if token exists
     const userToken = await getToken(req.user.id);
     if (userToken) {
@@ -866,9 +866,9 @@ exports.joinStream = async (req, res) => {
     if (!stream.viewers.includes(req.user.id)) {
       await Stream.updateOne(
         { _id: req.params.streamId },
-        {
+        { 
           $addToSet: { viewers: req.user.id },
-          $pull: { departedViewers: { buyer: req.user.id } }
+          $pull: { departedViewers: { buyer: req.user.id } } 
         }
       );
     }
@@ -879,13 +879,13 @@ exports.joinStream = async (req, res) => {
       _id: req.params.streamId,
       status: 'live'
     })
-      .populate('seller', 'storeName businessName storeAvatar rating')
-      .populate('products.product', 'name description images price stock sku variants')
-      .populate('products.currentBidder', 'firstName lastName username email')
-      .populate('viewers', 'firstName lastName username avatarUrl')
-      .populate('bids.buyer', 'firstName lastName username')
-      .populate('bids.product', 'name price')
-      .lean(); // Convert to plain JavaScript object
+    .populate('seller', 'storeName businessName storeAvatar rating')
+    .populate('products.product', 'name description images price stock sku variants')
+    .populate('products.currentBidder', 'firstName lastName username email')
+    .populate('viewers', 'firstName lastName username avatarUrl')
+    .populate('bids.buyer', 'firstName lastName username')
+    .populate('bids.product', 'name price')
+    .lean(); // Convert to plain JavaScript object
 
     // Get all viewers with detailed information
     const detailedViewers = await Buyer.find(
@@ -918,14 +918,14 @@ exports.joinStream = async (req, res) => {
         viewerCount: stream.viewers.length // Now this will be correct
       }
     };
-
+    
     try {
       // Add the notification to the stream's chat interactions
       await Stream.findByIdAndUpdate(
         stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
-
+      
       // Broadcast to all subscribers of stream notifications
       if (req.app && req.app.get('io')) {
         const io = req.app.get('io');
@@ -940,7 +940,7 @@ exports.joinStream = async (req, res) => {
 
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
-
+    
     res.json({
       message: 'Successfully joined stream',
       channelName: stream.channelName,
@@ -978,13 +978,13 @@ exports.joinStreamSeller = async (req, res) => {
       seller: req.user.id,
       status: 'live'
     })
-      .populate('seller', 'storeName businessName storeAvatar rating')
-      .populate('products.product', 'name description images price stock sku variants')
-      .populate('products.currentBidder', 'firstName lastName username email')
-      .populate('viewers', 'firstName lastName username avatarUrl')
-      .populate('bids.buyer', 'firstName lastName username')
-      .populate('bids.product', 'name price')
-      .lean(); // Convert to plain JavaScript object
+    .populate('seller', 'storeName businessName storeAvatar rating')
+    .populate('products.product', 'name description images price stock sku variants')
+    .populate('products.currentBidder', 'firstName lastName username email')
+    .populate('viewers', 'firstName lastName username avatarUrl')
+    .populate('bids.buyer', 'firstName lastName username')
+    .populate('bids.product', 'name price')
+    .lean(); // Convert to plain JavaScript object
 
     if (!stream) {
       return res.status(404).json({ message: 'Active stream not found or you do not have permission' });
@@ -998,7 +998,7 @@ exports.joinStreamSeller = async (req, res) => {
 
     const token = agoraService.generateToken(
       stream.channelName,
-      seller.agoraUid,
+      seller.agoraUid, 
       RtcRole.PUBLISHER
     );
 
@@ -1017,14 +1017,14 @@ exports.joinStreamSeller = async (req, res) => {
       }
       // timestamp will be added automatically by the schema default
     };
-
+    
     try {
       // Add the notification to the stream's chat interactions
       await Stream.findByIdAndUpdate(
         stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
-
+      
       // Broadcast a notification that the seller has rejoined their stream
       if (req.app && req.app.get('io')) {
         const io = req.app.get('io');
@@ -1042,12 +1042,12 @@ exports.joinStreamSeller = async (req, res) => {
 
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
-
+    
     // Get all viewers with detailed information
     const detailedViewers = await Buyer.find(
       { _id: { $in: stream.viewers.map(v => v._id) } }
     ).select('_id firstName lastName username profileImage avatarUrl').lean();
-
+    
     res.json({
       message: 'Successfully joined stream as seller',
       channelName: stream.channelName,
@@ -1223,7 +1223,7 @@ exports.createOpenLiveShow = async (req, res) => {
       try {
         // Handle video data properly whether it comes from FormData or JSON
         let processedVideo = video;
-
+        
         // Only try to parse if it's a string that looks like JSON (starts with { or [)
         if (typeof video === 'string' && (video.trim().startsWith('{') || video.trim().startsWith('['))) {
           try {
@@ -1234,7 +1234,7 @@ exports.createOpenLiveShow = async (req, res) => {
             processedVideo = video;
           }
         }
-
+        
         // Now handle the video data
         if (processedVideo && processedVideo.data) {
           const buffer = Buffer.from(processedVideo.data, 'base64');
@@ -1245,7 +1245,7 @@ exports.createOpenLiveShow = async (req, res) => {
             Body: buffer,
             ContentType: processedVideo.contentType || 'video/mp4',
           };
-
+          
           const uploadResult = await s3.upload(params).promise();
           videoData = {
             url: uploadResult.Location,
@@ -1417,13 +1417,13 @@ exports.getStreamWithRefreshedToken = async (req, res) => {
       _id: req.params.streamId,
       status: 'live'
     })
-      .populate('seller', 'storeName businessName storeAvatar rating')
-      .populate('products.product', 'name description images price stock sku variants')
-      .populate('products.currentBidder', 'firstName lastName username email')
-      .populate('viewers', 'firstName lastName username avatarUrl')
-      .populate('bids.buyer', 'firstName lastName username')
-      .populate('bids.product', 'name price')
-      .lean(); // Convert to plain JavaScript object
+    .populate('seller', 'storeName businessName storeAvatar rating')
+    .populate('products.product', 'name description images price stock sku variants')
+    .populate('products.currentBidder', 'firstName lastName username email')
+    .populate('viewers', 'firstName lastName username avatarUrl')
+    .populate('bids.buyer', 'firstName lastName username')
+    .populate('bids.product', 'name price')
+    .lean(); // Convert to plain JavaScript object
 
     if (!stream) {
       return res.status(404).json({ message: 'Active stream not found' });
@@ -1431,7 +1431,7 @@ exports.getStreamWithRefreshedToken = async (req, res) => {
 
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
-
+    
     // Generate new token
     const token = agoraService.generateToken(
       stream.channelName,
@@ -1520,11 +1520,11 @@ exports.getPopularStreams = async (req, res) => {
 exports.getSpotlightStreams = async (req, res) => {
   try {
     const { status, type, page = 1, limit = 10 } = req.query;
-
+    
     // First, get all featured sellers
     const featuredSellers = await Seller.find({ isFeatured: true }).select('_id');
     const featuredSellerIds = featuredSellers.map(seller => seller._id);
-
+    
     if (featuredSellerIds.length === 0) {
       return res.json({
         streams: [],
@@ -1589,10 +1589,10 @@ exports.getSpotlightStreams = async (req, res) => {
 exports.getStreamsFromFavoriteSellers = async (req, res) => {
   try {
     const { status, type, page = 1, limit = 10 } = req.query;
-
+    
     // Get the current buyer
     const buyer = await Buyer.findById(req.user.id).select('followers');
-
+    
     if (!buyer || !buyer.followers || buyer.followers.length === 0) {
       return res.json({
         streams: [],
@@ -1607,7 +1607,7 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
 
     // Extract seller IDs from the buyer's followers
     const followedSellerIds = buyer.followers.map(follower => follower.sellerId);
-
+    
     // Build query for streams from followed sellers
     const query = {
       seller: { $in: followedSellerIds }
@@ -1661,9 +1661,9 @@ exports.getStreamsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const { status, type, page = 1, limit = 10, sortByViews } = req.query;
-
+    
     // Build query with case-insensitive category matching
-    const query = {
+    const query = { 
       category: { $regex: new RegExp(`^${category}$`, 'i') }  // '^' and '$' ensure exact match, 'i' flag makes it case-insensitive
     };
 
@@ -1747,17 +1747,17 @@ exports.getStreamsByCategory = async (req, res) => {
 exports.getChatInteractions = async (req, res) => {
   try {
     const { streamId } = req.params;
-
+    
     // Find the stream with the given ID
     const stream = await Stream.findById(streamId);
-
+    
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
-
+    
     // Sort chat interactions by timestamp (newest first)
     const chatInteractions = stream.chatInteractions || [];
-
+    
     // Optional: limit the number of chat interactions returned
     // const limit = parseInt(req.query.limit) || 100;
     // chatInteractions = chatInteractions.slice(-limit);
@@ -1795,8 +1795,8 @@ exports.leaveStream = async (req, res) => {
     // First add to departedViewers array for analytics purposes
     await Stream.findByIdAndUpdate(
       stream._id,
-      {
-        $push: {
+      { 
+        $push: { 
           departedViewers: {
             buyer: req.user.id,
             timestamp: new Date()
@@ -1804,11 +1804,11 @@ exports.leaveStream = async (req, res) => {
         }
       }
     );
-
+    
     // Then remove the user from the viewers array
     await Stream.findByIdAndUpdate(
       stream._id,
-      {
+      { 
         $pull: { viewers: req.user.id }
       }
     );
@@ -1851,17 +1851,17 @@ exports.leaveStream = async (req, res) => {
       // Update the notificationData in the departedViewers entry and add to chat interactions
       await Stream.findByIdAndUpdate(
         stream._id,
-        {
+        { 
           $push: { chatInteractions: notificationObj },
-          $set: {
-            "departedViewers.$[elem].notificationData": notificationObj
+          $set: { 
+            "departedViewers.$[elem].notificationData": notificationObj 
           }
         },
         {
           arrayFilters: [{ "elem.buyer": req.user.id }]
         }
       );
-
+      
       // Broadcast to all subscribers of stream notifications
       if (req.app && req.app.get('io')) {
         const io = req.app.get('io');
@@ -1891,7 +1891,7 @@ exports.leaveStream = async (req, res) => {
       analytics: {
         totalJoined: totalJoined,
         totalLeft: totalLeft,
-        retentionRate: totalJoined > 0
+        retentionRate: totalJoined > 0 
           ? Math.round(((totalJoined - totalLeft) / totalJoined) * 100)
           : 0
       }
@@ -1939,7 +1939,7 @@ exports.leaveStreamSeller = async (req, res) => {
         stream._id,
         { $push: { chatInteractions: notificationObj } }
       );
-
+      
       // Broadcast a notification that the seller has left their stream
       if (req.app && req.app.get('io')) {
         const io = req.app.get('io');
@@ -2042,9 +2042,10 @@ exports.activateProductBidding = async (req, res) => {
 
     // Set other products to 'ended' if any are 'active'
     stream.products.forEach((product, index) => {
-      if (index !== productIndex && product.bidStatus === 'active') {
-        console.log('[ACTIVATE_BID] 12. Setting other active product to ended', { 
-          productName: product.product.name 
+      if (index !== productIndex && (product.bidStatus === 'active' || product.bidStatus === 'ongoing')) {
+        console.log('[ACTIVATE_BID] 12. Setting other active/ongoing product to ended', { 
+          productName: product.product.name,
+          previousStatus: product.bidStatus
         });
         product.bidStatus = 'ended';
       }
@@ -2402,53 +2403,96 @@ exports.endProductBidding = async (req, res) => {
         // Create the order
         console.log('[END_BID] 30. Creating order using order controller');
 
-        const orderController = require('./orderController');
-
-        // Create a mock request and response object for the createOrderFromAuction function
+        // Create mock request and response objects for the createOrder function
         const mockReq = {
           body: orderData,
           user: {
             id: buyerId
           },
-          get: (name) => name === 'host' ? 'auqli.com' : null
+          get: (name) => name === 'host' ? 'auqli.com' : null,
+          app: req.app // Pass the app instance for notifications
         };
 
+        let orderResult = null;
         const mockRes = {
-          status: (code) => ({
-            json: (data) => ({
-              statusCode: code,
-              data
-            })
-          })
+          status: function(code) {
+            this.statusCode = code;
+            return this;
+          },
+          json: function(data) {
+            orderResult = data;
+            console.log(`[END_BID] 31. Order creation response received with status: ${this.statusCode}`, 
+              data.success === false ? { error: data.message } : { orderId: data.orders?.[0]?.orderId });
+            return this;
+          }
         };
 
-        // Call the createOrderFromAuction function
-        const orderResult = await orderController.createOrderFromAuction(mockReq, mockRes, stream._id, productIndex);
+        // Call the createOrder function
+        await orderController.createOrder(mockReq, mockRes);
 
-        if (orderResult && orderResult.orders && orderResult.orders.length > 0) {
-          console.log('[END_BID] 31. Order created successfully', {
+        // Update stream product with order information
+        if (orderResult && orderResult.success !== false && orderResult.orders && orderResult.orders.length > 0) {
+          console.log('[END_BID] 32. Order created successfully', {
             orderId: orderResult.orders[0].orderId,
             orderTotal: orderResult.totals.grandTotal
           });
 
+          // Update stream product to mark order as created and set bid status to ongoing
+          stream.products[productIndex].orderCreated = true;
+          stream.products[productIndex].orderId = orderResult.orders[0].orderId;
+          stream.products[productIndex].bidStatus = 'ongoing';
+          await stream.save();
+          
           // Emit socket notification about order creation
           req.app.get('io').to(buyerId.toString()).emit('auction_order_created', {
             success: true,
             message: 'Order created for auction win',
             orderId: orderResult.orders[0].orderId,
             streamId: stream._id,
+            orderDetails: orderResult.orders[0],
             productName: fullProductDetails.name,
             amount: stream.products[productIndex].currentBid,
             shippingFee: shippingFee,
             total: stream.products[productIndex].currentBid + shippingFee
           });
         } else {
-          console.error('[END_BID] 32. Failed to create order');
+          console.error('[END_BID] 32. Failed to create order', 
+            orderResult?.message || 'Unknown error');
+          
+          // Set bid status back to ongoing even if order creation failed
+          stream.products[productIndex].bidStatus = 'ongoing';
+          await stream.save();
+          
+          // Emit error notification to buyer
+          req.app.get('io').to(buyerId.toString()).emit('auction_order_error', {
+            success: false,
+            message: 'Failed to create order for auction win',
+            error: orderResult?.message || 'Unknown error occurred during order creation',
+            productName: fullProductDetails.name,
+          });
         }
       } catch (orderError) {
         console.error('[END_BID] ERROR: Failed to create order:', orderError);
-        // Don't stop the process, just log the error
+        
+        // Set bid status to ongoing even if there was an error
+        stream.products[productIndex].bidStatus = 'ongoing';
+        await stream.save();
+        
+        // Try to notify buyer of error if we have the buyerId
+        if (stream.products[productIndex].currentBidder?._id) {
+          const buyerId = stream.products[productIndex].currentBidder._id;
+          req.app.get('io').to(buyerId.toString()).emit('auction_order_error', {
+            success: false,
+            message: 'Error processing auction order',
+            error: orderError.message || 'Unknown error occurred',
+            productName: product.product.name || 'Unknown product'
+          });
+        }
       }
+    } else {
+      // No bidder, just end the bidding
+      console.log('[END_BID] 12. No current bidder, ending bidding without creating order');
+      stream.products[productIndex].bidStatus = 'ongoing';
     }
 
     // Save the stream with the updated product information

@@ -79,6 +79,13 @@ const streamSchema = new mongoose.Schema({
       winningTime: {
         type: Date
       }
+    },
+    orderCreated: {
+      type: Boolean,
+      default: false
+    },
+    orderId: {
+      type: String
     }
   }],
   status: {

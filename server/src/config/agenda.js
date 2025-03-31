@@ -1310,38 +1310,51 @@ agenda.define('bid_timer', async (job) => {
     
     console.log(`[BID_TIMER] Starting 30-second timer for product "${productName}" in stream ${streamId}`);
     
-    // Initialize socket.io from the app
-    const app = require('../app');
-    const io = app.get('io');
+    // Get socket.io instance directly from the socket module
+    const socketManager = require('../socket/socketManager');
+    const io = socketManager.getIO();
+    
+    if (!io) {
+      console.error('[BID_TIMER] Socket.io instance not available, cannot emit timer updates');
+      // Still continue with the timer, but won't emit updates
+    } else {
+      console.log('[BID_TIMER] Successfully got socket.io instance');
+    }
     
     // Duration in seconds
     const duration = 30;
-    
-    // Room to emit timer updates to (stream-specific)
-    const room = `stream_${streamId}`;
     
     // Create and format the time for initial message
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
-      return `${mins.toString().padStart(2, '0')}.${secs.toString().padStart(2, '0')}`;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
     
     // Function to emit timer updates
     const emitTimerUpdate = (secondsLeft) => {
       const formattedTime = formatTime(secondsLeft);
       
-      io.to(room).emit('bid_timer_update', {
-        streamId,
-        productId,
-        secondsLeft,
-        formattedTime,
-        jobId,
-        productIndex: activeProductIndex,
-        productName
-      });
-      
-      console.log(`[BID_TIMER] Emitted timer update: ${formattedTime} seconds left for product "${productName}"`);
+      if (io) {
+        // Create data structure matching frontend expectations
+        const updateData = {
+          streamId,
+          productId,
+          secondsLeft,
+          formattedTime,
+          jobId,
+          productIndex: activeProductIndex,
+          productName,
+          timestamp: new Date()
+        };
+        
+        // Emit to stream_notifications room
+        io.to('stream_notifications').emit('bid_timer_update', updateData);
+        
+        console.log(`[BID_TIMER] Emitted timer update to stream_notifications room: ${formattedTime} seconds left for product "${productName}"`);
+      } else {
+        console.log(`[BID_TIMER] Timer update: ${formattedTime} seconds left (not emitted - no socket connection)`);
+      }
     };
     
     // Start the countdown by emitting the initial value
@@ -1354,13 +1367,22 @@ agenda.define('bid_timer', async (job) => {
         console.log(`[BID_TIMER] Timer reached zero for product "${productName}" in stream ${streamId}`);
         
         // Emit final timer update
-        io.to(room).emit('bid_timer_complete', {
-          streamId,
-          productId,
-          jobId,
-          productIndex: activeProductIndex,
-          productName
-        });
+        if (io) {
+          // Create data structure matching frontend expectations
+          const completeData = {
+            streamId,
+            productId,
+            jobId,
+            productIndex: activeProductIndex,
+            productName,
+            timestamp: new Date()
+          };
+          
+          // Emit to stream_notifications room
+          io.to('stream_notifications').emit('bid_timer_complete', completeData);
+          
+          console.log('[BID_TIMER] Emitted bid_timer_complete event to stream_notifications room');
+        }
         
         // Call the endProductBidding endpoint
         callEndProductBidding();
@@ -1390,7 +1412,9 @@ agenda.define('bid_timer', async (job) => {
         const mockReq = {
           params: { streamId },
           body: { productId, sellerId },
-          app: app,
+          app: {
+            get: (name) => name === 'io' ? io : null
+          },
           user: { id: sellerId },
           get: (name) => name === 'host' ? 'auqli.com' : null
         };
@@ -1402,7 +1426,11 @@ agenda.define('bid_timer', async (job) => {
           },
           json: function(data) {
             this.data = data;
-            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`, data);
+            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`, 
+              data?.product ? { 
+                bidStatus: data.product.bidStatus,
+                hasOrder: !!data.product.orderId 
+              } : 'No product data returned');
             return this;
           }
         };
