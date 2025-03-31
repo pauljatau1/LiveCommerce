@@ -181,16 +181,20 @@ const Wallet = () => {
       return (
         <View
           key={index}
-          className={`flex-row justify-between items-center gap-[4px] p-[12px] ${index + 1 < walletTransactions?.length ? "border-b-[#ccc] border-b-[1px]" : ""}`}
+          className={`flex-row justify-between items-end gap-[12px] p-[12px] ${index + 1 < walletTransactions?.length ? "border-b-[#ccc] border-b-[1px]" : ""}`}
         >
           <View
-            className="items-start justify-between gap-[6px]"
-            style={{ flexBasis: "33%" }}
+            className="items-start justify-between gap-[6px] shrink"
+            // style={{ flexBasis: "33%" }}
           >
-            <Text className="text-[#16783A] text-[12px] font-LexendDecaMedium ">
-              {item.type}
+            <Text
+              className="text-[#fff] text-[12px] font-LexendDeca "
+              numberOfLines={3}
+            >
+              {item.description}
             </Text>
             <Text className="text-white text-[12px] font-LexendDecaMedium ">
+              {item?.type == "debit" && "-"}
               {"₦" +
                 item.amount?.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
@@ -198,19 +202,16 @@ const Wallet = () => {
                 })}
             </Text>
           </View>
-          <Text
-            className="text-white text-[12px] font-LexendDecaMedium text-center"
-            style={{ flexBasis: "33%" }}
-          >
-            {formatDate(item?.createdAt, "MMM DD YYYY, HH:mm:ss")}
-          </Text>
+
           <View
             style={{
-              flexBasis: "33%",
-              alignItems: "center",
+              // flexBasis: "33%",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+              gap: 10,
             }}
           >
-            <View
+            {/* <View
               style={{
                 borderRadius: 6,
                 paddingHorizontal: 8,
@@ -226,7 +227,22 @@ const Wallet = () => {
               >
                 {item.status?.toUpperCase()}
               </Text>
-            </View>
+            </View> */}
+
+            <Text
+              className="text-[#16783A] text-[12px] font-LexendDecaMedium "
+              style={{
+                color: item?.type == "debit" ? "#FF0A0A" : "#16783A",
+              }}
+            >
+              {item.type}
+            </Text>
+            <Text
+              className="text-white text-[10px] font-LexendDecaMedium text-center"
+              style={{ flexBasis: "33%" }}
+            >
+              {formatDate(item?.createdAt, "MMM DD YYYY, HH:mm:ss")}
+            </Text>
           </View>
         </View>
       );
