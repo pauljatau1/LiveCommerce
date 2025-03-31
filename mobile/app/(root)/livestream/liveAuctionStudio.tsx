@@ -1899,29 +1899,6 @@ const LiveAuctionStudio = () => {
                     onClose={() => setShowOrderCreatedNotification(false)}
                 />
             )}
-
-            {showViewers && (
-                <BottomSheet
-                    bgColor="#121212"
-                    childrenStyle="!px-[11px]"
-                    showCloseIcon={false}
-                    title=""
-                    show={showViewers}
-                    snapPoints={["60%"]}
-                    titleColor="!text-white"
-                    onRequestClose={() => setShowViewers(false)}
-                    keyboardBehavior="interactive"
-                >
-                    <StreamViewers 
-                        viewers={detailedViewers}
-                        hostInfo={{
-                            name: storeInfo.name,
-                            avatar: storeInfo.avatar
-                        }}
-                        closeSheet={() => setShowViewers(false)}
-                    />
-                </BottomSheet>
-            )}
         </GestureHandlerRootView>
     );
 };
