@@ -12,6 +12,9 @@ const activeUsers = new Map();
 // Store active auction watchers
 const auctionWatchers = new Map();
 
+// Store the io instance to be reused across modules
+let ioInstance = null;
+
 function initializeSocket(server) {
   console.log('Initializing socket server...');
   const io = socketIO(server, {
@@ -26,6 +29,9 @@ function initializeSocket(server) {
     pingInterval: 25000
   });
 
+  // Save the io instance
+  ioInstance = io;
+  
   // Create a public namespace that doesn't require authentication
   const publicIO = io.of('/public');
   
@@ -1643,4 +1649,16 @@ function initializeSocket(server) {
   return io;
 }
 
-module.exports = initializeSocket; 
+// Add function to get the io instance
+function getIO() {
+  if (!ioInstance) {
+    console.error('Socket.io has not been initialized yet!');
+  }
+  return ioInstance;
+}
+
+// Export both functions
+module.exports = {
+  initializeSocket,
+  getIO
+}; 
