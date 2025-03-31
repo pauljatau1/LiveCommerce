@@ -363,7 +363,7 @@ router.get('/selected-categories',
  *         name: trackingStatus
  *         schema:
  *           type: string
- *           enum: [Pending, Picked-Up, Dispatched, Delivered, Cancelled]
+ *           enum: [Pending, Picked-Up, Dispatched, Delivered, Cancelled,]
  *         description: Filter orders by shipping tracking status (completely case-insensitive, accepts various formats like "picked-up", "pickedUp", "PICKED_UP", etc.)
  *       - in: query
  *         name: hasReturn
@@ -380,12 +380,15 @@ router.get('/selected-categories',
  *         name: page
  *         schema:
  *           type: integer
+ *           minimum: 1
  *           default: 1
  *         description: Page number for pagination
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *           maximum: 100
  *           default: 10
  *         description: Number of orders per page
  *       - in: query
@@ -409,18 +412,21 @@ router.get('/selected-categories',
  *                 pagination:
  *                   type: object
  *                   properties:
- *                     total:
- *                       type: number
- *                       description: Total number of orders matching the filters
- *                     pages:
- *                       type: number
- *                       description: Total number of pages
  *                     currentPage:
- *                       type: number
+ *                       type: integer
  *                       description: Current page number
- *                     limit:
- *                       type: number
- *                       description: Number of orders per page
+ *                     totalPages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *                     totalOrders:
+ *                       type: integer
+ *                       description: Total number of orders matching the filters
+ *                     hasMore:
+ *                       type: boolean
+ *                       description: Whether there are more pages after the current page
+ *                     hasPrevious:
+ *                       type: boolean
+ *                       description: Whether there are previous pages before the current page
  */
 router.get('/orders', 
   authMiddleware.verifyToken, 

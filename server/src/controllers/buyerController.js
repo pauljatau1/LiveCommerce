@@ -706,17 +706,18 @@ exports.getOrders = async (req, res) => {
       filteredOrders = ordersWithReturns.filter(order => !order.returnRequestId);
     }
 
-    // Calculate pagination data
-    const filteredTotal = filteredOrders.length;
-    const totalFiltered = hasReturn || trackingStatus ? filteredTotal : total;
+    // Calculate final count after all filters
+    const totalOrders = hasReturn || trackingStatus ? filteredOrders.length : total;
+    const totalPages = Math.ceil(totalOrders / limitNum);
     
     res.json({
       orders: filteredOrders,
       pagination: {
-        total: totalFiltered,
-        pages: Math.ceil(totalFiltered / limitNum),
         currentPage: pageNum,
-        limit: limitNum
+        totalPages,
+        totalOrders,
+        hasMore: pageNum < totalPages,
+        hasPrevious: pageNum > 1
       }
     });
   } catch (error) {
