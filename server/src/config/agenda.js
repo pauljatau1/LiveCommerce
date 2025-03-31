@@ -1268,7 +1268,11 @@ agenda.define('bid_timer', async (job) => {
           },
           json: function(data) {
             this.data = data;
-            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`, data);
+            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`, 
+              data?.product ? { 
+                bidStatus: data.product.bidStatus,
+                hasOrder: !!data.product.orderId 
+              } : 'No product data returned');
             return this;
           }
         };
