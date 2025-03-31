@@ -1336,7 +1336,7 @@ agenda.define('bid_timer', async (job) => {
       const formattedTime = formatTime(secondsLeft);
       
       if (io) {
-        // Emit to all clients - this matches what the frontend expects
+        // Create data structure matching frontend expectations
         const updateData = {
           streamId,
           productId,
@@ -1344,14 +1344,14 @@ agenda.define('bid_timer', async (job) => {
           formattedTime,
           jobId,
           productIndex: activeProductIndex,
-          productName
+          productName,
+          timestamp: new Date()
         };
         
-        // Direct emit to all clients without room filtering
-        console.log(`[BID_TIMER] Emitting timer update to all clients: ${formattedTime}`);
-        io.emit('bid_timer_update', updateData);
+        // Emit to stream_notifications room
+        io.to('stream_notifications').emit('bid_timer_update', updateData);
         
-        console.log(`[BID_TIMER] Emitted timer update: ${formattedTime} seconds left for product "${productName}"`);
+        console.log(`[BID_TIMER] Emitted timer update to stream_notifications room: ${formattedTime} seconds left for product "${productName}"`);
       } else {
         console.log(`[BID_TIMER] Timer update: ${formattedTime} seconds left (not emitted - no socket connection)`);
       }
@@ -1374,14 +1374,14 @@ agenda.define('bid_timer', async (job) => {
             productId,
             jobId,
             productIndex: activeProductIndex,
-            productName
+            productName,
+            timestamp: new Date()
           };
           
-          // Direct emit to all clients without room filtering
-          console.log(`[BID_TIMER] Emitting timer completion to all clients`);
-          io.emit('bid_timer_complete', completeData);
+          // Emit to stream_notifications room
+          io.to('stream_notifications').emit('bid_timer_complete', completeData);
           
-          console.log('[BID_TIMER] Emitted bid_timer_complete event');
+          console.log('[BID_TIMER] Emitted bid_timer_complete event to stream_notifications room');
         }
         
         // Call the endProductBidding endpoint
