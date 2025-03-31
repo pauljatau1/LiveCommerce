@@ -34,8 +34,8 @@ const paymentOptions = [
 
 const statusColor = {
   completed: { name: "Completed", color: "#66CB9F", bg: "#DEFFEE" },
-  failed: { name: "Completed", color: "#66CB9F", bg: "#DEFFEE" },
-  cancelled: { name: "Completed", color: "#66CB9F", bg: "#DEFFEE" },
+  failed: { name: "Failed", color: "#66CB9F", bg: "#DEFFEE" },
+  cancelled: { name: "Cancelled", color: "#66CB9F", bg: "#DEFFEE" },
 } as any;
 
 const Wallet = () => {

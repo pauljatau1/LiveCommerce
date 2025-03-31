@@ -578,9 +578,9 @@ const CheckoutNow = ({
               <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
                 Protect your orders from theft, damages up to 30 days after
                 receiving it{" "}
-                <Link href={"/"} className="text-[#49A3F6]">
+                {/* <Link href={"/"} className="text-[#49A3F6]">
                   Learn More
-                </Link>
+                </Link> */}
               </Text>
             </View>
 
