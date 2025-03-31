@@ -1324,14 +1324,11 @@ agenda.define('bid_timer', async (job) => {
     // Duration in seconds
     const duration = 30;
     
-    // Room to emit timer updates to (stream-specific)
-    const room = `stream_${streamId}`;
-    
     // Create and format the time for initial message
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
-      return `${mins.toString().padStart(2, '0')}.${secs.toString().padStart(2, '0')}`;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
     
     // Function to emit timer updates
@@ -1339,7 +1336,8 @@ agenda.define('bid_timer', async (job) => {
       const formattedTime = formatTime(secondsLeft);
       
       if (io) {
-        io.to(room).emit('bid_timer_update', {
+        // Emit to all clients - this matches what the frontend expects
+        const updateData = {
           streamId,
           productId,
           secondsLeft,
@@ -1347,7 +1345,11 @@ agenda.define('bid_timer', async (job) => {
           jobId,
           productIndex: activeProductIndex,
           productName
-        });
+        };
+        
+        // Direct emit to all clients without room filtering
+        console.log(`[BID_TIMER] Emitting timer update to all clients: ${formattedTime}`);
+        io.emit('bid_timer_update', updateData);
         
         console.log(`[BID_TIMER] Emitted timer update: ${formattedTime} seconds left for product "${productName}"`);
       } else {
@@ -1366,13 +1368,20 @@ agenda.define('bid_timer', async (job) => {
         
         // Emit final timer update
         if (io) {
-          io.to(room).emit('bid_timer_complete', {
+          // Create data structure matching frontend expectations
+          const completeData = {
             streamId,
             productId,
             jobId,
             productIndex: activeProductIndex,
             productName
-          });
+          };
+          
+          // Direct emit to all clients without room filtering
+          console.log(`[BID_TIMER] Emitting timer completion to all clients`);
+          io.emit('bid_timer_complete', completeData);
+          
+          console.log('[BID_TIMER] Emitted bid_timer_complete event');
         }
         
         // Call the endProductBidding endpoint

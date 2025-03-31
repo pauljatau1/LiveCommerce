@@ -36,6 +36,10 @@ const app = express();
 const server = http.createServer(app);
 socketManager.initializeSocket(server);
 
+// Get the socket.io instance and store it in the app
+const io = socketManager.getIO();
+app.set('io', io);
+
 // Middleware to log requests
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -114,9 +118,6 @@ app.use((err, req, res, next) => {
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
-
-// Store io instance for use in other parts of the application
-app.set('io', socketManager.getIO());
 
 // Add passport middleware
 app.use(passport.initialize());
