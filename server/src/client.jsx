@@ -1,1757 +1,708 @@
-import { useState, useEffect, useRef } from 'react';
-import { Card } from "@/Components/ui/card";
-import { Button } from "@/Components/ui/button";
-import { Input } from "@/Components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
-import { Menu } from 'lucide-react';
-import {
-  PaperclipIcon,
-  SmileIcon,
-  SendHorizontal,
-  MessageSquare,
-  Check,
-  CheckCheck,
+import { 
+  RefreshCcw,
+  DollarSign,
+  Clock,
   Eye,
-  MessageSquarePlus,
-  Search,
-  MoreVertical,
-  ArrowLeft,
-  X,
-  MapPin,
-  Star,
-  ShoppingBag,
-  Banknote,
-  Loader2,
-} from 'lucide-react';
-import { toast } from "sonner";
-import { BASE_URL } from "@/Constants/Server";
-import { io } from "socket.io-client";
-import { useSocket } from "@/Contexts/SocketContext";
-import { useNavigate, useLocation, useOutletContext } from 'react-router-dom';
+  Download,
+  CheckCircle,
+  XCircle,
+  X
+} from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { useEffect, useState, useMemo } from "react"
+import { api } from "@/api/axios"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@/Components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/Components/ui/select";
-import { EmojiPicker } from "@/Components/ui/emoji-picker";
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { Spinner } from "@/components/ui/spinner"
+import { Textarea } from "@/components/ui/textarea"
+import { Pagination } from "@/components/ui/pagination"
 
+/**
+ * @typedef {Object} RefundRequest
+ * @property {string} orderId
+ * @property {string} orderNumber
+ * @property {Object} buyer
+ * @property {string} buyer.id
+ * @property {string} buyer.name
+ * @property {string} buyer.email
+ * @property {Object} seller
+ * @property {string} seller.id
+ * @property {string} seller.name
+ * @property {string} seller.email
+ * @property {number} amount
+ * @property {string} paymentMethod
+ * @property {Object} refundRequest
+ * @property {string} refundRequest.status
+ * @property {string} refundRequest.requestedAt
+ * @property {string} refundRequest.requestedBy
+ * @property {string} refundRequest.reason
+ * @property {string} createdAt
+ */
 
-// Helper function to format message timestamps
-const formatMessageTime = (timestamp) => {
-  if (!timestamp) return '';
+/**
+ * @typedef {Object} PaginationInfo
+ * @property {number} total
+ * @property {number} pages
+ * @property {number} currentPage
+ * @property {number} limit
+ */
 
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffInHours = (now - date) / (1000 * 60 * 60);
+function RefundRequests() {
+  const [refundRequests, setRefundRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [processingAction, setProcessingAction] = useState(false);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    pages: 0,
+    currentPage: 1,
+    limit: 10
+  });
+  const [statusFilter, setStatusFilter] = useState("");
 
-  // If message is from today, show time
-  if (diffInHours < 24) {
-    return date.toLocaleTimeString([], {
+  // Fetch refund requests
+  const fetchRefundRequests = async (page = 1, status = "") => {
+    setLoading(true);
+    try {
+      const query = new URLSearchParams();
+      query.append('page', page.toString());
+      query.append('limit', pagination.limit.toString());
+      if (status) query.append('status', status);
+      
+      const response = await api.get(`/api/order/refund-requests?${query.toString()}`);
+      setRefundRequests(response.data.refundRequests);
+      setPagination(response.data.pagination);
+    } catch (error) {
+      console.error("Failed to fetch refund requests:", error);
+      toast.error("Failed to load refund requests");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchRefundRequests(pagination.currentPage, statusFilter);
+  }, [pagination.currentPage, statusFilter]);
+
+  // Calculate statistics
+  const totalRequests = pagination.total;
+  const pendingRequests = refundRequests.filter(req => req.refundRequest.status === "pending").length;
+  const totalRefundAmount = refundRequests.reduce((sum, req) => 
+    req.refundRequest.status === "approved" ? sum + req.amount : sum, 0);
+
+  // Helper function to handle refund approval
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
+    
+    setProcessingAction(true);
+    try {
+      await api.post(`/api/order/${selectedRequest.orderId}/process-refund`, {
+        status: 'approved',
+        notes: notes
+      });
+      
+      // Refresh the list
+      await fetchRefundRequests(pagination.currentPage, statusFilter);
+      toast.success("Refund request approved successfully");
+      closeApproveModal();
+    } catch (error) {
+      console.error("Failed to approve refund:", error);
+      toast.error("Failed to approve refund request");
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  // Helper function to handle refund rejection
+  const handleReject = async () => {
+    if (!selectedRequest) return;
+    
+    setProcessingAction(true);
+    try {
+      await api.post(`/api/order/${selectedRequest.orderId}/process-refund`, {
+        status: 'rejected',
+        notes: notes
+      });
+      
+      // Refresh the list
+      await fetchRefundRequests(pagination.currentPage, statusFilter);
+      toast.success("Refund request rejected successfully");
+      closeRejectModal();
+    } catch (error) {
+      console.error("Failed to reject refund:", error);
+      toast.error("Failed to reject refund request");
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
-  }
-
-  // If message is from yesterday, show "Yesterday"
-  if (diffInHours < 48) {
-    return 'Yesterday';
-  }
-
-  // If message is from this week, show day name
-  if (diffInHours < 168) {
-    return date.toLocaleDateString([], {
-      weekday: 'long'
-    });
-  }
-
-  // Otherwise show full date
-  return date.toLocaleDateString([], {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-};
-
-// Move QuickReplyDialog outside of ChatInterface
-const QuickReplyDialog = ({
-  open,
-  onOpenChange,
-  title,
-  setTitle,
-  content,
-  setContent,
-  onCreateReply,
-}) => (
-  <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-[425px]">
-      <DialogHeader>
-        <DialogTitle>Create Quick Reply</DialogTitle>
-      </DialogHeader>
-      <div className="grid gap-4 py-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Title</label>
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="E.g., Greeting, Thank you, etc."
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Message Content</label>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Type your message template..."
-            className="w-full min-h-[100px] p-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/20"
-          />
-        </div>
-      </div>
-      <div className="flex justify-end gap-3">
-        <Button
-          variant="outline"
-          onClick={() => {
-            onOpenChange(false);
-            setTitle("");
-            setContent("");
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={onCreateReply}
-          className="bg-green-600 text-white hover:bg-green-700"
-          disabled={!title.trim() || !content.trim()}
-        >
-          Create Reply
-        </Button>
-      </div>
-    </DialogContent>
-  </Dialog>
-);
-
-const OrderMessage = ({ order }) => {
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN'
-    }).format(amount);
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      processing: 'bg-blue-100 text-blue-800',
-      shipped: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+  // Helper function to get status style
+  const getStatusStyle = (status) => {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'bg-green-100 text-green-700';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'rejected':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-blue-100 text-blue-700';
+    }
+  };
+
+  const getStatusDot = (status) => {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'bg-green-600';
+      case 'pending':
+        return 'bg-yellow-600';
+      case 'rejected':
+        return 'bg-red-600';
+      default:
+        return 'bg-blue-600';
+    }
+  };
+
+  /**
+   * Helper function to open details modal
+   * @param {RefundRequest} request
+   */
+  const openDetailsModal = (request) => {
+    setSelectedRequest(request);
+    setShowDetailsModal(true);
+  };
+
+  // Helper function to close details modal
+  const closeDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedRequest(null);
+  };
+
+  /**
+   * Helper function to open approve modal
+   * @param {RefundRequest} request
+   */
+  const openApproveModal = (request) => {
+    setSelectedRequest(request);
+    setNotes("");
+    setShowApproveModal(true);
+  };
+
+  // Helper function to close approve modal
+  const closeApproveModal = () => {
+    setShowApproveModal(false);
+    setSelectedRequest(null);
+    setNotes("");
+  };
+
+  /**
+   * Helper function to open reject modal
+   * @param {RefundRequest} request
+   */
+  const openRejectModal = (request) => {
+    setSelectedRequest(request);
+    setNotes("");
+    setShowRejectModal(true);
+  };
+
+  // Helper function to close reject modal
+  const closeRejectModal = () => {
+    setShowRejectModal(false);
+    setSelectedRequest(null);
+    setNotes("");
+  };
+
+  /**
+   * Helper function to handle page change
+   * @param {number} page
+   */
+  const handlePageChange = (page) => {
+    if (page < 1 || page > pagination.pages) return;
+    fetchRefundRequests(page, statusFilter);
+  };
+
+  /**
+   * Export refund requests as CSV file
+   */
+  const exportToCSV = () => {
+    // Only export if we have data
+    if (refundRequests.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+
+    try {
+      // Create CSV headers
+      const headers = [
+        "Order ID",
+        "Customer",
+        "Seller",
+        "Amount",
+        "Payment Method",
+        "Reason",
+        "Request Date",
+        "Status"
+      ].join(",");
+
+      // Create CSV rows
+      const rows = refundRequests.map(request => [
+        `"${request.orderNumber}"`,
+        `"${request.buyer.name}"`,
+        `"${request.seller.name}"`,
+        `"₦${request.amount.toLocaleString()}"`,
+        `"${request.paymentMethod || 'N/A'}"`,
+        `"${(request.refundRequest.reason || 'No reason provided').replace(/"/g, '""')}"`,
+        `"${formatDate(request.refundRequest.requestedAt)}"`,
+        `"${request.refundRequest.status.toUpperCase()}"`
+      ].join(","));
+
+      // Combine headers and rows
+      const csvContent = [headers, ...rows].join("\n");
+
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `refund-requests-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      
+      // Trigger download and clean up
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Export successful");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export data");
+    }
   };
 
   return (
-    <div className="flex flex-col space-y-3 bg-white rounded-lg border p-4 max-w-sm">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-900">Order Details</h3>
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-        </span>
-      </div>
-      
-      <div className="space-y-3">
-        {order.items.map((item, index) => (
-          <div key={index} className="flex items-center space-x-3 border-b pb-3 last:border-0">
-            <div className="h-16 w-16 flex-shrink-0">
-              <img 
-                src={item.image} 
-                alt={item.name}
-                className="h-full w-full object-cover rounded-md"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-              <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-              <p className="text-sm font-medium text-gray-900">{formatCurrency(item.price)}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-t pt-3 space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Shipping Fee:</span>
-          <span className="font-medium">{formatCurrency(order.shippingFee)}</span>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-white">Refund Requests</h2>
+          <p className="text-muted-foreground">Manage buyer refund requests</p>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Total Amount:</span>
-          <span className="font-medium">{formatCurrency(order.totalAmount)}</span>
-        </div>
-      </div>
-
-      <div className="border-t pt-3">
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Shipping Details</h4>
-        {order.tracking && (
-          <div className="mb-3 space-y-1">
-            <div>
-              <span className="text-sm text-gray-500">Tracking Number: </span>
-              <span className="text-sm font-medium">{order.tracking.number}</span>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Carrier: </span>
-              <span className="text-sm font-medium">{order.tracking.carrier}</span>
-            </div>
-          </div>
-        )}
-        <div className="text-sm text-gray-500 space-y-1">
-         
-          <p>{order.delivery_address?.line1}</p>
-          {order.delivery_address?.city && <p>{order.delivery_address?.city}</p>}
-          <p>
-            {order.delivery_address?.state}
-            {order.delivery_address?.zip && `, ${order.delivery_address?.zip}`}
-          </p>
-          <p>{order.delivery_address?.country}</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default function ChatInterface() {
-  const { setHeaderName, setNavName } = useOutletContext()
-  const [conversations, setConversations] = useState([]);
-  const [currentConversation, setCurrentConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sellerProducts, setSellerProducts] = useState([]);
-  const [sellerId, setSellerId] = useState(null);
-  const [isSending, setIsSending] = useState(false);
-  const messagesEndRef = useRef(null);
-  const socket = useSocket();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [customers, setCustomers] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [newMessageOpen, setNewMessageOpen] = useState(false);
-  const [initialMessage, setInitialMessage] = useState("");
-  const [showChatList, setShowChatList] = useState(true);
-  const [showQuickTools, setShowQuickTools] = useState(false);
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [buyerDetails, setBuyerDetails] = useState(null);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const messagesContainerRef = useRef(null);
-  const [quickReplies, setQuickReplies] = useState([]);
-  const [newQuickReplyOpen, setNewQuickReplyOpen] = useState(false);
-  const [quickReplyTitle, setQuickReplyTitle] = useState("");
-  const [quickReplyContent, setQuickReplyContent] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
-  const [totalPages, setTotalPages] = useState(1);
-
-  useEffect(() => {
-    setHeaderName('Messages')
-    setNavName('')
-  }, [])
-
-  // Fetch conversations
-  useEffect(() => {
-    const fetchConversations = async () => {
-      setIsLoadingConversations(true);
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        const response = await fetch(`${BASE_URL}/conversations`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        const data = await response.json();
-        setConversations(data.conversations);
-      } catch (error) {
-        console.error('Error fetching conversations:', error);
-        toast.error('Failed to load conversations');
-      } finally {
-        setIsLoadingConversations(false);
-      }
-    };
-    fetchConversations();
-  }, []);
-
-  // Fetch messages when conversation changes
-  useEffect(() => {
-    if (!currentConversation) return;
-    console.log('Conversation changed, fetching messages');
-    // Reset pagination state when conversation changes
-    setCurrentPage(1);
-    setHasMoreMessages(true);
-    setMessages([]);
-    fetchMessages(1);
-  }, [currentConversation]);
-
-  // Create a more robust scrollToBottom function with direct DOM manipulation
-  const scrollToBottom = (immediate = true) => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      
-      // Use a more aggressive approach with multiple checks
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 0);
-      
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 50);
-      
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 150);
-    }
-  };
-
-  // Update the fetchMessages function to handle pagination
-  const fetchMessages = async (page = 1) => {
-    if (!currentConversation) return;
-    
-    const conversationId = currentConversation._id;
-    
-    if (page === 1) {
-      setIsLoadingMessages(true);
-    } else {
-      setLoadingMoreMessages(true);
-    }
-    
-    console.log('Fetching messages for conversation:', conversationId, 'page:', page);
-
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(
-        `${BASE_URL}/messages/${conversationId}?page=${page}&limit=20`,
-        {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        }
-      );
-      const data = await response.json();
-      console.log('Received messages:', data.messages);
-
-      // Only update if we're still on the same conversation
-      if (currentConversation?._id === conversationId) {
-        // Keep messages in their API-returned order (newest first)
-        if (page === 1) {
-          // First page, just set the messages
-          setMessages(data.messages || []);
-        } else {
-          // Additional pages, append to existing messages while maintaining order (newest first)
-          setMessages(prevMessages => [...prevMessages, ...data.messages]);
-        }
-        
-        // Update pagination state
-        setCurrentPage(data.pagination.currentPage);
-        setTotalPages(data.pagination.totalPages);
-        setHasMoreMessages(data.pagination.hasMore);
-        
-        // If it's the first page, scroll to bottom
-        if (page === 1) {
-          scrollToBottom(true);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
-    } finally {
-      // Only update loading state if we're still on the same conversation
-      if (currentConversation?._id === conversationId) {
-        if (page === 1) {
-          setIsLoadingMessages(false);
-        } else {
-          setLoadingMoreMessages(false);
-        }
-        setInitialLoad(false);
-      }
-    }
-  };
-
-  // Add scroll handler to load more messages
-  const handleScroll = () => {
-    if (messagesContainerRef.current && !loadingMoreMessages && hasMoreMessages) {
-      const { scrollTop } = messagesContainerRef.current;
-      
-      // When user scrolls close to the top, load more messages
-      if (scrollTop < 100) {
-        const nextPage = currentPage + 1;
-        if (nextPage <= totalPages) {
-          fetchMessages(nextPage);
-        }
-      }
-    }
-  };
-
-  // Add effect to handle scroll events
-  useEffect(() => {
-    const messagesContainer = messagesContainerRef.current;
-    if (messagesContainer) {
-      messagesContainer.addEventListener('scroll', handleScroll);
-      return () => {
-        messagesContainer.removeEventListener('scroll', handleScroll);
-      };
-    }
-  }, [messagesContainerRef.current, loadingMoreMessages, hasMoreMessages, currentPage, totalPages]);
-
-  // Add an additional effect specifically for initial load
-  useEffect(() => {
-    if (!isLoadingMessages && currentConversation && messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [isLoadingMessages, currentConversation]);
-
-  // Add this effect to mark messages as read when opening a conversation
-  useEffect(() => {
-    const markConversationAsRead = async () => {
-      if (!currentConversation) return;
-
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        await fetch(`${BASE_URL}/conversations/${currentConversation._id}/read`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-
-        // Update local conversations list to remove unread count
-        setConversations(prev =>
-          prev.map(conv =>
-            conv._id === currentConversation._id
-              ? { ...conv, unreadCount: 0 }
-              : conv
-          )
-        );
-      } catch (error) {
-        console.error('Error marking conversation as read:', error);
-      }
-    };
-
-    markConversationAsRead();
-  }, [currentConversation]);
-
-  // Update the socket effect to properly handle real-time messages
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('receive_message', (newMessage) => {
-      console.log('Socket: Received new message:', newMessage);
-      
-      // Handle the message object if it's wrapped
-      const messageData = newMessage.message || newMessage;
-
-      // Update messages if the message belongs to current conversation
-      if (messageData.conversation === currentConversation?._id) {
-        // Add new messages at the beginning (newest first)
-        setMessages(prev => [messageData, ...prev]);
-        
-        // Force immediate scroll to bottom for new messages
-        scrollToBottom(true);
-      }
-
-      // Update conversations list
-      setConversations(prev =>
-        prev.map(conv =>
-          conv._id === messageData.conversation
-            ? {
-                ...conv,
-                lastMessage: {
-                  content: messageData.content,
-                  createdAt: messageData.createdAt
-                },
-                // Only increment unread count if not currently viewing this conversation
-                unreadCount: currentConversation?._id === conv._id 
-                  ? 0 
-                  : (conv.unreadCount || 0) + 1
-              }
-            : conv
-        )
-      );
-    });
-
-    return () => {
-      socket.off('receive_message');
-    };
-  }, [socket, currentConversation]);
-
-  // Update the handleSendMessage function to work with the new order
-  const handleSendMessage = async () => {
-    if (!messageInput.trim()) {
-      toast.error("Please enter a message");
-      return;
-    }
-    if (!currentConversation?.participant?.id) {
-      toast.error("Please select a conversation first");
-      return;
-    }
-
-    setIsSending(true);
-    const tempId = Date.now().toString();
-    const newMessageContent = messageInput;
-    setMessageInput("");
-
-    // Create temporary message for immediate display
-    const tempMessage = {
-      _id: tempId,
-      sender: {
-        model: 'Seller',
-        id: sellerId,
-      },
-      content: newMessageContent,
-      messageType: 'text',
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDelivered: false,
-      conversation: currentConversation._id,
-    };
-
-    console.log('Adding temporary message:', tempMessage);
-
-    // Add temporary message at the beginning of the array (newest first)
-    setMessages(prev => [tempMessage, ...prev]);
-
-    // Force immediate scroll to bottom after adding temp message
-    scrollToBottom(true);
-
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
-      if (!sellerToken) {
-        throw new Error('Authentication token not found');
-      }
-
-      const response = await fetch(`${BASE_URL}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sellerToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          recipientId: currentConversation.participant.id,
-          recipientModel: currentConversation.participant.model || 'Buyer',
-          content: newMessageContent
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
-      const serverResponse = await response.json();
-      console.log('Received server message:', serverResponse);
-
-      // Extract the actual message from the response
-      const serverMessage = serverResponse.message;
-
-      // Update messages by replacing temp message
-      setMessages(prev => prev.map(msg =>
-        msg._id === tempId ? serverMessage : msg
-      ));
-
-      // Update conversations list
-      setConversations(prev =>
-        prev.map(conv =>
-          conv._id === currentConversation._id
-            ? {
-                ...conv,
-                lastMessage: {
-                  content: newMessageContent,
-                  createdAt: new Date().toISOString()
-                }
-              }
-            : conv
-        )
-      );
-
-      console.log('Emitting socket event for new message');
-      // Emit socket event for real-time delivery
-      socket.emit('new_message', {
-        conversationId: currentConversation._id,
-        message: serverMessage
-      });
-
-      // Ensure scroll to bottom after server confirmation
-      scrollToBottom(true);
-
-    } catch (error) {
-      console.error('Error in handleSendMessage:', error);
-      // Remove temporary message if send failed
-      setMessages(prev =>
-        prev.filter(msg => msg._id !== tempId)
-      );
-      setMessageInput(newMessageContent); // Restore message input
-      toast.error(error.message || "Failed to send message. Please try again.");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  // Updated file upload with newest-first order
-  const handleFileUpload = async (file) => {
-    if (!file || !currentConversation) return;
-
-    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-      toast.error("Please select a valid image file (JPEG, PNG, or GIF)");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size should be less than 5MB");
-      return;
-    }
-
-    const tempId = Date.now().toString();
-    const tempUrl = URL.createObjectURL(file);
-
-    // Create temporary message for immediate display
-    const tempMessage = {
-      _id: tempId,
-      sender: {
-        model: 'Seller',
-        id: sellerId,
-      },
-      content: 'Sending image...',
-      messageType: 'image',
-      media: [{ url: tempUrl }],
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDelivered: false,
-      conversation: currentConversation._id,
-    };
-
-    // Add message to UI immediately at the beginning (newest first)
-    setMessages(prev => [tempMessage, ...(prev || [])]);
-    
-    // Force immediate scroll to bottom
-    scrollToBottom(true);
-
-    const formData = new FormData();
-    formData.append('recipientId', currentConversation.participant.id);
-    formData.append('recipientModel', currentConversation.participant.model || 'Buyer');
-    formData.append('messageType', 'image');
-    formData.append('content', 'Image message');
-    formData.append('media', file);
-
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/messages/media`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sellerToken}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload image');
-      }
-
-      const serverResponse = await response.json();
-      const serverMessage = serverResponse.message || serverResponse;
-
-      // Replace temporary message with server response
-      setMessages(prev =>
-        prev.map(msg =>
-          msg._id === tempId
-            ? {
-                ...serverMessage,
-                conversation: currentConversation._id,
-                sender: {
-                  model: 'Seller',
-                  id: sellerId,
-                }
-              }
-            : msg
-        )
-      );
-
-      // Update conversations list
-      setConversations(prev =>
-        prev.map(conv =>
-          conv._id === currentConversation._id
-            ? {
-                ...conv,
-                lastMessage: {
-                  content: 'Image message',
-                  createdAt: new Date().toISOString()
-                }
-              }
-            : conv
-        )
-      );
-
-      // Emit socket event for real-time delivery
-      socket.emit('new_message', {
-        conversationId: currentConversation._id,
-        message: serverMessage
-      });
-
-      // Force immediate scroll to bottom after server confirmation
-      scrollToBottom(true);
-
-      toast.success("Image sent successfully");
-    } catch (error) {
-      // Remove temporary message if upload failed
-      setMessages(prev =>
-        prev.filter(msg => msg._id !== tempId)
-      );
-      console.error('Error uploading image:', error);
-      toast.error("Failed to send image. Please try again.");
-    }
-  };
-
-  // Updated handleSendProduct with newest-first order
-  const handleSendProduct = async (product) => {
-    if (!currentConversation) return;
-
-    const tempId = Date.now().toString();
-
-    // Create temporary message for immediate display
-    const tempMessage = {
-      _id: tempId,
-      sender: {
-        model: 'Seller',
-        id: sellerId,
-      },
-      content: `Product: ${product.name} - ${product.price}`,
-      messageType: 'product',
-      product: product,
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isDelivered: false,
-      conversation: currentConversation._id,
-    };
-
-    // Add message to UI immediately at the beginning (newest first)
-    setMessages(prev => [tempMessage, ...(prev || [])]);
-    
-    // Force immediate scroll to bottom
-    scrollToBottom(true);
-
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/messages/product`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sellerToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          recipientId: currentConversation.participant.id,
-          recipientModel: currentConversation.participant.model || 'Buyer',
-          productId: product._id,
-          content: `Check out this product: ${product.name}`
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send product message');
-      }
-
-      const serverResponse = await response.json();
-      const serverMessage = serverResponse.message || serverResponse;
-
-      // Replace temporary message with server response
-      setMessages(prev =>
-        prev.map(msg =>
-          msg._id === tempId
-            ? {
-                ...serverMessage,
-                conversation: currentConversation._id,
-                sender: {
-                  model: 'Seller',
-                  id: sellerId,
-                }
-              }
-            : msg
-        )
-      );
-
-      // Update conversations list
-      setConversations(prev =>
-        prev.map(conv =>
-          conv._id === currentConversation._id
-            ? {
-                ...conv,
-                lastMessage: {
-                  content: `Check out this product: ${product.name}`,
-                  createdAt: new Date().toISOString()
-                }
-              }
-            : conv
-        )
-      );
-
-      // Emit socket event for real-time delivery
-      socket.emit('new_message', {
-        conversationId: currentConversation._id,
-        message: serverMessage
-      });
-
-      toast.success("Product shared successfully");
-    } catch (error) {
-      // Remove temporary message if send failed
-      setMessages(prev =>
-        prev.filter(msg => msg._id !== tempId)
-      );
-      console.error('Error sending product message:', error);
-      toast.error("Failed to share product. Please try again.");
-    }
-  };
-
-  // Update chat list rendering with new styling
-  const renderChatList = () => (
-    <ScrollArea className="h-full">
-      {isLoadingConversations ? (
-        <div className="flex flex-col items-center justify-center h-40">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
-          <p className="text-sm text-gray-500">Loading conversations...</p>
-        </div>
-      ) : conversations && conversations.length > 0 ? (
-        conversations.map((conv) => (
-          <div
-            key={conv._id}
-            className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b ${
-              currentConversation?._id === conv._id ? 'bg-green-50' : ''
-            }`}
-            onClick={async () => {
-              // First clear the current messages to avoid showing wrong messages
-              setMessages([]);
-              setIsLoadingMessages(true);
-              
-              // Then set the current conversation
-              setCurrentConversation(conv);
-              
-              // Update URL state for history
-              navigate('/dashboard/messages', {
-                state: {
-                  conversationId: conv._id,
-                  participantId: conv.participant.id,
-                  participantName: conv.participant.name
-                },
-                replace: true // Use replace to avoid navigation history stacking
-              });
-
-              // Manually fetch messages for this specific conversation
-              try {
-                const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-                const response = await fetch(
-                  `${BASE_URL}/messages/${conv._id}?page=1&limit=20`,
-                  {
-                    headers: {
-                      'Authorization': `Bearer ${sellerToken}`
-                    }
-                  }
-                );
-                const data = await response.json();
-                
-                // Only update if we're still on the same conversation
-                if (currentConversation?._id === conv._id) {
-                  // Get messages in API-returned order (newest first)
-                  setMessages(data.messages || []);
-                  
-                  // Update pagination state
-                  setCurrentPage(data.pagination.currentPage);
-                  setTotalPages(data.pagination.totalPages);
-                  setHasMoreMessages(data.pagination.hasMore);
-                  
-                  // Force immediate scroll to bottom after loading messages
-                  scrollToBottom(true);
-                }
-              } catch (error) {
-                console.error('Error fetching messages:', error);
-                toast.error('Failed to load messages');
-              } finally {
-                if (currentConversation?._id === conv._id) {
-                  setIsLoadingMessages(false);
-                }
-              }
-            }}
+        <div className="flex gap-4">
+          <select 
+            className="p-2 rounded-md bg-background"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <div className="flex items-start gap-3">
-              <div className="relative">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
-                  <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
-                </Avatar>
-                {/* Online status indicator */}
-                <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                  conv.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
-                }`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    {conv.participant.name}
-                  </h3>
-                  <span className="text-xs text-gray-500">
-                    {formatMessageTime(conv.lastMessage.createdAt)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-sm text-gray-600 truncate">
-                    {conv.lastMessage.content.slice(0, 22)}{conv.lastMessage.content.length > 22 ? '...' : ''}
-                  </p>
-                  {conv.unreadCount > 0 && (
-                    <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                      {conv.unreadCount}
-                    </span>
-                  )}
-                </div>
-                {/* Last active status */}
-                {!conv.participant.isOnline && conv.participant.lastActive && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    Last active {formatLastActive(conv.participant.lastActive)}
-                  </p>
-                )}
-              </div>
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <Button variant="outline" onClick={() => fetchRefundRequests(1, statusFilter)}>
+            <RefreshCcw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={exportToCSV} disabled={loading || refundRequests.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
+      </div>
+
+      {/* Refund Stats */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-primary/10 p-3 rounded-lg">
+              <RefreshCcw className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm">Total Requests</p>
+              <h3 className="text-2xl font-bold">{totalRequests}</h3>
             </div>
           </div>
-        ))
-      ) : (
-        <div className="flex flex-col items-center justify-center h-full p-4 text-gray-500">
-          <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
-          <p className="text-sm">No conversations yet</p>
-        </div>
-      )}
-    </ScrollArea>
-  );
-
-  // Empty state component
-  const EmptyState = () => (
-    <div className="flex-1 flex flex-col items-center justify-center bg-white">
-      <MessageSquare className="h-16 w-16 text-gray-300 mb-4" />
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Conversation Selected</h3>
-      <p className="text-gray-500">Select a conversation from the list to start messaging</p>
-    </div>
-  );
-
-  // Add helper to determine if mobile view
-  const isMobileView = () => window.innerWidth < 768;
-
-  // Update useEffect to handle mobile navigation
-  useEffect(() => {
-    if (currentConversation && isMobileView()) {
-      setShowChatList(false);
-    }
-  }, [currentConversation]);
-
-  // Add effect to ensure message input is visible on conversation change
-  useEffect(() => {
-    if (currentConversation) {
-      // Add a small timeout to allow the DOM to update
-      setTimeout(() => {
-        // Ensure the message container is scrolled to the bottom
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
+        </Card>
         
-        // Ensure the message input is visible by scrolling the entire view if needed
-        const messageInput = document.querySelector('.message-input-container');
-        if (messageInput) {
-          messageInput.scrollIntoView({ behavior: 'auto', block: 'end' });
-        }
-      }, 100);
-    }
-  }, [currentConversation]);
-
-  // Add back button component for mobile
-  const BackButton = () => (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="md:hidden"
-      onClick={() => {
-        setShowChatList(true);
-        setCurrentConversation(null);
-      }}
-    >
-      <ArrowLeft className="h-4 w-4 mr-2" />
-      Back
-    </Button>
-  );
-
-  // Messages rendering with infinite scroll support
-  const renderMessages = () => (
-    <div 
-      ref={messagesContainerRef}
-      className="flex-1 p-4 overflow-y-auto"
-    >
-      {isLoadingMessages ? (
-        <div className="flex flex-col items-center justify-center h-40">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
-          <p className="text-sm text-gray-500">Loading messages...</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Loading indicator for more messages */}
-          {loadingMoreMessages && (
-            <div className="flex justify-center py-2">
-              <Loader2 className="h-5 w-5 animate-spin text-green-600" />
+        <Card className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-yellow-500/10 p-3 rounded-lg">
+              <Clock className="h-6 w-6 text-yellow-500" />
             </div>
-          )}
-          
-          {messages && messages.length > 0 ? (
-            /* Display messages in reverse order (oldest first, newest last) */
-            [...messages].reverse().map((message) => {
-              if (!message || !message.sender) return null;
-              const isSeller = message.sender?.model === 'Seller';
+            <div>
+              <p className="text-muted-foreground text-sm">Pending Requests</p>
+              <h3 className="text-2xl font-bold">{pendingRequests}</h3>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-green-500/10 p-3 rounded-lg">
+              <DollarSign className="h-6 w-6 text-green-500" />
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm">Total Refunded</p>
+              <h3 className="text-2xl font-bold">₦{totalRefundAmount.toLocaleString()}</h3>
+            </div>
+          </div>
+        </Card>
+      </div>
 
-              return (
-                <div
-                  key={message._id}
-                  className={`flex ${isSeller ? 'justify-end' : 'justify-start'}`}
-                >
-                  {!isSeller && (
-                    <Avatar className="h-8 w-8 mr-2 mt-1">
-                      <AvatarImage src={currentConversation?.participant?.avatar || "/placeholder.svg"} />
-                      <AvatarFallback>{currentConversation?.participant?.name?.[0]}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div
-                    className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                      isSeller
-                        ? 'bg-green-100 text-gray-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {message.messageType === 'image' && message.media?.length > 0 && (
-                      <img
-                        src={message.media[0].url}
-                        alt="Message attachment"
-                        className="max-w-full rounded-lg mb-2"
-                        onLoad={() => {
-                          if (messagesContainerRef.current) {
-                            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-                          }
-                        }}
-                      />
-                    )}
-
-                    {message.messageType === 'product' && message.product && (
-                      <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
-                        <img
-                          src={message.product.image}
-                          alt={message.product.name}
-                          className="w-full h-24 object-cover rounded-md"
-                          onLoad={() => {
-                            if (messagesContainerRef.current) {
-                              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-                            }
-                          }}
-                        />
-                        <h4 className="text-sm font-medium mt-2">{message.product.name}</h4>
-                        <p className="text-sm font-medium text-green-600 mt-1">
-                          ₦ {message.product.price.toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-
-                    {message.messageType === 'order' && message.order && (
-                      <OrderMessage order={message.order} />
-                    )}
-
-                    <p className="text-sm">{message.content}</p>
-
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="text-[10px] text-gray-500">
-                        {formatMessageTime(message.createdAt)}
+      {/* Refund Requests Table */}
+      <Card className="overflow-hidden">
+        <div className="p-6 bg-card">
+          <h3 className="font-medium">Recent Refund Requests</h3>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Reason</TableHead>
+              <TableHead>Request Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-20">
+                  <div className="flex justify-center">
+                    <Spinner />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : refundRequests.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-10">
+                  No refund requests found
+                </TableCell>
+              </TableRow>
+            ) : (
+              refundRequests.map((request) => (
+                <TableRow key={request.orderId}>
+                  <TableCell className="font-medium">{request.orderNumber}</TableCell>
+                  <TableCell>{request.buyer.name}</TableCell>
+                  <TableCell>₦{request.amount.toLocaleString()}</TableCell>
+                  <TableCell className="max-w-[200px] truncate">
+                    {request.refundRequest.reason || "No reason provided"}
+                  </TableCell>
+                  <TableCell>{formatDate(request.refundRequest.requestedAt)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <div className={`h-2 w-2 rounded-full ${getStatusDot(request.refundRequest.status)} mr-2`}></div>
+                      <span className={`px-2 py-1 rounded text-xs ${getStatusStyle(request.refundRequest.status)}`}>
+                        {request.refundRequest.status.toUpperCase()}
                       </span>
-                      {isSeller && (
-                        <span className="text-gray-400">
-                          {message.isRead ? 
-                            <CheckCheck className="h-3 w-3" /> : 
-                            <Check className="h-3 w-3" />
-                          }
-                        </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => openDetailsModal(request)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {request.refundRequest.status === "pending" && (
+                        <>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-100"
+                            onClick={() => openApproveModal(request)}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-100"
+                            onClick={() => openRejectModal(request)}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="flex items-center justify-center h-full text-sm text-gray-500">
-              Start the conversation!
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      )}
-    </div>
-  );
-
-  // Update Quick Tools with improved styling
-  const renderQuickTools = () => (
-    <div className={`
-      ${showQuickTools ? 'translate-x-0' : 'translate-x-full'}
-      md:translate-x-0
-      transition-transform
-      fixed md:relative
-      right-0 top-0 bottom-0
-      md:right-auto md:top-auto md:bottom-auto
-      w-[280px]
-      border-l bg-white
-      z-50
-      md:flex
-      flex-col
-    `}>
-      <Tabs defaultValue="products" className="flex-1 flex flex-col">
-        <TabsList className="w-full border-b p-0">
-          <TabsTrigger value="products" className="flex-1 rounded-none text-sm">
-            Products
-          </TabsTrigger>
-          <TabsTrigger value="replies" className="flex-1 rounded-none text-sm">
-            Quick Replies
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="products" className="flex-1 m-0 p-0">
-          <ScrollArea className="h-full">
-            <div className="p-3 space-y-2">
-              {sellerProducts.map((product) => (
-                <Card key={product._id} className="p-2 hover:shadow-sm transition-shadow border rounded-md">
-                  <div className="flex gap-2">
-                    <img
-                      src={product.images[0]?.url}
-                      alt={product.name}
-                      className="w-12 h-12 object-cover rounded-md"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-medium text-gray-900 truncate">{product.name.length > 30 ? `${product.name.substring(0, 30)}...` : product.name}</h4>
-                      <p className="text-xs text-gray-600 mt-0.5">
-                        {new Intl.NumberFormat('en-NG', {
-                          style: 'currency',
-                          currency: 'NGN'
-                        }).format(product.price)}
-                      </p>
-                      <div className="flex gap-1 mt-1">
-                        <Button
-                          size="sm"
-                          className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
-                          onClick={() => handleSendProduct(product)}
-                          disabled={!currentConversation}
-                        >
-                          Send
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent value="replies" className="flex-1 p-4 m-0">
-          <QuickReplyDialog 
-            open={newQuickReplyOpen}
-            onOpenChange={setNewQuickReplyOpen}
-            title={quickReplyTitle}
-            setTitle={setQuickReplyTitle}
-            content={quickReplyContent}
-            setContent={setQuickReplyContent}
-            onCreateReply={handleCreateQuickReply}
-          />
-          {quickReplies.length > 0 ? (
-            <ScrollArea className="h-full">
-              <div className="space-y-3">
-                {quickReplies.map((reply) => (
-                  <Card key={reply.id} className="p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="text-sm font-medium">{reply.title}</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => handleDeleteQuickReply(reply.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">{reply.content}</p>
-                    <Button
-                      size="sm"
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      onClick={() => handleSendQuickReply(reply.content)}
-                      disabled={!currentConversation}
-                    >
-                      Use Reply
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
-          ) : (
-            <div className="text-center py-8">
-              <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No quick replies available yet.</p>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="p-4 flex justify-center">
+            <Pagination>
               <Button 
                 variant="outline" 
-                size="sm" 
-                className="mt-4"
-                onClick={() => setNewQuickReplyOpen(true)}
+                size="sm"
+                onClick={() => handlePageChange(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 1}
               >
-                Create Quick Reply
+                Previous
               </Button>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-
-  // Update customer fetching to match Customers.jsx pattern
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const sellerToken = localStorage.getItem('sellerToken');
-        if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken);
-          const token = tokenData.data;
-          
-          const response = await fetch(`${BASE_URL}/seller/followers?page=1&limit=20`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          const data = await response.json();
-          if (data && Array.isArray(data.followers)) {
-            setCustomers(data.followers);
-          } else {
-            console.error('Followers data is missing or invalid');
-          }
-        } else {
-          console.error('Seller token not found in localStorage');
-        }
-      } catch (error) {
-        console.error('Error fetching customers:', error);
-        toast.error('Failed to load customers');
-      }
-    };
-
-    fetchCustomers();
-  }, []);
-
-  // Memoize the dialog component to prevent unnecessary re-renders
-  const NewMessageDialog = () => (
-    <Dialog open={newMessageOpen} onOpenChange={setNewMessageOpen}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Start New Conversation</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Select Customer</label>
-            <Select
-              value={selectedCustomer}
-              onValueChange={setSelectedCustomer}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((customer) => (
-                  <SelectItem 
-                    key={customer._id} 
-                    value={customer._id || customer.buyerId}
-                  >
-                    {customer.firstName 
-                      ? `${customer.firstName} ${customer.lastName}`
-                      : customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Initial Message</label>
-            <textarea
-              value={initialMessage}
-              onChange={(e) => setInitialMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="w-full min-h-[100px] p-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/20"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setNewMessageOpen(false);
-              setSelectedCustomer(null);
-              setInitialMessage("");
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleStartNewConversation}
-            className="bg-green-600 text-white hover:bg-green-700"
-            disabled={!selectedCustomer || !initialMessage.trim()}
-          >
-            Start Conversation
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
-  // Update handleStartNewConversation to use correct customer ID
-  const handleStartNewConversation = async () => {
-    if (!selectedCustomer || !initialMessage.trim()) {
-      toast.error('Please select a customer and enter a message');
-      return;
-    }
-
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sellerToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          recipientId: selectedCustomer,
-          recipientModel: 'Buyer',
-          content: initialMessage
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to start conversation');
-      }
-
-      const newMessageData = await response.json();
-      
-      // Find customer details from our customers list
-      const customerDetails = customers.find(c => (c._id === selectedCustomer || c.buyerId === selectedCustomer));
-      
-      // Create new conversation object
-      const newConversation = {
-        _id: newMessageData.message.conversation,
-        participant: {
-          id: selectedCustomer,
-          name: customerDetails.firstName 
-            ? `${customerDetails.firstName} ${customerDetails.lastName}`
-            : customerDetails.name,
-          model: 'Buyer'
-        },
-        lastMessage: {
-          content: initialMessage,
-          createdAt: new Date().toISOString()
-        },
-        unreadCount: 0
-      };
-
-      // Update conversations list and set current
-      setConversations(prev => [newConversation, ...prev]);
-      setCurrentConversation(newConversation);
-      setMessages([newMessageData.message]);
-      
-      // Reset and close dialog
-      setSelectedCustomer(null);
-      setInitialMessage("");
-      setNewMessageOpen(false);
-      
-      toast.success('Conversation started successfully');
-    } catch (error) {
-      console.error('Error starting conversation:', error);
-      toast.error('Failed to start conversation');
-    }
-  };
-
-  // Add effect to fetch buyer details when conversation changes
-  useEffect(() => {
-    const fetchBuyerDetails = async () => {
-      if (!currentConversation?.participant?.id) return;
-      
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        const response = await fetch(`${BASE_URL}/seller/buyer/${currentConversation.participant.id}`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch buyer details');
-        
-        const data = await response.json();
-        setBuyerDetails(data);
-      } catch (error) {
-        console.error('Error fetching buyer details:', error);
-        toast.error('Failed to load buyer details');
-      }
-    };
-
-    fetchBuyerDetails();
-  }, [currentConversation?.participant?.id]);
-
-  // Update UserDetailsHeader component
-  const UserDetailsHeader = () => {
-    if (!currentConversation?.participant) return null;
-    
-    // Format total spent
-    const formatCurrency = (amount) => {
-      return new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency: 'NGN'
-      }).format(amount);
-    };
-
-    // Get primary address
-    const primaryAddress = buyerDetails?.shippingAddresses?.[0];
-    
-    return (
-      <div className="bg-white border-b p-4">
-        {/* Add mobile back button */}
-        <div className="flex items-center gap-2 mb-4 md:hidden">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-0 hover:bg-transparent"
-            onClick={() => {
-              setShowChatList(true);
-              setCurrentConversation(null);
-            }}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <span className="text-sm font-medium">Back to chats</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Avatar className="h-16 w-16">
-              <AvatarImage 
-                src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
-                alt={currentConversation.participant.name}
-              />
-              <AvatarFallback>
-                {buyerDetails?.buyerInfo?.firstName?.[0] || currentConversation.participant.name[0]}
-              </AvatarFallback>
-            </Avatar>
-            {/* Online status indicator */}
-            <span className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-white ${
-              currentConversation.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
-            }`} />
-          </div>
-          
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold">
-                {buyerDetails ? 
-                  `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` :
-                  currentConversation.participant.name
-                }
-              </h2>
-              {/* Online/Offline status text */}
-              <span className={`text-sm ${
-                currentConversation.participant.isOnline ? 'text-green-500' : 'text-gray-400'
-              }`}>
-                {currentConversation.participant.isOnline ? 'Online' : 
-                  currentConversation.participant.lastActive ? 
-                    `Last seen ${formatLastActive(currentConversation.participant.lastActive)}` : 
-                    'Offline'
-                }
+              <span className="mx-4 flex items-center">
+                Page {pagination.currentPage} of {pagination.pages}
               </span>
-            </div>
-            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-              {primaryAddress && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  <span>{primaryAddress.state}, {primaryAddress.country}</span>
-                </div>
-              )}
-              {buyerDetails?.orderStats?.withSeller && (
-                <>
-                  <div className="flex items-center gap-1">
-                    <ShoppingBag className="h-4 w-4" />
-                    <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Banknote className="h-4 w-4" />
-                    <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
-                  </div>
-                </>
-              )}
-            </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handlePageChange(pagination.currentPage + 1)}
+                disabled={pagination.currentPage === pagination.pages}
+              >
+                Next
+              </Button>
+            </Pagination>
           </div>
-        </div>
-      </div>
-    );
-  };
+        )}
+      </Card>
 
-  // Add emoji handler
-  const handleEmojiSelect = (emoji) => {
-    setMessageInput(prev => prev + emoji.native);
-    setShowEmojiPicker(false);
-  };
-
-  // Update the message input area
-  const renderMessageInput = () => (
-    <div className="px-4 py-3 border-t bg-white relative message-input-container">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 relative">
-          <Input
-            value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 text-sm rounded-full bg-gray-50 pr-24"
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            >
-              <SmileIcon className="h-5 w-5 text-gray-500" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              onClick={() => document.getElementById('file-upload').click()}
-            >
-              <PaperclipIcon className="h-5 w-5 text-gray-500" />
-            </Button>
-          </div>
-        </div>
-        
-        <input
-          type="file"
-          id="file-upload"
-          className="hidden"
-          accept="image/*"
-          onChange={(e) => handleFileUpload(e.target.files[0])}
-        />
-        
-        <Button
-          size="icon"
-          className="h-10 w-10 rounded-full bg-green-600 hover:bg-green-700"
-          onClick={handleSendMessage}
-          disabled={isSending}
-        >
-          {isSending ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <SendHorizontal className="h-5 w-5" />
-          )}
-        </Button>
-      </div>
-
-      {showEmojiPicker && (
-        <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-      )}
-    </div>
-  );
-
-  // Load quick replies from localStorage on component mount
-  useEffect(() => {
-    const savedReplies = localStorage.getItem('quickReplies');
-    if (savedReplies) {
-      setQuickReplies(JSON.parse(savedReplies));
-    }
-  }, []);
-
-  // Save quick replies to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('quickReplies', JSON.stringify(quickReplies));
-  }, [quickReplies]);
-
-  const handleCreateQuickReply = () => {
-    if (!quickReplyTitle.trim() || !quickReplyContent.trim()) {
-      toast.error('Please fill in both title and content');
-      return;
-    }
-
-    const newReply = {
-      id: Date.now(),
-      title: quickReplyTitle,
-      content: quickReplyContent
-    };
-
-    setQuickReplies(prev => [...prev, newReply]);
-    setNewQuickReplyOpen(false);
-    setQuickReplyTitle("");
-    setQuickReplyContent("");
-    toast.success('Quick reply created successfully');
-  };
-
-  const handleDeleteQuickReply = (id) => {
-    setQuickReplies(prev => prev.filter(reply => reply.id !== id));
-    toast.success('Quick reply deleted');
-  };
-
-  const handleSendQuickReply = (content) => {
-    setMessageInput(content);
-    handleSendMessage();
-  };
-
-  // Add this after other socket event listeners in the useEffect
-  useEffect(() => {
-    if (!socket) return;
-
-    // Listen for user status changes
-    socket.on('user_status_change', (data) => {
-      console.log('User status changed:', data);
-      setConversations(prev => prev.map(conv => {
-        if (conv.participant.id === data.userId) {
-          return {
-            ...conv,
-            participant: {
-              ...conv.participant,
-              isOnline: data.isOnline,
-              lastActive: data.lastActive
-            }
-          };
-        }
-        return conv;
-      }));
-
-      // Update current conversation if it's the same user
-      if (currentConversation?.participant?.id === data.userId) {
-        setCurrentConversation(prev => ({
-          ...prev,
-          participant: {
-            ...prev.participant,
-            isOnline: data.isOnline,
-            lastActive: data.lastActive
-          }
-        }));
-      }
-    });
-
-    // Emit user activity periodically
-    const activityInterval = setInterval(() => {
-      socket.emit('user_activity');
-    }, 30000); // Every 30 seconds
-
-    return () => {
-      socket.off('user_status_change');
-      clearInterval(activityInterval);
-    };
-  }, [socket, currentConversation]);
-
-  // Add this helper function for formatting last active time
-  const formatLastActive = (lastActive) => {
-    if (!lastActive) return '';
-    
-    const date = new Date(lastActive);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays === 1) return 'yesterday';
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-    
-    return date.toLocaleDateString();
-  };
-
-  return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col">
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* Chat list - hidden on mobile when conversation is open */}
-        <div className={`
-          ${showChatList ? 'flex' : 'hidden'} 
-          md:flex
-          w-full md:w-[300px] 
-          bg-white border-r 
-          flex-col
-        `}>
-          <div className="p-3 border-b space-y-3">
-            <NewMessageDialog />
-            <Input
-              placeholder="Search messages..."
-              className="bg-gray-50 text-sm h-9"
-              prefix={<MessageSquare className="h-4 w-4 text-gray-400" />}
-            />
-          </div>
-          {renderChatList()}
-        </div>
-
-        {/* Main chat area - shown on mobile when conversation is selected */}
-        <div className={`
-          ${(!showChatList || !isMobileView()) ? 'flex' : 'hidden'}
-          md:flex
-          flex-1 flex-col 
-          bg-white
-          overflow-hidden
-        `}>
-          {currentConversation ? (
-            <>
-              <UserDetailsHeader />
-              <div className="flex-1 overflow-hidden flex flex-col">
-                {renderMessages()}
-              </div>
-              {renderMessageInput()}
-            </>
-          ) : (
-            <EmptyState />
-          )}
-        </div>
-
-        {/* Quick tools panel - slides in from right on mobile */}
-        <div className={`
-          ${showQuickTools ? 'translate-x-0' : 'translate-x-full'}
-          md:translate-x-0
-          transition-transform
-          fixed md:relative
-          right-0 top-0 bottom-0
-          md:right-auto md:top-auto md:bottom-auto
-          w-[280px]
-          border-l bg-white
-          block sm:hidden
-          z-50
-          md:flex
-          flex-col
-        `}>
-          <div className="px-4 border-b flex justify-between items-center">
-            {/* <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2> */}
+      {/* Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refund Request Details</DialogTitle>
             <Button 
               variant="ghost" 
-              size="sm" 
-              className="md:hidden"
-              onClick={() => setShowQuickTools(false)}
+              size="icon" 
+              className="absolute top-2 right-2"
+              onClick={closeDetailsModal}
             >
               <X className="h-4 w-4" />
             </Button>
-          </div>
-          {renderQuickTools()}
-        </div>
-      </div>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Order ID</h4>
+                  <p>{selectedRequest.orderNumber}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Status</h4>
+                  <div className="flex items-center mt-1">
+                    <div className={`h-2 w-2 rounded-full ${getStatusDot(selectedRequest.refundRequest.status)} mr-2`}></div>
+                    <span className={`px-2 py-1 rounded text-xs ${getStatusStyle(selectedRequest.refundRequest.status)}`}>
+                      {selectedRequest.refundRequest.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-muted-foreground">Customer</h4>
+                <p>{selectedRequest.buyer.name} ({selectedRequest.buyer.email})</p>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-muted-foreground">Seller</h4>
+                <p>{selectedRequest.seller.name} ({selectedRequest.seller.email})</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Amount</h4>
+                  <p>₦{selectedRequest.amount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Payment Method</h4>
+                  <p>{selectedRequest.paymentMethod || "N/A"}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-muted-foreground">Reason</h4>
+                <p>{selectedRequest.refundRequest.reason || "No reason provided"}</p>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-muted-foreground">Request Date</h4>
+                <p>{formatDate(selectedRequest.refundRequest.requestedAt)}</p>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-muted-foreground">Requested By</h4>
+                <p className="capitalize">{selectedRequest.refundRequest.requestedBy}</p>
+              </div>
+
+              {selectedRequest.refundRequest.status === "pending" && (
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      closeDetailsModal();
+                      openRejectModal(selectedRequest);
+                    }}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      closeDetailsModal();
+                      openApproveModal(selectedRequest);
+                    }}
+                  >
+                    Approve
+                  </Button>
+                </DialogFooter>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Modal */}
+      <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve Refund Request</DialogTitle>
+            <DialogDescription>
+              This action will approve the refund request and add the refund amount to the buyer's wallet.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Order ID</h4>
+                  <p>{selectedRequest.orderNumber}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Amount</h4>
+                  <p>₦{selectedRequest.amount.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-muted-foreground">Customer</h4>
+                <p>{selectedRequest.buyer.name}</p>
+              </div>
+
+              <div>
+                <label htmlFor="notes" className="block text-sm font-medium mb-1">
+                  Notes (Optional)
+                </label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add any optional notes about this refund approval"
+                  rows={3}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={closeApproveModal} disabled={processingAction}>
+                  Cancel
+                </Button>
+                <Button onClick={handleApprove} disabled={processingAction}>
+                  {processingAction ? <Spinner className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                  Confirm Approval
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Modal */}
+      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Refund Request</DialogTitle>
+            <DialogDescription>
+              This action will reject the refund request. Please provide a reason for the rejection.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Order ID</h4>
+                  <p>{selectedRequest.orderNumber}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-muted-foreground">Amount</h4>
+                  <p>₦{selectedRequest.amount.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-muted-foreground">Customer</h4>
+                <p>{selectedRequest.buyer.name}</p>
+              </div>
+
+              <div>
+                <label htmlFor="notes" className="block text-sm font-medium mb-1">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Provide a reason for rejecting this refund request"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={closeRejectModal} disabled={processingAction}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleReject} 
+                  disabled={processingAction || !notes.trim()}
+                >
+                  {processingAction ? <Spinner className="mr-2 h-4 w-4" /> : <XCircle className="mr-2 h-4 w-4" />}
+                  Confirm Rejection
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+export default RefundRequests; 

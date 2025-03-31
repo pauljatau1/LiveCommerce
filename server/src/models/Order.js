@@ -180,6 +180,31 @@ const orderSchema = new mongoose.Schema({
       default: false
     }
   },
+  refundRequest: {
+    requested: {
+      type: Boolean,
+      default: false
+    },
+    requestedAt: Date,
+    requestedBy: {
+      type: String,
+      enum: ['buyer', 'seller', 'admin']
+    },
+    reason: String,
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    processedAt: Date,
+    processedBy: {
+      type: String,
+      enum: ['admin', 'system']
+    },
+    notes: String,
+    refundAmount: Number,
+    paymentReference: String
+  },
   notes: [{
     type: {
       type: String,
