@@ -10,6 +10,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
 const sgMail = require('../config/sendgrid');
+const notificationController = require('./notificationController');
 
 // Helper function to generate video thumbnail
 const generateVideoThumbnail = async (videoBuffer) => {
@@ -268,6 +269,8 @@ exports.addReaction = async (req, res) => {
         reaction.user.userModel === userModel
     );
 
+    let isNewReaction = false;
+    
     if (existingReactionIndex > -1) {
       const existingReaction = post.reactions[existingReactionIndex];
       
@@ -282,6 +285,7 @@ exports.addReaction = async (req, res) => {
           user: userReactionData,
           createdAt: new Date()
         };
+        isNewReaction = true;
       }
     } else {
       // Add new reaction with emoji
@@ -291,9 +295,32 @@ exports.addReaction = async (req, res) => {
         user: userReactionData,
         createdAt: new Date()
       });
+      isNewReaction = true;
     }
 
     await post.save();
+
+    // Send notification to post author if it's a new reaction and author is a buyer
+    if (isNewReaction && post.author.userModel === 'Buyer' && post.author.userId.toString() !== userId.toString()) {
+      try {
+        const userName = userModel === 'Seller' ? user.storeName : `${user.firstName} ${user.lastName}`;
+        
+        await notificationController.createBuyerNotification(
+          post.author.userId,
+          'post_reaction',
+          {
+            postId: post._id,
+            postTitle: post.title.substring(0, 30) + (post.title.length > 30 ? '...' : ''),
+            userName,
+            userImage: profileImageUrl,
+            reactionType: REACTION_TYPES[type].label
+          }
+        );
+      } catch (notificationError) {
+        console.error('Error sending reaction notification:', notificationError);
+        // Continue execution even if notification fails
+      }
+    }
 
     // Return updated reaction counts
     res.json({
@@ -395,6 +422,31 @@ exports.addComment = async (req, res) => {
     post.comments.push(newComment);
     await post.save();
 
+    // Send notification to post author if the author is a buyer and not the commenter
+    if (post.author.userModel === 'Buyer' && post.author.userId.toString() !== userId.toString()) {
+      try {
+        const userName = userModel === 'Seller' ? user.storeName : `${user.firstName} ${user.lastName}`;
+        // Create a comment preview (truncate if too long)
+        const commentPreview = content.length > 50 ? content.substring(0, 47) + '...' : content;
+        
+        await notificationController.createBuyerNotification(
+          post.author.userId,
+          'post_comment',
+          {
+            postId: post._id,
+            postTitle: post.title.substring(0, 30) + (post.title.length > 30 ? '...' : ''),
+            userName,
+            userImage: profileImageUrl,
+            commentId: post.comments[post.comments.length - 1]._id,
+            commentPreview
+          }
+        );
+      } catch (notificationError) {
+        console.error('Error sending comment notification:', notificationError);
+        // Continue execution even if notification fails
+      }
+    }
+
     res.json({
       message: 'Comment added successfully',
       comment: {
@@ -409,6 +461,7 @@ exports.addComment = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Add comment error:', error);
     res.status(500).json({
       message: 'Failed to add comment',
       error: error.message
@@ -1172,6 +1225,63 @@ exports.replyToComment = async (req, res) => {
     // Add reply to comment
     comment.replies.push(newReply);
     await post.save();
+
+    // Send notification to the comment author (if not the same as the replier)
+    // Only send notification if the comment author is a buyer
+    if (comment.author.userModel === 'Buyer' && 
+        !(comment.author.userId.toString() === userId && comment.author.userModel === userModel)) {
+      try {
+        const userName = userModel === 'Seller' ? user.storeName : `${user.firstName} ${user.lastName}`;
+        // Create a reply preview (truncate if too long)
+        const replyPreview = content.length > 50 ? content.substring(0, 47) + '...' : content;
+        
+        await notificationController.createBuyerNotification(
+          comment.author.userId,
+          'post_comment_reply',
+          {
+            postId: post._id,
+            commentId: comment._id,
+            replyId: comment.replies[comment.replies.length - 1]._id,
+            postTitle: post.title.substring(0, 30) + (post.title.length > 30 ? '...' : ''),
+            userName,
+            userImage: profileImageUrl,
+            replyPreview
+          }
+        );
+      } catch (notificationError) {
+        console.error('Error sending comment reply notification:', notificationError);
+        // Continue execution even if notification fails
+      }
+    }
+
+    // Send notification to post author as well (if different from comment author and reply author)
+    if (post.author.userModel === 'Buyer' && 
+        !(post.author.userId.toString() === userId && post.author.userModel === userModel) &&
+        !(post.author.userId.toString() === comment.author.userId.toString() && 
+          post.author.userModel === comment.author.userModel)) {
+      try {
+        const userName = userModel === 'Seller' ? user.storeName : `${user.firstName} ${user.lastName}`;
+        // Create a reply preview (truncate if too long)
+        const replyPreview = content.length > 50 ? content.substring(0, 47) + '...' : content;
+        
+        await notificationController.createBuyerNotification(
+          post.author.userId,
+          'post_comment_reply',
+          {
+            postId: post._id,
+            commentId: comment._id,
+            replyId: comment.replies[comment.replies.length - 1]._id,
+            postTitle: post.title.substring(0, 30) + (post.title.length > 30 ? '...' : ''),
+            userName,
+            userImage: profileImageUrl,
+            replyPreview
+          }
+        );
+      } catch (notificationError) {
+        console.error('Error sending comment reply notification to post author:', notificationError);
+        // Continue execution even if notification fails
+      }
+    }
 
     res.json({
       message: 'Reply added successfully',

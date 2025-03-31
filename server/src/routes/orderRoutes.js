@@ -358,7 +358,7 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  * /api/order/buyer/{buyerId}:
  *   get:
  *     summary: Get all orders for a buyer
- *     description: Retrieves all orders associated with a specific buyer
+ *     description: Retrieves all orders associated with a specific buyer with optional filters and pagination
  *     tags: [Order]
  *     security:
  *       - bearerAuth: []
@@ -368,15 +368,68 @@ router.get('/shipping-rates/:shipmentId', authMiddleware.verifyToken, orderContr
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: trackingStatus
+ *         schema:
+ *           type: string
+ *           enum: [Pending, Picked-Up, Dispatched, Delivered, Cancelled, Refunded]
+ *         description: Filter orders by shipping tracking status (completely case-insensitive, accepts various formats like "picked-up", "pickedUp", "PICKED_UP", etc.)
+ *       - in: query
+ *         name: hasReturn
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: Filter orders by whether they have return requests
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search orders by order_id or product name
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of orders per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           default: "-createdAt"
+ *         description: Sort orders by field (prefix with - for descending)
  *     responses:
  *       200:
  *         description: Orders retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Order'
+ *               type: object
+ *               properties:
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                       description: Total number of orders matching the filters
+ *                     pages:
+ *                       type: number
+ *                       description: Total number of pages
+ *                     currentPage:
+ *                       type: number
+ *                       description: Current page number
+ *                     limit:
+ *                       type: number
+ *                       description: Number of orders per page
  *       401:
  *         description: Unauthorized
  *       500:

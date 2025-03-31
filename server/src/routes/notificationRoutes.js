@@ -151,9 +151,33 @@ router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
  *         schema:
  *           type: integer
  *         description: Number of items per page
+ *       - in: query
+ *         name: filter
+ *         schema:
+ *           type: string
+ *           enum: [all, orders, posts]
+ *         description: Filter notifications by type
+ *         example: "all"
  *     responses:
  *       200:
  *         description: List of notifications
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 notifications:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 currentPage:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 totalNotifications:
+ *                   type: integer
+ *                 filter:
+ *                   type: string
  *       401:
  *         description: Unauthorized
  *       500:
