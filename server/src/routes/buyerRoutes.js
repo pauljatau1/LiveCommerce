@@ -360,26 +360,67 @@ router.get('/selected-categories',
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: status
+ *         name: trackingStatus
  *         schema:
  *           type: string
+ *           enum: [Pending, Picked-Up, Dispatched, Delivered, Cancelled]
+ *         description: Filter orders by shipping tracking status (completely case-insensitive, accepts various formats like "picked-up", "pickedUp", "PICKED_UP", etc.)
  *       - in: query
- *         name: startDate
+ *         name: hasReturn
  *         schema:
  *           type: string
- *           format: date
+ *           enum: [true, false]
+ *         description: Filter orders by whether they have return requests
  *       - in: query
- *         name: endDate
+ *         name: search
  *         schema:
  *           type: string
- *           format: date
+ *         description: Search orders by order_id or product name
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of orders per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           default: "-createdAt"
+ *         description: Sort orders by field (prefix with - for descending)
  *     responses:
  *       200:
  *         description: List of buyer's orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                       description: Total number of orders matching the filters
+ *                     pages:
+ *                       type: number
+ *                       description: Total number of pages
+ *                     currentPage:
+ *                       type: number
+ *                       description: Current page number
+ *                     limit:
+ *                       type: number
+ *                       description: Number of orders per page
  */
 router.get('/orders', 
   authMiddleware.verifyToken, 
