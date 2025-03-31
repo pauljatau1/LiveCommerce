@@ -832,9 +832,76 @@ exports.getAllOrders = async (req, res) => {
 // Get all orders for a buyer
 exports.getOrdersForBuyer = async (req, res) => {
   const { buyerId } = req.params;
+  const { 
+    trackingStatus, 
+    hasReturn, 
+    search,
+    page = 1,
+    limit = 10,
+    sort = '-createdAt' 
+  } = req.query;
 
   try {
-    const orders = await Order.find({ buyer: buyerId }).sort({ createdAt: -1 })
+    // Build the base query
+    const query = { buyer: buyerId };
+
+    // Add tracking status filter if provided
+    if (trackingStatus) {
+      // Map the case-insensitive tracking statuses to their internal values
+      const statusMap = {
+        'picked-up': 'picked_up',
+        'pickedup': 'picked_up',
+        'picked_up': 'picked_up',
+        'dispatched': 'in_transit',
+        'delivered': 'delivered',
+        'cancelled': 'cancelled',
+        'pending': 'pending',
+        'refunded': 'refunded'
+      };
+      
+      // Normalize the provided status (remove hyphens, convert to lowercase)
+      const normalizedStatus = trackingStatus.toLowerCase().replace(/[-_\s]/g, '');
+      
+      // Find the matching internal status by doing a loose case-insensitive match
+      let internalStatus = null;
+      
+      for (const [key, value] of Object.entries(statusMap)) {
+        // Normalize the key for comparison (remove hyphens, convert to lowercase)
+        const normalizedKey = key.toLowerCase().replace(/[-_\s]/g, '');
+        
+        if (normalizedKey === normalizedStatus) {
+          internalStatus = value;
+          break;
+        }
+      }
+      
+      // Use the mapped internal status if found
+      if (internalStatus) {
+        query['shipping.tracking.status'] = internalStatus;
+      }
+    }
+
+    // Add search query for order_id or product name
+    if (search) {
+      query.$or = [
+        { order_id: { $regex: search, $options: 'i' } },
+        { 'items.productName': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Get total count for pagination before applying limit & skip
+    const total = await Order.countDocuments(query);
+
+    // Parse pagination parameters
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Fetch orders with pagination
+    const orders = await Order.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum)
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'name');
 
@@ -853,11 +920,41 @@ exports.getOrdersForBuyer = async (req, res) => {
       const returnInfo = returnMap.get(order._id.toString());
       if (returnInfo) {
         orderObj.returnRequestId = returnInfo.returnId;
+        orderObj.returnStatus = returnInfo.status;
+        
+        // Check for refunded status in a case-insensitive way
+        if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded' && 
+            returnInfo.status.toLowerCase() !== 'refunded') {
+          return null;
+        }
+      } else if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded') {
+        // If we're filtering for refunded but this order has no return request
+        return null;
       }
       return orderObj;
-    });
+    }).filter(Boolean); // Remove null entries
 
-    res.json(ordersWithReturns);
+    // Filter by hasReturn if specified
+    let filteredOrders = ordersWithReturns;
+    if (hasReturn === 'true') {
+      filteredOrders = ordersWithReturns.filter(order => order.returnRequestId);
+    } else if (hasReturn === 'false') {
+      filteredOrders = ordersWithReturns.filter(order => !order.returnRequestId);
+    }
+
+    // Calculate pagination data
+    const filteredTotal = filteredOrders.length;
+    const totalFiltered = hasReturn || trackingStatus ? filteredTotal : total;
+    
+    res.json({
+      orders: filteredOrders,
+      pagination: {
+        total: totalFiltered,
+        pages: Math.ceil(totalFiltered / limitNum),
+        currentPage: pageNum,
+        limit: limitNum
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve orders for buyer', error: error.message });
   }

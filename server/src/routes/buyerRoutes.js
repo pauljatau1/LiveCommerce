@@ -360,26 +360,73 @@ router.get('/selected-categories',
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: status
+ *         name: trackingStatus
  *         schema:
  *           type: string
+ *           enum: [Pending, Picked-Up, Dispatched, Delivered, Cancelled,]
+ *         description: Filter orders by shipping tracking status (completely case-insensitive, accepts various formats like "picked-up", "pickedUp", "PICKED_UP", etc.)
  *       - in: query
- *         name: startDate
+ *         name: hasReturn
  *         schema:
  *           type: string
- *           format: date
+ *           enum: [true, false]
+ *         description: Filter orders by whether they have return requests
  *       - in: query
- *         name: endDate
+ *         name: search
  *         schema:
  *           type: string
- *           format: date
+ *         description: Search orders by order_id or product name
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of orders per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           default: "-createdAt"
+ *         description: Sort orders by field (prefix with - for descending)
  *     responses:
  *       200:
  *         description: List of buyer's orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 orders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       description: Current page number
+ *                     totalPages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *                     totalOrders:
+ *                       type: integer
+ *                       description: Total number of orders matching the filters
+ *                     hasMore:
+ *                       type: boolean
+ *                       description: Whether there are more pages after the current page
+ *                     hasPrevious:
+ *                       type: boolean
+ *                       description: Whether there are previous pages before the current page
  */
 router.get('/orders', 
   authMiddleware.verifyToken, 

@@ -70,6 +70,12 @@ const getNotificationTitle = (type) => {
       return 'New Return Request';
     case 'order_placed':
       return 'Order Placed Successfully';
+    case 'post_reaction':
+      return 'New Reaction on Your Post';
+    case 'post_comment':
+      return 'New Comment on Your Post';
+    case 'post_comment_reply':
+      return 'New Reply to Your Comment';
     default:
       return 'Notification';
   }
@@ -181,6 +187,12 @@ const getNotificationMessage = (type, data) => {
       return `${data.senderName || 'Someone'} sent you a message: "${data.messagePreview || 'View message for details'}"`;
     case 'buyer_message':
       return `${data.buyerName || 'A buyer'} sent you a message: "${data.messagePreview || 'View message for details'}"`;
+    case 'post_reaction':
+      return `${data.userName || 'Someone'} reacted with ${data.reactionType || 'a reaction'} to your post "${data.postTitle || ''}".`;
+    case 'post_comment':
+      return `${data.userName || 'Someone'} commented on your post "${data.postTitle || ''}": "${data.commentPreview || ''}"`;
+    case 'post_comment_reply':
+      return `${data.userName || 'Someone'} replied to your comment: "${data.replyPreview || ''}"`;
     default:
       return 'You have a new notification.';
   }
@@ -943,15 +955,17 @@ const sendPushNotification = async (expoPushToken, title, body, data = {}) => {
   }
 };
 
-// Modify createBuyerNotification to include push notification
+// Helper function to create buyer notifications
 exports.createBuyerNotification = async (buyerId, type, data) => {
+  console.log('Creating buyer notification:', { buyerId, type, data });
   try {
+    const actualBuyerId = buyerId._id || buyerId;
+    
     const title = getNotificationTitle(type);
     const message = getNotificationMessage(type, data);
 
-    // Create notification in database
     const notification = new Notification({
-      buyer: buyerId,
+      buyer: actualBuyerId,
       recipient: 'buyer',
       type,
       title,
@@ -959,26 +973,21 @@ exports.createBuyerNotification = async (buyerId, type, data) => {
       data
     });
 
+    console.log('Saving buyer notification...');
     await notification.save();
-
-    // Find buyer's expo push token
-    const Buyer = require('../models/Buyer');
-    const buyer = await Buyer.findById(buyerId);
-
-    if (buyer && buyer.expoPushToken) {
-      // Send push notification
-      await sendPushNotification(
-        buyer.expoPushToken,
-        title,
-        message,
-        {
-          type,
-          notificationId: notification._id,
-          ...data
-        }
-      );
+    console.log('Buyer notification saved successfully');
+    
+    // Send push notification if buyer has expo token
+    try {
+      const buyer = await mongoose.model('Buyer').findById(actualBuyerId).select('expoPushToken');
+      if (buyer && buyer.expoPushToken) {
+        await sendPushNotification(buyer.expoPushToken, title, message, data);
+      }
+    } catch (pushError) {
+      console.error('Error sending push notification:', pushError);
+      // Continue execution even if push notification fails
     }
-
+    
     return notification;
   } catch (error) {
     console.error('Error creating buyer notification:', error);
@@ -991,35 +1000,57 @@ exports.getBuyerNotifications = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const filter = req.query.filter || 'all'; // Add filter parameter with default 'all'
 
     // Define excluded notification types
     const excludedTypes = ['seller_message', 'buyer_message', 'new_message', 'notification'];
-
-    const notifications = await Notification.find({ 
+    
+    // Create the base query
+    let query = { 
       buyer: req.user.id,
       recipient: 'buyer',
       // Exclude message notifications and default notifications from the list
       type: { $nin: excludedTypes },
       // Ensure the notification has a valid title that's not just 'Notification'
       title: { $ne: 'Notification' }
-    })
+    };
+    
+    // Apply additional filtering based on the filter parameter
+    if (filter === 'orders') {
+      // Order-related notification types
+      query.type = { 
+        $in: [
+          'order_placed', 'order_paid', 'order_status_update', 
+          'order_shipped', 'order_delivered', 'order_cancelled',
+          'order_reminder', 'return_created', 'return_approved',
+          'return_rejected', 'return_info_needed', 'return_partial_refund',
+          'return_label_created', 'return_pickup_arranged'
+        ],
+        $nin: excludedTypes
+      };
+    } else if (filter === 'posts') {
+      // Post-related notification types
+      query.type = { 
+        $in: [
+          'post_reaction', 'post_comment', 'post_comment_reply'
+        ],
+        $nin: excludedTypes
+      };
+    }
+
+    const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const total = await Notification.countDocuments({ 
-      buyer: req.user.id,
-      recipient: 'buyer',
-      // Use same exclusion filters for consistency
-      type: { $nin: excludedTypes },
-      title: { $ne: 'Notification' }
-    });
+    const total = await Notification.countDocuments(query);
 
     res.json({
       notifications,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      totalNotifications: total
+      totalNotifications: total,
+      filter
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to get notifications', error: error.message });

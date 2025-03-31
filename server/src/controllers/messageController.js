@@ -259,7 +259,7 @@ exports.sendTextMessage = async (req, res) => {
         const pushMessage = {
           to: userToken.token,
           sound: 'default',
-          title: `message from ${senderName}`,
+          title: `Message from ${senderName}`,
           body: content.length > 50 ? `${content.substring(0, 47)}...` : content,
           data: { 
             type: 'message',
@@ -475,7 +475,7 @@ exports.getMessages = async (req, res) => {
         model: 'Product',
         select: 'name price images description inventory.sku category'
       })
-      .sort({ createdAt: -1 }) 
+      .sort({ createdAt: -1 }) // Sort newest first for proper pagination
       .skip(skipCount)
       .limit(limit)
       .lean();

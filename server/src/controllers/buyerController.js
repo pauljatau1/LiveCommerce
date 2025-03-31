@@ -595,13 +595,130 @@ exports.updateSelectedCategories = async (req, res) => {
 
 // Get buyer's orders with filtering
 exports.getOrders = async (req, res) => {
+  const { 
+    trackingStatus, 
+    hasReturn, 
+    search,
+    page = 1,
+    limit = 10,
+    sort = '-createdAt' 
+  } = req.query;
+
   try {
-    const orders = await Order.find({ buyer: req.user.id })
+    // Build the base query
+    const query = { buyer: req.user.id };
+
+    // Add tracking status filter if provided
+    if (trackingStatus) {
+      // Map the case-insensitive tracking statuses to their internal values
+      const statusMap = {
+        'picked-up': 'picked_up',
+        'pickedup': 'picked_up',
+        'picked_up': 'picked_up',
+        'dispatched': 'in_transit',
+        'delivered': 'delivered',
+        'cancelled': 'cancelled',
+        'pending': 'pending',
+        'refunded': 'refunded'
+      };
+      
+      // Normalize the provided status (remove hyphens, convert to lowercase)
+      const normalizedStatus = trackingStatus.toLowerCase().replace(/[-_\s]/g, '');
+      
+      // Find the matching internal status by doing a loose case-insensitive match
+      let internalStatus = null;
+      
+      for (const [key, value] of Object.entries(statusMap)) {
+        // Normalize the key for comparison (remove hyphens, convert to lowercase)
+        const normalizedKey = key.toLowerCase().replace(/[-_\s]/g, '');
+        
+        if (normalizedKey === normalizedStatus) {
+          internalStatus = value;
+          break;
+        }
+      }
+      
+      // Use the mapped internal status if found
+      if (internalStatus) {
+        query['shipping.tracking.status'] = internalStatus;
+      }
+    }
+
+    // Add search query for order_id or product name
+    if (search) {
+      query.$or = [
+        { order_id: { $regex: search, $options: 'i' } },
+        { 'items.productName': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Get total count for pagination before applying limit & skip
+    const total = await Order.countDocuments(query);
+
+    // Parse pagination parameters
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Fetch orders with pagination
+    const orders = await Order.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum)
       .populate('items.product', 'name images price')
-      .populate('items.seller', 'storeName')
-      .sort({ createdAt: -1 });
+      .populate('items.seller', 'storeName');
+      
+
+    // Get associated return requests for these orders
+    const Return = mongoose.model('Return');
+    const returnRequests = await Return.find({
+      order: { $in: orders.map(order => order._id) }
+    }, '_id order status');
+
+    // Create a map of order IDs to return request details
+    const returnMap = new Map(returnRequests.map(r => [r.order.toString(), { returnId: r._id, status: r.status }]));
+
+    // Add return request info to orders
+    const ordersWithReturns = orders.map(order => {
+      const orderObj = order.toObject();
+      const returnInfo = returnMap.get(order._id.toString());
+      if (returnInfo) {
+        orderObj.returnRequestId = returnInfo.returnId;
+        orderObj.returnStatus = returnInfo.status;
+        
+        // Check for refunded status in a case-insensitive way
+        if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded' && 
+            returnInfo.status.toLowerCase() !== 'refunded') {
+          return null;
+        }
+      } else if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded') {
+        // If we're filtering for refunded but this order has no return request
+        return null;
+      }
+      return orderObj;
+    }).filter(Boolean); // Remove null entries
+
+    // Filter by hasReturn if specified
+    let filteredOrders = ordersWithReturns;
+    if (hasReturn === 'true') {
+      filteredOrders = ordersWithReturns.filter(order => order.returnRequestId);
+    } else if (hasReturn === 'false') {
+      filteredOrders = ordersWithReturns.filter(order => !order.returnRequestId);
+    }
+
+    // Calculate final count after all filters
+    const totalOrders = hasReturn || trackingStatus ? filteredOrders.length : total;
+    const totalPages = Math.ceil(totalOrders / limitNum);
+    
     res.json({
-      orders,
+      orders: filteredOrders,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalOrders,
+        hasMore: pageNum < totalPages,
+        hasPrevious: pageNum > 1
+      }
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching orders', error: error.message });
