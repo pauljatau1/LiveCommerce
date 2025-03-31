@@ -72,7 +72,7 @@ const streamSchema = new mongoose.Schema({
     },
     bidWinner: {
       buyer: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.Mixed,
         ref: 'Buyer'
       },
       bidAmount: Number,
