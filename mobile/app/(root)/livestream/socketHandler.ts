@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner' | 'auction_end';
   user: string;
   avatar?: string;
   content: string;
@@ -50,12 +50,44 @@ export interface StreamNotification {
   timestamp: Date;
 }
 
+export interface BidTimerUpdate {
+  streamId: string;
+  productId: string;
+  secondsLeft: number;
+  formattedTime: string;
+  jobId: string;
+  productIndex: number;
+  productName: string;
+}
+
+export interface BidTimerComplete {
+  streamId: string;
+  productId: string;
+  jobId: string;
+  productIndex: number;
+  productName: string;
+}
+
+export interface AuctionOrderCreated {
+  success: boolean;
+  message: string;
+  orderId: string;
+  streamId: string;
+  productName: string;
+  amount: number;
+  shippingFee: number;
+  total: number;
+}
+
 let socket: Socket | null = null;
 
 export const initializeSocket = (
   token: string, 
   onNotification: (notification: StreamNotification) => void,
-  setIsBidSending?: React.Dispatch<React.SetStateAction<boolean>>
+  setIsBidSending?: React.Dispatch<React.SetStateAction<boolean>>,
+  onBidTimerUpdate?: (data: BidTimerUpdate) => void,
+  onBidTimerComplete?: (data: BidTimerComplete) => void,
+  onAuctionOrderCreated?: (data: AuctionOrderCreated) => void
 ) => {
   if (socket && socket.connected) {
     console.log('Socket already connected');
@@ -129,6 +161,37 @@ export const initializeSocket = (
     // Update bidding state if the setter is provided
     if (setIsBidSending) {
       setIsBidSending(false);
+    }
+  });
+
+  // Handle bid timer update event
+  currentSocket.on('bid_timer_update', (data: BidTimerUpdate) => {
+    console.log('Bid timer update:', data);
+    
+    // If callback is provided, pass timer update data
+    if (onBidTimerUpdate) {
+      onBidTimerUpdate(data);
+      console.log('Bid timer update received:', data);
+    }
+  });
+
+  // Handle bid timer complete event
+  currentSocket.on('bid_timer_complete', (data: BidTimerComplete) => {
+    console.log('Bid timer complete:', data);
+    
+    // If callback is provided, pass timer complete data
+    if (onBidTimerComplete) {
+      onBidTimerComplete(data);
+    }
+  });
+
+  // Handle auction order created event
+  currentSocket.on('auction_order_created', (data: AuctionOrderCreated) => {
+    console.log('Auction order created:', data);
+    
+    // If callback is provided, pass order created data
+    if (onAuctionOrderCreated) {
+      onAuctionOrderCreated(data);
     }
   });
 

@@ -27,7 +27,7 @@ const { width } = Dimensions.get('window');
 const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProps) => {
   console.log('bottom sheet viewers', viewers);
   console.log('bottom sheet hostInfo', hostInfo);
-  
+
   // Animation values
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const breatheAnim = useRef(new Animated.Value(0)).current;
@@ -53,7 +53,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
         })
       ])
     ).start();
-    
+
     // Breathing animation for skeleton loaders
     Animated.loop(
       Animated.sequence([
@@ -69,12 +69,12 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
         }),
       ])
     ).start();
-    
+
     // Auto-hide loading state
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1200);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -92,7 +92,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
   // Function to generate a consistent avatar color based on the id
   const getAvatarColor = (id: string) => {
     if (!id) return '#33A1FF'; // Default color if id is missing
-    
+
     const colors = [
       '#FF5733', '#33A1FF', '#33FF57', '#BD33FF',
       '#FFD133', '#33FFBD', '#FF33BD', '#7D33FF',
@@ -124,19 +124,19 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
         extrapolate: 'clamp'
       })
     };
-    
+
     return (
       <Animated.View style={[styles.viewerItem, pulseStyles]}>
         <View style={styles.avatarContainer}>
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.avatar, 
+              styles.avatar,
               { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
               pulseStyles
-            ]} 
+            ]}
           />
         </View>
-        
+
         <View style={styles.viewerInfo}>
           <Animated.View style={[{
             height: 16,
@@ -177,13 +177,10 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
     if (!item || !item._id) {
       return null; // Skip invalid items
     }
-    
+
     const initials = getInitials(item.firstName, item.lastName, item.username);
     const avatarColor = getAvatarColor(item._id);
-    const displayName = item.username ||
-      (item.firstName && item.lastName ?
-        `${item.firstName} ${item.lastName}` :
-        (item.firstName || 'Anonymous'));
+    const displayName = (item.firstName && item.lastName ? `${item.firstName} ${item.lastName}` :(item.firstName || 'Anonymous')) || item.username ;
 
     const isHost = hostInfo && hostInfo.name === displayName;
     const isNew = index > safeViewers.length - 4;
@@ -205,10 +202,10 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
 
           {isNew && (
             <View style={styles.newDot}>
-              <Animated.View 
+              <Animated.View
                 style={[
-                  StyleSheet.absoluteFill, 
-                  { 
+                  StyleSheet.absoluteFill,
+                  {
                     backgroundColor: '#16783A',
                     opacity: pulseAnim,
                     borderRadius: 5,
@@ -255,19 +252,19 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
         if (!hostInfo.avatar) {
           return require('@/assets/icons/animoji.png');
         }
-        
+
         if (typeof hostInfo.avatar === 'string') {
           return { uri: hostInfo.avatar };
         }
-        
+
         if (typeof hostInfo.avatar === 'object' && hostInfo.avatar.uri) {
           return { uri: hostInfo.avatar.uri };
         }
-        
+
         if (typeof hostInfo.avatar === 'number') {
           return hostInfo.avatar; // Require'd image resource ID
         }
-        
+
         return require('@/assets/icons/animoji.png');
       } catch (error) {
         console.error('Error handling host avatar:', error);
@@ -328,7 +325,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
           scrollEnabled={false}
           data={safeViewers}
           renderItem={renderViewerItem}
-          keyExtractor={(item) => item._id || Math.random().toString()}
+          keyExtractor={(item) => `viewer-${item._id}`}
           ListEmptyComponent={renderEmptyState}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

@@ -107,6 +107,19 @@ const LivestreamStudio = () => {
     // Add state for leave stream loading
     const [isLeavingStream, setIsLeavingStream] = useState(false);
 
+    // Add new state for detailed viewers
+    const [detailedViewers, setDetailedViewers] = useState<any[]>([]);
+
+    // Update detailedViewers when activeStreamDetails changes
+    useEffect(() => {
+        if (activeStreamDetails?.stream?.viewers) {
+            setDetailedViewers(activeStreamDetails.stream.viewers);
+            console.log('Initialized detailedViewers with:', activeStreamDetails.stream.viewers);
+        }
+    }, [activeStreamDetails]);
+
+
+
     useEffect(() => {
         setupLivestream();
 
@@ -329,34 +342,65 @@ const LivestreamStudio = () => {
     const handleStreamNotification = useCallback((notification: StreamNotification) => {
         console.log('Received notification:', notification);
 
-        // Check if this is our own comment coming back (avoid duplicates)
-        const isDuplicate = liveComments.some(comment =>
-            comment.type === notification.type &&
-            comment.content === notification.content &&
-            Math.abs(new Date(comment.timestamp).getTime() - new Date(notification.timestamp).getTime()) < 5000
-        );
-
-        if (isDuplicate) {
-            console.log('Ignoring duplicate notification');
-            return;
-        }
 
         // Process notification based on type
         switch (notification.type) {
             case 'join':
                 console.log('User joined stream:', notification.user);
                 // Update UI to show join event
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
+                
                 // Update viewer count if available in notification data
-                if (notification.data && 'viewerCount' in notification.data) {
-                    setViewerCount(notification.data.viewerCount as number);
+                if (notification.data) {
+                    if ('viewerCount' in notification.data) {
+                        setViewerCount(notification.data.viewerCount as number);
+                    }
+                    
+                    // Add new viewer to detailedViewers array if not already present
+                    if (notification.data.buyerId) {
+                        const buyerId = notification.data.buyerId;
+                        console.log('Checking buyerId:', buyerId, 'in viewers array length:', detailedViewers?.length || 0);
+                        
+                        // Log the full viewers array for debugging
+                        console.log('Current detailedViewers:', JSON.stringify(detailedViewers));
+                        
+                        // Convert both to strings for safer comparison
+                        const existingViewer = Array.isArray(detailedViewers) && 
+                          detailedViewers.find(viewer => 
+                            viewer && viewer._id && viewer._id.toString() === buyerId.toString()
+                          );
+                        
+                        console.log('existingViewer check result:', existingViewer ? `Found with id ${existingViewer._id}` : 'Not found');
+                        
+                        if (!existingViewer) {
+                            // Viewer does not exist, create and add new viewer object
+                            const newViewer = {
+                                _id: buyerId,
+                                firstName: notification.data.buyerName?.split(' ')[0] || '',
+                                lastName: notification.data.buyerName?.split(' ')[1] || '',
+                                username: notification.data.buyerUsername || '',
+                                profileImage: notification.data.buyerAvatar ? { url: notification.data.buyerAvatar } : undefined
+                            };
+                            
+                            setDetailedViewers(prev => [...prev, newViewer]);
+                            console.log('Added new viewer:', newViewer._id);
+                        } else {
+                            console.log('Viewer already exists in detailed viewers array:', buyerId);
+                        }
+                    }
+                    
+                    // If the server provides a full viewers array, use it instead
+                    {/*if ('viewers' in notification.data && Array.isArray(notification.data.viewers)) {
+                        setDetailedViewers(notification.data.viewers);
+                        console.log('Updated viewers from server data:', notification.data.viewers);
+                    }*/}
                 }
                 break;
 
             case 'comment':
                 console.log('New comment received:', notification.content);
                 // Update UI to show comment
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 // Increment comment count
                 setComments(prev => prev + 1);
                 break;
@@ -364,28 +408,43 @@ const LivestreamStudio = () => {
             case 'purchase':
                 console.log('New purchase made:', notification.content);
                 // Update UI to show purchase
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 break;
                 
             case 'hostLeft':
                 console.log('Host left stream:', notification.user);
                 // Update UI to show host left event
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 break;
                 
             case 'hostRejoin':
                 console.log('Host rejoined stream:', notification.user);
                 // Update UI to show host rejoined event
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 break;
 
             case 'leave':
                 console.log('User left stream:', notification.user);
                 // Update UI to show leave event
-                setLiveComments(prev => [...prev, notification]);
+                    setLiveComments(prev => [...prev, notification as any]);
                 // Update viewer count if available in notification data
-                 if (notification.data && 'viewerCount' in notification.data) {
-                    setViewerCount(notification.data.viewerCount as number);
+                if (notification.data) {
+                    if ('viewerCount' in notification.data) {
+                        setViewerCount(notification.data.viewerCount as number);
+                    }
+                    
+                    // Remove viewer from detailedViewers array
+                    if ('buyerId' in notification.data && notification.data.buyerId) {
+                        const buyerId = notification.data.buyerId as string;
+                        setDetailedViewers(prev => prev.filter(viewer => viewer._id !== buyerId));
+                        console.log('Removed viewer with ID:', buyerId);
+                    }
+                    
+                    // If the server provides a full viewers array, use it instead
+                    {/*if ('viewers' in notification.data && Array.isArray(notification.data.viewers)) {
+                        setDetailedViewers(notification.data.viewers);
+                        console.log('Updated viewers from server data:', notification.data.viewers);
+                    }*/}
                 }
                 break;
 
@@ -402,7 +461,7 @@ const LivestreamStudio = () => {
                 }
             }, 100);
         });
-    }, [liveComments]);
+    }, [liveComments, detailedViewers]);
 
     const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
         const message = event.nativeEvent.data;
@@ -1197,7 +1256,7 @@ const LivestreamStudio = () => {
                 keyboardBehavior="interactive"
             >
                 <StreamViewers 
-                    viewers={activeStreamDetails?.stream?.viewers || []}
+                    viewers={detailedViewers}
                     hostInfo={{
                         name: storeInfo.name,
                         avatar: storeInfo.avatar

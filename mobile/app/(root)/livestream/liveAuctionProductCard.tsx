@@ -1,5 +1,5 @@
 import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Product } from '@/types/streams/livestreamStudio';
 import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
 
@@ -23,26 +23,25 @@ interface LiveAuctionProductCardProps {
     formatPrice?: (price: number) => string;
     bidIncrement?: number;
     isBidSending?: boolean;
+    bidTimeRemaining?: string;
 }
 
-const LiveAuctionProductCard = ({ 
-    product, 
-    onBid, 
-    onCustom, 
-    formatPrice, 
-    tag, 
-    category, 
+const LiveAuctionProductCard = ({
+    product,
+    onBid,
+    onCustom,
+    formatPrice,
+    tag,
+    category,
     bidIncrement = 500,
-    isBidSending = false
+    isBidSending = false,
+    bidTimeRemaining = "00:30"
 }: LiveAuctionProductCardProps) => {
     // Calculate the next bid amount with a fixed default increment of 500
     const currentBid = product.currentBid || product.minBid || product.price;
     const minBid = product.minBid || product.price;
     // Use the provided bidIncrement or default to 500
     const nextBidAmount = currentBid + bidIncrement;
-
-    console.log('current bid product image:', product?.images?.[0]?.url);
-    console.log('using bid increment:', bidIncrement);
 
     // Format the prices for display
     const formatPriceDisplay = (price: number) => {
@@ -52,10 +51,36 @@ const LiveAuctionProductCard = ({
         return `₦${price.toLocaleString()}`;
     };
 
-    // Calculate remaining time (placeholder for now)
-    const remainingTime = "00:30";
+    // Determine if timer is in critical state (less than 10 seconds)
+    const isTimerCritical = () => {
+        if (!bidTimeRemaining) return false;
+        
+        // If format is MM:SS or MM.SS, convert to seconds
+        if (bidTimeRemaining.includes(':') || bidTimeRemaining.includes('.')) {
+            // Split on either : or . separator
+            const separator = bidTimeRemaining.includes(':') ? ':' : '.';
+            const [minutes, seconds] = bidTimeRemaining.split(separator).map(Number);
+            return (minutes * 60 + seconds) < 10;
+        }
+        
+        // If format is just seconds
+        return Number(bidTimeRemaining) < 10;
+    };
+    
+    console.log('current bid product image:', product?.images?.[0]?.url);
+    console.log('using bid increment:', bidIncrement);
+    console.log('bid time remaining:', bidTimeRemaining);
+    console.log('product bid status:', product.bidStatus);
+    console.log('timer critical status:', isTimerCritical());
 
-  return (
+    useEffect(() => {
+        console.log('LiveAuctionProductCard received new bidTimeRemaining:', bidTimeRemaining);
+        if (product.bidStatus === 'active') {
+            console.log('Product is active, displaying timer:', bidTimeRemaining);
+        }
+    }, [bidTimeRemaining, product.bidStatus]);
+
+    return (
         <View style={styles.container}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <View style={styles.contentRow}>
@@ -88,8 +113,13 @@ const LiveAuctionProductCard = ({
 
             {/* Timer */}
             <View style={styles.timerContainer}>
-                <Text style={styles.timerText}>{remainingTime}</Text>
-    </View>
+                <Text style={[
+                    styles.timerText,
+                    isTimerCritical() && styles.criticalTimerText
+                ]}>
+                    {product.bidStatus === 'active' ? bidTimeRemaining : '00:30'}
+                </Text>
+            </View>
 
             {/* Category and Tags */}
             {
@@ -105,8 +135,8 @@ const LiveAuctionProductCard = ({
             <View style={styles.buttonsRow}>
                 {product.bidStatus === 'active' ? (
                     <>
-                        <TouchableOpacity 
-                            style={styles.customButton} 
+                        <TouchableOpacity
+                            style={styles.customButton}
                             onPress={onCustom}
                             disabled={isBidSending}
                         >
@@ -116,11 +146,11 @@ const LiveAuctionProductCard = ({
                             ]}>Custom bid</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[
                                 styles.bidButton,
                                 isBidSending && styles.disabledBidButton
-                            ]} 
+                            ]}
                             onPress={() => onBid(nextBidAmount)}
                             disabled={isBidSending}
                         >
@@ -189,7 +219,6 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     timerContainer: {
-        //backgroundColor: 'rgba(255, 255, 255, 0.1)',
         paddingHorizontal: 8,
         paddingVertical: 3,
         borderRadius: 4,
@@ -197,16 +226,20 @@ const styles = StyleSheet.create({
     timerText: {
         fontSize: 11,
         fontWeight: 'bold',
-        color: '#FF3B30', // Orange-red color like in the image
+        color: '#16783A', // Orange-red color like in the image
+    },
+    criticalTimerText: {
+        color: '#FF3B30', // Bright red for critical timer (< 10 seconds)
+        fontSize: 14, // Slightly larger
+        fontWeight: 'bold',
     },
     stockContainer: {
         //backgroundColor: 'rgba(255, 255, 255, 0.1)',
         paddingVertical: 2,
         borderRadius: 4,
-
     },
     stockText: {
-        fontSize: 11,
+        //backgroundColor: 'rgba(255, 255, 255, 0.1)',
         fontWeight: 'bold',
         color: '#16783A', // Green color
     },
@@ -306,7 +339,7 @@ const styles = StyleSheet.create({
     awaitingButton: {
         flex: 1,
         height: 50,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
@@ -320,7 +353,7 @@ const styles = StyleSheet.create({
     ongoingButton: {
         flex: 1,
         height: 50,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
