@@ -11,6 +11,7 @@ const Buyer = require('../models/Buyer');
 const { saveToken, getToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
 const mongoose = require('mongoose');
+const orderController = require('./orderController');
 
 const expo = new Expo();
 
@@ -2267,7 +2268,7 @@ exports.endProductBidding = async (req, res) => {
       stream.chatInteractions.push(winnerNotification);
       console.log('[END_BID] 13. Added winner notification to stream chat interactions');
 
-      // Create an order for the auction winner
+      // Create an order for the auction winner - START OF ORDER CREATION
       console.log('[END_BID] 14. Creating order for auction winner');
 
       try {
@@ -2366,7 +2367,7 @@ exports.endProductBidding = async (req, res) => {
         let shippingFee = 0;
         try {
           console.log('[END_BID] 26. Calculating delivery cost');
-          const orderController = require('./orderController');
+          // Use the global orderController import
           const costResponse = await orderController.calculateDeliveryCostInternal(shippingDetails);
           shippingFee = costResponse.totalCost || 0;
           console.log('[END_BID] 27. Shipping fee calculated', {
@@ -2440,7 +2441,7 @@ exports.endProductBidding = async (req, res) => {
           }
         };
 
-        // Call the createOrder function
+        // Call the createOrder function using the global orderController import
         await orderController.createOrder(mockReq, mockRes);
 
         // Update stream product with order information

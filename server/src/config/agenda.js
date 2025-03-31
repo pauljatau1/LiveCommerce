@@ -1408,15 +1408,26 @@ agenda.define('bid_timer', async (job) => {
         // Import stream controller
         const streamController = require('../controllers/streamController');
         
-        // Create mock request and response objects
+        // Create mock request and response objects with all necessary properties
         const mockReq = {
           params: { streamId },
-          body: { productId, sellerId },
-          app: {
-            get: (name) => name === 'io' ? io : null
+          body: { 
+            productId, 
+            sellerId 
           },
-          user: { id: sellerId },
-          get: (name) => name === 'host' ? 'auqli.com' : null
+          app: {
+            get: (name) => {
+              if (name === 'io') return io;
+              return null;
+            }
+          },
+          user: { 
+            id: sellerId 
+          },
+          get: (name) => {
+            if (name === 'host') return 'auqli.com';
+            return null;
+          }
         };
         
         const mockRes = {
@@ -1436,6 +1447,12 @@ agenda.define('bid_timer', async (job) => {
         };
         
         // Call the endProductBidding function
+        console.log('[BID_TIMER] Executing endProductBidding with request:', {
+          streamId: mockReq.params.streamId,
+          productId: mockReq.body.productId,
+          sellerId: mockReq.body.sellerId
+        });
+        
         await streamController.endProductBidding(mockReq, mockRes);
         
         console.log(`[BID_TIMER] Successfully ended bidding for product "${productName}" in stream ${streamId}`);
