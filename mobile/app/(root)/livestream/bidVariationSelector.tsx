@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 
 // Predefined bid increment options
 const BID_VARIATIONS = [500, 1000, 1500, 2000];
@@ -50,30 +50,30 @@ const BidVariationSelector = ({
   // Live validation of custom bid amount
   const customBidValidation = useMemo(() => {
     if (!customBidAmount) return null;
-    
+
     const numericAmount = Number(customBidAmount);
-    
+
     if (isNaN(numericAmount)) {
       return {
         isValid: false,
         message: 'Please enter a valid number'
       };
     }
-    
+
     if (numericAmount <= 0) {
       return {
         isValid: false,
         message: 'Bid amount must be greater than zero'
       };
     }
-    
+
     if (numericAmount <= currentBid) {
       return {
         isValid: false,
         message: `Bid must exceed ${formatPriceDisplay(currentBid)}`
       };
     }
-    
+
     return {
       isValid: true,
       message: `Valid bid: ${formatPriceDisplay(numericAmount)}`
@@ -85,18 +85,18 @@ const BidVariationSelector = ({
     if (customBidMode) {
       // Process custom bid amount
       const customAmount = Number(customBidAmount);
-      
+
       // Validate custom bid amount
       if (isNaN(customAmount) || customAmount <= 0) {
         Alert.alert('Invalid Amount', 'Please enter a valid bid amount');
         return;
       }
-      
+
       if (customAmount <= currentBid) {
         Alert.alert('Invalid Bid', `Your bid must be higher than the current bid of ${formatPriceDisplay(currentBid)}`);
         return;
       }
-      
+
       // Submit custom bid and close sheet
       onCustomBid(customAmount);
       closeSheet();
@@ -109,12 +109,12 @@ const BidVariationSelector = ({
   };
 
   return (
-    <View style={styles.container}>
+    <BottomSheetView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Place your bid</Text>
         <Text style={styles.subtitle}>Current bid: {formatPriceDisplay(currentBid)}</Text>
       </View>
-      
+
       {/* Standard Bid Variations */}
       <View style={styles.variationsContainer}>
         <Text style={styles.sectionTitle}>Select increment amount:</Text>
@@ -129,7 +129,7 @@ const BidVariationSelector = ({
               onPress={() => handleSelectVariation(variation)}
             >
               <Text style={[
-                styles.variationText, 
+                styles.variationText,
                 selectedVariation === variation && !customBidMode && styles.selectedVariationText
               ]}>
                 {formatPriceDisplay(variation)}
@@ -138,7 +138,7 @@ const BidVariationSelector = ({
           ))}
         </View>
       </View>
-      
+
       {/* Divider */}
       <View style={styles.divider} />
 
@@ -170,7 +170,7 @@ const BidVariationSelector = ({
             </View>
           )}
         </View>
-        
+
         {customBidMode && customBidAmount && (
           <Text style={[
             styles.bidValidationMessage,
@@ -188,27 +188,27 @@ const BidVariationSelector = ({
             Next bid will be: {formatPriceDisplay(currentBid + selectedVariation)}
           </Text>
         )}
-        
+
         <View style={styles.actionButtons}>
           <TouchableOpacity style={styles.cancelButton} onPress={closeSheet}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.submitButton,
-              (customBidMode && (!customBidAmount || !customBidValidation?.isValid)) || 
-              (!customBidMode && !selectedVariation) ? styles.disabledButton : {}
-            ]} 
+              (customBidMode && (!customBidAmount || !customBidValidation?.isValid)) ||
+                (!customBidMode && !selectedVariation) ? styles.disabledButton : {}
+            ]}
             onPress={handleSubmitBid}
-            disabled={(customBidMode && (!customBidAmount || !customBidValidation?.isValid)) || 
-                      (!customBidMode && !selectedVariation)}
+            disabled={(customBidMode && (!customBidAmount || !customBidValidation?.isValid)) ||
+              (!customBidMode && !selectedVariation)}
           >
             <Text style={styles.submitButtonText}>Place Bid</Text>
             <MaterialIcons name="arrow-forward-ios" size={16} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </BottomSheetView>
   );
 };
 

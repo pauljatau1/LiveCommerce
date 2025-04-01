@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   streamTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 16,

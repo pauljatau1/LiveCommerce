@@ -34,6 +34,7 @@ export interface StreamProduct {
     currentBid: number;
     minBid?: number;  // Minimum bid for auction products
     maxBid?: number;  // Maximum bid for auction products
+    bidStatus?: 'pending' | 'active' | 'ongoing' | 'ended'; // Status of the bidding process
     _id: string;
 }
 
