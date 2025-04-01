@@ -341,10 +341,10 @@ const Returns = () => {
               <View className="flex-row items-center justify-between gap-[10px] ">
                 <MaterialIcons name="info" size={18} color="#027CEC" />
                 <Text className="text-[#027CEC] font-LexendDeca text-[10px]">
-                  Check Change of Mind return Policy
+                  Change of mind is not available on returns
                 </Text>
               </View>
-              <Entypo name="chevron-right" size={16} color="#027CEC" />
+              {/* <Entypo name="chevron-right" size={16} color="#027CEC" /> */}
             </Pressable>
 
             <View className="flex-row items-center justify-between mb-[16px]">
