@@ -14,8 +14,7 @@ import SuggestedBlips from "./suggested-blips";
 import ForYou from "./for-you";
 
 const AuqliLive = () => {
-  const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } =
-    useLivestream();
+  const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } = useLivestream();
   const [filteredActiveLivestream, setFilteredActiveLivestream] = useState([]);
   // const [liveStreamLoading, setLiveStreamLoading] = useState<boolean>(true);
 

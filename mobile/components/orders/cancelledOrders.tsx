@@ -109,7 +109,7 @@ const CancelledOrders = ({
         </Text>
       </View>
 
-      {order?.paid && (
+      {order?.order?.paid && (
         <View
           className="rounded-[16px]"
           style={{

@@ -33,7 +33,12 @@ const AuctionCard = ({ item, closeSheet }: any) => {
         className="w-[149px] h-[157px]"
       />
       {/* Product Details */}
-      <View className="w-full">
+      <View
+        className="w-full mb-[2px]"
+        style={{
+          marginBottom: 2,
+        }}
+      >
         <Text
           className="text-white text-[10px] font-LexendDecaSemiBold  text-normal pt-3"
           numberOfLines={2}
@@ -44,7 +49,7 @@ const AuctionCard = ({ item, closeSheet }: any) => {
           {item?.name}
         </Text>
         <View className="relative flex-row items-center gap-x-2">
-          <Text className="text-white font-LexendDecaSemiBold text-[12px]]">
+          <Text className="text-white font-LexendDecaSemiBold text-[10px]">
             ₦
             {(
               item?.auction?.currentHighestBid?.amount || item?.auction?.minBid
@@ -54,7 +59,7 @@ const AuctionCard = ({ item, closeSheet }: any) => {
             ₦ +1.4K Shipping{" "}
           </Text> */}
         </View>
-        <View className="relative flex-row items-center gap-x-2">
+        <View className="relative flex-row items-center gap-x-2 ">
           <Text className="text-primary-200 font-LexendDeca  text-[10px]">
             {item?.auction?.bids?.length} Bids
           </Text>
@@ -63,14 +68,14 @@ const AuctionCard = ({ item, closeSheet }: any) => {
             {bidTime || formatTimeFromNow(item?.auction?.endDate)}
           </Text>
         </View>
-        <Text className="text-[#FFD700] text-[8px] pb-[12.47px] font-LexendDecaSemiBold mt-[2px]">
+        {/* <Text className="text-[#FFD700] text-[8px] pb-[12.47px] font-LexendDecaSemiBold mt-[2px]">
           {item?.auction?.currentHighestBid?.buyer?.firstName
             ? item?.auction?.currentHighestBid?.buyer?.firstName +
               " " +
               item?.auction?.currentHighestBid?.buyer?.lastName +
               " is winning"
             : "no current winner"}
-        </Text>
+        </Text> */}
       </View>
       {/* Seller Information */}
       <View className="relative flex-row gap-x-2">
@@ -100,10 +105,10 @@ const AuctionCard = ({ item, closeSheet }: any) => {
           </View>
         </View>
       </View>
-      <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[8px]">
+      {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[8px]">
         {item?.seller?.warehouseDetails?.address.state},{" "}
         {item?.seller?.warehouseDetails?.address.country}
-      </Text>
+      </Text> */}
 
       <CustomButton
         textStyle="!text-[8px] !font-semibold  !py-0"

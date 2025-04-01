@@ -526,7 +526,6 @@ const Returns = () => {
           childrenStyle="!px-[0px]"
           showCloseIcon={false}
           show={showReasonSheet}
-          snapPoints={["80%"]}
           enableDynamicSizing={true}
           onRequestClose={() => setShowReasonSheet(false)}
           keyboardBehavior="interactive"

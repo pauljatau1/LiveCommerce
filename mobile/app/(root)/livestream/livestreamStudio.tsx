@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import { AntDesign, Feather, MaterialIcons, Ionicons, Octicons, FontAwesome, Entypo, MaterialCommunityIcons, SimpleLineIcons } from '@expo/vector-icons';
 import { FocusAwareStatusBar } from '@/components/ui/focus-aware-status-bar';
 import BottomSheet from '@/components/global/bottom-sheet';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, BackHandler } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
 import { getToken, getUser } from '@/store/features/auth/utils';
 import axios from 'axios';
@@ -107,6 +107,23 @@ const LivestreamStudio = () => {
     // Add state for leave stream loading
     const [isLeavingStream, setIsLeavingStream] = useState(false);
 
+    // Add new state for detailed viewers
+    const [detailedViewers, setDetailedViewers] = useState<any[]>([]);
+
+    // Add state for host presence
+    const [isHostPresent, setIsHostPresent] = useState(true);
+    const [showNoHostAlert, setShowNoHostAlert] = useState(false);
+
+    // Update detailedViewers when activeStreamDetails changes
+    useEffect(() => {
+        if (activeStreamDetails?.stream?.viewers) {
+            setDetailedViewers(activeStreamDetails.stream.viewers);
+            console.log('Initialized detailedViewers with:', activeStreamDetails.stream.viewers);
+        }
+    }, [activeStreamDetails]);
+
+
+
     useEffect(() => {
         setupLivestream();
 
@@ -152,6 +169,22 @@ const LivestreamStudio = () => {
 
     console.log('keyboardHeightRef', keyboardHeightRef.current);
     console.log('keyboardVisibleRef', keyboardVisibleRef.current);
+
+    // Handle Android back button press
+   {/* useEffect(() => {
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (Platform.OS === 'android') {
+                const backButton = true;
+                handleLeaveStream(backButton);
+                router.back();
+                return true; // Prevent default behavior
+            }
+            return false;
+        });
+
+        return () => backHandler.remove();
+    }, [id]);*/}
+
     const setupLivestream = async () => {
         if (!id) return;
         try {
@@ -313,34 +346,65 @@ const LivestreamStudio = () => {
     const handleStreamNotification = useCallback((notification: StreamNotification) => {
         console.log('Received notification:', notification);
 
-        // Check if this is our own comment coming back (avoid duplicates)
-        const isDuplicate = liveComments.some(comment =>
-            comment.type === notification.type &&
-            comment.content === notification.content &&
-            Math.abs(new Date(comment.timestamp).getTime() - new Date(notification.timestamp).getTime()) < 5000
-        );
-
-        if (isDuplicate) {
-            console.log('Ignoring duplicate notification');
-            return;
-        }
 
         // Process notification based on type
         switch (notification.type) {
             case 'join':
                 console.log('User joined stream:', notification.user);
                 // Update UI to show join event
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
+                
                 // Update viewer count if available in notification data
-                if (notification.data && 'viewerCount' in notification.data) {
-                    setViewerCount(notification.data.viewerCount as number);
+                if (notification.data) {
+                    if ('viewerCount' in notification.data) {
+                        setViewerCount(notification.data.viewerCount as number);
+                    }
+                    
+                    // Add new viewer to detailedViewers array if not already present
+                    if (notification.data.buyerId) {
+                        const buyerId = notification.data.buyerId;
+                        console.log('Checking buyerId:', buyerId, 'in viewers array length:', detailedViewers?.length || 0);
+                        
+                        // Log the full viewers array for debugging
+                        console.log('Current detailedViewers:', JSON.stringify(detailedViewers));
+                        
+                        // Convert both to strings for safer comparison
+                        const existingViewer = Array.isArray(detailedViewers) && 
+                          detailedViewers.find(viewer => 
+                            viewer && viewer._id && viewer._id.toString() === buyerId.toString()
+                          );
+                        
+                        console.log('existingViewer check result:', existingViewer ? `Found with id ${existingViewer._id}` : 'Not found');
+                        
+                        if (!existingViewer) {
+                            // Viewer does not exist, create and add new viewer object
+                            const newViewer = {
+                                _id: buyerId,
+                                firstName: notification.data.buyerName?.split(' ')[0] || '',
+                                lastName: notification.data.buyerName?.split(' ')[1] || '',
+                                username: notification.data.buyerUsername || '',
+                                profileImage: notification.data.buyerAvatar ? { url: notification.data.buyerAvatar } : undefined
+                            };
+                            
+                            setDetailedViewers(prev => [...prev, newViewer]);
+                            console.log('Added new viewer:', newViewer._id);
+                        } else {
+                            console.log('Viewer already exists in detailed viewers array:', buyerId);
+                        }
+                    }
+                    
+                    // If the server provides a full viewers array, use it instead
+                    {/*if ('viewers' in notification.data && Array.isArray(notification.data.viewers)) {
+                        setDetailedViewers(notification.data.viewers);
+                        console.log('Updated viewers from server data:', notification.data.viewers);
+                    }*/}
                 }
                 break;
 
             case 'comment':
                 console.log('New comment received:', notification.content);
                 // Update UI to show comment
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 // Increment comment count
                 setComments(prev => prev + 1);
                 break;
@@ -348,25 +412,44 @@ const LivestreamStudio = () => {
             case 'purchase':
                 console.log('New purchase made:', notification.content);
                 // Update UI to show purchase
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 break;
                 
             case 'hostLeft':
                 console.log('Host left stream:', notification.user);
                 // Update UI to show host left event
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 break;
                 
             case 'hostRejoin':
                 console.log('Host rejoined stream:', notification.user);
                 // Update UI to show host rejoined event
-                setLiveComments(prev => [...prev, notification]);
+                setLiveComments(prev => [...prev, notification as any]);
                 break;
 
             case 'leave':
                 console.log('User left stream:', notification.user);
                 // Update UI to show leave event
-                setLiveComments(prev => [...prev, notification]);
+                    setLiveComments(prev => [...prev, notification as any]);
+                // Update viewer count if available in notification data
+                if (notification.data) {
+                    if ('viewerCount' in notification.data) {
+                        setViewerCount(notification.data.viewerCount as number);
+                    }
+                    
+                    // Remove viewer from detailedViewers array
+                    if ('buyerId' in notification.data && notification.data.buyerId) {
+                        const buyerId = notification.data.buyerId as string;
+                        setDetailedViewers(prev => prev.filter(viewer => viewer._id !== buyerId));
+                        console.log('Removed viewer with ID:', buyerId);
+                    }
+                    
+                    // If the server provides a full viewers array, use it instead
+                    {/*if ('viewers' in notification.data && Array.isArray(notification.data.viewers)) {
+                        setDetailedViewers(notification.data.viewers);
+                        console.log('Updated viewers from server data:', notification.data.viewers);
+                    }*/}
+                }
                 break;
 
             default:
@@ -382,7 +465,7 @@ const LivestreamStudio = () => {
                 }
             }, 100);
         });
-    }, [liveComments]);
+    }, [liveComments, detailedViewers]);
 
     const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
         const message = event.nativeEvent.data;
@@ -404,6 +487,24 @@ const LivestreamStudio = () => {
                 setStatus(`Host ${mediaType} stream playing`);
                 setIsLoading(false);
             }
+        } else if (message === 'no_host_present') {
+            // Handle no host present message
+            setIsHostPresent(false);
+            setShowNoHostAlert(true);
+            setStatus('No host present');
+            setIsLoading(false);
+        } else if (message === 'host_video_detected' || message === 'video_playing:') {
+            // Host has joined with video
+            setIsHostPresent(true);
+            setShowNoHostAlert(false);
+            setStatus('Host stream playing');
+            setIsVideoPlaying(true);
+            setIsLoading(false);
+        } else if (message === 'host_left_video' || message === 'all_hosts_left') {
+            // Host has left
+            setIsHostPresent(false);
+            setShowNoHostAlert(true);
+            setStatus('Host left the stream');
         } else if (message.startsWith('user_unpublished:')) {
             const parts = message.split(':');
             if (parts.length >= 3) {
@@ -417,7 +518,7 @@ const LivestreamStudio = () => {
                         type: 'hostLeft' as const,
                         user: storeInfo.name,
                         avatar: storeInfo.avatar,
-                        content: 'left room',
+                        content: 'Host left room',
                         timestamp: new Date()
                     };
                     
@@ -465,11 +566,15 @@ const LivestreamStudio = () => {
                 
                 setStatus('Host video reconnected');
                 setIsVideoPlaying(true);
+                setIsHostPresent(true);
+                setShowNoHostAlert(false);
                 setIsLoading(false);
             }
         } else if (message.startsWith('video_playing:')) {
             // Set video playing state to true when we get confirmation video is playing
             setIsVideoPlaying(true);
+            setIsHostPresent(true);
+            setShowNoHostAlert(false);
             setIsLoading(false);
         } else if (message.startsWith('connection:')) {
             const parts = message.split(':');
@@ -775,7 +880,7 @@ const LivestreamStudio = () => {
     };
 
     // Update handleLeaveStream function to actually leave the stream
-    const handleLeaveStream = async () => {
+    const handleLeaveStream = async (backButton: boolean) => {
         if (!id) return;
         
         try {
@@ -790,7 +895,9 @@ const LivestreamStudio = () => {
             disconnectSocket();
             
             // Navigate back to previous screen
-            router.back();
+            if (!backButton) {
+                router.back();
+            }
         } catch (error) {
             console.error('Error leaving stream:', error);
             // Show error message to user if needed
@@ -828,11 +935,43 @@ const LivestreamStudio = () => {
                                     originWhitelist={['*']}
                                 />
 
-                                {/* Show play loader while video is loading */}
-                                {(isLoading || !isVideoPlaying) && (
+                                {/* Show play loader while video is loading, but not if we know there's no host */}
+                                {(isLoading || (!isVideoPlaying && isHostPresent)) && (
                                     <View style={styles.playButtonOverlay}>
                                         <View style={styles.playButtonContainer}>
                                             <ActivityIndicator size="large" color="#fff" />
+                                        </View>
+                                    </View>
+                                )}
+                                
+                                {/* No Host Alert */}
+                                {showNoHostAlert && !isLoading && (
+                                    <View style={styles.noHostOverlay}>
+                                        <View style={styles.noHostAlertContainer}>
+                                            <View style={styles.noHostIconContainer}>
+                                                <MaterialIcons name="videocam-off" size={36} color="#FFFFFF" />
+                                            </View>
+                                            <Text style={styles.noHostTitle}>Host Unavailable</Text>
+                                            <Text style={styles.noHostMessage}>
+                                                The host is not in the room at the moment. Please wait or check back later.
+                                            </Text>
+                                            <View style={styles.buttonContainer}>
+                                                <TouchableOpacity
+                                                    style={styles.waitButton}
+                                                    onPress={() => setShowNoHostAlert(false)}
+                                                >
+                                                    <Text style={styles.waitButtonText}>Wait</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.leaveButton}
+                                                    onPress={() => {
+                                                        const backButton = false;
+                                                        handleLeaveStream(backButton);
+                                                    }}
+                                                >
+                                                    <Text style={styles.leaveButtonText}>Leave Stream</Text>
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
                                     </View>
                                 )}
@@ -928,7 +1067,8 @@ const LivestreamStudio = () => {
                                                     <TouchableOpacity 
                                                         onPress={() => {
                                                             if (!isLeavingStream) {
-                                                                handleLeaveStream();
+                                                                const backButton = false;
+                                                                handleLeaveStream(backButton);
                                                                 setShowMenuPopover(false);
                                                             }
                                                         }}
@@ -1168,13 +1308,13 @@ const LivestreamStudio = () => {
                 showCloseIcon={false}
                 title=""
                 show={showViewers}
-                snapPoints={["70%"]}
+                snapPoints={["40%"]}
                 titleColor="!text-white"
                 onRequestClose={() => setShowViewers(false)}
                 keyboardBehavior="interactive"
             >
                 <StreamViewers 
-                    viewers={activeStreamDetails?.stream?.viewers || []}
+                    viewers={detailedViewers}
                     hostInfo={{
                         name: storeInfo.name,
                         avatar: storeInfo.avatar
@@ -1539,6 +1679,84 @@ const styles = StyleSheet.create({
         fontFamily: 'LexendDeca',
         fontWeight: 'bold',
         flexWrap: 'wrap',
+    },
+    noHostOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 20,
+    },
+    noHostAlertContainer: {
+        width: '80%',
+        backgroundColor: '#1E1E1E',
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.5,
+        shadowRadius: 15,
+        elevation: 20,
+    },
+    noHostIconContainer: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#FF5555',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    noHostTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    noHostMessage: {
+        fontSize: 16,
+        color: '#CCCCCC',
+        marginBottom: 24,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        width: '100%',
+        justifyContent: 'space-between',
+        gap: 10,
+    },
+    waitButton: {
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 30,
+        flex: 1,
+        alignItems: 'center',
+    },
+    waitButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    leaveButton: {
+        backgroundColor: '#16783A',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 30,
+        flex: 1,
+        alignItems: 'center',
+    },
+    leaveButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: 'bold',
     },
 });
 

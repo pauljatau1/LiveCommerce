@@ -85,6 +85,28 @@ const CheckoutNow = ({
   const [orderId, setOrderId] = useState<string>("");
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [shippingFeeLoading, setShippingFeeLoading] = useState<boolean>(true);
+
+  const [paystackKey, setPaystackKey] = useState<any>();
+
+  const getPaystackKey = useCallback(async () => {
+    const token = await getToken();
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setPaystackKey(response.data?.data);
+    } catch (e) {
+      console.log("error getting keys");
+    }
+  }, []);
 
   const generateReference = () => {
     const prefix = "ORDER";
@@ -224,15 +246,12 @@ const CheckoutNow = ({
     } catch (e) {
       console.log("error fetching delivery fee ", e);
     } finally {
-      setLoading(false);
+      setShippingFeeLoading(false);
     }
   };
 
   const handleCompleteOrder = async () => {
     // return setShowPaystack(true);
-    if (orderLoading) {
-      return;
-    }
     if (orderLoading) {
       return;
     }
@@ -250,12 +269,20 @@ const CheckoutNow = ({
       }
     }
 
+    if (deliveryFee + productTotal > 50000 && selectedPayment == 2) {
+      return toast.info(
+        "Cash on Delivery is unavailable for orders over ₦50,000",
+      );
+    }
+
     const order = {
       items: [
         {
           productId: product._id,
           quantity: 1,
-          price: product?.discount?.discountedPrice || product.price,
+          price: product?.discount?.isActive
+            ? product?.discount?.discountedPrice
+            : product.price,
           weight: product.weight?.toFixed(0) * 1,
           seller: {
             sellerId: product.seller._id,
@@ -337,7 +364,7 @@ const CheckoutNow = ({
     } catch (e: any) {
       if (e?.response.status == 400) {
         closeSheet();
-
+        toast.success("Order Placed successfully");
         return router.push("/(root)/orders/orders");
       }
       console.log("could not Pay for  order", e?.response?.message);
@@ -358,6 +385,7 @@ const CheckoutNow = ({
 
       setUser(user);
     }
+    getPaystackKey();
     getUserInfo();
     getWalletBalance();
 
@@ -372,9 +400,11 @@ const CheckoutNow = ({
         }, 500);
       } else if (selectedPayment == 2) {
         closeSheet();
+        toast.success("Order Placed successfully");
         router.push("/(root)/orders/orders");
       } else {
         closeSheet();
+        toast.success("Order Placed successfully");
         router.push("/(root)/orders/orders");
       }
       setOrderloading(false);
@@ -548,9 +578,9 @@ const CheckoutNow = ({
               <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
                 Protect your orders from theft, damages up to 30 days after
                 receiving it{" "}
-                <Link href={"/"} className="text-[#49A3F6]">
+                {/* <Link href={"/"} className="text-[#49A3F6]">
                   Learn More
-                </Link>
+                </Link> */}
               </Text>
             </View>
 
@@ -641,29 +671,40 @@ const CheckoutNow = ({
                 <Text className="text-white text-[16px] font-LexendDecaSemiBold">
                   Shipping Fee
                 </Text>
-                <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                  {deliveryFee
-                    ? "₦" +
-                      deliveryFee?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
-                    : "-"}
-                </Text>
+                {shippingFeeLoading ? (
+                  <ActivityIndicator size={10} color="white" />
+                ) : (
+                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    {deliveryFee
+                      ? "₦" +
+                        deliveryFee?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "-"}
+                  </Text>
+                )}
               </View>
               <View className="flex-row justify-between items-center">
                 <Text className="text-white text-[16px] font-LexendDecaSemiBold">
                   Total
                 </Text>
-                <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
-                  {deliveryFee && productTotal
-                    ? "₦" +
-                      (deliveryFee + productTotal)?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
-                    : "-"}
-                </Text>
+                {shippingFeeLoading ? (
+                  <ActivityIndicator size={10} color="white" />
+                ) : (
+                  <Text className="text-[#16783A] text-[16px] font-LexendDecaSemiBold">
+                    {deliveryFee && productTotal
+                      ? "₦" +
+                        (deliveryFee + productTotal)?.toLocaleString(
+                          undefined,
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )
+                      : "-"}
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -694,7 +735,7 @@ const CheckoutNow = ({
       {showPaystack && (
         <Paystack
           refNumber={generateReference()}
-          paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
+          paystackKey={paystackKey?.publicKey}
           amount={deliveryFee! + productTotal}
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}

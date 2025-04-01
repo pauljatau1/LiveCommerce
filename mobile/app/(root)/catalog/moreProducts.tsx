@@ -173,7 +173,7 @@ const MoreProducts = () => {
 
           {isLoading ? (
             <View>
-              <ActivityIndicator size={"small"} color="#16783A" />
+              <ActivityIndicator size={"small"} color="#fff" />
             </View>
           ) : (
             <View className="px-[16px] flex-1">

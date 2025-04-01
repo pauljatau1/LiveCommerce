@@ -121,7 +121,7 @@ const Message = () => {
             </Text>
             <Text className="text-[13px] text-[#ccc] font-LexendDecaLight shrink">
               {item.lastMessage.messageType == "text"
-                ? item.lastMessage.content?.length > 20
+                ? item.lastMessage.content?.length > 40
                   ? item.lastMessage.content.slice(0, 40) + "..."
                   : item.lastMessage.content
                 : "Shared " + item.lastMessage.messageType}

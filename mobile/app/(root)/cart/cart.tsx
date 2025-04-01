@@ -385,7 +385,7 @@ const EmptyCart = () => {
       </Text>
       <Pressable
         className="bg-[#16783A] rounded-[31px] items-center justify-center py-[12px] w-[200px]"
-        onPress={() => router.replace("/")}
+        onPress={() => router.replace("/home/marketplace")}
       >
         <Text className="text-[14px] text-[#ffffff] font-LexendDecaLight text-center">
           Find Products

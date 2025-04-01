@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner' | 'auction_end';
   user: string;
   avatar?: string;
   content: string;
@@ -21,13 +21,74 @@ export interface StreamNotification {
     streamId: string;
     isHost?: boolean;
     viewerCount?: number;
+    product?: any; // For auction_start notification
+    bidAmount?: number;
+    isError?: boolean;
+    currentBidder?: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      username: string;
+      profileImage?: {
+        url?: string;
+      };
+    };
+    bidWinner?: {
+      buyer: {
+        _id: string;
+        firstName: string;
+        lastName: string;
+        username: string;
+        profileImage?: {
+          url?: string;
+        };
+      };
+      bidAmount: number;
+      timestamp: Date;
+    };
   };
   timestamp: Date;
 }
 
+export interface BidTimerUpdate {
+  streamId: string;
+  productId: string;
+  secondsLeft: number;
+  formattedTime: string;
+  jobId: string;
+  productIndex: number;
+  productName: string;
+}
+
+export interface BidTimerComplete {
+  streamId: string;
+  productId: string;
+  jobId: string;
+  productIndex: number;
+  productName: string;
+}
+
+export interface AuctionOrderCreated {
+  success: boolean;
+  message: string;
+  orderId: string;
+  streamId: string;
+  productName: string;
+  amount: number;
+  shippingFee: number;
+  total: number;
+}
+
 let socket: Socket | null = null;
 
-export const initializeSocket = (token: string, onNotification: (notification: StreamNotification) => void) => {
+export const initializeSocket = (
+  token: string, 
+  onNotification: (notification: StreamNotification) => void,
+  setIsBidSending?: React.Dispatch<React.SetStateAction<boolean>>,
+  onBidTimerUpdate?: (data: BidTimerUpdate) => void,
+  onBidTimerComplete?: (data: BidTimerComplete) => void,
+  onAuctionOrderCreated?: (data: AuctionOrderCreated) => void
+) => {
   if (socket && socket.connected) {
     console.log('Socket already connected');
     return socket;
@@ -56,7 +117,7 @@ export const initializeSocket = (token: string, onNotification: (notification: S
     currentSocket.emit('stream_notification_subscribe');
   });
 
-  // Handle general stream notifications (including comments from other users)
+  // Handle stream notifications (regular bids and auction winners)
   currentSocket.on('stream_notification', (data: StreamNotification) => {
     console.log('Received stream notification:', data);
     
@@ -66,6 +127,72 @@ export const initializeSocket = (token: string, onNotification: (notification: S
     }
     
     onNotification(data);
+  });
+
+  // Handle bid error events
+  currentSocket.on('bid_error', (data: { message: string }) => {
+    console.error('Bid error:', data.message);
+    
+    // Update bidding state if the setter is provided
+    if (setIsBidSending) {
+      setIsBidSending(false);
+    }
+    
+    // Pass this to the notification handler as an error notification
+    const errorNotification: StreamNotification = {
+      id: Date.now().toString(),
+      type: 'comment', // Using comment type but will handle differently in UI
+      user: 'System',
+      content: `Bid error: ${data.message}`,
+      data: {
+        streamId: 'error',
+        isError: true,
+        message: data.message // Add the raw message separately for easy access
+      },
+      timestamp: new Date()
+    };
+    onNotification(errorNotification);
+  });
+
+  // Handle bid success events
+  currentSocket.on('bid_placed', (data: any) => {
+    console.log('Bid placed successfully:', data);
+    
+    // Update bidding state if the setter is provided
+    if (setIsBidSending) {
+      setIsBidSending(false);
+    }
+  });
+
+  // Handle bid timer update event
+  currentSocket.on('bid_timer_update', (data: BidTimerUpdate) => {
+    console.log('Bid timer update:', data);
+    
+    // If callback is provided, pass timer update data
+    if (onBidTimerUpdate) {
+      onBidTimerUpdate(data);
+      console.log('Bid timer update received:', data);
+    }
+  });
+
+  // Handle bid timer complete event
+  currentSocket.on('bid_timer_complete', (data: BidTimerComplete) => {
+    console.log('Bid timer complete:', data);
+    
+    // If callback is provided, pass timer complete data
+    if (onBidTimerComplete) {
+      onBidTimerComplete(data);
+    }
+  });
+
+  // Handle auction order created event
+  currentSocket.on('auction_order_created', (data: AuctionOrderCreated) => {
+    console.log('Auction order created:', data);
+    
+    // If callback is provided, pass order created data
+    if (onAuctionOrderCreated) {
+      onAuctionOrderCreated(data);
+    }
   });
 
   currentSocket.on('disconnect', (reason) => {
@@ -133,6 +260,18 @@ export const initializeSocket = (token: string, onNotification: (notification: S
   // Handle viewer left stream events
   currentSocket.on(SOCKET_EVENTS.VIEWER_LEFT, (data: StreamNotification) => {
     console.log('Viewer left stream:', data);
+    
+    // Convert string timestamp to Date object if needed
+    if (typeof data.timestamp === 'string') {
+      data.timestamp = new Date(data.timestamp);
+    }
+    
+    onNotification(data);
+  });
+
+  // Handle auction start events
+  currentSocket.on(SOCKET_EVENTS.AUCTION_START, (data: StreamNotification) => {
+    console.log('Auction started for product:', data);
     
     // Convert string timestamp to Date object if needed
     if (typeof data.timestamp === 'string') {
