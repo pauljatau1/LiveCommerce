@@ -110,6 +110,10 @@ const LivestreamStudio = () => {
     // Add new state for detailed viewers
     const [detailedViewers, setDetailedViewers] = useState<any[]>([]);
 
+    // Add state for host presence
+    const [isHostPresent, setIsHostPresent] = useState(true);
+    const [showNoHostAlert, setShowNoHostAlert] = useState(false);
+
     // Update detailedViewers when activeStreamDetails changes
     useEffect(() => {
         if (activeStreamDetails?.stream?.viewers) {
@@ -483,6 +487,24 @@ const LivestreamStudio = () => {
                 setStatus(`Host ${mediaType} stream playing`);
                 setIsLoading(false);
             }
+        } else if (message === 'no_host_present') {
+            // Handle no host present message
+            setIsHostPresent(false);
+            setShowNoHostAlert(true);
+            setStatus('No host present');
+            setIsLoading(false);
+        } else if (message === 'host_video_detected' || message === 'video_playing:') {
+            // Host has joined with video
+            setIsHostPresent(true);
+            setShowNoHostAlert(false);
+            setStatus('Host stream playing');
+            setIsVideoPlaying(true);
+            setIsLoading(false);
+        } else if (message === 'host_left_video' || message === 'all_hosts_left') {
+            // Host has left
+            setIsHostPresent(false);
+            setShowNoHostAlert(true);
+            setStatus('Host left the stream');
         } else if (message.startsWith('user_unpublished:')) {
             const parts = message.split(':');
             if (parts.length >= 3) {
@@ -544,11 +566,15 @@ const LivestreamStudio = () => {
                 
                 setStatus('Host video reconnected');
                 setIsVideoPlaying(true);
+                setIsHostPresent(true);
+                setShowNoHostAlert(false);
                 setIsLoading(false);
             }
         } else if (message.startsWith('video_playing:')) {
             // Set video playing state to true when we get confirmation video is playing
             setIsVideoPlaying(true);
+            setIsHostPresent(true);
+            setShowNoHostAlert(false);
             setIsLoading(false);
         } else if (message.startsWith('connection:')) {
             const parts = message.split(':');
@@ -909,11 +935,35 @@ const LivestreamStudio = () => {
                                     originWhitelist={['*']}
                                 />
 
-                                {/* Show play loader while video is loading */}
-                                {(isLoading || !isVideoPlaying) && (
+                                {/* Show play loader while video is loading, but not if we know there's no host */}
+                                {(isLoading || (!isVideoPlaying && isHostPresent)) && (
                                     <View style={styles.playButtonOverlay}>
                                         <View style={styles.playButtonContainer}>
                                             <ActivityIndicator size="large" color="#fff" />
+                                        </View>
+                                    </View>
+                                )}
+                                
+                                {/* No Host Alert */}
+                                {showNoHostAlert && !isLoading && (
+                                    <View style={styles.noHostOverlay}>
+                                        <View style={styles.noHostAlertContainer}>
+                                            <View style={styles.noHostIconContainer}>
+                                                <MaterialIcons name="videocam-off" size={36} color="#FFFFFF" />
+                                            </View>
+                                            <Text style={styles.noHostTitle}>Host Unavailable</Text>
+                                            <Text style={styles.noHostMessage}>
+                                                The host is not in the room at the moment. Please wait or check back later.
+                                            </Text>
+                                            <TouchableOpacity
+                                                style={styles.leaveButton}
+                                                onPress={() => {
+                                                    const backButton = false;
+                                                    handleLeaveStream(backButton);
+                                                }}
+                                            >
+                                                <Text style={styles.leaveButtonText}>Leave Stream</Text>
+                                            </TouchableOpacity>
                                         </View>
                                     </View>
                                 )}
@@ -1621,6 +1671,65 @@ const styles = StyleSheet.create({
         fontFamily: 'LexendDeca',
         fontWeight: 'bold',
         flexWrap: 'wrap',
+    },
+    noHostOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 20,
+    },
+    noHostAlertContainer: {
+        width: '80%',
+        backgroundColor: '#1E1E1E',
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.5,
+        shadowRadius: 15,
+        elevation: 20,
+    },
+    noHostIconContainer: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#FF5555',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    noHostTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    noHostMessage: {
+        fontSize: 16,
+        color: '#CCCCCC',
+        marginBottom: 24,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    leaveButton: {
+        backgroundColor: '#16783A',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 30,
+        width: '100%',
+        alignItems: 'center',
+    },
+    leaveButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
 

@@ -12,8 +12,7 @@ import { useEffect, useState } from "react";
 import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 
 const AuqliLive = () => {
-  const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } =
-    useLivestream();
+  const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } = useLivestream();
   const [filteredActiveLivestream, setFilteredActiveLivestream] = useState([]);
   // const [liveStreamLoading, setLiveStreamLoading] = useState<boolean>(true);
 

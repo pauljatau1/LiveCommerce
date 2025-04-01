@@ -30,6 +30,7 @@ import StreamViewers from './streamViewers';
 import StreamInfo from './StreamInfo';
 import BidErrorMessage from './BidErrorMessage';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import OrderCreatedNotification from './OrderCreatedNotification';
 
 const { width, height } = Dimensions.get('window');
 
@@ -126,11 +127,15 @@ const LiveAuctionStudio = () => {
     // Add new state for detailed viewers
     const [detailedViewers, setDetailedViewers] = useState<any[]>([]);
 
+    // Add state for host presence
+    const [isHostPresent, setIsHostPresent] = useState(true);
+    const [showNoHostAlert, setShowNoHostAlert] = useState(false);
+
     // Update detailedViewers when activeStreamDetails changes
     useEffect(() => {
         if (activeStreamDetails?.stream?.viewers) {
             setDetailedViewers(activeStreamDetails.stream.viewers);
-            console.log('Initialized detailedViewers with:', activeStreamDetails.stream.viewers);
+            //console.log('Initialized detailedViewers with:', activeStreamDetails.stream.viewers);
         }
     }, [activeStreamDetails]);
 
@@ -357,7 +362,7 @@ const LiveAuctionStudio = () => {
 
             // Get the current user's information
             const user = await getUser();
-
+            
             // Create a join event for the current user
             const userJoinEvent = {
                 id: Date.now().toString(),
@@ -378,7 +383,7 @@ const LiveAuctionStudio = () => {
             setLiveComments(updatedChatInteractions);
 
             //console.log(`Loaded ${updatedChatInteractions.length} chat interactions from server`);
-
+            
             // Use requestAnimationFrame and setTimeout for more reliable scrolling
             if (updatedChatInteractions.length > 0) {
                 requestAnimationFrame(() => {
@@ -427,7 +432,7 @@ const LiveAuctionStudio = () => {
                 // Update viewer count if available in notification data
                 if (notification.data) {
                     if ('viewerCount' in notification.data) {
-                        setViewerCount(notification.data.viewerCount as number);
+                    setViewerCount(notification.data.viewerCount as number);
                     }
                     
                      // Add new viewer to detailedViewers array if not already present
@@ -745,7 +750,7 @@ const LiveAuctionStudio = () => {
 
     const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
         const message = event.nativeEvent.data;
-        //console.log('WebView message:', message);
+        console.log('WebView message:', message);
 
         if (message.startsWith('error:')) {
             setStatus(message.replace('error:', 'Error: '));
@@ -763,6 +768,24 @@ const LiveAuctionStudio = () => {
                 setStatus(`Host ${mediaType} stream playing`);
                 setIsLoading(false);
             }
+        } else if (message === 'no_host_present') {
+            // Handle no host present message
+            setIsHostPresent(false);
+            setShowNoHostAlert(true);
+            setStatus('No host present');
+            setIsLoading(false);
+        } else if (message === 'host_video_detected' || message === 'video_playing:') {
+            // Host has joined with video
+            setIsHostPresent(true);
+            setShowNoHostAlert(false);
+            setStatus('Host stream playing');
+            setIsVideoPlaying(true);
+            setIsLoading(false);
+        } else if (message === 'host_left_video' || message === 'all_hosts_left') {
+            // Host has left
+            setIsHostPresent(false);
+            setShowNoHostAlert(true);
+            setStatus('Host left the stream');
         } else if (message.startsWith('user_unpublished:')) {
             const parts = message.split(':');
             if (parts.length >= 3) {
@@ -824,11 +847,15 @@ const LiveAuctionStudio = () => {
 
                 setStatus('Host video reconnected');
                 setIsVideoPlaying(true);
+                setIsHostPresent(true);
+                setShowNoHostAlert(false);
                 setIsLoading(false);
             }
         } else if (message.startsWith('video_playing:')) {
             // Set video playing state to true when we get confirmation video is playing
             setIsVideoPlaying(true);
+            setIsHostPresent(true);
+            setShowNoHostAlert(false);
             setIsLoading(false);
         } else if (message.startsWith('connection:')) {
             const parts = message.split(':');
@@ -1175,7 +1202,7 @@ const LiveAuctionStudio = () => {
                 const bidNotification: StreamNotification = {
                     id: Date.now().toString(),
                     type: 'new_bid',
-                    user: 'You',  // Simplify to just "You" since we're showing user's own bids
+                    user: 'System',  // Simplify to just "You" since we're showing user's own bids
                     content: `Your bid of ${formatPrice(bidAmount)} was submitted`,
                     data: {
                         streamId: id as string,
@@ -1351,53 +1378,23 @@ const LiveAuctionStudio = () => {
         // Show notification
         setShowOrderCreatedNotification(true);
         
+        // Get first 3 words of product name
+        const truncatedName = data.productName.split(' ').slice(0, 3).join(' ');
+        
         // You can also show a toast notification
         show({
             text1: 'Order Created',
-            text2: `Your order for ${data.productName} has been created`,
+            text2: `Your order for ${truncatedName}... has been created`,
             type: 'success',
             duration: 5000
         });
         
     }, [show]);
 
-    // Create a component for displaying the order created notification
-    const OrderCreatedNotification = ({ order, onClose }: { order: AuctionOrderCreated, onClose: () => void }) => {
-        return (
-            <View style={styles.orderCreatedContainer}>
-                <View style={styles.orderCreatedContent}>
-                    <AntDesign name="checkcircle" size={24} color="#16783A" style={styles.orderCreatedIcon} />
-                    <View style={styles.orderCreatedTextContainer}>
-                        <Text style={styles.orderCreatedTitle}>Order Created</Text>
-                        <Text style={styles.orderCreatedText}>
-                            Your order for {order.productName} has been created.
-                        </Text>
-                        <Text style={styles.orderCreatedInfo}>
-                            Total: {formatPrice(order.total)}
-                        </Text>
-                    </View>
-                    <TouchableOpacity style={styles.orderCreatedCloseButton} onPress={onClose}>
-                        <AntDesign name="close" size={18} color="#FFF" />
-                    </TouchableOpacity>
-                </View>
-                <TouchableOpacity 
-                    style={styles.orderCreatedViewButton}
-                    onPress={() => {
-                        onClose();
-                        router.push(`/orders/${order.orderId}`);
-                    }}
-                >
-                    <Text style={styles.orderCreatedViewButtonText}>View Order</Text>
-                    <AntDesign name="arrowright" size={16} color="#FFF" />
-                </TouchableOpacity>
-            </View>
-        );
-    };
-
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-            <View
+            <View 
                 style={{ flex: 1 }}
             >
                 <View className="flex-1 bg-black">
@@ -1423,11 +1420,35 @@ const LiveAuctionStudio = () => {
                                     originWhitelist={['*']}
                                 />
 
-                                {/* Show play loader while video is loading */}
-                                {(isLoading || !isVideoPlaying) && (
+                                {/* Show play loader while video is loading, but not if we know there's no host */}
+                                {(isLoading || (!isVideoPlaying && isHostPresent)) && (
                                     <View style={styles.playButtonOverlay}>
                                         <View style={styles.playButtonContainer}>
                                             <ActivityIndicator size="large" color="#fff" />
+                                        </View>
+                                    </View>
+                                )}
+                                
+                                {/* No Host Alert */}
+                                {showNoHostAlert && !isLoading && (
+                                    <View style={styles.noHostOverlay}>
+                                        <View style={styles.noHostAlertContainer}>
+                                            <View style={styles.noHostIconContainer}>
+                                                <MaterialIcons name="videocam-off" size={36} color="#FFFFFF" />
+                                            </View>
+                                            <Text style={styles.noHostTitle}>Host Unavailable</Text>
+                                            <Text style={styles.noHostMessage}>
+                                                The host is not in the room at the moment. Please wait or check back later.
+                                            </Text>
+                                            <TouchableOpacity
+                                                style={styles.leaveButton}
+                                                onPress={() => {
+                                                    const backButton = false;
+                                                    handleLeaveStream(backButton);
+                                                }}
+                                            >
+                                                <Text style={styles.leaveButtonText}>Leave Stream</Text>
+                                            </TouchableOpacity>
                                         </View>
                                     </View>
                                 )}
@@ -1508,8 +1529,8 @@ const LiveAuctionStudio = () => {
                                                         alignItems: 'center',
                                                         paddingVertical: 10,
                                                     }}
-                                                >
-                                                    {isMuted ? (
+                                        >
+                                            {isMuted ? (
                                                         <Ionicons name="volume-mute-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
                                                     ) : (
                                                         <Ionicons name="volume-medium-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
@@ -1543,7 +1564,7 @@ const LiveAuctionStudio = () => {
                                                     <Text style={{ color: '#FF5555', fontSize: 14 }}>
                                                         {isLeavingStream ? 'Leaving...' : 'Leave'}
                                                     </Text>
-                                                </TouchableOpacity>
+                                        </TouchableOpacity>
                                             </View>
                                         )}
                                     </View>
@@ -1579,14 +1600,14 @@ const LiveAuctionStudio = () => {
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
-                                            <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
+                                        <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Orders</Text>
                                     </View>
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
-                                            <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
+                                        <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Shop</Text>
                                     </View>
@@ -1659,7 +1680,7 @@ const LiveAuctionStudio = () => {
                                             returnKeyType="send"
                                             onSubmitEditing={handleSendComment}
                                         />
-                                        <TouchableOpacity
+                                        <TouchableOpacity 
                                             style={styles.sendButton}
                                             onPress={handleSendComment}
                                             disabled={!commentInput.trim()}
@@ -1743,7 +1764,7 @@ const LiveAuctionStudio = () => {
                                                 />
                                             </>
                                         )}
-                                    </View>
+                                </View>
                                 </>
                             )}
                         </View>
@@ -1838,7 +1859,7 @@ const LiveAuctionStudio = () => {
                 showCloseIcon={false}
                 title=""
                 show={showViewers}
-                snapPoints={["60%"]}
+                snapPoints={["40%"]}
                 titleColor="!text-white"
                 onRequestClose={() => setShowViewers(false)}
                 keyboardBehavior="interactive"
@@ -1893,12 +1914,29 @@ const LiveAuctionStudio = () => {
             </BottomSheet>
 
             {/* Order Created Notification */}
-            {showOrderCreatedNotification && activeOrderCreated && (
-                <OrderCreatedNotification
-                    order={activeOrderCreated}
-                    onClose={() => setShowOrderCreatedNotification(false)}
-                />
-            )}
+            <BottomSheet
+                bgColor="#121212"
+                childrenStyle="!px-0"
+                showCloseIcon={false}
+                title=""
+                show={showOrderCreatedNotification}
+                snapPoints={["70%"]}
+                titleColor="!text-white"
+                onRequestClose={() => setShowOrderCreatedNotification(false)}
+                keyboardBehavior="interactive"
+            >
+                {activeOrderCreated && (
+                    <OrderCreatedNotification
+                        order={activeOrderCreated}
+                        closeSheet={() => setShowOrderCreatedNotification(false)}
+                        onViewOrder={(orderId) => {
+                            setShowOrderCreatedNotification(false);
+                            router.push(`/orders/orders`);
+                        }}
+                        formatPrice={formatPrice}
+                    />
+                )}
+            </BottomSheet>
         </GestureHandlerRootView>
     );
 };
@@ -2319,6 +2357,65 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 14,
         marginRight: 8,
+    },
+    noHostOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 20,
+    },
+    noHostAlertContainer: {
+        width: '80%',
+        backgroundColor: '#1E1E1E',
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.5,
+        shadowRadius: 15,
+        elevation: 20,
+    },
+    noHostIconContainer: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#FF5555',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    noHostTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    noHostMessage: {
+        fontSize: 16,
+        color: '#CCCCCC',
+        marginBottom: 24,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    leaveButton: {
+        backgroundColor: '#16783A',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 30,
+        width: '100%',
+        alignItems: 'center',
+    },
+    leaveButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
 

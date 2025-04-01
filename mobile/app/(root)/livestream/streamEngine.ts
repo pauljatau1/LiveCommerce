@@ -21,6 +21,8 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
       // Global references to important objects
       let client;
       let remoteUsers = {};
+      let hostCheckTimeout;
+      let hasHostVideo = false;
       
       async function joinAsAudience() {
         try {
@@ -47,10 +49,27 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
             // Auto-subscribe to existing users
             subscribeToUser(user);
           });
+          
+          // Start a timeout to check if any host is present
+          startHostCheckTimeout();
         } catch (error) {
           console.error("Error joining:", error);
           window.ReactNativeWebView.postMessage("error:" + error.message);
         }
+      }
+      
+      function startHostCheckTimeout() {
+        // Clear any existing timeout
+        if (hostCheckTimeout) {
+          clearTimeout(hostCheckTimeout);
+        }
+        
+        // Set a 5-second timeout to check if any host video has been detected
+        hostCheckTimeout = setTimeout(() => {
+          if (!hasHostVideo && Object.keys(remoteUsers).length === 0) {
+            window.ReactNativeWebView.postMessage("no_host_present");
+          }
+        }, 5000);
       }
       
       function registerEvents() {
@@ -61,6 +80,12 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
           // Save remote user to our object
           remoteUsers[user.uid] = user;
           
+          if (mediaType === "video") {
+            hasHostVideo = true;
+            // If we had previously sent a no_host_present message, now send host_joined
+            window.ReactNativeWebView.postMessage("host_video_detected");
+          }
+          
           // Subscribe to the remote user
           await subscribeToUser(user);
         });
@@ -68,6 +93,18 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
         // When remote user stops publishing
         client.on("user-unpublished", (user, mediaType) => {
           window.ReactNativeWebView.postMessage("user_unpublished:" + user.uid + ":" + mediaType);
+          
+          if (mediaType === "video") {
+            // Check if there are still other hosts with video
+            const otherHostsWithVideo = Object.values(remoteUsers).some(u => 
+              u.uid !== user.uid && u.hasVideo && u.videoTrack
+            );
+            
+            if (!otherHostsWithVideo) {
+              hasHostVideo = false;
+              window.ReactNativeWebView.postMessage("host_left_video");
+            }
+          }
         });
         
         // When remote user joins
@@ -80,6 +117,12 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
         client.on("user-left", (user) => {
           window.ReactNativeWebView.postMessage("user_left:" + user.uid);
           delete remoteUsers[user.uid];
+          
+          // Check if there are no more remote users after this one left
+          if (Object.keys(remoteUsers).length === 0) {
+            hasHostVideo = false;
+            window.ReactNativeWebView.postMessage("all_hosts_left");
+          }
         });
         
         // Connection state changes
@@ -111,6 +154,15 @@ export const streamEngine = (appId: string, channel: string, token: string, uid:
               // Play the video - use cover to fill container
               user.videoTrack.play(playerDiv, { fit: "cover" });
               window.ReactNativeWebView.postMessage("video_playing:" + user.uid);
+              
+              // Mark that we have detected host video
+              hasHostVideo = true;
+              
+              // Clear any timeout for host check since we found a host
+              if (hostCheckTimeout) {
+                clearTimeout(hostCheckTimeout);
+                hostCheckTimeout = null;
+              }
             } else {
               window.ReactNativeWebView.postMessage("error:video_container_missing");
             }

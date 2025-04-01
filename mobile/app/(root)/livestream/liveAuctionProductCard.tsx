@@ -80,7 +80,7 @@ const LiveAuctionProductCard = ({
         }
     }, [bidTimeRemaining, product.bidStatus]);
 
-    return (
+  return (
         <View style={styles.container}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <View style={styles.contentRow}>
@@ -119,7 +119,7 @@ const LiveAuctionProductCard = ({
                 ]}>
                     {product.bidStatus === 'active' ? bidTimeRemaining : '00:30'}
                 </Text>
-            </View>
+    </View>
 
             {/* Category and Tags */}
             {
