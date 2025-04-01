@@ -34,6 +34,7 @@ const mainLinks = [
   { icon: Image, label: 'Banners', path: '/dashboard/banners' },
   { icon: Megaphone, label: 'Announcements', path: '/dashboard/announcements' },
   { icon: FileText, label: 'Resources', path: '/dashboard/resources' },
+  { icon: FileText, label: 'Return Requests', path: '/dashboard/return-requests' },
   { icon: Building2, label: 'Bank Requests', path: '/dashboard/bankrequests' },
 ];
 
