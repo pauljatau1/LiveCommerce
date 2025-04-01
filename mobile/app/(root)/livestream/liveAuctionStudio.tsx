@@ -263,7 +263,7 @@ const LiveAuctionStudio = () => {
 
                     // Find if there's an active product for bidding and set it as current
                     const activeProductIndex = productsWithStatus.findIndex(product =>
-                        product.bidStatus === 'active' || product.bidStatus === 'ended'
+                        product.bidStatus === 'active' || product.bidStatus === 'ongoing'
                     );
 
                     //console.log('Active product index on join:', activeProductIndex);
@@ -581,6 +581,8 @@ const LiveAuctionStudio = () => {
                             });
                         });
                     }
+
+                    setCurrentBidWinner(null);
                 }
                 break;
 
