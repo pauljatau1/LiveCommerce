@@ -3,7 +3,7 @@ import React from "react";
 
 const NotificationSheet = ({ data }: any) => {
   return (
-    <View className="h-full mt-[10px]">
+    <View className="my-[10px] mb-[20px]">
       <Text className="text-[#ccc] text-[20px] font-LexendDecaSemiBold mb-[30px] text-center">
         {data?.title}
       </Text>

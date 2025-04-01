@@ -399,7 +399,7 @@ const VideoItem = ({
                     className="text-white text-[12px] font-LexendDecaMedium"
                     style={styles.text}
                   >
-                    {item?.seller?.storeRating?.toFixed(1)}
+                    {seller?.storeRating?.toFixed(1)}
                   </Text>
                 </View>
               </View>
