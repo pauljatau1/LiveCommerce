@@ -955,15 +955,23 @@ const LivestreamStudio = () => {
                                             <Text style={styles.noHostMessage}>
                                                 The host is not in the room at the moment. Please wait or check back later.
                                             </Text>
-                                            <TouchableOpacity
-                                                style={styles.leaveButton}
-                                                onPress={() => {
-                                                    const backButton = false;
-                                                    handleLeaveStream(backButton);
-                                                }}
-                                            >
-                                                <Text style={styles.leaveButtonText}>Leave Stream</Text>
-                                            </TouchableOpacity>
+                                            <View style={styles.buttonContainer}>
+                                                <TouchableOpacity
+                                                    style={styles.waitButton}
+                                                    onPress={() => setShowNoHostAlert(false)}
+                                                >
+                                                    <Text style={styles.waitButtonText}>Wait</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.leaveButton}
+                                                    onPress={() => {
+                                                        const backButton = false;
+                                                        handleLeaveStream(backButton);
+                                                    }}
+                                                >
+                                                    <Text style={styles.leaveButtonText}>Leave Stream</Text>
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
                                     </View>
                                 )}
@@ -1300,7 +1308,7 @@ const LivestreamStudio = () => {
                 showCloseIcon={false}
                 title=""
                 show={showViewers}
-                snapPoints={["70%"]}
+                snapPoints={["40%"]}
                 titleColor="!text-white"
                 onRequestClose={() => setShowViewers(false)}
                 keyboardBehavior="interactive"
@@ -1718,17 +1726,36 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 22,
     },
+    buttonContainer: {
+        flexDirection: 'row',
+        width: '100%',
+        justifyContent: 'space-between',
+        gap: 10,
+    },
+    waitButton: {
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 30,
+        flex: 1,
+        alignItems: 'center',
+    },
+    waitButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
     leaveButton: {
         backgroundColor: '#16783A',
         paddingVertical: 12,
         paddingHorizontal: 24,
         borderRadius: 30,
-        width: '100%',
+        flex: 1,
         alignItems: 'center',
     },
     leaveButtonText: {
         color: '#FFFFFF',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: 'bold',
     },
 });
