@@ -54,20 +54,20 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
   }, [index]);
 
   useEffect(() => {
-    if (products?.products?.length > 0) {
-      if (page == 1) {
-        setMyBids(products.products);
-      } else {
-        setMyBids([...myBids, ...products?.products]);
-      }
-
-      if (
-        products?.pagination.totalPages == products?.pagination?.currentPage ||
-        products?.pagination.totalPages < 1
-      ) {
-        setHasReachedEnd(true);
-      }
+    // if (products?.products?.length > 0) {
+    if (page == 1) {
+      setMyBids(products?.products);
+    } else {
+      setMyBids([...myBids, ...products?.products]);
     }
+
+    if (
+      products?.pagination?.totalPages == products?.pagination?.currentPage ||
+      products?.pagination?.totalPages < 1
+    ) {
+      setHasReachedEnd(true);
+    }
+    // }
   }, [products]);
 
   const renderEmptyAuctions = useCallback(() => {
