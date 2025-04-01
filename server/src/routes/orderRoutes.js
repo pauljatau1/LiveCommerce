@@ -1791,4 +1791,46 @@ router.post('/:orderId/cancel',
   orderController.cancelOrderBySeller
 );
 
+/**
+ * @swagger
+ * /api/order/{orderNo}/manifest-url:
+ *   get:
+ *     summary: Get manifest URL for an order from Fez Delivery
+ *     description: Retrieves the manifest URL for a specific order using the Fez Delivery API
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderNo
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The Fez order number to get manifest URL for
+ *     responses:
+ *       200:
+ *         description: Manifest URL retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 manifestUrl:
+ *                   type: string
+ *                   example: https://fezdelivery.co/manifest/123456.pdf
+ *                 description:
+ *                   type: string
+ *                   example: Manifest URL retrieved successfully
+ *       400:
+ *         description: Bad request, missing or invalid order number
+ *       401:
+ *         description: Unauthorized - Missing or invalid authentication token
+ *       500:
+ *         description: Server error
+ */
+router.get('/:orderNo/manifest-url', authMiddleware.verifyToken, orderController.getManifestUrl);
+
 module.exports = router;

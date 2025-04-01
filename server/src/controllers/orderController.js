@@ -4136,4 +4136,65 @@ exports.getBuyerRefundRequests = async (req, res) => {
   }
 };
 
+/**
+ * Get manifest URL for an order from Fez Delivery API
+ */
+exports.getManifestUrl = async (req, res) => {
+  try {
+    const { orderNo } = req.params;
+    
+    if (!orderNo) {
+      return res.status(400).json({ 
+        message: 'Order number is required' 
+      });
+    }
+    
+    console.log(`📄 Getting manifest URL for order: ${orderNo}`);
+    
+    // Get a fresh authentication token for Fez Delivery
+    const authToken = await getFezAuthToken();
+    console.log('Using fresh token for manifest URL request:', authToken.substring(0, 10) + '...');
+    
+    // Get manifest URL from Fez Delivery
+    const manifestResponse = await axios.get(`${FEZ_API_URL}/orders/${orderNo}/manifest-url`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': process.env.FEZ_SECRET_KEY || "jmPPVB9OZstzNCNZn-73Yrca2O1dXx7BSKWPMQaCrtnO845zMPxa_fftFauXPAWB"
+      }
+    });
+    
+    if (manifestResponse.data && manifestResponse.data.status === 'Success') {
+      console.log('Fez manifest URL request successful:', manifestResponse.data.description);
+      
+      // Return the manifest URL
+      return res.json({
+        status: 'success',
+        manifestUrl: manifestResponse.data.manifestUrl,
+        description: manifestResponse.data.description
+      });
+    } else {
+      console.log('Fez manifest URL request failed:', manifestResponse.data);
+      return res.status(400).json({ 
+        message: 'Failed to get manifest URL',
+        details: manifestResponse.data
+      });
+    }
+  } catch (error) {
+    console.error('Error getting manifest URL from Fez:', error.message);
+    
+    if (error.response) {
+      console.error('Fez API error response:', error.response.data);
+      return res.status(error.response.status).json({
+        message: 'Error getting manifest URL',
+        details: error.response.data
+      });
+    }
+    
+    return res.status(500).json({ 
+      message: 'Error getting manifest URL',
+      error: error.message
+    });
+  }
+};
+
 

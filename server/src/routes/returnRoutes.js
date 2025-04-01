@@ -882,6 +882,123 @@ router.post('/:returnId/admin/add-note',
   returnController.addAdminNote
 );
 
+/**
+ * @swagger
+ * /api/returns/{returnId}/seller/request-refund:
+ *   post:
+ *     summary: Seller initiates a refund request for a return
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *               - reason
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: The refund amount to be processed
+ *               reason:
+ *                 type: string
+ *                 description: Reason for initiating the refund
+ *     responses:
+ *       200:
+ *         description: Refund request initiated successfully
+ *       400:
+ *         description: Invalid request or amount
+ *       404:
+ *         description: Return request not found
+ */
+router.post('/:returnId/seller/request-refund',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.initiateRefundRequest
+);
 
+/**
+ * @swagger
+ * /api/returns/admin/refund-requests:
+ *   get:
+ *     summary: Admin - Get all pending refund requests
+ *     tags: [Returns - Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of refund requests
+ */
+router.get('/admin/refund-requests',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  returnController.getRefundRequests
+);
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/admin/process-refund:
+ *   post:
+ *     summary: Admin processes a refund request
+ *     tags: [Returns - Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *               - note
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve, reject]
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Refund processed successfully
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Return request not found
+ */
+router.post('/:returnId/admin/process-refund',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  returnController.processRefundRequest
+);
 
 module.exports = router; 

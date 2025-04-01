@@ -1,708 +1,1035 @@
-import { 
-  RefreshCcw,
-  DollarSign,
-  Clock,
-  Eye,
-  Download,
-  CheckCircle,
-  XCircle,
-  X
-} from "lucide-react"
-import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { useEffect, useState, useMemo } from "react"
-import { api } from "@/api/axios"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Card } from "@/components/ui/card"
+import { useParams, useNavigate } from "react-router-dom"
+import { MessageCircle, Phone, Printer, Plus, ShoppingBag, ArrowLeft, Clock, HelpCircle, CheckCircle, XCircle, Truck, Package, RefreshCw, Lock, AlertTriangle, CheckSquare, Loader2, CalendarPlus, Upload, Eye, Scale } from "lucide-react"
+import { useState, useEffect } from "react"
+import { BASE_URL } from "@/Constants/Server"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { toast } from "sonner"
-import { Spinner } from "@/components/ui/spinner"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Pagination } from "@/components/ui/pagination"
+// import { toast } from "@/components/ui/use-toast"
 
-/**
- * @typedef {Object} RefundRequest
- * @property {string} orderId
- * @property {string} orderNumber
- * @property {Object} buyer
- * @property {string} buyer.id
- * @property {string} buyer.name
- * @property {string} buyer.email
- * @property {Object} seller
- * @property {string} seller.id
- * @property {string} seller.name
- * @property {string} seller.email
- * @property {number} amount
- * @property {string} paymentMethod
- * @property {Object} refundRequest
- * @property {string} refundRequest.status
- * @property {string} refundRequest.requestedAt
- * @property {string} refundRequest.requestedBy
- * @property {string} refundRequest.reason
- * @property {string} createdAt
- */
-
-/**
- * @typedef {Object} PaginationInfo
- * @property {number} total
- * @property {number} pages
- * @property {number} currentPage
- * @property {number} limit
- */
-
-function RefundRequests() {
-  const [refundRequests, setRefundRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [processingAction, setProcessingAction] = useState(false);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    pages: 0,
-    currentPage: 1,
-    limit: 10
-  });
-  const [statusFilter, setStatusFilter] = useState("");
-
-  // Fetch refund requests
-  const fetchRefundRequests = async (page = 1, status = "") => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams();
-      query.append('page', page.toString());
-      query.append('limit', pagination.limit.toString());
-      if (status) query.append('status', status);
-      
-      const response = await api.get(`/api/order/refund-requests?${query.toString()}`);
-      setRefundRequests(response.data.refundRequests);
-      setPagination(response.data.pagination);
-    } catch (error) {
-      console.error("Failed to fetch refund requests:", error);
-      toast.error("Failed to load refund requests");
-    } finally {
-      setLoading(false);
+const getStatusConfig = (status) => {
+  const configs = {
+    PENDING_SELLER_REVIEW: {
+      color: 'bg-yellow-50 text-yellow-700 border-yellow-300',
+      icon: <Clock className="w-4 h-4" />,
+      label: 'Pending Review'
+    },
+    NEED_MORE_INFO: {
+      color: 'bg-blue-50 text-blue-700 border-blue-300',
+      icon: <HelpCircle className="w-4 h-4" />,
+      label: 'Need More Information'
+    },
+    APPROVED: {
+      color: 'bg-green-50 text-green-700 border-green-300',
+      icon: <CheckCircle className="w-4 h-4" />,
+      label: 'Approved'
+    },
+    REJECTED: {
+      color: 'bg-red-50 text-red-700 border-red-300',
+      icon: <XCircle className="w-4 h-4" />,
+      label: 'Rejected'
+    },
+    IN_TRANSIT: {
+      color: 'bg-purple-50 text-purple-700 border-purple-300',
+      icon: <Truck className="w-4 h-4" />,
+      label: 'In Transit'
+    },
+    RECEIVED: {
+      color: 'bg-teal-50 text-teal-700 border-teal-300',
+      icon: <Package className="w-4 h-4" />,
+      label: 'Received'
+    },
+    REFUNDED: {
+      color: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+      icon: <RefreshCw className="w-4 h-4" />,
+      label: 'Refunded'
+    },
+    CLOSED: {
+      color: 'bg-gray-50 text-gray-700 border-gray-300',
+      icon: <Lock className="w-4 h-4" />,
+      label: 'Closed'
+    },
+    DISPUTED: {
+      color: 'bg-orange-50 text-orange-700 border-orange-300',
+      icon: <AlertTriangle className="w-4 h-4" />,
+      label: 'Disputed'
+    },
+    RESOLVED: {
+      color: 'bg-indigo-50 text-indigo-700 border-indigo-300',
+      icon: <CheckSquare className="w-4 h-4" />,
+      label: 'Resolved'
+    },
+    RETURN_SHIPPING_ARRANGED: {
+      color: 'bg-purple-50 text-purple-700 border-purple-300',
+      icon: <Truck className="w-4 h-4" />,
+      label: 'Return Shipping Arranged'
     }
-  };
-
-  // Initial fetch
-  useEffect(() => {
-    fetchRefundRequests(pagination.currentPage, statusFilter);
-  }, [pagination.currentPage, statusFilter]);
-
-  // Calculate statistics
-  const totalRequests = pagination.total;
-  const pendingRequests = refundRequests.filter(req => req.refundRequest.status === "pending").length;
-  const totalRefundAmount = refundRequests.reduce((sum, req) => 
-    req.refundRequest.status === "approved" ? sum + req.amount : sum, 0);
-
-  // Helper function to handle refund approval
-  const handleApprove = async () => {
-    if (!selectedRequest) return;
-    
-    setProcessingAction(true);
-    try {
-      await api.post(`/api/order/${selectedRequest.orderId}/process-refund`, {
-        status: 'approved',
-        notes: notes
-      });
-      
-      // Refresh the list
-      await fetchRefundRequests(pagination.currentPage, statusFilter);
-      toast.success("Refund request approved successfully");
-      closeApproveModal();
-    } catch (error) {
-      console.error("Failed to approve refund:", error);
-      toast.error("Failed to approve refund request");
-    } finally {
-      setProcessingAction(false);
-    }
-  };
-
-  // Helper function to handle refund rejection
-  const handleReject = async () => {
-    if (!selectedRequest) return;
-    
-    setProcessingAction(true);
-    try {
-      await api.post(`/api/order/${selectedRequest.orderId}/process-refund`, {
-        status: 'rejected',
-        notes: notes
-      });
-      
-      // Refresh the list
-      await fetchRefundRequests(pagination.currentPage, statusFilter);
-      toast.success("Refund request rejected successfully");
-      closeRejectModal();
-    } catch (error) {
-      console.error("Failed to reject refund:", error);
-      toast.error("Failed to reject refund request");
-    } finally {
-      setProcessingAction(false);
-    }
-  };
-
-  // Helper function to format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Helper function to get status style
-  const getStatusStyle = (status) => {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'rejected':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-blue-100 text-blue-700';
-    }
-  };
-
-  const getStatusDot = (status) => {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return 'bg-green-600';
-      case 'pending':
-        return 'bg-yellow-600';
-      case 'rejected':
-        return 'bg-red-600';
-      default:
-        return 'bg-blue-600';
-    }
-  };
-
-  /**
-   * Helper function to open details modal
-   * @param {RefundRequest} request
-   */
-  const openDetailsModal = (request) => {
-    setSelectedRequest(request);
-    setShowDetailsModal(true);
-  };
-
-  // Helper function to close details modal
-  const closeDetailsModal = () => {
-    setShowDetailsModal(false);
-    setSelectedRequest(null);
-  };
-
-  /**
-   * Helper function to open approve modal
-   * @param {RefundRequest} request
-   */
-  const openApproveModal = (request) => {
-    setSelectedRequest(request);
-    setNotes("");
-    setShowApproveModal(true);
-  };
-
-  // Helper function to close approve modal
-  const closeApproveModal = () => {
-    setShowApproveModal(false);
-    setSelectedRequest(null);
-    setNotes("");
-  };
-
-  /**
-   * Helper function to open reject modal
-   * @param {RefundRequest} request
-   */
-  const openRejectModal = (request) => {
-    setSelectedRequest(request);
-    setNotes("");
-    setShowRejectModal(true);
-  };
-
-  // Helper function to close reject modal
-  const closeRejectModal = () => {
-    setShowRejectModal(false);
-    setSelectedRequest(null);
-    setNotes("");
-  };
-
-  /**
-   * Helper function to handle page change
-   * @param {number} page
-   */
-  const handlePageChange = (page) => {
-    if (page < 1 || page > pagination.pages) return;
-    fetchRefundRequests(page, statusFilter);
-  };
-
-  /**
-   * Export refund requests as CSV file
-   */
-  const exportToCSV = () => {
-    // Only export if we have data
-    if (refundRequests.length === 0) {
-      toast.error("No data to export");
-      return;
-    }
-
-    try {
-      // Create CSV headers
-      const headers = [
-        "Order ID",
-        "Customer",
-        "Seller",
-        "Amount",
-        "Payment Method",
-        "Reason",
-        "Request Date",
-        "Status"
-      ].join(",");
-
-      // Create CSV rows
-      const rows = refundRequests.map(request => [
-        `"${request.orderNumber}"`,
-        `"${request.buyer.name}"`,
-        `"${request.seller.name}"`,
-        `"₦${request.amount.toLocaleString()}"`,
-        `"${request.paymentMethod || 'N/A'}"`,
-        `"${(request.refundRequest.reason || 'No reason provided').replace(/"/g, '""')}"`,
-        `"${formatDate(request.refundRequest.requestedAt)}"`,
-        `"${request.refundRequest.status.toUpperCase()}"`
-      ].join(","));
-
-      // Combine headers and rows
-      const csvContent = [headers, ...rows].join("\n");
-
-      // Create download link
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `refund-requests-${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      
-      // Trigger download and clean up
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      toast.success("Export successful");
-    } catch (error) {
-      console.error("Export error:", error);
-      toast.error("Failed to export data");
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-white">Refund Requests</h2>
-          <p className="text-muted-foreground">Manage buyer refund requests</p>
-        </div>
-        <div className="flex gap-4">
-          <select 
-            className="p-2 rounded-md bg-background"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          <Button variant="outline" onClick={() => fetchRefundRequests(1, statusFilter)}>
-            <RefreshCcw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={exportToCSV} disabled={loading || refundRequests.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
-      {/* Refund Stats */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary/10 p-3 rounded-lg">
-              <RefreshCcw className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Total Requests</p>
-              <h3 className="text-2xl font-bold">{totalRequests}</h3>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-yellow-500/10 p-3 rounded-lg">
-              <Clock className="h-6 w-6 text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Pending Requests</p>
-              <h3 className="text-2xl font-bold">{pendingRequests}</h3>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-green-500/10 p-3 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-500" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Total Refunded</p>
-              <h3 className="text-2xl font-bold">₦{totalRefundAmount.toLocaleString()}</h3>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Refund Requests Table */}
-      <Card className="overflow-hidden">
-        <div className="p-6 bg-card">
-          <h3 className="font-medium">Recent Refund Requests</h3>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Request Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-20">
-                  <div className="flex justify-center">
-                    <Spinner />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : refundRequests.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-10">
-                  No refund requests found
-                </TableCell>
-              </TableRow>
-            ) : (
-              refundRequests.map((request) => (
-                <TableRow key={request.orderId}>
-                  <TableCell className="font-medium">{request.orderNumber}</TableCell>
-                  <TableCell>{request.buyer.name}</TableCell>
-                  <TableCell>₦{request.amount.toLocaleString()}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                    {request.refundRequest.reason || "No reason provided"}
-                  </TableCell>
-                  <TableCell>{formatDate(request.refundRequest.requestedAt)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <div className={`h-2 w-2 rounded-full ${getStatusDot(request.refundRequest.status)} mr-2`}></div>
-                      <span className={`px-2 py-1 rounded text-xs ${getStatusStyle(request.refundRequest.status)}`}>
-                        {request.refundRequest.status.toUpperCase()}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => openDetailsModal(request)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {request.refundRequest.status === "pending" && (
-                        <>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            className="text-green-600 hover:text-green-700 hover:bg-green-100"
-                            onClick={() => openApproveModal(request)}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-100"
-                            onClick={() => openRejectModal(request)}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        
-        {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="p-4 flex justify-center">
-            <Pagination>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                disabled={pagination.currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="mx-4 flex items-center">
-                Page {pagination.currentPage} of {pagination.pages}
-              </span>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                disabled={pagination.currentPage === pagination.pages}
-              >
-                Next
-              </Button>
-            </Pagination>
-          </div>
-        )}
-      </Card>
-
-      {/* Details Modal */}
-      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Refund Request Details</DialogTitle>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute top-2 right-2"
-              onClick={closeDetailsModal}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogHeader>
-          {selectedRequest && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Order ID</h4>
-                  <p>{selectedRequest.orderNumber}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Status</h4>
-                  <div className="flex items-center mt-1">
-                    <div className={`h-2 w-2 rounded-full ${getStatusDot(selectedRequest.refundRequest.status)} mr-2`}></div>
-                    <span className={`px-2 py-1 rounded text-xs ${getStatusStyle(selectedRequest.refundRequest.status)}`}>
-                      {selectedRequest.refundRequest.status.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-muted-foreground">Customer</h4>
-                <p>{selectedRequest.buyer.name} ({selectedRequest.buyer.email})</p>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-muted-foreground">Seller</h4>
-                <p>{selectedRequest.seller.name} ({selectedRequest.seller.email})</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Amount</h4>
-                  <p>₦{selectedRequest.amount.toLocaleString()}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Payment Method</h4>
-                  <p>{selectedRequest.paymentMethod || "N/A"}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-muted-foreground">Reason</h4>
-                <p>{selectedRequest.refundRequest.reason || "No reason provided"}</p>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-muted-foreground">Request Date</h4>
-                <p>{formatDate(selectedRequest.refundRequest.requestedAt)}</p>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-muted-foreground">Requested By</h4>
-                <p className="capitalize">{selectedRequest.refundRequest.requestedBy}</p>
-              </div>
-
-              {selectedRequest.refundRequest.status === "pending" && (
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      closeDetailsModal();
-                      openRejectModal(selectedRequest);
-                    }}
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      closeDetailsModal();
-                      openApproveModal(selectedRequest);
-                    }}
-                  >
-                    Approve
-                  </Button>
-                </DialogFooter>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Approve Modal */}
-      <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Approve Refund Request</DialogTitle>
-            <DialogDescription>
-              This action will approve the refund request and add the refund amount to the buyer's wallet.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRequest && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Order ID</h4>
-                  <p>{selectedRequest.orderNumber}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Amount</h4>
-                  <p>₦{selectedRequest.amount.toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-muted-foreground">Customer</h4>
-                <p>{selectedRequest.buyer.name}</p>
-              </div>
-
-              <div>
-                <label htmlFor="notes" className="block text-sm font-medium mb-1">
-                  Notes (Optional)
-                </label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add any optional notes about this refund approval"
-                  rows={3}
-                />
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={closeApproveModal} disabled={processingAction}>
-                  Cancel
-                </Button>
-                <Button onClick={handleApprove} disabled={processingAction}>
-                  {processingAction ? <Spinner className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Confirm Approval
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Modal */}
-      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Refund Request</DialogTitle>
-            <DialogDescription>
-              This action will reject the refund request. Please provide a reason for the rejection.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRequest && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Order ID</h4>
-                  <p>{selectedRequest.orderNumber}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-muted-foreground">Amount</h4>
-                  <p>₦{selectedRequest.amount.toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-muted-foreground">Customer</h4>
-                <p>{selectedRequest.buyer.name}</p>
-              </div>
-
-              <div>
-                <label htmlFor="notes" className="block text-sm font-medium mb-1">
-                  Rejection Reason <span className="text-red-500">*</span>
-                </label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Provide a reason for rejecting this refund request"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={closeRejectModal} disabled={processingAction}>
-                  Cancel
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleReject} 
-                  disabled={processingAction || !notes.trim()}
-                >
-                  {processingAction ? <Spinner className="mr-2 h-4 w-4" /> : <XCircle className="mr-2 h-4 w-4" />}
-                  Confirm Rejection
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  }
+  return configs[status] || configs.PENDING_SELLER_REVIEW
 }
 
-export default RefundRequests; 
+export default function ReturnDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [returnData, setReturnData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [approvalDialog, setApprovalDialog] = useState(false)
+  const [refundAmount, setRefundAmount] = useState('')
+  const [approvalMessage, setApprovalMessage] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState(null)
+
+  // New state variables
+  const [shippingRates, setShippingRates] = useState(null)
+  const [selectedRate, setSelectedRate] = useState(null)
+  const [showRatesDialog, setShowRatesDialog] = useState(false)
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false)
+  const [isLoadingRates, setIsLoadingRates] = useState(false)
+  const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [rejectReason, setRejectReason] = useState("")
+  const [rejectDescription, setRejectDescription] = useState("")
+  const [rejectEvidence, setRejectEvidence] = useState([])
+  const [isRejecting, setIsRejecting] = useState(false)
+  const [showRefundDialog, setShowRefundDialog] = useState(false)
+  const [refundRequestAmount, setRefundRequestAmount] = useState('')
+  const [refundRequestReason, setRefundRequestReason] = useState('')
+  const [isRequestingRefund, setIsRequestingRefund] = useState(false)
+
+  useEffect(() => {
+    fetchReturnDetails()
+  }, [id])
+
+  const fetchReturnDetails = async () => {
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}`, {
+        headers: {
+          Authorization: `Bearer ${sellerToken}`
+        }
+      })
+      const data = await response.json()
+      setReturnData(data)
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching return details:", error)
+      setLoading(false)
+    }
+  }
+
+  const handleReturnAction = async (action) => {
+    if (action === 'approve' && !approvalDialog) {
+      setApprovalDialog(true)
+      return
+    }
+
+    try {
+      setIsProcessing(true)
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/respond`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sellerToken}`
+        },
+        body: JSON.stringify({
+          action: action,
+          message: action === 'reject' ? 'Return request denied' : approvalMessage,
+          partialRefundAmount: parseFloat(refundAmount) || 0
+        })
+      })
+
+      if (response.ok) {
+        toast.success(`Return request ${action === 'approve' ? 'approved' : 'rejected'} successfully`)
+        setApprovalDialog(false)
+        await fetchReturnDetails()
+      } else {
+        const error = await response.json()
+        setError(error.message)
+        toast.error(error.message || `Failed to ${action} return request`)
+      }
+    } catch (error) {
+      setError(`Failed to process return ${action}`)
+      console.error(`Error handling return ${action}:`, error)
+      toast.error(`Failed to process return ${action}`)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleCreateShippingLabel = async () => {
+    try {
+      setIsCreatingLabel(true)
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/create-label`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sellerToken}`
+        },
+        body: JSON.stringify({
+          pickup_address: returnData?.order?.pickup_address
+        })
+      })
+
+      if (response.ok) {
+        toast.success("Return shipping label created successfully")
+        await fetchReturnDetails()
+        // No need to fetch rates or show rates dialog since Fez handles everything in one step
+      } else {
+        const error = await response.json()
+        setError(error.message)
+        toast.error(error.message || "Failed to create shipping label")
+      }
+    } catch (error) {
+      setError("Failed to create shipping label")
+      console.error("Error creating shipping label:", error)
+      toast.error("Failed to create shipping label")
+    } finally {
+      setIsCreatingLabel(false)
+    }
+  }
+
+  const handleSelectRate = async (rate) => {
+    setSelectedRate(rate)
+  }
+
+  const handleReject = async (e) => {
+    e.preventDefault()
+    
+    try {
+      setIsRejecting(true)
+      const formData = new FormData()
+      formData.append("reason", rejectReason)
+      formData.append("description", rejectDescription)
+      
+      // Append each file to the formData
+      rejectEvidence.forEach(file => {
+        formData.append("evidence", file)
+      })
+
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/reject`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sellerToken}`,
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        toast.success("Return request rejected successfully")
+        setShowRejectDialog(false)
+        await fetchReturnDetails()
+      } else {
+        const error = await response.json()
+        toast.error(error.message || "Failed to reject return request")
+      }
+    } catch (error) {
+      console.error("Error rejecting return:", error)
+      toast.error("Failed to reject return request")
+    } finally {
+      setIsRejecting(false)
+    }
+  }
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length > 5) {
+      toast.error("Maximum 5 files allowed")
+      return
+    }
+    setRejectEvidence(files)
+  }
+
+  const handleRefundRequest = async () => {
+    try {
+      setIsRequestingRefund(true)
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/seller/request-refund`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sellerToken}`
+        },
+        body: JSON.stringify({
+          amount: parseFloat(refundRequestAmount),
+          reason: refundRequestReason
+        })
+      })
+
+      if (response.ok) {
+        toast.success("Refund request sent to admin successfully")
+        setShowRefundDialog(false)
+        await fetchReturnDetails()
+      } else {
+        const error = await response.json()
+        toast.error(error.message || "Failed to send refund request")
+      }
+    } catch (error) {
+      console.error("Error requesting refund:", error)
+      toast.error("Failed to send refund request")
+    } finally {
+      setIsRequestingRefund(false)
+    }
+  }
+
+  const renderShippingRatesDialog = () => (
+    <Dialog open={showRatesDialog} onOpenChange={setShowRatesDialog}>
+      <DialogContent className="w-[95vw] max-w-3xl mx-auto">
+        <DialogHeader>
+          <DialogTitle>Return Shipping Created</DialogTitle>
+        </DialogHeader>
+
+        <div className="p-4 text-center">
+          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Return Shipping Created Successfully</h3>
+          <p className="text-muted-foreground mb-4">
+            The return shipping has been created with Fez Delivery. The customer will be notified to prepare the package for pickup.
+          </p>
+          
+          {returnData?.returnShipment?.tracking?.number && (
+            <div className="bg-muted p-4 rounded-lg mb-4">
+              <p className="font-medium">Tracking Number:</p>
+              <p className="text-primary">{returnData.returnShipment.tracking.number}</p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button onClick={() => setShowRatesDialog(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const statusConfig = getStatusConfig(returnData?.status)
+
+  const renderApprovalDialog = () => (
+    <Dialog open={approvalDialog} onOpenChange={setApprovalDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Approve Return Request</DialogTitle>
+        </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Refund Amount</label>
+            <Input
+              type="number"
+              value={refundAmount}
+              onChange={(e) => setRefundAmount(e.target.value)}
+              placeholder="Enter refund amount"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Approval Message</label>
+            <Input
+              value={approvalMessage}
+              onChange={(e) => setApprovalMessage(e.target.value)}
+              placeholder="Enter approval message"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setApprovalDialog(false)}
+            disabled={isProcessing}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleReturnAction('approve')}
+            disabled={isProcessing}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve Return
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const renderRejectDialog = () => (
+    <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+      <DialogContent className="w-[95vw] max-w-md mx-auto">
+        <DialogHeader>
+          <DialogTitle>Reject Return Request</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleReject} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason for Rejection</Label>
+            <Input
+              id="reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter reason for rejection"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Detailed Description</Label>
+            <Textarea
+              id="description"
+              value={rejectDescription}
+              onChange={(e) => setRejectDescription(e.target.value)}
+              placeholder="Provide detailed explanation"
+              required
+              rows={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="evidence">Evidence (Max 5 files)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="evidence"
+                type="file"
+                onChange={handleFileChange}
+                multiple
+                accept="image/*"
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById("evidence").click()}
+                className="w-full"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Files
+              </Button>
+            </div>
+            {rejectEvidence.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {rejectEvidence.length} file(s) selected
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowRejectDialog(false)}
+              disabled={isRejecting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isRejecting || !rejectReason || !rejectDescription || !rejectEvidence.length}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isRejecting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Reject Return
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const renderRefundRequestDialog = () => (
+    <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
+      <DialogContent className="w-[95vw] max-w-md mx-auto">
+        <DialogHeader>
+          <DialogTitle>Request Refund</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="refundAmount">Refund Amount</Label>
+            <Input
+              id="refundAmount"
+              type="number"
+              value={refundRequestAmount}
+              onChange={(e) => setRefundRequestAmount(e.target.value)}
+              placeholder="Enter refund amount"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="refundReason">Reason for Refund</Label>
+            <Textarea
+              id="refundReason"
+              value={refundRequestReason}
+              onChange={(e) => setRefundRequestReason(e.target.value)}
+              placeholder="Explain why you're requesting this refund"
+              required
+              rows={4}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setShowRefundDialog(false)}
+            disabled={isRequestingRefund}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRefundRequest}
+            disabled={isRequestingRefund || !refundRequestAmount || !refundRequestReason}
+            className="bg-primary hover:bg-primary/90"
+          >
+            {isRequestingRefund ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Requesting...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Request Refund
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  const renderActionButtons = () => (
+    <div className="flex flex-col md:flex-row gap-2 md:gap-4 w-full">
+      <Button
+        variant="destructive"
+        onClick={() => setShowRejectDialog(true)}
+        disabled={returnData?.status !== "PENDING_SELLER_REVIEW"}
+        className="w-full md:w-auto"
+      >
+        <AlertTriangle className="mr-2 h-4 w-4" />
+        Decline/Escalate
+      </Button>
+      <Button
+        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white"
+        onClick={() => setApprovalDialog(true)}
+        disabled={returnData?.status !== "PENDING_SELLER_REVIEW" || isProcessing}
+      >
+        <CheckCircle className="mr-2 h-4 w-4" />
+        Accept Request
+      </Button>
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading return details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-12">
+      {/* Fixed bottom action bar for mobile */}
+      {returnData?.status === "PENDING_SELLER_REVIEW" && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50">
+          {renderActionButtons()}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="container mx-auto py-6 px-4 space-y-6">
+        {/* Return Header Card */}
+        <Card className="p-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold">Return #{id.slice(-6)}</h1>
+                <Badge variant="outline" className={`px-3 py-1 ${statusConfig.color}`}>
+                  {statusConfig.icon}
+                  <span className="ml-2">{statusConfig.label}</span>
+                </Badge>
+              </div>
+              <p className="text-muted-foreground">
+                Requested on {new Date(returnData?.requestDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+            <div className="hidden lg:block">
+              {returnData?.status === "PENDING_SELLER_REVIEW" && renderActionButtons()}
+              
+              {/* Button to create shipping label */}
+              {returnData?.status === "APPROVED" && 
+                (!returnData?.returnShipment?.shipment_id) && (
+                <Button
+                  className="bg-black text-white"
+                  onClick={handleCreateShippingLabel}
+                  disabled={isCreatingLabel}
+                >
+                  {isCreatingLabel ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Return Shipment...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Return Shipment
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* Main Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Product and Timeline */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Product Details */}
+            <Card className="overflow-hidden">
+              <div className="p-6 border-b flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Return Details</h2>
+                <Button variant="outline" size="sm">
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Order
+                </Button>
+              </div>
+              <div className="p-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                    <img
+                      src={returnData?.items[0]?.product?.images[0]?.url}
+                      alt={returnData?.items[0]?.product?.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium">{returnData?.items[0]?.product?.name}</h3>
+                      <p className="text-muted-foreground">Order #{returnData?.order?.order_id}</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Return Reason:</span>
+                        <p className="font-medium">{returnData?.items[0]?.reason}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Quantity:</span>
+                        <p className="font-medium">{returnData?.items[0]?.quantity}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Unit Price:</span>
+                        <p className="font-medium text-green-600">
+                          ₦{returnData?.items[0]?.product?.price?.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Preferred Resolution:</span>
+                        <p className="font-medium capitalize">{returnData?.preferredResolution}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {returnData?.description && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Customer's Note:</span> {returnData.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Return Evidence */}
+            {returnData?.evidence?.length > 0 && (
+              <Card>
+                <div className="p-6 border-b">
+                  <h2 className="text-xl font-semibold">Return Evidence</h2>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
+                    {returnData.evidence.map((file, index) => (
+                      <a
+                        key={file._id}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+                      >
+                        <img
+                          src={file.url}
+                          alt={`Evidence ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Return Shipment Details */}
+            {returnData?.returnShipment && (
+              <Card>
+                <div className="p-6 border-b">
+                  <h2 className="text-xl font-semibold">Return Shipment</h2>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-muted-foreground text-sm">Carrier</span>
+                      <p className="font-medium">{returnData?.returnShipment?.carrier?.name || 'Fez Delivery'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-sm">Status</span>
+                      <div>
+                        <Badge variant={
+                          returnData.returnShipment.tracking?.status === "delivered" ? "success" : "default"
+                        }>
+                          {returnData.returnShipment.tracking?.status?.toUpperCase() || 'PENDING'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-sm">Shipping Fee</span>
+                      <p className="font-medium">
+                        {returnData?.returnShipment?.fee?.currency || 'NGN'} {returnData?.returnShipment?.fee?.amount?.toLocaleString() || '0'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-sm">Tracking Number</span>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{returnData?.returnShipment?.shipment_id || returnData?.returnShipment?.tracking?.number || 'N/A'}</p>
+                        {returnData?.returnShipment?.tracking?.url && (
+                          <a 
+                            href={returnData.returnShipment.tracking.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-sm flex items-center"
+                          >
+                            <Eye className="w-3 h-3 mr-1" /> Track
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {returnData.returnShipment.tracking?.history?.length > 0 && (
+                    <div className="mt-6 pt-4 border-t">
+                      <h4 className="text-sm font-semibold mb-3">Tracking History</h4>
+                      <div className="space-y-3">
+                        {returnData.returnShipment.tracking.history.map((event, index) => (
+                          <div key={index} className="bg-muted p-3 rounded-lg">
+                            <div className="flex flex-wrap justify-between gap-2">
+                              <span className="text-sm font-medium">
+                                {event.status}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(event.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm mt-1">{event.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Dispute Information */}
+            {returnData?.dispute && returnData.dispute.status !== "none" && (
+              <Card className="border border-orange-200">
+                <div className="p-6 border-b border-orange-200">
+                  <h2 className="text-xl font-semibold flex items-center">
+                    <Scale className="mr-2 h-5 w-5 text-orange-500" />
+                    Dispute Information
+                  </h2>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    <Badge variant={
+                      returnData.dispute.status === "PENDING" ? "warning" :
+                      returnData.dispute.status === "RESOLVED" ? "success" :
+                      "default"
+                    }>
+                      {returnData.dispute.status}
+                    </Badge>
+                  </div>
+
+                  {returnData.dispute.resolutionDetails?.evidence?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Resolution Evidence</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {returnData.dispute.resolutionDetails.evidence.map((evidence, index) => (
+                          <a 
+                            key={index}
+                            href={evidence.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:bg-muted/80 transition-colors"
+                          >
+                            <img 
+                              src={evidence.url} 
+                              alt={`Resolution evidence ${index + 1}`}
+                              className="object-cover w-full h-full"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Eye className="w-5 h-5 text-white" />
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {returnData.dispute.adminNotes?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Admin Notes</h4>
+                      <div className="space-y-2">
+                        {returnData.dispute.adminNotes.map((note, index) => (
+                          <div key={index} className="p-3 bg-muted rounded-lg">
+                            <p className="text-sm">{note}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Right Column - Customer, Shipping, etc. */}
+          <div className="space-y-6">
+            {/* Customer Details */}
+            <Card>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Customer Details</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <h3 className="font-medium">
+                    {returnData?.order?.delivery_address?.first_name} {returnData?.order?.delivery_address?.last_name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {returnData?.order?.delivery_address?.email}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span>{returnData?.order?.delivery_address?.phone}</span>
+                </div>
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-2">Shipping Address</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {returnData?.order?.delivery_address?.line1}<br />
+                    {returnData?.order?.delivery_address?.line2 && `${returnData?.order?.delivery_address?.line2},`}<br />
+                    {returnData?.order?.delivery_address?.city}, {returnData?.order?.delivery_address?.state}<br />
+                    {returnData?.order?.delivery_address?.zip}<br />
+                    {returnData?.order?.delivery_address?.country}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Rejection Details */}
+            {returnData?.rejectionDetails && Object.keys(returnData.rejectionDetails).length > 0 && (
+              <Card className="border-red-200">
+                <div className="p-6 border-b border-red-200">
+                  <h2 className="text-xl font-semibold text-red-700 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    Rejection Details
+                  </h2>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Reason</h3>
+                    <p className="mt-1">{returnData.rejectionDetails.reason}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
+                    <p className="mt-1">{returnData.rejectionDetails.description}</p>
+                  </div>
+                  {returnData.rejectionDetails.evidence?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Evidence</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {returnData.rejectionDetails.evidence.map((file, index) => (
+                          <a
+                            key={file._id}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+                          >
+                            <img
+                              src={file.url}
+                              alt={`Rejection Evidence ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-sm text-muted-foreground pt-4 border-t">
+                    Rejected on {new Date(returnData.rejectionDetails.rejectedAt).toLocaleString()}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Timeline */}
+            <Card>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Return Timeline</h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-6">
+                  {returnData?.timeline?.map((event, index) => (
+                    <div key={index} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-3 h-3 rounded-full ring-4 ${
+                          getStatusConfig(event.status).color.replace('bg-', 'ring-')
+                        }`} />
+                        {index !== returnData.timeline.length - 1 && (
+                          <div className="w-0.5 h-full bg-gray-200 mt-3" />
+                        )}
+                      </div>
+                      <div className="-mt-1.5 flex-1">
+                        <p className="font-medium text-gray-900">
+                          {getStatusConfig(event.status).label}
+                        </p>
+                        {event.note && (
+                          <p className="text-sm text-gray-600 mt-1">{event.note}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                          <Clock className="w-3 h-3" />
+                          {new Date(event.date).toLocaleString()}
+                          <span>•</span>
+                          <span className="capitalize">by {event.updatedBy}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Quick Actions</h2>
+              </div>
+              <div className="p-6 space-y-3">
+                <Button variant="outline" className="w-full justify-start">
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Return Details
+                </Button>
+                <Button variant="outline" className="w-full justify-start">
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Contact Customer
+                </Button>
+                {returnData?.status === "PENDING_SELLER_REVIEW" && 
+                 returnData?.preferredResolution?.toUpperCase() === "REFUND" && (
+                  <Button
+                    className="w-full justify-start bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => setShowRefundDialog(true)}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Request Refund
+                  </Button>
+                )}
+                {returnData?.status === "APPROVED" && 
+                  (!returnData?.returnShipment?.shipment_id) && (
+                  <Button 
+                    className="w-full justify-start bg-black text-white hover:bg-black/80"
+                    onClick={handleCreateShippingLabel}
+                    disabled={isCreatingLabel}
+                  >
+                    {isCreatingLabel ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Return Shipment
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <Button
+            variant="outline"
+            className="text-muted-foreground"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Returns
+          </Button>
+        </div>
+      </div>
+
+      {/* Render dialogs */}
+      {renderShippingRatesDialog()}
+      {renderRejectDialog()}
+      {renderApprovalDialog()}
+      {renderRefundRequestDialog()}
+    </div>
+  )
+}

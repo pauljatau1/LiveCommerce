@@ -47,6 +47,7 @@ const returnSchema = new mongoose.Schema({
     enum: [
       'PENDING_SELLER_REVIEW',
       'NEED_MORE_INFO',
+      'PENDING_ADMIN_REVIEW',
       'APPROVED',
       'REJECTED',
       'IN_TRANSIT',
@@ -170,7 +171,7 @@ const returnSchema = new mongoose.Schema({
       decidedAt: Date,
       action: {
         type: String,
-        enum: ['FULL_REFUND', 'PARTIAL_REFUND', 'NO_REFUND', 'REPLACEMENT_APPROVED', 'RETURN_APPROVED']
+        enum: ['FULL_REFUND', 'PARTIAL_REFUND', 'NO_REFUND', 'REPLACEMENT_APPROVED', 'RETURN_APPROVED', 'PENDING_ADMIN_REVIEW']
       },
       refundAmount: Number,
       note: String,
