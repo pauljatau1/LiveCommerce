@@ -1933,7 +1933,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     mainContentArea: {
-        height: '53%',
+        height: '51%',
         position: 'relative',
     },
     bottomArea: {
