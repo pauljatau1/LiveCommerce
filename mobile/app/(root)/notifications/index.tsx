@@ -20,9 +20,12 @@ import { icons } from "@/constants";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { formatDate, formatMessageDate } from "@/helpers/helpers";
+import { ActivityIndicator } from "react-native-paper";
+import NotificationSheet from "@/components/notifications/notificationSheet";
+import LottieView from "lottie-react-native";
 
 const { width, height } = Dimensions.get("window");
-const tabs = ["All", "Orders", "Community", "From Auqli"];
+const tabs = ["All", "Orders", "Posts", "From Auqli"];
 
 const Notifications = () => {
   const dispatch = useDispatch();
@@ -32,52 +35,60 @@ const Notifications = () => {
   const [page, setPage] = useState<number>(1);
   const [tab, setTab] = useState<string>("All");
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFetching, setIsFetching] = useState<boolean>(false);
-  const [filter, setFilter] = useState<string>("All");
+  const [activeNoti, setActiveNoti] = useState<any>();
+  const [showSheet, setShowSheet] = useState<boolean>(false);
 
   const handleGetNotifications = useCallback(async () => {
     if (isFetching || hasReachedEnd) {
       return;
     }
 
-    try {
+    if (page == 1) {
+      setIsLoading(true);
+    } else {
       setIsFetching(true);
+    }
+
+    try {
       const token = await getToken();
 
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/notifications/buyer?page=${page}&limit=10`,
+          (tab?.toLowerCase() == "from auqli"
+            ? "api/public/announcements"
+            : `api/notifications/buyer?page=${page}&limit=10&filter=${tab?.toLowerCase()}`),
         {
           headers: {
             Authorization: "Bearer " + token,
           },
         },
       );
-      const notifications = response.data.notifications;
+      const notifications = response.data.notifications || response.data;
 
-      if (response.data.currentPage === response.data.totalPages) {
+      if (
+        response.data.currentPage === response.data.totalPages ||
+        response.data.totalPages < 1
+      ) {
         setHasReachedEnd(true);
       }
-      if (notifications.length > 0) {
-        let newData = [] as any[];
-        setData((prevData) => {
-          newData = [...prevData, ...notifications];
-          return newData;
-        });
+      if (page == 1) {
+        setFilteredData(notifications);
+      } else {
         setFilteredData((prevData) => {
           return [...prevData, ...notifications];
         });
-        handleMarkAllRead();
-
-        // setFilteredData([]);
       }
-      //   setPage((prevPage) => prevPage + 1);
+
+      handleMarkAllRead();
     } catch (error) {
       console.error("Error fetching more notifications:", error);
     } finally {
+      setIsLoading(false);
       setIsFetching(false);
     }
-  }, [page]);
+  }, [page, tab]);
 
   const handleMarkAllRead = useCallback(async () => {
     try {
@@ -98,34 +109,37 @@ const Notifications = () => {
     }
   }, []);
 
-  const handleFilterData = (tab: any) => {
-    if (tab == "All") {
-      return setFilteredData(data);
-    }
-    if (tab == "Orders") {
-      return setFilteredData(
-        data.filter((fd: any) => fd?.type?.includes("order_")),
-      );
-    }
-    setFilteredData(data.filter((fd: any) => fd?.type?.includes(filter)));
+  const handleFilterData = (tabVal: string) => {
+    setPage(1);
+    setHasReachedEnd(false);
+    setTab(tabVal);
   };
 
   const renderNotification = useCallback(
     ({ item }: { item: any }) => {
       return (
-        <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.section}
+          activeOpacity={0.7}
+          onPress={() => {
+            setActiveNoti(item);
+            setShowSheet(true);
+          }}
+        >
           <View style={styles.sectionHeaderContainer}>
             <Text style={styles.sectionHeader}>{item?.title}</Text>
             {!item?.isRead && <View style={styles.unread}></View>}
           </View>
 
-          <TouchableOpacity style={styles.sectionRow} activeOpacity={0.5}>
-            <Text style={styles.sectionText}>{item?.message}</Text>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionText} numberOfLines={2}>
+              {item?.message || item?.description}
+            </Text>
             <Text style={styles.date}>
               {formatMessageDate(item?.createdAt)}
             </Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
       );
     },
     [filteredData, page],
@@ -138,7 +152,9 @@ const Notifications = () => {
           <TouchableOpacity
             key={index}
             style={[styles.tab, tabLabel == tab ? styles.activeTab : null]}
-            onPress={() => setTab(tabLabel)}
+            onPress={() =>
+              handleFilterData(tabLabel == "Community" ? "posts" : tabLabel)
+            }
           >
             <Text
               style={[
@@ -180,6 +196,32 @@ const Notifications = () => {
     );
   }, [filteredData]);
 
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
+
   const fetchMoreNotifications = () => {
     if (!isFetching && !hasReachedEnd) {
       setPage((prevPage) => prevPage + 1);
@@ -191,11 +233,7 @@ const Notifications = () => {
       return;
     }
     handleGetNotifications();
-  }, [page]);
-
-  useEffect(() => {
-    handleFilterData(tab);
-  }, [tab]);
+  }, [page, tab]);
 
   return (
     <SafeAreaView className="h-full flex-1 bg-[#121212] ">
@@ -218,34 +256,37 @@ const Notifications = () => {
       </View>
 
       <View style={{ flex: 1 }}>
-        <FlatList
-          data={filteredData}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={renderNotification}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={renderEmptyComponent}
-          onEndReachedThreshold={0.5}
-          onEndReached={fetchMoreNotifications}
-          contentContainerStyle={{}}
-        />
+        {isLoading ? (
+          <ActivityIndicator size={"small"} color="white" />
+        ) : (
+          <FlatList
+            data={filteredData}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={renderNotification}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={renderListHeader}
+            ListEmptyComponent={renderEmptyComponent}
+            onEndReachedThreshold={0.5}
+            onEndReached={fetchMoreNotifications}
+            contentContainerStyle={{}}
+            ListFooterComponent={renderListFooter}
+          />
+        )}
       </View>
 
       <BottomSheet
         bgColor="#121212"
         childrenStyle="!px-[11px]"
         showCloseIcon={false}
-        title=""
-        show={showDeleteSheet}
+        show={showSheet}
         titleColor="!text-white"
-        snapPoints={["25%"]}
-        enableDynamicSizing={false}
+        enableDynamicSizing={true}
         onRequestClose={() => {
-          setShowDeleteSheet(false);
+          setShowSheet(false);
         }}
         keyboardBehavior="interactive"
       >
-        <></>
+        <NotificationSheet data={activeNoti} />
       </BottomSheet>
     </SafeAreaView>
   );

@@ -51,6 +51,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import AuctionRulesSheet from "@/components/product/auctionRulesSheet";
 import { Octicons } from "@expo/vector-icons";
+import CartSheet from "@/components/product/productCartSheet";
+import AddedToCart from "@/components/product/productAddedToCart";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -58,6 +60,8 @@ configureReanimatedLogger({
 });
 
 const { width, height } = Dimensions.get("window");
+
+const bidIncrement = 500;
 
 const ProductDescription = () => {
   const { id } = useLocalSearchParams();
@@ -97,13 +101,14 @@ const ProductDescription = () => {
   const [cartData, setCartData] = useState<any[]>([]);
   const [productSpecifications, setProductSpecifications] = useState<{}>({});
   const [user, setUser] = useState<any>(null);
-  const [userToken, setUserToken] = useState<string>("");
+  const [userToken, settoken] = useState<string>("");
   const [conversations, setConversations] = useState<any[]>([]);
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
   const [auctionData, setAuctionData] = useState<any>();
   const [showRules, setShowRules] = useState<boolean>(false);
   const [shippingFee, setShippingFee] = useState<any>();
+  const [placingBid, setPlacingBid] = useState<boolean>(false);
 
   const handleCloseRules = useCallback(() => {
     setShowRules(false);
@@ -112,7 +117,7 @@ const ProductDescription = () => {
   const getUserInfo = async () => {
     const token = await getToken();
     if (!token) {
-      return setShowAuthSheet(true);
+      return;
     }
     try {
       const response = await axios.get(
@@ -300,27 +305,14 @@ const ProductDescription = () => {
     socket.on("connect", () => {
       console.log("Connected to auctions");
     });
-    console.log("product id ", id);
-
-    // socket.on("bid_error", (error) => {
-    //   console.log("Bid error:", error);
-    // });
 
     socket.on("bid_update", (data) => {
       setAuctionData(data);
       console.log("gotten bid update", data);
     });
-
-    // socket.on("bid_placed", (data) => {
-    //   console.log("Bid successfully placed:", data);
-    //   toast.success("bid placed successfully");
-    // });
-
-    // socket.on("auction_ended", (data) => {
-    //   // Handle auction end
-    // });
     socket.on("auction_error", (error) => {
       // Handle auction end
+      // setPlacingBid(false);
       console.log("error with auction ", error);
     });
 
@@ -333,15 +325,10 @@ const ProductDescription = () => {
 
     return () => {
       console.log("leaving");
-
       socket.emit("leave_auction", id);
       socket.off("auction_data");
       socket.off("bid_update");
       socket.off("auction_error");
-      // socket.off("auction_timer_update");
-      // socket.off("auction_ended");
-      // socket.off("bid_placed");
-      // socket.off("bid_error");
       socket.off("connect");
       socket.disconnect();
     };
@@ -350,21 +337,21 @@ const ProductDescription = () => {
   useEffect(() => {
     socket.on("bid_error", (error) => {
       console.log("Bid error:", error);
+      // setPlacingBid(false);
       toast.error(error?.message || "Error placing bid");
     });
 
     socket.on("bid_placed", (data) => {
       console.log("Bid successfully placed:", data);
       toast.success("bid placed successfully");
+      // setPlacingBid(false);
     });
 
     socket.on("auction_ended", (data) => {
+      // setPlacingBid(false);
       // Handle auction end
     });
     return () => {
-      // console.log("leaving");
-
-      // socket.emit("leave_auction", id);
       socket.off("auction_ended");
       socket.off("bid_placed");
       socket.off("bid_error");
@@ -372,7 +359,9 @@ const ProductDescription = () => {
   }, [socket]);
 
   useEffect(() => {
-    // refetch();
+    if (product?.status == "offline_auction") {
+      refetch();
+    }
     getUserInfo();
   }, []);
 
@@ -422,20 +411,23 @@ const ProductDescription = () => {
     if (shippingFee && productDetails?.status == "offline_auction") {
       setShowRules(shippingFee);
     }
-  }, [shippingFee]);
+  }, [shippingFee, productDetails?.status]);
 
   //auction functions
 
   const placeBid = (amount: number) => {
-    if (auctionData?.status == "ended") {
+    if (
+      auctionData?.auctionStatus == "ended" ||
+      auctionData?.status == "ended"
+    ) {
       return toast.error("This Auction has ended!");
     }
     if (!user?.wallet?.availableBalance && !shippingFee) {
       return toast.error("Unable to place bid . Please try again");
     }
     if (
-      (user?.wallet?.availableBalance || user?.wallet?.balance) + shippingFee <
-      amount + 500
+      (user?.wallet?.availableBalance || user?.wallet?.balance) <
+      amount + shippingFee
     ) {
       return toast.info("insufficient wallet balance");
     }
@@ -444,10 +436,18 @@ const ProductDescription = () => {
       return toast.info("Please add a correct address to bid");
     }
 
-    socket.emit("place_bid", {
-      productId: productDetails?._id,
-      amount: amount,
-    });
+    socket.emit(
+      "place_bid",
+      {
+        productId: productDetails?._id,
+        amount: amount,
+      },
+      () => {
+        console.log("ack");
+      },
+    );
+    // setPlacingBid(true);
+
     console.log("placedBid ", amount);
   };
 
@@ -566,7 +566,7 @@ const ProductDescription = () => {
             {/* <TouchableOpacity
               className=" relative "
               onPress={() => {
-                if (userToken) {
+                if (token) {
                   return;
                 }
                 return setShowAuthSheet(true);
@@ -577,7 +577,7 @@ const ProductDescription = () => {
             <TouchableOpacity
               className=" flex justify-center items-center "
               onPress={() => {
-                if (userToken) {
+                if (token) {
                   return router.push("/cart/cart");
                 }
                 return setShowAuthSheet(true);
@@ -628,7 +628,7 @@ const ProductDescription = () => {
             {isLoading || isFetching ? (
               <ActivityIndicator
                 size={"small"}
-                color={"#16783A"}
+                color={"#fff"}
                 style={{ marginTop: 30 }}
               />
             ) : (
@@ -695,7 +695,8 @@ const ProductDescription = () => {
                           />
                         )}
 
-                        {auctionData?.status == "ended" ? (
+                        {auctionData?.status == "ended" ||
+                        auctionData?.auctionStatus == "ended" ? (
                           <Text className="text-[#fff] text-[10px] font-LexendDecaSemiBold">
                             {auctionData?.winner?.buyer?.firstName
                               ? auctionData?.winner?.buyer?.firstName +
@@ -728,20 +729,33 @@ const ProductDescription = () => {
                       </View>
                     )}
                     <View className="flex flex-row items-center justify-between ">
-                      <View className="flex flex-row items-end">
-                        <Text className="text-[22px] text-white font-LexendDecaMedium">
-                          ₦
-                          {productDetails?.discount?.isActive
-                            ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
-                              0
-                            : productDetails?.price?.toLocaleString()}
-                        </Text>
-                        {productDetails?.discount?.isActive && (
-                          <Text className="text-[8px] text-[#09AF46] font-LexendDecaMedium line-through absolute bottom-[-5px] right-[-25px]">
-                            ₦{productDetails?.price?.toLocaleString()}
+                      {productDetails?.status == "offline_auction" ? (
+                        <View className="flex flex-row items-end">
+                          <Text className="text-[22px] text-white font-LexendDecaMedium">
+                            ₦
+                            {(
+                              auctionData?.currentHighestBid?.amount ||
+                              auctionData?.minBid
+                            )?.toLocaleString()}
                           </Text>
-                        )}
-                      </View>
+                        </View>
+                      ) : (
+                        <View className="flex flex-row items-end">
+                          <Text className="text-[22px] text-white font-LexendDecaMedium">
+                            ₦
+                            {productDetails?.discount?.isActive
+                              ? productDetails?.discount?.discountedPrice?.toLocaleString() ||
+                                0
+                              : productDetails?.price?.toLocaleString()}
+                          </Text>
+                          {productDetails?.discount?.isActive && (
+                            <Text className="text-[8px] text-[#09AF46] font-LexendDecaMedium line-through absolute bottom-[-5px] right-[-25px]">
+                              ₦{productDetails?.price?.toLocaleString()}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+
                       <View className="flex flex-row items-center gap-[6px]">
                         {productDetails?.discount?.isActive ? (
                           <View className=" bg-[#FFD700] py-[5px] px-[17px] rounded-[14px]">
@@ -1047,7 +1061,7 @@ const ProductDescription = () => {
 
                   <View className="px-[20px] py-[14px] ">
                     <View
-                      className="py-[15px] px-[20px] rounded-[7px] border-white border-[0.7px] flex-row gap-[16px]"
+                      className="py-[15px] px-[10px] rounded-[7px] border-white border-[0.7px] flex-row gap-[16px]"
                       style={{ backgroundColor: "rgba(22, 120, 58, 0.38)" }}
                     >
                       <View className="">
@@ -1087,11 +1101,11 @@ const ProductDescription = () => {
                           <TouchableOpacity
                             className="px-[9px] py-[5px] border-[1px] rounded-[3px] border-[#FFD700]"
                             onPress={() => {
-                              if (!userToken) {
+                              if (!token) {
                                 return setShowAuthSheet(true);
                               }
                               router.push({
-                                pathname: `/(root)/messageRoom/${sellerInfo._id}`,
+                                pathname: `../../(root)/messageRoom/${sellerInfo._id}`,
                                 params: {
                                   name:
                                     sellerInfo?.storeName ||
@@ -1107,7 +1121,7 @@ const ProductDescription = () => {
                                         convo.participant.id == sellerInfo._id,
                                     )?._id || "",
                                   userId: user?._id,
-                                  token: userToken,
+                                  token: token,
                                   model: "Seller",
                                 },
                               });
@@ -1137,8 +1151,8 @@ const ProductDescription = () => {
                         </View>
                       </View>
 
-                      <View className="justify-between">
-                        <View className="flex-row items-center gap-[16px]">
+                      <View className="justify-between flex-row gap-[16px]">
+                        <View className="  gap-[16px] justify-between">
                           <View className="gap-[4px]">
                             <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
                               Items Sold
@@ -1150,25 +1164,6 @@ const ProductDescription = () => {
                               Items
                             </Text>
                           </View>
-                          <View className="gap-[4px] mr-[24px] ml-[10px]">
-                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
-                              Rating
-                            </Text>
-                            <View className="flex-row items-center gap-[4px]">
-                              <AntDesign
-                                name="star"
-                                size={11}
-                                color="#FFD700"
-                              />
-                              <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
-                                {sellerInfo?.ratings?.average} (
-                                {sellerInfo?.ratings?.total})
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        <View className="flex-row items-center gap-[16px]">
                           <View className="gap-[4px]">
                             <View className="flex-row items-center gap-[4px]">
                               <Octicons name="video" size={10} color="white" />
@@ -1183,7 +1178,23 @@ const ProductDescription = () => {
                               )}{" "}
                             </Text>
                           </View>
-                          <View className="gap-[4px] mr-[24px] ml-[10px]">
+                        </View>
+
+                        <View className=" gap-[16px] justify-between">
+                          <View className="gap-[4px]">
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                              Rating
+                            </Text>
+                            <View className="flex-row items-center gap-[4px]">
+                              <AntDesign name="star" size={8} color="#FFD700" />
+                              <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                                {sellerInfo?.ratings?.average} (
+                                {sellerInfo?.ratings?.total})
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View className="gap-[4px]">
                             <View className="flex-row items-center gap-[4px]">
                               <Ionicons
                                 name="location-sharp"
@@ -1265,21 +1276,32 @@ const ProductDescription = () => {
                 minWidth: 130,
               }}
               onPress={() => {
+                // setPlacingBid(true);
+
                 placeBid(
-                  auctionData?.currentHighestBid?.amount + 500 ||
-                    auctionData?.minBid,
+                  auctionData?.currentHighestBid?.amount
+                    ? auctionData?.currentHighestBid?.amount + bidIncrement
+                    : auctionData?.minBid,
                 );
               }}
             >
-              <Text className="text-[10px] text-white font-LexendDecaSemiBold">
-                Bid ₦
-                {(
-                  auctionData?.currentHighestBid?.amount + 500 ||
-                  auctionData?.minBid
-                )?.toLocaleString()}
-              </Text>
+              {auctionData?.winner?.buyer?.firstName ||
+              auctionData?.status == "ended" ||
+              auctionData?.auctionStatus == "ended" ? (
+                <Text className="text-[10px] text-white font-LexendDecaSemiBold">
+                  Auction is Over!
+                </Text>
+              ) : (
+                <Text className="text-[10px] text-white font-LexendDecaSemiBold">
+                  Bid ₦
+                  {(auctionData?.currentHighestBid?.amount
+                    ? auctionData?.currentHighestBid?.amount + bidIncrement
+                    : auctionData?.minBid
+                  )?.toLocaleString()}
+                </Text>
+              )}
             </TouchableOpacity>
-          ) : (
+          ) : productDetails?.stock > 0 ? (
             <>
               <TouchableOpacity
                 className="px-[20px] py-[12px] bg-[#fff] items-center justify-center"
@@ -1290,7 +1312,7 @@ const ProductDescription = () => {
                   minWidth: 130,
                 }}
                 onPress={() => {
-                  if (userToken) {
+                  if (token) {
                     return setShowCartSheet(true);
                   }
                   return setShowAuthSheet(true);
@@ -1311,7 +1333,7 @@ const ProductDescription = () => {
                   minWidth: 130,
                 }}
                 onPress={async () => {
-                  if (userToken) {
+                  if (token) {
                     return setShowCheckout(true);
                   }
                   return setShowAuthSheet(true);
@@ -1322,6 +1344,20 @@ const ProductDescription = () => {
                 </Text>
               </TouchableOpacity>
             </>
+          ) : (
+            <View
+              className="px-[20px] py-[12px] bg-[#fff] items-center justify-center w-full"
+              style={{
+                borderRadius: 6,
+                backgroundColor: "#16783A",
+                minWidth: 130,
+                opacity: 0.5,
+              }}
+            >
+              <Text className="text-[14x] text-white font-LexendDecaSemiBold">
+                Out of Stock
+              </Text>
+            </View>
           )}
         </View>
       )}
@@ -1379,7 +1415,7 @@ const ProductDescription = () => {
         childrenStyle="!px-[11px]"
         showCloseIcon={false}
         show={showRules}
-        snapPoints={["30%"]}
+        snapPoints={["35%"]}
         enableDynamicSizing={false}
         onRequestClose={() => setShowRules(false)}
         keyboardBehavior="interactive"
@@ -1406,259 +1442,9 @@ const ProductDescription = () => {
           productId={productDetails?._id}
           closeSheet={() => setShowCheckout(false)}
           sellerId={sellerInfo?._id}
+          channel="marketplace"
         />
       </BottomSheet>
-    </View>
-  );
-};
-
-const CartSheet = ({
-  productDetails,
-  closeSheet,
-  addToCart,
-}: {
-  productDetails: any;
-  closeSheet: () => void;
-  addToCart: (cartItem: any) => Promise<void>;
-}) => {
-  const [quantity, setQuantity] = useState<number>(1);
-  const [selectedVariant, setSelectedVariant] = useState<any>({});
-  const [selectedSpec, setSelectedSpec] = useState<any>({});
-
-  const handleVariantSelect = (data: any) => {
-    if (selectedVariant && selectedVariant?._id == data._id) {
-      setSelectedSpec({});
-      return setSelectedVariant({});
-    }
-    setSelectedVariant(data);
-    setSelectedSpec({
-      specifications: {
-        color: data.name == "color" ? data.value : "",
-        size: data.size == "size" ? data.value : "",
-        material: data.material == "material" ? data.value : "",
-      },
-    });
-  };
-
-  const handleCreateCartItem = () => {
-    if (selectedVariant?._id) {
-      addToCart({
-        ...productDetails,
-        quantity,
-        includeInOrder: true,
-        ...selectedSpec,
-        price: selectedVariant.price,
-        images: [
-          {
-            url:
-              selectedVariant.images?.length > 0
-                ? selectedVariant.images?.[0]?.data
-                : productDetails.images?.[0]?.url,
-          },
-        ],
-      });
-    } else {
-      addToCart({ ...productDetails, quantity, includeInOrder: true });
-    }
-  };
-
-  useEffect(() => {
-    if (quantity < 1) {
-      setQuantity(1);
-    }
-  }, [quantity]);
-  return (
-    <View className="p-[8px] pb-[16px]">
-      <View className="flex-row justify-between mb-[23px] ">
-        <View className="flex-row gap-[16px]">
-          <Image
-            source={{
-              uri:
-                (selectedVariant?.images?.length > 0 &&
-                  selectedVariant?.images[0]?.data) ||
-                productDetails?.images[0]?.url,
-            }}
-            resizeMode="cover"
-            className="w-[79px] h-[74px] rounded-[8px]"
-          />
-          <View className="gap-[2px]">
-            <Text className="text-white text-[22px] font-LexendDecaMedium">
-              ₦
-              {selectedVariant?.discount?.isActive
-                ? selectedVariant?.discount?.discountedPrice?.toLocaleString()
-                : selectedVariant?.price?.toLocaleString() ||
-                  (productDetails?.discount?.isActive
-                    ? productDetails?.discount?.discountedPrice?.toLocaleString()
-                    : productDetails?.price?.toLocaleString())}
-            </Text>
-            {productDetails?.discount?.isActive && (
-              <View className="flex-row items-center gap-[8px]">
-                <Text className="text-white text-[11px] font-LexendDecaMedium line-through">
-                  ₦
-                  {productDetails?.discount?.isActive &&
-                    productDetails?.price.toLocaleString()}
-                </Text>
-                <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
-                  {productDetails?.discount?.value}
-                  {productDetails?.discount?.type == "percentage" && "%"} off
-                </Text>
-              </View>
-            )}
-
-            <Text className="text-white text-[11px] font-LexendDecaMedium">
-              {productDetails?.category}
-            </Text>
-          </View>
-        </View>
-        <Pressable onPress={closeSheet}>
-          <View className="bg-[#EE571C] w-[30px] h-[30px] rounded-[50%]">
-            <AntDesign name="closecircle" size={30} color="#F9C7B3" />
-          </View>
-        </Pressable>
-      </View>
-      <View className="flex-row items-center gap-[15px] mb-[26px] rounded-[4px] bg-black px-[14px] py-[7px]">
-        <Ionicons name="shield-checkmark-outline" size={20} color="white" />
-        <Text className="text-white text-[11px]">7 Days Free Returns</Text>
-      </View>
-
-      {productDetails.variants?.length > 0 && (
-        <View className="mb-[13px]">
-          <Text className="text-white text-[11px] font-LexendDecaMedium mb-[8px]">
-            {productDetails.variants[0]?.name}
-          </Text>
-          <View className="flex-row items-center gap-[22px] ">
-            {productDetails.variants.map((variant: any, index: number) => (
-              <TouchableOpacity
-                className={`rounded-[4px] bg-white relative border-[2px] border-[#3A3A3A] ${selectedVariant._id == variant._id ? "!border-[2px] !border-[#16783A]" : null}`}
-                key={index}
-                onPress={() => handleVariantSelect(variant)}
-              >
-                <Image
-                  source={{
-                    uri:
-                      variant?.images[0]?.data || productDetails.images[0].url,
-                  }}
-                  resizeMode="cover"
-                  className="w-[79px] h-[74px] bg-white p-[1px]"
-                />
-                <View className="bg-white p-[2px] items-center justify-center border-t-[1px] border-[#9f9f9f]">
-                  <Text className="text-black text-[11px] font-LexendDecaMedium">
-                    {variant.value}
-                  </Text>
-                </View>
-                {selectedVariant._id == variant._id && (
-                  <AntDesign
-                    name="checkcircle"
-                    size={14}
-                    color="#16783A"
-                    className="absolute top-[-10px] right-[-10px]"
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      <View className="flex-row items-center justify-between mb-[14px]">
-        <Text className="text-white text-[11px] font-LexendDecaMedium">
-          Quantity
-        </Text>
-        <View className="flex-row items-center gap-[6px]">
-          <TouchableOpacity
-            className="w-[24px] h-[24px] bg-[#16783A] rounded-[4px] items-center justify-center"
-            onPress={() => setQuantity(quantity - 1)}
-          >
-            <AntDesign name="minus" size={14} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-[11px] font-LexendDecaMedium">
-            {quantity}
-          </Text>
-          <TouchableOpacity
-            className="w-[24px] h-[24px] bg-[#16783A] rounded-[4px] items-center justify-center"
-            onPress={() => setQuantity(quantity + 1)}
-          >
-            <AntDesign name="plus" size={14} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        className="py-[10px] rounded-[6px] bg-[#16783A] items-center justify-center"
-        onPress={() => handleCreateCartItem()}
-      >
-        <Text className="text-white text-[14px] font-LexendDecaMedium">
-          Add to Cart
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-const AddedToCart = ({
-  cartData,
-  closeSheet,
-}: {
-  cartData: any;
-  closeSheet: () => void;
-}) => {
-  return (
-    <View className="p-[16px] pb-[20px]">
-      <Text className="text-white text-[16px] mb-[20px] text-center font-LexendDecaMedium ">
-        Item Added To Cart
-      </Text>
-      <View className="flex-row gap-[16px] bg-white p-[8px] rounded-[8px] mb-[20px] items-center ">
-        <Image
-          source={{ uri: cartData?.images[0]?.url }}
-          resizeMode="cover"
-          style={{ width: 73, height: 73, borderRadius: 4 }}
-        />
-        <View className="justify-between py-2 gap-[20px] shrink">
-          <Text className="text-[12px] font-LexendDecaMedium leading-[18px]">
-            {cartData?.name}
-          </Text>
-          <View className="flex-row items-center gap-[8px]">
-            <Text className="text-[16px] font-LexendDecaMedium leading-[18px]">
-              ₦
-              {cartData?.discount?.isActive
-                ? cartData?.discount?.discountedPrice?.toLocaleString() || 0
-                : cartData?.price?.toLocaleString()}
-            </Text>
-            {cartData?.discount?.isActive && (
-              <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
-                -{cartData?.discount?.value}
-                {cartData?.discount?.type == "percentage" && "%"} off
-              </Text>
-            )}
-          </View>
-        </View>
-
-        <View className="absolute right-[-10px]">
-          <Image source={require("../../../assets/icons/elements.png")} />
-        </View>
-      </View>
-
-      <View className="flex-row items-center justify-between">
-        <TouchableOpacity
-          className="w-full py-[12px] bg-white rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
-          onPress={closeSheet}
-        >
-          <Text className="text-[#16783A] font-LexendDecaBold text-[12px]">
-            Continue Shopping
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
-          onPress={() => {
-            closeSheet();
-            router.push("/checkout/checkout");
-          }}
-        >
-          <Text className="text-white font-LexendDecaBold text-[12px]">
-            Checkout Now
-          </Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };

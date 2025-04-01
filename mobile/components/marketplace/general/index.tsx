@@ -6,6 +6,7 @@ import ProductCard from "@/components/global/product-card";
 import CatalogCard from "@/components/catalog/catalogCard";
 import ProductSkeleton from "@/components/skeleton/productSkeleton";
 import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
+import { router } from "expo-router";
 
 interface GeneralCategoryProps {
   name: string;
@@ -14,27 +15,44 @@ interface GeneralCategoryProps {
 
 const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
   const [limit, setLimit] = useState<number>(10);
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [subCategory, setSubCategory] = useState<string>("");
-  const {
-    data: categoryData,
-    error,
-    isLoading,
-  } = useGetAllProductsQuery({ category: name, limit, subCategory });
+  const { data, isFetching, refetch, error, isLoading } =
+    useGetAllProductsQuery({ category: name, page, limit, subCategory });
+
+  const [products, setProducts] = useState<any[]>([]);
   const strippedCategory = category?.subCategories?.map(
     (subcat: any) => subcat.name,
   );
 
-  const renderSubCategory = (name: string) => {
+  const fetchMoreProducts = () => {
+    if (!isFetching && !hasReachedEnd) {
+      console.log("catalog pagination ", {
+        isFetching,
+        hasReachedEnd,
+      });
+
+      setPage((prev) => prev + 1);
+    }
+  };
+
+  const renderSubCategory = (subCat: string) => {
     return (
       <TouchableOpacity
         className="bg-[#2e2e2e] rounded-[4px] items-center justify-center p-[8px] px-[10px]"
         style={{
           marginRight: 10,
         }}
-        onPress={() => setSubCategory(name)}
+        onPress={() =>
+          router.push({
+            pathname: "/(root)/catalog/subCategoriesCatalog",
+            params: { name: subCat, mainCat: name, subCat },
+          })
+        }
       >
         <Text className="text-[#ccc] font-LexendDecaMedium text-[12px]">
-          {name}
+          {subCat}
         </Text>
       </TouchableOpacity>
     );
@@ -62,6 +80,23 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     return <ProductEmptyState />;
   };
 
+  useEffect(() => {
+    if (data?.data?.products?.length > 0) {
+      setProducts([...products, ...data?.data?.products]);
+
+      if (
+        data?.data?.pagination.currentPage == data?.pagination?.totalPages ||
+        data?.data?.pagination?.totalPages == 0
+      ) {
+        setHasReachedEnd(true);
+      }
+    }
+  }, [data]);
+
+  useEffect(() => {
+    refetch();
+  }, [page]);
+
   return (
     <View className="w-full ">
       <View className="w-full mb-[20px]">
@@ -82,7 +117,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
       ) : (
         <View className="w-full justify-between gap-[8px] px-[16px]">
           <FlatList
-            data={categoryData?.data?.products}
+            data={products}
             renderItem={({ item, index }) => renderCategoryData(item)}
             keyExtractor={(item, index) => index.toString()}
             numColumns={2}
@@ -92,6 +127,8 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
             }}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyPlaceholder}
+            onEndReached={fetchMoreProducts}
+            onEndReachedThreshold={0.5}
           />
         </View>
       )}

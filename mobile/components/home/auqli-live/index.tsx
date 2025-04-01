@@ -10,6 +10,8 @@ import ExploreMoreSection from "./expore-more";
 import { useLivestream } from "../../../contexts/livestreamContext";
 import { useEffect, useState } from "react";
 import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
+import SuggestedBlips from "./suggested-blips";
+import ForYou from "./for-you";
 
 const AuqliLive = () => {
   const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } = useLivestream();
@@ -31,12 +33,14 @@ const AuqliLive = () => {
       {/* {liveStreamLoading && (
         <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
       )} */}
-      {<PopularCard />}
+      <ForYou />
+      <PopularCard />
       <SpotLight />
+      <SuggestedBlips />
       <Sellers />
       <Favourite />
       <WatchCategory />
-      {/* <WatchFriends /> */}
+
       <ExploreMoreSection />
     </View>
   );

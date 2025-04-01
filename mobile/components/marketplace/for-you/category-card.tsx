@@ -16,7 +16,7 @@ const ForYouCategoryCard = ({ item }: any) => {
         })
       }
     >
-      <View className="w-[178px] relative h-[214.185px] pr-[8.43px]">
+      <View className="w-[178px] relative h-[214.185px] mr-[8.43px] bg-[#2e2e2e] rounded-[6px]">
         <Image
           source={{ uri: item?.image?.url }}
           className=" rounded-[4.15px] h-full w-full"

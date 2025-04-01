@@ -72,7 +72,7 @@ const Settings = () => {
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>General</Text>
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[styles.sectionRow, styles.inactiveRow]}
               activeOpacity={0.5}
             >
@@ -82,11 +82,12 @@ const Settings = () => {
                 size={18}
                 color="rgba(204, 204, 204, 0.8)"
               />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <TouchableOpacity
-              style={[styles.sectionRow, styles.inactiveRow]}
+              style={[styles.sectionRow]}
               activeOpacity={0.5}
+              onPress={() => router.push("/settings/blockedUsers")}
             >
               <Text style={styles.sectionText}>Blocked Users</Text>
               <Entypo
@@ -160,7 +161,7 @@ const Settings = () => {
               />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.sectionRow}
+              style={[styles.sectionRow, styles.inactiveRow]}
               activeOpacity={0.5}
               onPress={() => router.push("/(root)/settings/communityActivity")}
             >

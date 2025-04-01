@@ -1,10 +1,11 @@
 import { View, Text, TouchableOpacity, FlatList, Animated } from "react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { getToken } from "@/store/features/auth/utils";
 import axios from "axios";
 import { ActivityIndicator } from "react-native-paper";
 import { FontAwesome6 } from "@expo/vector-icons";
 import CatalogCard from "../catalog/catalogCard";
+import ProductSkeleton from "../skeleton/productSkeleton";
 
 interface Props {
   scrollY: any;
@@ -41,7 +42,7 @@ const Favorites = ({ scrollY, headerHeight, index }: Props) => {
     handleGetWishList();
   }, [index]);
 
-  const renderProducts = (item: any) => {
+  const renderProducts = ({ item }: any) => {
     return (
       <View className="w-[100%] basis-[49%] h-[299px]">
         <CatalogCard
@@ -85,17 +86,21 @@ const Favorites = ({ scrollY, headerHeight, index }: Props) => {
     }
   }, [index]);
   return (
-    <View className="px-[16px] py-[12px] ">
+    <View className="py-[12px] ">
       {wishListLoading ? (
-        <View>
-          <ActivityIndicator size={"small"} color="#16783A" />
+        <View
+          style={{
+            paddingTop: headerHeight + 12,
+          }}
+        >
+          <ProductSkeleton numOfLoaders={2} height={157} padding={16} />
         </View>
       ) : (
-        <View>
+        <View className="px-[16px] ">
           <Animated.FlatList
             ref={flatListRef}
             data={wishList}
-            renderItem={({ item, index }) => renderProducts(item)}
+            renderItem={renderProducts}
             keyExtractor={(item, index) => index.toString()}
             numColumns={2}
             columnWrapperStyle={{
@@ -118,4 +123,4 @@ const Favorites = ({ scrollY, headerHeight, index }: Props) => {
   );
 };
 
-export default Favorites;
+export default memo(Favorites);

@@ -79,6 +79,7 @@ const Returns = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
       allowsMultipleSelection: false,
+      allowsEditing: false,
       base64: false,
     });
 
@@ -86,7 +87,7 @@ const Returns = () => {
       const newImages = result.assets.map((asset) => ({
         uri: asset.uri,
         name: `media_${Date.now()}.${asset.mimeType?.split("/")[1] || "application/octet-stream"}`,
-        mimeType: asset.mimeType,
+        type: asset.mimeType,
       }));
       const remainingSlots = 4 - selectedMedia.length;
       const imagesToAdd = newImages.slice(0, remainingSlots);
@@ -525,7 +526,6 @@ const Returns = () => {
           childrenStyle="!px-[0px]"
           showCloseIcon={false}
           show={showReasonSheet}
-          snapPoints={["80%"]}
           enableDynamicSizing={true}
           onRequestClose={() => setShowReasonSheet(false)}
           keyboardBehavior="interactive"

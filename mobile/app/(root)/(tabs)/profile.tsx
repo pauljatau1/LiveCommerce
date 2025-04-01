@@ -26,6 +26,10 @@ import { formatDate, formatNumber } from "@/helpers/helpers";
 import BottomSheet from "@/components/global/bottom-sheet";
 import AuthSheet from "@/components/auth/authSheet";
 import Favorites from "@/components/profile/favorites";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
+import MyBids from "@/components/profile/myBids";
+import PostsComingSoon from "@/components/profile/postsComingSoon";
 
 const HEADER_HEIGHT = 220;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -200,49 +204,23 @@ const TabScene = memo(
     id: string;
     index: number;
   }) => {
-    const contentContainerStyle = {
-      paddingTop: HEADER_HEIGHT, // Space for the header
-      minHeight: Dimensions.get("window").height + HEADER_HEIGHT,
-    };
-
     if (route.title == "Posts") {
+      return <PostsComingSoon />;
+    } else if (route.title == "My Bids") {
       return (
-        <View style={contentContainerStyle}>
-          <View
-            style={{
-              alignItems: "center",
-              paddingTop: 50,
-              paddingHorizontal: 40,
-            }}
-          >
-            <Image
-              source={require("../../../assets/images/posts-coming-soon.png")}
-              contentFit="contain"
-              style={{
-                width: 250,
-                height: 250,
-                marginBottom: 20,
-                flexShrink: 1,
-              }}
-            />
-            <Text className="text-[24px] text-[#ccc] font-LexendDecaSemiBold opacity-80">
-              Posts is coming soon!
-            </Text>
-          </View>
-        </View>
-        // <AllPostsList
-        //   scrollY={scrollY}
-        //   headerHeight={HEADER_HEIGHT}
-        //   userId={id}
-        //   type="Buyer"
-        //   index={index}
-        // />
+        <MyBids scrollY={scrollY} headerHeight={HEADER_HEIGHT} index={index} />
+      );
+    } else if (route.title == "caleb") {
+      // return <PostsComingSoon />;
+    } else {
+      return (
+        <Favorites
+          scrollY={scrollY}
+          headerHeight={HEADER_HEIGHT}
+          index={index}
+        />
       );
     }
-
-    return (
-      <Favorites scrollY={scrollY} headerHeight={HEADER_HEIGHT} index={index} />
-    );
   },
 );
 
@@ -251,18 +229,25 @@ const Profile = () => {
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
   const layout = useWindowDimensions();
+  const user = useSelector((state: RootState) => state.authState.user);
   const [index, setIndex] = useState(0);
   const [routes] = useState([
-    { key: "first", title: "Posts" },
-    { key: "second", title: "Favorites" },
+    { key: 1, title: "My Bids" },
+    { key: 2, title: "Favorites" },
+    { key: 3, title: "Posts" },
   ]);
 
-  const [user, setUser] = useState<any>({});
+  // const [user, setUser] = useState<any>({});
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [profile, setProfile] = useState<any>({});
   const scrollY = useRef(new Animated.Value(0)).current;
   const renderScene = ({ route }: { route: any }) => (
-    <TabScene route={route} scrollY={scrollY} id={user._id} index={index} />
+    <TabScene
+      route={route}
+      scrollY={scrollY}
+      id={user?._id || ""}
+      index={index}
+    />
   );
 
   const renderTabBar = (props: any) => (
@@ -282,6 +267,7 @@ const Profile = () => {
     >
       <TabBar
         {...props}
+        key={props.key}
         style={{ backgroundColor: "#121212" }}
         indicatorStyle={{ backgroundColor: "#16783A" }}
         activeColor="#16783A"
@@ -290,7 +276,6 @@ const Profile = () => {
           <TabBarItem
             {...props}
             key={props.key}
-            // key={props.key}
             labelStyle={{
               fontSize: 12,
               fontFamily: "LexendDeca-Medium",
@@ -319,19 +304,6 @@ const Profile = () => {
     } catch (error) {
       console.error("Error fetching user profile:", error);
     }
-  }, []);
-
-  useEffect(() => {
-    const getUserInfo = async () => {
-      try {
-        const user = await getUser();
-        setUser(user);
-      } catch (e) {
-        console.log("error getting user info");
-      }
-    };
-
-    getUserInfo();
   }, []);
 
   useEffect(() => {
@@ -436,11 +408,11 @@ const Profile = () => {
             <CollapsibleHeader scrollY={scrollY} info={profile} user={user} />
 
             <TabView
-              lazy={true}
+              lazy
               navigationState={{ index, routes }}
               renderScene={renderScene}
               onIndexChange={handleIndexChange}
-              initialLayout={{ width: layout.width }}
+              initialLayout={{ width: Dimensions.get("window").width }}
               renderTabBar={renderTabBar}
             />
           </View>

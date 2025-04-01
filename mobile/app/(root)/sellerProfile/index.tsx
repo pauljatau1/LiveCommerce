@@ -36,6 +36,8 @@ import Blips from "@/components/sellerProfile/blips";
 import ReviewsPage from "../reviews/[id]";
 import SellerReviews from "@/components/sellerProfile/reviews";
 import Shows from "@/components/sellerProfile/shows";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 const HEADER_HEIGHT = 450;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -408,6 +410,7 @@ const TabScene = memo(
 );
 
 const SellerProfile = () => {
+  const { user, token } = useSelector((state: RootState) => state.authState);
   const { sellerId, sellerAvatar } = useLocalSearchParams();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -474,7 +477,6 @@ const SellerProfile = () => {
   );
 
   const getSellerProfile = useCallback(async () => {
-    const token = await getToken();
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + `api/buyer/seller/${sellerId}`,
@@ -492,7 +494,6 @@ const SellerProfile = () => {
 
   const handleGetConversations = async () => {
     try {
-      const token = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + "api/conversations",
         {
@@ -509,8 +510,6 @@ const SellerProfile = () => {
 
   const handleSendMessage = async () => {
     try {
-      const user = await getUser();
-      const token = await getToken();
       router.push({
         pathname: `../(root)/messageRoom/${sellerId}`,
         params: {

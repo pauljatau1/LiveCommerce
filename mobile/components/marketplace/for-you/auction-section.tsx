@@ -5,19 +5,26 @@ import SectionHeader from "@/components/global/section-header";
 import { data } from "@/constants";
 import useCarousel from "@/hooks/useCarousel";
 import { useGetAllAuctionProductsQuery } from "@/services/products";
-import React from "react";
-import { FlatList, View } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
+import React, { useCallback, useEffect } from "react";
+import { FlatList, Text, View } from "react-native";
 
 const ForYouAuctionSection = () => {
+  const isFocused = useIsFocused();
   const {
     data: products,
     error,
     isLoading,
+    refetch,
   } = useGetAllAuctionProductsQuery({ status: "ongoing", limit: 10 });
   const { activeIndex, flatlistRef, handleScroll } = useCarousel({
     dataLength: data.productsData.length,
     autoScroll: false,
   });
+
+  useEffect(() => {
+    refetch();
+  }, [isFocused]);
 
   const renderDotIndicators = () => {
     return [1, 2, 3].map((_, index) => (
@@ -33,6 +40,21 @@ const ForYouAuctionSection = () => {
       />
     ));
   };
+
+  const renderEmptyAuctions = useCallback(() => {
+    return (
+      <View
+        style={{
+          marginVertical: 40,
+          width: "100%",
+        }}
+      >
+        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
+          No Auctions right now
+        </Text>
+      </View>
+    );
+  }, [products]);
   return (
     <View className=" w-[100%] pb-[15px]">
       <View className="flex-row items-center justify-between">
@@ -41,26 +63,32 @@ const ForYouAuctionSection = () => {
           <View className="flex-row">{renderDotIndicators()}</View>
         </View>
       </View>
-      <View
-        style={{
-          paddingLeft: 22,
-        }}
-      >
-        <FlatList
-          data={products?.products}
-          renderItem={({ item }) => (
-            <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-              <AuctionCard item={item} showNike={false} />
-            </View>
-          )}
-          keyExtractor={(item, index) => item?._id || index?.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="pt-[15px]"
-          pagingEnabled
-          onScroll={handleScroll}
-        />
-      </View>
+
+      {products?.products?.length > 0 ? (
+        <View
+          style={{
+            paddingLeft: 22,
+          }}
+        >
+          <FlatList
+            data={products?.products}
+            renderItem={({ item }) => (
+              <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
+                <AuctionCard item={item} showNike={false} />
+              </View>
+            )}
+            keyExtractor={(item, index) => item?._id || index?.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="pt-[15px]"
+            // pagingEnabled
+            ListEmptyComponent={renderEmptyAuctions}
+            onScroll={handleScroll}
+          />
+        </View>
+      ) : (
+        renderEmptyAuctions()
+      )}
     </View>
   );
 };

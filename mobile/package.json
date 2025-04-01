@@ -19,6 +19,7 @@
     "@gorhom/bottom-sheet": "^5.0.6",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-google-signin/google-signin": "^13.2.0",
+    "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/bottom-tabs": "^7.0.0",
     "@react-navigation/devtools": "^7.0.15",
     "@react-navigation/material-top-tabs": "^7.1.0",
@@ -32,6 +33,7 @@
     "date-fns": "^4.1.0",
     "expo": "~52.0.30",
     "expo-av": "~15.0.2",
+    "expo-blur": "~14.0.3",
     "expo-checkbox": "~4.0.1",
     "expo-clipboard": "~7.0.1",
     "expo-constants": "~17.0.3",
@@ -41,6 +43,7 @@
     "expo-haptics": "~14.0.1",
     "expo-image": "~2.0.4",
     "expo-image-picker": "~16.0.5",
+    "expo-linear-gradient": "~14.0.2",
     "expo-linking": "~7.0.5",
     "expo-notifications": "^0.29.13",
     "expo-router": "~4.0.15",
@@ -90,10 +93,7 @@
     "react-redux": "^9.2.0",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.5.5",
-    "zod": "^3.24.1",
-    "expo-linear-gradient": "~14.0.2",
-    "@react-native-masked-view/masked-view": "0.3.2",
-    "expo-blur": "~14.0.3"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

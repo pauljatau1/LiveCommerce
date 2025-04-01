@@ -65,7 +65,11 @@ const Reply = memo(({ item }: { item: any }) => {
         {item?.user?.avatar ? (
           <Image
             source={{ uri: item?.user?.avatar }}
-            className="w-[28px] h-[28px] rounded-[50%]"
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+            }}
             contentFit="cover"
           />
         ) : (

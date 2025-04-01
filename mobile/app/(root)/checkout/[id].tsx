@@ -49,6 +49,27 @@ const CheckoutSummary = () => {
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [selectedPayment, setSelectedPayment] = useState<number>(0);
   const [orderId, setOrderId] = useState<string>("");
+  const [paystackKey, setPaystackKey] = useState<any>();
+
+  const getPaystackKey = useCallback(async () => {
+    const token = await getToken();
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/public/paystack-keys/${process.env.EXPO_PUBLIC_PAYSTACK_CODE || 1122}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      console.log(response.data?.data?.publicKey);
+
+      setPaystackKey(response.data?.data);
+    } catch (e) {
+      console.log("error getting keys");
+    }
+  }, []);
 
   const getOrderInfo = async (orderId: string) => {
     try {
@@ -139,7 +160,7 @@ const CheckoutSummary = () => {
 
       const response = await axios(config);
       console.log("order payment Response ==> ", response.data);
-      return router.push("/(root)/orders/orders");
+      return router.replace("/(root)/orders/orders");
 
       if (response.status == 200) {
         await AsyncStorage.removeItem("order");
@@ -148,7 +169,7 @@ const CheckoutSummary = () => {
       }
     } catch (e: any) {
       if (e?.response.status == 400) {
-        return router.push("/(root)/orders/orders");
+        return router.replace("/(root)/orders/orders");
       }
       console.log("could not Pay for  order", e?.response?.message);
       toast.error("Could not Pay for order");
@@ -176,6 +197,7 @@ const CheckoutSummary = () => {
       setOrders(JSON.parse(orders!));
       setUser(user);
     }
+    getPaystackKey();
     getUserInfo();
     getOrderInfo(id?.toString());
   }, []);
@@ -438,7 +460,7 @@ const CheckoutSummary = () => {
       </SafeAreaView>
       {loading ? null : (
         <View
-          className={`absolute w-full bottom-0 left-0 p-[16px] bg-[#121212] ${!(shippingFee && subtotal) ? "opacity-50" : " "}`}
+          className={`absolute w-full bottom-[20px] left-0 p-[16px] bg-[#121212] ${!(shippingFee && subtotal) ? "opacity-50" : " "}`}
         >
           <TouchableOpacity
             className="rounded-[5px] items-center justify-center p-[12px] bg-[#16783A] "
@@ -458,7 +480,7 @@ const CheckoutSummary = () => {
       {showPaystack && (
         <Paystack
           refNumber={generateReference()}
-          paystackKey="pk_test_4362c6ccfe78d91e6216122d1b36c848fa051362"
+          paystackKey={paystackKey?.publicKey}
           amount={shippingFee! + subtotal}
           billingEmail={user?.email}
           billingName={`${user?.firstName + " " + user?.lastName}`}

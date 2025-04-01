@@ -11,8 +11,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toast } from "@/core/toast";
 import AuthSheet from "@/components/auth/authSheet";
 import { getToken } from "@/store/features/auth/utils";
+import AddedToCart from "@/components/product/productAddedToCart";
+import CartSheet from "@/components/product/productCartSheet";
+import { formatNumber } from "@/helpers/helpers";
 
-const ProductCard: React.FC<ProductCardProps> = ({
+const ProductCard: React.FC<ProductCardProps | any> = ({
   imageUrl,
   id,
   profileImage,
@@ -28,6 +31,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isVerified,
   showNike = true,
   moreDetails,
+  width,
   ...props
 }) => {
   const firstImage =
@@ -79,7 +83,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      className=" bg-black rounded-lg p-[11.85px]  w-[173px] h-[299px]"
+      className={`bg-black rounded-lg p-[11.85px] h-[299px]`}
+      style={{
+        width: width || 173,
+      }}
       onPress={() => router.push(`/product/${id}`)}
     >
       {/* Product Image */}
@@ -115,10 +122,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <Text className="text-[#16783A] text-[8px] font-LexendDecaMedium line-through">
               ₦{moreDetails?.discount?.isActive && price.toLocaleString()}
             </Text>
-            <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
+            {/* <Text className="text-[8px] text-[#16783A] font-LexendDecaBold">
               {moreDetails?.discount?.value?.toFixed(0)}
               {moreDetails?.discount?.type == "percentage" && "%"} off
-            </Text>
+            </Text> */}
           </View>
         ) : (
           <Text className="text-white font-LexendDecaBold  text-[10px] mb-[4px]">
@@ -130,37 +137,59 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </Text>
       </View>
       {/* Seller Information */}
-      <View className="relative flex-row gap-x-2 items-center">
-        <Image
-          source={
-            moreDetails?.seller?.storeAvatar.url
-              ? { uri: moreDetails?.seller?.storeAvatar.url }
-              : require("../../../assets/icons/user-image-empty.png")
-          }
-          resizeMode="contain"
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 20,
-          }}
-        />
-        <View>
-          <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
-            {sellerName || moreDetails?.seller?.businessName}
-          </Text>
-          {sellerRating > 0 && (
-            <View className="flex-row items-center">
-              {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
+      <View className=" flex-row  justify-between items-center shrink">
+        <View className="flex-row gap-x-2  items-center">
+          <Image
+            source={
+              moreDetails?.seller?.storeAvatar.url
+                ? { uri: moreDetails?.seller?.storeAvatar.url }
+                : require("../../../assets/icons/user-image-empty.png")
+            }
+            resizeMode="contain"
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 20,
+            }}
+          />
+          <View>
+            <Text className="text-gray-200 text-[8.5px] font-LexendDeca font-semibold">
+              {sellerName || moreDetails?.seller?.businessName}
+            </Text>
+            <View className="flex-row items-center gap-[4px]">
+              {moreDetails?.seller?.isVerified && (
+                <View
+                  style={{
+                    paddingHorizontal: 6,
+                    paddingVertical: 1,
+                    borderRadius: 1.5,
+                    backgroundColor: "#A0EEBD",
+                  }}
+                >
+                  <Text
+                    className="font-LexendDecaMedium text-[4px] "
+                    style={{
+                      fontSize: 5,
+                    }}
+                  >
+                    Verified
+                  </Text>
+                </View>
+              )}
+              {moreDetails?.seller?.stats?.averageRating > 0 && (
+                <View className="flex-row items-center">
+                  {/* <Text className="text-white text-[8px] font-LexendDecaMedium">
                 Rating:{"  "}
               </Text> */}
-              <Image source={icons.starIcon} />
-              <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
-                {sellerRating.toFixed(1)}
-              </Text>
+                  <Image source={icons.starIcon} />
+                  <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaMedium">
+                    {moreDetails?.seller?.stats?.averageRating?.toFixed(1)}
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
 
-          {/* <View className="flex-row items-center gap-x-1">
+            {/* <View className="flex-row items-center gap-x-1"> 
             <View className="flex-row items-center gap-x-2">
               <Text className="text-black bg-[#E8C300] rounded-[1.747px] flex justify-center items-center px-[2.329px] py-[0.582px] text-[2.912px] font-LexendDeca font-bold">
                 Top seller
@@ -173,14 +202,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
               </Text>
             </View>
           </View> */}
+          </View>
         </View>
-        {/* {isVerified && (
-          <Image
-            source={icons.verifyBadge}
-            className="w-[17.06px] h-[17.06px]"
-          />
-        )} */}
+        <Text
+          className="font-LexendDecaMedium"
+          style={{
+            fontSize: 8,
+            color: "#E8C300",
+          }}
+        >
+          {formatNumber(moreDetails?.stock)}pcs
+        </Text>
       </View>
+
       {/* <Text className="text-[#425466] text-[8px] font-LexendDeca  font-semibold mt-[2px]">
         Lagos, Nigeria
       </Text> */}
@@ -248,254 +282,257 @@ const ProductCard: React.FC<ProductCardProps> = ({
   );
 };
 
-const CartSheet = ({
-  productDetails,
-  closeSheet,
-  addToCart,
-}: {
-  productDetails: any;
-  closeSheet: () => void;
-  addToCart: (cartItem: any) => Promise<void>;
-}) => {
-  const [quantity, setQuantity] = useState<number>(1);
-  const [selectedVariant, setSelectedVariant] = useState<any>({});
-  const [selectedSpec, setSelectedSpec] = useState<any>({});
+// const CartSheet = ({
+//   productDetails,
+//   closeSheet,
+//   addToCart,
+// }: {
+//   productDetails: any;
+//   closeSheet: () => void;
+//   addToCart: (cartItem: any) => Promise<void>;
+// }) => {
+//   const [quantity, setQuantity] = useState<number>(1);
+//   const [selectedVariant, setSelectedVariant] = useState<any>({});
+//   const [selectedSpec, setSelectedSpec] = useState<any>({});
 
-  const handleVariantSelect = (data: any) => {
-    if (selectedVariant && selectedVariant?._id == data._id) {
-      setSelectedSpec({});
-      return setSelectedVariant({});
-    }
-    setSelectedVariant(data);
-    setSelectedSpec({
-      specifications: {
-        color: data.name == "color" ? data.value : "",
-        size: data.size == "size" ? data.value : "",
-        material: data.material == "material" ? data.value : "",
-      },
-    });
-  };
+//   const handleVariantSelect = (data: any) => {
+//     if (selectedVariant && selectedVariant?._id == data._id) {
+//       setSelectedSpec({});
+//       return setSelectedVariant({});
+//     }
+//     setSelectedVariant(data);
+//     setSelectedSpec({
+//       specifications: {
+//         color: data.name == "color" ? data.value : "",
+//         size: data.size == "size" ? data.value : "",
+//         material: data.material == "material" ? data.value : "",
+//       },
+//     });
+//   };
 
-  const handleCreateCartItem = () => {
-    if (selectedVariant?._id) {
-      console.log("specs ==>", selectedSpec);
-      addToCart({
-        ...productDetails,
-        quantity,
-        includeInOrder: true,
-        ...selectedSpec,
-        price: selectedVariant.price,
-        images: [
-          {
-            url:
-              selectedVariant?.images?.[0]?.data ||
-              productDetails?.images?.[0]?.url,
-          },
-        ],
-      });
-    } else {
-      addToCart({ ...productDetails, quantity, includeInOrder: true });
-    }
-  };
+//   const handleCreateCartItem = () => {
+//     if (selectedVariant?._id) {
+//       console.log("specs ==>", selectedSpec);
+//       addToCart({
+//         ...productDetails,
+//         quantity,
+//         includeInOrder: true,
+//         ...selectedSpec,
+//         price: selectedVariant.price,
+//         images: [
+//           {
+//             url:
+//               selectedVariant?.images?.[0]?.data ||
+//               productDetails?.images?.[0]?.url,
+//           },
+//         ],
+//       });
+//     } else {
+//       addToCart({ ...productDetails, quantity, includeInOrder: true });
+//     }
+//   };
 
-  useEffect(() => {
-    if (quantity < 1) {
-      setQuantity(1);
-    }
-  }, [quantity]);
-  return (
-    <View className="p-[8px] pb-[16px]">
-      <View className="flex-row justify-between mb-[23px] ">
-        <View className="flex-row gap-[16px]">
-          <Image
-            source={{
-              uri:
-                (selectedVariant?.images && selectedVariant?.images[0]?.data) ||
-                productDetails?.images[0]?.url,
-            }}
-            resizeMode="cover"
-            className="w-[79px] h-[74px] rounded-[8px]"
-          />
-          <View className="gap-[2px]">
-            <Text className="text-white text-[22px] font-LexendDecaMedium">
-              ₦
-              {selectedVariant?.discount?.isActive
-                ? selectedVariant?.discount?.discountedPrice?.toLocaleString()
-                : selectedVariant?.price?.toLocaleString() ||
-                  (productDetails?.discount?.isActive
-                    ? productDetails?.discount?.discountedPrice?.toLocaleString()
-                    : productDetails?.price?.toLocaleString())}
-            </Text>
-            {productDetails?.discount?.isActive && (
-              <View className="flex-row items-center gap-[8px]">
-                <Text className="text-white text-[11px] font-LexendDecaMedium line-through">
-                  ₦
-                  {productDetails?.discount?.isActive &&
-                    productDetails?.price.toLocaleString()}
-                </Text>
-                <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
-                  {productDetails?.discount?.value}
-                  {productDetails?.discount?.type == "percentage" && "%"} off
-                </Text>
-              </View>
-            )}
+//   useEffect(() => {
+//     if (quantity < 1) {
+//       setQuantity(1);
+//     }
+//   }, [quantity]);
+//   return (
+//     <View className="p-[8px] pb-[16px]">
+//       <View className="flex-row justify-between mb-[23px] ">
+//         <View className="flex-row gap-[16px]">
+//           <Image
+//             source={{
+//               uri:
+//                 (selectedVariant?.images && selectedVariant?.images[0]?.data) ||
+//                 productDetails?.images[0]?.url,
+//             }}
+//             resizeMode="cover"
+//             className="w-[79px] h-[74px] rounded-[8px]"
+//           />
+//           <View className="gap-[2px]">
+//             <Text className="text-white text-[22px] font-LexendDecaMedium">
+//               ₦
+//               {selectedVariant?.discount?.isActive
+//                 ? selectedVariant?.discount?.discountedPrice?.toLocaleString()
+//                 : selectedVariant?.price?.toLocaleString() ||
+//                   (productDetails?.discount?.isActive
+//                     ? productDetails?.discount?.discountedPrice?.toLocaleString()
+//                     : productDetails?.price?.toLocaleString())}
+//             </Text>
+//             {productDetails?.discount?.isActive && (
+//               <View className="flex-row items-center gap-[8px]">
+//                 <Text className="text-white text-[11px] font-LexendDecaMedium line-through">
+//                   ₦
+//                   {productDetails?.discount?.isActive &&
+//                     productDetails?.price.toLocaleString()}
+//                 </Text>
+//                 <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
+//                   {productDetails?.discount?.value}
+//                   {productDetails?.discount?.type == "percentage" && "%"} off
+//                 </Text>
+//               </View>
+//             )}
 
-            <Text className="text-white text-[11px] font-LexendDecaMedium">
-              {productDetails?.category}
-            </Text>
-          </View>
-        </View>
-        <Pressable onPress={closeSheet}>
-          <View className="bg-[#EE571C] w-[30px] h-[30px] rounded-[50%]">
-            <AntDesign name="closecircle" size={30} color="#F9C7B3" />
-          </View>
-        </Pressable>
-      </View>
-      <View className="flex-row items-center gap-[15px] mb-[26px] rounded-[4px] bg-black px-[14px] py-[7px]">
-        <Ionicons name="shield-checkmark-outline" size={20} color="white" />
-        <Text className="text-white text-[11px]">7 Days Free Returns</Text>
-      </View>
+//             <Text className="text-white text-[11px] font-LexendDecaMedium">
+//               {productDetails?.category}
+//             </Text>
+//           </View>
+//         </View>
+//         <Pressable onPress={closeSheet}>
+//           <View className="bg-[#EE571C] w-[30px] h-[30px] rounded-[50%]">
+//             <AntDesign name="closecircle" size={30} color="#F9C7B3" />
+//           </View>
+//         </Pressable>
+//       </View>
+//       {/* <View className="flex-row items-center gap-[15px] mb-[26px] rounded-[4px] bg-black px-[14px] py-[7px]">
+//         <Ionicons name="shield-checkmark-outline" size={20} color="white" />
+//         <Text className="text-white text-[11px]">7 Days Free Returns</Text>
+//       </View> */}
 
-      {productDetails.variants?.length > 0 && (
-        <View className="mb-[13px]">
-          <Text className="text-white text-[11px] font-LexendDecaMedium mb-[8px]">
-            {productDetails.variants[0]?.name}
-          </Text>
-          <View className="flex-row items-center gap-[22px] ">
-            {productDetails.variants.map((variant: any, index: number) => (
-              <TouchableOpacity
-                className={`rounded-[4px] bg-white relative border-[2px] border-[#3A3A3A] ${selectedVariant._id == variant._id ? "!border-[2px] !border-[#16783A]" : null}`}
-                key={index}
-                onPress={() => handleVariantSelect(variant)}
-              >
-                <Image
-                  source={{
-                    uri:
-                      variant?.images[0]?.data || productDetails.images[0].url,
-                  }}
-                  resizeMode="cover"
-                  className="w-[79px] h-[74px] bg-white p-[1px]"
-                />
-                <View className="bg-white p-[2px] items-center justify-center border-t-[1px] border-[#9f9f9f]">
-                  <Text className="text-black text-[11px] font-LexendDecaMedium">
-                    {variant.value}
-                  </Text>
-                </View>
-                {selectedVariant._id == variant._id && (
-                  <AntDesign
-                    name="checkcircle"
-                    size={14}
-                    color="#16783A"
-                    className="absolute top-[-10px] right-[-10px]"
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
+//       {productDetails.variants?.length > 0 && (
+//         <View className="mb-[13px]">
+//           <Text className="text-white text-[11px] font-LexendDecaMedium mb-[8px]">
+//             {productDetails.variants[0]?.name}
+//           </Text>
+//           <View className="flex-row items-center gap-[22px] flex-wrap">
+//             {productDetails.variants.map((variant: any, index: number) => (
+//               <TouchableOpacity
+//                 className={`rounded-[4px] bg-white relative border-[2px] border-[#3A3A3A] ${selectedVariant._id == variant._id ? "!border-[2px] !border-[#16783A]" : null}`}
+//                 key={index}
+//                 onPress={() => handleVariantSelect(variant)}
+//               >
+//                 <Image
+//                   source={{
+//                     uri:
+//                       variant?.images[0]?.data || productDetails.images[0].url,
+//                   }}
+//                   resizeMode="cover"
+//                   className="w-[79px] h-[74px] bg-white p-[1px] self-center"
+//                 />
+//                 <View className="bg-white p-[2px] items-center justify-center border-t-[1px] border-[#9f9f9f]">
+//                   <Text className="text-black text-[11px] font-LexendDecaMedium">
+//                     {variant.value}
+//                   </Text>
+//                 </View>
+//                 {selectedVariant._id == variant._id && (
+//                   <AntDesign
+//                     name="checkcircle"
+//                     size={14}
+//                     color="#16783A"
+//                     className="absolute top-[-10px] right-[-10px]"
+//                   />
+//                 )}
+//               </TouchableOpacity>
+//             ))}
+//           </View>
+//         </View>
+//       )}
 
-      <View className="flex-row items-center justify-between mb-[14px]">
-        <Text className="text-white text-[11px] font-LexendDecaMedium">
-          Quantity
-        </Text>
-        <View className="flex-row items-center gap-[6px]">
-          <TouchableOpacity
-            className="w-[24px] h-[24px] bg-[#16783A] rounded-[4px] items-center justify-center"
-            onPress={() => setQuantity(quantity - 1)}
-          >
-            <AntDesign name="minus" size={14} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-[11px] font-LexendDecaMedium">
-            {quantity}
-          </Text>
-          <TouchableOpacity
-            className="w-[24px] h-[24px] bg-[#16783A] rounded-[4px] items-center justify-center"
-            onPress={() => setQuantity(quantity + 1)}
-          >
-            <AntDesign name="plus" size={14} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
+//       <View className="flex-row items-center justify-between mb-[14px]">
+//         <Text className="text-white text-[11px] font-LexendDecaMedium">
+//           Quantity
+//         </Text>
+//         <View className="flex-row items-center gap-[6px]">
+//           <TouchableOpacity
+//             className="w-[24px] h-[24px] bg-[#16783A] rounded-[4px] items-center justify-center"
+//             onPress={() => setQuantity(quantity - 1)}
+//           >
+//             <AntDesign name="minus" size={14} color="white" />
+//           </TouchableOpacity>
+//           <Text className="text-white text-[11px] font-LexendDecaMedium">
+//             {quantity}
+//           </Text>
+//           <TouchableOpacity
+//             className="w-[24px] h-[24px] bg-[#16783A] rounded-[4px] items-center justify-center"
+//             onPress={() => setQuantity(quantity + 1)}
+//           >
+//             <AntDesign name="plus" size={14} color="white" />
+//           </TouchableOpacity>
+//         </View>
+//       </View>
 
-      <TouchableOpacity
-        className="py-[10px] rounded-[6px] bg-[#16783A] items-center justify-center"
-        onPress={() => handleCreateCartItem()}
-      >
-        <Text className="text-white text-[14px] font-LexendDecaMedium">
-          Add to Cart
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
+//       <TouchableOpacity
+//         className="py-[10px] rounded-[6px] bg-[#16783A] items-center justify-center"
+//         onPress={() => handleCreateCartItem()}
+//       >
+//         <Text className="text-white text-[14px] font-LexendDecaMedium">
+//           Add to Cart
+//         </Text>
+//       </TouchableOpacity>
+//     </View>
+//   );
+// };
 
-const AddedToCart = ({
-  cartData,
-  closeSheet,
-}: {
-  cartData: any;
-  closeSheet: () => void;
-}) => {
-  return (
-    <View className="p-[16px] pb-[20px]">
-      <Text className="text-white text-[16px] mb-[20px] text-center font-LexendDecaMedium ">
-        Item Added To Cart
-      </Text>
-      <View className="flex-row gap-[16px] bg-white p-[8px] rounded-[8px] mb-[20px] items-center ">
-        <Image
-          source={{ uri: cartData?.images[0]?.url }}
-          resizeMode="cover"
-          style={{ width: 73, height: 73, borderRadius: 4 }}
-        />
-        <View className="justify-between py-2 gap-[20px] shrink">
-          <Text className="text-[12px] font-LexendDecaMedium leading-[18px]">
-            {cartData?.name}
-          </Text>
-          <View className="flex-row items-center gap-[8px]">
-            <Text className="text-[16px] font-LexendDecaMedium leading-[18px]">
-              ₦
-              {cartData?.discount?.isActive
-                ? cartData?.discount?.discountedPrice?.toLocaleString() || 0
-                : cartData?.price?.toLocaleString()}
-            </Text>
-            {cartData?.discount?.isActive && (
-              <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
-                -{cartData?.discount?.value}
-                {cartData?.discount?.type == "percentage" && "%"} off
-              </Text>
-            )}
-          </View>
-        </View>
+// const AddedToCart = ({
+//   cartData,
+//   closeSheet,
+// }: {
+//   cartData: any;
+//   closeSheet: () => void;
+// }) => {
+//   return (
+//     <View className="p-[16px] pb-[20px]">
+//       <Text className="text-white text-[16px] mb-[20px] text-center font-LexendDecaMedium ">
+//         Item Added To Cart
+//       </Text>
+//       <View className="flex-row gap-[16px] bg-white p-[8px] rounded-[8px] mb-[20px] items-center ">
+//         <Image
+//           source={{ uri: cartData?.images[0]?.url }}
+//           resizeMode="cover"
+//           style={{ width: 73, height: 73, borderRadius: 4 }}
+//         />
+//         <View className="justify-between py-2 gap-[20px] shrink">
+//           <Text
+//             className="text-[12px] font-LexendDecaMedium leading-[18px]"
+//             numberOfLines={2}
+//           >
+//             {cartData?.name}
+//           </Text>
+//           <View className="flex-row items-center gap-[8px]">
+//             <Text className="text-[16px] font-LexendDecaMedium leading-[18px]">
+//               ₦
+//               {cartData?.discount?.isActive
+//                 ? cartData?.discount?.discountedPrice?.toLocaleString() || 0
+//                 : cartData?.price?.toLocaleString()}
+//             </Text>
+//             {cartData?.discount?.isActive && (
+//               <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
+//                 -{cartData?.discount?.value}
+//                 {cartData?.discount?.type == "percentage" && "%"} off
+//               </Text>
+//             )}
+//           </View>
+//         </View>
 
-        <View className="absolute right-[-10px]">
-          <Image source={require("../../../assets/icons/elements.png")} />
-        </View>
-      </View>
+//         <View className="absolute right-[-10px]">
+//           <Image source={require("../../../assets/icons/elements.png")} />
+//         </View>
+//       </View>
 
-      <View className="flex-row items-center justify-between">
-        <TouchableOpacity
-          className="w-full py-[12px] bg-white rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
-          onPress={closeSheet}
-        >
-          <Text className="text-[#16783A] font-LexendDecaBold text-[12px]">
-            Continue Shopping
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
-          onPress={() => {
-            closeSheet();
-            router.push("/checkout/checkout");
-          }}
-        >
-          <Text className="text-white font-LexendDecaBold text-[12px]">
-            Checkout Now
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+//       <View className="flex-row items-center justify-between">
+//         <TouchableOpacity
+//           className="w-full py-[12px] bg-white rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
+//           onPress={closeSheet}
+//         >
+//           <Text className="text-[#16783A] font-LexendDecaBold text-[12px]">
+//             Continue Shopping
+//           </Text>
+//         </TouchableOpacity>
+//         <TouchableOpacity
+//           className="w-full py-[12px] bg-[#16783A] rounded-[4px] items-center justify-center border-[#16783A] border-[2px] basis-[47%]"
+//           onPress={() => {
+//             closeSheet();
+//             router.push("/checkout/checkout");
+//           }}
+//         >
+//           <Text className="text-white font-LexendDecaBold text-[12px]">
+//             Checkout Now
+//           </Text>
+//         </TouchableOpacity>
+//       </View>
+//     </View>
+//   );
+// };
 
 export default ProductCard;

@@ -1,5 +1,5 @@
-import { View, Text, FlatList } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, FlatList, RefreshControl } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Tags from "../global/tags";
 
 import { ScrollView } from "react-native-virtualized-view";
@@ -17,8 +17,16 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import { useGetAllCategoriesQuery } from "@/services/categories";
 import GeneralCategory from "./general";
 import axios from "axios";
+import TabHeader from "../skeleton/tabHeader";
+import TabHeaderSkeleton from "../skeleton/tabHeader";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { products } from "@/services/products";
 
 const Marketplace = () => {
+  const dispatch = useDispatch();
+  const scrollViewRef = useRef<any>(null);
+  const { user, token } = useSelector((state: RootState) => state.authState);
   const tabBarHeight = useBottomTabBarHeight();
   const {
     data: allCategories,
@@ -28,26 +36,39 @@ const Marketplace = () => {
   const [selected, setSelected] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
   const tags = ["For You", "Jewellery", "Shoes", "Suits", "Denim"];
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = () => {
+    setRefreshing(true);
+    if (selected == "For You") {
+      dispatch(
+        products.util.invalidateTags([
+          "foryouProducts",
+          "newProducts",
+          "trendingProducts",
+        ]),
+      );
+    }
 
+    setRefreshing(false);
+  };
   // console.log("subCats ", subCategories);
 
   const getSelectedCategories = async () => {
     try {
-      const user = await getUser();
-      const token = await getToken();
-      let cat = user.selectedCategories;
-      if (cat?.length < 1) {
-        const response = await axios.get(
-          process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
-          {
-            headers: {
-              Authorization: "Bearer " + token,
-            },
-          },
-        );
-        cat = response.data.categories;
-      }
-      if (token) {
+      let cat = user?.selectedCategories;
+
+      // if (!cat || cat?.length < 1) {
+      //   const response = await axios.get(
+      //     process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
+      //     {
+      //       headers: {
+      //         Authorization: "Bearer " + token,
+      //       },
+      //     },
+      //   );
+      //   cat = response.data.categories;
+      // }
+      if (token && cat) {
         setCategories(["For You", ...cat.map((ct: any) => ct.name)]);
         return setSelected("For You");
       }
@@ -64,6 +85,7 @@ const Marketplace = () => {
   }, [allCategories]);
 
   const renderContent = useCallback(() => {
+    // scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
     if (selected == "For You") {
       return <ForYou />;
     }
@@ -80,15 +102,29 @@ const Marketplace = () => {
     <View className="pt-[30px]" style={{ flex: 1 }}>
       <HomeHeader />
       <View className="">
-        <Tags tags={categories} selected={selected} setSelected={setSelected} />
+        {categories?.length < 1 ? (
+          <TabHeaderSkeleton />
+        ) : (
+          <Tags
+            tags={categories}
+            selected={selected}
+            setSelected={setSelected}
+          />
+        )}
       </View>
       <ScrollView
-        style={{ flex: 1 }}
-        className="w-full"
+        // ref={scrollViewRef}
+        // onContentSizeChange={() => scrollViewRef.current?.scrollTo({ y: 0 })}
+        // style={{ flex: 1 }}
+        // className="w-full"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         contentContainerStyle={{
           paddingTop: 20,
           paddingBottom: 80,
+          flexGrow: 1,
         }}
       >
         {selected && renderContent()}

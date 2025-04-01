@@ -6,7 +6,7 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, memo } from "react";
 import {
   useDeepSearchProductsQuery,
   useGetAllProductsQuery,
@@ -18,11 +18,18 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import BottomSheet from "../global/bottom-sheet";
 import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import FilterSheet from "./filterSheet";
+import ProductEmptyState from "../global/empty-states/productEmptyState";
+import AuctionCard from "../global/auction-card";
 
 const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
-  const { data, isLoading, isFetching, isError } = useDeepSearchProductsQuery({
-    query: searchQuery,
-  });
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const { data, isLoading, isFetching, isError, refetch } =
+    useDeepSearchProductsQuery({
+      query: searchQuery,
+      page,
+      limit: 10,
+    });
   const [filter, setFilter] = useState<string>("None");
   const [selectedFilters, setSelectedFilters] = useState<any>();
   const [products, setProducts] = useState<any[]>([]);
@@ -30,6 +37,17 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
 
   const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
   const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
+
+  const fetchMoreProducts = () => {
+    if (!isFetching && !hasReachedEnd) {
+      console.log("catalog pagination ", {
+        isFetching,
+        hasReachedEnd,
+      });
+
+      setPage((prev) => prev + 1);
+    }
+  };
 
   const handleSelectSortType = (type: string) => {
     setShowSortSheet(false);
@@ -84,20 +102,59 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
     );
   };
 
-  const renderEmptyPlaceholder = useCallback(() => {
+  const renderListHeader = useCallback(() => {
     return (
-      <View className="">
-        <Text className="text-white font-LexendDecaMedium text-[14px] text-center">
-          No Products
-        </Text>
+      <View className="flex-row items-center gap-[8px] mb-[12px]">
+        <TouchableOpacity
+          className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+          style={{
+            backgroundColor: "rgba(204, 204, 204, 0.25)",
+          }}
+          onPress={() => setShowFilterSheet(true)}
+        >
+          <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={` rounded-[8px] py-[8px] px-[12px] gap-[8px] flex-row justify-center items-center`}
+          style={{
+            backgroundColor:
+              filter != "None" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+          }}
+          onPress={() => setShowSortSheet(true)}
+        >
+          <Text
+            className={`${filter != "None" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
+          >
+            Sort
+          </Text>
+          <MaterialIcons
+            name="keyboard-arrow-down"
+            size={16}
+            color={filter != "None" ? "#2F2E41" : "#f2f2f2"}
+          />
+        </TouchableOpacity>
       </View>
     );
-  }, []);
+  }, [filteredProducts]);
+
+  const renderEmptyPlaceholder = useCallback(() => {
+    return <ProductEmptyState />;
+  }, [filteredProducts]);
 
   useEffect(() => {
-    setProducts(data);
-    setFilteredProducts(data);
+    if (data?.products?.length > 0) {
+      setProducts([...products, ...data?.products]);
+      setFilteredProducts([...filteredProducts, ...data?.products]);
+
+      if (data?.pagination.total == data?.pagination?.pages) {
+        setHasReachedEnd(true);
+      }
+    }
   }, [data]);
+
+  useEffect(() => {
+    refetch();
+  }, [page]);
 
   return (
     <View className="px-[16px] py-[12px] ">
@@ -107,36 +164,6 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
         </View>
       ) : (
         <View>
-          <View className="flex-row items-center gap-[8px] mb-[12px]">
-            <TouchableOpacity
-              className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
-              style={{
-                backgroundColor: "rgba(204, 204, 204, 0.25)",
-              }}
-              onPress={() => setShowFilterSheet(true)}
-            >
-              <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              className={` rounded-[8px] py-[8px] px-[12px] gap-[8px] flex-row justify-center items-center`}
-              style={{
-                backgroundColor:
-                  filter != "None" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-              }}
-              onPress={() => setShowSortSheet(true)}
-            >
-              <Text
-                className={`${filter != "None" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
-              >
-                Sort
-              </Text>
-              <MaterialIcons
-                name="keyboard-arrow-down"
-                size={16}
-                color={filter != "None" ? "#2F2E41" : "#f2f2f2"}
-              />
-            </TouchableOpacity>
-          </View>
           <FlatList
             data={filteredProducts}
             renderItem={({ item, index }) => renderProducts(item)}
@@ -151,6 +178,9 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
             }}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyPlaceholder}
+            onEndReached={fetchMoreProducts}
+            onEndReachedThreshold={0.5}
+            ListHeaderComponent={renderListHeader}
           />
         </View>
       )}
@@ -266,4 +296,4 @@ const SortSheet = ({
   );
 };
 
-export default CatalogComponent;
+export default memo(CatalogComponent);

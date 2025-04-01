@@ -192,7 +192,7 @@ const VideoCard = memo(({ item }: { item: any }) => {
       }
     >
       <Image
-        source={{ uri: item.images }}
+        source={{ uri: item.thumbnail }}
         style={{
           width: "100%",
           height: "100%",

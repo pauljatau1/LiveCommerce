@@ -53,6 +53,15 @@ const autoOrderMessages = [
   "Logistics Inquiry",
 ];
 
+const autoOrderMessagesText = {
+  "Ask Availability": (sellerName: string, orderName: string): string =>
+    `Hi ${sellerName}, I just placed an order:${orderName}. Can you please confirm stock status and shipping times. Thank you!`,
+  "Order Request": (sellerName: string, orderName: string): string =>
+    `Hello ${sellerName}, I'd like to request details for order: ${orderName}`,
+  "Logistics Inquiry": (sellerName: string, orderName: string): string =>
+    `Hello ${sellerName}, I just placed an order:${orderName}. Could you share details about shipping methods, estimated delivery times, and any handling fees?`,
+} as any;
+
 const MessageRoom = () => {
   const {
     id,
@@ -86,7 +95,7 @@ const MessageRoom = () => {
   const [selectedProduct, setSelectedProduct] = useState<any>({});
   const [showOptions, setShowOptions] = useState<boolean>(false);
   const [isFirstTimer, setIsFirstTimer] = useState<boolean>(false);
-  const [page, setPage] = useState<number>(0);
+  const [page, setPage] = useState<number>(1);
   const [changePage, setChangePage] = useState<number>(0);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [showChatSetting, setShowChatSettings] = useState<boolean>(false);
@@ -121,6 +130,7 @@ const MessageRoom = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
       allowsMultipleSelection: false,
+      allowsEditing: false,
       base64: false,
     });
 
@@ -128,7 +138,7 @@ const MessageRoom = () => {
       const newImages = result.assets.map((asset) => ({
         uri: asset.uri,
         name: `media_${Date.now()}.${asset.mimeType?.split("/")[1] || "application/octet-stream"}`,
-        mimeType: asset.mimeType,
+        type: asset.mimeType,
       }));
       const remainingSlots = 4 - selectedMedia.length;
       const imagesToAdd = newImages.slice(0, remainingSlots);
@@ -151,7 +161,7 @@ const MessageRoom = () => {
         process.env.EXPO_PUBLIC_API_URL +
           "api/messages/" +
           conversationId +
-          `?${page > 0 ? "page=" + page + "&" : ""}limit=10`,
+          `?page=${page}&limit=10`,
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -162,10 +172,10 @@ const MessageRoom = () => {
         ...response.data?.messages?.slice()?.reverse(),
         ...messages,
       ]);
-      if (response.data.pagination.currentPage == 1) {
+      if (!response.data.pagination.hasMore) {
         setHasReachedEnd(true);
       }
-      setChangePage(response.data.pagination.currentPage);
+      // setChangePage(response.data.pagination.currentPage);
     } catch (e) {
       console.log("error getting message history ", e);
     } finally {
@@ -174,11 +184,12 @@ const MessageRoom = () => {
     }
   };
 
-  const fetchMoreMessages = useCallback(() => {
-    if (!hasReachedEnd && !messagesLoading && changePage > 1) {
-      setPage(changePage - 1);
+  const fetchMoreMessages = () => {
+    console.log("fetching more. current page", page);
+    if (!hasReachedEnd && !messagesLoading) {
+      setPage((prevPage) => prevPage + 1);
     }
-  }, [page, changePage]);
+  };
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -199,12 +210,8 @@ const MessageRoom = () => {
   }, [orderId]);
 
   const handleSendAutoMessage = () => {
-    setNewMessage(
-      `${autoOrderMessage?.message}: ${orderDetails?.order?.order_id}`,
-    );
-    handleSendMessage(
-      `${autoOrderMessage?.message}: ${orderDetails?.order?.order_id}`,
-    );
+    setNewMessage(`${autoOrderMessage?.message}`);
+    handleSendMessage(`${autoOrderMessage?.message}`);
   };
 
   const handleReadMessages = async () => {
@@ -476,7 +483,7 @@ const MessageRoom = () => {
       fetchOrder();
     }
 
-    setTimeout(() => setShowOrderDetails(false), 5000);
+    // setTimeout(() => setShowOrderDetails(false), 5000);
   }, [orderId]);
   const scrollToBottom = useCallback(() => {
     if (listRef.current && messages.length > 0) {
@@ -508,13 +515,16 @@ const MessageRoom = () => {
     setShowReportUser(true);
   };
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
-      style={{ flex: 1, backgroundColor: "#121212" }}
-    >
-      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <SafeAreaView className="flex-1 h-full">
+    <SafeAreaView className="flex-1 h-full bg-[#121212]">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
+        style={{ flex: 1, backgroundColor: "#121212" }}
+      >
+        <FocusAwareStatusBar
+          barStyle="light-content"
+          backgroundColor="#121212"
+        />
         <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#888787]">
           <View className="flex-row items-center gap-[12px]">
             <TouchableOpacity className="" onPress={() => router.back()}>
@@ -598,7 +608,7 @@ const MessageRoom = () => {
         {loading ? (
           <ActivityIndicator
             size={"small"}
-            color="#16783A"
+            color="#fff"
             style={{ marginTop: 20 }}
           />
         ) : (
@@ -731,6 +741,7 @@ const MessageRoom = () => {
                       {autoOrderMessages?.map((message, index) => {
                         return (
                           <Pressable
+                            key={index}
                             style={
                               index == autoOrderMessage?.index
                                 ? styles.autoOrderMessage
@@ -739,7 +750,10 @@ const MessageRoom = () => {
                             onPress={() =>
                               setAutoOrderMessage({
                                 index,
-                                message,
+                                message: autoOrderMessagesText[message](
+                                  name,
+                                  orderDetails?.order?.order_id,
+                                ),
                               })
                             }
                           >
@@ -896,8 +910,8 @@ const MessageRoom = () => {
             closeSheet={() => setShowReportUser(false)}
           />
         </BottomSheet>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -920,8 +934,6 @@ const MediaItem = memo(({ item }: { item: any }) => {
 });
 
 const ProductItem = memo(({ item, isMyMessage }: any) => {
-  console.log("logging item product ", item);
-
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -1014,10 +1026,25 @@ const MessageItem = memo(
               ]}
             >
               {RenderMessageType(messageType)}
-
-              <Text style={styles.timestamp}>
-                {formatMessageDate(message.createdAt)}
-              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 2,
+                  marginTop: 4,
+                  alignSelf: "flex-end",
+                }}
+              >
+                <Text style={styles.timestamp}>
+                  {formatMessageDate(message.createdAt)}
+                </Text>
+                {isMyMessage &&
+                  (message?.isRead ? (
+                    <Ionicons name="checkmark-done" size={14} color="#14AE5C" />
+                  ) : (
+                    <Ionicons name="checkmark-done" size={14} color="gray" />
+                  ))}
+              </View>
             </View>
             {isMyMessage && message.error && (
               <Text className="text-[#F24822] text-[8px] font-LexendDeca ml-[4px]">
@@ -1254,7 +1281,6 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 10,
     color: "#7C7C7C",
-    marginTop: 4,
     alignSelf: "flex-end",
     fontFamily: "LexendDeca",
   },

@@ -34,7 +34,8 @@
         "foregroundImage": "./assets/images/appstore.png",
         "backgroundColor": "#ffffff"
       },
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": ["INTERNET"]
     },
     "web": {
       "bundler": "metro",

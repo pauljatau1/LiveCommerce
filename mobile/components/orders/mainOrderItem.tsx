@@ -7,7 +7,8 @@ import CancelSheet from "./cancelSheet";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
-  pickup_arranged: { name: "In Transit", color: "rgb(219 234 254)" },
+  "picked-up": { name: "Picked Up", color: "rgb(219 234 254)" },
+  in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
   cancelled: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },
   returned: { name: "refund request", color: "rgba(238, 87, 28, 0.85)" },
@@ -26,7 +27,7 @@ const OrderItem = ({
   return (
     <TouchableOpacity
       activeOpacity={0.5}
-      className="border-b-[1px] p-[14px] pb-[25px] flex-row justify-center"
+      className="border-b-[1px] p-[16px] pb-[25px] flex-row justify-center"
       style={{
         borderColor: "rgba(242, 242, 242, 0.50)",
       }}
@@ -70,7 +71,9 @@ const OrderItem = ({
             className="rounded-[3px] px-[6px] py-[4px] justify-center items-center"
             style={{
               backgroundColor: orderItem.paid
-                ? statusColor[orderItem?.shipping?.tracking?.status]?.color
+                ? statusColor[
+                    orderItem?.shipping?.tracking?.status?.toLowerCase()
+                  ]?.color
                 : orderItem?.paymentInfo?.isCashOnDelivery
                   ? "blue"
                   : "red",
@@ -81,7 +84,8 @@ const OrderItem = ({
             >
               {(orderItem.paid && !orderItem?.orderStatus?.hasReturn) ||
               orderItem.shipping.tracking.status == "cancelled"
-                ? statusColor[orderItem.shipping.tracking.status]?.name
+                ? statusColor[orderItem.shipping.tracking.status?.toLowerCase()]
+                    ?.name
                 : orderItem?.orderStatus?.hasReturn
                   ? statusColor["returned"]?.name
                   : orderItem?.paymentInfo?.isCashOnDelivery
@@ -193,7 +197,9 @@ const OrderItem = ({
             </Link>
           )}
 
-          {!orderItem.paid && orderItem?.paymentInfo?.method == "paystack" ? (
+          {!orderItem.paid &&
+          orderItem.shipping.tracking.status !== "cancelled" &&
+          orderItem?.paymentInfo?.method == "paystack" ? (
             <Pressable
               className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#16783A] rounded-[6px] bg-[#16783A]"
               style={{ width: "30%" }}

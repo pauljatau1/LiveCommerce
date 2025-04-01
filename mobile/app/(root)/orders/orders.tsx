@@ -5,11 +5,11 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Pressable,
   ScrollViewComponent,
+  FlatList,
 } from "react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
 import { router } from "expo-router";
@@ -21,10 +21,20 @@ import { formatDate } from "@/helpers/helpers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { color } from "@rneui/base";
 import OrderItem from "@/components/orders/mainOrderItem";
+import { ActivityIndicator } from "react-native-paper";
+import LottieView from "lottie-react-native";
 
 const { width, height } = Dimensions.get("window");
 
-const tabs = ["All", "Processing", "In Transit", "Delivered", "My Returns"];
+const tabs = [
+  "All",
+  "Pending",
+  "Picked-Up",
+  "Dispatched",
+  "Delivered",
+  "Cancelled",
+  "My Returns",
+];
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
   pickup_arranged: { name: "In Transit", color: "rgb(219 234 254)" },
@@ -38,10 +48,13 @@ const Orders = () => {
   const isFocused = useIsFocused();
   const [selectedTab, setSelectedTab] = useState<string>(tabs[0]);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [ordersFetching, setOrdersFetching] = useState<boolean>(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [allOrders, setAllOrders] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
   const [token, setToken] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
 
   const handleTabSelection = (selection: string) => {
     const actualSelection = {
@@ -49,50 +62,75 @@ const Orders = () => {
       "in transit": "pickup_arranged",
       delivered: "delivered",
     } as any;
+    setPage(1);
+    setHasReachedEnd(false);
     setSelectedTab(selection);
 
-    if (selection.toLowerCase() == "all") {
-      return setOrders(allOrders);
-    }
+    // if (selection.toLowerCase() == "all") {
+    //   return setOrders(allOrders);
+    // }
 
-    if (selection.toLowerCase() == "my returns") {
-      return setOrders(
-        allOrders.filter(
-          (order) =>
-            ["returned", "cancelled"].includes(
-              order.shipping.tracking.status,
-            ) || order?.orderStatus?.hasReturn,
-        ),
-      );
-    }
-    setOrders(
-      allOrders.filter(
-        (order) =>
-          order.shipping.tracking.status ==
-            actualSelection[selection.toLowerCase()] &&
-          !order?.orderStatus?.hasReturn,
-      ),
-    );
+    // if (selection.toLowerCase() == "my returns") {
+    //   return setOrders(
+    //     allOrders.filter(
+    //       (order) =>
+    //         ["returned", "cancelled"].includes(
+    //           order.shipping.tracking.status,
+    //         ) || order?.orderStatus?.hasReturn,
+    //     ),
+    //   );
+    // }
+    // setOrders(
+    //   allOrders.filter(
+    //     (order) =>
+    //       order.shipping.tracking.status ==
+    //         actualSelection[selection.toLowerCase()] &&
+    //       !order?.orderStatus?.hasReturn,
+    //   ),
+    // );
   };
 
   const handleGetOrders = async () => {
+    if (page == 1) {
+      setOrdersLoading(true);
+    } else {
+      setOrdersFetching(true);
+    }
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/orders?page=1",
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/buyer/orders?page=${page}&limit=${selectedTab == "My Returns" ? 100 : 10}&trackingStatus=${selectedTab}&hasReturn=${selectedTab == "My Returns"}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         },
       );
-      setSelectedTab("All");
-      setAllOrders(response.data.orders);
-      setOrders(response.data.orders);
+      // setSelectedTab("All");
+      // setAllOrders(response.data.orders);
+      if (page == 1) {
+        setOrders(response.data.orders);
+      } else {
+        setOrders([...orders, ...response.data.orders]);
+      }
+
+      if (response.data?.orders?.length < 1) {
+        setHasReachedEnd(true);
+      }
     } catch (e) {
       console.log("failed to retrieve orders ", e);
     } finally {
       setOrdersLoading(false);
+      setOrdersFetching(false);
+    }
+  };
+
+  const fetchMoreOrders = () => {
+    console.log("fetching here ,", { ordersFetching, hasReachedEnd });
+
+    if (!ordersFetching && !hasReachedEnd) {
+      setPage((prevPage) => prevPage + 1);
     }
   };
 
@@ -116,7 +154,7 @@ const Orders = () => {
 
   useEffect(() => {
     handleGetOrders();
-  }, []);
+  }, [selectedTab, page]);
 
   useEffect(() => {
     if (isFocused) {
@@ -128,6 +166,84 @@ const Orders = () => {
     scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
   }, [selectedTab]);
 
+  const renderOrderItems = useCallback(
+    ({ item: orderItem }: any) => {
+      return (
+        <View>
+          {orderItem?.shipping?.tracking?.status == "delivered" && (
+            <View
+              style={{
+                flexDirection: "row",
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                marginHorizontal: 16,
+                paddingVertical: 18,
+                gap: 10,
+                backgroundColor: "rgba(41,41,41,0.8)",
+              }}
+            >
+              <Image
+                source={require("../../../assets/icons/delivery-icon.png")}
+                resizeMode="contain"
+                style={{
+                  width: 24,
+                  height: 24,
+                  marginTop: 6,
+                }}
+              />
+              <View className="shrink">
+                <Text className="text-[#ccc] text-[11px] font-LexendDecaMedium leading-[20px]">
+                  {formatDate(
+                    orderItem.shipping?.tracking?.history[2]?.timestamp,
+                    "MMM DD",
+                  )}{" "}
+                  - Package has been delivered. Please pickup and enjoy your
+                  order
+                </Text>
+                <Text className="text-[#ccc] opacity-70 text-[8px] font-LexendDecaLight leading-[20px]">
+                  You can request for refund / return of product
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <OrderItem
+            orderItem={orderItem}
+            conversations={conversations}
+            token={token}
+          />
+        </View>
+      );
+    },
+    [page, orders],
+  );
+
+  const renderListFooter = useCallback(() => {
+    if (ordersFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [ordersFetching, hasReachedEnd]);
+
   return (
     <View>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
@@ -138,7 +254,7 @@ const Orders = () => {
         <View>
           <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mb-[8px] mt-4 relative">
             <TouchableOpacity
-              className="absolute left-[18px]"
+              className="absolute left-[12px]"
               onPress={() => router.back()}
             >
               <Entypo
@@ -152,8 +268,10 @@ const Orders = () => {
               My Orders
             </Text>
           </View>
-          <View
-            className="flex-row items-center justify-between px-[23px]"
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerClassName="flex-row items-center justify-between px-[16px]"
             style={{
               borderBottomColor: "rgba(204, 204, 204, 0.25)",
               borderBottomWidth: 0.5,
@@ -162,7 +280,7 @@ const Orders = () => {
             {tabs.map((tab, index) => (
               <TouchableOpacity
                 onPress={() => handleTabSelection(tab)}
-                className={`py-[4px] pb-[16px] ${selectedTab == tab ? "border-b-[1px] border-b-white" : ""}`}
+                className={`py-[4px] pb-[16px] mr-[16px] ${selectedTab == tab ? "border-b-[1px] border-b-white" : ""}`}
                 key={index}
               >
                 <Text
@@ -172,100 +290,111 @@ const Orders = () => {
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
         {ordersLoading ? (
           <ActivityIndicator
             size={"small"}
-            color={"#16783A"}
+            color={"#fff"}
             className="m-[20px]"
           />
         ) : (
-          <ScrollView
-            ref={scrollViewRef}
-            showsVerticalScrollIndicator={false}
+          <FlatList
+            data={orders}
+            renderItem={renderOrderItems}
+            keyExtractor={(item, index) => item?._id || index?.toString()}
             contentContainerStyle={{
               paddingVertical: 20,
-              paddingHorizontal: 16,
-              // backgroundColor: "red",
-              // height: "100%",
+              gap: 20,
             }}
-          >
-            <View className="gap-[30px]">
-              <View className="p-30px gap-[20px] shrink">
-                {orders?.length > 0 ? (
-                  orders.map((orderItem, index) => (
-                    <View key={index}>
-                      {orderItem?.shipping?.tracking?.status == "delivered" && (
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            borderRadius: 16,
-                            paddingHorizontal: 16,
-                            paddingVertical: 18,
-                            gap: 10,
-                            backgroundColor: "rgba(41,41,41,0.8)",
-                          }}
-                        >
-                          <Image
-                            source={require("../../../assets/icons/delivery-icon.png")}
-                            resizeMode="contain"
-                            style={{
-                              width: 24,
-                              height: 24,
-                              marginTop: 6,
-                            }}
-                          />
-                          <View className="shrink">
-                            <Text className="text-[#ccc] text-[11px] font-LexendDecaMedium leading-[20px]">
-                              {formatDate(
-                                orderItem.shipping?.tracking?.history[2]
-                                  ?.timestamp,
-                                "MMM DD",
-                              )}{" "}
-                              - Package has been delivered. Please pickup and
-                              enjoy your order
-                            </Text>
-                            <Text className="text-[#ccc] opacity-70 text-[8px] font-LexendDecaLight leading-[20px]">
-                              You can request for refund / return of product
-                            </Text>
-                          </View>
-                        </View>
-                      )}
+            onEndReached={fetchMoreOrders}
+            onEndReachedThreshold={0.5}
+            ListEmptyComponent={EmptyOrders}
+            ListFooterComponent={renderListFooter}
+          />
+          // <ScrollView
+          //   ref={scrollViewRef}
+          //   showsVerticalScrollIndicator={false}
+          //   contentContainerStyle={{
+          //     paddingVertical: 20,
+          //     paddingHorizontal: 16,
+          //   }}
+          // >
+          //   <View className="gap-[30px]">
+          //     <View className="p-30px gap-[20px] shrink">
+          //       {orders?.length > 0 ? (
+          //         orders.map((orderItem, index) => (
+          //           <View key={index}>
+          //             {orderItem?.shipping?.tracking?.status == "delivered" && (
+          //               <View
+          //                 style={{
+          //                   flexDirection: "row",
+          //                   borderRadius: 16,
+          //                   paddingHorizontal: 16,
+          //                   paddingVertical: 18,
+          //                   gap: 10,
+          //                   backgroundColor: "rgba(41,41,41,0.8)",
+          //                 }}
+          //               >
+          //                 <Image
+          //                   source={require("../../../assets/icons/delivery-icon.png")}
+          //                   resizeMode="contain"
+          //                   style={{
+          //                     width: 24,
+          //                     height: 24,
+          //                     marginTop: 6,
+          //                   }}
+          //                 />
+          //                 <View className="shrink">
+          //                   <Text className="text-[#ccc] text-[11px] font-LexendDecaMedium leading-[20px]">
+          //                     {formatDate(
+          //                       orderItem.shipping?.tracking?.history[2]
+          //                         ?.timestamp,
+          //                       "MMM DD",
+          //                     )}{" "}
+          //                     - Package has been delivered. Please pickup and
+          //                     enjoy your order
+          //                   </Text>
+          //                   <Text className="text-[#ccc] opacity-70 text-[8px] font-LexendDecaLight leading-[20px]">
+          //                     You can request for refund / return of product
+          //                   </Text>
+          //                 </View>
+          //               </View>
+          //             )}
 
-                      <OrderItem
-                        key={index}
-                        orderItem={orderItem}
-                        conversations={conversations}
-                        token={token}
-                      />
-                    </View>
-                  ))
-                ) : (
-                  <EmptyOrders />
-                )}
-              </View>
+          //             <OrderItem
+          //               key={index}
+          //               orderItem={orderItem}
+          //               conversations={conversations}
+          //               token={token}
+          //             />
+          //           </View>
+          //         ))
+          //       ) : (
+          //         <EmptyOrders />
+          //       )}
+          //     </View>
 
-              <View className="gap-[24px] p-[30px]">
-                <Text className="self-center text-[#ccc] text-[20px] font-LexendDecaMedium">
-                  Finding Great Deals ?
-                </Text>
+          //     <View className="gap-[24px] p-[30px]">
+          //       <Text className="self-center text-[#ccc] text-[20px] font-LexendDecaMedium">
+          //         Finding Great Deals ?
+          //       </Text>
 
-                <View className="flex-row items-center justify-between relative shrink">
-                  <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A]">
-                    <Text className="text-white text-[12px]">
-                      Watch Live Shows
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A] bg-[#16783A]">
-                    <Text className="text-white text-[12px]">
-                      Go to Marketplace
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
+          //       <View className="flex-row items-center justify-between relative shrink">
+          //         <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A]">
+          //           <Text className="text-white text-[12px]">
+          //             Watch Live Shows
+          //           </Text>
+          //         </TouchableOpacity>
+          //         <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A] bg-[#16783A]">
+          //           <Text className="text-white text-[12px]">
+          //             Go to Marketplace
+          //           </Text>
+          //         </TouchableOpacity>
+          //       </View>
+          //     </View>
+          //   </View>
+          // </ScrollView>
         )}
       </SafeAreaView>
     </View>
@@ -290,6 +419,22 @@ const EmptyOrders = () => {
       <Text className="self-center text-[#ccc] text-[14px] font-LexendDecaLight">
         Start exploring and finding great deals
       </Text>
+
+      <View className="gap-[24px] p-[30px]">
+        <Text className="self-center text-[#ccc] text-[20px] font-LexendDecaMedium">
+          Finding Great Deals ?
+        </Text>
+
+        <View className="flex-row items-center justify-between relative shrink">
+          <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A]">
+            <Text className="text-white text-[12px]">Watch Live Shows</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity className="justify-center items-center p-[10.5px] w-[47%] rounded-[8.5px] border-[1px] border-[#16783A] bg-[#16783A]">
+            <Text className="text-white text-[12px]">Go to Marketplace</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 };

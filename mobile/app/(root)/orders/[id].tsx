@@ -26,9 +26,11 @@ import ReturnedOrders from "@/components/orders/ReturnedOrders";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
-  pickup_arranged: { name: "In Transit", color: "rgb(219 234 254)" },
+  "picked-up": { name: "Picked Up", color: "rgb(219 234 254)" },
+  in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
   cancelled: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },
+  returned: { name: "refund request", color: "rgba(238, 87, 28, 0.85)" },
 } as any;
 
 const { width, height } = Dimensions.get("window");
@@ -92,7 +94,7 @@ const SingleOrder = () => {
         {loading ? (
           <ActivityIndicator
             size={"small"}
-            color="#16783A"
+            color="#fff"
             style={{ marginVertical: 10 }}
           />
         ) : (
@@ -123,12 +125,16 @@ const SingleOrder = () => {
                   conversationId={conversationId}
                 />
               )}
-              {["pending", "pickup_arranged", "delivered"].includes(
-                order?.shipping?.tracking?.status,
-              ) &&
+              {[
+                "pending",
+                "picked-up",
+                "dispatched",
+                "in_transit",
+                "delivered",
+              ].includes(order?.shipping?.tracking?.status?.toLowerCase()) &&
                 !order?.order?.orderStatus?.hasReturn && (
                   <View>
-                    {order?.shipping?.tracking?.status == "pickup_arranged" && (
+                    {order?.shipping?.tracking?.status == "in_transit" && (
                       <View
                         className="bg-white rounded-[16px]"
                         style={{
@@ -304,7 +310,8 @@ const SingleOrder = () => {
                           Chat Seller
                         </Text>
                       </Pressable>
-                      {order.shipping.tracking.status == "delivered" && (
+                      {order.shipping.tracking.status == "delivered" &&
+                      order?.order?.orderStatus?.isOpen ? (
                         <Pressable
                           className="px-[4px] py-[12px] justify-center items-center border-[1px] border-[#EDF2F7] rounded-[6px]"
                           style={{ width: "30%" }}
@@ -334,7 +341,7 @@ const SingleOrder = () => {
                             Return/Refund
                           </Text>
                         </Pressable>
-                      )}
+                      ) : null}
 
                       {["pickup_arranged"].includes(
                         order.shipping.tracking.status,
@@ -379,9 +386,23 @@ const SingleOrder = () => {
                         justifyContent: "center",
                         gap: 14,
                         paddingHorizontal: 30,
+                        paddingBottom: 40,
                       }}
                     >
-                      <View className="flex-row">
+                      <OrderHistory
+                        history={{
+                          timestamp: order?.order?.createdAt,
+                          status: "Order Placed",
+                          description:
+                            "Your order has been placed successfully",
+                        }}
+                      />
+                      {order?.shipping?.tracking?.history?.map(
+                        (data: any, index: number) => (
+                          <OrderHistory history={data} key={index} />
+                        ),
+                      )}
+                      {/* <View className="flex-row">
                         <View
                           style={{
                             gap: 8,
@@ -696,7 +717,7 @@ const SingleOrder = () => {
                             </Text>
                           </View>
                         </View>
-                      </View>
+                      </View> */}
                     </View>
                   </View>
                 )}
@@ -704,6 +725,71 @@ const SingleOrder = () => {
           </View>
         )}
       </SafeAreaView>
+    </View>
+  );
+};
+
+const OrderHistory = ({ history }: any) => {
+  return (
+    <View className="flex-row">
+      <View
+        style={{
+          gap: 8,
+          marginRight: 21,
+          width: 60,
+        }}
+      >
+        <Text className={`text-[16px] text-[#ccc] font-LexendDecaSemiBold`}>
+          {formatDate(history?.timestamp, "MMM DD")}
+        </Text>
+        <Text className={`text-[12px] text-[#ccc] font-LexendDecaLight`}>
+          {formatDate(history?.timestamp, "HH:mm")}
+        </Text>
+      </View>
+      <View
+        style={{
+          gap: 5,
+          flexShrink: 1,
+        }}
+      >
+        <View className="flex-row items-center" style={{ gap: 11 }}>
+          <View
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 10,
+
+              backgroundColor: "#16783A",
+            }}
+          ></View>
+          <Text
+            style={{
+              fontSize: 16,
+              fontFamily: "LexendDeca-SemiBold",
+
+              color: "#16783A",
+            }}
+          >
+            {history?.status?.replaceAll("_", " ")}
+          </Text>
+        </View>
+        <View
+          style={{
+            borderLeftColor: "#16783A",
+
+            borderLeftWidth: 1,
+            paddingLeft: 16,
+            paddingVertical: 10,
+            marginLeft: 4.5,
+          }}
+        >
+          <Text
+            className={`text-[12px] text-[#ccc] font-LexendDecaSemiBold shrink`}
+          >
+            {history?.description}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 };
@@ -763,7 +849,7 @@ const OrderItem = ({
           <View
             className="rounded-[3px] px-[6px] py-[4px] w-[60px] justify-center items-center"
             style={{
-              backgroundColor: statusColor[orderStatus]?.color,
+              backgroundColor: statusColor[orderStatus?.toLowerCase()]?.color,
             }}
           >
             <Text className=" text-[8px] font-LexendDecaMedium">
