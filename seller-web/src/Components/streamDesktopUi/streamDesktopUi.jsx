@@ -6,6 +6,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
 import BidConfirmationModal from '../BidConfirmationModal';
 import ActiveBidProductCard from '../ActiveBidProductCard';
+import OngoingBidProductCard from '../OngoingBidProductCard';
+import EndedBidProductCard from '../EndedBidProductCard';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 
 const StreamDesktopUi = ({
@@ -131,6 +133,28 @@ const StreamDesktopUi = ({
                                             if (item.bidStatus === 'active') {
                                                 return (
                                                     <ActiveBidProductCard 
+                                                        key={item?.product.productId} 
+                                                        product={item} 
+                                                        formatCurrency={formatCurrency} 
+                                                    />
+                                                );
+                                            }
+                                            
+                                            // If product has ongoing bidding, show the ongoing bid card
+                                            if (item.bidStatus === 'ongoing') {
+                                                return (
+                                                    <OngoingBidProductCard 
+                                                        key={item?.product.productId} 
+                                                        product={item} 
+                                                        formatCurrency={formatCurrency} 
+                                                    />
+                                                );
+                                            }
+                                            
+                                            // If product bidding has ended, show the ended bid card
+                                            if (item.bidStatus === 'ended') {
+                                                return (
+                                                    <EndedBidProductCard 
                                                         key={item?.product.productId} 
                                                         product={item} 
                                                         formatCurrency={formatCurrency} 

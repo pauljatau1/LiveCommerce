@@ -136,6 +136,7 @@ const LivestreamStudio = () => {
         status,
         title,
         products,
+        type,
         viewers = [],
         _id
     } = liveStreamDetails !== null ? liveStreamDetails : {};
