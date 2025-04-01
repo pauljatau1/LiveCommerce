@@ -19,6 +19,8 @@ import PreStreamDesktopUi from '../../Components/preStreamDesktopUi/preStreamDes
 import PreStreamMobileUi from '../../Components/preStreamDesktopUi/preStreamMobileUi';
 import StreamDesktopUi from '../../Components/streamDesktopUi/streamDesktopUi';
 import StreamMobileUi from '../../Components/streamDesktopUi/streamMobileUi';
+import AuctionStreamDesktopUi from '../../Components/streamDesktopUi/auctionStreamDesktopUi';
+import AuctionStreamMobileUi from '../../Components/streamDesktopUi/auctionStreamMobileUi';
 
 
 const client = AgoraRTC.createClient({
@@ -74,7 +76,7 @@ const LivestreamStudio = () => {
             setHeaderName('Live Streams')
             setNavName('Live Studio')
             setShowBackButton(true)
-            
+
             // Cleanup any remaining tracks or streams on unmount
             if (previewMediaStream) {
                 previewMediaStream.getTracks().forEach(track => {
@@ -123,7 +125,7 @@ const LivestreamStudio = () => {
             }
         };
         fetchLivestreamData();
-        
+
         return () => {
             isMounted = false;
         };
@@ -154,7 +156,7 @@ const LivestreamStudio = () => {
         try {
             const videoPermission = await navigator.permissions.query({ name: 'camera' });
             const audioPermission = await navigator.permissions.query({ name: 'microphone' });
-            
+
             if (videoPermission.state === 'denied' || audioPermission.state === 'denied') {
                 setDeviceError('Camera/microphone access is blocked. Please grant camera and microphone access.');
                 return false;
@@ -203,7 +205,7 @@ const LivestreamStudio = () => {
         } catch (error) {
             // More detailed error handling
             let errorMessage = `Device error: ${error.message}.`;
-            
+
             if (error.message.includes('timeout')) {
                 errorMessage = 'Camera and microphone did not initialize within 120 seconds. Please check your device connections.';
             } else if (error.name === 'NotFoundError') {
@@ -217,7 +219,7 @@ const LivestreamStudio = () => {
             } else if (error.message.includes('Microphone is not producing')) {
                 errorMessage = 'Your microphone is connected but not producing audio. Please check your microphone settings or try another device.';
             }
-            
+
             setDeviceError(errorMessage);
             console.error('Device initialization error:', error);
             return null;
@@ -274,13 +276,13 @@ const LivestreamStudio = () => {
                     if (currentConnectionState === 'CONNECTED') {
                         await client.unpublish(localTracks);
                     }
-                    
+
                     // Then stop and close each track
                     for (const track of localTracks) {
                         try {
                             const trackType = track.trackMediaType; // 'audio' or 'video'
                             console.log(`📤 [STREAM END] Stopping Agora ${trackType} track`);
-                            
+
                             // Change order: First disable, then stop and close
                             try {
                                 // Safely try to disable the track first
@@ -290,13 +292,13 @@ const LivestreamStudio = () => {
                             } catch (enabledError) {
                                 console.log(`📤 [STREAM END] Could not disable track (already disabled or read-only)`, enabledError);
                             }
-                            
+
                             // Then stop the track
                             track.stop();
-                            
+
                             // Finally close the track (this destroys the track)
                             track.close();
-                            
+
                             console.log(`📤 [STREAM END] Successfully cleaned up ${trackType} track`);
                         } catch (trackError) {
                             console.error("Error cleaning up track:", trackError);
@@ -360,7 +362,7 @@ const LivestreamStudio = () => {
                     channelName: details.channelName,
                     agoraToken: freshStreamData.agoraToken
                 };
-            } 
+            }
 
             console.log('streamCredentials', streamCredentials)
 
@@ -417,7 +419,7 @@ const LivestreamStudio = () => {
                     facingMode: "user",
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
                 },
-                { 
+                {
                     timeout: 120000,
                     retry: 3
                 }
@@ -439,8 +441,8 @@ const LivestreamStudio = () => {
             });
 
             // 9. Play and publish
-            videoTrack.play(videoContainerRef.current, { 
-                fit: 'cover', 
+            videoTrack.play(videoContainerRef.current, {
+                fit: 'cover',
                 mirror: true
             });
             await client.publish([audioTrack, videoTrack]);
@@ -494,18 +496,18 @@ const LivestreamStudio = () => {
                     console.log("📤 [STREAM END] Cleaning up preview media stream");
                     const tracks = previewMediaStream.getTracks();
                     console.log(`📤 [STREAM END] Found ${tracks.length} preview tracks to clean up`);
-                    
+
                     for (const track of tracks) {
                         try {
                             // Get track type and ID for better logging
                             const trackType = track.kind; // 'audio' or 'video'
                             const trackId = track.id;
                             console.log(`📤 [STREAM END] Stopping ${trackType} track ${trackId}`);
-                            
+
                             // Fully disable and stop the track
                             track.enabled = false;
                             track.stop();
-                            
+
                             // Additional check to ensure the track is really stopped
                             if (track.readyState !== 'ended') {
                                 console.warn(`📤 [STREAM END] Track ${trackId} not fully stopped, forcing again`);
@@ -515,11 +517,11 @@ const LivestreamStudio = () => {
                             console.error("Error cleaning up preview track:", trackError);
                         }
                     }
-                    
+
                     // Explicitly remove all references to the stream
                     previewMediaStream.getTracks().forEach(track => track.stop());
                     setPreviewMediaStream(null);
-                    
+
                     // Force a small delay to allow browser to release camera/mic resources
                     await new Promise(resolve => setTimeout(resolve, 300));
                     console.log("📤 [STREAM END] Preview media stream cleanup completed");
@@ -550,13 +552,13 @@ const LivestreamStudio = () => {
                         await client.unpublish(localTracks);
                         console.log("📤 [STREAM END] Unpublished tracks from Agora");
                     }
-                    
+
                     // Then stop and close each track
                     for (const track of localTracks) {
                         try {
                             const trackType = track.trackMediaType; // 'audio' or 'video'
                             console.log(`📤 [STREAM END] Stopping Agora ${trackType} track`);
-                            
+
                             // Change order: First disable, then stop and close
                             try {
                                 // Safely try to disable the track first
@@ -566,13 +568,13 @@ const LivestreamStudio = () => {
                             } catch (enabledError) {
                                 console.log(`📤 [STREAM END] Could not disable track (already disabled or read-only)`, enabledError);
                             }
-                            
+
                             // Then stop the track
                             track.stop();
-                            
+
                             // Finally close the track (this destroys the track)
                             track.close();
-                            
+
                             console.log(`📤 [STREAM END] Successfully cleaned up ${trackType} track`);
                         } catch (trackError) {
                             console.error("Error cleaning up track:", trackError);
@@ -591,7 +593,7 @@ const LivestreamStudio = () => {
                     console.log("📤 [STREAM END] Cleaning up Agora client");
                     // Remove all event listeners first
                     client.removeAllListeners();
-                    
+
                     // Then leave the channel if connected
                     if (client.connectionState !== 'DISCONNECTED') {
                         await client.leave();
@@ -610,7 +612,7 @@ const LivestreamStudio = () => {
             toast.success('Livestream ended successfully', {
                 style: { background: '#161A1E', color: '#fff' }
             });
-            
+
             console.log("📤 [STREAM END] Stream shutdown completed successfully");
 
         } catch (error) {
@@ -626,7 +628,7 @@ const LivestreamStudio = () => {
             setStreamDuration(0);
             setIsLiveStreamEndingButton1(false);
             setIsLiveStreamEndingButton2(false);
-            
+
             // Clear all stream-related localStorage items
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -639,7 +641,7 @@ const LivestreamStudio = () => {
             try {
                 // Force a delay before navigation to give time for cleanup
                 await new Promise(resolve => setTimeout(resolve, 500));
-                
+
                 // Create one final check to ensure camera/mic are released
                 const finalCheck = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 finalCheck.getTracks().forEach(track => {
@@ -708,7 +710,7 @@ const LivestreamStudio = () => {
             }, 1000);
             setTimerInterval(interval);
         }
-        
+
         return () => {
             if (interval) {
                 clearInterval(interval);
@@ -801,7 +803,7 @@ const LivestreamStudio = () => {
             }
             socket.off('connect_error');
         };
-    }, [isStreaming, channelName, id, seller.agoraUid, socket]); 
+    }, [isStreaming, channelName, id, seller.agoraUid, socket]);
 
     {/*// Listen for token expiring event
     useEffect(() => {
@@ -830,30 +832,30 @@ const LivestreamStudio = () => {
     // Check for any existing livestream and reconnect
     const checkForExistingStream = async () => {
         console.log('🔄 [RECONNECT 1/18] Starting reconnection process check');
-        
+
         // Use both global and local locks for extra safety
         if (globalReconnectionInProgress) {
             console.log('🛑 [RECONNECT] Global reconnection already in progress, skipping duplicate attempt');
             return;
         }
-        
+
         if (reconnectionInProgress.current) {
             console.log('🛑 [RECONNECT] Local reconnection already in progress, skipping duplicate attempt');
             return;
         }
-        
+
         // Set both locks
         globalReconnectionInProgress = true;
         reconnectionInProgress.current = true;
-        
+
         console.log('🔄 [RECONNECT 2/18] Set reconnection locks to prevent concurrent attempts');
-        
+
         try {
             // Force cleanup first - always ensure we're starting with a clean slate
             console.log('🔄 [RECONNECT 3/18] Cleaning up any existing Agora resources');
             await cleanupAgoraResources();
             console.log('🔄 [RECONNECT 4/18] Agora resources cleanup completed');
-            
+
             // Check all localStorage items for any with stream_connected_ prefix
             console.log('🔄 [RECONNECT 5/18] Searching localStorage for existing stream sessions');
             const streamKeys = [];
@@ -864,7 +866,7 @@ const LivestreamStudio = () => {
                 }
             }
             console.log(`🔄 [RECONNECT 6/18] Found ${streamKeys.length} stream keys in localStorage`);
-            
+
             // If no existing streams found, return
             if (streamKeys.length === 0) {
                 console.log('🔄 [RECONNECT] No existing streams found, ending reconnection process');
@@ -872,7 +874,7 @@ const LivestreamStudio = () => {
                 reconnectionInProgress.current = false;
                 return;
             }
-            
+
             // Get the most recent stream (in case there are multiple)
             console.log('🔄 [RECONNECT 7/18] Finding most recent stream from stored sessions');
             let mostRecentStream = null;
@@ -893,15 +895,15 @@ const LivestreamStudio = () => {
                 return;
             }
 
-            console.log('🔄 [RECONNECT 8/18] Found most recent stream session:', 
-                  { id: mostRecentStream.streamId, channelName: mostRecentStream.channelName, timestamp: new Date(mostRecentTimestamp).toLocaleString() });
+            console.log('🔄 [RECONNECT 8/18] Found most recent stream session:',
+                { id: mostRecentStream.streamId, channelName: mostRecentStream.channelName, timestamp: new Date(mostRecentTimestamp).toLocaleString() });
 
             // Get fresh stream data
             console.log('🔄 [RECONNECT 9/18] Fetching fresh stream data from server');
             const streamId = mostRecentStream.streamId;
             const freshData = await joinLiveStreamAsHost(streamId);
             console.log('🔄 [RECONNECT 9/18] Fresh stream data:', freshData);
-            
+
             if (!freshData) {
                 console.error('❌ [RECONNECT] Failed to get fresh stream data from server');
                 // Clean up old stream data as it might be invalid
@@ -942,7 +944,7 @@ const LivestreamStudio = () => {
                 console.log(`🔄 [RECONNECT] Client in ${client.connectionState} state, forcing disconnect`);
                 try {
                     await client.leave();
-                    
+
                     // Add a small delay to ensure the disconnect completes
                     await new Promise(resolve => setTimeout(resolve, 500));
                     console.log('🔄 [RECONNECT] Forced disconnect completed');
@@ -999,7 +1001,7 @@ const LivestreamStudio = () => {
                     facingMode: "user",
                     mediaStreamTrack: previewStream.getVideoTracks()[0],
                 },
-                { 
+                {
                     timeout: 120000,
                     retry: 3
                 }
@@ -1025,8 +1027,8 @@ const LivestreamStudio = () => {
 
             // Play and publish
             console.log('🔄 [TRACK 5/6] Playing video track in container');
-            videoTrack.play(videoContainerRef.current, { 
-                fit: 'cover', 
+            videoTrack.play(videoContainerRef.current, {
+                fit: 'cover',
                 mirror: true
             });
             console.log('🔄 [TRACK 6/6] Publishing audio and video tracks to channel');
@@ -1058,17 +1060,17 @@ const LivestreamStudio = () => {
             console.log('❌ [RECONNECT ERROR] Error name:', error.name);
             console.log('❌ [RECONNECT ERROR] Error message:', error.message);
             console.log('❌ [RECONNECT ERROR] Error stack:', error.stack);
-            
+
             if (error.code) {
                 console.log('❌ [RECONNECT ERROR] Error code:', error.code);
             }
-            
+
             handleAgoraError(error);
-            
+
             console.log('🔄 [RECONNECT ERROR] Cleaning up resources after error');
             await cleanupAgoraResources();
             setIsStreaming(false);
-            
+
             // Don't automatically clean up stream data on failure to allow retry
             toast.error('Failed to reconnect to previous stream session');
         } finally {
@@ -1078,15 +1080,15 @@ const LivestreamStudio = () => {
             reconnectionInProgress.current = false;
         }
     };
-    
+
     useEffect(() => {
         console.log('🔄 [MOUNT] Component mounted, checking for existing stream');
-        
+
         // Add a small delay to ensure we don't have race conditions with other effects
         const timeoutId = setTimeout(() => {
             checkForExistingStream();
         }, 300);
-        
+
         return () => {
             console.log('🔄 [UNMOUNT] Component unmounting, resetting reconnection locks');
             clearTimeout(timeoutId);
@@ -1095,24 +1097,24 @@ const LivestreamStudio = () => {
         };
     }, []);
 
-        return (
-            <div className="min-h-screen p-4 lg:p-6 bg-[#000000] text-white">
-                {
-                    isLoading || isLiveStreamStarting ? (
-                        <div className="flex justify-center items-center h-screen">
-                            <CircularProgress size={25} color='#14AE5C' />
-                        </div>
-                    ) : (
-                        <>
-                            {!isInitialDataLoaded ? (
-                                <div className="flex items-center justify-center h-screen">
-                                    <CircularProgress />
-                                </div>
-                            ) : (
-                                <>
+    return (
+        <div className="min-h-screen p-4 lg:p-6 bg-[#000000] text-white">
+            {
+                isLoading || isLiveStreamStarting ? (
+                    <div className="flex justify-center items-center h-screen">
+                        <CircularProgress size={25} color='#14AE5C' />
+                    </div>
+                ) : (
+                    <>
+                        {!isInitialDataLoaded ? (
+                            <div className="flex items-center justify-center h-screen">
+                                <CircularProgress />
+                            </div>
+                        ) : (
+                            <>
                                 {!isStreaming ? (
                                     <>
-                                        <PreStreamDesktopUi 
+                                        <PreStreamDesktopUi
                                             viewers={viewers}
                                             totalShares={totalShares}
                                             handleStartStream={handleStartStream}
@@ -1143,49 +1145,88 @@ const LivestreamStudio = () => {
                                             totalShares={totalShares}
                                         />
                                     </>
-                    ) : (
-                        <>
-                                        <StreamDesktopUi
-                                            viewers={viewers}
-                                            totalShares={totalShares}
-                                            endStream={endStream}
-                                            liveStreamDetails={liveStreamDetails}
-                                            isLiveStreamEndingButton1={isLiveStreamEndingButton1}
-                                            isLiveStreamEndingButton2={isLiveStreamEndingButton2}
-                                            streamDuration={streamDuration}
-                                            formatTime={formatTime}
-                                            videoContainerRef={videoContainerRef}
-                                            products={products}
-                                            formatCurrency={formatCurrency}
-                                            seller={seller}
-                                            isToolsSidebarOpen={isToolsSidebarOpen}
-                                            setIsToolsSidebarOpen={setIsToolsSidebarOpen}
-                                        />
-                                        <StreamMobileUi
-                                            endStream={endStream}
-                                            liveStreamDetails={liveStreamDetails}
-                                            isLiveStreamEndingButton1={isLiveStreamEndingButton1}
-                                            isLiveStreamEndingButton2={isLiveStreamEndingButton2}
-                                            streamDuration={streamDuration}
-                                            formatTime={formatTime}
-                                            videoContainerRef={videoContainerRef}
-                                            products={products}
-                                            formatCurrency={formatCurrency}
-                                            seller={seller}
-                                            isToolsSidebarOpen={isToolsSidebarOpen}
-                                            setIsToolsSidebarOpen={setIsToolsSidebarOpen}
-                                            viewers={viewers}
-                                            totalShares={totalShares}
-                                        />
+                                ) : (
+                                    <>
+                                        {liveStreamDetails?.type === 'auction' ? (
+                                            <>
+                                                <AuctionStreamDesktopUi
+                                                    viewers={viewers}
+                                                    totalShares={totalShares}
+                                                    endStream={endStream}
+                                                    liveStreamDetails={liveStreamDetails}
+                                                    isLiveStreamEndingButton1={isLiveStreamEndingButton1}
+                                                    isLiveStreamEndingButton2={isLiveStreamEndingButton2}
+                                                    streamDuration={streamDuration}
+                                                    formatTime={formatTime}
+                                                    videoContainerRef={videoContainerRef}
+                                                    products={products}
+                                                    formatCurrency={formatCurrency}
+                                                    seller={seller}
+                                                    isToolsSidebarOpen={isToolsSidebarOpen}
+                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                />
+                                                <AuctionStreamMobileUi
+                                                    endStream={endStream}
+                                                    liveStreamDetails={liveStreamDetails}
+                                                    isLiveStreamEndingButton1={isLiveStreamEndingButton1}
+                                                    isLiveStreamEndingButton2={isLiveStreamEndingButton2}
+                                                    streamDuration={streamDuration}
+                                                    formatTime={formatTime}
+                                                    videoContainerRef={videoContainerRef}
+                                                    products={products}
+                                                    formatCurrency={formatCurrency}
+                                                    seller={seller}
+                                                    isToolsSidebarOpen={isToolsSidebarOpen}
+                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                    viewers={viewers}
+                                                    totalShares={totalShares}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <StreamDesktopUi
+                                                    viewers={viewers}
+                                                    totalShares={totalShares}
+                                                    endStream={endStream}
+                                                    liveStreamDetails={liveStreamDetails}
+                                                    isLiveStreamEndingButton1={isLiveStreamEndingButton1}
+                                                    isLiveStreamEndingButton2={isLiveStreamEndingButton2}
+                                                    streamDuration={streamDuration}
+                                                    formatTime={formatTime}
+                                                    videoContainerRef={videoContainerRef}
+                                                    products={products}
+                                                    formatCurrency={formatCurrency}
+                                                    seller={seller}
+                                                    isToolsSidebarOpen={isToolsSidebarOpen}
+                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                />
+                                                <StreamMobileUi
+                                                    endStream={endStream}
+                                                    liveStreamDetails={liveStreamDetails}
+                                                    isLiveStreamEndingButton1={isLiveStreamEndingButton1}
+                                                    isLiveStreamEndingButton2={isLiveStreamEndingButton2}
+                                                    streamDuration={streamDuration}
+                                                    formatTime={formatTime}
+                                                    videoContainerRef={videoContainerRef}
+                                                    products={products}
+                                                    formatCurrency={formatCurrency}
+                                                    seller={seller}
+                                                    isToolsSidebarOpen={isToolsSidebarOpen}
+                                                    setIsToolsSidebarOpen={setIsToolsSidebarOpen}
+                                                    viewers={viewers}
+                                                    totalShares={totalShares}
+                                                />
+                                            </>
+                                        )}
                                     </>
                                 )}
-                                </>
-                            )}
-                        </>
-                    )
-                }
-            </div>
-        );
+                            </>
+                        )}
+                    </>
+                )
+            }
+        </div>
+    );
 
 };
 
