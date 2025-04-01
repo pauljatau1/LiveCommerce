@@ -21,8 +21,6 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
       <TouchableOpacity
         onPress={() => {
           if (item?.status == "scheduled") {
-            console.log("here");
-
             return showRsvpSheet(true);
           }
           item.type === "auction"

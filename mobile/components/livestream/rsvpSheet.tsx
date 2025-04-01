@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from "react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, memo } from "react";
 import { AntDesign, SimpleLineIcons } from "@expo/vector-icons";
 import { formatTimeFromNow, formatTimeFromNowLive } from "@/helpers/helpers";
 
@@ -79,4 +79,4 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
   );
 };
 
-export default RsvpSheet;
+export default memo(RsvpSheet);
