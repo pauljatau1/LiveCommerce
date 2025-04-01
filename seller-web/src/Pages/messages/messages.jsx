@@ -267,6 +267,35 @@ export default function ChatInterface() {
     setNavName('')
   }, [])
 
+  // Fetch seller profile and products
+  useEffect(() => {
+    const fetchSellerProfile = async () => {
+      try {
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const response = await fetch(`${BASE_URL}/seller/profile`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const profileData = await response.json();
+        setSellerId(profileData._id);
+
+        // Fetch products once we have the seller ID
+        const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData._id}`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const productsData = await productsResponse.json();
+        setSellerProducts(productsData.products);
+      } catch (error) {
+        console.error('Error fetching seller profile and products:', error);
+        toast.error('Failed to load products');
+      }
+    };
+    fetchSellerProfile();
+  }, []);
+
   // Fetch conversations
   useEffect(() => {
     const fetchConversations = async () => {

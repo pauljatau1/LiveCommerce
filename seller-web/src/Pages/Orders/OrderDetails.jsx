@@ -25,10 +25,12 @@ export default function OrderDetails() {
   const [loading, setLoading] = useState(true)
   const [arrangePickupLoading, setArrangePickupLoading] = useState(false)
   const [orderStatus, setOrderStatus] = useState(null)
+  const [deliveryEstimate, setDeliveryEstimate] = useState(null)
   const navigate = useNavigate()
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
+  const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
 
   useEffect(() => {
     setHeaderName('Order')
@@ -60,6 +62,37 @@ export default function OrderDetails() {
 
     fetchOrderDetails()
   }, [id])
+
+  useEffect(() => {
+    const fetchDeliveryEstimate = async () => {
+      try {
+        if (orderData?.addresses?.delivery?.state && orderData?.items?.[0]?.product?.seller?.warehouseDetails?.address?.state) {
+          const response = await fetch(`${BASE_URL}/order/delivery-time-estimate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              delivery_type: 'import',
+              pick_up_state: orderData.items[0].product.seller.warehouseDetails.address.state,
+              drop_off_state: orderData.addresses.delivery.state
+            })
+          });
+          
+          const data = await response.json();
+          if (data.status === 'success') {
+            setDeliveryEstimate(data.estimate);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching delivery estimate:', error);
+      }
+    };
+
+    if (orderData) {
+      fetchDeliveryEstimate();
+    }
+  }, [orderData]);
 
   const arrangePickup = async () => {
     setArrangePickupLoading(true)
@@ -284,7 +317,7 @@ export default function OrderDetails() {
 
                 {shipping?.tracking?.status === 'pending' && isOrderCancellable(orderData) && (
                   <Button
-                    onClick={() => setCancelDialogOpen(true)}
+                    onClick={() => setConfirmCancelDialogOpen(true)}
                     variant="destructive"
                     size="lg"
                     className="bg-red-600 hover:bg-red-700 capitalize transition-all duration-300 text-white text-sm h-10"
@@ -933,8 +966,11 @@ export default function OrderDetails() {
                       <div>
                         <p className="text-xs text-gray-500">Estimated Delivery</p>
                         <p className="text-sm font-medium">
-                          {shipping?.estimatedDeliveryDate ? 
-                            new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 'Not available yet'}
+                          {deliveryEstimate ? 
+                            `${deliveryEstimate}` : 
+                            shipping?.estimatedDeliveryDate ? 
+                              new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 
+                              'Not available yet'}
                         </p>
                       </div>
                     </div>
@@ -1033,6 +1069,50 @@ export default function OrderDetails() {
           </Card>
         </div>
       </div>
+
+      {/* Add Confirm Cancel Dialog */}
+      <Dialog open={confirmCancelDialogOpen} onOpenChange={setConfirmCancelDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Order Cancellation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this order? 
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 space-y-3 text-sm">
+            <div className="p-3 bg-amber-50 border border-amber-100 rounded-md text-amber-800">
+              <p className="font-medium mb-1">Cancelling this order will:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Stop the order from being processed further</li>
+                <li>Return funds to the customer if already paid</li>
+                <li>Make inventory available for other customers</li>
+                <li>Potentially affect your seller metrics and ratings</li>
+              </ul>
+            </div>
+            <p>This action cannot be undone once you provide a reason and confirm.</p>
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmCancelDialogOpen(false)}
+              className="border-gray-200"
+            >
+              Go Back
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setConfirmCancelDialogOpen(false);
+                setCancelDialogOpen(true);
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Continue to Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Cancel Order Dialog */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
