@@ -6704,3 +6704,158 @@ exports.getBuyerAuctionProducts = async (req, res) => {
     res.status(500).json({ message: 'Error retrieving your auction products', error: error.message });
   }
 };
+
+/**
+ * Reply to a product review
+ * @route POST /api/products/:productId/reviews/:reviewId/reply
+ * @access Private (Seller only)
+ */
+exports.replyToProductReview = async (req, res) => {
+  try {
+    const { productId, reviewId } = req.params;
+    const { content } = req.body;
+    const sellerId = req.user.id;
+
+    // Validate input
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Reply content is required' });
+    }
+
+    // Find the product and check if it belongs to the seller
+    const product = await Product.findOne({ _id: productId, seller: sellerId });
+    if (!product) {
+      return res.status(404).json({ 
+        message: 'Product not found or you are not authorized to reply to reviews for this product' 
+      });
+    }
+
+    // Find the review
+    const review = product.reviews.id(reviewId);
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    // Add or update reply
+    review.reply = {
+      content: content.trim(),
+      createdAt: review.reply?.createdAt || new Date(),
+      updatedAt: new Date()
+    };
+
+    await product.save();
+
+    // Optionally send notification to buyer
+    try {
+      // Check if notification controller exists
+      if (typeof notificationController !== 'undefined' && notificationController.createNotification) {
+        await notificationController.createNotification({
+          recipient: 'buyer',
+          buyer: review.buyer,
+          type: 'review_reply',
+          title: 'Seller replied to your review',
+          message: `The seller has replied to your review on ${product.name}`,
+          data: {
+            productId: product._id,
+            reviewId: review._id
+          }
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to send notification:', notifError);
+    }
+
+    res.json({
+      message: 'Reply added successfully',
+      review
+    });
+  } catch (error) {
+    console.error('Error in replyToProductReview:', error);
+    res.status(500).json({ 
+      message: 'Failed to add reply', 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Get specific review details by product ID and review ID
+ * @route GET /api/products/:productId/reviews/:reviewId
+ * @access Public
+ */
+exports.getReviewDetails = async (req, res) => {
+  try {
+    const { productId, reviewId } = req.params;
+    
+    // Find the product
+    const product = await Product.findById(productId)
+      .select('name price description images reviews');
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // Find the specific review
+    const review = product.reviews.id(reviewId);
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+    
+    // Get buyer details
+    const Buyer = require('../models/Buyer');
+    const buyer = await Buyer.findById(review.buyer)
+      .select('firstName lastName profileImage');
+    
+    // Get seller details if review has a reply
+    let sellerInfo = null;
+    if (review.reply && review.reply.content) {
+      const Seller = require('../models/Seller');
+      const seller = await Seller.findById(product.seller)
+        .select('firstName lastName businessName storeName storeAvatar');
+      
+      if (seller) {
+        sellerInfo = {
+          _id: seller._id,
+          name: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
+          avatar: seller.storeAvatar?.url || null
+        };
+      }
+    }
+    
+    // Format the response
+    const reviewDetails = {
+      reviewId: review._id,
+      product: {
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        image: product.images && product.images.length > 0 ? product.images[0].url : null
+      },
+      buyer: {
+        _id: buyer?._id || review.buyer,
+        firstName: buyer?.firstName || review.firstName || 'Anonymous',
+        lastName: buyer?.lastName || review.lastName || 'User',
+        profileImage: buyer?.profileImage?.url || null
+      },
+      rating: review.rating,
+      title: review.title,
+      comment: review.comment,
+      images: review.images || [],
+      purchasedVariant: review.purchasedVariant || {},
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+      reply: review.reply ? {
+        ...review.reply.toObject(),
+        seller: sellerInfo
+      } : null
+    };
+    
+    res.json(reviewDetails);
+  } catch (error) {
+    console.error('Error in getReviewDetails:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve review details', 
+      error: error.message 
+    });
+  }
+};

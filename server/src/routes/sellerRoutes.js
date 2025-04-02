@@ -2890,4 +2890,344 @@ router.get('/bank-change-request/status',
   sellerController.getBankChangeRequestStatus
 );
 
+/**
+ * @swagger
+ * /api/seller/products/{productId}/reviews/{reviewId}/reply:
+ *   post:
+ *     summary: Add or update a reply to a product review
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the review to reply to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: The reply content
+ *     responses:
+ *       200:
+ *         description: Reply added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 review:
+ *                   type: object
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Product or review not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/products/:productId/reviews/:reviewId/reply',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  (req, res) => {
+    // Forward the request to the product controller
+    const productController = require('../controllers/productController');
+    return productController.replyToProductReview(req, res);
+  }
+);
+
+
+
+/**
+ * @swagger
+ * /api/seller/{sellerId}/product-reviews:
+ *   get:
+ *     summary: Get all product reviews for a seller
+ *     description: Publicly accessible endpoint that retrieves all reviews across all of a seller's products with product details
+ *     tags: [Seller]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of reviews per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [recent, rating-high, rating-low, replied, unreplied]
+ *           default: recent
+ *         description: Sort order for reviews
+ *     responses:
+ *       200:
+ *         description: List of product reviews retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sellerId:
+ *                   type: string
+ *                 sellerInfo:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                       description: Store name, business name, or full name of the seller
+ *                     avatar:
+ *                       type: string
+ *                       description: URL to the seller's store avatar
+ *                 reviews:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       reviewId:
+ *                         type: string
+ *                       product:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           price:
+ *                             type: number
+ *                           description:
+ *                             type: string
+ *                           image:
+ *                             type: string
+ *                       buyer:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                       rating:
+ *                         type: number
+ *                       title:
+ *                         type: string
+ *                       comment:
+ *                         type: string
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                             contentType:
+ *                               type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       reply:
+ *                         type: object
+ *                         properties:
+ *                           content:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                           seller:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                                 description: Store name or business name of the seller
+ *                               avatar:
+ *                                 type: string
+ *                                 description: URL to the seller's store avatar
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalReviews:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     averageRating:
+ *                       type: number
+ *                     ratingDistribution:
+ *                       type: object
+ *                       properties:
+ *                         1:
+ *                           type: number
+ *                         2:
+ *                           type: number
+ *                         3:
+ *                           type: number
+ *                         4:
+ *                           type: number
+ *                         5:
+ *                           type: number
+ *                     totalReviews:
+ *                       type: number
+ *                     repliedCount:
+ *                       type: number
+ *                     unrepliedCount:
+ *                       type: number
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:sellerId/product-reviews', sellerController.getAllProductReviews);
+
+/**
+ * @swagger
+ * /api/seller/product/{productId}/review/{reviewId}:
+ *   get:
+ *     summary: Get detailed information about a specific review (public access)
+ *     description: Publicly accessible endpoint that retrieves detailed information about a specific product review including product info, buyer details, and seller's reply if available.
+ *     tags: [Seller]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the review
+ *     responses:
+ *       200:
+ *         description: Review details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reviewId:
+ *                   type: string
+ *                 product:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     price:
+ *                       type: number
+ *                     description:
+ *                       type: string
+ *                     image:
+ *                       type: string
+ *                 buyer:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     profileImage:
+ *                       type: string
+ *                 rating:
+ *                   type: number
+ *                 title:
+ *                   type: string
+ *                 comment:
+ *                   type: string
+ *                 images:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       contentType:
+ *                         type: string
+ *                 purchasedVariant:
+ *                   type: object
+ *                   properties:
+ *                     color:
+ *                       type: string
+ *                     size:
+ *                       type: string
+ *                     material:
+ *                       type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 reply:
+ *                   type: object
+ *                   properties:
+ *                     content:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                     seller:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         avatar:
+ *                           type: string
+ *       404:
+ *         description: Product or review not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/product/:productId/review/:reviewId', sellerController.getPublicProductReviewDetails);
+
 module.exports = router;

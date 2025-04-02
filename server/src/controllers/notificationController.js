@@ -76,6 +76,8 @@ const getNotificationTitle = (type) => {
       return 'New Comment on Your Post';
     case 'post_comment_reply':
       return 'New Reply to Your Comment';
+    case 'stream_start':
+      return 'Live Stream Started';
     default:
       return 'Notification';
   }
@@ -193,6 +195,9 @@ const getNotificationMessage = (type, data) => {
       return `${data.userName || 'Someone'} commented on your post "${data.postTitle || ''}": "${data.commentPreview || ''}"`;
     case 'post_comment_reply':
       return `${data.userName || 'Someone'} replied to your comment: "${data.replyPreview || ''}"`;
+    case 'stream_start': 
+      const streamType = data.streamType === 'auction' ? 'auction' : 'show';
+      return `${data.storeName || 'A seller'} has started a live ${streamType}: "${data.streamTitle || 'Live Stream'}". Join now!`;
     default:
       return 'You have a new notification.';
   }

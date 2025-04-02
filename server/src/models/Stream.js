@@ -143,6 +143,20 @@ const streamSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  subscribers: [{
+    buyer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Buyer'
+    },
+    subscribedAt: {
+      type: Date,
+      default: Date.now
+    },
+    notified: {
+      type: Boolean,
+      default: false
+    }
+  }],
   chatInteractions: [chatInteractionSchema]
 }, { timestamps: true });
 

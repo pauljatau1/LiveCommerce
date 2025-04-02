@@ -4083,3 +4083,297 @@ exports.updateSocialMedia = async (req, res) => {
   }
 };
 
+/**
+ * Get all product reviews for a seller
+ * @route GET /api/seller/:sellerId/product-reviews
+ * @access Public
+ */
+exports.getAllProductReviews = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { page = 1, limit = 10, sort = 'recent' } = req.query;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    
+    // Verify sellerId is valid and get seller information
+    const Seller = require('../models/Seller');
+    const seller = await Seller.findById(sellerId).select('firstName lastName businessName storeName storeAvatar');
+    
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+    
+    // Get seller display information
+    const sellerInfo = {
+      _id: seller._id,
+      name: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
+      avatar: seller.storeAvatar?.url || null
+    };
+    
+    // Find all products by this seller
+    const Product = require('../models/Product');
+    
+    // Get all products with reviews by this seller
+    const products = await Product.find({ 
+      seller: sellerId,
+      'reviews.0': { $exists: true } // Only get products that have at least one review
+    }).select('name price description images reviews');
+    
+    // Extract all reviews from all products with product info
+    let allReviews = [];
+    products.forEach(product => {
+      const productInfo = {
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        image: product.images && product.images.length > 0 ? product.images[0].url : null
+      };
+      
+      product.reviews.forEach(review => {
+        // Add enhanced reply with seller info
+        const enhancedReply = review.reply ? {
+          ...review.reply.toObject(),
+          seller: sellerInfo
+        } : null;
+        
+        allReviews.push({
+          reviewId: review._id,
+          product: productInfo,
+          buyer: {
+            _id: review.buyer,
+            firstName: review.firstName,
+            lastName: review.lastName
+          },
+          rating: review.rating,
+          title: review.title, 
+          comment: review.comment,
+          images: review.images,
+          createdAt: review.createdAt,
+          reply: enhancedReply
+        });
+      });
+    });
+    
+    // Apply sorting
+    if (sort === 'recent') {
+      allReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else if (sort === 'rating-high') {
+      allReviews.sort((a, b) => b.rating - a.rating);
+    } else if (sort === 'rating-low') {
+      allReviews.sort((a, b) => a.rating - b.rating);
+    } else if (sort === 'replied') {
+      allReviews.sort((a, b) => (b.reply?.content ? 1 : 0) - (a.reply?.content ? 1 : 0));
+    } else if (sort === 'unreplied') {
+      allReviews.sort((a, b) => (a.reply?.content ? 1 : 0) - (b.reply?.content ? 1 : 0));
+    }
+    
+    // Apply pagination
+    const totalReviews = allReviews.length;
+    const totalPages = Math.ceil(totalReviews / limitNumber);
+    const startIndex = (pageNumber - 1) * limitNumber;
+    const endIndex = pageNumber * limitNumber;
+    const paginatedReviews = allReviews.slice(startIndex, endIndex);
+    
+    // Calculate stats
+    const averageRating = allReviews.length > 0 
+      ? allReviews.reduce((sum, review) => sum + review.rating, 0) / allReviews.length 
+      : 0;
+    
+    const ratingDistribution = {
+      1: allReviews.filter(review => review.rating === 1).length,
+      2: allReviews.filter(review => review.rating === 2).length,
+      3: allReviews.filter(review => review.rating === 3).length,
+      4: allReviews.filter(review => review.rating === 4).length,
+      5: allReviews.filter(review => review.rating === 5).length
+    };
+    
+    const repliedCount = allReviews.filter(review => review.reply && review.reply.content).length;
+    
+    res.json({
+      sellerId,
+      sellerInfo,
+      reviews: paginatedReviews,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalReviews,
+        hasMore: endIndex < totalReviews
+      },
+      stats: {
+        averageRating,
+        ratingDistribution,
+        totalReviews,
+        repliedCount,
+        unrepliedCount: totalReviews - repliedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error in getAllProductReviews:', error);
+    res.status(500).json({ message: 'Failed to retrieve product reviews', error: error.message });
+  }
+};
+
+/**
+ * Get details of a specific review for a seller's product
+ * @route GET /api/seller/product/:productId/review/:reviewId
+ * @access Private (Seller only)
+ */
+exports.getSellerProductReviewDetails = async (req, res) => {
+  try {
+    const { productId, reviewId } = req.params;
+    const sellerId = req.user.id;
+    
+    // Find the product and verify it belongs to this seller
+    const Product = require('../models/Product');
+    const product = await Product.findOne({ 
+      _id: productId, 
+      seller: sellerId 
+    }).select('name price description images reviews seller');
+    
+    if (!product) {
+      return res.status(404).json({ 
+        message: 'Product not found or does not belong to you' 
+      });
+    }
+    
+    // Find the specific review
+    const review = product.reviews.id(reviewId);
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+    
+    // Get buyer details
+    const Buyer = require('../models/Buyer');
+    const buyer = await Buyer.findById(review.buyer)
+      .select('firstName lastName profileImage');
+    
+    // Get seller details
+    const Seller = require('../models/Seller');
+    const seller = await Seller.findById(sellerId)
+      .select('firstName lastName businessName storeName storeAvatar');
+    
+    const sellerInfo = {
+      _id: seller._id,
+      name: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
+      avatar: seller.storeAvatar?.url || null
+    };
+    
+    // Format the response
+    const reviewDetails = {
+      reviewId: review._id,
+      product: {
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        image: product.images && product.images.length > 0 ? product.images[0].url : null
+      },
+      buyer: {
+        _id: buyer?._id || review.buyer,
+        firstName: buyer?.firstName || review.firstName || 'Anonymous',
+        lastName: buyer?.lastName || review.lastName || 'User',
+        profileImage: buyer?.profileImage?.url || null
+      },
+      rating: review.rating,
+      title: review.title,
+      comment: review.comment,
+      images: review.images || [],
+      purchasedVariant: review.purchasedVariant || {},
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+      reply: review.reply ? {
+        ...review.reply.toObject(),
+        seller: sellerInfo
+      } : null
+    };
+    
+    res.json(reviewDetails);
+  } catch (error) {
+    console.error('Error in getSellerProductReviewDetails:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve review details', 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Get details of a specific review for a product (public access)
+ * @route GET /api/seller/public/product/:productId/review/:reviewId
+ * @access Public
+ */
+exports.getPublicProductReviewDetails = async (req, res) => {
+  try {
+    const { productId, reviewId } = req.params;
+    
+    // Find the product
+    const Product = require('../models/Product');
+    const product = await Product.findById(productId)
+      .select('name price description images reviews seller');
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // Find the specific review
+    const review = product.reviews.id(reviewId);
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+    
+    // Get buyer details
+    const Buyer = require('../models/Buyer');
+    const buyer = await Buyer.findById(review.buyer)
+      .select('firstName lastName profileImage');
+    
+    // Get seller details
+    const Seller = require('../models/Seller');
+    const seller = await Seller.findById(product.seller)
+      .select('firstName lastName businessName storeName storeAvatar');
+    
+    const sellerInfo = {
+      _id: seller._id,
+      name: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
+      avatar: seller.storeAvatar?.url || null
+    };
+    
+    // Format the response
+    const reviewDetails = {
+      reviewId: review._id,
+      product: {
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        image: product.images && product.images.length > 0 ? product.images[0].url : null
+      },
+      buyer: {
+        _id: buyer?._id || review.buyer,
+        firstName: buyer?.firstName || review.firstName || 'Anonymous',
+        lastName: buyer?.lastName || review.lastName || 'User',
+        profileImage: buyer?.profileImage?.url || null
+      },
+      rating: review.rating,
+      title: review.title,
+      comment: review.comment,
+      images: review.images || [],
+      purchasedVariant: review.purchasedVariant || {},
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+      reply: review.reply ? {
+        ...review.reply.toObject(),
+        seller: sellerInfo
+      } : null
+    };
+    
+    res.json(reviewDetails);
+  } catch (error) {
+    console.error('Error in getPublicProductReviewDetails:', error);
+    res.status(500).json({ 
+      message: 'Failed to retrieve review details', 
+      error: error.message 
+    });
+  }
+};
+

@@ -243,7 +243,12 @@ const productSchema = new mongoose.Schema({
       material: { type: String }
     },
     createdAt: { type: Date, default: () => new Date().toISOString() },
-    updatedAt: { type: Date }
+    updatedAt: { type: Date },
+    reply: {
+      content: { type: String },
+      createdAt: { type: Date },
+      updatedAt: { type: Date }
+    }
   }],
   logistics: {
     shippingOptions: [{ type: String }],
