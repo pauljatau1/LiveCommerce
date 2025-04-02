@@ -34,12 +34,18 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
     if (notifications.length > 0) {
       const latestNotification = notifications[notifications.length - 1];
       
+      console.log('Processing notification:', latestNotification.type, 'for stream:', latestNotification.data?.streamId);
+      
       // Only add notifications for the current stream
       if (latestNotification.data?.streamId === streamId) {
         // Avoid duplicates by checking if the notification ID already exists in messages
         setMessages(prevMessages => {
-          const messageExists = prevMessages.some(msg => msg.id === latestNotification.id);
-          if (messageExists) return prevMessages;
+          const messageExists = prevMessages.some(msg => msg.id === latestNotification.id || msg._id === latestNotification.id);
+          if (messageExists) {
+            console.log('Duplicate message detected, skipping');
+            return prevMessages;
+          }
+          console.log('Adding new message of type:', latestNotification.type);
           return [...prevMessages, latestNotification];
         });
       }

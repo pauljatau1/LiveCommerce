@@ -37,11 +37,25 @@ export function LivestreamSocketProvider({ children }) {
       setNotifications(prev => [...prev, notification]);
     });
 
+    // Listen for viewer join event
+    socketInstance.on('viewer_joined_stream', (notification) => {
+      console.log('Viewer joined stream:', notification);
+      setNotifications(prev => [...prev, notification]);
+    });
+
+    // Listen for viewer leave event
+    socketInstance.on('viewer_left_stream', (notification) => {
+      console.log('Viewer left stream:', notification);
+      setNotifications(prev => [...prev, notification]);
+    });
+
     setSocket(socketInstance);
 
     return () => {
       console.log('Disconnecting livestream socket');
       socketInstance.off('stream_notification');
+      socketInstance.off('viewer_joined_stream');
+      socketInstance.off('viewer_left_stream');
       socketInstance.disconnect();
     };
   }, []);
