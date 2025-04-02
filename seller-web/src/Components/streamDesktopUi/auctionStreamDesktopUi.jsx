@@ -155,6 +155,7 @@ const AuctionStreamDesktopUi = ({
                         <ChatSection 
                             streamId={liveStreamDetails._id}
                             seller={seller}
+                            liveStreamDetails={liveStreamDetails}
                         />
                     )}
                 </div>

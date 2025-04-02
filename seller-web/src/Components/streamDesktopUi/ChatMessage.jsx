@@ -44,8 +44,13 @@ const ChatMessage = ({ message }) => {
   if (!message) return null;
 
   const renderAvatar = () => {
-    if (message.avatar) {
-      return <img src={message.avatar} alt={message.user} className="w-8 h-8 rounded-full object-cover" />;
+    // Handle both string and object avatar structures
+    const avatarUrl = typeof message.avatar === 'string' 
+      ? message.avatar 
+      : message.avatar?.url;
+
+    if (avatarUrl) {
+      return <img src={avatarUrl} alt={message.user} className="w-8 h-8 rounded-full object-cover" />;
     } else {
       return <Icon icon="hugeicons:user-circle" className="w-8 h-8" color="#EFF0FA" />;
     }
@@ -55,7 +60,7 @@ const ChatMessage = ({ message }) => {
   switch (message.type) {
     case 'comment':
       return (
-        <div className="flex items-start gap-2 mb-2 hover:bg-[#161A1E] py-2 px-1 rounded transition-colors duration-200">
+        <div className="flex items-start gap-2 mb-2 hover:bg-[#161A1E] py-2 px-4 rounded transition-colors duration-200">
           {renderAvatar()}
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -123,9 +128,13 @@ const ChatMessage = ({ message }) => {
 ChatMessage.propTypes = {
   message: PropTypes.shape({
     id: PropTypes.string,
+    _id: PropTypes.string,
     type: PropTypes.oneOf(['comment', 'join', 'purchase', 'leave']),
     user: PropTypes.string,
-    avatar: PropTypes.object,
+    avatar: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.object
+    ]),
     content: PropTypes.string,
     data: PropTypes.object,
     timestamp: PropTypes.string

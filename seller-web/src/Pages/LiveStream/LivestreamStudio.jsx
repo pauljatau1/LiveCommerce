@@ -463,7 +463,7 @@ const LivestreamStudio = () => {
 
             // Update tracks and start timer
             setLocalTracks([audioTrack, videoTrack]);
-            startTimer();
+            //startTimer();
 
         } catch (error) {
             if (error.code === 'DEVICE_NOT_FOUND') {
@@ -706,7 +706,7 @@ const LivestreamStudio = () => {
         }
     };
 
-    useEffect(() => {
+    {/*useEffect(() => {
         let interval;
         if (isStreaming) {
             interval = setInterval(() => {
@@ -721,7 +721,7 @@ const LivestreamStudio = () => {
                 setTimerInterval(null);
             }
         };
-    }, [isStreaming]);
+    }, [isStreaming]);*/}
 
     useEffect(() => {
         // Handle user joining
@@ -1054,7 +1054,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
             setLocalTracks([audioTrack, videoTrack]);
             console.log('🔄 [FINALIZE 3/3] Starting stream timer');
-            startTimer();
+            //startTimer();
 
             console.log('✅ [RECONNECT] Reconnection process completed successfully');
             toast.success('Successfully reconnected to your livestream');
