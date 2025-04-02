@@ -149,7 +149,7 @@ const SellerReviews = ({
   return (
     <View style={{ flex: 1, paddingHorizontal: 16 }}>
       {issellerReviewsLoading ? (
-        <View>
+        <View className="pt-[16px]">
           <ActivityIndicator size={"small"} color="#16783A" />
         </View>
       ) : (
@@ -163,7 +163,7 @@ const SellerReviews = ({
             contentContainerStyle={{
               paddingTop: headerHeight + 12,
             }}
-            ListHeaderComponent={renderListHeader}
+            // ListHeaderComponent={renderListHeader}
             ListFooterComponent={renderListFooter}
             ListEmptyComponent={renderListEmpty}
             showsVerticalScrollIndicator={false}

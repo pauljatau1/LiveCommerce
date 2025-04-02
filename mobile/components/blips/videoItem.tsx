@@ -397,12 +397,16 @@ const VideoItem = ({
                   </View>
                 )}
                 <View className="flex-row items-center gap-[4px]">
-                  <AntDesign name="star" size={12} color="#FFD700" />
+                  {seller?.totalStoreReviews && (
+                    <AntDesign name="star" size={12} color="#FFD700" />
+                  )}
                   <Text
                     className="text-white text-[12px] font-LexendDecaMedium"
                     style={styles.text}
                   >
-                    {seller?.storeRating?.toFixed(1)}
+                    {seller?.totalStoreReviews
+                      ? seller?.storeRating?.toFixed(1)
+                      : "No Reviews"}
                   </Text>
                 </View>
               </View>

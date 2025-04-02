@@ -1013,7 +1013,7 @@ const ProductDescription = () => {
                       style={{
                         paddingHorizontal: 20,
                         paddingVertical: 10,
-                        paddingLeft: 61,
+                        paddingLeft: 23,
                         backgroundColor: "#000",
                         borderTopWidth: 1,
                         borderTopColor: "rgba(159, 159, 159, 0.23)",
@@ -1025,7 +1025,7 @@ const ProductDescription = () => {
                     </View>
                   )}
 
-                  <TouchableOpacity
+                  {/* <TouchableOpacity
                     className="flex flex-row justify-between px-[18px] py-[14px] items-center bg-[#000]"
                     style={{
                       borderTopWidth: 1,
@@ -1063,7 +1063,7 @@ const ProductDescription = () => {
                     </TouchableOpacity>
                   </TouchableOpacity>
 
-                  {isProductSpecsShow && renderSpecifications()}
+                  {isProductSpecsShow && renderSpecifications()} */}
 
                   <View className="px-[20px] py-[14px] ">
                     <View
