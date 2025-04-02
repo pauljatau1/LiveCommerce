@@ -4,6 +4,7 @@ import ChatEmpty from '../../assets/Chat Empty.png';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
+import ChatSection from './ChatSection';
 
 const StreamMobileUi = ({
     endStream,
@@ -158,39 +159,47 @@ const StreamMobileUi = ({
 
             {/*mobile Right Sidebar - Activities */}
             <div className="block xl:hidden col-span-12 bg-[#0D0F12] rounded-xl p-4">
-                <div className="h-full flex flex-col">
-                    <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Activities</h2>
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                        <div className="text-center space-y-4">
-                            <div className="w-16 xl:w-24 h-16 xl:h-24 mx-auto">
-                                <img src={ChatEmpty} alt="Chat" className="w-full h-full" />
+                {liveStreamDetails ? (
+                    <ChatSection 
+                        streamId={liveStreamDetails._id}
+                        seller={seller}
+                        liveStreamDetails={liveStreamDetails}
+                    />
+                ) : (
+                    <div className="h-full flex flex-col">
+                        <h2 className="text-[#EFF0FA] font-inter font-medium text-base mb-4">Activities</h2>
+                        <div className="flex-1 flex flex-col items-center justify-center">
+                            <div className="text-center space-y-4">
+                                <div className="w-16 xl:w-24 h-16 xl:h-24 mx-auto">
+                                    <img src={ChatEmpty} alt="Chat" className="w-full h-full" />
+                                </div>
+                                <h3 className="text-[#EFF0FA] font-inter font-medium">Start a conversation</h3>
+                                <p className="text-[#7A828A] text-sm font-inter">
+                                    There are no messages here yet. Start a conversation by sending a message.
+                                </p>
                             </div>
-                            <h3 className="text-[#EFF0FA] font-inter font-medium">Start a conversation</h3>
-                            <p className="text-[#7A828A] text-sm font-inter">
-                                There are no messages here yet. Start a conversation by sending a message.
-                            </p>
+                        </div>
+                        <div className="mt-auto pt-4">
+                            <div className="flex items-center gap-2 bg-[#161A1E] rounded-lg p-3">
+                                {
+                                    seller?.storeAvatar?.url ? (
+                                        <img src={seller?.storeAvatar.url} alt="User" className="w-8 h-8 rounded-full" />
+                                    ) : (
+                                        <Icon icon="hugeicons:user-circle" className="w-8 h-8" color="#EFF0FA" />
+                                    )
+                                }
+                                <input
+                                    type="text"
+                                    placeholder="Write a comment..."
+                                    className="flex-1 bg-transparent text-[#EFF0FA] placeholder-[#7A828A] text-sm font-inter focus:outline-none"
+                                />
+                                <button className="text-[#14AE5C]">
+                                    <Icon icon="solar:send-linear" className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="mt-auto pt-4">
-                        <div className="flex items-center gap-2 bg-[#161A1E] rounded-lg p-3">
-                            {
-                                seller?.storeAvatar?.url ? (
-                                    <img src={seller?.storeAvatar.url} alt="User" className="w-8 h-8 rounded-full" />
-                                ) : (
-                                    <Icon icon="hugeicons:user-circle" className="w-8 h-8" color="#EFF0FA" />
-                                )
-                            }
-                            <input
-                                type="text"
-                                placeholder="Write a comment..."
-                                className="flex-1 bg-transparent text-[#EFF0FA] placeholder-[#7A828A] text-sm font-inter focus:outline-none"
-                            />
-                            <button className="text-[#14AE5C]">
-                                <Icon icon="solar:send-linear" className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                )}
             </div>
             {/* Bottom Stats */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 z-10">

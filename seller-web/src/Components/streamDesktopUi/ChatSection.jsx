@@ -5,8 +5,15 @@ import ChatEmpty from '../../assets/Chat Empty.png';
 import ChatMessage from './ChatMessage';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
 
-const ChatSection = ({ streamId, seller, initialMessages = [] }) => {
-  const [messages, setMessages] = useState(initialMessages);
+const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails }) => {
+  // Initialize messages with chatInteractions from liveStreamDetails if available
+  const [messages, setMessages] = useState(() => {
+    // Check if liveStreamDetails has chatInteractions
+    if (liveStreamDetails?.chatInteractions?.length > 0) {
+      return liveStreamDetails.chatInteractions;
+    }
+    return initialMessages;
+  });
   const [commentInput, setCommentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -14,14 +21,33 @@ const ChatSection = ({ streamId, seller, initialMessages = [] }) => {
   const chatContainerRef = useRef(null);
   const { notifications, sendStreamComment } = useLivestreamSocket();
   
+  // Update messages when liveStreamDetails or chatInteractions change
+  useEffect(() => {
+    if (liveStreamDetails?.chatInteractions?.length > 0) {
+      console.log('Initializing chat messages from history:', liveStreamDetails.chatInteractions.length);
+      setMessages(liveStreamDetails.chatInteractions);
+    }
+  }, [liveStreamDetails]);
+  
   // Update messages when new notifications come in
   useEffect(() => {
     if (notifications.length > 0) {
       const latestNotification = notifications[notifications.length - 1];
       
+      console.log('Processing notification:', latestNotification.type, 'for stream:', latestNotification.data?.streamId);
+      
       // Only add notifications for the current stream
       if (latestNotification.data?.streamId === streamId) {
-        setMessages(prevMessages => [...prevMessages, latestNotification]);
+        // Avoid duplicates by checking if the notification ID already exists in messages
+        setMessages(prevMessages => {
+          const messageExists = prevMessages.some(msg => msg.id === latestNotification.id || msg._id === latestNotification.id);
+          if (messageExists) {
+            console.log('Duplicate message detected, skipping');
+            return prevMessages;
+          }
+          console.log('Adding new message of type:', latestNotification.type);
+          return [...prevMessages, latestNotification];
+        });
       }
     }
   }, [notifications, streamId]);
@@ -92,7 +118,7 @@ const ChatSection = ({ streamId, seller, initialMessages = [] }) => {
         {messages.length > 0 ? (
           <div className="space-y-2 py-4">
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage key={message._id || message.id} message={message} />
             ))}
             <div ref={messagesEndRef} />
           </div>
@@ -146,7 +172,8 @@ const ChatSection = ({ streamId, seller, initialMessages = [] }) => {
 ChatSection.propTypes = {
   streamId: PropTypes.string.isRequired,
   seller: PropTypes.object,
-  initialMessages: PropTypes.array
+  initialMessages: PropTypes.array,
+  liveStreamDetails: PropTypes.object
 };
 
 export default ChatSection; 
