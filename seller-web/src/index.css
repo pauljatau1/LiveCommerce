@@ -136,4 +136,30 @@
 body {
   font-family: 'Poppins', sans-serif;
 }
+
+/* Add custom scrollbar style at the end of the file */
+
+/* Custom scrollbar for chat container */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #2D3748;
+  border-radius: 20px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4A5568;
+}
+
+/* For Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #2D3748 transparent;
+}
   
