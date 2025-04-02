@@ -257,11 +257,44 @@ export default function ChatInterface() {
   const [newQuickReplyOpen, setNewQuickReplyOpen] = useState(false);
   const [quickReplyTitle, setQuickReplyTitle] = useState("");
   const [quickReplyContent, setQuickReplyContent] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     setHeaderName('Messages')
     setNavName('')
   }, [])
+
+  // Fetch seller profile and products
+  useEffect(() => {
+    const fetchSellerProfile = async () => {
+      try {
+        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const response = await fetch(`${BASE_URL}/seller/profile`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const profileData = await response.json();
+        setSellerId(profileData._id);
+
+        // Fetch products once we have the seller ID
+        const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData._id}`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const productsData = await productsResponse.json();
+        setSellerProducts(productsData.products);
+      } catch (error) {
+        console.error('Error fetching seller profile and products:', error);
+        toast.error('Failed to load products');
+      }
+    };
+    fetchSellerProfile();
+  }, []);
 
   // Fetch conversations
   useEffect(() => {
@@ -290,8 +323,11 @@ export default function ChatInterface() {
   useEffect(() => {
     if (!currentConversation) return;
     console.log('Conversation changed, fetching messages');
-    // We don't clear messages here anymore - this allows for smoother transitions
-    fetchMessages();
+    // Reset pagination state when conversation changes
+    setCurrentPage(1);
+    setHasMoreMessages(true);
+    setMessages([]);
+    fetchMessages(1);
   }, [currentConversation]);
 
   // Create a more robust scrollToBottom function with direct DOM manipulation
@@ -320,18 +356,24 @@ export default function ChatInterface() {
     }
   };
 
-  // Update the fetchMessages function to use the improved scrollToBottom
-  const fetchMessages = async () => {
+  // Update the fetchMessages function to handle pagination
+  const fetchMessages = async (page = 1) => {
     if (!currentConversation) return;
     
     const conversationId = currentConversation._id;
-    setIsLoadingMessages(true);
-    console.log('Fetching messages for conversation:', conversationId);
+    
+    if (page === 1) {
+      setIsLoadingMessages(true);
+    } else {
+      setLoadingMoreMessages(true);
+    }
+    
+    console.log('Fetching messages for conversation:', conversationId, 'page:', page);
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
       const response = await fetch(
-        `${BASE_URL}/messages/${conversationId}?limit=99`,
+        `${BASE_URL}/messages/${conversationId}?page=${page}&limit=20`,
         {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
@@ -342,17 +384,25 @@ export default function ChatInterface() {
       console.log('Received messages:', data.messages);
 
       // Only update if we're still on the same conversation
-      // This prevents messages from being mixed up if the user switches conversations quickly
       if (currentConversation?._id === conversationId) {
-        // Reverse the messages array to show most recent at bottom
-        const reversedMessages = [...data.messages].reverse();
-        console.log('Reversed messages:', reversedMessages);
-
-        // Set reversed messages
-        setMessages(reversedMessages || []);
+        // Keep messages in their API-returned order (newest first)
+        if (page === 1) {
+          // First page, just set the messages
+          setMessages(data.messages || []);
+        } else {
+          // Additional pages, append to existing messages while maintaining order (newest first)
+          setMessages(prevMessages => [...prevMessages, ...data.messages]);
+        }
         
-        // Force immediate scroll to bottom after loading messages
-        scrollToBottom(true);
+        // Update pagination state
+        setCurrentPage(data.pagination.currentPage);
+        setTotalPages(data.pagination.totalPages);
+        setHasMoreMessages(data.pagination.hasMore);
+        
+        // If it's the first page, scroll to bottom
+        if (page === 1) {
+          scrollToBottom(true);
+        }
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -360,18 +410,41 @@ export default function ChatInterface() {
     } finally {
       // Only update loading state if we're still on the same conversation
       if (currentConversation?._id === conversationId) {
-        setIsLoadingMessages(false);
+        if (page === 1) {
+          setIsLoadingMessages(false);
+        } else {
+          setLoadingMoreMessages(false);
+        }
         setInitialLoad(false);
       }
     }
   };
 
-  // Ensure we scroll to bottom whenever messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
+  // Add scroll handler to load more messages
+  const handleScroll = () => {
+    if (messagesContainerRef.current && !loadingMoreMessages && hasMoreMessages) {
+      const { scrollTop } = messagesContainerRef.current;
+      
+      // When user scrolls close to the top, load more messages
+      if (scrollTop < 100) {
+        const nextPage = currentPage + 1;
+        if (nextPage <= totalPages) {
+          fetchMessages(nextPage);
+        }
+      }
     }
-  }, [messages]);
+  };
+
+  // Add effect to handle scroll events
+  useEffect(() => {
+    const messagesContainer = messagesContainerRef.current;
+    if (messagesContainer) {
+      messagesContainer.addEventListener('scroll', handleScroll);
+      return () => {
+        messagesContainer.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [messagesContainerRef.current, loadingMoreMessages, hasMoreMessages, currentPage, totalPages]);
 
   // Add an additional effect specifically for initial load
   useEffect(() => {
@@ -410,7 +483,7 @@ export default function ChatInterface() {
     markConversationAsRead();
   }, [currentConversation]);
 
-  // Update the socket effect to properly handle unread counts
+  // Update the socket effect to properly handle real-time messages
   useEffect(() => {
     if (!socket) return;
 
@@ -422,7 +495,8 @@ export default function ChatInterface() {
 
       // Update messages if the message belongs to current conversation
       if (messageData.conversation === currentConversation?._id) {
-        setMessages(prev => [...prev, messageData]);
+        // Add new messages at the beginning (newest first)
+        setMessages(prev => [messageData, ...prev]);
         
         // Force immediate scroll to bottom for new messages
         scrollToBottom(true);
@@ -453,136 +527,7 @@ export default function ChatInterface() {
     };
   }, [socket, currentConversation]);
 
-  // Add effect to handle direct messaging when navigating from customer details
-  useEffect(() => {
-    const initializeDirectMessage = async () => {
-      if (!location.state?.customerId) return;
-
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        
-        // First try to find existing conversation
-        const response = await fetch(`${BASE_URL}/conversations`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        const data = await response.json();
-        
-        // Find conversation with this customer
-        const existingConversation = data.conversations.find(conv => 
-          conv.participant.id === location.state.customerId
-        );
-
-        if (existingConversation) {
-          setCurrentConversation(existingConversation);
-        } else {
-          // If no conversation exists, create one by sending first message
-          const response = await fetch(`${BASE_URL}/messages`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${sellerToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              recipientId: location.state.customerId,
-              recipientModel: 'Buyer',
-              content: 'Hello! How can I help you today?'
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to create conversation');
-          }
-
-          const newMessageData = await response.json();
-          
-          // Create new conversation object
-          const newConversation = {
-            _id: newMessageData.message.conversation,
-            participant: {
-              id: location.state.customerId,
-              name: location.state.customerName,
-              model: 'Buyer'
-            },
-            lastMessage: {
-              content: 'Hello! How can I help you today?',
-              createdAt: new Date().toISOString()
-            },
-            unreadCount: 0
-          };
-
-          // Update conversations list and set current
-          setConversations(prev => [newConversation, ...prev]);
-          setCurrentConversation(newConversation);
-          
-          // Add message to messages list
-          setMessages([newMessageData.message]);
-        }
-
-      } catch (error) {
-        console.error('Error initializing direct message:', error);
-        toast.error('Failed to start conversation');
-      }
-    };
-
-    initializeDirectMessage();
-  }, [location.state]);
-
-  // Update the effect to properly handle the conversation data
-  useEffect(() => {
-    const handleNavigatedConversation = async () => {
-      if (!location.state?.conversationId) return;
-
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        
-        // Fetch conversation details
-        const response = await fetch(`${BASE_URL}/conversations/${location.state.conversationId}`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch conversation');
-        
-        const data = await response.json();
-        
-        // Ensure we have a properly structured conversation object
-        const conversation = {
-          ...data.conversation,
-          participant: {
-            id: location.state.participantId,
-            name: location.state.participantName,
-            avatar: data.conversation?.participant?.avatar || null,
-            isOnline: data.conversation?.participant?.isOnline || false
-          }
-        };
-        
-        setCurrentConversation(conversation);
-        
-        // Fetch messages
-        const messagesResponse = await fetch(`${BASE_URL}/messages/${location.state.conversationId}`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        
-        if (!messagesResponse.ok) throw new Error('Failed to fetch messages');
-        
-        const messagesData = await messagesResponse.json();
-        setMessages(messagesData.messages || []);
-
-      } catch (error) {
-        console.error('Error loading conversation:', error);
-        toast.error('Failed to load conversation');
-      }
-    };
-
-    handleNavigatedConversation();
-  }, [location.state?.conversationId]);
-
-  // Update handleSendMessage to add new messages at the end
+  // Update the handleSendMessage function to work with the new order
   const handleSendMessage = async () => {
     if (!messageInput.trim()) {
       toast.error("Please enter a message");
@@ -615,8 +560,8 @@ export default function ChatInterface() {
 
     console.log('Adding temporary message:', tempMessage);
 
-    // Add temporary message at the end
-    setMessages(prev => [...prev, tempMessage]);
+    // Add temporary message at the beginning of the array (newest first)
+    setMessages(prev => [tempMessage, ...prev]);
 
     // Force immediate scroll to bottom after adding temp message
     scrollToBottom(true);
@@ -693,7 +638,7 @@ export default function ChatInterface() {
     }
   };
 
-  // Enhanced file upload with immediate UI update
+  // Updated file upload with newest-first order
   const handleFileUpload = async (file) => {
     if (!file || !currentConversation) return;
 
@@ -726,8 +671,8 @@ export default function ChatInterface() {
       conversation: currentConversation._id,
     };
 
-    // Add message to UI immediately
-    setMessages(prev => [...(prev || []), tempMessage]);
+    // Add message to UI immediately at the beginning (newest first)
+    setMessages(prev => [tempMessage, ...(prev || [])]);
     
     // Force immediate scroll to bottom
     scrollToBottom(true);
@@ -807,35 +752,7 @@ export default function ChatInterface() {
     }
   };
 
-  // Fetch seller profile and products
-  useEffect(() => {
-    const fetchSellerProfile = async () => {
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-        const response = await fetch(`${BASE_URL}/seller/profile`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        const profileData = await response.json();
-        setSellerId(profileData._id);
-
-        // Fetch products once we have the seller ID
-        const productsResponse = await fetch(`${BASE_URL}/products/seller/${profileData._id}`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        });
-        const productsData = await productsResponse.json();
-        setSellerProducts(productsData.products);
-      } catch (error) {
-        console.error('Error fetching seller profile and products:', error);
-      }
-    };
-    fetchSellerProfile();
-  }, []);
-
-  // Handle sending product message
+  // Updated handleSendProduct with newest-first order
   const handleSendProduct = async (product) => {
     if (!currentConversation) return;
 
@@ -857,8 +774,11 @@ export default function ChatInterface() {
       conversation: currentConversation._id,
     };
 
-    // Add message to UI immediately
-    setMessages(prev => [...(prev || []), tempMessage]);
+    // Add message to UI immediately at the beginning (newest first)
+    setMessages(prev => [tempMessage, ...(prev || [])]);
+    
+    // Force immediate scroll to bottom
+    scrollToBottom(true);
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
@@ -951,8 +871,11 @@ export default function ChatInterface() {
               setMessages([]);
               setIsLoadingMessages(true);
               
-              // Then set the current conversation
+              // Immediately set the current conversation for instant UI update
               setCurrentConversation(conv);
+              
+              // Reset buyer details but preserve participant info for immediate display
+              setBuyerDetails(null);
               
               // Update URL state for history
               navigate('/dashboard/messages', {
@@ -964,11 +887,11 @@ export default function ChatInterface() {
                 replace: true // Use replace to avoid navigation history stacking
               });
 
-              // Manually fetch messages for this specific conversation
+              // Start fetching messages for this conversation
               try {
                 const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
                 const response = await fetch(
-                  `${BASE_URL}/messages/${conv._id}?limit=99`,
+                  `${BASE_URL}/messages/${conv._id}?page=1&limit=20`,
                   {
                     headers: {
                       'Authorization': `Bearer ${sellerToken}`
@@ -979,8 +902,13 @@ export default function ChatInterface() {
                 
                 // Only update if we're still on the same conversation
                 if (currentConversation?._id === conv._id) {
-                  const reversedMessages = [...data.messages].reverse();
-                  setMessages(reversedMessages || []);
+                  // Get messages in API-returned order (newest first)
+                  setMessages(data.messages || []);
+                  
+                  // Update pagination state
+                  setCurrentPage(data.pagination.currentPage);
+                  setTotalPages(data.pagination.totalPages);
+                  setHasMoreMessages(data.pagination.hasMore);
                   
                   // Force immediate scroll to bottom after loading messages
                   scrollToBottom(true);
@@ -1098,7 +1026,7 @@ export default function ChatInterface() {
     </Button>
   );
 
-  // Update messages rendering with new styling
+  // Messages rendering with infinite scroll support
   const renderMessages = () => (
     <div 
       ref={messagesContainerRef}
@@ -1111,8 +1039,16 @@ export default function ChatInterface() {
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Loading indicator for more messages */}
+          {loadingMoreMessages && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="h-5 w-5 animate-spin text-green-600" />
+            </div>
+          )}
+          
           {messages && messages.length > 0 ? (
-            messages.map((message) => {
+            /* Display messages in reverse order (oldest first, newest last) */
+            [...messages].reverse().map((message) => {
               if (!message || !message.sender) return null;
               const isSeller = message.sender?.model === 'Seller';
 
@@ -1415,7 +1351,7 @@ export default function ChatInterface() {
     </Dialog>
   );
 
-  // Update handleStartNewConversation to use correct customer ID
+  // Update handleStartNewConversation to immediately update the header
   const handleStartNewConversation = async () => {
     if (!selectedCustomer || !initialMessage.trim()) {
       toast.error('Please select a customer and enter a message');
@@ -1463,6 +1399,9 @@ export default function ChatInterface() {
         unreadCount: 0
       };
 
+      // Reset buyerDetails to ensure we display participant name immediately
+      setBuyerDetails(null);
+      
       // Update conversations list and set current
       setConversations(prev => [newConversation, ...prev]);
       setCurrentConversation(newConversation);
@@ -1506,7 +1445,7 @@ export default function ChatInterface() {
     fetchBuyerDetails();
   }, [currentConversation?.participant?.id]);
 
-  // Update UserDetailsHeader component
+  // Update UserDetailsHeader component to handle immediate name display
   const UserDetailsHeader = () => {
     if (!currentConversation?.participant) return null;
     
@@ -1520,6 +1459,11 @@ export default function ChatInterface() {
 
     // Get primary address
     const primaryAddress = buyerDetails?.shippingAddresses?.[0];
+    
+    // Use the participant name from the client-side data if buyerDetails is still loading
+    const displayName = buyerDetails ? 
+      `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` : 
+      currentConversation.participant.name;
     
     return (
       <div className="bg-white border-b p-4">
@@ -1544,10 +1488,10 @@ export default function ChatInterface() {
             <Avatar className="h-16 w-16">
               <AvatarImage 
                 src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
-                alt={currentConversation.participant.name}
+                alt={displayName}
               />
               <AvatarFallback>
-                {buyerDetails?.buyerInfo?.firstName?.[0] || currentConversation.participant.name[0]}
+                {displayName[0]}
               </AvatarFallback>
             </Avatar>
             {/* Online status indicator */}
@@ -1559,10 +1503,7 @@ export default function ChatInterface() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold">
-                {buyerDetails ? 
-                  `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` :
-                  currentConversation.participant.name
-                }
+                {displayName}
               </h2>
               {/* Online/Offline status text */}
               <span className={`text-sm ${
@@ -1575,26 +1516,38 @@ export default function ChatInterface() {
                 }
               </span>
             </div>
-            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-              {primaryAddress && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  <span>{primaryAddress.state}, {primaryAddress.country}</span>
-                </div>
-              )}
-              {buyerDetails?.orderStats?.withSeller && (
-                <>
+            
+            {/* Show loading indicator for buyer details */}
+            {!buyerDetails && (
+              <div className="flex items-center text-sm text-gray-500 mt-1">
+                <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                <span>Loading details...</span>
+              </div>
+            )}
+            
+            {/* Show buyer details once loaded */}
+            {buyerDetails && (
+              <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                {primaryAddress && (
                   <div className="flex items-center gap-1">
-                    <ShoppingBag className="h-4 w-4" />
-                    <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
+                    <MapPin className="h-4 w-4" />
+                    <span>{primaryAddress.state}, {primaryAddress.country}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Banknote className="h-4 w-4" />
-                    <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
-                  </div>
-                </>
-              )}
-            </div>
+                )}
+                {buyerDetails?.orderStats?.withSeller && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <ShoppingBag className="h-4 w-4" />
+                      <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Banknote className="h-4 w-4" />
+                      <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

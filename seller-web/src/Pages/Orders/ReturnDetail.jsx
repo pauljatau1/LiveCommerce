@@ -96,6 +96,10 @@ export default function ReturnDetail() {
   const [rejectDescription, setRejectDescription] = useState("")
   const [rejectEvidence, setRejectEvidence] = useState([])
   const [isRejecting, setIsRejecting] = useState(false)
+  const [showRefundDialog, setShowRefundDialog] = useState(false)
+  const [refundRequestAmount, setRefundRequestAmount] = useState('')
+  const [refundRequestReason, setRefundRequestReason] = useState('')
+  const [isRequestingRefund, setIsRequestingRefund] = useState(false)
 
   useEffect(() => {
     fetchReturnDetails()
@@ -241,6 +245,38 @@ export default function ReturnDetail() {
       return
     }
     setRejectEvidence(files)
+  }
+
+  const handleRefundRequest = async () => {
+    try {
+      setIsRequestingRefund(true)
+      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const response = await fetch(`${BASE_URL}/returns/${id}/seller/request-refund`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sellerToken}`
+        },
+        body: JSON.stringify({
+          amount: parseFloat(refundRequestAmount),
+          reason: refundRequestReason
+        })
+      })
+
+      if (response.ok) {
+        toast.success("Refund request sent to admin successfully")
+        setShowRefundDialog(false)
+        await fetchReturnDetails()
+      } else {
+        const error = await response.json()
+        toast.error(error.message || "Failed to send refund request")
+      }
+    } catch (error) {
+      console.error("Error requesting refund:", error)
+      toast.error("Failed to send refund request")
+    } finally {
+      setIsRequestingRefund(false)
+    }
   }
 
   const renderShippingRatesDialog = () => (
@@ -431,6 +467,69 @@ export default function ReturnDetail() {
     </Dialog>
   )
 
+  const renderRefundRequestDialog = () => (
+    <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
+      <DialogContent className="w-[95vw] max-w-md mx-auto">
+        <DialogHeader>
+          <DialogTitle>Request Refund</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="refundAmount">Refund Amount</Label>
+            <Input
+              id="refundAmount"
+              type="number"
+              value={refundRequestAmount}
+              onChange={(e) => setRefundRequestAmount(e.target.value)}
+              placeholder="Enter refund amount"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="refundReason">Reason for Refund</Label>
+            <Textarea
+              id="refundReason"
+              value={refundRequestReason}
+              onChange={(e) => setRefundRequestReason(e.target.value)}
+              placeholder="Explain why you're requesting this refund"
+              required
+              rows={4}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setShowRefundDialog(false)}
+            disabled={isRequestingRefund}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRefundRequest}
+            disabled={isRequestingRefund || !refundRequestAmount || !refundRequestReason}
+            className="bg-primary hover:bg-primary/90"
+          >
+            {isRequestingRefund ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Requesting...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Request Refund
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   const renderActionButtons = () => (
     <div className="flex flex-col md:flex-row gap-2 md:gap-4 w-full">
       <Button
@@ -465,491 +564,472 @@ export default function ReturnDetail() {
   }
 
   return (
-    <div className="pt-6 md:pt-10 px-4 md:px-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 bg-white p-4 md:p-6 rounded-lg -sm">
-        <div className="space-y-4 w-full md:w-auto">
-          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Return ID: #{id.slice(-6)}</h1>
-            <Badge variant="outline" className={`px-2 md:px-4 py-1 md:py-1.5 text-sm font-medium flex items-center gap-2 ${statusConfig.color}`}>
-              {statusConfig.icon}
-              {statusConfig.label}
-            </Badge>
-          </div>
+    <div className="min-h-screen bg-gray-50 pb-12">
+      {/* Fixed bottom action bar for mobile */}
+      {returnData?.status === "PENDING_SELLER_REVIEW" && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50">
+          {renderActionButtons()}
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-gray-600">
+      {/* Main Content */}
+      <div className="container mx-auto py-6 px-4 space-y-6">
+        {/* Return Header Card */}
+        <Card className="p-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Return Reason:</span>
-                <span>{returnData?.items[0]?.reason}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Order ID:</span>
-                <span className="text-blue-600 hover:underline cursor-pointer">
-                  #{returnData?.order?.order_id}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Preferred Resolution:</span>
-                <Badge variant="secondary" className="capitalize">
-                  {returnData?.preferredResolution}
-                </Badge>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Request Date:</span>
-                <span>{new Date(returnData?.requestDate).toLocaleDateString()}</span>
-              </div>
-              {returnData?.refundDetails?.amount && (
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Refund Amount:</span>
-                  <span className="text-green-600 font-medium">
-                    ₦{returnData.refundDetails.amount.toLocaleString()}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="w-full md:w-auto">
-            <Printer className="w-4 h-4 mr-2" />
-            Print Details
-          </Button>
-          {returnData?.returnShippingLabel?.url && (
-            <Button variant="outline" size="sm" className="w-full md:w-auto">
-              Download Label
-            </Button>
-          )}
-          <Button variant="outline" size="sm" className="w-full md:w-auto">
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Contact Buyer
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <div className="md:col-span-2 space-y-4 md:space-y-6">
-          {/* Product Section */}
-          <Card className="p-4 md:p-6 -md">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Product Details</h2>
-              {returnData?.status === "APPROVED" && (
-                <Badge className="bg-green-100 text-green-800 border-green-200">
-                  Return Approved
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
-              <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
-                <img
-                  src={returnData?.items[0]?.product?.images[0]?.url}
-                  alt={returnData?.items[0]?.product?.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {returnData?.items[0]?.product?.name}
-                </h3>
-                <div className="sm:grid sm:grid-cols-2 gap-4 text-sm text-gray-600">
-                  <p>Quantity: {returnData?.items[0]?.quantity}</p>
-                  <p>Status: <span className="text-yellow-600 font-medium">{returnData?.status}</span></p>
-                  <p className="text-green-700 font-medium">
-                    Unit Price: ₦{returnData?.items[0]?.product?.price?.toLocaleString()}
-                  </p>
-                  <p className="text-green-700 font-medium">
-                    Total: ₦{((returnData?.items[0]?.product?.price || 0) * (returnData?.items[0]?.quantity || 1)).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 md:mt-6 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">Buyer's Comment:</span> {returnData?.description}
-              </p>
-            </div>
-            <div className="mt-4 flex flex-col md:flex-row gap-2 md:gap-4">
-              {renderActionButtons()}
-            </div>
-          </Card>
-
-          {/* Return Timeline */}
-          <Card className="p-6 -md">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Return Timeline</h2>
-            <div className="space-y-6">
-              {returnData?.timeline?.map((activity, index) => (
-                <div key={index} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-3 h-3 rounded-full ring-4 ${
-                      getStatusConfig(activity.status).color.replace('bg-', 'bg-').replace('text-', 'ring-')
-                    }`} />
-                    {index !== (returnData?.timeline?.length - 1) && (
-                      <div className="w-0.5 h-full bg-gray-200" />
-                    )}
-                  </div>
-                  <div className="flex-1 -mt-1">
-                    <div className="font-medium text-gray-900 mb-1">
-                      {getStatusConfig(activity.status).label}
-                    </div>
-                    <div className="text-sm text-gray-600">{activity.note}</div>
-                    <div className="text-xs text-gray-400 mt-1 flex items-center gap-2">
-                      <Clock className="w-3 h-3" />
-                      {new Date(activity.date).toLocaleString()}
-                      <span className="capitalize text-gray-500">
-                        • by {activity.updatedBy}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Dispute Section - Show only if disputed */}
-          {returnData?.dispute?.status !== 'PENDING' && (
-            <Card className="p-6 -md border-orange-200">
-              <div className="flex items-center gap-3 mb-6">
-                <AlertTriangle className="w-5 h-5 text-orange-500" />
-                <h2 className="text-xl font-bold text-gray-900">Dispute Information</h2>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="font-medium">Status:</span>
-                    <Badge variant="outline" className={
-                      returnData.dispute.status === 'RESOLVED'
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-orange-50 text-orange-700'
-                    }>
-                      {returnData.dispute.status}
-                    </Badge>
-                  </div>
-                  {returnData.dispute.resolution && (
-                    <div>
-                      <span className="font-medium">Resolution:</span>
-                      <Badge variant="outline">{returnData.dispute.resolution}</Badge>
-                    </div>
-                  )}
-                </div>
-                {/* Add more dispute details as needed */}
-              </div>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-4 md:space-y-6">
-          {/* Customer Details */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Customer Details</h2>
-            <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div>
-                  <p className="font-medium">
-                    {`${returnData?.order?.pickup_address?.first_name} ${returnData?.order?.pickup_address?.last_name}`}
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>{returnData?.order?.pickup_address?.email}</span>
-                  </div>
-                </div>
+                <h1 className="text-2xl font-bold">Return #{id.slice(-6)}</h1>
+                <Badge variant="outline" className={`px-3 py-1 ${statusConfig.color}`}>
+                  {statusConfig.icon}
+                  <span className="ml-2">{statusConfig.label}</span>
+                </Badge>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="w-4 h-4" />
-                <span>{returnData?.order?.pickup_address?.phone}</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Shipping Information */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Shipping Information</h2>
-            <div className="space-y-2">
-              <p className="font-medium">Return Address:</p>
-              <p className="text-sm text-muted-foreground">
-                {returnData?.order?.pickup_address?.line1},<br/>
-                {returnData?.order?.pickup_address?.line2 && `${returnData?.order?.pickup_address?.line2},`}<br/>
-                {returnData?.order?.pickup_address?.city}, {returnData?.order?.pickup_address?.state}.<br/>
-                {returnData?.order?.pickup_address?.zip},<br/>
-                {returnData?.order?.pickup_address?.country}
+              <p className="text-muted-foreground">
+                Requested on {new Date(returnData?.requestDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
               </p>
             </div>
-          </Card>
-
-          {/* Proof Files */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Proof Files</h2>
-            <div className="space-y-4">
-              {returnData?.evidence?.map((file, index) => (
-                <img
-                  key={index}
-                  src={file.url || "/placeholder.svg"}
-                  alt={`Return Evidence ${index + 1}`}
-                  className="w-full rounded-lg"
-                />
-              ))}
+            <div className="hidden lg:block">
+              {returnData?.status === "PENDING_SELLER_REVIEW" && renderActionButtons()}
+              
+              {/* Button to create shipping label */}
+              {returnData?.status === "APPROVED" && 
+                (!returnData?.returnShipment?.shipment_id) && (
+                <Button
+                  className="bg-black text-white"
+                  onClick={handleCreateShippingLabel}
+                  disabled={isCreatingLabel}
+                >
+                  {isCreatingLabel ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Return Shipment...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Return Shipment
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-          </Card>
+          </div>
+        </Card>
 
-          {/* Shipping Status - if return is approved */}
-          {returnData?.returnShipment?.status !== 'PENDING' && (
-            <Card className="p-6 -md">
-              <h2 className="text-xl font-semibold mb-4">Return Shipping Status</h2>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Status:</span>
-                  <Badge variant={
-                    returnData.returnShipment.status === 'DELIVERED'
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-blue-50 text-blue-700'
-                  }>
-                    {returnData.returnShipment.status}
-                  </Badge>
+        {/* Main Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Product and Timeline */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Product Details */}
+            <Card className="overflow-hidden">
+              <div className="p-6 border-b flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Return Details</h2>
+                <Button variant="outline" size="sm">
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Order
+                </Button>
+              </div>
+              <div className="p-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                    <img
+                      src={returnData?.items[0]?.product?.images[0]?.url}
+                      alt={returnData?.items[0]?.product?.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium">{returnData?.items[0]?.product?.name}</h3>
+                      <p className="text-muted-foreground">Order #{returnData?.order?.order_id}</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Return Reason:</span>
+                        <p className="font-medium">{returnData?.items[0]?.reason}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Quantity:</span>
+                        <p className="font-medium">{returnData?.items[0]?.quantity}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Unit Price:</span>
+                        <p className="font-medium text-green-600">
+                          ₦{returnData?.items[0]?.product?.price?.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Preferred Resolution:</span>
+                        <p className="font-medium capitalize">{returnData?.preferredResolution}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                {returnData.returnShipment.tracking?.number && (
-                  <div>
-                    <span className="font-medium">Tracking Number:</span>
-                    <p className="text-blue-600 hover:underline cursor-pointer">
-                      {returnData.returnShipment.tracking.number}
+                {returnData?.description && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Customer's Note:</span> {returnData.description}
                     </p>
                   </div>
                 )}
               </div>
             </Card>
-          )}
-        </div>
-      </div>
 
-      {/* Button to create shipping label */}
-      {returnData?.status === "APPROVED" && 
-        (!returnData?.returnShipment?.shipment_id) && (
-        <div className="mt-4">
-          <Button
-            className="bg-black text-white"
-            onClick={handleCreateShippingLabel}
-            disabled={isCreatingLabel}
-          >
-            {isCreatingLabel ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Return Shipment...
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Return Shipment
-              </>
+            {/* Return Evidence */}
+            {returnData?.evidence?.length > 0 && (
+              <Card>
+                <div className="p-6 border-b">
+                  <h2 className="text-xl font-semibold">Return Evidence</h2>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
+                    {returnData.evidence.map((file, index) => (
+                      <a
+                        key={file._id}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+                      >
+                        <img
+                          src={file.url}
+                          alt={`Evidence ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </Card>
             )}
+
+            {/* Return Shipment Details */}
+            {returnData?.returnShipment && (
+              <Card>
+                <div className="p-6 border-b">
+                  <h2 className="text-xl font-semibold">Return Shipment</h2>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-muted-foreground text-sm">Carrier</span>
+                      <p className="font-medium">{returnData?.returnShipment?.carrier?.name || 'Fez Delivery'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-sm">Status</span>
+                      <div>
+                        <Badge variant={
+                          returnData.returnShipment.tracking?.status === "delivered" ? "success" : "default"
+                        }>
+                          {returnData.returnShipment.tracking?.status?.toUpperCase() || 'PENDING'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-sm">Shipping Fee</span>
+                      <p className="font-medium">
+                        {returnData?.returnShipment?.fee?.currency || 'NGN'} {returnData?.returnShipment?.fee?.amount?.toLocaleString() || '0'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-sm">Tracking Number</span>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{returnData?.returnShipment?.shipment_id || returnData?.returnShipment?.tracking?.number || 'N/A'}</p>
+                        {returnData?.returnShipment?.tracking?.url && (
+                          <a 
+                            href={returnData.returnShipment.tracking.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-sm flex items-center"
+                          >
+                            <Eye className="w-3 h-3 mr-1" /> Track
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {returnData.returnShipment.tracking?.history?.length > 0 && (
+                    <div className="mt-6 pt-4 border-t">
+                      <h4 className="text-sm font-semibold mb-3">Tracking History</h4>
+                      <div className="space-y-3">
+                        {returnData.returnShipment.tracking.history.map((event, index) => (
+                          <div key={index} className="bg-muted p-3 rounded-lg">
+                            <div className="flex flex-wrap justify-between gap-2">
+                              <span className="text-sm font-medium">
+                                {event.status}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(event.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm mt-1">{event.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Dispute Information */}
+            {returnData?.dispute && returnData.dispute.status !== "none" && (
+              <Card className="border border-orange-200">
+                <div className="p-6 border-b border-orange-200">
+                  <h2 className="text-xl font-semibold flex items-center">
+                    <Scale className="mr-2 h-5 w-5 text-orange-500" />
+                    Dispute Information
+                  </h2>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    <Badge variant={
+                      returnData.dispute.status === "PENDING" ? "warning" :
+                      returnData.dispute.status === "RESOLVED" ? "success" :
+                      "default"
+                    }>
+                      {returnData.dispute.status}
+                    </Badge>
+                  </div>
+
+                  {returnData.dispute.resolutionDetails?.evidence?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Resolution Evidence</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {returnData.dispute.resolutionDetails.evidence.map((evidence, index) => (
+                          <a 
+                            key={index}
+                            href={evidence.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:bg-muted/80 transition-colors"
+                          >
+                            <img 
+                              src={evidence.url} 
+                              alt={`Resolution evidence ${index + 1}`}
+                              className="object-cover w-full h-full"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Eye className="w-5 h-5 text-white" />
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {returnData.dispute.adminNotes?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Admin Notes</h4>
+                      <div className="space-y-2">
+                        {returnData.dispute.adminNotes.map((note, index) => (
+                          <div key={index} className="p-3 bg-muted rounded-lg">
+                            <p className="text-sm">{note}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Right Column - Customer, Shipping, etc. */}
+          <div className="space-y-6">
+            {/* Customer Details */}
+            <Card>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Customer Details</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <h3 className="font-medium">
+                    {returnData?.order?.delivery_address?.first_name} {returnData?.order?.delivery_address?.last_name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {returnData?.order?.delivery_address?.email}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span>{returnData?.order?.delivery_address?.phone}</span>
+                </div>
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-2">Shipping Address</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {returnData?.order?.delivery_address?.line1}<br />
+                    {returnData?.order?.delivery_address?.line2 && `${returnData?.order?.delivery_address?.line2},`}<br />
+                    {returnData?.order?.delivery_address?.city}, {returnData?.order?.delivery_address?.state}<br />
+                    {returnData?.order?.delivery_address?.zip}<br />
+                    {returnData?.order?.delivery_address?.country}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Rejection Details */}
+            {returnData?.rejectionDetails && Object.keys(returnData.rejectionDetails).length > 0 && (
+              <Card className="border-red-200">
+                <div className="p-6 border-b border-red-200">
+                  <h2 className="text-xl font-semibold text-red-700 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    Rejection Details
+                  </h2>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Reason</h3>
+                    <p className="mt-1">{returnData.rejectionDetails.reason}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
+                    <p className="mt-1">{returnData.rejectionDetails.description}</p>
+                  </div>
+                  {returnData.rejectionDetails.evidence?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Evidence</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {returnData.rejectionDetails.evidence.map((file, index) => (
+                          <a
+                            key={file._id}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+                          >
+                            <img
+                              src={file.url}
+                              alt={`Rejection Evidence ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-sm text-muted-foreground pt-4 border-t">
+                    Rejected on {new Date(returnData.rejectionDetails.rejectedAt).toLocaleString()}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Timeline */}
+            <Card>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Return Timeline</h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-6">
+                  {returnData?.timeline?.map((event, index) => (
+                    <div key={index} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-3 h-3 rounded-full ring-4 ${
+                          getStatusConfig(event.status).color.replace('bg-', 'ring-')
+                        }`} />
+                        {index !== returnData.timeline.length - 1 && (
+                          <div className="w-0.5 h-full bg-gray-200 mt-3" />
+                        )}
+                      </div>
+                      <div className="-mt-1.5 flex-1">
+                        <p className="font-medium text-gray-900">
+                          {getStatusConfig(event.status).label}
+                        </p>
+                        {event.note && (
+                          <p className="text-sm text-gray-600 mt-1">{event.note}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                          <Clock className="w-3 h-3" />
+                          {new Date(event.date).toLocaleString()}
+                          <span>•</span>
+                          <span className="capitalize">by {event.updatedBy}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Quick Actions</h2>
+              </div>
+              <div className="p-6 space-y-3">
+                <Button variant="outline" className="w-full justify-start">
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Return Details
+                </Button>
+                <Button variant="outline" className="w-full justify-start">
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Contact Customer
+                </Button>
+                { 
+                 returnData?.preferredResolution?.toUpperCase() === "REFUND" && (
+                  <Button
+                    className="w-full justify-start bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => setShowRefundDialog(true)}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Request Refund
+                  </Button>
+                )}
+                {returnData?.status === "APPROVED" && 
+                  (!returnData?.returnShipment?.shipment_id) && (
+                  <Button 
+                    className="w-full justify-start bg-black text-white hover:bg-black/80"
+                    onClick={handleCreateShippingLabel}
+                    disabled={isCreatingLabel}
+                  >
+                    {isCreatingLabel ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Return Shipment
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <Button
+            variant="outline"
+            className="text-muted-foreground"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Returns
           </Button>
         </div>
-      )}
-
-      {/* Update Shipment Status Information */}
-      {returnData?.returnShipment && (
-        <div className="mt-6 space-y-4">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Return Shipment Details</h3>
-            
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Carrier:</span>
-                <span className="font-medium">{returnData?.returnShipment?.carrier?.name || 'Fez Delivery'}</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Status:</span>
-                <Badge variant={
-                  returnData.returnShipment.tracking?.status === "delivered" ? "success" :
-                  "default"
-                }>
-                  {returnData.returnShipment.tracking?.status?.toUpperCase() || 'PENDING'}
-                </Badge>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Shipping Fee:</span>
-                <span className="font-medium">
-                  {returnData?.returnShipment?.fee?.currency || 'NGN'} {returnData?.returnShipment?.fee?.amount?.toLocaleString() || '0'}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Tracking Number:</span>
-                <span className="font-medium">{returnData?.returnShipment?.shipment_id || returnData?.returnShipment?.tracking?.number || 'N/A'}</span>
-              </div>
-
-              {returnData?.returnShipment?.tracking?.url && (
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Track Package:</span>
-                  <a 
-                    href={returnData.returnShipment.tracking.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline flex items-center"
-                  >
-                    <Eye className="w-4 h-4 mr-1" /> Track
-                  </a>
-                </div>
-              )}
-
-              {returnData.returnShipment.tracking?.history?.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-semibold mb-2">Tracking History</h4>
-                  <div className="space-y-2">
-                    {returnData.returnShipment.tracking.history.map((event, index) => (
-                      <div key={index} className="text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">
-                            {new Date(event.timestamp).toLocaleString()}
-                          </span>
-                          <Badge variant="outline">{event.status}</Badge>
-                        </div>
-                        <p className="text-sm mt-1">{event.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Add Rejection Details Section */}
-      {returnData?.rejectionDetails && (
-        <div className="mt-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center text-red-600">
-              <AlertTriangle className="mr-2 h-5 w-5" />
-              Return Request Rejected
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Reason for Rejection</h4>
-                <p className="mt-1">{returnData.rejectionDetails.reason}</p>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Detailed Description</h4>
-                <p className="mt-1">{returnData.rejectionDetails.description}</p>
-              </div>
-
-              {returnData.rejectionDetails.evidence?.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Evidence</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {returnData.rejectionDetails.evidence.map((evidence, index) => (
-                      <a 
-                        key={evidence._id} 
-                        href={evidence.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:bg-muted/80 transition-colors"
-                      >
-                        <img 
-                          src={evidence.url} 
-                          alt={`Rejection evidence ${index + 1}`}
-                          className="object-cover w-full h-full"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Eye className="w-6 h-6 text-white" />
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="text-sm text-muted-foreground">
-                Rejected on {new Date(returnData.rejectionDetails.rejectedAt).toLocaleString()}
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Add Dispute Section */}
-      {returnData?.dispute && returnData.dispute.status !== "none" && (
-        <div className="mt-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <Scale className="mr-2 h-5 w-5" />
-              Dispute Information
-            </h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Status</span>
-                <Badge variant={
-                  returnData.dispute.status === "PENDING" ? "warning" :
-                  returnData.dispute.status === "RESOLVED" ? "success" :
-                  "default"
-                }>
-                  {returnData.dispute.status}
-                </Badge>
-              </div>
-
-              {returnData.dispute.resolutionDetails?.evidence?.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Resolution Evidence</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {returnData.dispute.resolutionDetails.evidence.map((evidence, index) => (
-                      <a 
-                        key={index}
-                        href={evidence.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:bg-muted/80 transition-colors"
-                      >
-                        <img 
-                          src={evidence.url} 
-                          alt={`Resolution evidence ${index + 1}`}
-                          className="object-cover w-full h-full"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Eye className="w-6 h-6 text-white" />
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {returnData.dispute.adminNotes?.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Admin Notes</h4>
-                  <div className="space-y-2">
-                    {returnData.dispute.adminNotes.map((note, index) => (
-                      <div key={index} className="p-3 bg-muted rounded-lg">
-                        <p className="text-sm">{note}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      <div className="mt-6">
-        <Button
-          variant="outline"
-          className="text-muted-foreground"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Go Back
-        </Button>
       </div>
 
-      {/* Render the rates dialog */}
+      {/* Render dialogs */}
       {renderShippingRatesDialog()}
       {renderRejectDialog()}
       {renderApprovalDialog()}
+      {renderRefundRequestDialog()}
     </div>
   )
 }
