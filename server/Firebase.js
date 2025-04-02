@@ -1,5 +1,6 @@
 const { getDatabase, ref, set, get, child } = require('firebase/database');
 const { initializeApp } = require('firebase/app');
+const admin = require('firebase-admin');
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -16,17 +17,35 @@ const firebaseConfig = {
     measurementId: "G-MEYRS0CCTB"
 };
 
+// Initialize Firebase Admin SDK
+let adminInitialized = false;
+const initializeAdminApp = () => {
+    if (!adminInitialized && !admin.apps.length) {
+        admin.initializeApp({
+            credential: admin.credential.cert({
+                projectId: firebaseConfig.projectId,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+            }),
+            databaseURL: firebaseConfig.databaseURL
+        });
+        adminInitialized = true;
+    }
+    return admin;
+};
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const dbRef = ref(db);
+// Initialize Admin SDK
+initializeAdminApp();
+
+// Get database reference from Admin SDK
+const db = admin.database();
+const dbRef = db.ref();
 
 const saveToken = async (userId, token) => {
     try {
-        const values = (await get(child(dbRef, `userTokens/${userId}/`))).val() ?? {};
+        const values = (await dbRef.child(`userTokens/${userId}/`).get()).val() ?? {};
         const payload = { ...values, token };
-        await set(ref(db, `userTokens/${userId}/`), payload);
+        await dbRef.child(`userTokens/${userId}/`).set(payload);
         return true;
     } catch (error) {
         console.error('Firebase saveToken error:', error);
@@ -36,7 +55,7 @@ const saveToken = async (userId, token) => {
 
 const getToken = async (userId) => {
     try {
-        const values = (await get(child(dbRef, `userTokens/${userId}`))).val();
+        const values = (await dbRef.child(`userTokens/${userId}`).get()).val();
         return values ?? {};
     } catch (error) {
         console.error('Firebase getToken error:', error);
@@ -44,4 +63,4 @@ const getToken = async (userId) => {
     }
 };
 
-module.exports = { app, saveToken, getToken };
+module.exports = { admin, saveToken, getToken };
