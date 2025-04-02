@@ -25,7 +25,7 @@ export const category = createApi({
     { maxRetries: 1 },
   ),
   endpoints: (builder) => ({
-    uploadCategories: builder.mutation<any, SelectedCategoriesRequest>({
+    uploadCategories: builder.mutation<any, any>({
       query: (credentials) =>
         putRequest("/buyer/selected-categories", credentials),
     }),
