@@ -188,7 +188,7 @@ const orderSchema = new mongoose.Schema({
     requestedAt: Date,
     requestedBy: {
       type: String,
-      enum: ['buyer', 'seller', 'admin']
+      // enum: ['buyer', 'seller', 'admin']
     },
     reason: String,
     status: {

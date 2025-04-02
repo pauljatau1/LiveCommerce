@@ -57,27 +57,11 @@ router.get('/paystack-keys/:code', validateSecurityCode, (req, res) => {
  *         description: Internal server error
  */
 router.get('/categories', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    // Get all categories
-    const categories = await Category.find({}, null, { session });
+    // Get all categories first (outside of any transaction)
+    const categories = await Category.find({});
     
-    // Reset all category statistics
-    await Category.updateMany({}, {
-      $set: {
-        'statistics.orders.pending': 0,
-        'statistics.orders.completed': 0,
-        'statistics.items.pending': 0,
-        'statistics.items.sold': 0,
-        'statistics.totalProducts': 0,
-        'statistics.streams.active': 0,
-        'statistics.streams.scheduled': 0,
-        'statistics.streams.ended': 0
-      }
-    }, { session });
-
+    // Get all necessary data for statistics calculation (outside of any transaction)
     // Get all orders and their items
     const orders = await Order.find({})
       .populate({
@@ -85,7 +69,7 @@ router.get('/categories', async (req, res) => {
         select: 'category'
       });
 
-    // Get product counts per category
+    // Get product counts per category (this doesn't need a session)
     const productCounts = await Product.aggregate([
       {
         $group: {
@@ -95,7 +79,7 @@ router.get('/categories', async (req, res) => {
       }
     ]);
 
-    // Get stream counts per category
+    // Get stream counts per category (this doesn't need a session)
     const Stream = mongoose.model('Stream');
     const streamCounts = await Stream.aggregate([
       {
@@ -155,63 +139,76 @@ router.get('/categories', async (req, res) => {
       }
     }
 
-    // Update each category with the calculated statistics
-    for (const [categoryName, stats] of Object.entries(categoryStats)) {
-      await Category.findOneAndUpdate(
-        { name: categoryName },
-        {
-          $set: {
-            'statistics.orders.pending': stats.pending.orders,
-            'statistics.orders.completed': stats.completed.orders,
-            'statistics.items.pending': stats.pending.items,
-            'statistics.items.sold': stats.completed.items,
-            'statistics.totalProducts': productCountMap[categoryName] || 0,
-            'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
-            'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
-            'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
+    // Now update each category individually with its own transaction
+    // This is more reliable than trying to update all categories in a single transaction
+    const MAX_RETRIES = 3;
+    
+    // Process updates in batches to avoid overwhelming the database
+    const updateBatch = async (category) => {
+      let retryCount = 0;
+      let success = false;
+      
+      while (retryCount < MAX_RETRIES && !success) {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        
+        try {
+          const categoryName = category.name;
+          const stats = categoryStats[categoryName] || { 
+            pending: { orders: 0, items: 0 },
+            completed: { orders: 0, items: 0 }
+          };
+          
+          // Update the category with its statistics
+          await Category.findOneAndUpdate(
+            { _id: category._id },
+            {
+              $set: {
+                'statistics.orders.pending': stats.pending.orders,
+                'statistics.orders.completed': stats.completed.orders,
+                'statistics.items.pending': stats.pending.items,
+                'statistics.items.sold': stats.completed.items,
+                'statistics.totalProducts': productCountMap[categoryName] || 0,
+                'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
+                'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
+                'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
+              }
+            },
+            { session }
+          );
+          
+          await session.commitTransaction();
+          success = true;
+        } catch (error) {
+          await session.abortTransaction();
+          
+          const isTransientError = 
+            (error.name === 'MongoError' || error.name === 'MongoServerError') &&
+            (error.code === 112 || 
+             (error.hasOwnProperty('errorLabels') && 
+              error.errorLabels.includes('TransientTransactionError')));
+          
+          if (isTransientError && retryCount < MAX_RETRIES - 1) {
+            console.log(`Retrying update for category ${category.name}. Attempt: ${retryCount + 1}`);
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 100));
+          } else {
+            console.error(`Failed to update category ${category.name}:`, error);
+            throw error;
           }
-        },
-        { session }
-      );
-    }
-
-    // Update categories that might have products but no orders
-    for (const [categoryName, totalProducts] of Object.entries(productCountMap)) {
-      if (!categoryStats[categoryName]) {
-        await Category.findOneAndUpdate(
-          { name: categoryName },
-          {
-            $set: {
-              'statistics.totalProducts': totalProducts,
-              'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
-              'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
-              'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
-            }
-          },
-          { session }
-        );
+        } finally {
+          session.endSession();
+        }
       }
+    };
+    
+    // Process categories in batches of 5 to limit concurrency
+    const batchSize = 5;
+    for (let i = 0; i < categories.length; i += batchSize) {
+      const batch = categories.slice(i, i + batchSize);
+      await Promise.all(batch.map(updateBatch));
     }
-
-    // Update categories that might have streams but no products or orders
-    for (const [categoryName, streamStats] of Object.entries(streamCountMap)) {
-      if (!categoryStats[categoryName] && !productCountMap[categoryName]) {
-        await Category.findOneAndUpdate(
-          { name: categoryName },
-          {
-            $set: {
-              'statistics.streams.active': streamStats.active || 0,
-              'statistics.streams.scheduled': streamStats.scheduled || 0,
-              'statistics.streams.ended': streamStats.ended || 0
-            }
-          },
-          { session }
-        );
-      }
-    }
-
-    await session.commitTransaction();
-
+    
     // Get updated categories and sort them
     const updatedCategories = await Category.find().sort({
       'statistics.orders.completed': -1,
@@ -221,14 +218,11 @@ router.get('/categories', async (req, res) => {
     res.json(updatedCategories);
 
   } catch (error) {
-    await session.abortTransaction();
     console.error('Error retrieving categories:', error);
     res.status(500).json({
       message: 'Failed to retrieve categories',
       error: error.message
     });
-  } finally {
-    session.endSession();
   }
 });
 
