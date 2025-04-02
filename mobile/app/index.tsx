@@ -3,6 +3,7 @@ import { Redirect, router } from "expo-router";
 import { useEffect } from "react";
 import { usePushNotifications } from "../hooks/useExpoPushToken";
 import useInitializeAuthState from "@/hooks/useInitializeAuthState";
+import { View } from "react-native";
 
 const Home = () => {
   const { expoPushToken } = usePushNotifications();
@@ -22,6 +23,7 @@ const Home = () => {
     }
     getToken();
   }, []);
+  return <View className="h-full w-full bg-[#121212]"></View>;
   return null;
   return <Redirect href={"../(root)/(tabs)/home"} />;
 };
