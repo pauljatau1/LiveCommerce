@@ -8,8 +8,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   Pressable,
+  ScrollView,
 } from "react-native";
-import React, { useState, useRef, useEffect, memo, useCallback } from "react";
+// import { ScrollView } from "react-native-virtualized-view";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  memo,
+  useCallback,
+  useMemo,
+} from "react";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,7 +40,7 @@ import { RootState } from "@/store";
 import MyBids from "@/components/profile/myBids";
 import PostsComingSoon from "@/components/profile/postsComingSoon";
 
-const HEADER_HEIGHT = 220;
+const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
   Animated.ScrollView,
 );
@@ -47,14 +56,15 @@ const CollapsibleHeader = memo(
     return (
       <Animated.View
         style={{
-          height: HEADER_HEIGHT,
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          transform: [{ translateY: headerTranslateY }],
+          // height: HEADER_HEIGHT,
+          // position: "absolute",
+          // top: 0,
+          // left: 0,
+          // right: 0,
+          // transform: [{ translateY: headerTranslateY }],
+          // zIndex: 1,
           backgroundColor: "#121212",
-          zIndex: 1,
+          marginBottom: 30,
         }}
       >
         <View style={{ flex: 1, paddingTop: 0, paddingHorizontal: 16 }}>
@@ -170,12 +180,14 @@ const CollapsibleHeader = memo(
             </View>
           </View>
           <View>
-            <Text
-              className="text-[12px] font-LexendDeca text-[#ccc]"
-              style={{ lineHeight: 16 }}
-            >
-              {info?.bio?.split("\n")?.slice(0, 4)?.join("\n")}
-            </Text>
+            {info?.bio && (
+              <Text
+                className="text-[14px] font-LexendDeca text-[#ccc]"
+                style={{ lineHeight: 16 }}
+              >
+                {info?.bio?.split("\n")?.slice(0, 4)?.join("\n")}
+              </Text>
+            )}
           </View>
           {/* <Pressable className="mt-[16px] py-[8px] px-[16px] rounded-[6px] border-[1px] border-[#16783A] flex-row items-center justify-between">
             <View className="flex-row items-center gap-[12px]">
@@ -226,65 +238,71 @@ const TabScene = memo(
 
 const Profile = () => {
   const isFocused = useIsFocused();
-  const insets = useSafeAreaInsets();
-  const statusBarHeight = insets.top;
+  // const insets = useSafeAreaInsets();
+  // const statusBarHeight = insets.top;
   const layout = useWindowDimensions();
   const user = useSelector((state: RootState) => state.authState.user);
   const [index, setIndex] = useState(0);
-  const [routes] = useState([
-    { key: 1, title: "My Bids" },
-    { key: 2, title: "Favorites" },
-    { key: 3, title: "Posts" },
-  ]);
+  const routes = useMemo(
+    () => [
+      { key: 1, title: "My Bids" },
+      { key: 2, title: "Favorites" },
+      { key: 3, title: "Posts" },
+    ],
+    [],
+  );
 
   // const [user, setUser] = useState<any>({});
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [profile, setProfile] = useState<any>({});
   const scrollY = useRef(new Animated.Value(0)).current;
-  const renderScene = ({ route }: { route: any }) => (
-    <TabScene
-      route={route}
-      scrollY={scrollY}
-      id={user?._id || ""}
-      index={index}
-    />
-  );
-
-  const renderTabBar = (props: any) => (
-    <Animated.View
-      style={{
-        zIndex: 1,
-        transform: [
-          {
-            translateY: scrollY.interpolate({
-              inputRange: [0, HEADER_HEIGHT],
-              outputRange: [HEADER_HEIGHT, 0],
-              extrapolate: "clamp",
-            }),
-          },
-        ],
-      }}
-    >
-      <TabBar
-        {...props}
-        key={props.key}
-        style={{ backgroundColor: "#121212" }}
-        indicatorStyle={{ backgroundColor: "#16783A" }}
-        activeColor="#16783A"
-        inactiveColor="gray"
-        renderTabBarItem={(props) => (
-          <TabBarItem
-            {...props}
-            key={props.key}
-            labelStyle={{
-              fontSize: 12,
-              fontFamily: "LexendDeca-Medium",
-            }}
-          />
-        )}
+  // const scrollY = useRef(new Animated.Value(0)).current;
+  const renderScene = useCallback(({ route }: { route: any }) => {
+    return (
+      <TabScene
+        route={route}
+        scrollY={scrollY}
+        id={user?._id || ""}
+        index={index}
       />
-    </Animated.View>
-  );
+    );
+  }, []);
+
+  // const renderTabBar = (props: any) => (
+  //   <Animated.View
+  //     style={{
+  //       zIndex: 1,
+  //       transform: [
+  //         {
+  //           translateY: scrollY.interpolate({
+  //             inputRange: [0, HEADER_HEIGHT],
+  //             outputRange: [HEADER_HEIGHT, 0],
+  //             extrapolate: "clamp",
+  //           }),
+  //         },
+  //       ],
+  //     }}
+  //   >
+  //     <TabBar
+  //       {...props}
+  //       key={props.key}
+  //       style={{ backgroundColor: "#121212" }}
+  //       indicatorStyle={{ backgroundColor: "#16783A" }}
+  //       activeColor="#16783A"
+  //       inactiveColor="gray"
+  //       renderTabBarItem={(props) => (
+  //         <TabBarItem
+  //           {...props}
+  //           key={props.key}
+  //           labelStyle={{
+  //             fontSize: 12,
+  //             fontFamily: "LexendDeca-Medium",
+  //           }}
+  //         />
+  //       )}
+  //     />
+  //   </Animated.View>
+  // );
 
   const getUserProfile = useCallback(async () => {
     const token = await getToken();
@@ -307,20 +325,22 @@ const Profile = () => {
   }, []);
 
   useEffect(() => {
+    console.log("happening");
+
     if (isFocused) getUserProfile();
   }, [isFocused]);
 
-  const handleIndexChange = (newIndex: number) => {
-    setIndex(newIndex);
-    scrollY.setValue(0);
-  };
+  // const handleIndexChange = (newIndex: number) => {
+  //   setIndex(newIndex);
+  //   scrollY.setValue(0);
+  // };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
       {user?._id && (
         <>
-          <View
+          {/* <View
             style={{
               height: statusBarHeight,
               padding: 20,
@@ -332,7 +352,7 @@ const Profile = () => {
               zIndex: 2,
               justifyContent: "center",
             }}
-          ></View>
+          ></View> */}
 
           <View
             style={{
@@ -404,18 +424,51 @@ const Profile = () => {
             </View>
           </View>
 
-          <View style={{ flex: 1 }}>
+          <ScrollView
+            stickyHeaderIndices={[1]}
+            style={{ flex: 1 }}
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={false}
+          >
             <CollapsibleHeader scrollY={scrollY} info={profile} user={user} />
 
-            <TabView
+            <View
+              className="flex-row items-center justify-center px-[16px] gap-[50px] bg-[#121212]"
+              style={{
+                borderBottomColor: "rgba(204, 204, 204, 0.25)",
+                borderBottomWidth: 0.5,
+                zIndex: 100,
+                elevation: 100,
+                position: "sticky",
+                top: 0,
+              }}
+            >
+              {routes?.map((tab, ind) => (
+                <TouchableOpacity
+                  onPress={() => setIndex(ind)}
+                  className={`py-[4px] pb-[16px] ${index == ind ? "border-b-[1px] border-b-white" : ""}`}
+                  key={ind}
+                >
+                  <Text
+                    className={` font-LexendDecaMedium text-[12px] ${index == ind ? "text-white" : "text-[#94A3B1]"}`}
+                  >
+                    {tab.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View>{renderScene({ route: routes[index] })}</View>
+          </ScrollView>
+
+          {/* <TabView
               lazy
               navigationState={{ index, routes }}
               renderScene={renderScene}
               onIndexChange={handleIndexChange}
               initialLayout={{ width: Dimensions.get("window").width }}
               renderTabBar={renderTabBar}
-            />
-          </View>
+            /> */}
         </>
       )}
 

@@ -197,7 +197,7 @@ const ExploreMarket = ({ name, switchMode }: any) => {
     <View className="px-[16px] flex-1 ">
       {isLoading ? (
         <View>
-          <ActivityIndicator size={"small"} color="#16783A" />
+          <ActivityIndicator size={"small"} color="#fff" />
         </View>
       ) : (
         <View>

@@ -83,18 +83,15 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
         </Text>
       </View>
     );
-  }, [myBids]);
+  }, []);
 
-  const renderMyBids = useCallback(
-    ({ item }: any) => {
-      return (
-        <View className="shrink basis-[49%] h-[299px]">
-          <MainAuctionCard item={item} closeSheet={() => null} />
-        </View>
-      );
-    },
-    [isFocused, products?.products, page],
-  );
+  const renderMyBids = useCallback(({ item }: any) => {
+    return (
+      <View className="shrink basis-[49%] h-[299px] shrink">
+        <MainAuctionCard item={item} closeSheet={() => null} />
+      </View>
+    );
+  }, []);
 
   const renderListHeader = useCallback(() => {
     return (
@@ -140,13 +137,14 @@ const MyBids = ({ scrollY, headerHeight, index }: any) => {
           <ProductSkeleton numOfLoaders={2} height={157} padding={16} />
         </View>
       ) : (
-        <View>
+        <View className="">
           <Animated.FlatList
             ref={flatListRef}
             data={myBids}
             renderItem={renderMyBids}
             keyExtractor={(item, index) => item?._id || index?.toString()}
             numColumns={2}
+            nestedScrollEnabled={true}
             contentContainerStyle={{
               paddingTop: headerHeight + 12,
               paddingHorizontal: 16,
@@ -180,6 +178,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: "wrap",
     marginTop: 12,
+    marginBottom: 12,
   },
   tab: {
     paddingHorizontal: 12,
