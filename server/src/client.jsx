@@ -1,1035 +1,1189 @@
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { Check, ChevronDown, Truck, Package, MapPin, AlertCircle, Clock, CreditCard, DollarSign, ShoppingBag, User, Building2, Phone, Mail, Calendar, Box, Tag, ArrowUpRight, XCircle } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { useParams, useNavigate } from "react-router-dom"
-import { MessageCircle, Phone, Printer, Plus, ShoppingBag, ArrowLeft, Clock, HelpCircle, CheckCircle, XCircle, Truck, Package, RefreshCw, Lock, AlertTriangle, CheckSquare, Loader2, CalendarPlus, Upload, Eye, Scale } from "lucide-react"
-import { useState, useEffect } from "react"
-import { BASE_URL } from "@/Constants/Server"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import { toast } from "sonner"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-// import { toast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import Loader from '@/Components/Loader'
+import { BASE_URL } from '@/Constants/Server'
+import { useOutletContext } from 'react-router-dom'
 
-const getStatusConfig = (status) => {
-  const configs = {
-    PENDING_SELLER_REVIEW: {
-      color: 'bg-yellow-50 text-yellow-700 border-yellow-300',
-      icon: <Clock className="w-4 h-4" />,
-      label: 'Pending Review'
-    },
-    NEED_MORE_INFO: {
-      color: 'bg-blue-50 text-blue-700 border-blue-300',
-      icon: <HelpCircle className="w-4 h-4" />,
-      label: 'Need More Information'
-    },
-    APPROVED: {
-      color: 'bg-green-50 text-green-700 border-green-300',
-      icon: <CheckCircle className="w-4 h-4" />,
-      label: 'Approved'
-    },
-    REJECTED: {
-      color: 'bg-red-50 text-red-700 border-red-300',
-      icon: <XCircle className="w-4 h-4" />,
-      label: 'Rejected'
-    },
-    IN_TRANSIT: {
-      color: 'bg-purple-50 text-purple-700 border-purple-300',
-      icon: <Truck className="w-4 h-4" />,
-      label: 'In Transit'
-    },
-    RECEIVED: {
-      color: 'bg-teal-50 text-teal-700 border-teal-300',
-      icon: <Package className="w-4 h-4" />,
-      label: 'Received'
-    },
-    REFUNDED: {
-      color: 'bg-emerald-50 text-emerald-700 border-emerald-300',
-      icon: <RefreshCw className="w-4 h-4" />,
-      label: 'Refunded'
-    },
-    CLOSED: {
-      color: 'bg-gray-50 text-gray-700 border-gray-300',
-      icon: <Lock className="w-4 h-4" />,
-      label: 'Closed'
-    },
-    DISPUTED: {
-      color: 'bg-orange-50 text-orange-700 border-orange-300',
-      icon: <AlertTriangle className="w-4 h-4" />,
-      label: 'Disputed'
-    },
-    RESOLVED: {
-      color: 'bg-indigo-50 text-indigo-700 border-indigo-300',
-      icon: <CheckSquare className="w-4 h-4" />,
-      label: 'Resolved'
-    },
-    RETURN_SHIPPING_ARRANGED: {
-      color: 'bg-purple-50 text-purple-700 border-purple-300',
-      icon: <Truck className="w-4 h-4" />,
-      label: 'Return Shipping Arranged'
-    }
-  }
-  return configs[status] || configs.PENDING_SELLER_REVIEW
-}
-
-export default function ReturnDetail() {
+export default function OrderDetails() {
+  const { setHeaderName, setNavName } = useOutletContext()
   const { id } = useParams()
-  const navigate = useNavigate()
-  const [returnData, setReturnData] = useState(null)
+  const [orderData, setOrderData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [approvalDialog, setApprovalDialog] = useState(false)
-  const [refundAmount, setRefundAmount] = useState('')
-  const [approvalMessage, setApprovalMessage] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState(null)
-
-  // New state variables
-  const [shippingRates, setShippingRates] = useState(null)
-  const [selectedRate, setSelectedRate] = useState(null)
-  const [showRatesDialog, setShowRatesDialog] = useState(false)
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false)
-  const [isLoadingRates, setIsLoadingRates] = useState(false)
-  const [showRejectDialog, setShowRejectDialog] = useState(false)
-  const [rejectReason, setRejectReason] = useState("")
-  const [rejectDescription, setRejectDescription] = useState("")
-  const [rejectEvidence, setRejectEvidence] = useState([])
-  const [isRejecting, setIsRejecting] = useState(false)
-  const [showRefundDialog, setShowRefundDialog] = useState(false)
-  const [refundRequestAmount, setRefundRequestAmount] = useState('')
-  const [refundRequestReason, setRefundRequestReason] = useState('')
-  const [isRequestingRefund, setIsRequestingRefund] = useState(false)
+  const [arrangePickupLoading, setArrangePickupLoading] = useState(false)
+  const [orderStatus, setOrderStatus] = useState(null)
+  const [deliveryEstimate, setDeliveryEstimate] = useState(null)
+  const navigate = useNavigate()
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelLoading, setCancelLoading] = useState(false)
+  const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
 
   useEffect(() => {
-    fetchReturnDetails()
+    setHeaderName('Order')
+    setNavName('Orders Details')
+  }, [])
+
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+      try {
+        const sellerToken = localStorage.getItem('sellerToken')
+        if (sellerToken) {
+          const tokenData = JSON.parse(sellerToken)
+          const token = tokenData.data
+          const response = await fetch(`${BASE_URL}/order/${id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          const data = await response.json()
+          setOrderData(data)
+          setOrderStatus(data.orderStatus)
+        }
+      } catch (error) {
+        console.error('Error fetching order details:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrderDetails()
   }, [id])
 
-  const fetchReturnDetails = async () => {
-    try {
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}`, {
-        headers: {
-          Authorization: `Bearer ${sellerToken}`
-        }
-      })
-      const data = await response.json()
-      setReturnData(data)
-      setLoading(false)
-    } catch (error) {
-      console.error("Error fetching return details:", error)
-      setLoading(false)
-    }
-  }
-
-  const handleReturnAction = async (action) => {
-    if (action === 'approve' && !approvalDialog) {
-      setApprovalDialog(true)
-      return
-    }
-
-    try {
-      setIsProcessing(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/respond`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        },
-        body: JSON.stringify({
-          action: action,
-          message: action === 'reject' ? 'Return request denied' : approvalMessage,
-          partialRefundAmount: parseFloat(refundAmount) || 0
-        })
-      })
-
-      if (response.ok) {
-        toast.success(`Return request ${action === 'approve' ? 'approved' : 'rejected'} successfully`)
-        setApprovalDialog(false)
-        await fetchReturnDetails()
-      } else {
-        const error = await response.json()
-        setError(error.message)
-        toast.error(error.message || `Failed to ${action} return request`)
-      }
-    } catch (error) {
-      setError(`Failed to process return ${action}`)
-      console.error(`Error handling return ${action}:`, error)
-      toast.error(`Failed to process return ${action}`)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handleCreateShippingLabel = async () => {
-    try {
-      setIsCreatingLabel(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/create-label`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        },
-        body: JSON.stringify({
-          pickup_address: returnData?.order?.pickup_address
-        })
-      })
-
-      if (response.ok) {
-        toast.success("Return shipping label created successfully")
-        await fetchReturnDetails()
-        // No need to fetch rates or show rates dialog since Fez handles everything in one step
-      } else {
-        const error = await response.json()
-        setError(error.message)
-        toast.error(error.message || "Failed to create shipping label")
-      }
-    } catch (error) {
-      setError("Failed to create shipping label")
-      console.error("Error creating shipping label:", error)
-      toast.error("Failed to create shipping label")
-    } finally {
-      setIsCreatingLabel(false)
-    }
-  }
-
-  const handleSelectRate = async (rate) => {
-    setSelectedRate(rate)
-  }
-
-  const handleReject = async (e) => {
-    e.preventDefault()
-    
-    try {
-      setIsRejecting(true)
-      const formData = new FormData()
-      formData.append("reason", rejectReason)
-      formData.append("description", rejectDescription)
-      
-      // Append each file to the formData
-      rejectEvidence.forEach(file => {
-        formData.append("evidence", file)
-      })
-
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/reject`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${sellerToken}`,
-        },
-        body: formData
-      })
-
-      if (response.ok) {
-        toast.success("Return request rejected successfully")
-        setShowRejectDialog(false)
-        await fetchReturnDetails()
-      } else {
-        const error = await response.json()
-        toast.error(error.message || "Failed to reject return request")
-      }
-    } catch (error) {
-      console.error("Error rejecting return:", error)
-      toast.error("Failed to reject return request")
-    } finally {
-      setIsRejecting(false)
-    }
-  }
-
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files)
-    if (files.length > 5) {
-      toast.error("Maximum 5 files allowed")
-      return
-    }
-    setRejectEvidence(files)
-  }
-
-  const handleRefundRequest = async () => {
-    try {
-      setIsRequestingRefund(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-      const response = await fetch(`${BASE_URL}/returns/${id}/seller/request-refund`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sellerToken}`
-        },
-        body: JSON.stringify({
-          amount: parseFloat(refundRequestAmount),
-          reason: refundRequestReason
-        })
-      })
-
-      if (response.ok) {
-        toast.success("Refund request sent to admin successfully")
-        setShowRefundDialog(false)
-        await fetchReturnDetails()
-      } else {
-        const error = await response.json()
-        toast.error(error.message || "Failed to send refund request")
-      }
-    } catch (error) {
-      console.error("Error requesting refund:", error)
-      toast.error("Failed to send refund request")
-    } finally {
-      setIsRequestingRefund(false)
-    }
-  }
-
-  const renderShippingRatesDialog = () => (
-    <Dialog open={showRatesDialog} onOpenChange={setShowRatesDialog}>
-      <DialogContent className="w-[95vw] max-w-3xl mx-auto">
-        <DialogHeader>
-          <DialogTitle>Return Shipping Created</DialogTitle>
-        </DialogHeader>
-
-        <div className="p-4 text-center">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Return Shipping Created Successfully</h3>
-          <p className="text-muted-foreground mb-4">
-            The return shipping has been created with Fez Delivery. The customer will be notified to prepare the package for pickup.
-          </p>
+  useEffect(() => {
+    const fetchDeliveryEstimate = async () => {
+      try {
+        if (orderData?.addresses?.delivery?.state && orderData?.items?.[0]?.product?.seller?.warehouseDetails?.address?.state) {
+          const response = await fetch(`${BASE_URL}/order/delivery-time-estimate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              delivery_type: 'import',
+              pick_up_state: orderData.items[0].product.seller.warehouseDetails.address.state,
+              drop_off_state: orderData.addresses.delivery.state
+            })
+          });
           
-          {returnData?.returnShipment?.tracking?.number && (
-            <div className="bg-muted p-4 rounded-lg mb-4">
-              <p className="font-medium">Tracking Number:</p>
-              <p className="text-primary">{returnData.returnShipment.tracking.number}</p>
+          const data = await response.json();
+          if (data.status === 'success') {
+            setDeliveryEstimate(data.estimate);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching delivery estimate:', error);
+      }
+    };
+
+    if (orderData) {
+      fetchDeliveryEstimate();
+    }
+  }, [orderData]);
+
+  const arrangePickup = async () => {
+    setArrangePickupLoading(true)
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+      const response = await fetch(`${BASE_URL}/order/${id}/arrange-pickup`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          rate_id: orderData?.shipping?.rate_id,
+          shipment_id: orderData?.shipping?.shipment_id,
+          purchase_insurance: false
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to arrange pickup')
+
+      toast.success('Pickup arranged successfully')
+      // Fetch order details again
+      const fetchOrderDetails = async () => {
+        try {
+          const tokenData = JSON.parse(localStorage.getItem('sellerToken'))
+          const token = tokenData.data
+          const response = await fetch(`${BASE_URL}/order/${id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          const data = await response.json()
+          setOrderData(data)
+          setOrderStatus(data.orderStatus)
+        } catch (error) {
+          console.error('Error fetching order details:', error)
+          toast.error('Failed to refresh order details')
+        }
+      }
+      await fetchOrderDetails()
+    } catch (error) {
+      toast.error('Failed to arrange pickup: ' + error.message)
+    } finally {
+      setArrangePickupLoading(false)
+    }
+  }
+
+  const printDocument = (url, documentType) => {
+    // Open document in new window/tab
+    window.open(url, `_blank${documentType}`);
+  };
+
+  // Add function to get manifest URL
+  const getManifestUrl = async () => {
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/order/${shipping?.tracking?.number}/manifest-url`, {
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+      
+      const data = await response.json();
+      if (data.status === 'Success' && data.data?.url) {
+        window.open(data.data.url, '_blank');
+      } else {
+        toast.error('Failed to get manifest URL');
+      }
+    } catch (error) {
+      console.error('Error getting manifest URL:', error);
+      toast.error('Failed to get manifest URL');
+    }
+  };
+
+  // Add this helper function to check if order is cancellable
+  const isOrderCancellable = (order) => {
+    // Check if order exists and has items
+    if (!order || !order.items) return false;
+    
+    // Check if shipping status is pending
+    const isShippingPending = order.shipping?.tracking?.status === 'pending';
+    
+    // Check if all items are in pending status and none are cancelled
+    const areItemsPending = order.items.every(item => item.status === 'pending');
+    const isAnyCancelled = order.items.some(item => item.status === 'cancelled');
+    
+    // Order can be cancelled if shipping is pending, all items are pending, and none are cancelled
+    return isShippingPending && areItemsPending && !isAnyCancelled;
+  };
+
+  // Update the handleCancelOrder function
+  const handleCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      toast.error('Please provide a reason for cancellation');
+      return;
+    }
+
+    if (!isOrderCancellable(orderData)) {
+      toast.error('This order cannot be cancelled');
+      setCancelDialogOpen(false);
+      return;
+    }
+
+    setCancelLoading(true);
+    try {
+      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const response = await fetch(`${BASE_URL}/order/${id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: cancelReason
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to cancel order');
+      }
+
+      toast.success('Order cancelled successfully');
+      setCancelDialogOpen(false);
+      
+      // Refresh order details
+      const updatedOrder = await fetch(`${BASE_URL}/order/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        }
+      });
+      const refreshedData = await updatedOrder.json();
+      setOrderData(refreshedData);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  if (loading || !orderData) return <Loader />
+
+  const { order, buyer, seller, items, shipping, addresses, timeline } = orderData
+  console.log('orderData', orderData)
+
+  const getStatusColor = (status) => {
+    const colors = {
+      pending: 'bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 text-yellow-700',
+      completed: 'bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 text-green-700',
+      paid: 'bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 text-green-700',
+      failed: 'bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 text-red-700'
+    }
+    return colors[status] || 'bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 text-gray-700'
+  }
+
+  const maskPhoneNumber = (phone) => {
+    if (!phone) return '';
+    const last3Digits = phone.slice(-3);
+    const maskedPart = 'xxx';
+    return `${phone.slice(0, 3)}${maskedPart}${last3Digits}`;
+  };
+
+  const maskEmail = (email) => {
+    if (!email) return '';
+    const [username, domain] = email.split('@');
+    const maskedUsername = `${username.slice(0, 2)}***${username.slice(-2)}`;
+    return `${maskedUsername}@${domain}`;
+  };
+
+  return (
+    <div className="container mx-auto p-4 py-10 space-y-6 min-h-screen">
+      {/* Order Header - More subtle design */}
+      <Card className="border border-gray-100 -sm bg-white overflow-hidden">
+        <div className="bg-gradient-to-r from-green-50/90 to-green-100/90 p-6 text-gray-800">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="bg-white p-2 rounded-full -sm">
+                    <ShoppingBag className="h-5 w-5 text-green-600" />
+                  </div>
+                  <h1 className="text-xl font-inter font-semibold">Order #{order?.order_id}</h1>
+                  <Badge variant="outline" className="bg-blue-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
+                    {order?.channel}
+                  </Badge>
+                  <Badge variant="outline" className={`${orderData?.order?.orderStatus?.isOpen ? 'bg-green-600' : 'bg-gray-600'} capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs`}>
+                    {orderData?.order?.orderStatus?.isOpen ? 'Open' : 'Closed'}
+                  </Badge>
+                  {orderData?.order?.orderStatus?.hasReturn && (
+                    <Badge variant="outline" className="bg-orange-600 capitalize px-3 py-1 rounded-lg text-white border-white/10 text-xs">
+                      Return Requested
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex flex-col md:flex-row md:items-center gap-3 text-gray-700">
+                  <p className="flex items-center gap-2 text-xs">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Placed on {new Date(order?.createdAt).toLocaleDateString()} at {new Date(order?.createdAt).toLocaleTimeString()}
+                  </p>
+                  {order?.paymentInfo?.paidAt && (
+                    <p className="flex items-center gap-2 text-xs">
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Paid on {new Date(order?.paymentInfo?.paidAt).toLocaleDateString()} at {new Date(order?.paymentInfo?.paidAt).toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 bg-blue-600 text-white flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-gray-50"
+                  onClick={getManifestUrl}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-white"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Print Shipping Label
+                </Button>
+                {orderData?.order?.orderStatus?.hasReturn && (
+                  <Button
+                    onClick={() => navigate(`/dashboard/return/${orderData.order.orderStatus.returnRequestId}`)}
+                    size="lg"
+                    className="bg-orange-600 hover:bg-orange-700 capitalize transition-all duration-300 text-white text-sm h-10"
+                  >
+                    <ArrowUpRight className="mr-2 h-3 w-3" />
+                    View Return Request
+                  </Button>
+                )}
+
+                {shipping?.tracking?.status === 'pending' && isOrderCancellable(orderData) && (
+                  <Button
+                    onClick={() => setConfirmCancelDialogOpen(true)}
+                    variant="destructive"
+                    size="lg"
+                    className="bg-red-600 hover:bg-red-700 capitalize transition-all duration-300 text-white text-sm h-10"
+                  >
+                    <XCircle className="mr-2 h-3 w-3" />
+                    Cancel Order
+                  </Button>
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="flex flex-wrap gap-2 mt-1">
+              <Badge className={`${getStatusColor(order?.paymentInfo?.status)} px-3 py-1.5 rounded-md text-xs`}>
+                <CreditCard className="h-3 w-3 mr-1" />
+                Payment: {order?.paymentInfo?.status === 'awaiting_cod' ? 'On Delivery' : order?.paymentInfo?.status}
+              </Badge>
+              <Badge className={`${getStatusColor(shipping?.tracking?.status)} px-3 py-1.5 rounded-md text-xs`}>
+                <Truck className="h-3 w-3 mr-1" />
+                Shipping: {shipping?.tracking?.status?.replace(/_/g, ' ')}
+              </Badge>
+              {order?.dispute?.status !== 'none' && (
+                <Badge variant="destructive" className="text-xs px-3 py-1.5 rounded-md capitalize transition-all duration-300">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Dispute: {order?.dispute?.status || 'none'}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button onClick={() => setShowRatesDialog(false)}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
-  const statusConfig = getStatusConfig(returnData?.status)
-
-  const renderApprovalDialog = () => (
-    <Dialog open={approvalDialog} onOpenChange={setApprovalDialog}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Approve Return Request</DialogTitle>
-        </DialogHeader>
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Refund Amount</label>
-            <Input
-              type="number"
-              value={refundAmount}
-              onChange={(e) => setRefundAmount(e.target.value)}
-              placeholder="Enter refund amount"
-            />
+        <CardContent className="p-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-x divide-y md:divide-y-0 divide-gray-100">
+            <div className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-blue-50">
+                <User className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Buyer</p>
+                <p className="text-sm font-medium">{buyer?.firstName} {buyer?.lastName}</p>
+                <p className="text-xs text-gray-500">{maskEmail(buyer?.email)}</p>
+              </div>
+            </div>
+            <div className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-purple-50">
+                <Building2 className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Seller</p>
+                <p className="text-sm font-medium">{seller?.businessName}</p>
+                <p className="text-xs text-gray-500">{maskEmail(seller?.email)}</p>
+              </div>
+            </div>
+            <div className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-green-50">
+                <DollarSign className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Total Amount</p>
+                <p className="text-sm font-semibold">₦{order?.totalAmount?.toLocaleString()}</p>
+                <p className="text-xs text-gray-500">Payout: ₦{order?.paymentBreakdown?.sellerPayout?.toLocaleString()}</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium">Approval Message</label>
-            <Input
-              value={approvalMessage}
-              onChange={(e) => setApprovalMessage(e.target.value)}
-              placeholder="Enter approval message"
-            />
-          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-1 xl:grid-cols-3 w-full">
+        <div className="xl:col-span-2 space-y-6">
+          {/* Order Items - More subtle design */}
+          <Card className="border border-gray-100 -sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
+                <Box className="h-4 w-4 text-blue-500" />
+                Order Items
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-gray-100">
+                {items?.map((item) => (
+                  <div key={item._id} className="p-4 hover:bg-gray-50 transition-colors duration-150">
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="h-32 w-32 bg-white rounded-md overflow-hidden border border-gray-100 flex-shrink-0">
+                        <img
+                          src={item?.product?.images?.[0]?.url || "/placeholder.svg"}
+                          alt={item?.product?.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-1 flex-col justify-between">
+                        <div className="space-y-2">
+                          <div>
+                            <h3 className="text-sm font-medium line-clamp-2">{item?.product?.name}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs capitalize px-2 py-0.5">
+                                <Box className="h-3 w-3 mr-1" />
+                                {item?.product?.condition || 'New'}
+                              </Badge>
+                              {item?.product?.brand && (
+                                <Badge variant="outline" className="text-xs capitalize px-2 py-0.5">
+                                  <Tag className="h-3 w-3 mr-1" />
+                                  {item?.product?.brand}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-gray-600 line-clamp-2">{item?.product?.description}</p>
+
+                          {/* Product Specifications */}
+                          {item?.specifications && Object.values(item.specifications).some(value => value) && (
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(item.specifications).map(([key, value]) => (
+                                value && (
+                                  <Badge key={key} variant="secondary" className="text-xs capitalize bg-gray-100 text-gray-700 hover:bg-gray-200">
+                                    {key}: {value}
+                                  </Badge>
+                                )
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-end justify-between mt-2">
+                          <div className="space-y-1">
+                            <p className="text-xs text-gray-500">Seller: {item?.seller?.businessName || seller?.businessName}</p>
+                            <p className="text-xs text-gray-500">SKU: {item?.product?.sku || 'N/A'}</p>
+                          </div>
+
+                          <div className="text-right space-y-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">
+                                ₦{item?.price?.toLocaleString()}
+                              </p>
+                              {item?.product?.discount?.isActive && (
+                                <p className="text-xs line-through text-gray-400">
+                                  ₦{(item?.price / (1 - item?.product?.discount?.value / 100))?.toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-600">
+                              Quantity: {item?.quantity}
+                            </p>
+                            <Badge className={`mt-1 ${
+                              item?.status === 'delivered' 
+                                ? 'bg-green-100 text-green-700' 
+                                : item?.status === 'cancelled'
+                                ? 'bg-red-100 text-red-700'
+                                : item?.status === 'processing'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                            } capitalize`}>
+                              {item?.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Timeline - More subtle design */}
+          <Card className="border border-gray-100 -sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center font-inter gap-2 text-sm xl:text-base text-gray-700">
+                <Clock className="h-4 w-4 text-blue-500" />
+                Order Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-6">
+                {/* Always show Order Placed */}
+                <div className="flex gap-3">
+                  <div className="relative">
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center -sm">
+                      <ShoppingBag className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                  </div>
+                  <div className="flex-1 text-sm pb-6">
+                    <p className="font-medium text-gray-800">Order Placed</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                      <Calendar className="h-3 w-3" />
+                      {order?.createdAt ? new Date(order.createdAt).toLocaleString() : ''}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Order #{order?.order_id} was created.</p>
+                  </div>
+                </div>
+
+                {/* Show Order Paid if payment status is 'paid' */}
+                {order?.paymentInfo?.status === 'paid' && (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center -sm">
+                        <CreditCard className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                    </div>
+                    <div className="flex-1 text-sm pb-6">
+                      <p className="font-medium text-gray-800">Payment Confirmed</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {order?.paymentInfo?.paidAt ? new Date(order.paymentInfo.paidAt).toLocaleString() : ''}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Payment of ₦{order?.totalAmount?.toLocaleString()} was received via {order?.paymentInfo?.method}.
+                        {order?.paymentInfo?.transactionId && ` Transaction ID: ${order?.paymentInfo?.transactionId}`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show shipping tracking history if available */}
+                {shipping?.tracking?.history?.length > 0 ? (
+                  shipping?.tracking?.history?.map((event, index) => (
+                    <div key={index} className="flex gap-3">
+                      <div className="relative">
+                        <div className={`w-8 h-8 rounded-full ${
+                          event?.status === 'delivered' 
+                            ? 'bg-green-500' 
+                            : event?.status === 'in_transit'
+                            ? 'bg-blue-500'
+                            : 'bg-yellow-500'
+                        } flex items-center justify-center -sm`}>
+                          {event?.status === 'delivered' ? (
+                            <Check className="w-4 h-4 text-white" />
+                          ) : event?.status === 'in_transit' ? (
+                            <Truck className="w-4 h-4 text-white" />
+                          ) : (
+                            <Package className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                        {index !== shipping.tracking.history.length - 1 && (
+                          <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                        )}
+                      </div>
+                      <div className="flex-1 text-sm pb-6">
+                        <p className="font-medium text-gray-800 capitalize">{event?.status?.replace(/-/g, ' ')}</p>
+                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                          <Calendar className="h-3 w-3" />
+                          {event?.timestamp ? new Date(event.timestamp).toLocaleString() : ''}
+                        </p>
+                        {event?.note && <p className="text-xs text-gray-500 mt-1">{event.note}</p>}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center -sm">
+                        <Package className="w-4 h-4 text-white" />
+                      </div>
+                      {shipping?.estimatedDeliveryDate && (
+                        <div className="absolute top-8 bottom-0 left-1/2 w-0.5 -ml-[1px] bg-gray-200 h-full"></div>
+                      )}
+                    </div>
+                    <div className="flex-1 text-sm pb-6">
+                      <p className="font-medium text-gray-800">Awaiting Shipment</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {shipping?.tracking?.status === 'pending' 
+                          ? 'Order is awaiting pickup arrangement.' 
+                          : 'Order is being prepared for shipment.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expected Delivery if available */}
+                {shipping?.estimatedDeliveryDate && (
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center -sm">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 text-sm">
+                      <p className="font-medium text-gray-800">Expected Delivery</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(shipping.estimatedDeliveryDate).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Estimated delivery date via {shipping?.carrier?.name || "Standard Shipping"}.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Price Breakdown */}
+          <Card className="border border-gray-100 -sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
+                <DollarSign className="h-4 w-4 text-blue-500" />
+                Payment Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-gray-100">
+                {/* Order Summary */}
+                <div className="p-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Order Summary</h3>
+                  
+                  {/* Order Items Breakdown */}
+                  <div className="space-y-2">
+                    {order?.paymentBreakdown?.items?.map((item, index) => (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span className="text-gray-600 truncate pr-4">{item.productName}</span>
+                        <span className="font-medium">₦{item.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+
+                    {/* Delivery Fee (if exists) */}
+                    {shipping?.fee?.amount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Delivery Fee</span>
+                        <span className="text-gray-600">₦{shipping.fee.amount.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Platform Fees */}
+                <div className="p-4 bg-gray-50">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Fees & Deductions</h3>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
+                          <path d="M3 3v18h18"/>
+                          <path d="M18 9l-6-6-6 6"/>
+                          <path d="M6 10l6-6 6 6"/>
+                        </svg>
+                        <span>Platform Fee ({order?.paymentBreakdown?.items?.[0]?.platformFeePercentage}%)</span>
+                      </div>
+                      <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalPlatformFee?.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="flex justify-between text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                        <span>VAT (7.5% of commission)</span>
+                      </div>
+                      <span className="text-red-600">
+                        -₦{(order?.paymentBreakdown?.fees?.totalPlatformFee * 0.075)?.toLocaleString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
+                          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                          <line x1="1" y1="10" x2="23" y2="10"></line>
+                        </svg>
+                        <span>Payment Processing ({order?.paymentBreakdown?.fees?.processingFeePercentage}%)</span>
+                      </div>
+                      <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.processingFee?.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total Calculations */}
+                <div className="p-4">
+                  <div className="space-y-3">
+                    {/* Total Deductions */}
+                    <div className="flex justify-between text-sm font-medium">
+                      <span className="text-gray-700">Total Deductions</span>
+                      <span className="text-red-600">-₦{order?.paymentBreakdown?.fees?.totalDeductions?.toLocaleString()}</span>
+                    </div>
+
+                    {/* Seller Payout */}
+                    <div className="flex justify-between text-base font-inter font-semibold bg-green-50 p-3 rounded-md">
+                      <span>Your Payout</span>
+                      <span className="text-green-700">₦{order?.paymentBreakdown?.sellerPayout?.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Method Info */}
+                <div className="p-4 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded-full ${
+                      order?.paymentInfo?.status === 'paid' 
+                        ? 'bg-green-100' 
+                        : order?.paymentInfo?.status === 'failed'
+                        ? 'bg-red-100' 
+                        : 'bg-yellow-100'
+                    }`}>
+                      <CreditCard className={`h-4 w-4 ${
+                        order?.paymentInfo?.status === 'paid' 
+                          ? 'text-green-600' 
+                          : order?.paymentInfo?.status === 'failed'
+                          ? 'text-red-600' 
+                          : 'text-yellow-600'
+                      }`} />
+                    </div>
+                    <div>
+                      <Badge className={getStatusColor(order?.paymentInfo?.status)}>
+                        {order?.paymentInfo?.status === 'awaiting_cod' ? 'Payment on Delivery' : order?.paymentInfo?.status}
+                      </Badge>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {order?.paymentInfo?.method ? `via ${order?.paymentInfo?.method}` : ''}
+                        {order?.paymentInfo?.transactionId ? ` • Ref: ${order?.paymentInfo?.transactionId}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {order?.paymentInfo?.paidAt && (
+                    <div className="text-xs flex items-center gap-1 text-gray-500">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {new Date(order.paymentInfo.paidAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setApprovalDialog(false)}
-            disabled={isProcessing}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => handleReturnAction('approve')}
-            disabled={isProcessing}
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Approve Return
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
+        {/* Sidebar */}
+        <div className="space-y-6 w-full">
+          {/* Addresses */}
+          <Card className="border w-full border-gray-100 -sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center gap-2 font-inter text-sm text-gray-700">
+                <MapPin className="h-4 w-4 text-blue-500" />
+                Delivery & Pickup Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-6">
+              {/* Delivery Address */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <h3 className="font-inter font-semibold mb-3 flex items-center gap-2 text-gray-800">
+                  <MapPin className="h-4 w-4 text-green-600" />
+                  Delivery Address
+                </h3>
+                <div className="text-sm space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-gray-400" />
+                    <p className="font-medium text-gray-800">
+                      {addresses?.delivery?.first_name} {addresses?.delivery?.last_name}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <p className="text-gray-700">{maskPhoneNumber(addresses?.delivery?.phone)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-gray-400" />
+                    <p className="text-gray-700">{maskEmail(addresses?.delivery?.email)}</p>
+                  </div>
+                  <div className="pl-6 text-gray-700 space-y-1 mt-2">
+                    <p>{addresses?.delivery?.line1}</p>
+                    {addresses?.delivery?.line2 && <p>{addresses?.delivery?.line2}</p>}
+                    <p>
+                      {addresses?.delivery?.city && `${addresses?.delivery?.city}, `}
+                      {addresses?.delivery?.state} {addresses?.delivery?.zip}
+                    </p>
+                    <p>{addresses?.delivery?.country === 'NG' ? 'Nigeria' : addresses?.delivery?.country}</p>
+                  </div>
+                </div>
+              </div>
 
-  const renderRejectDialog = () => (
-    <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-      <DialogContent className="w-[95vw] max-w-md mx-auto">
-        <DialogHeader>
-          <DialogTitle>Reject Return Request</DialogTitle>
-        </DialogHeader>
+              {/* Pickup Address */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <h3 className="font-inter font-semibold mb-3 flex items-center gap-2 text-gray-800">
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                  Warehouse/Pickup Location
+                </h3>
+                <div className="text-sm space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Box className="h-4 w-4 text-gray-400" />
+                    <p className="font-medium text-gray-800">
+                      {items[0]?.product?.seller?.warehouseDetails?.name || "Main Warehouse"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <p className="text-gray-700">{maskPhoneNumber(items[0]?.product?.seller?.warehouseDetails?.contactNumber)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-gray-400" />
+                    <p className="text-gray-700">{items[0]?.product?.seller?.businessName}</p>
+                  </div>
+                  <div className="pl-6 text-gray-700 space-y-1 mt-2">
+                    <p>{items[0]?.product?.seller?.warehouseDetails?.address?.addressLine1}</p>
+                    {items[0]?.product?.seller?.warehouseDetails?.address?.addressLine2 && (
+                      <p>{items[0]?.product?.seller?.warehouseDetails?.address?.addressLine2}</p>
+                    )}
+                    <p>
+                      {items[0]?.product?.seller?.warehouseDetails?.address?.city}, 
+                      {items[0]?.product?.seller?.warehouseDetails?.address?.state} 
+                      {items[0]?.product?.seller?.warehouseDetails?.address?.zipCode && 
+                        ` ${items[0]?.product?.seller?.warehouseDetails?.address?.zipCode}`}
+                    </p>
+                    <p>{items[0]?.product?.seller?.warehouseDetails?.address?.country}</p>
+                  </div>
+                </div>
+              </div>
 
-        <form onSubmit={handleReject} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason for Rejection</Label>
-            <Input
-              id="reason"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Enter reason for rejection"
-              required
-            />
-          </div>
+              {/* Shipping Method Summary */}
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <Truck className="h-4 w-4 text-blue-500" />
+                  <p>Shipping via {shipping?.carrier?.name || "Standard Shipping"}</p>
+                </div>
+                {order?.paymentInfo?.status === 'paid' && (
+                  <div className="flex items-center gap-2 text-sm mt-2 text-gray-700">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <p>Payment confirmed on {new Date(order?.paymentInfo?.paidAt).toLocaleDateString()}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Detailed Description</Label>
-            <Textarea
-              id="description"
-              value={rejectDescription}
-              onChange={(e) => setRejectDescription(e.target.value)}
-              placeholder="Provide detailed explanation"
-              required
-              rows={4}
-            />
-          </div>
+          {/* Shipping Status */}
+          <Card className="border border-gray-100 -sm bg-white">
+            <CardHeader className="border-b border-gray-100 p-4">
+              <CardTitle className="flex items-center font-inter gap-2 text-sm text-gray-700">
+                <Truck className="h-4 w-4 text-blue-500" />
+                Shipping Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-6">
+              {/* Shipping Status Banner */}
+              <div className={`p-4 rounded-lg flex items-center gap-3 ${
+                shipping?.tracking?.status === 'delivered' 
+                  ? 'bg-green-50 border border-green-100' 
+                  : shipping?.tracking?.status === 'in_transit'
+                  ? 'bg-blue-50 border border-blue-100'
+                  : 'bg-yellow-50 border border-yellow-100'
+              }`}>
+                <div className={`p-2 rounded-full ${
+                  shipping?.tracking?.status === 'delivered' 
+                    ? 'bg-green-100' 
+                    : shipping?.tracking?.status === 'in_transit'
+                    ? 'bg-blue-100'
+                    : 'bg-yellow-100'
+                }`}>
+                  {shipping?.tracking?.status === 'delivered' ? (
+                    <Check className={`h-5 w-5 text-green-600`} />
+                  ) : shipping?.tracking?.status === 'in_transit' ? (
+                    <Truck className={`h-5 w-5 text-blue-600`} />
+                  ) : (
+                    <Clock className={`h-5 w-5 text-yellow-600`} />
+                  )}
+                </div>
+                <div>
+                  <p className={`font-medium capitalize ${
+                    shipping?.tracking?.status === 'delivered' 
+                      ? 'text-green-700' 
+                      : shipping?.tracking?.status === 'in_transit'
+                      ? 'text-blue-700'
+                      : 'text-yellow-700'
+                  }`}>
+                    {shipping?.tracking?.status?.replace(/_/g, ' ')}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Last updated: {shipping?.tracking?.history?.length > 0 
+                      ? new Date(shipping.tracking.history[shipping.tracking.history.length - 1].timestamp).toLocaleString() 
+                      : new Date().toLocaleString()}
+                  </p>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="evidence">Evidence (Max 5 files)</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="evidence"
-                type="file"
-                onChange={handleFileChange}
-                multiple
-                accept="image/*"
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => document.getElementById("evidence").click()}
-                className="w-full"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Files
-              </Button>
+              {/* Add discount information if available */}
+              {items[0]?.product?.discount?.isActive && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                  <h4 className="font-medium text-green-800 flex items-center gap-2 mb-2">
+                    <Tag className="h-4 w-4" />
+                    Applied Discount
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <p className="text-green-700">
+                      {items[0].product.discount.couponName && (
+                        <span className="font-medium">Coupon: {items[0].product.discount.couponName}</span>
+                      )}
+                    </p>
+                    <p className="text-green-700">
+                      Discount: {items[0].product.discount.value}% off
+                    </p>
+                    <p className="text-green-700 font-medium">
+                      Discounted Price: ₦{items[0].price.toLocaleString()}
+                    </p>
+                    {items[0].product.discount.startDate && (
+                      <p className="text-green-700">
+                        Valid from: {new Date(items[0].product.discount.startDate).toLocaleDateString()}
+                      </p>
+                    )}
+                    {items[0].product.discount.endDate && (
+                      <p className="text-green-700">
+                        Valid until: {new Date(items[0].product.discount.endDate).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Shipping Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Carrier Information</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Truck className="h-4 w-4 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-500">Carrier</p>
+                        <p className="text-sm font-medium">{shipping?.carrier?.name || "Standard Shipping"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Tag className="h-4 w-4 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-500">Carrier Reference</p>
+                        <p className="text-sm font-medium">{shipping?.carrier?.reference || "N/A"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Box className="h-4 w-4 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-500">Shipment ID</p>
+                        <p className="text-sm font-medium">{shipping?.shipment_id || "N/A"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Tracking Details</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Package className="h-4 w-4 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-500">Tracking Number</p>
+                        <p className="text-sm font-medium">{shipping?.tracking?.number || "Not available yet"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-500">Estimated Delivery</p>
+                        <p className="text-sm font-medium">
+                          {deliveryEstimate ? 
+                            `${deliveryEstimate}` : 
+                            shipping?.estimatedDeliveryDate ? 
+                              new Date(shipping.estimatedDeliveryDate).toLocaleDateString() : 
+                              'Not available yet'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <DollarSign className="h-4 w-4 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-500">Shipping Fee</p>
+                        <p className="text-sm font-medium">
+                          ₦{shipping?.fee?.amount?.toLocaleString() || "0"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Shipping Documents */}
+              {(shipping?.documents?.shippingLabel || shipping?.documents?.commercialInvoice) && (
+                <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                  <h4 className="font-medium flex items-center gap-2 text-gray-800">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-blue-500"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Shipping Documents
+                  </h4>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    {shipping.documents.shippingLabel && (
+                      <Button
+                        className="flex-1 flex items-center font-inter bg-gray-800 hover:bg-gray-900 transition-all duration-300 justify-center gap-2"
+                        onClick={() => printDocument(shipping.documents.shippingLabel, 'ShippingLabel')}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                          <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        Track Shipment
+                      </Button>
+                    )}
+                    {shipping.documents.commercialInvoice && (
+                      <Button
+                        variant="outline"
+                        className="flex-1 flex items-center font-inter justify-center gap-2 border-gray-200 hover:bg-gray-50"
+                        onClick={() => printDocument(shipping.documents.commercialInvoice, 'CommercialInvoice')}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-gray-600"
+                        >
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                          <polyline points="14 2 14 8 20 8"></polyline>
+                          <line x1="16" y1="13" x2="8" y2="13"></line>
+                          <line x1="16" y1="17" x2="8" y2="17"></line>
+                          <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Print Shipping Label
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Add Confirm Cancel Dialog */}
+      <Dialog open={confirmCancelDialogOpen} onOpenChange={setConfirmCancelDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Order Cancellation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this order? 
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 space-y-3 text-sm">
+            <div className="p-3 bg-amber-50 border border-amber-100 rounded-md text-amber-800">
+              <p className="font-medium mb-1">Cancelling this order will:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Stop the order from being processed further</li>
+                <li>Return funds to the customer if already paid</li>
+                <li>Make inventory available for other customers</li>
+                <li>Potentially affect your seller metrics and ratings</li>
+              </ul>
             </div>
-            {rejectEvidence.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {rejectEvidence.length} file(s) selected
-              </p>
-            )}
+            <p>This action cannot be undone once you provide a reason and confirm.</p>
           </div>
-
-          <DialogFooter>
+          <div className="flex justify-end gap-3 mt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowRejectDialog(false)}
-              disabled={isRejecting}
+              onClick={() => setConfirmCancelDialogOpen(false)}
+              className="border-gray-200"
+            >
+              Go Back
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setConfirmCancelDialogOpen(false);
+                setCancelDialogOpen(true);
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Continue to Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Cancel Order Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for cancelling this order. This will be communicated to the buyer.
+              {!isOrderCancellable(orderData) && (
+                <div className="mt-2 text-red-500">
+                  This order cannot be cancelled because it has already been processed or cancelled.
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="reason" className="text-sm font-medium text-gray-700">
+                Cancellation Reason
+              </label>
+              <textarea
+                id="reason"
+                className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Please explain why you're cancelling this order..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                disabled={!isOrderCancellable(orderData)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              className="border-gray-200"
             >
               Cancel
             </Button>
             <Button
-              type="submit"
-              disabled={isRejecting || !rejectReason || !rejectDescription || !rejectEvidence.length}
+              type="button"
+              disabled={cancelLoading || !isOrderCancellable(orderData)}
+              onClick={handleCancelOrder}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {isRejecting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Rejecting...
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="mr-2 h-4 w-4" />
-                  Reject Return
-                </>
-              )}
+              {cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-
-  const renderRefundRequestDialog = () => (
-    <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
-      <DialogContent className="w-[95vw] max-w-md mx-auto">
-        <DialogHeader>
-          <DialogTitle>Request Refund</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="refundAmount">Refund Amount</Label>
-            <Input
-              id="refundAmount"
-              type="number"
-              value={refundRequestAmount}
-              onChange={(e) => setRefundRequestAmount(e.target.value)}
-              placeholder="Enter refund amount"
-              required
-            />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="refundReason">Reason for Refund</Label>
-            <Textarea
-              id="refundReason"
-              value={refundRequestReason}
-              onChange={(e) => setRefundRequestReason(e.target.value)}
-              placeholder="Explain why you're requesting this refund"
-              required
-              rows={4}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setShowRefundDialog(false)}
-            disabled={isRequestingRefund}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleRefundRequest}
-            disabled={isRequestingRefund || !refundRequestAmount || !refundRequestReason}
-            className="bg-primary hover:bg-primary/90"
-          >
-            {isRequestingRefund ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Requesting...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Request Refund
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
-  const renderActionButtons = () => (
-    <div className="flex flex-col md:flex-row gap-2 md:gap-4 w-full">
-      <Button
-        variant="destructive"
-        onClick={() => setShowRejectDialog(true)}
-        disabled={returnData?.status !== "PENDING_SELLER_REVIEW"}
-        className="w-full md:w-auto"
-      >
-        <AlertTriangle className="mr-2 h-4 w-4" />
-        Decline/Escalate
-      </Button>
-      <Button
-        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white"
-        onClick={() => setApprovalDialog(true)}
-        disabled={returnData?.status !== "PENDING_SELLER_REVIEW" || isProcessing}
-      >
-        <CheckCircle className="mr-2 h-4 w-4" />
-        Accept Request
-      </Button>
-    </div>
-  )
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading return details...</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Fixed bottom action bar for mobile */}
-      {returnData?.status === "PENDING_SELLER_REVIEW" && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50">
-          {renderActionButtons()}
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="container mx-auto py-6 px-4 space-y-6">
-        {/* Return Header Card */}
-        <Card className="p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">Return #{id.slice(-6)}</h1>
-                <Badge variant="outline" className={`px-3 py-1 ${statusConfig.color}`}>
-                  {statusConfig.icon}
-                  <span className="ml-2">{statusConfig.label}</span>
-                </Badge>
-              </div>
-              <p className="text-muted-foreground">
-                Requested on {new Date(returnData?.requestDate).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </p>
-            </div>
-            <div className="hidden lg:block">
-              {returnData?.status === "PENDING_SELLER_REVIEW" && renderActionButtons()}
-              
-              {/* Button to create shipping label */}
-              {returnData?.status === "APPROVED" && 
-                (!returnData?.returnShipment?.shipment_id) && (
-                <Button
-                  className="bg-black text-white"
-                  onClick={handleCreateShippingLabel}
-                  disabled={isCreatingLabel}
-                >
-                  {isCreatingLabel ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating Return Shipment...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Return Shipment
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Product and Timeline */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Product Details */}
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Return Details</h2>
-                <Button variant="outline" size="sm">
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Order
-                </Button>
-              </div>
-              <div className="p-6">
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                    <img
-                      src={returnData?.items[0]?.product?.images[0]?.url}
-                      alt={returnData?.items[0]?.product?.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium">{returnData?.items[0]?.product?.name}</h3>
-                      <p className="text-muted-foreground">Order #{returnData?.order?.order_id}</p>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Return Reason:</span>
-                        <p className="font-medium">{returnData?.items[0]?.reason}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Quantity:</span>
-                        <p className="font-medium">{returnData?.items[0]?.quantity}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Unit Price:</span>
-                        <p className="font-medium text-green-600">
-                          ₦{returnData?.items[0]?.product?.price?.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Preferred Resolution:</span>
-                        <p className="font-medium capitalize">{returnData?.preferredResolution}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {returnData?.description && (
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Customer's Note:</span> {returnData.description}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Return Evidence */}
-            {returnData?.evidence?.length > 0 && (
-              <Card>
-                <div className="p-6 border-b">
-                  <h2 className="text-xl font-semibold">Return Evidence</h2>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
-                    {returnData.evidence.map((file, index) => (
-                      <a
-                        key={file._id}
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
-                      >
-                        <img
-                          src={file.url}
-                          alt={`Evidence ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Eye className="w-6 h-6 text-white" />
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Return Shipment Details */}
-            {returnData?.returnShipment && (
-              <Card>
-                <div className="p-6 border-b">
-                  <h2 className="text-xl font-semibold">Return Shipment</h2>
-                </div>
-                <div className="p-6 space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-muted-foreground text-sm">Carrier</span>
-                      <p className="font-medium">{returnData?.returnShipment?.carrier?.name || 'Fez Delivery'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-sm">Status</span>
-                      <div>
-                        <Badge variant={
-                          returnData.returnShipment.tracking?.status === "delivered" ? "success" : "default"
-                        }>
-                          {returnData.returnShipment.tracking?.status?.toUpperCase() || 'PENDING'}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-sm">Shipping Fee</span>
-                      <p className="font-medium">
-                        {returnData?.returnShipment?.fee?.currency || 'NGN'} {returnData?.returnShipment?.fee?.amount?.toLocaleString() || '0'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-sm">Tracking Number</span>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{returnData?.returnShipment?.shipment_id || returnData?.returnShipment?.tracking?.number || 'N/A'}</p>
-                        {returnData?.returnShipment?.tracking?.url && (
-                          <a 
-                            href={returnData.returnShipment.tracking.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline text-sm flex items-center"
-                          >
-                            <Eye className="w-3 h-3 mr-1" /> Track
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {returnData.returnShipment.tracking?.history?.length > 0 && (
-                    <div className="mt-6 pt-4 border-t">
-                      <h4 className="text-sm font-semibold mb-3">Tracking History</h4>
-                      <div className="space-y-3">
-                        {returnData.returnShipment.tracking.history.map((event, index) => (
-                          <div key={index} className="bg-muted p-3 rounded-lg">
-                            <div className="flex flex-wrap justify-between gap-2">
-                              <span className="text-sm font-medium">
-                                {event.status}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(event.timestamp).toLocaleString()}
-                              </span>
-                            </div>
-                            <p className="text-sm mt-1">{event.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )}
-
-            {/* Dispute Information */}
-            {returnData?.dispute && returnData.dispute.status !== "none" && (
-              <Card className="border border-orange-200">
-                <div className="p-6 border-b border-orange-200">
-                  <h2 className="text-xl font-semibold flex items-center">
-                    <Scale className="mr-2 h-5 w-5 text-orange-500" />
-                    Dispute Information
-                  </h2>
-                </div>
-                <div className="p-6 space-y-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Status</span>
-                    <Badge variant={
-                      returnData.dispute.status === "PENDING" ? "warning" :
-                      returnData.dispute.status === "RESOLVED" ? "success" :
-                      "default"
-                    }>
-                      {returnData.dispute.status}
-                    </Badge>
-                  </div>
-
-                  {returnData.dispute.resolutionDetails?.evidence?.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Resolution Evidence</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {returnData.dispute.resolutionDetails.evidence.map((evidence, index) => (
-                          <a 
-                            key={index}
-                            href={evidence.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:bg-muted/80 transition-colors"
-                          >
-                            <img 
-                              src={evidence.url} 
-                              alt={`Resolution evidence ${index + 1}`}
-                              className="object-cover w-full h-full"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Eye className="w-5 h-5 text-white" />
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {returnData.dispute.adminNotes?.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Admin Notes</h4>
-                      <div className="space-y-2">
-                        {returnData.dispute.adminNotes.map((note, index) => (
-                          <div key={index} className="p-3 bg-muted rounded-lg">
-                            <p className="text-sm">{note}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )}
-          </div>
-
-          {/* Right Column - Customer, Shipping, etc. */}
-          <div className="space-y-6">
-            {/* Customer Details */}
-            <Card>
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold">Customer Details</h2>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <h3 className="font-medium">
-                    {returnData?.order?.delivery_address?.first_name} {returnData?.order?.delivery_address?.last_name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {returnData?.order?.delivery_address?.email}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span>{returnData?.order?.delivery_address?.phone}</span>
-                </div>
-                <div className="pt-4 border-t">
-                  <h4 className="text-sm font-medium mb-2">Shipping Address</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {returnData?.order?.delivery_address?.line1}<br />
-                    {returnData?.order?.delivery_address?.line2 && `${returnData?.order?.delivery_address?.line2},`}<br />
-                    {returnData?.order?.delivery_address?.city}, {returnData?.order?.delivery_address?.state}<br />
-                    {returnData?.order?.delivery_address?.zip}<br />
-                    {returnData?.order?.delivery_address?.country}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Rejection Details */}
-            {returnData?.rejectionDetails && Object.keys(returnData.rejectionDetails).length > 0 && (
-              <Card className="border-red-200">
-                <div className="p-6 border-b border-red-200">
-                  <h2 className="text-xl font-semibold text-red-700 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5" />
-                    Rejection Details
-                  </h2>
-                </div>
-                <div className="p-6 space-y-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Reason</h3>
-                    <p className="mt-1">{returnData.rejectionDetails.reason}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-                    <p className="mt-1">{returnData.rejectionDetails.description}</p>
-                  </div>
-                  {returnData.rejectionDetails.evidence?.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Evidence</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        {returnData.rejectionDetails.evidence.map((file, index) => (
-                          <a
-                            key={file._id}
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="relative aspect-square rounded-lg overflow-hidden bg-gray-100"
-                          >
-                            <img
-                              src={file.url}
-                              alt={`Rejection Evidence ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-sm text-muted-foreground pt-4 border-t">
-                    Rejected on {new Date(returnData.rejectionDetails.rejectedAt).toLocaleString()}
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Timeline */}
-            <Card>
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold">Return Timeline</h2>
-              </div>
-              <div className="p-6">
-                <div className="space-y-6">
-                  {returnData?.timeline?.map((event, index) => (
-                    <div key={index} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-3 h-3 rounded-full ring-4 ${
-                          getStatusConfig(event.status).color.replace('bg-', 'ring-')
-                        }`} />
-                        {index !== returnData.timeline.length - 1 && (
-                          <div className="w-0.5 h-full bg-gray-200 mt-3" />
-                        )}
-                      </div>
-                      <div className="-mt-1.5 flex-1">
-                        <p className="font-medium text-gray-900">
-                          {getStatusConfig(event.status).label}
-                        </p>
-                        {event.note && (
-                          <p className="text-sm text-gray-600 mt-1">{event.note}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                          <Clock className="w-3 h-3" />
-                          {new Date(event.date).toLocaleString()}
-                          <span>•</span>
-                          <span className="capitalize">by {event.updatedBy}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card>
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold">Quick Actions</h2>
-              </div>
-              <div className="p-6 space-y-3">
-                <Button variant="outline" className="w-full justify-start">
-                  <Printer className="mr-2 h-4 w-4" />
-                  Print Return Details
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Contact Customer
-                </Button>
-                {returnData?.status === "PENDING_SELLER_REVIEW" && 
-                 returnData?.preferredResolution?.toUpperCase() === "REFUND" && (
-                  <Button
-                    className="w-full justify-start bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => setShowRefundDialog(true)}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Request Refund
-                  </Button>
-                )}
-                {returnData?.status === "APPROVED" && 
-                  (!returnData?.returnShipment?.shipment_id) && (
-                  <Button 
-                    className="w-full justify-start bg-black text-white hover:bg-black/80"
-                    onClick={handleCreateShippingLabel}
-                    disabled={isCreatingLabel}
-                  >
-                    {isCreatingLabel ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Return Shipment
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <Button
-            variant="outline"
-            className="text-muted-foreground"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Returns
-          </Button>
-        </div>
-      </div>
-
-      {/* Render dialogs */}
-      {renderShippingRatesDialog()}
-      {renderRejectDialog()}
-      {renderApprovalDialog()}
-      {renderRefundRequestDialog()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

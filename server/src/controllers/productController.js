@@ -6297,7 +6297,7 @@ exports.getPersonalizedBlips = async (req, res) => {
     await Product.populate(products, [
       {
         path: 'seller',
-        select: 'firstName lastName storeName storeAvatar aboutStore storeRating totalStoreReviews isFeatured followers'
+        select: 'firstName lastName storeName storeAvatar aboutStore stats isFeatured followers'
       }
     ]);
 
@@ -6308,6 +6308,10 @@ exports.getPersonalizedBlips = async (req, res) => {
         product.seller.followers.some(follower => 
           follower.buyerId && follower.buyerId.toString() === buyerId.toString()
         ) : false;
+        
+      // Check if the buyer has liked this blip
+      const isLiked = isAuthenticated && product.blip.likes ? 
+        product.blip.likes.some(like => like.toString() === buyerId) : false;
 
       return {
         discount: {
@@ -6341,7 +6345,8 @@ exports.getPersonalizedBlips = async (req, res) => {
         blipEngagement: {
           likesCount: product.blip.likesCount || 0,
           commentsCount: product.blip.commentsCount || 0,
-          viewCount: product.blip.viewCount || 0
+          viewCount: product.blip.viewCount || 0,
+          isLiked: isLiked
         },
         averageRating: product.reviews?.length > 0 
           ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length 
@@ -6355,8 +6360,8 @@ exports.getPersonalizedBlips = async (req, res) => {
           storeName: product.seller.storeName,
           storeAvatar: product.seller.storeAvatar,
           aboutStore: product.seller.aboutStore,
-          storeRating: product.seller.storeRating,
-          totalStoreReviews: product.seller.totalStoreReviews,
+          storeRating: product.seller.stats ? product.seller.stats.averageRating : 0,
+          totalStoreReviews: product.seller.stats ? product.seller.stats.totalReviews : 0,
           isFollowing: isFollowing,
           isFeatured: product.seller.isFeatured
         }

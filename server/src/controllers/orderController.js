@@ -478,6 +478,7 @@ exports.createOrder = async (req, res) => {
         order_id: uniqueOrderId,
         buyer: buyerId,
         seller: sellerId,
+        channel: req.body.channel || 'marketplace',
         items: sellerItemsList,
         totalAmount: sellerTotal,
         delivery_address: {
@@ -4155,6 +4156,15 @@ exports.getManifestUrl = async (req, res) => {
     const authToken = await getFezAuthToken();
     console.log('Using fresh token for manifest URL request:', authToken.substring(0, 10) + '...');
     
+    // Log request details
+    console.log('Making request to Fez API:', {
+      url: `${FEZ_API_URL}/orders/${orderNo}/manifest-url`,
+      headers: {
+        'Authorization': `Bearer ${authToken.substring(0, 10)}...`,
+        'secret-key': `${process.env.FEZ_SECRET_KEY?.substring(0, 10)}...` || 'default_key'
+      }
+    });
+
     // Get manifest URL from Fez Delivery
     const manifestResponse = await axios.get(`${FEZ_API_URL}/orders/${orderNo}/manifest-url`, {
       headers: {
@@ -4163,36 +4173,64 @@ exports.getManifestUrl = async (req, res) => {
       }
     });
     
+    // Log full response from Fez
+    console.log('📥 Full Fez API Response:', {
+      status: manifestResponse.status,
+      statusText: manifestResponse.statusText,
+      headers: manifestResponse.headers,
+      data: JSON.stringify(manifestResponse.data, null, 2)
+    });
+
     if (manifestResponse.data && manifestResponse.data.status === 'Success') {
-      console.log('Fez manifest URL request successful:', manifestResponse.data.description);
+      console.log('✅ Fez manifest URL request successful:', {
+        status: manifestResponse.data.status,
+        description: manifestResponse.data.description,
+        data: manifestResponse.data.data
+      });
       
-      // Return the manifest URL
+      // Return the exact Fez response format
       return res.json({
-        status: 'success',
-        manifestUrl: manifestResponse.data.manifestUrl,
-        description: manifestResponse.data.description
+        status: manifestResponse.data.status,
+        description: manifestResponse.data.description,
+        data: {
+          url: manifestResponse.data.data.url // Return exactly what Fez returns
+        }
       });
     } else {
-      console.log('Fez manifest URL request failed:', manifestResponse.data);
+      console.log('❌ Fez manifest URL request failed:', {
+        response: manifestResponse.data,
+        orderNo
+      });
       return res.status(400).json({ 
-        message: 'Failed to get manifest URL',
-        details: manifestResponse.data
+        status: 'Error',
+        description: manifestResponse.data.description || 'Failed to get manifest URL',
+        data: {} // Return empty data object on error to match Fez format
       });
     }
   } catch (error) {
-    console.error('Error getting manifest URL from Fez:', error.message);
+    console.error('❌ Error getting manifest URL from Fez:', {
+      message: error.message,
+      orderNo: req.params.orderNo
+    });
     
     if (error.response) {
-      console.error('Fez API error response:', error.response.data);
+      console.error('Fez API error details:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        headers: error.response.headers,
+        data: JSON.stringify(error.response.data, null, 2)
+      });
       return res.status(error.response.status).json({
-        message: 'Error getting manifest URL',
-        details: error.response.data
+        status: 'Error',
+        description: error.response.data.description || 'Error getting manifest URL',
+        data: {} // Return empty data object on error to match Fez format
       });
     }
     
     return res.status(500).json({ 
-      message: 'Error getting manifest URL',
-      error: error.message
+      status: 'Error',
+      description: 'Error getting manifest URL',
+      data: {} // Return empty data object on error to match Fez format
     });
   }
 };
