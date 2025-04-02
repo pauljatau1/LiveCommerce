@@ -38,6 +38,7 @@ import { VariantsProvider } from './Contexts/VariantContext';
 import Payout from './Pages/payout/Payout';
 import Messages from './Pages/messages/messages';
 import { SocketProvider } from './Contexts/SocketContext';
+import { LivestreamSocketProvider } from './Contexts/LivestreamSocketContext';
 import AuqliConnect from './Pages/AuqliConnect/AuqliConnect';
 import EditProduct from './Pages/ProductsPage/EditProduct';
 import LiveStream from './Pages/LiveStream/LiveStream';
@@ -79,11 +80,13 @@ const router = createBrowserRouter([
       <AuthProvider>
         <ProtectedRoute>
           <SocketProvider>
-            <OnboardingProvider>
-              <TooltipProvider>
-                <AppLayout />
-              </TooltipProvider>
-            </OnboardingProvider>
+            <LivestreamSocketProvider>
+              <OnboardingProvider>
+                <TooltipProvider>
+                  <AppLayout />
+                </TooltipProvider>
+              </OnboardingProvider>
+            </LivestreamSocketProvider>
           </SocketProvider>
         </ProtectedRoute>
       </AuthProvider>

@@ -15,6 +15,7 @@ import { MdClose } from 'react-icons/md';
 import { BASE_URL } from '../../Constants/Server';
 import { io } from 'socket.io-client';
 import { useSocket } from '../../Contexts/SocketContext';
+import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
 import PreStreamDesktopUi from '../../Components/preStreamDesktopUi/preStreamDesktopUi';
 import PreStreamMobileUi from '../../Components/preStreamDesktopUi/preStreamMobileUi';
 import StreamDesktopUi from '../../Components/streamDesktopUi/streamDesktopUi';
@@ -62,6 +63,9 @@ const LivestreamStudio = () => {
 
     // Keep the ref for component-level tracking
     const reconnectionInProgress = useRef(false);
+
+    // Add the livstreamSocket context
+    const livestreamSocket = useLivestreamSocket();
 
     useEffect(() => {
         setHideSidebar(true);
@@ -1096,6 +1100,15 @@ const LivestreamStudio = () => {
             reconnectionInProgress.current = false;
         };
     }, []);
+
+    // Example of how to send a comment
+    const sendComment = (content) => {
+        if (liveStreamDetails && liveStreamDetails._id) {
+            livestreamSocket.sendStreamComment(liveStreamDetails._id, content);
+        } else {
+            console.error('Cannot send comment: livestream ID not available');
+        }
+    };
 
     return (
         <div className="min-h-screen p-4 lg:p-6 bg-[#000000] text-white">
