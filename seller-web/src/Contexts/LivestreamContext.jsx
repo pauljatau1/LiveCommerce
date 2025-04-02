@@ -397,12 +397,12 @@ export const LivestreamProvider = ({ children }) => {
             if (response.status === 200) {
                 // Update the product's bid status in the state
                 const updatedProducts = state.liveStreamDetails.products.map(product => {
-                    // Set the activated product to active
+                    // Set the newly activated product to ongoing status
                     if (product.product.productId === productId) {
-                        return { ...product, ...response.data.product };
+                        return { ...product, ...response.data.product, bidStatus: 'ongoing' };
                     }
-                    // Set all other active products to ended (since only one can be active)
-                    if (product.bidStatus === 'active') {
+                    // Set all other active or ongoing products to pending
+                    if (product.bidStatus === 'active' || product.bidStatus === 'ongoing') {
                         return { ...product, bidStatus: 'pending' };
                     }
                     return product;
