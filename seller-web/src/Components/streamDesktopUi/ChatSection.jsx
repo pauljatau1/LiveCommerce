@@ -94,7 +94,7 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
   
   return (
     <div className="h-full flex flex-col bg-[#0D0F12] rounded-md overflow-hidden">
-      <div className="py-3 border-b border-[#1E2329] flex items-center justify-between">
+      <div className="py-3 border-b border-[#1E2329] mx-2 flex items-center justify-between">
         <h2 className="text-[#EFF0FA] font-inter font-medium text-base">Live Chat</h2>
         {!autoScroll && messages.length > 0 && (
           <button 
@@ -112,7 +112,7 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
       
       <div 
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto max-h-[calc(100vh-350px)] pr-1 custom-scrollbar" 
+        className="flex-1 overflow-y-auto mx-2 max-h-[calc(100vh-350px)] pr-1 custom-scrollbar" 
         onScroll={handleScroll}
       >
         {messages.length > 0 ? (
@@ -137,8 +137,8 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
         )}
       </div>
       
-      <div className="mt-auto pt-4 border-t border-[#1E2329]">
-        <div className={`flex items-center gap-2 bg-[#161A1E] rounded-lg p-3 mb-1 mx-2 transition-all duration-300 ${isInputFocused ? 'ring-1 ring-[#14AE5C]' : ''}`}>
+      <div className="mt-auto pt-4 mx-2 border-t border-[#1E2329]">
+        <div className={`flex items-center gap-2 bg-[#161A1E] rounded-lg p-3 mb-1 transition-all duration-300 ${isInputFocused ? 'ring-1 ring-[#14AE5C]' : ''}`}>
           {
             seller?.storeAvatar?.url ? (
               <img src={seller?.storeAvatar.url} alt="User" className="w-8 h-8 rounded-full" />
