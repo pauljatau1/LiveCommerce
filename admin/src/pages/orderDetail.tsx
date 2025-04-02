@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Package, Truck, MapPin, Clock, AlertCircle } from 'lucide-react'
+import { Package, Truck, MapPin, Clock, AlertCircle, CreditCard, Store, FileText, Banknote, User, CheckCircle, XCircle } from 'lucide-react'
 
 interface OrderDetail {
   order: {
@@ -34,34 +34,82 @@ interface OrderDetail {
     paymentInfo: {
       method: string
       status: string
+      transactionId: string
+      paidAt: string
     }
     orderStatus: {
       isOpen: boolean
-      closedAt: string | null
-      closedBy: string | null
-      closedReason: string | null
+      hasReturn: boolean
+      hasDispute: boolean
+      hasRefund: boolean
+      returnRequestId: string | null
+      closedAt?: string | null
+      closedBy?: string | null
+      closedReason?: string | null
+    }
+    returnDetails: any | null
+    paymentBreakdown: {
+      orderTotal: number
+      items: Array<{
+        productName: string
+        amount: number
+        platformFeePercentage: number
+        platformFeeAmount: number
+      }>
+      fees: {
+        totalPlatformFee: number
+        processingFee: number
+        processingFeePercentage: number
+        totalDeductions: number
+      }
+      sellerPayout: number
     }
   }
   buyer: {
+    _id: string
     firstName: string
     lastName: string
     email: string
     phoneNumber: string
   }
   seller: {
+    _id: string
+    firstName: string
+    lastName: string
     email: string
     phoneNumber: string
+    businessName: string
     storeName: string
   }
   items: Array<{
     product: {
+      _id: string
       name: string
-      price: number
+      category: string
+      description: string
       images: Array<{ url: string }>
+      brand: string
+      stock: number
+      sku: string
+      status: string
+      condition: string
+    }
+    productName: string
+    seller: {
+      _id: string
+      email: string
+      phoneNumber: string
+      businessName: string
+      storeName: string
     }
     quantity: number
     price: number
     status: string
+    statusHistory: Array<{
+      status: string
+      timestamp: string
+      _id: string
+    }>
     specifications: {
       color: string
       size: string
@@ -72,40 +120,37 @@ interface OrderDetail {
     delivery: {
       first_name: string
       last_name: string
+      email: string
+      phone: string
       line1: string
-      line2: string
       city: string
       state: string
       country: string
       zip: string
-    }
-    pickup: {
-      first_name: string
-      last_name: string
-      line1: string
-      line2: string
-      city: string
-      state: string
+      _id: string
     }
   }
   shipping: {
-    method: string
     carrier: {
       name: string
+      reference: string
     }
     fee: {
       amount: number
       currency: string
     }
     tracking: {
+      number: string
+      carrier: string
       status: string
       history: Array<any>
     }
+    shipment_id: string
+    documents: Record<string, any>
   }
-  timeline: Array<{
-    status: string
-    timestamp: string
-  }>
+  discount: Record<string, any>
+  notes: Array<any>
+  timeline: Array<any>
 }
 
 function OrderDetail() {
@@ -154,6 +199,10 @@ function OrderDetail() {
   if (loading) return <div>Loading...</div>
   if (!orderData) return <div>Order not found</div>
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString()
+  }
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -165,94 +214,225 @@ function OrderDetail() {
           <p className="text-muted-foreground">
             Placed on {new Date(orderData.order.createdAt).toLocaleDateString()}
           </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-sm text-muted-foreground">Channel: </span>
+            <span className="text-sm font-medium text-white capitalize">{orderData.order.channel}</span>
+          </div>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              variant={orderData.order.orderStatus.isOpen ? "destructive" : "default"}
-              className="ml-4"
-            >
-              {orderData.order.orderStatus.isOpen ? "Close Order" : "Reopen Order"}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
-            <DialogHeader>
-              <DialogTitle>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-gray-800 px-3 py-1 rounded">
+            <span className="text-sm text-muted-foreground">Status: </span>
+            <span className={`text-sm font-medium ${orderData.order.orderStatus.isOpen ? "text-green-500" : "text-yellow-500"}`}>
+              {orderData.order.orderStatus.isOpen ? "Open" : "Closed"}
+            </span>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant={orderData.order.orderStatus.isOpen ? "destructive" : "default"}
+                className="ml-4"
+              >
                 {orderData.order.orderStatus.isOpen ? "Close Order" : "Reopen Order"}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Please provide a reason for {orderData.order.orderStatus.isOpen ? "closing" : "reopening"} this order.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <Textarea
-                placeholder="Enter reason here..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                className="bg-gray-800 text-white hover:bg-gray-700"
-              >
-                Cancel
               </Button>
-              <Button
-                onClick={() => handleStatusUpdate(!orderData.order.orderStatus.isOpen)}
-                disabled={!reason || isUpdating}
-                className={orderData.order.orderStatus.isOpen ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
-              >
-                {isUpdating ? "Updating..." : orderData.order.orderStatus.isOpen ? "Close Order" : "Reopen Order"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
+              <DialogHeader>
+                <DialogTitle>
+                  {orderData.order.orderStatus.isOpen ? "Close Order" : "Reopen Order"}
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Please provide a reason for {orderData.order.orderStatus.isOpen ? "closing" : "reopening"} this order.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Textarea
+                  placeholder="Enter reason here..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  className="bg-gray-800 text-white hover:bg-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handleStatusUpdate(!orderData.order.orderStatus.isOpen)}
+                  disabled={!reason || isUpdating}
+                  className={orderData.order.orderStatus.isOpen ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
+                >
+                  {isUpdating ? "Updating..." : orderData.order.orderStatus.isOpen ? "Close Order" : "Reopen Order"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Order Status Indicators */}
+      <Card className="p-6 bg-gray-900 border-gray-800">
+        <h2 className="text-lg font-semibold text-white mb-4">Order Status</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle className={`h-5 w-5 ${orderData.order.paid ? "text-green-500" : "text-gray-500"}`} />
+            <span className="text-white">Payment: {orderData.order.paid ? "Paid" : "Pending"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {orderData.order.orderStatus.hasReturn ? 
+              <CheckCircle className="h-5 w-5 text-yellow-500" /> : 
+              <XCircle className="h-5 w-5 text-gray-500" />
+            }
+            <span className="text-white">Return: {orderData.order.orderStatus.hasReturn ? "Yes" : "No"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {orderData.order.orderStatus.hasDispute ? 
+              <CheckCircle className="h-5 w-5 text-red-500" /> : 
+              <XCircle className="h-5 w-5 text-gray-500" />
+            }
+            <span className="text-white">Dispute: {orderData.order.orderStatus.hasDispute ? "Yes" : "No"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {orderData.order.orderStatus.hasRefund ? 
+              <CheckCircle className="h-5 w-5 text-blue-500" /> : 
+              <XCircle className="h-5 w-5 text-gray-500" />
+            }
+            <span className="text-white">Refund: {orderData.order.orderStatus.hasRefund ? "Yes" : "No"}</span>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Customer Information */}
         <Card className="p-6 bg-gray-900 border-gray-800">
-          <h2 className="text-lg font-semibold text-white mb-4">Customer Information</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <User className="h-5 w-5 text-blue-500" />
+            <h2 className="text-lg font-semibold text-white">Customer Information</h2>
+          </div>
           <div className="space-y-2">
             <p className="text-muted-foreground">
               Name: {orderData.buyer.firstName} {orderData.buyer.lastName}
             </p>
             <p className="text-muted-foreground">Email: {orderData.buyer.email}</p>
             <p className="text-muted-foreground">Phone: {orderData.buyer.phoneNumber}</p>
+            <p className="text-muted-foreground">Customer ID: {orderData.buyer._id}</p>
+          </div>
+        </Card>
+
+        {/* Seller Information */}
+        <Card className="p-6 bg-gray-900 border-gray-800">
+          <div className="flex items-center gap-2 mb-4">
+            <Store className="h-5 w-5 text-purple-500" />
+            <h2 className="text-lg font-semibold text-white">Seller Information</h2>
+          </div>
+          <div className="space-y-2">
+            <p className="text-muted-foreground">
+              Name: {orderData.seller.firstName} {orderData.seller.lastName}
+            </p>
+            <p className="text-muted-foreground">Business: {orderData.seller.businessName}</p>
+            <p className="text-muted-foreground">Store: {orderData.seller.storeName}</p>
+            <p className="text-muted-foreground">Email: {orderData.seller.email}</p>
+            <p className="text-muted-foreground">Phone: {orderData.seller.phoneNumber}</p>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Payment Information */}
+        <Card className="p-6 bg-gray-900 border-gray-800">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="h-5 w-5 text-green-500" />
+            <h2 className="text-lg font-semibold text-white">Payment Information</h2>
+          </div>
+          <div className="space-y-2">
+            <p className="text-muted-foreground">Method: {orderData.order.paymentInfo.method}</p>
+            <p className="text-muted-foreground">Status: {orderData.order.paymentInfo.status}</p>
+            <p className="text-muted-foreground">Transaction ID: {orderData.order.paymentInfo.transactionId}</p>
+            <p className="text-muted-foreground">Paid At: {formatDate(orderData.order.paymentInfo.paidAt)}</p>
           </div>
         </Card>
 
         {/* Shipping Information */}
         <Card className="p-6 bg-gray-900 border-gray-800">
-          <h2 className="text-lg font-semibold text-white mb-4">Shipping Information</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <Truck className="h-5 w-5 text-yellow-500" />
+            <h2 className="text-lg font-semibold text-white">Shipping Information</h2>
+          </div>
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-green-500" />
-              <span className="text-muted-foreground">
-                {orderData.shipping.carrier.name} - {orderData.shipping.tracking.status}
-              </span>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-muted-foreground">Carrier</span>
+              <span className="text-white">{orderData.shipping.carrier.name}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-green-500" />
-              <span className="text-muted-foreground">
-                {orderData.addresses.delivery.line1}, {orderData.addresses.delivery.city}
-              </span>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-muted-foreground">Reference</span>
+              <span className="text-white">{orderData.shipping.carrier.reference}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-muted-foreground">Tracking Number</span>
+              <span className="text-white">{orderData.shipping.tracking.number}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-muted-foreground">Tracking Status</span>
+              <span className="text-white capitalize">{orderData.shipping.tracking.status}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-muted-foreground">Shipment ID</span>
+              <span className="text-white">{orderData.shipping.shipment_id}</span>
             </div>
           </div>
         </Card>
       </div>
 
+      {/* Delivery Address */}
+      <Card className="p-6 bg-gray-900 border-gray-800">
+        <div className="flex items-center gap-2 mb-4">
+          <MapPin className="h-5 w-5 text-red-500" />
+          <h2 className="text-lg font-semibold text-white">Delivery Address</h2>
+        </div>
+        <div className="space-y-2">
+          <p className="text-muted-foreground">
+            Name: {orderData.addresses.delivery.first_name} {orderData.addresses.delivery.last_name}
+          </p>
+          <p className="text-muted-foreground">
+            Email: {orderData.addresses.delivery.email}
+          </p>
+          <p className="text-muted-foreground">
+            Phone: {orderData.addresses.delivery.phone}
+          </p>
+          <p className="text-muted-foreground">
+            Address: {orderData.addresses.delivery.line1}
+          </p>
+          {orderData.addresses.delivery.city && (
+            <p className="text-muted-foreground">City: {orderData.addresses.delivery.city}</p>
+          )}
+          <p className="text-muted-foreground">
+            State: {orderData.addresses.delivery.state}
+          </p>
+          <p className="text-muted-foreground">
+            Country: {orderData.addresses.delivery.country}
+          </p>
+          {orderData.addresses.delivery.zip && (
+            <p className="text-muted-foreground">Zip: {orderData.addresses.delivery.zip}</p>
+          )}
+        </div>
+      </Card>
+
       {/* Order Items */}
       <Card className="p-6 bg-gray-900 border-gray-800">
-        <h2 className="text-lg font-semibold text-white mb-4">Order Items</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <Package className="h-5 w-5 text-blue-500" />
+          <h2 className="text-lg font-semibold text-white">Order Items</h2>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Product</TableHead>
+              <TableHead>Details</TableHead>
               <TableHead>Specifications</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Total</TableHead>
@@ -275,10 +455,26 @@ function OrderDetail() {
                 </TableCell>
                 <TableCell>
                   <div className="text-sm text-muted-foreground">
+                    <div>SKU: {item.product.sku}</div>
+                    <div>Brand: {item.product.brand}</div>
+                    <div>Category: {item.product.category}</div>
+                    <div>Condition: {item.product.condition}</div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm text-muted-foreground">
                     {item.specifications.color && <div>Color: {item.specifications.color}</div>}
                     {item.specifications.size && <div>Size: {item.specifications.size}</div>}
                     {item.specifications.material && <div>Material: {item.specifications.material}</div>}
+                    {!item.specifications.color && !item.specifications.size && !item.specifications.material && 
+                      <div>No specifications</div>
+                    }
                   </div>
+                </TableCell>
+                <TableCell>
+                  <span className="px-2 py-1 text-xs font-medium rounded capitalize bg-yellow-900/20 text-yellow-500">
+                    {item.status}
+                  </span>
                 </TableCell>
                 <TableCell>{item.quantity}</TableCell>
                 <TableCell>₦{item.price.toLocaleString()}</TableCell>
@@ -289,30 +485,104 @@ function OrderDetail() {
         </Table>
       </Card>
 
-      {/* Order Timeline */}
+      {/* Item Status History */}
       <Card className="p-6 bg-gray-900 border-gray-800">
-        <h2 className="text-lg font-semibold text-white mb-4">Order Timeline</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <Clock className="h-5 w-5 text-amber-500" />
+          <h2 className="text-lg font-semibold text-white">Item Status History</h2>
+        </div>
         <div className="space-y-4">
-          {orderData.timeline.map((event, index) => (
-            <div key={index} className="flex items-center gap-4">
-              <Clock className="h-4 w-4 text-green-500" />
-              <div>
-                <p className="text-white capitalize">{event.status}</p>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(event.timestamp).toLocaleString()}
-                </p>
+          {orderData.items.map((item, itemIndex) => (
+            <div key={itemIndex} className="border-b border-gray-800 pb-4 last:border-0 last:pb-0">
+              <h3 className="text-md font-medium text-white mb-2">{item.product.name}</h3>
+              <div className="space-y-2">
+                {item.statusHistory.map((status, statusIndex) => (
+                  <div key={statusIndex} className="flex items-center gap-4">
+                    <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                    <div>
+                      <p className="text-white capitalize">{status.status}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(status.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
         </div>
       </Card>
 
+      {/* Payment Breakdown */}
+      <Card className="p-6 bg-gray-900 border-gray-800">
+        <div className="flex items-center gap-2 mb-4">
+          <Banknote className="h-5 w-5 text-green-500" />
+          <h2 className="text-lg font-semibold text-white">Payment Breakdown</h2>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-md font-medium text-white mb-2">Order Items</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Platform Fee (%)</TableHead>
+                  <TableHead>Platform Fee</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orderData.order.paymentBreakdown.items.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <span className="text-white">{item.productName}</span>
+                    </TableCell>
+                    <TableCell>₦{item.amount.toLocaleString()}</TableCell>
+                    <TableCell>{item.platformFeePercentage}%</TableCell>
+                    <TableCell>₦{item.platformFeeAmount.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          <div>
+            <h3 className="text-md font-medium text-white mb-2">Fee Summary</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Platform Fee</span>
+                <span className="text-white">₦{orderData.order.paymentBreakdown.fees.totalPlatformFee.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Processing Fee ({orderData.order.paymentBreakdown.fees.processingFeePercentage}%)</span>
+                <span className="text-white">₦{orderData.order.paymentBreakdown.fees.processingFee.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Deductions</span>
+                <span className="text-white">₦{orderData.order.paymentBreakdown.fees.totalDeductions.toLocaleString()}</span>
+              </div>
+              <div className="border-t border-gray-800 mt-2 pt-2">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-white">Seller Payout</span>
+                  <span className="font-semibold text-white">
+                    ₦{orderData.order.paymentBreakdown.sellerPayout.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Order Summary */}
       <Card className="p-6 bg-gray-900 border-gray-800">
-        <h2 className="text-lg font-semibold text-white mb-4">Order Summary</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <FileText className="h-5 w-5 text-gray-500" />
+          <h2 className="text-lg font-semibold text-white">Order Summary</h2>
+        </div>
         <div className="space-y-2">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Subtotal</span>
+            <span className="text-muted-foreground">Order Total</span>
             <span className="text-white">₦{orderData.order.totalAmount.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
@@ -329,6 +599,43 @@ function OrderDetail() {
           </div>
         </div>
       </Card>
+
+      {/* Order Notes */}
+      {orderData.notes && orderData.notes.length > 0 && (
+        <Card className="p-6 bg-gray-900 border-gray-800">
+          <h2 className="text-lg font-semibold text-white mb-4">Order Notes</h2>
+          <div className="space-y-2">
+            {orderData.notes.map((note, index) => (
+              <div key={index} className="p-3 bg-gray-800 rounded">
+                <p className="text-white">{note}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Order Timeline */}
+      {orderData.timeline && orderData.timeline.length > 0 && (
+        <Card className="p-6 bg-gray-900 border-gray-800">
+          <h2 className="text-lg font-semibold text-white mb-4">Order Timeline</h2>
+          <div className="space-y-4">
+            {orderData.timeline.map((event, index) => (
+              <div key={index} className="flex items-center gap-4">
+                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                <div>
+                  <p className="text-white capitalize">{event.status}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(event.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {orderData.timeline.length === 0 && (
+              <p className="text-muted-foreground">No timeline events recorded yet.</p>
+            )}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }
