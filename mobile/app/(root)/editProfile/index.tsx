@@ -49,7 +49,7 @@ const EditProfile = () => {
   const [editBioVal, setEditBioVal] = useState<string>(bio?.toString());
   const [editEmailVal, setEditEmailVal] = useState<string>(email?.toString());
   const [editPhoneVal, setEditPhoneVal] = useState<string>(
-    phoneNumber?.toString().replace("+234", "")?.replaceAll("-", ""),
+    phoneNumber?.toString().replaceAll("+234", "")?.replaceAll("-", ""),
   );
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [selectedMedia, setSelectedMedia] = useState<any[]>(
@@ -318,7 +318,8 @@ const EditProfile = () => {
                 onChangeText={(text) => {
                   setEditPhoneVal(text);
                 }}
-                maxLength={15}
+                maxLength={11}
+                keyboardType="numeric"
               />
             </View>
           </View>

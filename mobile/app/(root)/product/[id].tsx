@@ -794,18 +794,24 @@ const ProductDescription = () => {
                     }}
                   >
                     <View className="flex flex-row gap-[10px] items-center">
-                      <View className="flex flex-row gap-[6px]  items-center">
+                      <View
+                        className={`flex flex-row ${productDetails?.stats?.averageRating ? "gap-[6px]" : ""}  items-center justify-center`}
+                      >
                         <Text className="text-[14px] text-white font-LexendDecaMedium">
                           {productDetails?.stats?.averageRating
                             ? parseFloat(
                                 productDetails?.stats?.averageRating,
                               ).toFixed(1)
-                            : 0}
+                            : null}
                         </Text>
                         <AntDesign name="star" size={14} color="#FFD700" />
                       </View>
                       <Text className="text-[14px] text-white font-LexendDecaMedium">
-                        Product Ratings ({productDetails?.stats?.reviewCount})
+                        Product Ratings (
+                        {productDetails?.stats?.reviewCount < 1
+                          ? "No Reviews"
+                          : formatNumber(productDetails?.stats?.reviewCount)}
+                        )
                       </Text>
                     </View>
                     {productDetails?.stats?.reviewCount ? (
@@ -1151,7 +1157,7 @@ const ProductDescription = () => {
                         </View>
                       </View>
 
-                      <View className="justify-between flex-row gap-[16px]">
+                      <View className="justify-between flex-row gap-[16px] shrink">
                         <View className="  gap-[16px] justify-between">
                           <View className="gap-[4px]">
                             <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
@@ -1180,7 +1186,7 @@ const ProductDescription = () => {
                           </View>
                         </View>
 
-                        <View className=" gap-[16px] justify-between">
+                        <View className=" gap-[16px] justify-between shrink">
                           <View className="gap-[4px]">
                             <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
                               Rating
@@ -1194,7 +1200,7 @@ const ProductDescription = () => {
                             </View>
                           </View>
 
-                          <View className="gap-[4px]">
+                          <View className="gap-[4px] shrink">
                             <View className="flex-row items-center gap-[4px]">
                               <Ionicons
                                 name="location-sharp"
@@ -1206,7 +1212,7 @@ const ProductDescription = () => {
                               </Text>
                             </View>
 
-                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium shrink">
                               {sellerInfo?.location?.state},{" "}
                               {sellerInfo?.location?.country || "Nigeria"}
                             </Text>

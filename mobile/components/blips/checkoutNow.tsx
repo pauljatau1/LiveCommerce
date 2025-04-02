@@ -157,7 +157,10 @@ const CheckoutNow = ({
           recipientEmail: user.email,
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
-              ? user.phoneNumber.replaceAll("-", "").replace("0", "")
+              ? user.phoneNumber
+                  .replaceAll("-", "")
+                  ?.replace("+234", "")
+                  ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -328,6 +331,7 @@ const CheckoutNow = ({
       }
     } catch (e: any) {
       console.log("could not create order", e?.response);
+      setOrderloading(false);
       toast.error("Could not create order");
     }
   };

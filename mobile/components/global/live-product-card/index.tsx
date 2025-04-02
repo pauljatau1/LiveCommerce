@@ -7,6 +7,7 @@ import { useLivestream } from "../../../contexts/livestreamContext";
 import { Link, useRouter } from "expo-router";
 import BottomSheet from "../bottom-sheet";
 import RsvpSheet from "@/components/livestream/rsvpSheet";
+import { formatDate } from "@/helpers/helpers";
 
 const { width } = Dimensions.get("window");
 
@@ -59,22 +60,30 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
             className="h-[240px] w-[100%] rounded-lg"
           />
           <View className="absolute top-2 left-2">
-            <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
-              {item?.status !== "live" ? (
+            {item?.status === "scheduled" ? (
+              <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 py-1 rounded-md">
                 <Text className="text-white text-[10px] font-LexendDeca">
-                  {item?.status}
+                  {formatDate(item?.scheduledStartTime, "DD/MM/YY, HH:mm")}
                 </Text>
-              ) : (
-                <>
+              </View>
+            ) : (
+              <View className="bg-[#FE4C4C] flex-row items-center gap-2 px-2 animate-pulse py-1 rounded-md">
+                {item?.status !== "live" ? (
                   <Text className="text-white text-[10px] font-LexendDeca">
-                    Live •
+                    {item?.status}
                   </Text>
-                  <Text className="text-white text-[10px] font-LexendDeca">
-                    {item?.viewers?.length || 0}
-                  </Text>
-                </>
-              )}
-            </View>
+                ) : (
+                  <>
+                    <Text className="text-white text-[10px] font-LexendDeca">
+                      Live •
+                    </Text>
+                    <Text className="text-white text-[10px] font-LexendDeca">
+                      {item?.viewers?.length || 0}
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
           </View>
 
           {/* Play Button Overlay */}

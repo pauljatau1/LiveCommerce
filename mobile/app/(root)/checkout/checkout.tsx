@@ -125,7 +125,13 @@ const Checkout = () => {
     const delivery_address = {
       recipientName: user.firstName + " " + user.lastName,
       recipientEmail: user.email,
-      recipientPhone: user.phoneNumber?.replaceAll("-", ""),
+      recipientPhone:
+        user.phoneNumber.replaceAll("-", "")?.length > 14
+          ? user.phoneNumber
+              .replaceAll("-", "")
+              ?.replace("+234", "")
+              ?.replace("0", "")
+          : user.phoneNumber.replaceAll("-", ""),
       recipientAddress: address.addressLine1,
       recipientState: address.state,
     };
@@ -183,7 +189,13 @@ const Checkout = () => {
         const delivery_address = {
           recipientName: user.firstName + " " + user.lastName,
           recipientEmail: user.email,
-          recipientPhone: user.phoneNumber.replaceAll("-", ""),
+          recipientPhone:
+            user.phoneNumber.replaceAll("-", "")?.length > 14
+              ? user.phoneNumber
+                  .replaceAll("-", "")
+                  ?.replace("+234", "")
+                  ?.replace("0", "")
+              : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
         };

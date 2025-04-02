@@ -44,6 +44,7 @@ import OrderItem from "@/components/messages/orderItem";
 import OptionsSheet from "@/components/connect/optionsSheet";
 import ChatSettings from "@/components/messages/optionsSheet";
 import ReportUserSheet from "@/components/connect/reportUserSheet";
+import { toast } from "@/core/toast";
 
 const { width, height } = Dimensions.get("window");
 
@@ -210,6 +211,9 @@ const MessageRoom = () => {
   }, [orderId]);
 
   const handleSendAutoMessage = () => {
+    if (!autoOrderMessage?.message) {
+      return;
+    }
     setNewMessage(`${autoOrderMessage?.message}`);
     handleSendMessage(`${autoOrderMessage?.message}`);
   };
