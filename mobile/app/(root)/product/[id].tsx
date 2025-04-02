@@ -856,6 +856,10 @@ const ProductDescription = () => {
                               storeName: formattedStoreName,
                               storeAvatar:
                                 sellerInfo?.storePresence?.storeAvatar?.url,
+                              averageRating:
+                                productDetails?.stats?.averageRating?.toFixed(
+                                  1,
+                                ),
                             },
                           })
                         }
