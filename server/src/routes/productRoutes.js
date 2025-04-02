@@ -1786,6 +1786,142 @@ router.put('/:id/reviews/:reviewId',
 
 /**
  * @swagger
+ * /api/products/{productId}/reviews/{reviewId}:
+ *   get:
+ *     summary: Get detailed information about a specific review
+ *     description: Retrieves comprehensive details about a specific product review including product info, buyer details, and seller's reply if available.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the review
+ *     responses:
+ *       200:
+ *         description: Review details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reviewId:
+ *                   type: string
+ *                   description: ID of the review
+ *                 product:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       description: ID of the product
+ *                     name:
+ *                       type: string
+ *                       description: Name of the product
+ *                     price:
+ *                       type: number
+ *                       description: Price of the product
+ *                     description:
+ *                       type: string
+ *                       description: Description of the product
+ *                     image:
+ *                       type: string
+ *                       description: URL to the product's main image
+ *                 buyer:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       description: ID of the buyer
+ *                     firstName:
+ *                       type: string
+ *                       description: First name of the buyer
+ *                     lastName:
+ *                       type: string
+ *                       description: Last name of the buyer
+ *                     profileImage:
+ *                       type: string
+ *                       description: URL to the buyer's profile image
+ *                 rating:
+ *                   type: number
+ *                   description: Rating given by the buyer (1-5)
+ *                 title:
+ *                   type: string
+ *                   description: Title of the review
+ *                 comment:
+ *                   type: string
+ *                   description: Detailed review comment
+ *                 images:
+ *                   type: array
+ *                   description: Images attached to the review
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       contentType:
+ *                         type: string
+ *                 purchasedVariant:
+ *                   type: object
+ *                   description: Details of the specific variant purchased
+ *                   properties:
+ *                     color:
+ *                       type: string
+ *                     size:
+ *                       type: string
+ *                     material:
+ *                       type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Date when the review was created
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Date when the review was last updated
+ *                 reply:
+ *                   type: object
+ *                   description: Seller's reply to the review, if any
+ *                   properties:
+ *                     content:
+ *                       type: string
+ *                       description: Content of the seller's reply
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Date when the reply was created
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Date when the reply was last updated
+ *                     seller:
+ *                       type: object
+ *                       description: Information about the seller who replied
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           description: ID of the seller
+ *                         name:
+ *                           type: string
+ *                           description: Display name of the seller (store name, business name, or full name)
+ *                         avatar:
+ *                           type: string
+ *                           description: URL to the seller's store avatar
+ *       404:
+ *         description: Product or review not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:productId/reviews/:reviewId', productController.getReviewDetails);
+
+/**
+ * @swagger
  * /api/products/{id}/visibility:
  *   put:
  *     summary: Update product visibility
@@ -3255,5 +3391,63 @@ router.get('/blips/personalized', optionalAuthMiddleware, productController.getP
  *         description: Server error
  */
 router.post('/:productId/rerun-auction', authMiddleware.verifyToken, authMiddleware.isSeller, productController.rerunOfflineAuction);
+
+/**
+ * @swagger
+ * /api/products/{productId}/reviews/{reviewId}/reply:
+ *   post:
+ *     summary: Add or update a seller's reply to a product review
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the review to reply to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: The reply content
+ *     responses:
+ *       200:
+ *         description: Reply added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 review:
+ *                   type: object
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Product or review not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/reviews/:reviewId/reply',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.replyToProductReview
+);
 
 module.exports = router;

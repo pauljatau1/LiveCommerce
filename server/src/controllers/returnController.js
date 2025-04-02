@@ -8,6 +8,7 @@ const axios = require('axios');
 const NotificationController = require('./notificationController');
 const Product = require('../models/Product');
 const { createBuyerNotification, createNotification } = require('./notificationController');
+const Buyer = require('../models/Buyer');
 
 // Initialize Fez API configuration
 const FEZ_API_URL = process.env.FEZ_API_URL || 'https://apisandbox.fezdelivery.co/v1';
@@ -441,13 +442,20 @@ exports.generateShippingLabel = async (req, res) => {
     await returnRequest.save();
 
     // Notify buyer about shipping label creation
-    await createBuyerNotification(returnRequest.buyer._id, 'return_label_created', {
-      returnId: returnId,
-      orderId: returnRequest.order._id,
-      order_id: returnRequest.order.order_id,
-      trackingNumber: shippingLabel.trackingNumber,
-      trackingUrl: shippingLabel.url
-    });
+    if (returnRequest && returnRequest.buyer) {
+      try {
+        await createBuyerNotification(returnRequest.buyer, 'return_label_created', {
+          returnId: returnId,
+          orderId: returnRequest.order._id,
+          order_id: returnRequest.order.order_id,
+          trackingNumber: shippingLabel.trackingNumber,
+          trackingUrl: shippingLabel.url
+        });
+      } catch (notificationError) {
+        console.error('Error sending notification to buyer:', notificationError);
+        // Continue execution despite notification error
+      }
+    }
 
     res.json({
       message: 'Shipping label generated successfully',
@@ -833,74 +841,39 @@ exports.getReturnStatistics = async (req, res) => {
 
 // Email notification templates and sending function
 async function sendRefundConfirmationEmails(returnRequest) {
-  // Email to buyer
-  const buyerEmail = {
-    to: returnRequest.buyer.email,
-    from: 'Joseph From Auqli <support@auqli.com>',
-    subject: 'Refund Processed for Your Return',
-    html: `
-      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-        <div style="max-width: 600px; margin: 0 auto;">
-          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-          
-          <h1 style="color: #4CAF50; margin-bottom: 20px;">Refund Processed Successfully!</h1>
-          
-          <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #4CAF50; margin-bottom: 15px;">Refund Details</h3>
-            <p style="margin: 5px 0;">Order ID: ${returnRequest.order.order_id}</p>
-            <p style="margin: 5px 0;">Refund Amount: ${returnRequest.refundDetails.amount}</p>
-            <p style="margin: 5px 0;">Method: ${returnRequest.refundDetails.method}</p>
-            <p style="margin: 5px 0;">Date: ${new Date(returnRequest.refundDetails.processedAt).toLocaleDateString()}</p>
-          </div>
-
-          <p style="font-size: 16px; line-height: 1.5;">Your refund has been processed and should be reflected in your account within 3-5 business days.</p>
-          
-          <div style="margin: 30px 0;">
-            <p style="font-size: 14px; color: #999999;">If you have any questions about your refund, please don't hesitate to contact our support team.</p>
-          </div>
-
-          <hr style="border: 1px solid #333333; margin: 30px 0;">
-          <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-        </div>
-      </div>
-    `
-  };
-
-  // Email to seller
-  const sellerEmail = {
-    to: returnRequest.seller.email,
-    from: 'Joseph From Auqli <support@auqli.com>',
-    subject: 'Return Refund Processed',
-    html: `
-      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-        <div style="max-width: 600px; margin: 0 auto;">
-          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-          
-          <h1 style="color: #4CAF50; margin-bottom: 20px;">Return Refund Processed</h1>
-          
-          <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #4CAF50; margin-bottom: 15px;">Transaction Details</h3>
-            <p style="margin: 5px 0;">Order ID: ${returnRequest.order.order_id}</p>
-            <p style="margin: 5px 0;">Refund Amount: ${returnRequest.refundDetails.amount}</p>
-            <p style="margin: 5px 0;">Date: ${new Date(returnRequest.refundDetails.processedAt).toLocaleDateString()}</p>
-          </div>
-
-          <p style="font-size: 16px; line-height: 1.5;">The refund for the return request has been processed. This amount will be deducted from your next settlement.</p>
-          
-          <div style="margin: 30px 0;">
-            <p style="font-size: 14px; color: #999999;">Please review your seller dashboard for more details about this transaction.</p>
-          </div>
-
-          <hr style="border: 1px solid #333333; margin: 30px 0;">
-          <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
-        </div>
-      </div>
-    `
-  };
-
   try {
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    // Email to buyer
+    const buyerEmail = {
+      to: returnRequest.buyer.email,
+      from: {
+        email: 'support@auqli.com',
+        name: 'Auqli Returns'
+      },
+      subject: 'Your Refund Has Been Processed',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Refund Processed Successfully</h2>
+          <p>Dear ${returnRequest.buyer.firstName},</p>
+          <p>Good news! Your refund for return request #${returnRequest._id} has been processed.</p>
+          <p><strong>Refund Details:</strong></p>
+          <ul>
+            <li>Amount: ₦${returnRequest.refundDetails.amount.toLocaleString()}</li>
+            <li>Method: Wallet Credit</li>
+            <li>Date: ${new Date(returnRequest.refundDetails.processedAt).toLocaleDateString()}</li>
+          </ul>
+          <p>The refund amount has been credited to your Auqli wallet and is available for immediate use.</p>
+          <p>If you have any questions, please don't hesitate to contact our support team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
     await sgMail.send(buyerEmail);
-    await sgMail.send(sellerEmail);
+    console.log('Refund confirmation email sent to buyer');
+
   } catch (error) {
     console.error('Error sending refund confirmation emails:', error);
     // Don't throw error, just log it
@@ -910,26 +883,17 @@ async function sendRefundConfirmationEmails(returnRequest) {
 exports.createReturnShippingLabel = async (req, res) => {
   try {
     const { returnId } = req.params;
-    const { pickup_address } = req.body;
+    let { pickup_address } = req.body;
 
-    // Validate required pickup address fields
-    const requiredFields = ['first_name', 'last_name', 'email', 'phone', 'line1', 'city', 'state', 'country', 'zip'];
-    const missingFields = requiredFields.filter(field => !pickup_address[field]);
-    
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        message: `Missing required pickup address fields: ${missingFields.join(', ')}`
-      });
-    }
-
-    // Find return request and validate
+    // Find return request and validate first to get order details if needed
     const returnRequest = await Return.findById(returnId)
       .populate('order')
       .populate({
         path: 'items.product',
         select: 'name weight price'
       })
-      .populate('seller', 'email firstName lastName businessName phoneNumber address state');
+      .populate('seller', 'email firstName lastName businessName phoneNumber address state')
+      .populate('buyer', 'firstName lastName email phoneNumber shippingAddresses');
 
     if (!returnRequest) {
       return res.status(404).json({ message: 'Return request not found' });
@@ -940,11 +904,160 @@ exports.createReturnShippingLabel = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to create shipping label for this return' });
     }
 
+    // If pickup_address is not provided, try to use buyer's shipping addresses or order delivery address
+    let buyerSavedAddress = null;
+    
+    // Store buyer's saved address for potential use regardless of whether pickup_address was provided
+    if (returnRequest.buyer?.shippingAddresses && returnRequest.buyer.shippingAddresses.length > 0) {
+      buyerSavedAddress = returnRequest.buyer.shippingAddresses[0];
+      console.log('Found buyer saved address for reference:', JSON.stringify(buyerSavedAddress));
+    }
+    
+    if (!pickup_address) {
+      console.log('No pickup_address provided in request, looking for alternatives...');
+      
+      // Check if buyer has saved shipping addresses
+      if (buyerSavedAddress) {
+        console.log('Buyer has saved shipping addresses:', JSON.stringify(returnRequest.buyer.shippingAddresses));
+        
+        // Use the first shipping address (could be enhanced to use default address if marked)
+        console.log('Using buyer\'s first saved shipping address:', JSON.stringify(buyerSavedAddress));
+        
+        pickup_address = {
+          first_name: returnRequest.buyer.firstName || '',
+          last_name: returnRequest.buyer.lastName || '',
+          email: returnRequest.buyer.email || '',
+          phone: returnRequest.buyer.phoneNumber || '',
+          line1: buyerSavedAddress.addressLine1 || '',
+          line2: buyerSavedAddress.addressLine2 || '',
+          city: buyerSavedAddress.city || '',
+          state: buyerSavedAddress.state || '',
+          country: buyerSavedAddress.country || 'NG',
+          zip: buyerSavedAddress.zipCode || ''
+        };
+        
+        console.log('Created pickup address from buyer\'s saved address:', pickup_address);
+      } 
+      // Fallback to order delivery address if no shipping addresses in buyer model
+      else if (returnRequest.order.delivery_address) {
+        console.log('No saved addresses in buyer model, using delivery address from order:', 
+          JSON.stringify(returnRequest.order.delivery_address));
+        console.log('Buyer info:', JSON.stringify({
+          firstName: returnRequest.buyer?.firstName,
+          lastName: returnRequest.buyer?.lastName,
+          email: returnRequest.buyer?.email,
+          phoneNumber: returnRequest.buyer?.phoneNumber
+        }));
+        
+        pickup_address = {
+          first_name: returnRequest.buyer?.firstName || returnRequest.order.delivery_address.first_name || '',
+          last_name: returnRequest.buyer?.lastName || returnRequest.order.delivery_address.last_name || '',
+          email: returnRequest.buyer?.email || returnRequest.order.delivery_address.email || '',
+          phone: returnRequest.buyer?.phoneNumber || returnRequest.order.delivery_address.phone || '',
+          line1: returnRequest.order.delivery_address.line1 || '',
+          line2: returnRequest.order.delivery_address.line2 || '',
+          city: returnRequest.order.delivery_address.city || '',
+          state: returnRequest.order.delivery_address.state || '',
+          country: returnRequest.order.delivery_address.country || '',
+          zip: returnRequest.order.delivery_address.zip || ''
+        };
+        
+        console.log('Created pickup address from order delivery address:', pickup_address);
+      } else {
+        return res.status(400).json({
+          message: 'No pickup address provided and neither buyer saved addresses nor order delivery address is available. Please provide pickup_address in the request body.'
+        });
+      }
+    } else {
+      console.log('Using pickup address provided in request:', pickup_address);
+      
+      // If pickup_address is provided but missing some fields, try to fill from buyer saved address
+      if (buyerSavedAddress) {
+        console.log('Checking if pickup_address is missing any fields that can be filled from buyer saved address');
+        
+        // Fill missing fields from buyer saved address if available
+        if (!pickup_address.first_name) pickup_address.first_name = returnRequest.buyer.firstName || '';
+        if (!pickup_address.last_name) pickup_address.last_name = returnRequest.buyer.lastName || '';
+        if (!pickup_address.email) pickup_address.email = returnRequest.buyer.email || '';
+        if (!pickup_address.phone) pickup_address.phone = returnRequest.buyer.phoneNumber || '';
+        if (!pickup_address.line1) pickup_address.line1 = buyerSavedAddress.addressLine1 || '';
+        if (!pickup_address.line2) pickup_address.line2 = buyerSavedAddress.addressLine2 || '';
+        if (!pickup_address.city) pickup_address.city = buyerSavedAddress.city || '';
+        if (!pickup_address.state) pickup_address.state = buyerSavedAddress.state || '';
+        if (!pickup_address.country) pickup_address.country = buyerSavedAddress.country || '';
+        if (!pickup_address.zip) pickup_address.zip = buyerSavedAddress.zipCode || '';
+        
+        console.log('Pickup address after filling missing fields from buyer saved address:', pickup_address);
+      }
+    }
+
+    // Validate required pickup address fields and fill in defaults where possible
+    const requiredFields = ['first_name', 'last_name', 'email', 'phone', 'line1', 'city', 'state', 'country', 'zip'];
+    
+    // Fill in default values for missing fields if possible
+    if (!pickup_address.first_name && returnRequest.buyer) pickup_address.first_name = returnRequest.buyer.firstName || '';
+    if (!pickup_address.last_name && returnRequest.buyer) pickup_address.last_name = returnRequest.buyer.lastName || '';
+    if (!pickup_address.email && returnRequest.buyer) pickup_address.email = returnRequest.buyer.email || '';
+    if (!pickup_address.phone && returnRequest.buyer) pickup_address.phone = returnRequest.buyer.phoneNumber || '';
+    if (!pickup_address.city) pickup_address.city = 'Lagos';
+    if (!pickup_address.state) pickup_address.state = 'Lagos';
+    if (!pickup_address.country) pickup_address.country = 'NG';
+    if (!pickup_address.zip) pickup_address.zip = '100001'; // Default Lagos postal code
+    
+    // Make sure all fields are strings (not undefined or null)
+    for (const field of requiredFields) {
+      if (pickup_address[field] === undefined || pickup_address[field] === null) {
+        pickup_address[field] = '';
+      }
+    }
+    
+    console.log('Final pickup address after all defaults applied:', pickup_address);
+    
+    // Now check if any required fields are still missing or empty
+    const missingFields = requiredFields.filter(field => !pickup_address[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `Missing required pickup address fields: ${missingFields.join(', ')}`,
+        currentAddress: pickup_address
+      });
+    }
+
     // Ensure seller phone number is available
     if (!returnRequest.seller.phoneNumber) {
       return res.status(400).json({
         message: 'Seller phone number is required for delivery address'
       });
+    }
+
+    // Log order pickup address details for debugging
+    console.log('Order pickup address:', JSON.stringify(returnRequest.order.pickup_address || {}));
+    console.log('Seller address details:', JSON.stringify({
+      firstName: returnRequest.seller.firstName,
+      lastName: returnRequest.seller.lastName,
+      email: returnRequest.seller.email,
+      phoneNumber: returnRequest.seller.phoneNumber,
+      address: returnRequest.seller.address,
+      state: returnRequest.seller.state
+    }));
+
+    // Use seller details or warehouse details if order pickup_address is missing
+    let sellerAddressForDelivery = null;
+    let sellerStateForDelivery = null;
+
+    if (returnRequest.order.pickup_address && returnRequest.order.pickup_address.line1) {
+      sellerAddressForDelivery = returnRequest.order.pickup_address.line1;
+      sellerStateForDelivery = returnRequest.order.pickup_address.state;
+      console.log('Using order pickup_address for seller delivery address');
+    } else if (returnRequest.seller.address) {
+      sellerAddressForDelivery = returnRequest.seller.address;
+      sellerStateForDelivery = returnRequest.seller.state || 'Lagos';
+      console.log('Using seller.address for seller delivery address');
+    } else {
+      // Create default address for seller if all else fails
+      sellerAddressForDelivery = `${returnRequest.seller.firstName || ''} ${returnRequest.seller.lastName || ''} Business Address`;
+      sellerStateForDelivery = returnRequest.seller.state || 'Lagos';
+      console.log('Created default address for seller delivery address');
     }
 
     // Calculate total weight and value
@@ -960,19 +1073,19 @@ exports.createReturnShippingLabel = async (req, res) => {
     // Generate a unique order ID for the return
     const uniqueReturnId = `AUQLI-RTN-${returnId.substring(0, 8)}`;
 
-    // Create Fez Delivery request
+    // Create Fez Delivery request with proper null/undefined checks
     const fezRequest = {
-      recipientAddress: returnRequest.order.pickup_address.line1,
-      recipientState: returnRequest.order.pickup_address.state || returnRequest.seller.state || "Lagos",
-      recipientName: `${returnRequest.seller.firstName} ${returnRequest.seller.lastName}`,
+      recipientAddress: sellerAddressForDelivery,
+      recipientState: sellerStateForDelivery || "Lagos",
+      recipientName: `${returnRequest.seller.firstName || ''} ${returnRequest.seller.lastName || ''}`,
       recipientPhone: returnRequest.seller.phoneNumber,
       recipientEmail: returnRequest.seller.email || '',
       uniqueID: uniqueReturnId,
-      BatchID: `RETURN-${returnRequest.order.order_id}`,
+      BatchID: `RETURN-${returnRequest.order.order_id || returnId}`,
       valueOfItem: totalValue.toString(),
       weight: Math.max(1, Math.round(totalWeight)), // Ensure minimum weight of 1kg for Fez
-      itemDescription: `Return for order #${returnRequest.order.order_id}`,
-      additionalDetails: `Return reason: ${returnRequest.description}`,
+      itemDescription: `Return for order #${returnRequest.order.order_id || returnId}`,
+      additionalDetails: `Return reason: ${returnRequest.description || 'Not specified'}`,
       isItemCod: false,
       thirdparty: "true",
       senderName: `${pickup_address.first_name} ${pickup_address.last_name}`,
@@ -1054,16 +1167,16 @@ exports.createReturnShippingLabel = async (req, res) => {
         zip: pickup_address.zip
       },
       'returnShipment.delivery_address': {
-        first_name: returnRequest.seller.firstName,
-        last_name: returnRequest.seller.lastName,
-        email: returnRequest.seller.email,
-        phone: returnRequest.seller.phoneNumber,
-        line1: returnRequest.order.pickup_address.line1,
-        line2: returnRequest.order.pickup_address.line2 || '',
-        city: returnRequest.order.pickup_address.city,
-        state: returnRequest.order.pickup_address.state,
-        country: returnRequest.order.pickup_address.country || 'NG',
-        zip: returnRequest.order.pickup_address.zip
+        first_name: returnRequest.seller.firstName || '',
+        last_name: returnRequest.seller.lastName || '',
+        email: returnRequest.seller.email || '',
+        phone: returnRequest.seller.phoneNumber || '',
+        line1: sellerAddressForDelivery,
+        line2: returnRequest.order.pickup_address?.line2 || '',
+        city: returnRequest.order.pickup_address?.city || 'Lagos',
+        state: sellerStateForDelivery || 'Lagos',
+        country: returnRequest.order.pickup_address?.country || 'NG',
+        zip: returnRequest.order.pickup_address?.zip || '100001'
       },
       'returnShipment.created_at': new Date()
     };
@@ -1085,13 +1198,20 @@ exports.createReturnShippingLabel = async (req, res) => {
     );
 
     // Notify buyer about shipping label creation
-    await createBuyerNotification(updatedReturn.buyer, 'return_label_created', {
-      returnId: returnId,
-      orderId: updatedReturn.order._id,
-      order_id: updatedReturn.order.order_id,
-      trackingNumber: orderNo,
-      trackingUrl: `https://fezdelivery.co/track?orderNo=${orderNo}`
-    });
+    if (updatedReturn && updatedReturn.buyer) {
+      try {
+        await createBuyerNotification(updatedReturn.buyer, 'return_label_created', {
+          returnId: returnId,
+          orderId: updatedReturn.order?._id,
+          order_id: updatedReturn.order?.order_id || returnId,
+          trackingNumber: orderNo,
+          trackingUrl: `https://fezdelivery.co/track?orderNo=${orderNo}`
+        });
+      } catch (notificationError) {
+        console.error('Error sending notification to buyer:', notificationError);
+        // Continue execution despite notification error
+      }
+    }
 
     res.json({
       message: 'Return shipping label created successfully',
@@ -1109,7 +1229,8 @@ exports.createReturnShippingLabel = async (req, res) => {
     console.error('Error details:', error.response?.data);
     res.status(500).json({
       message: 'Failed to create return shipping label',
-      error: error.response?.data?.message || error.message
+      error: error.message || 'Unknown error',
+      details: error.response?.data
     });
   }
 };
@@ -1867,5 +1988,213 @@ exports.getBuyerReturns = async (req, res) => {
       message: 'Failed to fetch returns',
       error: error.message
     });
+  }
+};
+
+/**
+ * Seller initiates a refund request for a return
+ */
+exports.initiateRefundRequest = async (req, res) => {
+  try {
+    const { returnId } = req.params;
+    const { amount, reason } = req.body;
+    const sellerId = req.user.id;
+
+    // Find the return request
+    const returnRequest = await Return.findOne({ _id: returnId, seller: sellerId })
+      .populate('buyer')
+      .populate('order');
+
+    if (!returnRequest) {
+      return res.status(404).json({ message: 'Return request not found' });
+    }
+
+    // Validate return status and resolution type
+    if ( 
+        !['refund', 'REFUND', 'FULL_REFUND'].includes(returnRequest.preferredResolution)) {
+      return res.status(400).json({ 
+        message: 'Invalid return status or resolution type for refund request' 
+      });
+    }
+
+    // Validate refund amount against order total
+    if (amount <= 0 || amount > returnRequest.order.totalAmount) {
+      return res.status(400).json({ 
+        message: 'Invalid refund amount' 
+      });
+    }
+
+    // Update return request with refund details
+    returnRequest.status = 'PENDING_ADMIN_REVIEW';
+    returnRequest.sellerResponse = {
+      status: 'REFUND_REQUESTED',
+      message: reason,
+      date: new Date(),
+      partialRefundAmount: amount
+    };
+
+    // Add to timeline
+    returnRequest.timeline.push({
+      status: 'REFUND_REQUESTED',
+      date: new Date(),
+      note: `Seller initiated refund request for ₦${amount}`,
+      updatedBy: 'seller'
+    });
+
+    await returnRequest.save();
+
+    // Notify admin of new refund request
+    await notifyAdmins('REFUND_REQUEST', {
+      returnId: returnRequest._id,
+      orderId: returnRequest.order._id,
+      amount,
+      reason
+    });
+
+    res.status(200).json({
+      message: 'Refund request initiated successfully',
+      returnRequest
+    });
+
+  } catch (error) {
+    console.error('Error in initiateRefundRequest:', error);
+    res.status(500).json({ message: 'Error processing refund request' });
+  }
+};
+
+/**
+ * Admin gets all refund requests
+ */
+exports.getRefundRequests = async (req, res) => {
+  try {
+    const { status = 'pending', page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = {
+      'sellerResponse.status': 'REFUND_REQUESTED',
+      status: 'PENDING_ADMIN_REVIEW'
+    };
+
+    if (status !== 'pending') {
+      query.status = status === 'approved' ? 'REFUNDED' : 'REJECTED';
+    }
+
+    const refundRequests = await Return.find(query)
+      .populate('buyer', 'firstName lastName email')
+      .populate('seller', 'firstName lastName businessName')
+      .populate('order')
+      .sort({ 'sellerResponse.date': -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Return.countDocuments(query);
+
+    res.status(200).json({
+      refundRequests,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getRefundRequests:', error);
+    res.status(500).json({ message: 'Error fetching refund requests' });
+  }
+};
+
+/**
+ * Admin processes a refund request
+ */
+exports.processRefundRequest = async (req, res) => {
+  try {
+    const { returnId } = req.params;
+    const { action, note } = req.body;
+    const adminId = req.user.id;
+
+    const returnRequest = await Return.findById(returnId)
+      .populate('buyer')
+      .populate('order')
+      .populate('seller');
+
+    if (!returnRequest) {
+      return res.status(404).json({ message: 'Return request not found' });
+    }
+
+    if (returnRequest.status !== 'PENDING_ADMIN_REVIEW') {
+      return res.status(400).json({ message: 'Invalid return status for processing refund' });
+    }
+
+    const refundAmount = returnRequest.sellerResponse.partialRefundAmount;
+
+    if (action === 'approve') {
+      // Update buyer's wallet
+      const buyer = await Buyer.findById(returnRequest.buyer._id);
+      
+      // Add transaction to buyer's wallet
+      buyer.wallet.transactions.push({
+        type: 'credit',
+        amount: refundAmount,
+        paymentReference: `REF-${returnId}-${Date.now()}`,
+        description: `Refund for return #${returnRequest._id}`,
+        status: 'completed'
+      });
+
+      // Update wallet balance
+      buyer.wallet.balance += refundAmount;
+      await buyer.save();
+
+      // Update return status
+      returnRequest.status = 'REFUNDED';
+      returnRequest.refundDetails = {
+        amount: refundAmount,
+        processedAt: new Date(),
+        method: 'wallet_credit',
+        transactionId: `REF-${returnId}-${Date.now()}`,
+        processedBy: adminId,
+        notes: note
+      };
+
+      // Add to timeline
+      returnRequest.timeline.push({
+        status: 'REFUNDED',
+        date: new Date(),
+        note: `Admin approved refund of ₦${refundAmount}`,
+        updatedBy: 'admin'
+      });
+
+      // Send email to buyer
+      await sendRefundConfirmationEmails(returnRequest);
+
+    } else {
+      // Reject refund request
+      returnRequest.status = 'REJECTED';
+      returnRequest.timeline.push({
+        status: 'REFUND_REJECTED',
+        date: new Date(),
+        note: `Admin rejected refund request: ${note}`,
+        updatedBy: 'admin'
+      });
+    }
+
+    // Add admin note
+    returnRequest.adminNotes.push({
+      note,
+      date: new Date(),
+      adminId
+    });
+
+    await returnRequest.save();
+
+    res.status(200).json({
+      message: `Refund request ${action}ed successfully`,
+      returnRequest
+    });
+
+  } catch (error) {
+    console.error('Error in processRefundRequest:', error);
+    res.status(500).json({ message: 'Error processing refund request' });
   }
 }; 

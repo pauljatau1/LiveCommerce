@@ -1791,4 +1791,77 @@ router.post('/:orderId/cancel',
   orderController.cancelOrderBySeller
 );
 
+/**
+ * @swagger
+ * /api/order/{orderNo}/manifest-url:
+ *   get:
+ *     summary: Get manifest URL for an order from Fez Delivery
+ *     description: Retrieves the manifest URL for a specific order using the Fez Delivery API
+ *     tags: [Order]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderNo
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The Fez order number to get manifest URL for
+ *     responses:
+ *       200:
+ *         description: Manifest URL retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: Success
+ *                 description:
+ *                   type: string
+ *                   example: Request Successful
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     url:
+ *                       type: string
+ *                       example: https://fezdeliveryco.s3.eu-west-2.amazonaws.com/LE8T21012520.pdf
+ *       400:
+ *         description: Bad request, missing or invalid order number
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: Error
+ *                 description:
+ *                   type: string
+ *                   example: Failed to get manifest URL
+ *                 data:
+ *                   type: object
+ *                   example: {}
+ *       401:
+ *         description: Unauthorized - Missing or invalid authentication token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: Error
+ *                 description:
+ *                   type: string
+ *                   example: Error getting manifest URL
+ *                 data:
+ *                   type: object
+ *                   example: {}
+ */
+router.get('/:orderNo/manifest-url', authMiddleware.verifyToken, orderController.getManifestUrl);
+
 module.exports = router;

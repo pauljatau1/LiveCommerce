@@ -1590,4 +1590,212 @@ router.post('/:streamId/leave-seller',
   streamController.leaveStreamSeller
 );
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/subscribe:
+ *   post:
+ *     summary: Subscribe to notifications for an upcoming stream
+ *     description: Register a buyer to receive both push notifications and email alerts when the stream goes live
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the upcoming stream to subscribe to
+ *     responses:
+ *       200:
+ *         description: Successfully subscribed to stream notifications
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: You will be notified when this stream goes live
+ *                 streamId:
+ *                   type: string
+ *                 streamTitle:
+ *                   type: string
+ *                 scheduledStartTime:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Invalid request - stream is not in scheduled status or already subscribed
+ *       401:
+ *         description: Unauthorized - only buyers can subscribe to streams
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:streamId/subscribe',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.subscribeToStream
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/unsubscribe:
+ *   post:
+ *     summary: Unsubscribe from notifications for an upcoming stream
+ *     description: Remove a buyer from the notification list for when the stream goes live
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the upcoming stream to unsubscribe from
+ *     responses:
+ *       200:
+ *         description: Successfully unsubscribed from stream notifications
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: You have unsubscribed from notifications for this stream
+ *                 streamId:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized - only buyers can unsubscribe from streams
+ *       404:
+ *         description: Stream not found or not subscribed
+ *       500:
+ *         description: Server error
+ */
+router.post('/:streamId/unsubscribe',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.unsubscribeFromStream
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/related:
+ *   get:
+ *     summary: Get related streams based on a specific stream
+ *     description: Retrieve streams that are related to a specified stream by category and tags
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the stream to find related streams for
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live, ended, expired]
+ *         description: Filter related streams by status (optional)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 20
+ *           default: 5
+ *         description: Number of related streams to return
+ *       - in: query
+ *         name: excludeSeller
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Whether to exclude streams from the same seller
+ *     responses:
+ *       200:
+ *         description: List of related streams
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 streams:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Stream'
+ *                 sourceStream:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     category:
+ *                       type: string
+ *                     tags:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/related',
+  streamController.getRelatedStreams
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/next:
+ *   get:
+ *     summary: Get the next stream after a specific stream
+ *     description: Retrieve the next upcoming stream after the specified stream ID
+ *     tags: [Streams]
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the stream to find the next stream for
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, live]
+ *         description: Filter the next stream by status (scheduled or live only)
+ *     responses:
+ *       200:
+ *         description: The next stream
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 nextStream:
+ *                   $ref: '#/components/schemas/Stream'
+ *                 currentStream:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     scheduledStartTime:
+ *                       type: string
+ *                       format: date-time
+ *       404:
+ *         description: No next stream found or current stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/next',
+  streamController.getNextStream
+);
+
 module.exports = router; 

@@ -202,7 +202,7 @@ exports.createStream = async (req, res) => {
     await stream.save();
 
     const populatedStream = await Stream.findById(stream._id)
-      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('seller', 'storeName businessName storeAvatar')
       .populate('products.product', 'name description images price');
 
 
@@ -328,6 +328,71 @@ exports.startStream = async (req, res) => {
         const validNotifications = notifications.filter(notification => notification !== null);
         if (validNotifications.length > 0) {
           await expo.sendPushNotificationsAsync(validNotifications);
+        }
+      }
+
+      // After updating the stream to 'live' status
+      // Add this code to notify subscribers
+      if (stream.subscribers && stream.subscribers.length > 0) {
+        const notificationController = require('./notificationController');
+        const Buyer = mongoose.model('Buyer');
+
+        // Get seller details for the notification
+        const seller = await Seller.findById(stream.seller);
+        const storeName = seller.storeName || seller.businessName || 'Seller';
+
+        // Prepare notification data
+        const notificationData = {
+          streamId: stream._id.toString(),
+          streamTitle: stream.title,
+          storeName: storeName,
+          streamType: stream.type,
+          scheduledStartTime: stream.scheduledStartTime,
+          actualStartTime: stream.actualStartTime
+        };
+
+        // Process each subscriber
+        for (const subscriber of stream.subscribers) {
+          if (!subscriber.notified) {
+            try {
+              // Get the buyer details
+              const buyer = await Buyer.findById(subscriber.buyer);
+              
+              if (buyer) {
+                // Create in-app notification for the buyer
+                await notificationController.createBuyerNotification(
+                  buyer._id,
+                  'stream_start',
+                  notificationData
+                );
+
+                // Send email notification
+                // Create a custom notification object for the email
+                const emailNotification = {
+                  type: 'stream_start',
+                  title: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}`,
+                  message: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now!`,
+                  data: notificationData
+                };
+                
+                await notificationController.sendEmailToBuyer(buyer, emailNotification);
+                
+                // Mark the subscriber as notified
+                await Stream.updateOne(
+                  { 
+                    _id: stream._id,
+                    "subscribers.buyer": subscriber.buyer 
+                  },
+                  { 
+                    $set: { "subscribers.$.notified": true } 
+                  }
+                );
+              }
+            } catch (notificationError) {
+              console.error(`Error notifying subscriber ${subscriber.buyer}:`, notificationError);
+              // Continue with other subscribers even if one fails
+            }
+          }
         }
       }
 
@@ -884,8 +949,6 @@ exports.joinStream = async (req, res) => {
       .populate('products.product', 'name description images price stock sku variants')
       .populate('products.currentBidder', 'firstName lastName username email')
       .populate('viewers', 'firstName lastName username avatarUrl')
-      .populate('bids.buyer', 'firstName lastName username')
-      .populate('bids.product', 'name price')
       .lean(); // Convert to plain JavaScript object
 
     // Get all viewers with detailed information
@@ -2734,4 +2797,379 @@ exports.searchStreams = async (req, res) => {
       error: error.message
     });
   }
-}; 
+};
+
+/**
+ * Subscribe a buyer to notifications for when a stream starts
+ * @route POST /api/streams/:streamId/subscribe
+ * @access Private (Buyer only)
+ */
+exports.subscribeToStream = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const buyerId = req.user.id;
+
+    // Find the stream
+    const stream = await Stream.findById(streamId)
+      .populate('seller', 'storeName businessName storeAvatar');
+
+    if (!stream) {
+      return res.status(404).json({
+        message: 'Stream not found'
+      });
+    }
+
+    // Check if the stream is in scheduled status
+    if (stream.status !== 'scheduled') {
+      return res.status(400).json({
+        message: 'You can only subscribe to upcoming streams that have not started yet'
+      });
+    }
+
+    // Check if buyer is already subscribed
+    const alreadySubscribed = stream.subscribers && 
+      stream.subscribers.some(subscriber => 
+        subscriber.buyer.toString() === buyerId.toString());
+
+    if (alreadySubscribed) {
+      return res.status(400).json({
+        message: 'You are already subscribed to this stream'
+      });
+    }
+
+    // Add buyer to subscribers list
+    await Stream.findByIdAndUpdate(streamId, {
+      $push: {
+        subscribers: {
+          buyer: buyerId,
+          subscribedAt: new Date(),
+          notified: false
+        }
+      }
+    });
+
+    // Return success response
+    res.status(200).json({
+      message: 'You will be notified when this stream goes live',
+      streamId: stream._id,
+      streamTitle: stream.title,
+      scheduledStartTime: stream.scheduledStartTime
+    });
+
+  } catch (error) {
+    console.error('Subscribe to stream error:', error);
+    res.status(500).json({
+      message: 'Failed to subscribe to stream',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Unsubscribe a buyer from notifications for a stream
+ * @route POST /api/streams/:streamId/unsubscribe
+ * @access Private (Buyer only)
+ */
+exports.unsubscribeFromStream = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const buyerId = req.user.id;
+
+    // Find the stream
+    const stream = await Stream.findById(streamId);
+
+    if (!stream) {
+      return res.status(404).json({
+        message: 'Stream not found'
+      });
+    }
+
+    // Check if buyer is subscribed
+    const isSubscribed = stream.subscribers && 
+      stream.subscribers.some(subscriber => 
+        subscriber.buyer.toString() === buyerId.toString());
+
+    if (!isSubscribed) {
+      return res.status(404).json({
+        message: 'You are not subscribed to this stream'
+      });
+    }
+
+    // Remove buyer from subscribers list
+    await Stream.findByIdAndUpdate(streamId, {
+      $pull: {
+        subscribers: {
+          buyer: buyerId
+        }
+      }
+    });
+
+    // Return success response
+    res.status(200).json({
+      message: 'You have unsubscribed from notifications for this stream',
+      streamId: stream._id
+    });
+
+  } catch (error) {
+    console.error('Unsubscribe from stream error:', error);
+    res.status(500).json({
+      message: 'Failed to unsubscribe from stream',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get related streams based on a given stream ID
+ * @route GET /api/streams/:streamId/related
+ * @access Public
+ */
+exports.getRelatedStreams = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const { 
+      status, 
+      limit = 5, 
+      excludeSeller = false 
+    } = req.query;
+
+    // Parse limit to ensure it's a number and cap it at 20
+    const parsedLimit = Math.min(parseInt(limit) || 5, 20);
+
+    // Find the source stream to get its category and tags
+    const sourceStream = await Stream.findById(streamId)
+      .select('title category tags seller type');
+
+    if (!sourceStream) {
+      return res.status(404).json({
+        message: 'Stream not found'
+      });
+    }
+
+    // Build query to find related streams
+    const query = {
+      _id: { $ne: streamId } // Exclude the source stream
+    };
+
+    // Add status filter if provided
+    if (status) {
+      query.status = status;
+    }
+
+    // Exclude streams from the same seller if requested
+    if (excludeSeller === 'true' || excludeSeller === true) {
+      query.seller = { $ne: sourceStream.seller };
+    }
+
+    // First try to find streams with both matching category and some matching tags
+    const categoryAndTagMatch = await Stream.find({
+      ...query,
+      category: sourceStream.category,
+      tags: { $in: sourceStream.tags }
+    })
+    .populate('seller', 'storeName businessName storeAvatar')
+    .populate('products.product', 'name description images price')
+    .populate('viewers')
+    .limit(parsedLimit)
+    .sort({ createdAt: -1 })
+    .lean();
+
+    // If we don't have enough results, try to find more based on just the category
+    let results = categoryAndTagMatch;
+
+    if (results.length < parsedLimit) {
+      const remainingLimit = parsedLimit - results.length;
+      const existingIds = results.map(stream => stream._id.toString());
+      
+      // Add source stream ID to the list of streams to exclude
+      existingIds.push(streamId);
+
+      const categoryMatch = await Stream.find({
+        ...query,
+        _id: { $nin: existingIds },
+        category: sourceStream.category
+      })
+      .populate('seller', 'storeName businessName storeAvatar')
+      .populate('products.product', 'name description images price')
+      .populate('viewers')
+      .limit(remainingLimit)
+      .sort({ createdAt: -1 })
+      .lean();
+
+      results = [...results, ...categoryMatch];
+    }
+
+    // If we still don't have enough results, try to find more based on tags
+    if (results.length < parsedLimit && sourceStream.tags && sourceStream.tags.length > 0) {
+      const remainingLimit = parsedLimit - results.length;
+      const existingIds = results.map(stream => stream._id.toString());
+      
+      // Add source stream ID to the list of streams to exclude
+      existingIds.push(streamId);
+
+      const tagMatch = await Stream.find({
+        ...query,
+        _id: { $nin: existingIds },
+        tags: { $in: sourceStream.tags }
+      })
+      .populate('seller', 'storeName businessName storeAvatar')
+      .populate('products.product', 'name description images price')
+      .populate('viewers')
+      .limit(remainingLimit)
+      .sort({ createdAt: -1 })
+      .lean();
+
+      results = [...results, ...tagMatch];
+    }
+
+    // If we still don't have enough results, find the newest streams regardless of category/tags
+    if (results.length < parsedLimit) {
+      const remainingLimit = parsedLimit - results.length;
+      const existingIds = results.map(stream => stream._id.toString());
+      
+      // Add source stream ID to the list of streams to exclude
+      existingIds.push(streamId);
+
+      const newestStreams = await Stream.find({
+        ...query,
+        _id: { $nin: existingIds }
+      })
+      .populate('seller', 'storeName businessName storeAvatar')
+      .populate('products.product', 'name description images price')
+      .populate('viewers')
+      .limit(remainingLimit)
+      .sort({ createdAt: -1 })
+      .lean();
+
+      results = [...results, ...newestStreams];
+    }
+
+    // Add viewerCount to each stream
+    const streamsWithViewerCount = results.map(stream => {
+      // Convert to plain object if not already
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      streamObj.isLive = stream.status === 'live';
+      return streamObj;
+    });
+
+    // Return the related streams along with source stream info
+    res.json({
+      streams: streamsWithViewerCount,
+      sourceStream: {
+        _id: sourceStream._id,
+        title: sourceStream.title,
+        category: sourceStream.category,
+        tags: sourceStream.tags,
+        type: sourceStream.type
+      }
+    });
+
+  } catch (error) {
+    console.error('Get related streams error:', error);
+    res.status(500).json({
+      message: 'Failed to get related streams',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get the next stream after a given stream ID
+ * @route GET /api/streams/:streamId/next
+ * @access Public
+ */
+exports.getNextStream = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const { status } = req.query;
+
+    // Find the current stream to get its scheduledStartTime
+    const currentStream = await Stream.findById(streamId)
+      .select('title scheduledStartTime category status');
+
+    if (!currentStream) {
+      return res.status(404).json({
+        message: 'Stream not found'
+      });
+    }
+
+    // Build query to find the next stream
+    const query = {
+      _id: { $ne: streamId } // Exclude the current stream
+    };
+
+    // Add status filter if provided, defaulting to scheduled and live
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = { $in: ['scheduled', 'live'] };
+    }
+
+    // If the current stream has a scheduledStartTime, find the next one chronologically
+    let nextStream;
+    if (currentStream.scheduledStartTime) {
+      // Find the next stream that starts after the current one
+      nextStream = await Stream.findOne({
+        ...query,
+        scheduledStartTime: { $gt: currentStream.scheduledStartTime }
+      })
+      .populate('seller', 'storeName businessName storeAvatar')
+      .populate('products.product', 'name description images price')
+      .populate('viewers')
+      .sort({ scheduledStartTime: 1 }) // Get the soonest one
+      .lean();
+    }
+
+    // If no next stream found with later start time, or if current stream has no start time,
+    // find any upcoming scheduled or live stream
+    if (!nextStream) {
+      nextStream = await Stream.findOne(query)
+        .populate('seller', 'storeName businessName storeAvatar')
+        .populate('products.product', 'name description images price')
+        .populate('viewers')
+        .sort({ scheduledStartTime: 1 }) // Get the soonest one
+        .lean();
+    }
+
+    if (!nextStream) {
+      return res.status(404).json({
+        message: 'No next stream found',
+        currentStream: {
+          _id: currentStream._id,
+          title: currentStream.title,
+          scheduledStartTime: currentStream.scheduledStartTime,
+          category: currentStream.category,
+          status: currentStream.status
+        }
+      });
+    }
+
+    // Add viewerCount to the next stream
+    const nextStreamWithViewerCount = {
+      ...nextStream,
+      viewerCount: nextStream.viewers ? nextStream.viewers.length : 0,
+      isLive: nextStream.status === 'live'
+    };
+
+    // Return the next stream along with basic info about current stream
+    res.json({
+      nextStream: nextStreamWithViewerCount,
+      currentStream: {
+        _id: currentStream._id,
+        title: currentStream.title,
+        scheduledStartTime: currentStream.scheduledStartTime,
+        category: currentStream.category,
+        status: currentStream.status
+      }
+    });
+
+  } catch (error) {
+    console.error('Get next stream error:', error);
+    res.status(500).json({
+      message: 'Failed to get next stream',
+      error: error.message
+    });
+  }
+};
+  
