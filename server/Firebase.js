@@ -1,6 +1,6 @@
 const { getDatabase, ref, set, get, child } = require('firebase/database');
 const { initializeApp } = require('firebase/app');
-const { getAuth, signInWithCustomToken } = require('firebase/auth');
+const admin = require('firebase-admin');
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -17,62 +17,35 @@ const firebaseConfig = {
     measurementId: "G-MEYRS0CCTB"
 };
 
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const dbRef = ref(db);
-const auth = getAuth(app);
-
-// For server-side authentication with Firebase
-let firebaseAdminInitialized = false;
-let admin;
-
-// Initialize Firebase Admin (lazy loading)
-const initializeFirebaseAdmin = async () => {
-    if (!firebaseAdminInitialized) {
-        admin = require('firebase-admin');
-        if (!admin.apps.length) {
-            admin.initializeApp({
-                credential: admin.credential.cert({
-                    projectId: firebaseConfig.projectId,
-                    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-                }),
-                databaseURL: firebaseConfig.databaseURL
-            });
-        }
-        firebaseAdminInitialized = true;
+// Initialize Firebase Admin SDK
+let adminInitialized = false;
+const initializeAdminApp = () => {
+    if (!adminInitialized && !admin.apps.length) {
+        admin.initializeApp({
+            credential: admin.credential.cert({
+                projectId: firebaseConfig.projectId,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+            }),
+            databaseURL: firebaseConfig.databaseURL
+        });
+        adminInitialized = true;
     }
     return admin;
 };
 
-// Generate a Firebase token from userId
-const createFirebaseToken = async (userId) => {
-    const admin = await initializeFirebaseAdmin();
-    return admin.auth().createCustomToken(userId.toString());
-};
+// Initialize Admin SDK
+initializeAdminApp();
 
-// Authenticate with Firebase before database operations
-const authenticateFirebase = async (userId) => {
-    try {
-        const firebaseToken = await createFirebaseToken(userId);
-        await signInWithCustomToken(auth, firebaseToken);
-        return true;
-    } catch (error) {
-        console.error('Firebase authentication error:', error);
-        throw error;
-    }
-};
+// Get database reference from Admin SDK
+const db = admin.database();
+const dbRef = db.ref();
 
 const saveToken = async (userId, token) => {
     try {
-        // Authenticate with Firebase
-        await authenticateFirebase(userId);
-        
-        const values = (await get(child(dbRef, `userTokens/${userId}/`))).val() ?? {};
+        const values = (await dbRef.child(`userTokens/${userId}/`).get()).val() ?? {};
         const payload = { ...values, token };
-        await set(ref(db, `userTokens/${userId}/`), payload);
+        await dbRef.child(`userTokens/${userId}/`).set(payload);
         return true;
     } catch (error) {
         console.error('Firebase saveToken error:', error);
@@ -82,10 +55,7 @@ const saveToken = async (userId, token) => {
 
 const getToken = async (userId) => {
     try {
-        // Authenticate with Firebase
-        await authenticateFirebase(userId);
-        
-        const values = (await get(child(dbRef, `userTokens/${userId}`))).val();
+        const values = (await dbRef.child(`userTokens/${userId}`).get()).val();
         return values ?? {};
     } catch (error) {
         console.error('Firebase getToken error:', error);
@@ -93,4 +63,4 @@ const getToken = async (userId) => {
     }
 };
 
-module.exports = { app, auth, saveToken, getToken, createFirebaseToken };
+module.exports = { admin, saveToken, getToken };
