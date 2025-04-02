@@ -896,6 +896,8 @@ const ProductDescription = () => {
                               width: 190,
                               height: review?.images[0]?.url ? 104 : 0,
                             }}
+                            reviewId={review?._id}
+                            productId={id}
                           />
                         ))}
                       </ScrollView>
