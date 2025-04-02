@@ -23,7 +23,7 @@ const Home = () => {
     }
     getToken();
   }, []);
-  return <View className="h-full w-full bg-[#121212]"></View>;
+  return <View className="h-full w-full bg-[#121212]" />;
   return null;
   return <Redirect href={"../(root)/(tabs)/home"} />;
 };

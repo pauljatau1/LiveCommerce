@@ -74,7 +74,7 @@ const FollowCard = ({ item, data }: { item: string; data: any }) => {
           <Text className="text-[#CCCCCCCC] text-[9px] pt-1 font-LexendDeca">
             {data?.followerCount} followers
           </Text>
-          {data?.stats?.averageRating && (
+          {data?.stats?.averageRating > 0 && (
             <View className="flex-row items-center pt-1 mb-2">
               <Image source={icons.starIcon} />
               <Text className="text-white flex justify-center items-center px-[2.329px] py-[0.582px] text-[8px] font-LexendDecaBold">
