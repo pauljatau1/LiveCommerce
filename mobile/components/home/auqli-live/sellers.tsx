@@ -24,7 +24,9 @@ const Sellers = () => {
 
       if (response.status === 200) {
         setSellers(
-          response.data?.sellers?.filter((seller: any) => seller?.isFeatured)?.slice(0, 10),
+          response.data?.sellers
+            ?.filter((seller: any) => seller?.isFeatured)
+            ?.slice(0, 10),
         );
       }
     } catch (err) {
@@ -68,21 +70,31 @@ const Sellers = () => {
       {loading ? (
         <ActivityIndicator color="#CCCCCC" className="py-4" />
       ) : sellers?.length > 0 ? (
-        <FlatList
-          data={sellers}
-          renderItem={({ item }) => (
-            <View className="space-x-4 w-[150px]">
-              <FollowCard item={item._id} data={item} />
-            </View>
-          )}
-          keyExtractor={(item) => item._id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
+        <View
+          style={{
             paddingHorizontal: 16,
           }}
-          className=" gap-4"
-        />
+        >
+          <FlatList
+            data={sellers}
+            renderItem={({ item }) => (
+              <View
+                className=" mb-[5.54px] w-[50%] shrink"
+                style={{
+                  flexShrink: 1,
+                }}
+              >
+                <FollowCard item={item._id} data={item} />
+              </View>
+            )}
+            keyExtractor={(item) => item._id}
+            showsHorizontalScrollIndicator={false}
+            numColumns={2}
+            contentContainerStyle={{
+              justifyContent: "space-between",
+            }}
+          />
+        </View>
       ) : (
         renderEmptySellers()
       )}

@@ -103,15 +103,9 @@ const Home = () => {
     <View className="pt-[30px] flex-1">
       <HomeHeader />
       <Tags tags={tags} selected={selected} setSelected={setSelected} />
-      <ScrollView
-        className=""
-        contentContainerStyle={{
-          paddingBottom: 80,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {renderContent()}
-      </ScrollView>
+
+      {renderContent()}
+
       <View
         className=" flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
         style={{

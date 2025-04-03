@@ -1,10 +1,11 @@
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, Image, RefreshControl } from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import SectionHeader from "@/components/global/section-header";
 import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 import LiveProductCard from "@/components/global/live-product-card";
 import LottieView from "lottie-react-native";
+import { icons } from "@/constants";
 
 const Coming = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -15,6 +16,8 @@ const Coming = () => {
   const fetchupcomingLiveStreams = async () => {
     if (page > 1) {
       setFetching(true);
+    } else {
+      setLoading(true);
     }
     try {
       const response = await axios.get(
@@ -23,8 +26,12 @@ const Coming = () => {
       );
       if (response.status === 200) {
         console.log("upcoming streams", response.data?.streams?.length);
-        if (response.data?.streams?.length > 0) {
-          setupcoming([...upcoming, ...response.data?.streams]);
+        if (response.data?.streams) {
+          if (page == 1) {
+            setupcoming(response.data?.streams);
+          } else {
+            setupcoming([...upcoming, ...response.data?.streams]);
+          }
           setPage((prevPage) => prevPage + 1);
         }
         if (!response.data?.pagination?.hasMore) {
@@ -39,6 +46,19 @@ const Coming = () => {
     }
   };
 
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = () => {
+    setPage(1);
+    setRefreshing(true);
+  };
+
+  useEffect(() => {
+    if (refreshing && page == 1) {
+      fetchupcomingLiveStreams();
+      setRefreshing(false);
+    }
+  }, [refreshing, page]);
+
   useEffect(() => {
     fetchupcomingLiveStreams();
   }, []);
@@ -47,13 +67,57 @@ const Coming = () => {
     return (
       <View
         style={{
-          marginVertical: 40,
-          width: "100%",
+          paddingHorizontal: 16,
+          alignItems: "center",
         }}
       >
-        <Text className="font-LexendDecaMedium text-[14px] text-[#ccc] text-center">
-          No Upcoming Streams
-        </Text>
+        <View
+          style={{
+            marginVertical: 24,
+            padding: 24,
+            paddingHorizontal: 48,
+            alignItems: "center",
+            backgroundColor: "#000",
+            borderRadius: 8,
+            flexShrink: 1,
+            paddingBottom: 40,
+          }}
+        >
+          <View
+            style={{
+              width: 102,
+              height: 102,
+              borderRadius: "50%",
+              backgroundColor: "#DDF9E7",
+              justifyContent: "center",
+              alignItems: "center",
+              marginBottom: 32,
+            }}
+          >
+            <Image
+              source={icons.sadEmoji}
+              resizeMode="contain"
+              className="w-[40px] h-[40px]"
+            />
+          </View>
+
+          <Text
+            className="mb-[10px] text-center text-[16px] font-LexendDecaSemiBold text-white"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            No Live Shopping events right now!
+          </Text>
+          <Text
+            className="font-LexendDeca text-[14px] text-[#8F9099] text-center"
+            style={{
+              lineHeight: 22,
+            }}
+          >
+            Follow your favourite sellers to get notified when they go live.
+          </Text>
+        </View>
       </View>
     );
   }, [upcoming]);
@@ -86,19 +150,24 @@ const Coming = () => {
     }
   }, [fetching, hasReachedEnd]);
 
-  return (
-    <View className="mt-[16px] w-[100%] pb-[18px]">
+  const renderListHeader = useCallback(() => {
+    return (
       <View
         className="flex-row justify-between items-center"
-        style={{ paddingHorizontal: 16, marginBottom: 16 }}
+        style={{ marginBottom: 16 }}
       >
         <Text className="text-white font-LexendDecaBold text-[16px]">
           Upcoming Streams
         </Text>
       </View>
+    );
+  }, []);
+
+  return (
+    <View className="mt-[16px] w-[100%] pb-[18px] flex-1">
       {loading ? (
         <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
-      ) : upcoming?.length > 0 ? (
+      ) : (
         <View
           style={{
             paddingHorizontal: 16,
@@ -116,10 +185,17 @@ const Coming = () => {
             columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
             onEndReached={fetchupcomingLiveStreams}
             ListFooterComponent={renderListFooter}
+            contentContainerStyle={{
+              paddingBottom: 80,
+            }}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={renderListHeader}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={renderEmptyStreams}
           />
         </View>
-      ) : (
-        renderEmptyStreams()
       )}
     </View>
   );
