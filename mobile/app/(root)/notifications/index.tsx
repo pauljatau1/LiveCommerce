@@ -128,7 +128,9 @@ const Notifications = () => {
         >
           <View style={styles.sectionHeaderContainer}>
             <Text style={styles.sectionHeader}>{item?.title}</Text>
-            {!item?.isRead && <View style={styles.unread}></View>}
+            {!item?.isRead && item?.message ? (
+              <View style={styles.unread}></View>
+            ) : null}
           </View>
 
           <View style={styles.sectionRow}>

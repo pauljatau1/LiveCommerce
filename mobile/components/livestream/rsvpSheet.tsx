@@ -2,6 +2,11 @@ import { View, Text, Pressable } from "react-native";
 import React, { useEffect, useMemo, useState, memo } from "react";
 import { AntDesign, SimpleLineIcons } from "@expo/vector-icons";
 import { formatTimeFromNow, formatTimeFromNowLive } from "@/helpers/helpers";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { toast } from "@/core/toast";
+import axios from "axios";
+import { ActivityIndicator } from "react-native-paper";
 
 const streamEnum = {
   open_show: "Liveshow",
@@ -9,10 +14,39 @@ const streamEnum = {
 } as any;
 
 const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
+  const token = useSelector((state: RootState) => state.authState.token);
   const [updateTimer, setUpdateTimer] = useState<number>(1);
   const rsvpDateArray = useMemo(() => {
     return formatTimeFromNowLive(streamDetails?.scheduledStartTime)?.split(":");
   }, [streamDetails?.scheduledStartTime, updateTimer]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [subscribed, setSubscribed] = useState<boolean>(false);
+
+  const subscribe = async () => {
+    console.log(streamDetails);
+
+    setLoading(true);
+    try {
+      if (!token) {
+        return toast.info("Login to RSVP into a stream");
+      }
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams/${streamDetails._id}/${subscribed ? "unsubscribe" : "subscribe"}`,
+        {},
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setSubscribed(!subscribed);
+    } catch (e) {
+      console.log("unable to rsvp", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -45,16 +79,41 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
           500 waiting to join
         </Text>
       </View>
-      <Pressable
-        className="mb-[12px] border-[2px] border-[#16783A] rounded-[8px] bg-white items-center justify-center h-[60px] w-[90%] self-center"
-        style={{
-          width: "90%",
-        }}
-      >
-        <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">
-          RSVP and Notify me?
-        </Text>
-      </Pressable>
+
+      {subscribed ? (
+        <Pressable
+          className="mb-[12px] border-[2px] border-[#16783A] rounded-[8px] bg-[#16783A] items-center justify-center h-[60px] w-[90%] self-center"
+          style={{
+            width: "90%",
+          }}
+          onPress={() => subscribe()}
+        >
+          {loading ? (
+            <ActivityIndicator size={14} color="#fff" />
+          ) : (
+            <Text className="text-[16px] text-[#fff] font-LexendDecaSemiBold">
+              You're in!
+            </Text>
+          )}
+        </Pressable>
+      ) : (
+        <Pressable
+          className="mb-[12px] border-[2px] border-[#16783A] rounded-[8px] bg-white items-center justify-center h-[60px] w-[90%] self-center"
+          style={{
+            width: "90%",
+          }}
+          onPress={() => subscribe()}
+        >
+          {loading ? (
+            <ActivityIndicator size={14} color="#16783A" />
+          ) : (
+            <Text className="text-[16px] text-[#16783A] font-LexendDecaSemiBold">
+              RSVP and Notify me?
+            </Text>
+          )}
+        </Pressable>
+      )}
+
       <Text className="mb-[12px] text-[14px] text-[#fff] font-LexendDecaMedium text-center">
         {streamEnum[streamDetails?.type]} Starts in
       </Text>
