@@ -53,6 +53,7 @@ import AuctionRulesSheet from "@/components/product/auctionRulesSheet";
 import { Octicons } from "@expo/vector-icons";
 import CartSheet from "@/components/product/productCartSheet";
 import AddedToCart from "@/components/product/productAddedToCart";
+import RenderHtml, { defaultSystemFonts } from "react-native-render-html";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -1025,9 +1026,18 @@ const ProductDescription = () => {
                         borderTopColor: "rgba(159, 159, 159, 0.23)",
                       }}
                     >
-                      <Text className="text-white font-LexendDecaMedium leading-7">
+                      <RenderHtml
+                        contentWidth={width - 46}
+                        source={{ html: productDetails?.description }}
+                        tagsStyles={{
+                          body: {
+                            color: "#fff",
+                          },
+                        }}
+                      />
+                      {/* <Text className="text-white font-LexendDecaMedium leading-7">
                         {productDetails?.description}
-                      </Text>
+                      </Text> */}
                     </View>
                   )}
 

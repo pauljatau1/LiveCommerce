@@ -8,6 +8,7 @@ import { Link, useRouter } from "expo-router";
 import BottomSheet from "../bottom-sheet";
 import RsvpSheet from "@/components/livestream/rsvpSheet";
 import { formatDate } from "@/helpers/helpers";
+import { toast } from "@/core/toast";
 
 const { width } = Dimensions.get("window");
 
@@ -23,6 +24,9 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
         onPress={() => {
           if (item?.status == "scheduled") {
             return showRsvpSheet(true);
+          }
+          if (item?.status !== "live") {
+            return toast.info("Stream is not Active!");
           }
           item.type === "auction"
             ? router.push(`/livestream/liveAuctionStudio?id=${item?._id}`)

@@ -35,7 +35,7 @@ const Shows = ({
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/streams/seller/${sellerId}?status=live&page=${page}&limit=10`,
+          `api/streams/seller/${sellerId}?page=${page}&limit=10`,
       );
       if (response.status === 200) {
         if (response.data?.streams?.length > 0) {
