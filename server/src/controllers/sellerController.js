@@ -4377,3 +4377,141 @@ exports.getPublicProductReviewDetails = async (req, res) => {
   }
 };
 
+// Function to search sellers based on various criteria
+exports.searchSellers = async (req, res) => {
+  try {
+    const { 
+      query = '', 
+      country, 
+      category,
+      page = 1, 
+      limit = 10 
+    } = req.query;
+
+    console.log('Search Sellers - Auth Info:', { 
+      userId: req.user?.id, 
+      userRole: req.user?.role,
+      isAuthenticated: !!req.user 
+    });
+
+    // Build search query
+    const searchQuery = {
+      isDisabled: false, // Only return active sellers
+      isVerified: true,  // Only return verified sellers
+    };
+
+    // Search by name (first name, last name), business name, or store name
+    if (query) {
+      searchQuery.$or = [
+        { firstName: { $regex: query, $options: 'i' } },
+        { lastName: { $regex: query, $options: 'i' } },
+        { businessName: { $regex: query, $options: 'i' } },
+        { storeName: { $regex: query, $options: 'i' } },
+      ];
+    }
+
+    // Filter by country if provided
+    if (country) {
+      searchQuery.$or = [
+        { 'sellerAddress.country': country },
+        { 'businessAddress.country': country },
+        { 'warehouseDetails.address.country': country }
+      ];
+    }
+
+    // Filter by category if provided
+    if (category) {
+      searchQuery['categories.name'] = category;
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Check if the user is authenticated (buyer) to determine if following
+    const buyerId = req.user?.id;
+    const isBuyer = req.user?.role === 'Buyer';
+    
+    console.log('Buyer authentication check:', { buyerId, isBuyer });
+
+    // Find sellers matching criteria
+    const sellers = await Seller.find(searchQuery)
+      .select('firstName lastName businessName storeName storeAvatar socialMedia aboutStore businessAddress sellerAddress warehouseDetails.address categories followers')
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    console.log(`Found ${sellers.length} sellers matching criteria`);
+
+    // Get total count for pagination
+    const totalSellers = await Seller.countDocuments(searchQuery);
+    
+    // Get buyer document if authenticated
+    let buyer = null;
+    if (isBuyer && buyerId) {
+      const Buyer = require('../models/Buyer');
+      buyer = await Buyer.findById(buyerId).select('followers').lean();
+      console.log('Buyer followers found:', buyer?.followers?.length || 0);
+    }
+
+    // Process sellers to add isFollowing property if user is authenticated
+    const processedSellers = sellers.map(seller => {
+      // Create a clean seller object with only necessary information
+      const cleanSeller = {
+        _id: seller._id,
+        businessName: seller.businessName,
+        storeName: seller.storeName,
+        storeAvatar: seller.storeAvatar?.url || null,
+        followerCount: seller.followers?.length || 0,
+        // Default isFollowing to false
+        isFollowing: false
+      };
+
+      // Update isFollowing if user is authenticated as a buyer
+      if (isBuyer && buyerId && buyer) {
+        const sellerId = seller._id.toString();
+        
+        // Method 1: Check if buyer is in seller's followers list
+        let isFollowing = false;
+        
+        if (Array.isArray(seller.followers)) {
+          isFollowing = seller.followers.some(follower => 
+            follower.buyerId && follower.buyerId.toString() === buyerId
+          );
+          console.log(`Method 1 - Seller followers check for buyer ${buyerId}: ${isFollowing}`);
+        }
+        
+        // Method 2: If not found, check if seller is in buyer's followed list
+        if (!isFollowing && Array.isArray(buyer.followers)) {
+          isFollowing = buyer.followers.some(followed => 
+            followed.sellerId && followed.sellerId.toString() === sellerId
+          );
+          console.log(`Method 2 - Buyer followed check for seller ${sellerId}: ${isFollowing}`);
+        }
+        
+        cleanSeller.isFollowing = isFollowing;
+        console.log(`Final isFollowing for seller ${sellerId}: ${isFollowing}`);
+      }
+
+      return cleanSeller;
+    });
+
+    res.status(200).json({
+      success: true,
+      sellers: processedSellers,
+      pagination: {
+        total: totalSellers,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(totalSellers / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Search sellers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search sellers',
+      error: error.message
+    });
+  }
+};
+
