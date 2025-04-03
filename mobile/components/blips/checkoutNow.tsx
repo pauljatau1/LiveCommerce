@@ -613,13 +613,13 @@ const CheckoutNow = ({
                     </View>
                   </View>
                 </View>
-                <View>
+                {/* <View>
                   <Entypo
                     name="chevron-right"
                     size={16}
                     color="rgba(204, 204, 204, 0.8)"
                   />
-                </View>
+                </View> */}
               </Pressable>
             </View>
 
