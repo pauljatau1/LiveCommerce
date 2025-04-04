@@ -2475,7 +2475,7 @@ exports.endProductBidding = async (req, res) => {
             {
               productId: fullProductDetails._id,
               quantity: 1,
-              price: fullProductDetails?.discount?.discountedPrice || fullProductDetails.price,
+              price: stream.products[productIndex].currentBid,
               weight: fullProductDetails.weight?.toFixed(0) * 1 || 1,
               seller: {
                 sellerId: seller._id,
