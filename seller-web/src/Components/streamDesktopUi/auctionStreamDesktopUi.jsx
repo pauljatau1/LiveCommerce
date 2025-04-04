@@ -1,6 +1,7 @@
 import { Icon } from '@iconify/react';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
+import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
@@ -29,6 +30,39 @@ const AuctionStreamDesktopUi = ({
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showBidModal, setShowBidModal] = useState(false);
     const { activateProductBidding, isActivatingBid } = useLivestreamContext();
+    const { productStatuses = {}, socket = null, updateProductStatus } = useLivestreamSocket();
+
+    // Sync products with productStatuses when products change
+    useEffect(() => {
+        if (products && products.length > 0) {
+            // Set initial status in socket context for each product
+            products.forEach(product => {
+                const productId = product.product.productId;
+                // Only set the status if it doesn't already exist in productStatuses
+                if (product.bidStatus && !productStatuses[productId]) {
+                    updateProductStatus(productId, product.bidStatus);
+                }
+            });
+        }
+    }, [products, productStatuses, updateProductStatus]);
+
+    // When a bid is successfully started, notify all clients via socket
+    useEffect(() => {
+        if (socket && liveStreamDetails && selectedProduct && !showBidModal && !isActivatingBid) {
+            // This means a bid was just successfully activated (modal was closed)
+            socket.emit('stream_notification', {
+                type: 'bid_activated',
+                data: {
+                    streamId: liveStreamDetails._id,
+                    productId: selectedProduct.product.productId,
+                    productName: selectedProduct.product.name
+                }
+            });
+
+            // Reset selected product
+            setSelectedProduct(null);
+        }
+    }, [socket, showBidModal, isActivatingBid, liveStreamDetails, selectedProduct]);
 
     const handleStartBid = (product) => {
         setSelectedProduct(product);
@@ -40,14 +74,53 @@ const AuctionStreamDesktopUi = ({
 
         try {
             await activateProductBidding(liveStreamDetails._id, selectedProduct.product.productId);
+            
+            // Immediately update the socket context with the new product status
+            if (updateProductStatus) {
+                console.log(`Immediately updating product ${selectedProduct.product.name} status to 'active' in socket context`);
+                
+                // Set the newly activated product to active
+                updateProductStatus(selectedProduct.product.productId, 'active');
+                
+                // Set all other active or ongoing products to ended (mirroring the backend logic)
+                if (products) {
+                    products.forEach(product => {
+                        const pid = product.product.productId;
+                        if (pid !== selectedProduct.product.productId && 
+                            (product.bidStatus === 'active' || product.bidStatus === 'ongoing' || 
+                             productStatuses[pid] === 'active' || productStatuses[pid] === 'ongoing')) {
+                            updateProductStatus(pid, 'ended');
+                        }
+                    });
+                }
+            }
+            
             setShowBidModal(false);
+            // The useEffect will handle socket notification
         } catch (error) {
             console.error("Error activating bid:", error);
         }
     };
 
-    // Check if any product has active bidding
-    const hasActiveBidding = products?.some(product => product.bidStatus === 'active');
+    // Function to determine the effective status of a product - using regular function instead of useMemo
+    const getEffectiveStatus = (product) => {
+        const productId = product.product.productId;
+        // Socket status takes precedence over local status if available
+        const socketStatus = productStatuses[productId];
+        if (socketStatus) {
+            return socketStatus;
+        }
+        return product.bidStatus;
+    };
+
+    // Check if any product has active bidding by using getEffectiveStatus
+    const hasActiveBidding = useMemo(() => {
+        return products?.some(product => {
+            return getEffectiveStatus(product) === 'active';
+        });
+    }, [products, productStatuses]);
+
+    console.log('hasActiveBidding', hasActiveBidding, 'productStatuses', productStatuses);
 
     return (
         <div className="hidden xl:block">
@@ -129,8 +202,11 @@ const AuctionStreamDesktopUi = ({
                                 {
                                     products?.length > 0 ? (
                                         products?.map((item) => {
+                                            // Get the effective status (socket status takes precedence)
+                                            const effectiveStatus = getEffectiveStatus(item);
+
                                             // If product is actively bidding, show the active bid card
-                                            if (item.bidStatus === 'active') {
+                                            if (effectiveStatus === 'active') {
                                                 return (
                                                     <ActiveBidProductCard
                                                         key={item?.product.productId}
@@ -141,7 +217,7 @@ const AuctionStreamDesktopUi = ({
                                             }
 
                                             // If product has ongoing bidding, show the ongoing bid card
-                                            if (item.bidStatus === 'ongoing') {
+                                            if (effectiveStatus === 'ongoing') {
                                                 return (
                                                     <OngoingBidProductCard
                                                         key={item?.product.productId}
@@ -152,7 +228,7 @@ const AuctionStreamDesktopUi = ({
                                             }
 
                                             // If product bidding has ended, show the ended bid card
-                                            if (item.bidStatus === 'ended') {
+                                            if (effectiveStatus === 'ended') {
                                                 return (
                                                     <EndedBidProductCard
                                                         key={item?.product.productId}
@@ -162,7 +238,7 @@ const AuctionStreamDesktopUi = ({
                                                 );
                                             }
 
-                                            // Otherwise show the regular product card
+                                            // Otherwise (no bidding status or pending) show the regular product card
                                             return (
                                                 <div key={item?.product.productId} className="bg-[#161A1E] flex flex-wrap gap-4 rounded-xl p-3">
                                                     <div className="">
