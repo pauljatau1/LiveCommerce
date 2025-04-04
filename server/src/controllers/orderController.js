@@ -528,6 +528,54 @@ exports.createOrder = async (req, res) => {
         order_id: order.order_id
       });
       
+      // Add buyer to seller's customers list if not already a customer
+      const Seller = mongoose.model('Seller');
+      const sellerDoc = await Seller.findById(sellerId);
+      
+      if (sellerDoc) {
+        // Check if buyer is already a customer
+        const existingCustomer = sellerDoc.customers.find(
+          customer => customer.buyerId && customer.buyerId.toString() === buyerId.toString()
+        );
+        
+        if (!existingCustomer) {
+          // Add buyer as a new customer
+          await Seller.findByIdAndUpdate(
+            sellerId,
+            {
+              $push: {
+                customers: {
+                  buyerId: buyerId,
+                  firstName: buyer.firstName,
+                  lastName: buyer.lastName,
+                  firstPurchaseDate: new Date(),
+                  totalOrders: 1,
+                  totalSpent: sellerTotal
+                }
+              }
+            },
+            { session }
+          );
+          console.log(`Added buyer ${buyerId} as a new customer for seller ${sellerId}`);
+        } else {
+          // Update existing customer with new order data
+          await Seller.findOneAndUpdate(
+            { 
+              _id: sellerId,
+              'customers.buyerId': buyerId 
+            },
+            { 
+              $inc: {
+                'customers.$.totalOrders': 1,
+                'customers.$.totalSpent': sellerTotal
+              }
+            },
+            { session }
+          );
+          console.log(`Updated existing customer record for buyer ${buyerId} and seller ${sellerId}`);
+        }
+      }
+      
       // Update product stock for each item in the order
       for (const item of sellerItemsList) {
         // Find the product before update to log its current stock

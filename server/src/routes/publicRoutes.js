@@ -57,27 +57,11 @@ router.get('/paystack-keys/:code', validateSecurityCode, (req, res) => {
  *         description: Internal server error
  */
 router.get('/categories', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    // Get all categories
-    const categories = await Category.find({}, null, { session });
+    // Get all categories first (outside of any transaction)
+    const categories = await Category.find({});
     
-    // Reset all category statistics
-    await Category.updateMany({}, {
-      $set: {
-        'statistics.orders.pending': 0,
-        'statistics.orders.completed': 0,
-        'statistics.items.pending': 0,
-        'statistics.items.sold': 0,
-        'statistics.totalProducts': 0,
-        'statistics.streams.active': 0,
-        'statistics.streams.scheduled': 0,
-        'statistics.streams.ended': 0
-      }
-    }, { session });
-
+    // Get all necessary data for statistics calculation (outside of any transaction)
     // Get all orders and their items
     const orders = await Order.find({})
       .populate({
@@ -85,7 +69,7 @@ router.get('/categories', async (req, res) => {
         select: 'category'
       });
 
-    // Get product counts per category
+    // Get product counts per category (this doesn't need a session)
     const productCounts = await Product.aggregate([
       {
         $group: {
@@ -95,7 +79,7 @@ router.get('/categories', async (req, res) => {
       }
     ]);
 
-    // Get stream counts per category
+    // Get stream counts per category (this doesn't need a session)
     const Stream = mongoose.model('Stream');
     const streamCounts = await Stream.aggregate([
       {
@@ -155,63 +139,76 @@ router.get('/categories', async (req, res) => {
       }
     }
 
-    // Update each category with the calculated statistics
-    for (const [categoryName, stats] of Object.entries(categoryStats)) {
-      await Category.findOneAndUpdate(
-        { name: categoryName },
-        {
-          $set: {
-            'statistics.orders.pending': stats.pending.orders,
-            'statistics.orders.completed': stats.completed.orders,
-            'statistics.items.pending': stats.pending.items,
-            'statistics.items.sold': stats.completed.items,
-            'statistics.totalProducts': productCountMap[categoryName] || 0,
-            'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
-            'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
-            'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
+    // Now update each category individually with its own transaction
+    // This is more reliable than trying to update all categories in a single transaction
+    const MAX_RETRIES = 3;
+    
+    // Process updates in batches to avoid overwhelming the database
+    const updateBatch = async (category) => {
+      let retryCount = 0;
+      let success = false;
+      
+      while (retryCount < MAX_RETRIES && !success) {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        
+        try {
+          const categoryName = category.name;
+          const stats = categoryStats[categoryName] || { 
+            pending: { orders: 0, items: 0 },
+            completed: { orders: 0, items: 0 }
+          };
+          
+          // Update the category with its statistics
+          await Category.findOneAndUpdate(
+            { _id: category._id },
+            {
+              $set: {
+                'statistics.orders.pending': stats.pending.orders,
+                'statistics.orders.completed': stats.completed.orders,
+                'statistics.items.pending': stats.pending.items,
+                'statistics.items.sold': stats.completed.items,
+                'statistics.totalProducts': productCountMap[categoryName] || 0,
+                'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
+                'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
+                'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
+              }
+            },
+            { session }
+          );
+          
+          await session.commitTransaction();
+          success = true;
+        } catch (error) {
+          await session.abortTransaction();
+          
+          const isTransientError = 
+            (error.name === 'MongoError' || error.name === 'MongoServerError') &&
+            (error.code === 112 || 
+             (error.hasOwnProperty('errorLabels') && 
+              error.errorLabels.includes('TransientTransactionError')));
+          
+          if (isTransientError && retryCount < MAX_RETRIES - 1) {
+            console.log(`Retrying update for category ${category.name}. Attempt: ${retryCount + 1}`);
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 100));
+          } else {
+            console.error(`Failed to update category ${category.name}:`, error);
+            throw error;
           }
-        },
-        { session }
-      );
-    }
-
-    // Update categories that might have products but no orders
-    for (const [categoryName, totalProducts] of Object.entries(productCountMap)) {
-      if (!categoryStats[categoryName]) {
-        await Category.findOneAndUpdate(
-          { name: categoryName },
-          {
-            $set: {
-              'statistics.totalProducts': totalProducts,
-              'statistics.streams.active': streamCountMap[categoryName]?.active || 0,
-              'statistics.streams.scheduled': streamCountMap[categoryName]?.scheduled || 0,
-              'statistics.streams.ended': streamCountMap[categoryName]?.ended || 0
-            }
-          },
-          { session }
-        );
+        } finally {
+          session.endSession();
+        }
       }
+    };
+    
+    // Process categories in batches of 5 to limit concurrency
+    const batchSize = 5;
+    for (let i = 0; i < categories.length; i += batchSize) {
+      const batch = categories.slice(i, i + batchSize);
+      await Promise.all(batch.map(updateBatch));
     }
-
-    // Update categories that might have streams but no products or orders
-    for (const [categoryName, streamStats] of Object.entries(streamCountMap)) {
-      if (!categoryStats[categoryName] && !productCountMap[categoryName]) {
-        await Category.findOneAndUpdate(
-          { name: categoryName },
-          {
-            $set: {
-              'statistics.streams.active': streamStats.active || 0,
-              'statistics.streams.scheduled': streamStats.scheduled || 0,
-              'statistics.streams.ended': streamStats.ended || 0
-            }
-          },
-          { session }
-        );
-      }
-    }
-
-    await session.commitTransaction();
-
+    
     // Get updated categories and sort them
     const updatedCategories = await Category.find().sort({
       'statistics.orders.completed': -1,
@@ -221,14 +218,11 @@ router.get('/categories', async (req, res) => {
     res.json(updatedCategories);
 
   } catch (error) {
-    await session.abortTransaction();
     console.error('Error retrieving categories:', error);
     res.status(500).json({
       message: 'Failed to retrieve categories',
       error: error.message
     });
-  } finally {
-    session.endSession();
   }
 });
 
@@ -593,6 +587,119 @@ router.get('/sellers/:id', async (req, res) => {
       }
     ]);
 
+    // Get product ratings statistics
+    const Product = mongoose.model('Product');
+    console.log(`Finding products for seller ID: ${seller._id}`);
+    
+    const productRatingsStats = await Product.aggregate([
+      {
+        $match: {
+          seller: seller._id
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalProductReviews: { $sum: { $size: { $ifNull: ["$reviews", []] } } },
+          averageProductRating: { 
+            $avg: {
+              $cond: [
+                { $gt: [{ $size: { $ifNull: ["$reviews", []] } }, 0] },
+                "$averageRating",
+                null
+              ]
+            }
+          }
+        }
+      }
+    ]);
+    
+    console.log('Initial aggregation result:', JSON.stringify(productRatingsStats, null, 2));
+
+    // Fallback query if the first approach returns 0 for average rating
+    if (!productRatingsStats.length || productRatingsStats[0].averageProductRating === 0) {
+      console.log('Using fallback method for product ratings calculation');
+      
+      // Check if the products have the expected structure
+      const sampleProducts = await Product.find({ seller: seller._id }).limit(2);
+      console.log('Sample product structure:', JSON.stringify(sampleProducts.map(p => ({
+        id: p._id,
+        hasReviews: !!p.reviews,
+        reviewsLength: p.reviews ? p.reviews.length : 0,
+        averageRating: p.averageRating,
+        // Include a sample review if available
+        sampleReview: p.reviews && p.reviews.length > 0 ? p.reviews[0] : null
+      })), null, 2));
+      
+      const products = await Product.find({ seller: seller._id }).select('reviews averageRating');
+      console.log(`Found ${products.length} products for manual calculation`);
+      
+      let totalReviews = 0;
+      let sumRatings = 0;
+      
+      products.forEach(product => {
+        console.log(`Product ${product._id}: averageRating=${product.averageRating}, reviews=${product.reviews ? product.reviews.length : 0}`);
+        
+        if (product.reviews && product.reviews.length > 0) {
+          product.reviews.forEach(review => {
+            if (review.rating) {
+              sumRatings += review.rating;
+              totalReviews++;
+              console.log(`  - Review rating: ${review.rating}`);
+            } else {
+              console.log(`  - Review without rating:`, review);
+            }
+          });
+        }
+      });
+      
+      console.log(`Total ratings sum: ${sumRatings}, Total reviews: ${totalReviews}`);
+      const avgRating = totalReviews > 0 ? (sumRatings / totalReviews) : 0;
+      // Round to one decimal place
+      const roundedAvgRating = Math.round(avgRating * 10) / 10;
+      console.log(`Calculated average rating: ${avgRating}, rounded to: ${roundedAvgRating}`);
+      
+      if (!productRatingsStats.length) {
+        productRatingsStats.push({
+          totalProductReviews: totalReviews,
+          averageProductRating: roundedAvgRating
+        });
+      } else {
+        productRatingsStats[0].totalProductReviews = totalReviews || productRatingsStats[0].totalProductReviews;
+        productRatingsStats[0].averageProductRating = roundedAvgRating || 0;
+      }
+      
+      console.log('Updated productRatingsStats:', JSON.stringify(productRatingsStats, null, 2));
+    }
+
+    // Alternative calculation - try a direct aggregate on review ratings
+    console.log('Attempting direct review rating aggregation');
+    try {
+      const directRatingAgg = await Product.aggregate([
+        { $match: { seller: seller._id } },
+        { $unwind: { path: "$reviews", preserveNullAndEmptyArrays: false } },
+        { $group: {
+            _id: null,
+            totalReviews: { $sum: 1 },
+            avgRating: { $avg: "$reviews.rating" }
+          }
+        }
+      ]);
+      
+      console.log('Direct rating aggregation result:', JSON.stringify(directRatingAgg, null, 2));
+      
+      if (directRatingAgg.length > 0 && directRatingAgg[0].avgRating > 0) {
+        console.log(`Using direct aggregation result: ${directRatingAgg[0].avgRating}`);
+        // Round to one decimal place
+        const roundedRating = Math.round(directRatingAgg[0].avgRating * 10) / 10;
+        console.log(`Rounded rating: ${roundedRating}`);
+        productRatingsStats[0].averageProductRating = roundedRating;
+        productRatingsStats[0].totalProductReviews = directRatingAgg[0].totalReviews;
+      }
+    } catch (err) {
+      console.error('Error in direct rating aggregation:', err);
+    }
+
     // Transform the response with detailed formatting
     const sellerResponse = {
       _id: seller._id,
@@ -655,6 +762,10 @@ router.get('/sellers/:id', async (req, res) => {
           3: 0,
           4: 0,
           5: 0
+        },
+        products: {
+          averageRating: productRatingsStats[0]?.averageProductRating || Math.round((seller.stats?.averageRating || 0.0) * 10) / 10,
+          totalReviews: productRatingsStats[0]?.totalProductReviews || 0
         }
       },
       activity: {

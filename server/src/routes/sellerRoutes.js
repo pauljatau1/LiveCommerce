@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const sellerController = require('../controllers/sellerController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const storeVisitMiddleware = require('../middlewares/storeVisitMiddleware');
@@ -3229,5 +3230,131 @@ router.get('/:sellerId/product-reviews', sellerController.getAllProductReviews);
  *         description: Server error
  */
 router.get('/product/:productId/review/:reviewId', sellerController.getPublicProductReviewDetails);
+
+/**
+ * @swagger
+ * /api/seller/search:
+ *   get:
+ *     summary: Search for sellers
+ *     description: Search sellers by name, store name, business name, location and category with optional authentication to see follow status
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search term for seller name, store name, or business name
+ *       - in: query
+ *         name: country
+ *         schema:
+ *           type: string
+ *         description: Filter sellers by country location
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter sellers by product category
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of sellers per page
+ *     responses:
+ *       200:
+ *         description: List of sellers matching search criteria
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 sellers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       businessName:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                       storeAvatar:
+ *                         type: string
+ *                         nullable: true
+ *                       aboutStore:
+ *                         type: string
+ *                         nullable: true
+ *                       socialMedia:
+ *                         type: object
+ *                         properties:
+ *                           instagram:
+ *                             type: string
+ *                             nullable: true
+ *                           facebook:
+ *                             type: string
+ *                             nullable: true
+ *                           tiktok:
+ *                             type: string
+ *                             nullable: true
+ *                       location:
+ *                         type: object
+ *                         properties:
+ *                           country:
+ *                             type: string
+ *                             nullable: true
+ *                           state:
+ *                             type: string
+ *                             nullable: true
+ *                           city:
+ *                             type: string
+ *                             nullable: true
+ *                       categories:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                             subCategories:
+ *                               type: array
+ *                               items:
+ *                                 type: object
+ *                                 properties:
+ *                                   name:
+ *                                     type: string
+ *                       followerCount:
+ *                         type: integer
+ *                       isFollowing:
+ *                         type: boolean
+ *                         description: Only present for authenticated buyers
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *       500:
+ *         description: Server error
+ */
+router.get('/search', optionalAuthMiddleware, sellerController.searchSellers);
 
 module.exports = router;

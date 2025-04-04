@@ -1550,7 +1550,13 @@ exports.createReplacementShippingLabels = async (req, res) => {
     const { returnRateId, replacementRateId, replacementProductId, variant, specifications } = req.body;
 
     const returnRequest = await Return.findById(returnId)
-      .populate('order');
+      .populate('order')
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName')
+      .populate({
+        path: 'items.product',
+        select: 'name'
+      });
 
     if (!returnRequest) {
       return res.status(404).json({ message: 'Return request not found' });
@@ -1613,6 +1619,20 @@ exports.createReplacementShippingLabels = async (req, res) => {
 
     await returnRequest.save();
 
+    // Send email notifications to buyer and seller
+    try {
+      await sendShippingLabelEmails(
+        returnRequest, 
+        replacementProduct,
+        returnShipment.data.data.extras,
+        replacementShipment.data.data.extras
+      );
+      console.log('Shipping label emails sent successfully');
+    } catch (emailError) {
+      console.error('Error sending shipping label emails:', emailError);
+      // Continue despite email error
+    }
+
     res.json({
       message: 'Shipping labels created successfully',
       returnShipment: returnRequest.returnShipment,
@@ -1637,6 +1657,105 @@ exports.createReplacementShippingLabels = async (req, res) => {
     });
   }
 };
+
+// Helper function to send shipping label emails
+async function sendShippingLabelEmails(returnRequest, replacementProduct, returnShipmentExtras, replacementShipmentExtras) {
+  try {
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    // Get product names
+    const originalProductNames = returnRequest.items.map(item => 
+      item.product.name || 'Product'
+    ).join(', ');
+    
+    const replacementProductName = replacementProduct.name || 'Replacement Product';
+
+    // Email to buyer
+    const buyerEmail = {
+      to: returnRequest.buyer.email,
+      from: {
+        email: 'support@auqli.com',
+        name: 'Auqli Returns'
+      },
+      subject: 'Return and Replacement Shipping Labels Created',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Return and Replacement Shipping Labels</h2>
+          <p>Dear ${returnRequest.buyer.firstName},</p>
+          <p>Good news! The seller has created shipping labels for your return and replacement request.</p>
+          
+          <h3>Return Details:</h3>
+          <p>You'll need to ship back: <strong>${originalProductNames}</strong></p>
+          <p><strong>Return Tracking Number:</strong> ${returnRequest.returnShipment.tracking.number}</p>
+          <p><strong>Tracking URL:</strong> <a href="${returnRequest.returnShipment.tracking.url}">${returnRequest.returnShipment.tracking.url}</a></p>
+          <p><a href="${returnShipmentExtras.shipping_label_url}" target="_blank">Download Return Shipping Label</a></p>
+          
+          <h3>Replacement Details:</h3>
+          <p>You'll receive: <strong>${replacementProductName}</strong></p>
+          <p><strong>Replacement Tracking Number:</strong> ${returnRequest.replacementShipment.tracking.number}</p>
+          <p><strong>Tracking URL:</strong> <a href="${returnRequest.replacementShipment.tracking.url}">${returnRequest.replacementShipment.tracking.url}</a></p>
+          
+          <p><strong>Important:</strong> Please print the return shipping label and attach it to your package. The seller will arrange for pickup of your return item and delivery of your replacement.</p>
+          
+          <p>If you have any questions, please don't hesitate to contact our support team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Email to seller
+    const sellerEmail = {
+      to: returnRequest.seller.email,
+      from: {
+        email: 'support@auqli.com',
+        name: 'Auqli Returns'
+      },
+      subject: 'Return and Replacement Shipping Labels Created',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Return and Replacement Shipping Labels Created</h2>
+          <p>Dear ${returnRequest.seller.firstName || returnRequest.seller.businessName},</p>
+          <p>You have successfully created shipping labels for return and replacement for order #${returnRequest.order.order_id}.</p>
+          
+          <h3>Return Shipment:</h3>
+          <p><strong>Tracking Number:</strong> ${returnRequest.returnShipment.tracking.number}</p>
+          <p><strong>Tracking URL:</strong> <a href="${returnRequest.returnShipment.tracking.url}">${returnRequest.returnShipment.tracking.url}</a></p>
+          <p><a href="${returnShipmentExtras.shipping_label_url}" target="_blank">Download Return Shipping Label</a></p>
+          <p><a href="${returnShipmentExtras.commercial_invoice_url}" target="_blank">Download Commercial Invoice</a></p>
+          
+          <h3>Replacement Shipment:</h3>
+          <p><strong>Product:</strong> ${replacementProductName}</p>
+          <p><strong>Tracking Number:</strong> ${returnRequest.replacementShipment.tracking.number}</p>
+          <p><strong>Tracking URL:</strong> <a href="${returnRequest.replacementShipment.tracking.url}">${returnRequest.replacementShipment.tracking.url}</a></p>
+          <p><a href="${replacementShipmentExtras.shipping_label_url}" target="_blank">Download Replacement Shipping Label</a></p>
+          <p><a href="${replacementShipmentExtras.commercial_invoice_url}" target="_blank">Download Commercial Invoice</a></p>
+          
+          <p><strong>Next Steps:</strong></p>
+          <ol>
+            <li>The buyer has been notified to prepare the return package</li>
+            <li>You need to <a href="/dashboard/returns/${returnRequest._id}/arrange-pickup">arrange pickup</a> for both shipments</li>
+            <li>Track both shipments to ensure smooth return and replacement delivery</li>
+          </ol>
+          
+          <p>If you have any questions, please don't hesitate to contact our support team.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    // Send emails
+    await Promise.all([
+      sgMail.send(buyerEmail),
+      sgMail.send(sellerEmail)
+    ]);
+
+    return true;
+  } catch (error) {
+    console.error('Error sending shipping label emails:', error);
+    throw error;
+  }
+}
 
 // Arrange pickup for replacement
 exports.arrangeReplacementPickup = async (req, res) => {

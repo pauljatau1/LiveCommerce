@@ -205,7 +205,9 @@ const productSchema = new mongoose.Schema({
     views: { type: Number, default: 0 },
     soldCount: { type: Number, default: 0 },
     lastViewed: { type: Date },
-    lastRestocked: { type: Date }
+    lastRestocked: { type: Date },
+    averageRating: { type: Number },
+    totalReviews: { type: Number }
   },
   lowStockAlert: { type: Number, default: 5 },
   sku: { type: String},
@@ -1483,5 +1485,53 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
   
   return this.auction.winner;
 };
+
+// Middleware to update seller stats when product reviews change
+productSchema.post('save', async function() {
+  try {
+    // Only trigger updates if this product has reviews
+    if (this.reviews && this.reviews.length > 0) {
+      // Calculate product review statistics
+      const ratings = this.reviews.map(review => review.rating).filter(Boolean);
+      const totalRatings = ratings.length;
+      
+      if (totalRatings > 0) {
+        // Calculate average product rating
+        const sumRatings = ratings.reduce((sum, rating) => sum + rating, 0);
+        const averageRating = parseFloat((sumRatings / totalRatings).toFixed(1));
+        
+        // Update product stats if needed
+        if (this.stats.averageRating !== averageRating || this.stats.totalReviews !== totalRatings) {
+          // Use updateOne to avoid triggering the post-save middleware again
+          await this.constructor.updateOne(
+            { _id: this._id },
+            { 
+              $set: { 
+                'stats.averageRating': averageRating,
+                'stats.totalReviews': totalRatings
+              }
+            }
+          );
+          
+          console.log(`Updated product (${this._id}) stats: avgRating=${averageRating}, totalReviews=${totalRatings}`);
+        }
+      }
+      
+      // Get the seller and update their stats
+      const Seller = mongoose.model('Seller');
+      const seller = await Seller.findById(this.seller);
+      
+      if (seller) {
+        // Set flag to update product rating stats
+        seller._updateProductRatingStats = true;
+        await seller.save();
+        
+        console.log(`Updated seller (${seller._id}) stats based on product (${this._id}) reviews`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in product post-save middleware for stats:', error);
+  }
+});
 
 module.exports = mongoose.model('Product', productSchema);
