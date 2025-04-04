@@ -2125,6 +2125,21 @@ exports.activateProductBidding = async (req, res) => {
 
     await stream.save();
     console.log('[ACTIVATE_BID] 13. Stream saved successfully');
+    
+    // Helper function to format product name to max 3 words
+    const formatProductName = (name) => {
+      if (!name) return 'a product';
+      
+      // Split by spaces and take first 3 words
+      const words = name.split(' ');
+      const truncatedName = words.slice(0, 3).join(' ');
+      
+      // Add ellipsis if there were more than 3 words
+      return words.length > 3 ? `${truncatedName}...` : truncatedName;
+    };
+
+    // Format the product name
+    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
 
     // Create notification object for WebSocket
     const notificationObj = {
@@ -2132,9 +2147,9 @@ exports.activateProductBidding = async (req, res) => {
       type: 'auction_start',
       user: stream.seller.storeName || 'Host',
       avatar: stream.seller.storeAvatar?.url || '',
-      content: `Bidding started for ${stream.products[productIndex].product.name || 'a product'}`,
+      content: `Bidding started for ${formattedProductName}`,
       data: {
-        message: `Bidding started for ${stream.products[productIndex].product.name || 'a product'}`,
+        message: `Bidding started for ${formattedProductName}`,
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
@@ -2577,15 +2592,30 @@ exports.endProductBidding = async (req, res) => {
     await stream.save();
     console.log('[END_BID] 34. Stream saved successfully');
 
+    // Helper function to format product name to max 3 words
+    const formatProductName = (name) => {
+      if (!name) return 'a product';
+      
+      // Split by spaces and take first 3 words
+      const words = name.split(' ');
+      const truncatedName = words.slice(0, 3).join(' ');
+      
+      // Add ellipsis if there were more than 3 words
+      return words.length > 3 ? `${truncatedName}...` : truncatedName;
+    };
+
+    // Format the product name
+    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
+
     // Create notification object for WebSocket
     const notificationObj = {
       id: Date.now().toString(),
       type: 'auction_end',
       user: stream.seller.storeName || 'Host',
       avatar: stream.seller.storeAvatar?.url || '',
-      content: `Bidding ended for ${stream.products[productIndex].product.name || 'a product'}`,
+      content: `Bidding ended for ${formattedProductName}`,
       data: {
-        message: `Bidding ended for ${stream.products[productIndex].product.name || 'a product'}`,
+        message: `Bidding ended for ${formattedProductName}`,
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
