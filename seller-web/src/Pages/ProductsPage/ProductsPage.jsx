@@ -209,13 +209,13 @@ const ProductsPage = () => {
                                         <div className="text-sm font-medium text-[#05031F]">Upload Status</div>
                                     )}
                                     <div className="text-sm font-medium text-[#05031F]">
-                                        {activeTab === 'auctions' ? 'Auction Status' : 'Stock'}
+                                        {activeTab === 'auctions' ? 'Auction Status' : 'Sold Count'}
                                     </div>
                                     <div className="text-sm font-medium text-[#05031F]">
                                         {activeTab === 'auctions' ? 'Current Bid' : 'Price'}
                                     </div>
                                     <div className="text-sm font-medium text-[#05031F] text-center">
-                                        {activeTab === 'auctions' ? 'Time Left' : 'Stock Status'}
+                                        {activeTab === 'auctions' ? 'Time Left' : 'Stock Count'}
                                     </div>
                                     <div className="text-sm font-medium text-[#05031F] text-center">Actions</div>
                                 </div>

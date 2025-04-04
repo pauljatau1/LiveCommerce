@@ -445,7 +445,9 @@ export default function OrderDetails() {
                             </div>
                           </div>
 
-                          <p className="text-xs text-gray-600 line-clamp-2">{item?.product?.description}</p>
+                          <div className="text-xs text-gray-600 line-clamp-2 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: item?.product?.description || '' }}>
+                          </div>
 
                           {/* Product Specifications */}
                           {item?.specifications && Object.values(item.specifications).some(value => value) && (

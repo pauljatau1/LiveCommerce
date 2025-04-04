@@ -393,7 +393,8 @@ AuctionPerformanceModal.propTypes = {
 
 // Create a separate component for the stock update modal
 const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitting }) => {
-    const [newStock, setNewStock] = useState(item?.stock || null);
+    const [stockChange, setStockChange] = useState(0);
+    const [operation, setOperation] = useState('add'); // 'add' or 'subtract'
     
 
     // Modal style configuration
@@ -417,28 +418,32 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
 
     const handleStockChange = useCallback((e) => {
         const value = e.target.value;
-        setNewStock(Math.max(0, parseInt(value) || 0));
+        setStockChange(Math.max(0, parseInt(value) || 0));
     }, []);
 
     const handleStockIncreaseButton = () => {
-        setNewStock((prev) => prev + 1)
+        setStockChange((prev) => prev + 1);
+        setOperation('add');
     }
 
     const handleStockDecreaseButton = () => {
-        setNewStock((prev) => {
+        setStockChange((prev) => {
             if (prev > 0) {
-                return prev - 1
+                return prev + 1;
             } else {
-                toast.error("Stock cannot be less than 0")
-                return 0
+                return 1;
             }
-        })
+        });
+        setOperation('subtract');
     }
 
     const handleSubmit = async () => {
-        await onUpdate(newStock);
+        if (stockChange <= 0) {
+            toast.error("Please enter a valid quantity");
+            return;
+        }
+        await onUpdate(stockChange, operation);
     };
-
 
     return (
         <Modal open={open} onClose={onClose}>
@@ -471,55 +476,108 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                 </div>
                             </div>
 
-                          <div className="flex items-center justify-between gap-4">
-                          <TextField
-                                label="New Stock Quantity"
-                                type="text"
-                                disabled
-                                value={newStock}
-                                onChange={handleStockChange}
-                               
-                                variant="outlined"
-                                InputProps={{
-                                    inputProps: { min: 0 }
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        '&.Mui-focused fieldset': {
-                                            borderColor: '#05031F',
-                                            borderWidth: '1px',
-                                        },
-                                    },
-                                    '& label.Mui-focused': {
-                                        color: '#05031F',
-                                    },
-                                    '&:hover': {
-                                        borderColor: 'none',
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={() => setOperation('add')}
+                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${
+                                            operation === 'add' 
+                                                ? 'bg-[#0BB248]/10 text-[#0BB248] border-2 border-[#0BB248]' 
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}
+                                    >
+                                        Add Stock
+                                    </button>
+                                    <button 
+                                        onClick={() => setOperation('subtract')}
+                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${
+                                            operation === 'subtract' 
+                                                ? 'bg-[#DF0707]/10 text-[#DF0707] border-2 border-[#DF0707]' 
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}
+                                    >
+                                        Remove Stock
+                                    </button>
+                                </div>
+
+                                <p className="text-sm text-gray-500 text-center">
+                                    {operation === 'add' 
+                                        ? `Adding stock will increase total to: ${item?.stock + stockChange}` 
+                                        : `Removing stock will decrease total to: ${Math.max(0, item?.stock - stockChange)}`
                                     }
-                                }}
-                            />
-                            <div className="flex items-center gap-4">
-                                <button onClick={handleStockIncreaseButton} className="bg-[#05031F] text-white px-2 py-1 h-14 w-14 rounded-md">+</button>
-                                <button onClick={handleStockDecreaseButton} className="bg-[#05031F] text-white px-2 py-1 h-14 w-14 rounded-md">-</button>
+                                </p>
+
+                                <div className="flex items-center justify-between gap-4">
+                                    <TextField
+                                        label={`${operation === 'add' ? 'Add' : 'Remove'} Quantity`}
+                                        type="number"
+                                        value={stockChange}
+                                        onChange={handleStockChange}
+                                        variant="outlined"
+                                        InputProps={{
+                                            inputProps: { min: 0 }
+                                        }}
+                                        sx={{
+                                            flex: 1,
+                                            '& .MuiOutlinedInput-root': {
+                                                '&.Mui-focused fieldset': {
+                                                    borderColor: operation === 'add' ? '#0BB248' : '#DF0707',
+                                                    borderWidth: '1px',
+                                                },
+                                            },
+                                            '& label.Mui-focused': {
+                                                color: operation === 'add' ? '#0BB248' : '#DF0707',
+                                            },
+                                        }}
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => setStockChange(prev => prev + 1)} 
+                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${
+                                                operation === 'add' 
+                                                    ? 'bg-[#0BB248] text-white' 
+                                                    : 'bg-[#DF0707] text-white'
+                                            }`}
+                                        >
+                                            <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
+                                        </button>
+                                        <button 
+                                            onClick={() => setStockChange(prev => Math.max(0, prev - 1))} 
+                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${
+                                                operation === 'add' 
+                                                    ? 'bg-[#0BB248] text-white' 
+                                                    : 'bg-[#DF0707] text-white'
+                                            }`}
+                                            disabled={stockChange <= 0}
+                                        >
+                                            <Icon icon="solar:minus-circle-bold" className="w-6 h-6" />
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                          </div>
                         </div>
 
-                        <div className="flex gap-3  mt-4">
+                        <div className="flex gap-3 mt-4">
                             <button
-                                className=" border border-[#05031F] flex-1 text-[#05031F] px-2 py-1 h-14 w-14 rounded-md"
+                                className="border border-[#05031F] flex-1 text-[#05031F] px-2 py-1 h-14 rounded-md"
                                 onClick={onClose}
-                      
                             >
                                 Cancel
                             </button>
                             <button
-                                className="bg-[#05031F] flex-1 text-white px-2 py-1 h-14 w-14 rounded-md hover:bg-[#05031F]/80 transition-all duration-200"
+                                className={`flex-1 text-white px-2 py-1 h-14 rounded-md transition-all duration-200 ${
+                                    operation === 'add' 
+                                        ? 'bg-[#0BB248] hover:bg-[#0BB248]/80' 
+                                        : 'bg-[#DF0707] hover:bg-[#DF0707]/80'
+                                }`}
                                 onClick={handleSubmit}
-                                disabled={isSubmitting}
-                             
+                                disabled={isSubmitting || stockChange <= 0}
                             >
-                                {isSubmitting ? <CircularProgress size={20} color="inherit" /> : 'Update Stock'}
+                                {isSubmitting ? (
+                                    <CircularProgress size={20} color="inherit" />
+                                ) : (
+                                    `${operation === 'add' ? 'Add' : 'Remove'} ${stockChange} ${stockChange === 1 ? 'Unit' : 'Units'}`
+                                )}
                             </button>
                         </div>
                     </div>
@@ -675,7 +733,9 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
                                 </div>
                                 <div className="space-y-2">
                                     <p className="text-sm text-gray-500">Description</p>
-                                    <p className="text-sm">{productData.description}</p>
+                                    <div className="text-sm prose prose-sm max-w-none overflow-auto max-h-[200px]" 
+                                        dangerouslySetInnerHTML={{ __html: productData.description || '' }}>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1077,14 +1137,14 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     console.log('attempted deleted product', deletedProductId)
     console.log('specific deleted product', SpecificDeletedProduct)
 
-    const handleStockUpdate = async (newStock) => {
+    const handleStockUpdate = async (stockChange, operation) => {
         try {
             setIsSubmitting(true);
             const sellerToken = localStorage.getItem('sellerToken');
             const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
             const response = await axios.put(`${BASE_URL}/products/${item._id}/inventory`, {
-                quantity: newStock,
-                operation: newStock > item?.stock ? "add" : "subtract"
+                quantity: stockChange,
+                operation: operation // "add" or "subtract"
             }, {
                 headers: {
                     Authorization: `Bearer ${tokenData.data}`
@@ -1093,11 +1153,11 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             if (response.status === 200) {
                 setOpenStockModal(false);
                 setIsStockUpdated(prev => !prev);
-                toast.success("Stock updated successfully");
+                toast.success(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`);
             }
         } catch (error) {
             toast.error("Failed to update stock", {
-                description: error.response.data.message
+                description: error.response?.data?.message || "Please try again"
             });
         } finally {
             setIsSubmitting(false);
@@ -1180,9 +1240,13 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 </div>
             </div>
             <div>
-                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${status.class}`}>
-                    {status.text}
-                </div>
+                {isAuction ? (
+                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${status.class}`}>
+                        {status.text}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500">{item?.stats?.soldCount || 0}</p>
+                )}
                 {canRerunAuction && (
                     <button
                         onClick={handleRerunClick}
@@ -1322,17 +1386,22 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                         ) : (
                             <>
                                 <p className="text-sm font-medium text-[#05031F]">{formatCurrency(item?.price)}</p>
-                                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${status.class}`}>
-                                    {status.text}
-                                </div>
+                                <p className="text-sm text-gray-500">Stock: {item?.stock}</p>
+                                <p className="text-sm text-gray-500">Sold: {item?.stats?.soldCount || 0}</p>
                             </>
                         )}
                     </div>
                 </div>
                 <div className="flex flex-col gap-2 items-center justify-center">
-                    <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${status.class}`}>
-                        {status.text}
-                    </span>
+                    {isAuction ? (
+                        <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${status.class}`}>
+                            {status.text}
+                        </span>
+                    ) : (
+                        <span className="w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap bg-[#0BB24817] text-[#17171B]">
+                            Stock: {item?.stock}
+                        </span>
+                    )}
                     <span className={`w-[90px] flex items-center justify-center py-1 rounded-md text-xs whitespace-nowrap ${uploadStatus?.class}`}>
                         {uploadStatus?.text}
                     </span>
