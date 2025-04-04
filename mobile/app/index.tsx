@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { usePushNotifications } from "../hooks/useExpoPushToken";
 import useInitializeAuthState from "@/hooks/useInitializeAuthState";
 import { View } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
+
+SplashScreen.preventAutoHideAsync();
 
 const Home = () => {
   const { expoPushToken } = usePushNotifications();
@@ -22,6 +25,7 @@ const Home = () => {
       }
     }
     getToken();
+    SplashScreen.hideAsync();
   }, []);
   return <View className="h-full w-full bg-[#121212]" />;
   return null;

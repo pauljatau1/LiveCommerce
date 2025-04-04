@@ -218,6 +218,10 @@ const VideoItem = ({
     setPaused(!paused);
   }, [paused]);
 
+  const closeCommentsSheet = useCallback(() => {
+    setShowComments(false);
+  }, []);
+
   useEffect(() => {
     if (isFocused && videoRef.current) {
       if (isVisible) {
@@ -652,6 +656,7 @@ const VideoItem = ({
             id={id}
             commentCount={comments}
             handleCantComment={handleCantComment}
+            closeCommentsSheet={closeCommentsSheet}
           />
         </BottomSheet>
 
