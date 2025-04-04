@@ -1393,7 +1393,7 @@ function initializeSocket(server) {
         // Check if bidding is active for this product
         if (product.bidStatus !== 'active') {
           console.error('[BID] 30. FAILED: Bidding not active for product', { bidStatus: product.bidStatus });
-          socket.emit('bid_error', { message: 'Bidding is not currently active for this product' });
+          socket.emit('bid_error', { message: 'Bidding is now closed for this product' });
           return;
         }
 
@@ -1452,7 +1452,7 @@ function initializeSocket(server) {
 
         // Check if bidding should end (reached maxBid)
         console.log('[BID] 36. Checking if bid amount reached max bid', { bidAmount, maxBid: product.maxBid });
-        if (bidAmount >= product.maxBid) {
+        if (product.maxBid !== null && product.maxBid !== undefined && product.maxBid !== 0 && bidAmount >= product.maxBid) {
           console.log('[BID] 37. Bid has reached or exceeded max bid, marking as winner');
           stream.products[productIndex].bidStatus = 'ongoing';
           stream.products[productIndex].bidWinner = {
@@ -1475,7 +1475,7 @@ function initializeSocket(server) {
             avatar: buyer.profileImage?.url || '',
             content: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
             data: {
-              message: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()}`,
+              message: `won the auction for ${formattedProductName} with a bid of ₦${bidAmount.toLocaleString()} higher than the max bid`,
               streamId: stream._id.toString(),
               sellerId: stream.seller._id.toString(),
               storeName: stream.seller.storeName || 'Unknown Store',
@@ -1507,10 +1507,185 @@ function initializeSocket(server) {
           // Broadcast to all subscribers
           console.log('[BID] 41. Broadcasting winner notification to subscribers');
           io.to('stream_notifications').emit('stream_notification', winnerNotification);
-          //io.to('stream_auction_bidding').emit('auction_bid_update', winnerNotification);
+          
+          try {
+            // Fetch full product details
+            console.log('[BID] 42. Fetching full product details for order creation');
+            // Get productId from the stream product
+            const productIdToFetch = product.product.productId;
+            const fullProductDetails = await Product.findById(productIdToFetch).populate('seller');
+
+            if (!fullProductDetails) {
+              console.error('[BID] 43. FAILED: Could not retrieve full product details');
+              throw new Error('Product details not found');
+            }
+
+            console.log('[BID] 44. Full product details retrieved', {
+              productId: fullProductDetails._id,
+              name: fullProductDetails.name,
+              weight: fullProductDetails.weight || 1
+            });
+
+            // Buyer details are already fetched above
+
+            if (!buyer.shippingAddresses || buyer.shippingAddresses.length === 0) {
+              console.error('[BID] 45. FAILED: Buyer has no shipping addresses');
+              throw new Error('Buyer has no shipping addresses');
+            }
+
+            // Prepare shipping address
+            const selectedAddress = {
+              recipientName: `${buyer.firstName} ${buyer.lastName}`,
+              recipientEmail: buyer.email,
+              recipientPhone: buyer.phoneNumber?.replaceAll("-", "")?.length > 14 ?
+                buyer.phoneNumber.replaceAll("-", "").replace("0", "") :
+                buyer.phoneNumber?.replaceAll("-", ""),
+              recipientAddress: buyer.shippingAddresses[0].addressLine1,
+              recipientState: buyer.shippingAddresses[0].state,
+            };
+
+            console.log('[BID] 46. Prepared shipping address', selectedAddress);
+
+            // Prepare seller pickup address
+            const seller = fullProductDetails.seller;
+            const pickupAddress = {
+              senderName: `${seller.firstName} ${seller.lastName}`,
+              senderEmail: seller.businessEmail || seller.email,
+              senderPhone: seller.phoneNumber,
+              senderAddress: seller.warehouseDetails?.address?.addressLine1 ||
+                seller.businessAddress?.addressLine1 ||
+                seller.sellerAddress?.addressLine1,
+              pickUpState: seller.warehouseDetails?.address?.state ||
+                seller.businessAddress?.state ||
+                seller.sellerAddress?.state,
+            };
+
+            console.log('[BID] 47. Prepared seller pickup address', pickupAddress);
+
+            // Use shipping fee already calculated above (shippingFee variable)
+            console.log('[BID] 48. Using previously calculated shipping fee:', shippingFee);
+
+            // Prepare order data
+            const orderData = {
+              items: [
+                {
+                  productId: fullProductDetails._id,
+                  quantity: 1,
+                  price: fullProductDetails?.discount?.discountedPrice || fullProductDetails.price,
+                  weight: fullProductDetails.weight?.toFixed(0) * 1 || 1,
+                  seller: {
+                    sellerId: seller._id,
+                    senderInfo: pickupAddress,
+                    shippingFee: shippingFee,
+                    parcelInfo: {
+                      itemDescription: fullProductDetails?.name?.slice(0, 199),
+                    },
+                  },
+                  specifications: {
+                    color: fullProductDetails.colors?.length > 0 ? fullProductDetails.colors[0] : "",
+                    size: fullProductDetails.fashion_sizes?.length > 0 ? fullProductDetails.fashion_sizes[0] : "",
+                    material: fullProductDetails.fashion_material || "",
+                  },
+                },
+              ],
+              shippingAddress: selectedAddress,
+              paymentMethod: "Auqli Wallet",
+              isItemCod: false,
+              shippingFee: shippingFee,
+              additionalDetails: "Please handle with care",
+              paidFromWallet: true,
+              channel: "auction"
+            };
+
+            console.log('[BID] 49. Prepared order data', orderData);
+
+            // Create the order
+            console.log('[BID] 50. Creating order using order controller');
+            const orderController = require('../controllers/orderController');
+
+            // Create mock request and response objects for the createOrder function
+            const mockReq = {
+              body: orderData,
+              user: {
+                id: buyer._id
+              },
+              get: (name) => name === 'host' ? 'auqli.com' : null,
+              app: {
+                get: (name) => {
+                  if (name === 'io') return io;
+                  return null;
+                }
+              }
+            };
+
+            let orderResult = null;
+            const mockRes = {
+              status: function (code) {
+                this.statusCode = code;
+                return this;
+              },
+              json: function (data) {
+                orderResult = data;
+                console.log(`[BID] 51. Order creation response received with status: ${this.statusCode}`,
+                  data.success === false ? { error: data.message } : { orderId: data.orders?.[0]?.orderId });
+                return this;
+              }
+            };
+
+            // Call the createOrder function
+            await orderController.createOrder(mockReq, mockRes);
+
+            // Update stream product with order information
+            if (orderResult && orderResult.success !== false && orderResult.orders && orderResult.orders.length > 0) {
+              console.log('[BID] 52. Order created successfully', {
+                orderId: orderResult.orders[0].orderId,
+                orderTotal: orderResult.totals.grandTotal
+              });
+
+              // Update stream product to mark order as created and set bid status
+              stream.products[productIndex].orderCreated = true;
+              stream.products[productIndex].orderId = orderResult.orders[0].orderId;
+              stream.products[productIndex].bidStatus = 'ended';
+              await stream.save();
+
+              // Emit socket notification about order creation
+              io.to('stream_notifications').emit('auction_order_created', {
+                success: true,
+                message: 'Order created for auction win',
+                orderId: orderResult.orders[0].orderId,
+                streamId: stream._id,
+                orderDetails: orderResult.orders[0],
+                productName: fullProductDetails.name,
+                amount: stream.products[productIndex].currentBid,
+                shippingFee: shippingFee,
+                total: stream.products[productIndex].currentBid + shippingFee
+              });
+            } else {
+              console.error('[BID] 52. Failed to create order',
+                orderResult?.message || 'Unknown error');
+
+              // Emit error notification to buyer
+              io.to('stream_notifications').emit('auction_order_error', {
+                success: false,
+                message: 'Failed to create order for auction win',
+                error: orderResult?.message || 'Unknown error occurred during order creation',
+                productName: fullProductDetails.name,
+              });
+            }
+          } catch (orderError) {
+            console.error('[BID] ERROR: Failed to create order:', orderError);
+
+            // Try to notify buyer of error
+            io.to('stream_notifications').emit('auction_order_error', {
+              success: false,
+              message: 'Error processing auction order',
+              error: orderError.message || 'Unknown error occurred',
+              productName: product.product.name || 'Unknown product'
+            });
+          }
           
           // Send success message to bidder
-          console.log('[BID] 42. Sending success response to bidder (auction won)');
+          console.log('[BID] 53. Sending success response to bidder (auction won)');
           socket.emit('bid_placed', {
             success: true,
             message: 'Bid placed successfully and auction won',
@@ -1561,7 +1736,6 @@ function initializeSocket(server) {
         // Broadcast to all subscribers
         console.log('[BID] 47. Broadcasting bid notification to subscribers');
         io.to('stream_notifications').emit('stream_notification', bidNotification);
-        //io.to('stream_auction_bidding').emit('auction_bid_update', bidNotification);
 
         // Send success message to bidder
         console.log('[BID] 48. Sending success response to bidder');
