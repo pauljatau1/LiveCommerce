@@ -162,8 +162,8 @@ workflows:
           requires:
             - approve-staging-backend-deploy
           cluster-name: 'staging-auqli'
-          family: 'staging-app'
-          service-name: 'staging-app-auqli'
+          family: 'staging-auqli-backend-api'
+          service-name: 'staging-auqli-backend-api'
           container-image-name-updates: 'container=staging-auqli-backend,tag=$CIRCLE_SHA1'
           container-env-var-updates: 'container=staging-auqli-backend,name=APP_ENV,value=staging,container=staging-auqli-backend,name=BRANCH,value=$CIRCLE_BRANCH'
           verify-revision-is-deployed: true
