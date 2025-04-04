@@ -39,6 +39,114 @@ const CreateLiveShow = () => {
     const [datePickerOpen, setDatePickerOpen] = useState(false);
     const [timePickerOpen, setTimePickerOpen] = useState(false);
 
+    // State for tag search
+    const [searchTag, setSearchTag] = useState('');
+    const [filteredTags, setFilteredTags] = useState([]);
+    
+    // Comprehensive predefined tags grouped by category
+    const allTags = [
+        // Fashion Category
+        { id: 1, label: 'Fashion', category: 'Fashion' },
+        { id: 2, label: 'Clothing', category: 'Fashion' },
+        { id: 3, label: 'Dresses', category: 'Fashion' },
+        { id: 4, label: 'Tops', category: 'Fashion' },
+        { id: 5, label: 'Pants', category: 'Fashion' },
+        { id: 6, label: 'Traditional', category: 'Fashion' },
+        { id: 7, label: 'Vintage', category: 'Fashion' },
+        
+        // Footwear Category
+        { id: 8, label: 'Shoes', category: 'Footwear' },
+        { id: 9, label: 'Sneakers', category: 'Footwear' },
+        { id: 10, label: 'Heels', category: 'Footwear' },
+        { id: 11, label: 'Boots', category: 'Footwear' },
+        { id: 12, label: 'Sandals', category: 'Footwear' },
+        
+        // Accessories Category
+        { id: 13, label: 'Accessories', category: 'Accessories' },
+        { id: 14, label: 'Jewelry', category: 'Accessories' },
+        { id: 15, label: 'Watches', category: 'Accessories' },
+        { id: 16, label: 'Bags', category: 'Accessories' },
+        { id: 17, label: 'Wallets', category: 'Accessories' },
+        { id: 18, label: 'Belts', category: 'Accessories' },
+        
+        // Electronics Category
+        { id: 19, label: 'Electronics', category: 'Electronics' },
+        { id: 20, label: 'Smartphones', category: 'Electronics' },
+        { id: 21, label: 'Laptops', category: 'Electronics' },
+        { id: 22, label: 'Tablets', category: 'Electronics' },
+        { id: 23, label: 'Headphones', category: 'Electronics' },
+        { id: 24, label: 'Speakers', category: 'Electronics' },
+        { id: 25, label: 'Cameras', category: 'Electronics' },
+        
+        // Home & Living Category
+        { id: 26, label: 'Home Decor', category: 'Home & Living' },
+        { id: 27, label: 'Furniture', category: 'Home & Living' },
+        { id: 28, label: 'Kitchen', category: 'Home & Living' },
+        { id: 29, label: 'Bedding', category: 'Home & Living' },
+        
+        // Beauty Category
+        { id: 30, label: 'Beauty', category: 'Beauty' },
+        { id: 31, label: 'Makeup', category: 'Beauty' },
+        { id: 32, label: 'Skincare', category: 'Beauty' },
+        { id: 33, label: 'Haircare', category: 'Beauty' },
+        { id: 34, label: 'Fragrance', category: 'Beauty' },
+        
+        // Kids & Baby Category
+        { id: 35, label: 'Kids', category: 'Kids & Baby' },
+        { id: 36, label: 'Baby Clothes', category: 'Kids & Baby' },
+        { id: 37, label: 'Toys', category: 'Kids & Baby' },
+        
+        // Seasonal & Trending Tags
+        { id: 38, label: 'Trending', category: 'Popular' },
+        { id: 39, label: 'New Arrivals', category: 'Popular' },
+        { id: 40, label: 'Sale', category: 'Popular' },
+        { id: 41, label: 'Limited Edition', category: 'Popular' },
+        { id: 42, label: 'Exclusive', category: 'Popular' },
+        { id: 43, label: 'Seasonal', category: 'Popular' },
+        
+        // Sports & Fitness Tags
+        { id: 44, label: 'Sports', category: 'Sports & Fitness' },
+        { id: 45, label: 'Fitness', category: 'Sports & Fitness' },
+        { id: 46, label: 'Activewear', category: 'Sports & Fitness' },
+        { id: 47, label: 'Outdoor', category: 'Sports & Fitness' },
+    ];
+
+    // Fixed tags that cannot be removed
+    const fixedTags = [allTags[0]]; // Fashion is fixed
+
+    // Initialize filtered tags to show all tags initially
+    useEffect(() => {
+        setFilteredTags(allTags);
+    }, []);
+
+    // Initialize tags if they're undefined
+    useEffect(() => {
+        if (!livestream?.tags) {
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: { tags: [] }
+            });
+        }
+    }, [livestream?.tags, livestreamDispatch]);
+
+    // Filter tags based on search input
+    useEffect(() => {
+        if (searchTag.trim() === '') {
+            setFilteredTags(allTags);
+        } else {
+            const filtered = allTags.filter(tag => 
+                tag.label.toLowerCase().includes(searchTag.toLowerCase()) || 
+                tag.category.toLowerCase().includes(searchTag.toLowerCase())
+            );
+            setFilteredTags(filtered);
+        }
+    }, [searchTag]);
+
+    // Handle search input change
+    const handleSearchChange = (event) => {
+        setSearchTag(event.target.value);
+    };
+
     useEffect(() => {
         setHeaderName('Live Streams');
         setNavName('Create Live Show');
@@ -72,30 +180,6 @@ const CreateLiveShow = () => {
     const MAX_CHARS = 250;
 
     const inputRef = useRef(null);
-
-    // Predefined tags
-    const availableTags = [
-        { id: 1, label: 'Fashion' },
-        { id: 2, label: 'Shoes' },
-        { id: 3, label: 'Trending' },
-        { id: 4, label: 'Electronics' },
-        { id: 5, label: 'Accessories' },
-        { id: 6, label: 'Sports' },
-        // Add more tags as needed
-    ];
-
-    // Fixed tags that cannot be removed
-    const fixedTags = [availableTags[0]]; // Fashion is fixed
-
-    // Initialize tags if they're undefined
-    useEffect(() => {
-        if (!livestream?.tags) {
-            livestreamDispatch({
-                type: 'SET_LIVESTREAM_DATA',
-                payload: { tags: [] }
-            });
-        }
-    }, []);
 
     useEffect(() => {
         const fetchCategories = async () => {
@@ -866,7 +950,7 @@ const CreateLiveShow = () => {
                     <Autocomplete
                         multiple
                         id="tags-standard"
-                        options={availableTags}
+                        options={filteredTags}
                         value={livestream?.tags || []}
                         onChange={(event, newValue) => {
                             livestreamDispatch({
@@ -876,6 +960,7 @@ const CreateLiveShow = () => {
                         }}
                         getOptionLabel={(option) => option.label}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
+                        groupBy={(option) => option.category}
                         renderTags={(tagValue, getTagProps) =>
                             tagValue.map((option, index) => (
                                 <Chip
@@ -902,6 +987,8 @@ const CreateLiveShow = () => {
                                 {...params}
                                 variant="outlined"
                                 placeholder="Search for tags..."
+                                value={searchTag}
+                                onChange={handleSearchChange}
                                 sx={{
                                     '& .MuiOutlinedInput-root': {
                                         padding: '4px 8px',

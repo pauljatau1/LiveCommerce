@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ShoppingBag, Video, Gavel } from "lucide-react";
+import { CalendarIcon, ShoppingBag, Video, Gavel, Radio } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -394,6 +394,7 @@ export default function OrdersDashboard() {
                     <SelectItem value="marketplace">Marketplace</SelectItem>
                     <SelectItem value="live">Live Show</SelectItem>
                     <SelectItem value="auction">auction</SelectItem>
+                    <SelectItem value="blips">Blips</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -483,6 +484,11 @@ export default function OrdersDashboard() {
                             <>
                               <Gavel className="h-4 w-4 text-orange-600" />
                               <span className="text-orange-600">auction</span>
+                            </>
+                          ) : order.channel === "blips" ? (
+                            <>
+                              <Radio className="h-4 w-4 text-pink-600" />
+                              <span className="text-pink-600">Blips</span>
                             </>
                           ) : (
                             order.channel
