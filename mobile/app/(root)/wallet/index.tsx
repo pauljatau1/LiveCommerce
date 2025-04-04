@@ -10,7 +10,7 @@ import {
   FlatList,
   ActivityIndicator,
 } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { router } from "expo-router";
 import { AntDesign, Entypo, Feather, FontAwesome6 } from "@expo/vector-icons";
@@ -121,11 +121,21 @@ const Wallet = () => {
     }
   };
 
-  const handleAmountSelect = (amount: number) => {
-    setAmount(amount);
+  const handleAmountSelect = useCallback(
+    (amount: number) => {
+      if (amount < 50) {
+        return toast.error("Invalid Amount (minimum 50 naira)");
+      }
+      setAmount(amount);
+      setShowPaymentMethodSheet(false);
+      setShowPaystack(true);
+    },
+    [amount],
+  );
+
+  const closePaymentSheet = useCallback(() => {
     setShowPaymentMethodSheet(false);
-    setShowPaystack(true);
-  };
+  }, []);
 
   useEffect(() => {
     if (isFocused) {
@@ -505,7 +515,7 @@ const Wallet = () => {
       >
         <PaymentMethodSheet
           handleAmountSelect={handleAmountSelect}
-          closeSheet={() => setShowPaymentMethodSheet(false)}
+          closeSheet={closePaymentSheet}
         />
       </BottomSheet>
 
@@ -692,7 +702,7 @@ const TopUpSuccess = ({ closeSheet }: any) => {
 const styles = StyleSheet.create({
   editSingleSection: {
     width: "100%",
-    flexBasis: "47%",
+    marginBottom: 120,
     // flexShrink: 1,
   },
   label: {
