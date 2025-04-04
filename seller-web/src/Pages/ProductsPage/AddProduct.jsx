@@ -23,7 +23,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
 import Header from '../../Components/ui/Header/Header';
 import NoCatImage from '../../assets/no-cat.png';
-import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
+// Comment out ProductSpecifications import
+// import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
 import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
 import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
@@ -32,6 +33,24 @@ import VariantImageUpload from '../../Components/ui/VariantComponents/VariantIma
 import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
 import { Checkbox } from "../../Components/ui/checkbox";
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+// Define the rich text editor toolbar options
+const quillModules = {
+    toolbar: [
+        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+        ['bold', 'italic'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['clean']
+    ],
+};
+
+const quillFormats = [
+    'header',
+    'bold', 'italic',
+    'list', 'bullet'
+];
 
 const AddProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -80,7 +99,8 @@ const AddProduct = () => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
-    const [productSpecs, setProductSpecs] = useState({});
+    // Comment out productSpecs state
+    // const [productSpecs, setProductSpecs] = useState({});
     const { variantStructure } = useVariants();
 
     // Check URL parameters for ?type=auction
@@ -101,11 +121,12 @@ const AddProduct = () => {
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);
 
-    const handleSpecificationsChange = (specs) => {
-        setProductSpecs(specs);
-    };
+    // Comment out handleSpecificationsChange function
+    // const handleSpecificationsChange = (specs) => {
+    //     setProductSpecs(specs);
+    // };
 
-    console.log('productSpecs:', productSpecs)
+    // console.log('productSpecs:', productSpecs)
 
     useEffect(() => {
         if (message) {
@@ -425,7 +446,7 @@ const AddProduct = () => {
                 price: Number(shippingDetails.pricing),
                 salePrice: Number(shippingDetails.salePrice),
                 weight: Number(shippingDetails.weight) || 10,
-                stock: productStatus === 'offline_auction' ? 1 : Number(shippingDetails.inventory),
+                stock: Number(shippingDetails.inventory),
                 condition: shippingDetails.condition,
                 status: productStatus,
                 category: selectedCategory,
@@ -451,14 +472,15 @@ const AddProduct = () => {
                 }
             };
 
+            // Comment out the section that adds product specifications
             // Add product specifications
-            if (productSpecs) {
-                Object.entries(productSpecs).forEach(([key, value]) => {
-                    if (value) {
-                        productData[key] = Array.isArray(value) ? value.join(',') : value;
-                    }
-                });
-            }
+            // if (productSpecs) {
+            //     Object.entries(productSpecs).forEach(([key, value]) => {
+            //         if (value) {
+            //             productData[key] = Array.isArray(value) ? value.join(',') : value;
+            //         }
+            //     });
+            // }
 
             // Add auction details if product is an offline auction
             if (productStatus === 'offline_auction') {
@@ -558,7 +580,7 @@ const AddProduct = () => {
             setBrand('');
             setVideos([]);
             setProductStatus('active');
-            setProductSpecs({}); // Reset specifications
+            // setProductSpecs({}); // Reset specifications
         }
     }, [response])
 
@@ -595,7 +617,7 @@ const AddProduct = () => {
         setBrand('');
         setVideos([]);
         setProductStatus('active');
-        setProductSpecs({}); // Reset specifications
+        // setProductSpecs({}); // Reset specifications
         setAuctionDetails({
             minBid: null,
             maxBid: null,
@@ -859,13 +881,17 @@ const AddProduct = () => {
                                 {/* Description */}
                                 <div className="space-y-2">
                                     <RequiredLabel>Description</RequiredLabel>
-                                    <Textarea
-                                        id="description"
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="Enter product description"
-                                        className="min-h-[226px] rounded-2xl py-4 border border-[#02020238]"
-                                    />
+                                    <div className="border border-[#02020238] rounded-2xl overflow-hidden">
+                                        <ReactQuill
+                                            theme="snow"
+                                            value={description}
+                                            onChange={setDescription}
+                                            placeholder="Enter detailed product description"
+                                            modules={quillModules}
+                                            formats={quillFormats}
+                                            className="min-h-[226px] rounded-2xl bg-white"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/** mobile categories */}
@@ -919,542 +945,495 @@ const AddProduct = () => {
                                     </div>
                                 </div>
 
-                                {
-                                    selectedCategory.length > 0 && selectedSubCategory.length > 0 ? (
-                                        <>
-                                            {/* Product Specifications */}
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle className='text-base lg:text-lg font-cabin font-medium'>Product Specifications</CardTitle>
-                                                    <CardDescription className='text-sm lg:text-base font-cabin font-normal text-[#17171B96]'>Select specifications that apply to your product</CardDescription>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {selectedCategory && selectedSubCategory ? (
-                                                        <ProductSpecifications
-                                                            category={selectedCategory}
-                                                            subcategory={selectedSubCategory}
-                                                            onSpecsChange={handleSpecificationsChange}
-                                                        />
-                                                    ) : (
-                                                        <div className="text-center py-8">
-                                                            <svg
-                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                className="w-12 h-12 text-gray-400 mx-auto"
-                                                                viewBox="0 0 24 24"
+                                {/* Remove conditional rendering and directly show the fields */}
+                                {/* Product Images */}
+                                <div>
+                                    <Card className="border border-[#02020238]">
+                                        <CardHeader>
+                                            <CardTitle className='text-base lg:text-lg font-cabin font-medium'>Product Images</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-center p-6 border-2 border-dashed rounded-lg">
+                                                <div className="flex flex-col items-center justify-center gap-4 lg:gap-7 mb-7 lg:mb-14">
+                                                    <img src={UploadImage} alt="Upload Image" className="w-12 h-12 lg:w-28 lg:h-28 mx-auto mb-2" />
+                                                    <p className="text-sm lg:text-base font-cabin font-normal text-[#17171B96]">Upload Up To 5 Square Images With Dimensions Min Of 1024 X 1024, Max: 3200 X 3200</p>
+                                                </div>
+                                                <div className="flex items-center justify-center flex-wrap gap-4 mb-4">
+                                                    {images.map((image, index) => (
+                                                        <div key={index} className="relative sm:w-24 sm:h-24 w-16 h-16">
+                                                            <img
+                                                                src={image.url}
+                                                                alt={`Product image ${index + 1}`}
+                                                                className="w-full h-full object-cover rounded-lg"
+                                                            />
+                                                            <button
+                                                                className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow"
+                                                                onClick={() => handleRemoveImage(index)}
                                                             >
-                                                                <path
-                                                                    fill="currentColor"
-                                                                    fillRule="evenodd"
-                                                                    d="M17.5 2.75a.75.75 0 0 1 .75.75v2.25h2.25a.75.75 0 0 1 0 1.5h-2.25V9.5a.75.75 0 0 1-1.5 0V7.25H14.5a.75.75 0 0 1 0-1.5h2.25V3.5a.75.75 0 0 1 .75-.75"
-                                                                />
-                                                                <path
-                                                                    fill="currentColor"
-                                                                    d="M2 6.5c0-2.121 0-3.182.659-3.841S4.379 2 6.5 2s3.182 0 3.841.659S11 4.379 11 6.5s0 3.182-.659 3.841S8.621 11 6.5 11s-3.182 0-3.841-.659S2 8.621 2 6.5m11 11c0-2.121 0-3.182.659-3.841S15.379 13 17.5 13s3.182 0 3.841.659S22 15.379 22 17.5s0 3.182-.659 3.841S19.621 22 17.5 22s-3.182 0-3.841-.659S13 19.621 13 17.5m-11 0c0-2.121 0-3.182.659-3.841S4.379 13 6.5 13s3.182 0 3.841.659S11 15.379 11 17.5s0 3.182-.659 3.841S8.621 22 6.5 22s-3.182 0-3.841-.659S2 19.621 2 17.5"
-                                                                />
-                                                            </svg>
-                                                            <p className="mt-2 text-gray-500">
-                                                                Select a category and subcategory to view specifications
-                                                            </p>
+                                                                <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
+                                                            </button>
                                                         </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-
-                                            {/* Product Images */}
-                                            <div>
-                                                <Card className="border border-[#02020238]">
-                                                    <CardHeader>
-                                                        <CardTitle className='text-base lg:text-lg font-cabin font-medium'>Product Images</CardTitle>
-                                                    </CardHeader>
-                                                    <CardContent>
-                                                        <div className="text-center p-6 border-2 border-dashed rounded-lg">
-                                                            <div className="flex flex-col items-center justify-center gap-4 lg:gap-7 mb-7 lg:mb-14">
-                                                                <img src={UploadImage} alt="Upload Image" className="w-12 h-12 lg:w-28 lg:h-28 mx-auto mb-2" />
-                                                                <p className="text-sm lg:text-base font-cabin font-normal text-[#17171B96]">Upload Up To 5 Square Images With Dimensions Min Of 1024 X 1024, Max: 3200 X 3200</p>
-                                                            </div>
-                                                            <div className="flex items-center justify-center flex-wrap gap-4 mb-4">
-                                                                {images.map((image, index) => (
-                                                                    <div key={index} className="relative sm:w-24 sm:h-24 w-16 h-16">
-                                                                        <img
-                                                                            src={image.url}
-                                                                            alt={`Product image ${index + 1}`}
-                                                                            className="w-full h-full object-cover rounded-lg"
-                                                                        />
-                                                                        <button
-                                                                            className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow"
-                                                                            onClick={() => handleRemoveImage(index)}
-                                                                        >
-                                                                            <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
-                                                                {images.length < 5 && (
-                                                                    <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#17171B]/80 items-center justify-center cursor-pointer">
-                                                                        <input
-                                                                            type="file"
-                                                                            className="hidden"
-                                                                            accept="image/*"
-                                                                            onChange={handleImageUpload}
-                                                                            multiple
-                                                                        />
-                                                                        Add Image
-                                                                        <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
-                                                                    </label>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            </div>
-
-                                            {/* Shipping & Pricing */}
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle className='text-base lg:text-lg font-cabin font-medium mb-5'>
-                                                        {productStatus === 'offline_auction' ? 'Auction Details & Shipping' : 'Shipping & Pricing'}
-                                                    </CardTitle>
-                                                </CardHeader>
-                                                <CardContent className="space-y-6">
-                                                    {productStatus === 'offline_auction' ? (
-                                                        <>
-                                                            {/* Auction Details */}
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                <div className="space-y-2">
-                                                                    <RequiredLabel>Minimum Bid</RequiredLabel>
-                                                                    <div className="relative">
-                                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                                        <Input
-                                                                            type="number"
-                                                                            className="pl-8"
-                                                                            placeholder="0.00"
-                                                                            value={auctionDetails.minBid}
-                                                                            onChange={(e) => {
-                                                                                setAuctionDetails(prev => ({
-                                                                                    ...prev,
-                                                                                    minBid: e.target.value
-                                                                                }));
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="space-y-2">
-                                                                    <RequiredLabel>Maximum Bid</RequiredLabel>
-                                                                    <div className="relative">
-                                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                                        <Input
-                                                                            type="number"
-                                                                            className="pl-8"
-                                                                            placeholder="0.00"
-                                                                            value={auctionDetails.maxBid}
-                                                                            onChange={(e) => {
-                                                                                const value = e.target.value;
-                                                                                setAuctionDetails(prev => ({
-                                                                                    ...prev,
-                                                                                    maxBid: value
-                                                                                }));
-                                                                                setShippingDetails(prev => ({
-                                                                                    ...prev,
-                                                                                    pricing: value
-                                                                                }));
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            {/* Date Picker Row */}
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                <div className="space-y-2">
-                                                                    <RequiredLabel>Start Date & Time</RequiredLabel>
-                                                                    <div className="flex gap-2">
-                                                                        <Input
-                                                                            type="datetime-local"
-                                                                            value={auctionDetails.startDate}
-                                                                            onChange={(e) => setAuctionDetails(prev => ({
-                                                                                ...prev,
-                                                                                startDate: e.target.value
-                                                                            }))}
-                                                                            className="flex-1"
-                                                                        />
-                                                                        <Button 
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            onClick={() => {
-                                                                                // Set to current time plus 5 minutes
-                                                                                const now = new Date();
-                                                                                now.setMinutes(now.getMinutes() + 5);
-                                                                                const dateString = now.toISOString().slice(0, 16);
-                                                                                setAuctionDetails(prev => ({
-                                                                                    ...prev,
-                                                                                    startDate: dateString
-                                                                                }));
-                                                                            }}
-                                                                            className="whitespace-nowrap bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"
-                                                                        >
-                                                                            Start Now
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="space-y-2">
-                                                                    <RequiredLabel>End Date & Time</RequiredLabel>
-                                                                    <div className="flex gap-2">
-                                                                        <Input
-                                                                            type="datetime-local"
-                                                                            value={auctionDetails.endDate}
-                                                                            onChange={(e) => setAuctionDetails(prev => ({
-                                                                                ...prev,
-                                                                                endDate: e.target.value
-                                                                            }))}
-                                                                            className="flex-1"
-                                                                        />
-                                                                        <Select
-                                                                            onValueChange={(value) => {
-                                                                                if (!auctionDetails.startDate) {
-                                                                                    toast.error("Please set start date first");
-                                                                                    return;
-                                                                                }
-                                                                                
-                                                                                const startDate = new Date(auctionDetails.startDate);
-                                                                                const endDate = new Date(startDate);
-                                                                                
-                                                                                // Add duration based on selection
-                                                                                switch(value) {
-                                                                                    case '1day':
-                                                                                        endDate.setDate(endDate.getDate() + 1);
-                                                                                        break;
-                                                                                    case '3days':
-                                                                                        endDate.setDate(endDate.getDate() + 3);
-                                                                                        break;
-                                                                                    case '7days':
-                                                                                        endDate.setDate(endDate.getDate() + 7);
-                                                                                        break;
-                                                                                    case '14days':
-                                                                                        endDate.setDate(endDate.getDate() + 14);
-                                                                                        break;
-                                                                                    case '30days':
-                                                                                        endDate.setDate(endDate.getDate() + 30);
-                                                                                        break;
-                                                                                    default:
-                                                                                        break;
-                                                                                }
-                                                                                
-                                                                                setAuctionDetails(prev => ({
-                                                                                    ...prev,
-                                                                                    endDate: endDate.toISOString().slice(0, 16)
-                                                                                }));
-                                                                            }}
-                                                                        >
-                                                                            <SelectTrigger className="w-[100px]">
-                                                                                <SelectValue placeholder="Duration" />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="1day">1 Day</SelectItem>
-                                                                                <SelectItem value="3days">3 Days</SelectItem>
-                                                                                <SelectItem value="7days">7 Days</SelectItem>
-                                                                                <SelectItem value="14days">14 Days</SelectItem>
-                                                                                <SelectItem value="30days">30 Days</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            {/* End on max bid checkbox */}
-                                                            <div className="flex items-center p-3 border border-purple-200 bg-purple-50 rounded-lg">
-                                                                <Checkbox
-                                                                    id="endOnMaxBid"
-                                                                    checked={auctionDetails.endOnMaxBid}
-                                                                    onCheckedChange={(checked) => setAuctionDetails(prev => ({
-                                                                        ...prev,
-                                                                        endOnMaxBid: checked
-                                                                    }))}
-                                                                    className="border-purple-500 data-[state=checked]:bg-purple-500"
-                                                                />
-                                                                <label
-                                                                    htmlFor="endOnMaxBid"
-                                                                    className="ml-2 text-sm font-medium text-purple-800"
-                                                                >
-                                                                    End auction immediately when maximum bid is reached
-                                                                </label>
-                                                            </div>
-                                                            
-                                                            {/* Fixed inventory notice for auction */}
-                                                            <div className="p-3 bg-[#17171B]/5 rounded-lg flex items-center gap-2">
-                                                                <Icon icon="solar:info-circle-bold" className="w-5 h-5 text-[#17171B]/70" />
-                                                                <p className="text-sm text-[#17171B]/70">
-                                                                    Auction inventory is automatically set to 1 item.
-                                                                </p>
-                                                            </div>
-                                                            
-                                                            {/* Shipping Information */}
-                                                            <div className="pt-4 border-t border-gray-200">
-                                                                <h3 className="text-base font-medium mb-4">Shipping Information</h3>
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                    <div className="space-y-2">
-                                                                        <Label>Weight</Label>
-                                                                        <div className="flex gap-2">
-                                                                            <Input
-                                                                                type="number"
-                                                                                placeholder="0.0"
-                                                                                value={shippingDetails.weight}
-                                                                                onChange={(e) => handleShippingChange('weight', e.target.value)}
-                                                                                className="flex-1"
-                                                                            />
-                                                                            <Select
-                                                                                value={shippingDetails.weightUnit}
-                                                                                onValueChange={(value) => handleShippingChange('weightUnit', value)}
-                                                                            >
-                                                                                <SelectTrigger className="w-20">
-                                                                                    <SelectValue />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    <SelectItem value="kg">kg</SelectItem>
-                                                                                    <SelectItem value="g">g</SelectItem>
-                                                                                    <SelectItem value="lb">lb</SelectItem>
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="space-y-2">
-                                                                        <Label>Condition</Label>
-                                                                        <Select
-                                                                            value={shippingDetails.condition}
-                                                                            onValueChange={(value) => handleShippingChange('condition', value)}
-                                                                        >
-                                                                            <SelectTrigger>
-                                                                                <SelectValue />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="fairly-used">Fairly Used</SelectItem>
-                                                                                <SelectItem value="new">New</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="mt-4 space-y-2">
-                                                                    <Label>Dimensions</Label>
-                                                                    <div className="grid grid-cols-3 gap-2">
-                                                                        <Input
-                                                                            placeholder="Length"
-                                                                            value={shippingDetails.dimensions.length}
-                                                                            onChange={(e) => handleShippingChange('dimensions.length', e.target.value)}
-                                                                            className="rounded-lg text-center"
-                                                                        />
-                                                                        <Input
-                                                                            placeholder="Width"
-                                                                            value={shippingDetails.dimensions.width}
-                                                                            onChange={(e) => handleShippingChange('dimensions.width', e.target.value)}
-                                                                            className="rounded-lg text-center"
-                                                                        />
-                                                                        <Input
-                                                                            placeholder="Height"
-                                                                            value={shippingDetails.dimensions.height}
-                                                                            onChange={(e) => handleShippingChange('dimensions.height', e.target.value)}
-                                                                            className="rounded-lg text-center"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="mt-4 space-y-2">
-                                                                    <RequiredLabel>Inventory</RequiredLabel>
-                                                                    <Input
-                                                                        type="number"
-                                                                        placeholder="1"
-                                                                        value="1"
-                                                                        disabled
-                                                                        className="bg-gray-100"
-                                                                        onChange={() => {}} // Empty handler
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    ) : (
-                                                        // Regular product shipping & pricing section
-                                                        <>
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2">
-                                                                    <RequiredLabel>Pricing</RequiredLabel>
-                                                                    <div className="relative">
-                                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
-                                                                        <Input
-                                                                            type="number"
-                                                                            className="pl-8"
-                                                                            placeholder="0.00"
-                                                                            value={shippingDetails.pricing}
-                                                                            onChange={(e) => handleShippingChange('pricing', e.target.value)}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="space-y-2">
-                                                                    <Label>Weight</Label>
-                                                                    <div className="flex gap-2">
-                                                                        <Input
-                                                                            type="number"
-                                                                            placeholder="0.0"
-                                                                            value={shippingDetails.weight}
-                                                                            onChange={(e) => handleShippingChange('weight', e.target.value)}
-                                                                            className="flex-1"
-                                                                        />
-                                                                        <Select
-                                                                            value={shippingDetails.weightUnit}
-                                                                            onValueChange={(value) => handleShippingChange('weightUnit', value)}
-                                                                        >
-                                                                            <SelectTrigger className="w-20">
-                                                                                <SelectValue />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="kg">kg</SelectItem>
-                                                                                <SelectItem value="g">g</SelectItem>
-                                                                                <SelectItem value="lb">lb</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="space-y-2">
-                                                                    <RequiredLabel>Inventory</RequiredLabel>
-                                                                    <Input
-                                                                        type="number"
-                                                                        placeholder="102"
-                                                                        value={shippingDetails.inventory}
-                                                                        onChange={(e) => {
-                                                                            const value = Math.max(1, parseInt(e.target.value) || 1);
-                                                                            handleShippingChange('inventory', value);
-                                                                        }}
-                                                                        min="1"
-                                                                    />
-                                                                </div>
-                                                                <div className="space-y-2">
-                                                                    <Label>Condition</Label>
-                                                                    <Select
-                                                                        value={shippingDetails.condition}
-                                                                        onValueChange={(value) => handleShippingChange('condition', value)}
-                                                                    >
-                                                                        <SelectTrigger>
-                                                                            <SelectValue />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            <SelectItem value="fairly-used">Fairly Used</SelectItem>
-                                                                            <SelectItem value="new">New</SelectItem>
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                </div>
-                                                                <div className="col-span-1 md:col-span-2 space-y-2">
-                                                                    <Label>Dimensions</Label>
-                                                                    <div className="grid grid-cols-3 gap-2">
-                                                                        <Input
-                                                                            placeholder="Length"
-                                                                            value={shippingDetails.dimensions.length}
-                                                                            onChange={(e) => handleShippingChange('dimensions.length', e.target.value)}
-                                                                            className="rounded-lg text-center"
-                                                                        />
-                                                                        <Input
-                                                                            placeholder="Width"
-                                                                            value={shippingDetails.dimensions.width}
-                                                                            onChange={(e) => handleShippingChange('dimensions.width', e.target.value)}
-                                                                            className="rounded-lg text-center"
-                                                                        />
-                                                                        <Input
-                                                                            placeholder="Height"
-                                                                            value={shippingDetails.dimensions.height}
-                                                                            onChange={(e) => handleShippingChange('dimensions.height', e.target.value)}
-                                                                            className="rounded-lg text-center"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-
-                                            {/* Variants Section */}
-                                            <VariantsProvider>
-                                                <VariantSection />
-                                            </VariantsProvider>
-
-                                            {/* Blips Section */}
-                                            <Card>
-                                                <CardHeader className="flex justify-between items-center">
-                                                    <CardTitle>Blips (Recommended)</CardTitle>
-                                                    <Button variant="link">What are blips?</Button>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {videos.length > 0 ? (
-                                                        <div className="space-y-4">
-                                                            {videos.map((video, index) => (
-                                                                <div key={index} className="relative border rounded-lg overflow-hidden aspect-[9/16] max-w-[240px] mx-auto">
-                                                                    <video
-                                                                        src={video.url}
-                                                                        className="w-full h-full object-cover"
-                                                                        controls
-                                                                    />
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-                                                                        onClick={() => {
-                                                                            setVideos(prev => prev.filter((_, i) => i !== index));
-                                                                            setSelectedFile(null);
-                                                                        }}
-                                                                    >
-                                                                        <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5 text-red-500" />
-                                                                    </Button>
-                                                                </div>
-                                                            ))}
-                                                            <p className="text-sm text-gray-500 text-center">
-                                                                {selectedFile?.name}
-                                                            </p>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors relative"
-                                                            onClick={() => !isUploading && document.getElementById('blip-upload').click()}
-                                                        >
-                                                            {isUploading ? (
-                                                                <div className="space-y-4">
-                                                                    <Icon icon="solar:loading-bold" className="w-12 h-12 text-gray-400 mx-auto animate-spin" />
-                                                                    <div className="max-w-xs mx-auto space-y-2">
-                                                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                                            <div
-                                                                                className="h-full bg-[#17171B] transition-all duration-300 ease-out"
-                                                                                style={{ width: `${uploadProgress}%` }}
-                                                                            />
-                                                                        </div>
-                                                                        <p className="text-sm text-gray-500">
-                                                                            Uploading... {uploadProgress}%
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <Icon icon="solar:video-add-bold" className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                                                                    <p className="font-medium mb-1">Click To Upload</p>
-                                                                    <p className="text-sm text-gray-500">
-                                                                        Upload A Vertical Video Max 60 Seconds, To Improve Visibility Of Your Products
-                                                                    </p>
-                                                                </>
-                                                            )}
+                                                    ))}
+                                                    {images.length < 5 && (
+                                                        <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col text-sm space-y-2 font-cabin text-[#17171B]/80 items-center justify-center cursor-pointer">
                                                             <input
                                                                 type="file"
-                                                                id="blip-upload"
                                                                 className="hidden"
-                                                                accept="video/*"
-                                                                onChange={handleVideoUpload}
-                                                                disabled={isUploading}
+                                                                accept="image/*"
+                                                                onChange={handleImageUpload}
+                                                                multiple
+                                                            />
+                                                            Add Image
+                                                            <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* Shipping & Pricing */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className='text-base lg:text-lg font-cabin font-medium mb-5'>
+                                            {productStatus === 'offline_auction' ? 'Auction Details & Shipping' : 'Shipping & Pricing'}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        {productStatus === 'offline_auction' ? (
+                                            <>
+                                                {/* Auction Details */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <RequiredLabel>Minimum Bid</RequiredLabel>
+                                                        <div className="relative">
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                                                            <Input
+                                                                type="number"
+                                                                className="pl-8"
+                                                                placeholder="0.00"
+                                                                value={auctionDetails.minBid}
+                                                                onChange={(e) => {
+                                                                    setAuctionDetails(prev => ({
+                                                                        ...prev,
+                                                                        minBid: e.target.value
+                                                                    }));
+                                                                }}
                                                             />
                                                         </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-                                        </>
-                                    ) : (
-                                        <div className="h-[500px] xl:h-1/2 flex flex-col justify-center items-center gap-2 xl:gap-4 ">
-                                            <img src={NoCatImage} alt="No Category" className="w-15 h-15" />
-                                            <p className="text-sm max-w-[170px] xl:max-w-none text-center xl:text-base text-gray-500">Please select a category and sub-category</p>
-                                        </div>
-                                    )
-                                }
-                            </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <RequiredLabel>Maximum Bid</RequiredLabel>
+                                                        <div className="relative">
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                                                            <Input
+                                                                type="number"
+                                                                className="pl-8"
+                                                                placeholder="0.00"
+                                                                value={auctionDetails.maxBid}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    setAuctionDetails(prev => ({
+                                                                        ...prev,
+                                                                        maxBid: value
+                                                                    }));
+                                                                    setShippingDetails(prev => ({
+                                                                        ...prev,
+                                                                        pricing: value
+                                                                    }));
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Rest of auction details component */}
+                                                {/* Date Picker Row */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <RequiredLabel>Start Date & Time</RequiredLabel>
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                type="datetime-local"
+                                                                value={auctionDetails.startDate}
+                                                                onChange={(e) => setAuctionDetails(prev => ({
+                                                                    ...prev,
+                                                                    startDate: e.target.value
+                                                                }))}
+                                                                className="flex-1"
+                                                            />
+                                                            <Button 
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    // Set to current time plus 5 minutes
+                                                                    const now = new Date();
+                                                                    now.setMinutes(now.getMinutes() + 5);
+                                                                    const dateString = now.toISOString().slice(0, 16);
+                                                                    setAuctionDetails(prev => ({
+                                                                        ...prev,
+                                                                        startDate: dateString
+                                                                    }));
+                                                                }}
+                                                                className="whitespace-nowrap bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"
+                                                            >
+                                                                Start Now
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <RequiredLabel>End Date & Time</RequiredLabel>
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                type="datetime-local"
+                                                                value={auctionDetails.endDate}
+                                                                onChange={(e) => setAuctionDetails(prev => ({
+                                                                    ...prev,
+                                                                    endDate: e.target.value
+                                                                }))}
+                                                                className="flex-1"
+                                                            />
+                                                            <Select
+                                                                onValueChange={(value) => {
+                                                                    if (!auctionDetails.startDate) {
+                                                                        toast.error("Please set start date first");
+                                                                        return;
+                                                                    }
+                                                                    
+                                                                    const startDate = new Date(auctionDetails.startDate);
+                                                                    const endDate = new Date(startDate);
+                                                                    
+                                                                    // Add duration based on selection
+                                                                    switch(value) {
+                                                                        case '1day':
+                                                                            endDate.setDate(endDate.getDate() + 1);
+                                                                            break;
+                                                                        case '3days':
+                                                                            endDate.setDate(endDate.getDate() + 3);
+                                                                            break;
+                                                                        case '7days':
+                                                                            endDate.setDate(endDate.getDate() + 7);
+                                                                            break;
+                                                                        case '14days':
+                                                                            endDate.setDate(endDate.getDate() + 14);
+                                                                            break;
+                                                                        case '30days':
+                                                                            endDate.setDate(endDate.getDate() + 30);
+                                                                            break;
+                                                                        default:
+                                                                            break;
+                                                                    }
+                                                                    
+                                                                    setAuctionDetails(prev => ({
+                                                                        ...prev,
+                                                                        endDate: endDate.toISOString().slice(0, 16)
+                                                                    }));
+                                                                }}
+                                                            >
+                                                                <SelectTrigger className="w-[100px]">
+                                                                    <SelectValue placeholder="Duration" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="1day">1 Day</SelectItem>
+                                                                    <SelectItem value="3days">3 Days</SelectItem>
+                                                                    <SelectItem value="7days">7 Days</SelectItem>
+                                                                    <SelectItem value="14days">14 Days</SelectItem>
+                                                                    <SelectItem value="30days">30 Days</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* End on max bid checkbox */}
+                                                <div className="flex items-center p-3 border border-purple-200 bg-purple-50 rounded-lg">
+                                                    <Checkbox
+                                                        id="endOnMaxBid"
+                                                        checked={auctionDetails.endOnMaxBid}
+                                                        onCheckedChange={(checked) => setAuctionDetails(prev => ({
+                                                            ...prev,
+                                                            endOnMaxBid: checked
+                                                        }))}
+                                                        className="border-purple-500 data-[state=checked]:bg-purple-500"
+                                                    />
+                                                    <label
+                                                        htmlFor="endOnMaxBid"
+                                                        className="ml-2 text-sm font-medium text-purple-800"
+                                                    >
+                                                        End auction immediately when maximum bid is reached
+                                                    </label>
+                                                </div>
+                                                
+                                                {/* Fixed inventory notice for auction */}
+                                                <div className="p-3 bg-[#17171B]/5 rounded-lg flex items-center gap-2">
+                                                    <Icon icon="solar:info-circle-bold" className="w-5 h-5 text-[#17171B]/70" />
+                                                    <p className="text-sm text-[#17171B]/70">
+                                                        Auction inventory is automatically set to 1 item.
+                                                    </p>
+                                                </div>
+                                                
+                                                {/* Shipping Information */}
+                                                <div className="pt-4 border-t border-gray-200">
+                                                    <h3 className="text-base font-medium mb-4">Shipping Information</h3>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        <div className="space-y-2">
+                                                            <Label>Weight</Label>
+                                                            <div className="flex gap-2">
+                                                                <Input
+                                                                    type="number"
+                                                                    placeholder="0.0"
+                                                                    value={shippingDetails.weight}
+                                                                    onChange={(e) => handleShippingChange('weight', e.target.value)}
+                                                                    className="flex-1"
+                                                                />
+                                                                <Select
+                                                                    value={shippingDetails.weightUnit}
+                                                                    onValueChange={(value) => handleShippingChange('weightUnit', value)}
+                                                                >
+                                                                    <SelectTrigger className="w-20">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="kg">kg</SelectItem>
+                                                                        <SelectItem value="g">g</SelectItem>
+                                                                        <SelectItem value="lb">lb</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label>Condition</Label>
+                                                            <Select
+                                                                value={shippingDetails.condition}
+                                                                onValueChange={(value) => handleShippingChange('condition', value)}
+                                                            >
+                                                                <SelectTrigger>
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="fairly-used">Fairly Used</SelectItem>
+                                                                    <SelectItem value="new">New</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-4 space-y-2">
+                                                        <Label>Dimensions</Label>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            <Input
+                                                                placeholder="Length"
+                                                                value={shippingDetails.dimensions.length}
+                                                                onChange={(e) => handleShippingChange('dimensions.length', e.target.value)}
+                                                                className="rounded-lg text-center"
+                                                            />
+                                                            <Input
+                                                                placeholder="Width"
+                                                                value={shippingDetails.dimensions.width}
+                                                                onChange={(e) => handleShippingChange('dimensions.width', e.target.value)}
+                                                                className="rounded-lg text-center"
+                                                            />
+                                                            <Input
+                                                                placeholder="Height"
+                                                                value={shippingDetails.dimensions.height}
+                                                                onChange={(e) => handleShippingChange('dimensions.height', e.target.value)}
+                                                                className="rounded-lg text-center"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-4 space-y-2">
+                                                        <RequiredLabel>Inventory</RequiredLabel>
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="1"
+                                                            value="1"
+                                                            disabled
+                                                            className="bg-gray-100"
+                                                            onChange={() => {}} // Empty handler
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                {/* Regular product shipping & pricing section */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <RequiredLabel>Pricing</RequiredLabel>
+                                                        <div className="relative">
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2">₦</span>
+                                                            <Input
+                                                                type="number"
+                                                                className="pl-8"
+                                                                placeholder="0.00"
+                                                                value={shippingDetails.pricing}
+                                                                onChange={(e) => handleShippingChange('pricing', e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Weight</Label>
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                type="number"
+                                                                placeholder="0.0"
+                                                                value={shippingDetails.weight}
+                                                                onChange={(e) => handleShippingChange('weight', e.target.value)}
+                                                                className="flex-1"
+                                                            />
+                                                            <Select
+                                                                value={shippingDetails.weightUnit}
+                                                                onValueChange={(value) => handleShippingChange('weightUnit', value)}
+                                                            >
+                                                                <SelectTrigger className="w-20">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="kg">kg</SelectItem>
+                                                                    <SelectItem value="g">g</SelectItem>
+                                                                    <SelectItem value="lb">lb</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <RequiredLabel>Inventory</RequiredLabel>
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="102"
+                                                            value={shippingDetails.inventory}
+                                                            onChange={(e) => {
+                                                                const value = Math.max(1, parseInt(e.target.value) || 1);
+                                                                handleShippingChange('inventory', value);
+                                                            }}
+                                                            min="1"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Condition</Label>
+                                                        <Select
+                                                            value={shippingDetails.condition}
+                                                            onValueChange={(value) => handleShippingChange('condition', value)}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="fairly-used">Fairly Used</SelectItem>
+                                                                <SelectItem value="new">New</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="col-span-1 md:col-span-2 space-y-2">
+                                                        <Label>Dimensions</Label>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            <Input
+                                                                placeholder="Length"
+                                                                value={shippingDetails.dimensions.length}
+                                                                onChange={(e) => handleShippingChange('dimensions.length', e.target.value)}
+                                                                className="rounded-lg text-center"
+                                                            />
+                                                            <Input
+                                                                placeholder="Width"
+                                                                value={shippingDetails.dimensions.width}
+                                                                onChange={(e) => handleShippingChange('dimensions.width', e.target.value)}
+                                                                className="rounded-lg text-center"
+                                                            />
+                                                            <Input
+                                                                placeholder="Height"
+                                                                value={shippingDetails.dimensions.height}
+                                                                onChange={(e) => handleShippingChange('dimensions.height', e.target.value)}
+                                                                className="rounded-lg text-center"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
 
+                                {/* Variants Section */}
+                                <VariantsProvider>
+                                    <VariantSection />
+                                </VariantsProvider>
+
+                                {/* Blips Section */}
+                                <Card>
+                                    <CardHeader className="flex justify-between items-center">
+                                        <CardTitle>Blips (Recommended)</CardTitle>
+                                        <Button variant="link">What are blips?</Button>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {videos.length > 0 ? (
+                                            <div className="space-y-4">
+                                                {videos.map((video, index) => (
+                                                    <div key={index} className="relative border rounded-lg overflow-hidden aspect-[9/16] max-w-[240px] mx-auto">
+                                                        <video
+                                                            src={video.url}
+                                                            className="w-full h-full object-cover"
+                                                            controls
+                                                        />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+                                                            onClick={() => {
+                                                                setVideos(prev => prev.filter((_, i) => i !== index));
+                                                                setSelectedFile(null);
+                                                            }}
+                                                        >
+                                                            <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5 text-red-500" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                                <p className="text-sm text-gray-500 text-center">
+                                                    {selectedFile?.name}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors relative"
+                                                onClick={() => !isUploading && document.getElementById('blip-upload').click()}
+                                            >
+                                                {isUploading ? (
+                                                    <div className="space-y-4">
+                                                        <Icon icon="solar:loading-bold" className="w-12 h-12 text-gray-400 mx-auto animate-spin" />
+                                                        <div className="max-w-xs mx-auto space-y-2">
+                                                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-[#17171B] transition-all duration-300 ease-out"
+                                                                    style={{ width: `${uploadProgress}%` }}
+                                                                />
+                                                            </div>
+                                                            <p className="text-sm text-gray-500">
+                                                                Uploading... {uploadProgress}%
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <Icon icon="solar:video-add-bold" className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                                                        <p className="font-medium mb-1">Click To Upload</p>
+                                                        <p className="text-sm text-gray-500">
+                                                            Upload A Vertical Video Max 60 Seconds, To Improve Visibility Of Your Products
+                                                        </p>
+                                                    </>
+                                                )}
+                                                <input
+                                                    type="file"
+                                                    id="blip-upload"
+                                                    className="hidden"
+                                                    accept="video/*"
+                                                    onChange={handleVideoUpload}
+                                                    disabled={isUploading}
+                                                />
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        
                             {/* Right Section - Collapsible */}
                             <div className="lg:w-[300px] h-fit bg-[#F7F7F7] border border-[#00000024] rounded-lg ">
                                 <Collapsible

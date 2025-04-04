@@ -198,12 +198,12 @@ export const sideBarNavData = [
         icon: 'solar:dollar-linear',
         path: '/dashboard/earnings-payouts'
     },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Auqli Connect',
-        icon: 'system-uicons:chain',
-        path: '/dashboard/auqli-connect'
-    },
+    // {
+    //     id: ObjectID().toHexString(),
+    //     name: 'Auqli Connect',
+    //     icon: 'system-uicons:chain',
+    //     path: '/dashboard/auqli-connect'
+    // },
     {
         id: ObjectID().toHexString(),
         name: 'Auqli University',

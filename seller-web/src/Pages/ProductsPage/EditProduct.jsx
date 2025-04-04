@@ -24,13 +24,32 @@ import LinearProgress from '@mui/material/LinearProgress';
 import axios from 'axios';
 import Header from '../../Components/ui/Header/Header';
 import NoCatImage from '../../assets/no-cat.png';
-import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
+// Comment out ProductSpecifications import
+// import ProductSpecifications from '../../Components/ui/ProductCategoryUploadUi/ProductSpecifications';
 import PropTypes from 'prop-types';
 import VariantOptions from '../../Components/ui/VariantComponents/VariantOptions';
 import VariantCard from '../../Components/ui/VariantComponents/VariantCard';
 import VariantCombinations from '../../Components/ui/VariantComponents/VariantCombinations';
 import VariantCombinationsMobile from '../../Components/ui/VariantComponents/VariantCombinationsMobile';
 import AddOptionCard from '../../Components/ui/VariantComponents/AddOptionCard';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+// Define the rich text editor toolbar options
+const quillModules = {
+    toolbar: [
+        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+        ['bold', 'italic'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['clean']
+    ],
+};
+
+const quillFormats = [
+    'header',
+    'bold', 'italic',
+    'list', 'bullet'
+];
 
 const EditProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -72,7 +91,8 @@ const EditProduct = () => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [contentProgress, setContentProgress] = useState(0);
-    const [productSpecs, setProductSpecs] = useState({});
+    // Comment out productSpecs state
+    // const [productSpecs, setProductSpecs] = useState({});
 
     useEffect(() => {
         setHeaderName('Products')
@@ -85,11 +105,12 @@ const EditProduct = () => {
     // Create a ref to store the variant context
     const variantContextRef = useRef(null);
 
-    const handleSpecificationsChange = (specs) => {
-        setProductSpecs(specs);
-    };
+    // Comment out handleSpecificationsChange function
+    // const handleSpecificationsChange = (specs) => {
+    //     setProductSpecs(specs);
+    // };
 
-    console.log('productSpecs:', productSpecs)
+    // console.log('productSpecs:', productSpecs)
 
     useEffect(() => {
         if (message) {
@@ -457,14 +478,14 @@ const EditProduct = () => {
                 }
             };
 
-            // Add product specifications
-            if (productSpecs) {
-                Object.entries(productSpecs).forEach(([key, value]) => {
-                    if (value) {
-                        productData[key] = Array.isArray(value) ? value.join(',') : value;
-                    }
-                });
-            }
+            // Comment out Add product specifications
+            // if (productSpecs) {
+            //     Object.entries(productSpecs).forEach(([key, value]) => {
+            //         if (value) {
+            //             productData[key] = Array.isArray(value) ? value.join(',') : value;
+            //         }
+            //     });
+            // }
 
             console.log('submit product data', productData);
             
@@ -539,7 +560,8 @@ const EditProduct = () => {
         setBrand('');
         setVideos([]);
         setProductStatus('active');
-        setProductSpecs({}); // Reset specifications
+        // Reset specifications
+        // setProductSpecs({});
     };
 
     // Move conditions outside of the callback to prevent recreating on every render
@@ -756,301 +778,32 @@ const EditProduct = () => {
                 setVideos([{ url: product.blips[0].url }]);
             }
 
-            // Product specifications based on category and subcategory
-            if (product.category === 'Phones') {
-                switch (product.subCategory) {
-                    case 'Smart Phones':
-                        setProductSpecs({
-                            phones_operatingsystem: product.phones_operatingsystem || '',
-                            phones_screensize: product.phones_screensize || '',
-                            phones_storagecapacity: product.phones_storagecapacity || '',
-                            phones_camera: product.phones_camera || '',
-                            phones_batterylife: product.phones_batterylife || '',
-                            phones_connectivity: product.phones_connectivity || [],
-                            phones_simtype: product.phones_simtype || ''
-                        });
-                        break;
-                    case 'Feature Phones':
-                        setProductSpecs({
-                            phones_screensize: product.phones_screensize || '',
-                            phones_batterylife: product.phones_batterylife || '',
-                            phones_connectivity: product.phones_connectivity || [],
-                            phones_simtype: product.phones_simtype || ''
-                        });
-                        break;
-                    case 'Refurbished Phones':
-                        setProductSpecs({
-                            phones_condition: product.phones_condition || '',
-                            phones_warranty: product.phones_warranty || '',
-                            phones_batterylife: product.phones_batterylife || ''
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'Tablets') {
-                switch (product.subCategory) {
-                    case 'Android Tablets':
-                        setProductSpecs({
-                            tablet_os_version: product.tablet_os_version || '',
-                            tablet_screen_size: product.tablet_screen_size || '',
-                            tablet_storage: product.tablet_storage || '',
-                            tablet_processor: product.tablet_processor || ''
-                        });
-                        break;
-                    case 'iPads':
-                        setProductSpecs({
-                            ipad_model: product.ipad_model || '',
-                            ipad_generation: product.ipad_generation || '',
-                            ipad_storage: product.ipad_storage || '',
-                            ipad_connectivity: product.ipad_connectivity || []
-                        });
-                        break;
-                    case 'Kids Tablets':
-                        setProductSpecs({
-                            kids_tablet_age: product.kids_tablet_age || '',
-                            kids_tablet_educational: product.kids_tablet_educational || [],
-                            kids_tablet_parental: product.kids_tablet_parental || []
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'Accessories') {
-                switch (product.subCategory) {
-                    case 'Chargers':
-                        setProductSpecs({
-                            charger_type: product.charger_type || '',
-                            charger_wattage: product.charger_wattage || '',
-                            charger_compatibility: product.charger_compatibility || []
-                        });
-                        break;
-                    case 'Earphones & Headsets':
-                        setProductSpecs({
-                            earphone_type: product.earphone_type || '',
-                            earphone_wireless: product.earphone_wireless || false,
-                            earphone_features: product.earphone_features || []
-                        });
-                        break;
-                    case 'Power Banks':
-                        setProductSpecs({
-                            powerbank_capacity: product.powerbank_capacity || '',
-                            powerbank_fastcharging: product.powerbank_fastcharging || [],
-                            powerbank_ports: product.powerbank_ports || []
-                        });
-                        break;
-                    // Add other accessory subcategories...
-                }
-            }
-
-            else if (product.category === 'Wearable Tech') {
-                switch (product.subCategory) {
-                    case 'Smartwatches':
-                        setProductSpecs({
-                            smartwatch_os: product.smartwatch_os || '',
-                            smartwatch_display: product.smartwatch_display || '',
-                            smartwatch_features: product.smartwatch_features || []
-                        });
-                        break;
-                    case 'Wearable Accessories':
-                        setProductSpecs({
-                            wearable_type: product.wearable_type || '',
-                            wearable_compatibility: product.wearable_compatibility || []
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'Computers') {
-                switch (product.subCategory) {
-                    case 'Laptops':
-                        setProductSpecs({
-                            laptop_processor: product.laptop_processor || '',
-                            laptop_ram: product.laptop_ram || '',
-                            laptop_storage: product.laptop_storage || '',
-                            laptop_graphics: product.laptop_graphics || '',
-                            laptop_display: product.laptop_display || ''
-                        });
-                        break;
-                    case 'Desktops':
-                        setProductSpecs({
-                            desktop_processor: product.desktop_processor || '',
-                            desktop_ram: product.desktop_ram || '',
-                            desktop_storage: product.desktop_storage || '',
-                            desktop_graphics: product.desktop_graphics || ''
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'Computer Accessories') {
-                switch (product.subCategory) {
-                    case 'Keyboards':
-                        setProductSpecs({
-                            computing_type: product.computing_type || '',
-                            computing_connectivity: product.computing_connectivity || [],
-                            computing_features: product.computing_features || []
-                        });
-                        break;
-                    case 'Mice':
-                        setProductSpecs({
-                            computing_connectivity: product.computing_connectivity || [],
-                            computing_dpi: product.computing_dpi || '',
-                            computing_features: product.computing_features || []
-                        });
-                        break;
-                    case 'Monitors':
-                        setProductSpecs({
-                            computing_screensize: product.computing_screensize || '',
-                            computing_resolution: product.computing_resolution || '',
-                            computing_panelType: product.computing_panelType || '',
-                            computing_refreshRate: product.computing_refreshRate || '',
-                            computing_connectivity: product.computing_connectivity || []
-                        });
-                        break;
-                    case 'Headsets':
-                        setProductSpecs({
-                            computing_type: product.computing_type || '',
-                            computing_features: product.computing_features || [],
-                            computing_microphone: product.computing_microphone || false
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'Data Storage') {
-                switch (product.subCategory) {
-                    case 'External Hard Drives':
-                        setProductSpecs({
-                            storage_capacity: product.storage_capacity || '',
-                            storage_interface: product.storage_interface || '',
-                            storage_speed: product.storage_speed || '',
-                            storage_features: product.storage_features || []
-                        });
-                        break;
-                    case 'USB Flash Drives':
-                        setProductSpecs({
-                            storage_capacity: product.storage_capacity || '',
-                            storage_interface: product.storage_interface || '',
-                            storage_features: product.storage_features || []
-                        });
-                        break;
-                    case 'External Solid State Drives':
-                        setProductSpecs({
-                            storage_capacity: product.storage_capacity || '',
-                            storage_interface: product.storage_interface || '',
-                            storage_speed: product.storage_speed || '',
-                            storage_features: product.storage_features || []
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'Networking') {
-                switch (product.subCategory) {
-                    case 'Routers':
-                        setProductSpecs({
-                            network_type: product.network_type || '',
-                            network_speed: product.network_speed || '',
-                            network_frequency: product.network_frequency || [],
-                            network_ports: product.network_ports || [],
-                            network_features: product.network_features || []
-                        });
-                        break;
-                    case 'Range Extenders':
-                        setProductSpecs({
-                            network_type: product.network_type || '',
-                            network_speed: product.network_speed || '',
-                            network_frequency: product.network_frequency || [],
-                            network_features: product.network_features || []
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'Printers & Scanners') {
-                switch (product.subCategory) {
-                    case 'Printers':
-                        setProductSpecs({
-                            printer_type: product.printer_type || '',
-                            printer_printSpeed: product.printer_printSpeed || '',
-                            printer_resolution: product.printer_resolution || '',
-                            printer_connectivity: product.printer_connectivity || [],
-                            printer_features: product.printer_features || []
-                        });
-                        break;
-                    case 'Scanners':
-                        setProductSpecs({
-                            scanner_type: product.scanner_type || '',
-                            scanner_resolution: product.scanner_resolution || '',
-                            scanner_speed: product.scanner_speed || '',
-                            scanner_features: product.scanner_features || []
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'PC Gaming') {
-                switch (product.subCategory) {
-                    case 'Gaming Laptops':
-                        setProductSpecs({
-                            gaming_processor: product.gaming_processor || '',
-                            gaming_graphics: product.gaming_graphics || '',
-                            gaming_ram: product.gaming_ram || '',
-                            gaming_storage: product.gaming_storage || '',
-                            gaming_display: product.gaming_display || '',
-                            gaming_features: product.gaming_features || []
-                        });
-                        break;
-                    case 'Gaming Desktops':
-                        setProductSpecs({
-                            gaming_processor: product.gaming_processor || '',
-                            gaming_graphics: product.gaming_graphics || '',
-                            gaming_ram: product.gaming_ram || '',
-                            gaming_storage: product.gaming_storage || '',
-                            gaming_features: product.gaming_features || []
-                        });
-                        break;
-                    case 'Graphics Cards':
-                        setProductSpecs({
-                            graphics_chipset: product.graphics_chipset || '',
-                            graphics_memory: product.graphics_memory || '',
-                            graphics_interface: product.graphics_interface || '',
-                            graphics_features: product.graphics_features || []
-                        });
-                        break;
-                }
-            }
-
-            else if (product.category === 'PC Components') {
-                switch (product.subCategory) {
-                    case 'Processors':
-                        setProductSpecs({
-                            processor_brand: product.processor_brand || '',
-                            processor_series: product.processor_series || '',
-                            processor_cores: product.processor_cores || '',
-                            processor_speed: product.processor_speed || '',
-                            processor_socket: product.processor_socket || ''
-                        });
-                        break;
-                    case 'Graphics Cards':
-                        setProductSpecs({
-                            graphics_chipset: product.graphics_chipset || '',
-                            graphics_memory: product.graphics_memory || '',
-                            graphics_interface: product.graphics_interface || '',
-                            graphics_features: product.graphics_features || []
-                        });
-                        break;
-                    case 'Cooling Systems':
-                        setProductSpecs({
-                            cooling_type: product.cooling_type || '',
-                            cooling_compatibility: product.cooling_compatibility || [],
-                            cooling_size: product.cooling_size || '',
-                            cooling_noise: product.cooling_noise || ''
-                        });
-                        break;
-                }
-            }
+            // Comment out Product specifications based on category and subcategory
+            // if (product.category === 'Smartphones & Phones') {
+            //     switch (product.subCategory) {
+            //         case 'Smart Phones':
+            //             setProductSpecs({
+            //                 phones_operatingsystem: product.phones_operatingsystem || '',
+            //                 phones_screensize: product.phones_screensize || '',
+            //                 phones_storagecapacity: product.phones_storagecapacity || '',
+            //                 phones_camera: product.phones_camera || '',
+            //                 phones_batterylife: product.phones_batterylife || '',
+            //                 phones_connectivity: product.phones_connectivity || '',
+            //                 phones_simtype: product.phones_simtype || ''
+            //             });
+            //             break;
+            //         // ... rest of the switch cases for phones
+            //     }
+            // }
+            // else if (product.category === 'Computer Accessories') {
+            //     // ... computer accessories cases
+            // }
+            // else if (product.category === 'Data Storage') {
+            //     // ... data storage cases
+            // }
+            // else if (product.category === 'PC Components') {
+            //     // ... PC components cases
+            // }
         }
     }, [product]);
 
@@ -1150,13 +903,17 @@ const EditProduct = () => {
                                 {/* Description */}
                                 <div className="space-y-2">
                                     <RequiredLabel>Description</RequiredLabel>
-                                    <Textarea
-                                        id="description"
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="Enter product description"
-                                        className="min-h-[226px] rounded-2xl py-4 border border-[#02020238]"
-                                    />
+                                    <div className="border border-[#02020238] rounded-2xl overflow-hidden">
+                                        <ReactQuill
+                                            theme="snow"
+                                            value={description}
+                                            onChange={setDescription}
+                                            placeholder="Enter product description"
+                                            modules={quillModules}
+                                            formats={quillFormats}
+                                            className="min-h-[226px] rounded-2xl bg-white"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/** mobile categories */}
@@ -1213,8 +970,8 @@ const EditProduct = () => {
                                 {
                                     selectedCategory.length > 0 && selectedSubCategory.length > 0 ? (
                                         <>
-                                            {/* Product Specifications */}
-                                            <Card>
+                                            {/* Comment out Product Specifications */}
+                                            {/* <Card>
                                                 <CardHeader>
                                                     <CardTitle className='text-base lg:text-lg font-cabin font-medium'>Product Specifications</CardTitle>
                                                     <CardDescription className='text-sm lg:text-base font-cabin font-normal text-[#17171B96]'>Select specifications that apply to your product</CardDescription>
@@ -1243,14 +1000,15 @@ const EditProduct = () => {
                                                                     fill="currentColor"
                                                                     d="M2 6.5c0-2.121 0-3.182.659-3.841S4.379 2 6.5 2s3.182 0 3.841.659S11 4.379 11 6.5s0 3.182-.659 3.841S8.621 11 6.5 11s-3.182 0-3.841-.659S2 8.621 2 6.5m11 11c0-2.121 0-3.182.659-3.841S15.379 13 17.5 13s3.182 0 3.841.659S22 15.379 22 17.5s0 3.182-.659 3.841S19.621 22 17.5 22s-3.182 0-3.841-.659S13 19.621 13 17.5m-11 0c0-2.121 0-3.182.659-3.841S4.379 13 6.5 13s3.182 0 3.841.659S11 15.379 11 17.5s0 3.182-.659 3.841S8.621 22 6.5 22s-3.182 0-3.841-.659S2 19.621 2 17.5"
                                                                 />
-                                                            </svg>                                                            <p className="mt-2 text-gray-500">
+                                                            </svg>
+                                                            <p className="mt-2 text-gray-500">
                                                                 Select a category and subcategory to view specifications
                                                             </p>
                                                         </div>
                                                     )}
                                                 </CardContent>
-                                            </Card>
-
+                                            </Card> */}
+                                            
                                             {/* Product Images */}
                                             <div>
                                                 <Card className="border border-[#02020238]">

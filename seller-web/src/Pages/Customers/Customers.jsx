@@ -90,6 +90,9 @@ function Customers() {
       })
     }
 
+    // Hide customers with 0 orders
+    result = result.filter(follower => (follower.totalOrders || 0) > 0)
+
     // Apply sorting
     if (sortConfig.key) {
       result.sort((a, b) => {

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit } from "lucide-react";
+import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink } from "lucide-react";
 import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
 import { BASE_URL } from "@/Constants/Server";
@@ -16,6 +16,7 @@ import ShowsTab from "./components/ShowsTab";
 import ReviewsTab from "./components/ReviewsTab";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function AccountPage() {
   const { setHeaderName, setNavName } = useOutletContext();
@@ -23,6 +24,21 @@ export default function AccountPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reviewStats, setReviewStats] = useState({
+    averageRating: 0,
+    totalReviews: 0
+  });
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [followersDialogOpen, setFollowersDialogOpen] = useState(false);
+  const [followingDialogOpen, setFollowingDialogOpen] = useState(false);
+  const [followersPagination, setFollowersPagination] = useState({
+    current: 1,
+    total: 1,
+    hasMore: false
+  });
+  const [followersLoading, setFollowersLoading] = useState(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
 
   useEffect(() => {
     setHeaderName("Account");
@@ -49,6 +65,11 @@ export default function AccountPage() {
 
         const data = await response.json();
         setProfile(data);
+        
+        // Fetch review stats
+        if (data._id) {
+          fetchReviewStats(data._id);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -58,6 +79,111 @@ export default function AccountPage() {
 
     fetchProfile();
   }, []);
+
+  const fetchReviewStats = async (sellerId) => {
+    try {
+      const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
+      if (!tokenData) return;
+
+      const response = await fetch(`${BASE_URL}/seller/${sellerId}/product-reviews?page=1&limit=1`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      
+      if (data.stats) {
+        setReviewStats({
+          averageRating: data.stats.averageRating || 0,
+          totalReviews: data.stats.totalReviews || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching review stats:', error);
+    }
+  };
+
+  const fetchFollowers = async (page = 1) => {
+    setFollowersLoading(true);
+    try {
+      const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
+      if (!tokenData) return;
+
+      const response = await fetch(`${BASE_URL}/seller/followers?page=${page}&limit=10`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch followers");
+      }
+
+      const data = await response.json();
+      
+      if (page === 1) {
+        setFollowers(data.followers || []);
+      } else {
+        setFollowers(prev => [...prev, ...(data.followers || [])]);
+      }
+      
+      setFollowersPagination({
+        current: Number(data.pagination?.current) || 1,
+        total: data.pagination?.pages || 1,
+        hasMore: data.pagination?.hasMore || false
+      });
+    } catch (error) {
+      console.error('Error fetching followers:', error);
+      toast.error("Failed to load followers");
+    } finally {
+      setFollowersLoading(false);
+    }
+  };
+
+  const fetchFollowing = async () => {
+    setFollowingLoading(true);
+    try {
+      const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
+      if (!tokenData) return;
+
+      const response = await fetch(`${BASE_URL}/seller/following/buyers`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch following");
+      }
+
+      const data = await response.json();
+      setFollowing(data || []);
+    } catch (error) {
+      console.error('Error fetching following:', error);
+      toast.error("Failed to load following");
+    } finally {
+      setFollowingLoading(false);
+    }
+  };
+
+  const handleFollowersClick = () => {
+    setFollowersDialogOpen(true);
+    fetchFollowers();
+  };
+
+  const handleFollowingClick = () => {
+    setFollowingDialogOpen(true);
+    fetchFollowing();
+  };
+
+  const loadMoreFollowers = () => {
+    if (followersPagination.hasMore && !followersLoading) {
+      fetchFollowers(followersPagination.current + 1);
+    }
+  };
 
   const handleAvatarUpload = async (event) => {
     const file = event.target.files[0];
@@ -271,21 +397,45 @@ export default function AccountPage() {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
               {[
-                { label: "Streams", value: profile?.streamCount || 0, icon: Radio, color: "text-blue-500" },
-                { label: "Orders", value: profile?.totalOrders || 0, icon: ShoppingBag, color: "text-green-500" },
-                { label: "Following", value: profile?.followingCount || 0, icon: Users, color: "text-purple-500" },
-                { label: "Followers", value: profile?.followersCount || 0, icon: Heart, color: "text-rose-500" },
+                { 
+                  label: "Streams", 
+                  value: profile?.streamCount || 0, 
+                  icon: Radio, 
+                  color: "text-blue-500",
+                  onClick: () => navigate('/dashboard/live-streams/live-stream')
+                },
+                { 
+                  label: "Orders", 
+                  value: profile?.totalOrders || 0, 
+                  icon: ShoppingBag, 
+                  color: "text-green-500",
+                  onClick: () => navigate('/dashboard/orders') 
+                },
+                { 
+                  label: "Following", 
+                  value: profile?.followingCount || 0, 
+                  icon: Users, 
+                  color: "text-purple-500",
+                  onClick: handleFollowingClick
+                },
+                { 
+                  label: "Followers", 
+                  value: profile?.followersCount || 0, 
+                  icon: Heart, 
+                  color: "text-rose-500",
+                  onClick: handleFollowersClick
+                },
                 {
                   label: "Store Rating",
                   value: (
                     <div className="flex items-center gap-1 sm:gap-2">
-                      <span>{profile?.stats?.averageRating || "4.3"}</span>
+                      <span>{reviewStats.averageRating.toFixed(1) || "0.0"}</span>
                       <div className="flex items-center">
                         {[...Array(5)].map((_, index) => (
                           <svg
                             key={index}
                             className={`w-3 h-3 sm:w-4 sm:h-4 ${
-                              index < Math.floor(profile?.stats?.averageRating || 4.3)
+                              index < Math.floor(reviewStats.averageRating || 0.0)
                                 ? "text-yellow-400"
                                 : "text-gray-300"
                             }`}
@@ -301,15 +451,20 @@ export default function AccountPage() {
                         ))}
                       </div>
                       <span className="text-xs sm:text-sm text-muted-foreground">
-                        ({profile?.stats?.totalReviews || "42"})
+                        ({reviewStats.totalReviews || "0"})
                       </span>
                     </div>
                   ),
                   icon: MessageSquare,
                   color: "text-yellow-500",
+                  onClick: () => navigate('/dashboard/products')
                 },
               ].map((stat) => (
-                <Card key={stat.label} className="hover:border-green-600/50 transition-colors">
+                <Card 
+                  key={stat.label} 
+                  className="hover:border-green-600/50 transition-colors cursor-pointer"
+                  onClick={stat.onClick}
+                >
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
@@ -324,14 +479,14 @@ export default function AccountPage() {
             {/* Tabs Navigation */}
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <div className="min-w-[500px] px-4 sm:px-0">
-                <Tabs defaultValue="posts" className="space-y-4">
+                <Tabs defaultValue="reviews" className="space-y-4">
                   <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
                     {[
-                      { value: "posts", label: "Posts", icon: UserSquareIcon },
+                      { value: "reviews", label: "Reviews", icon: MessageSquare },
                       { value: "shop", label: "Shop", icon: ShoppingBag },
                       { value: "blips", label: "Blips", icon: Zap },
                       { value: "shows", label: "Shows", icon: Tv },
-                      { value: "reviews", label: "Reviews", icon: MessageSquare },
+                      { value: "posts", label: "Posts", icon: UserSquareIcon },
                     ].map((tab) => (
                       <TabsTrigger
                         key={tab.value}
@@ -343,8 +498,8 @@ export default function AccountPage() {
                       </TabsTrigger>
                     ))}
                   </TabsList>
-                  <TabsContent value="posts" className="min-h-[400px]">
-                    <PostsTab sellerId={profile?._id} />
+                  <TabsContent value="reviews" className="min-h-[400px]">
+                    <ReviewsTab sellerId={profile?._id} />
                   </TabsContent>
                   <TabsContent value="shop" className="min-h-[400px]">
                     <ShopTab sellerId={profile?._id} />
@@ -355,8 +510,16 @@ export default function AccountPage() {
                   <TabsContent value="shows" className="min-h-[400px]">
                     <ShowsTab sellerId={profile?._id} />
                   </TabsContent>
-                  <TabsContent value="reviews" className="min-h-[400px]">
-                    <ReviewsTab sellerId={profile?._id} />
+                  <TabsContent value="posts" className="min-h-[400px]">
+                    <div className="flex flex-col items-center justify-center h-full py-16">
+                      <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg text-center max-w-md">
+                        <UserSquareIcon className="h-12 w-12 mx-auto text-green-600 mb-4" />
+                        <h3 className="text-xl font-semibold mb-2">Coming Soon</h3>
+                        <p className="text-muted-foreground mb-4">Post feature is currently under development and will be available soon!</p>
+                        <Badge className="mx-auto bg-green-600 hover:bg-green-700">Stay tuned</Badge>
+                      </div>
+                    </div>
+                    {/* <PostsTab sellerId={profile?._id} /> */}
                   </TabsContent>
                 </Tabs>
               </div>
@@ -364,6 +527,159 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
+      {/* Followers Dialog */}
+      <Dialog open={followersDialogOpen} onOpenChange={setFollowersDialogOpen} size="3xl">
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Heart className="h-5 w-5 text-rose-500" />
+              Followers
+            </DialogTitle>
+            <DialogDescription>
+              People who are following your store
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-[60vh] overflow-y-auto mt-4">
+            {followersLoading && followers.length === 0 ? (
+              <div className="py-8 flex justify-center">
+                <LinearProgress color="success" className="w-3/4" />
+              </div>
+            ) : followers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No followers yet
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {followers.map((follower) => (
+                  <div key={follower._id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 border border-muted">
+                        <AvatarImage src={follower.profileImageUrl || "/placeholder.svg"} />
+                        <AvatarFallback>
+                          {follower.name && follower.name !== "undefined undefined" 
+                            ? `${follower.name.split(' ')[0]?.[0]}${follower.name.split(' ')[1]?.[0] || ''}`
+                            : '??'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">
+                          {follower.name && follower.name !== "undefined undefined" 
+                            ? follower.name 
+                            : "Anonymous User"}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Followed: {new Date(follower.followedAt).toLocaleDateString()}</span>
+                          {follower.totalOrders > 0 && (
+                            <span className="flex items-center gap-1">
+                              <ShoppingBag className="h-3 w-3" />
+                              {follower.totalOrders} orders
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {follower.buyerId && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex items-center gap-1 text-xs"
+                        onClick={() => {
+                          setFollowersDialogOpen(false);
+                          navigate(`/dashboard/customer/${follower.buyerId}`);
+                        }}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Profile
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                
+                {followersPagination.hasMore && (
+                  <div className="flex justify-center pt-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={loadMoreFollowers}
+                      disabled={followersLoading}
+                    >
+                      {followersLoading ? "Loading..." : "Load More"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Following Dialog */}
+      <Dialog open={followingDialogOpen} onOpenChange={setFollowingDialogOpen} size="3xl">
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Users className="h-5 w-5 text-purple-500" />
+              Following
+            </DialogTitle>
+            <DialogDescription>
+              People you are following
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-[60vh] overflow-y-auto mt-4">
+            {followingLoading ? (
+              <div className="py-8 flex justify-center">
+                <LinearProgress color="success" className="w-3/4" />
+              </div>
+            ) : following.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                You're not following anyone yet
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {following.map((user) => (
+                  <div key={user.buyerId} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 border border-muted">
+                        <AvatarFallback>
+                          {user.firstName && user.lastName 
+                            ? `${user.firstName[0]}${user.lastName[0]}`
+                            : '??'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">
+                          {user.firstName && user.lastName 
+                            ? `${user.firstName} ${user.lastName}` 
+                            : "Anonymous User"}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Following since: {new Date(user.followDate).toLocaleDateString()}</span>
+                          <span>{user.email}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="flex items-center gap-1 text-xs"
+                      onClick={() => {
+                        setFollowingDialogOpen(false);
+                        navigate(`/dashboard/customer/${user.buyerId}`);
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      View Profile
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
