@@ -397,18 +397,22 @@ export const LivestreamProvider = ({ children }) => {
             if (response.status === 200) {
                 // Update the product's bid status in the state
                 const updatedProducts = state.liveStreamDetails.products.map(product => {
-                    // Set the newly activated product to ongoing status
+                    // Set the newly activated product to active status (not ongoing)
                     if (product.product.productId === productId) {
-                        return { ...product, ...response.data.product, bidStatus: 'ongoing' };
+                        return { ...product, ...response.data.product, bidStatus: 'active' };
                     }
-                    // Set all other active or ongoing products to pending
-                    if (product.bidStatus === 'active' || product.bidStatus === 'ongoing') {
-                        return { ...product, bidStatus: 'pending' };
+                    // Set all other active or ongoing products to ended
+                    if (product.bidStatus === 'ongoing' || product.bidStatus === 'active') {
+                        return { ...product, bidStatus: 'ended' };
                     }
                     return product;
                 });
 
                 dispatch({ type: 'UPDATE_PRODUCT_BID_STATUS', payload: updatedProducts });
+                
+                // Also emit a socket event to notify clients of bid activation
+                // The socket connection might be available in the main component
+                // Or we could expose a notification through the context
                 
                 toast.success('Product bidding activated successfully', {
                     style: {
