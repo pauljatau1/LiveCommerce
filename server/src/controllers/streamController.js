@@ -1408,16 +1408,27 @@ exports.getStreamsByStatus = async (req, res) => {
     const streams = await Stream.find(query)
       .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price')
-      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt subscribers')
       .sort({ scheduledStartTime: -1, createdAt: -1 })
       .skip((page - 1) * limit)
-
       .limit(parseInt(limit));
+
+    // Add subscribersCount to each stream with proper typing
+    const streamsWithSubscriberCount = streams.map(stream => {
+      // Convert to plain object first
+      const streamObj = stream.toObject();
+      
+      // Add the subscribers count property
+      return {
+        ...streamObj,
+        subscribersCount: streamObj.subscribers ? streamObj.subscribers.length : 0
+      };
+    });
 
     const total = await Stream.countDocuments(query);
 
     res.json({
-      streams,
+      streams: streamsWithSubscriberCount,
       pagination: {
         total,
         pages: Math.ceil(total / limit),
@@ -3172,4 +3183,49 @@ exports.getNextStream = async (req, res) => {
     });
   }
 };
-  
+
+/**
+ * Check if a buyer is subscribed to a stream
+ * @route GET /api/streams/:streamId/is-subscribed
+ * @access Private (Buyer only)
+ */
+exports.isSubscribedToStream = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const buyerId = req.user.id;
+
+    if (!streamId) {
+      return res.status(400).json({
+        message: 'Stream ID is required',
+        error: 'Missing streamId parameter'
+      });
+    }
+
+    // Find the stream
+    const stream = await Stream.findById(streamId);
+
+    if (!stream) {
+      return res.status(404).json({
+        message: 'Stream not found',
+        error: 'Invalid stream ID provided'
+      });
+    }
+
+    // Check if buyer is subscribed
+    const isSubscribed = stream.subscribers && 
+      stream.subscribers.some(subscriber => 
+        subscriber.buyer.toString() === buyerId.toString());
+
+    // Return subscription status
+    res.status(200).json({
+      isSubscribed: isSubscribed || false
+    });
+
+  } catch (error) {
+    console.error('Check stream subscription error:', error);
+    res.status(500).json({
+      message: 'Failed to check subscription status, stream not found',
+     
+    });
+  }
+};

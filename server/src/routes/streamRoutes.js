@@ -1798,4 +1798,44 @@ router.get('/:streamId/next',
   streamController.getNextStream
 );
 
+/**
+ * @swagger
+ * /api/streams/{streamId}/is-subscribed:
+ *   get:
+ *     summary: Check if buyer is subscribed to stream notifications
+ *     description: Determines if the currently logged-in buyer is subscribed to notifications for when the stream goes live
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the stream to check subscription status for
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved subscription status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 isSubscribed:
+ *                   type: boolean
+ *                   description: Whether the buyer is subscribed to this stream
+ *       401:
+ *         description: Unauthorized - only buyers can check subscription status
+ *       404:
+ *         description: Stream not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:streamId/is-subscribed',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.isSubscribedToStream
+);
+
 module.exports = router; 

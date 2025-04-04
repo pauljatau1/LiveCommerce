@@ -6374,8 +6374,52 @@ exports.getPersonalizedBlips = async (req, res) => {
       [transformedBlips[i], transformedBlips[j]] = [transformedBlips[j], transformedBlips[i]];
     }
 
+    // Ensure blips from the same product and seller are not too close together
+    const rearrangedBlips = [];
+    const productCache = new Map(); // Track last position of each product
+    const sellerCache = new Map(); // Track last position of each seller
+    const minDistance = Math.max(2, Math.floor(transformedBlips.length / 3)); // Minimum distance between repeats
+
+    // First, add blips to the result while maintaining distance
+    let remainingBlips = [...transformedBlips];
+    
+    while (remainingBlips.length > 0) {
+      let addedBlip = false;
+      
+      for (let i = 0; i < remainingBlips.length; i++) {
+        const blip = remainingBlips[i];
+        const productId = blip.productId.toString();
+        const sellerId = blip.seller._id.toString();
+        
+        const lastProductPos = productCache.get(productId) || -minDistance;
+        const lastSellerPos = sellerCache.get(sellerId) || -minDistance;
+        
+        // Check if the current position is far enough from previous occurrences
+        if (rearrangedBlips.length - lastProductPos >= minDistance && 
+            rearrangedBlips.length - lastSellerPos >= Math.ceil(minDistance/2)) {
+          
+          rearrangedBlips.push(blip);
+          productCache.set(productId, rearrangedBlips.length - 1);
+          sellerCache.set(sellerId, rearrangedBlips.length - 1);
+          
+          remainingBlips.splice(i, 1);
+          addedBlip = true;
+          break;
+        }
+      }
+      
+      // If we couldn't add any blip with desired spacing, add the first remaining one
+      if (!addedBlip && remainingBlips.length > 0) {
+        const blip = remainingBlips[0];
+        rearrangedBlips.push(blip);
+        productCache.set(blip.productId.toString(), rearrangedBlips.length - 1);
+        sellerCache.set(blip.seller._id.toString(), rearrangedBlips.length - 1);
+        remainingBlips.splice(0, 1);
+      }
+    }
+
     res.json({
-      blips: transformedBlips,
+      blips: rearrangedBlips,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalBlips: total

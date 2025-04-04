@@ -587,6 +587,119 @@ router.get('/sellers/:id', async (req, res) => {
       }
     ]);
 
+    // Get product ratings statistics
+    const Product = mongoose.model('Product');
+    console.log(`Finding products for seller ID: ${seller._id}`);
+    
+    const productRatingsStats = await Product.aggregate([
+      {
+        $match: {
+          seller: seller._id
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalProductReviews: { $sum: { $size: { $ifNull: ["$reviews", []] } } },
+          averageProductRating: { 
+            $avg: {
+              $cond: [
+                { $gt: [{ $size: { $ifNull: ["$reviews", []] } }, 0] },
+                "$averageRating",
+                null
+              ]
+            }
+          }
+        }
+      }
+    ]);
+    
+    console.log('Initial aggregation result:', JSON.stringify(productRatingsStats, null, 2));
+
+    // Fallback query if the first approach returns 0 for average rating
+    if (!productRatingsStats.length || productRatingsStats[0].averageProductRating === 0) {
+      console.log('Using fallback method for product ratings calculation');
+      
+      // Check if the products have the expected structure
+      const sampleProducts = await Product.find({ seller: seller._id }).limit(2);
+      console.log('Sample product structure:', JSON.stringify(sampleProducts.map(p => ({
+        id: p._id,
+        hasReviews: !!p.reviews,
+        reviewsLength: p.reviews ? p.reviews.length : 0,
+        averageRating: p.averageRating,
+        // Include a sample review if available
+        sampleReview: p.reviews && p.reviews.length > 0 ? p.reviews[0] : null
+      })), null, 2));
+      
+      const products = await Product.find({ seller: seller._id }).select('reviews averageRating');
+      console.log(`Found ${products.length} products for manual calculation`);
+      
+      let totalReviews = 0;
+      let sumRatings = 0;
+      
+      products.forEach(product => {
+        console.log(`Product ${product._id}: averageRating=${product.averageRating}, reviews=${product.reviews ? product.reviews.length : 0}`);
+        
+        if (product.reviews && product.reviews.length > 0) {
+          product.reviews.forEach(review => {
+            if (review.rating) {
+              sumRatings += review.rating;
+              totalReviews++;
+              console.log(`  - Review rating: ${review.rating}`);
+            } else {
+              console.log(`  - Review without rating:`, review);
+            }
+          });
+        }
+      });
+      
+      console.log(`Total ratings sum: ${sumRatings}, Total reviews: ${totalReviews}`);
+      const avgRating = totalReviews > 0 ? (sumRatings / totalReviews) : 0;
+      // Round to one decimal place
+      const roundedAvgRating = Math.round(avgRating * 10) / 10;
+      console.log(`Calculated average rating: ${avgRating}, rounded to: ${roundedAvgRating}`);
+      
+      if (!productRatingsStats.length) {
+        productRatingsStats.push({
+          totalProductReviews: totalReviews,
+          averageProductRating: roundedAvgRating
+        });
+      } else {
+        productRatingsStats[0].totalProductReviews = totalReviews || productRatingsStats[0].totalProductReviews;
+        productRatingsStats[0].averageProductRating = roundedAvgRating || 0;
+      }
+      
+      console.log('Updated productRatingsStats:', JSON.stringify(productRatingsStats, null, 2));
+    }
+
+    // Alternative calculation - try a direct aggregate on review ratings
+    console.log('Attempting direct review rating aggregation');
+    try {
+      const directRatingAgg = await Product.aggregate([
+        { $match: { seller: seller._id } },
+        { $unwind: { path: "$reviews", preserveNullAndEmptyArrays: false } },
+        { $group: {
+            _id: null,
+            totalReviews: { $sum: 1 },
+            avgRating: { $avg: "$reviews.rating" }
+          }
+        }
+      ]);
+      
+      console.log('Direct rating aggregation result:', JSON.stringify(directRatingAgg, null, 2));
+      
+      if (directRatingAgg.length > 0 && directRatingAgg[0].avgRating > 0) {
+        console.log(`Using direct aggregation result: ${directRatingAgg[0].avgRating}`);
+        // Round to one decimal place
+        const roundedRating = Math.round(directRatingAgg[0].avgRating * 10) / 10;
+        console.log(`Rounded rating: ${roundedRating}`);
+        productRatingsStats[0].averageProductRating = roundedRating;
+        productRatingsStats[0].totalProductReviews = directRatingAgg[0].totalReviews;
+      }
+    } catch (err) {
+      console.error('Error in direct rating aggregation:', err);
+    }
+
     // Transform the response with detailed formatting
     const sellerResponse = {
       _id: seller._id,
@@ -649,6 +762,10 @@ router.get('/sellers/:id', async (req, res) => {
           3: 0,
           4: 0,
           5: 0
+        },
+        products: {
+          averageRating: productRatingsStats[0]?.averageProductRating || Math.round((seller.stats?.averageRating || 0.0) * 10) / 10,
+          totalReviews: productRatingsStats[0]?.totalProductReviews || 0
         }
       },
       activity: {

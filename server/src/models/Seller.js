@@ -431,5 +431,71 @@ sellerSchema.methods.calculateMonthlyChange = function(currentValue, lastMonthVa
   return ((currentValue - lastMonthValue) / lastMonthValue) * 100;
 };
 
+// Add method to update seller stats based on product reviews
+sellerSchema.methods.updateProductRatingStats = async function() {
+  try {
+    const Product = mongoose.model('Product');
+    
+    // Aggregate to get all product reviews from this seller
+    const productStats = await Product.aggregate([
+      { $match: { seller: this._id } },
+      { $unwind: { path: "$reviews", preserveNullAndEmptyArrays: false } },
+      { 
+        $group: {
+          _id: "$reviews.rating",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Reset rating distribution
+    const ratingDistribution = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0
+    };
+    
+    // Fill in the distribution and calculate total
+    let totalReviews = 0;
+    let ratingSum = 0;
+    
+    productStats.forEach(stat => {
+      const rating = stat._id;
+      const count = stat.count;
+      
+      if (rating >= 1 && rating <= 5) {
+        ratingDistribution[rating] = count;
+        totalReviews += count;
+        ratingSum += rating * count;
+      }
+    });
+    
+    // Update the seller stats
+    this.stats.totalReviews = totalReviews;
+    this.stats.averageRating = totalReviews > 0 ? 
+      parseFloat((ratingSum / totalReviews).toFixed(1)) : 0;
+    this.stats.ratingDistribution = ratingDistribution;
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating product rating stats:', error);
+    return false;
+  }
+};
+
+// Middleware to update seller stats from product reviews periodically
+// This won't run on every save to avoid performance issues
+sellerSchema.pre('save', async function(next) {
+  // Only update product rating stats if explicitly requested
+  // or if this is a new seller (first save)
+  if (this.isNew || this._updateProductRatingStats) {
+    this._updateProductRatingStats = false; // Reset flag
+    await this.updateProductRatingStats();
+  }
+  next();
+});
+
 module.exports = mongoose.model('Seller', sellerSchema);
 
