@@ -611,6 +611,30 @@ const LivestreamStudio = () => {
             // 5. Notify backend about stream end
             console.log("📤 [STREAM END] Notifying backend about stream end");
             await endLiveStream(_id);
+            
+            // Reset all bidding states from the socket context
+            if (livestreamSocket && typeof livestreamSocket.resetBiddingStates === 'function') {
+                console.log("📤 [STREAM END] Resetting all bidding states");
+                livestreamSocket.resetBiddingStates();
+                
+                // Emit a host_disconnect event to notify viewers that the host has ended the stream
+                if (livestreamSocket.socket) {
+                    console.log("📤 [STREAM END] Notifying viewers about host disconnect");
+                    livestreamSocket.socket.emit('stream_notification', {
+                        type: 'host_disconnect',
+                        data: {
+                            streamId: _id,
+                            message: 'Host has ended the stream'
+                        }
+                    });
+                }
+                
+                // Clean up socket listeners to prevent memory leaks
+                if (typeof livestreamSocket.cleanupListeners === 'function') {
+                    console.log("📤 [STREAM END] Cleaning up socket listeners");
+                    livestreamSocket.cleanupListeners(_id);
+                }
+            }
 
             // 6. Show success message
             toast.success('Livestream ended successfully', {
@@ -706,7 +730,7 @@ const LivestreamStudio = () => {
         }
     };
 
-    useEffect(() => {
+    {/*useEffect(() => {
         let interval;
         if (isStreaming) {
             interval = setInterval(() => {
@@ -721,7 +745,7 @@ const LivestreamStudio = () => {
                 setTimerInterval(null);
             }
         };
-    }, [isStreaming]);
+    }, [isStreaming]);*/}
 
     useEffect(() => {
         // Handle user joining
@@ -1054,7 +1078,7 @@ const LivestreamStudio = () => {
             console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
             setLocalTracks([audioTrack, videoTrack]);
             console.log('🔄 [FINALIZE 3/3] Starting stream timer');
-            startTimer();
+            //startTimer();
 
             console.log('✅ [RECONNECT] Reconnection process completed successfully');
             toast.success('Successfully reconnected to your livestream');
