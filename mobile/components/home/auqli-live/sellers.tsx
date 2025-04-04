@@ -66,7 +66,7 @@ const Sellers = () => {
 
   return (
     <View className="pt-[35px] w-[100%]">
-      <SectionHeader title="Sellers to follow" btnText="" />
+      <SectionHeader title="Sellers to Follow" btnText="" />
       {loading ? (
         <ActivityIndicator color="#CCCCCC" className="py-4" />
       ) : sellers?.length > 0 ? (

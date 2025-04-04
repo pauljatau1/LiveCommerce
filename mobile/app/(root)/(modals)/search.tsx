@@ -34,6 +34,7 @@ const Search = () => {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [sellers, setSellers] = useState<any[]>([]);
+  const [keyboardFocused, setKeyboardFocused] = useState<boolean>(false);
 
   const fetchSellers = async () => {
     if (!searchQuery) {
@@ -86,8 +87,18 @@ const Search = () => {
   };
 
   useEffect(() => {
-    if (isFocused) searchRef.current?.focus();
     getSearchHistory();
+  }, []);
+
+  useEffect(() => {
+    if (isFocused) searchRef.current?.focus();
+    if (searchRef?.current) {
+      if (searchRef?.current?.isFocused()) {
+        setKeyboardFocused(true);
+      } else {
+        setKeyboardFocused(false);
+      }
+    }
   }, [searchRef, isFocused]);
 
   useEffect(() => {
@@ -191,7 +202,7 @@ const Search = () => {
             style={{
               borderRadius: 6,
               borderWidth: 1,
-              borderColor: "#c6c6c6",
+              borderColor: keyboardFocused ? "#16783A" : "#c6c6c6",
               paddingVertical: 12,
             }}
           >

@@ -40,6 +40,7 @@ import SellerReviews from "@/components/sellerProfile/reviews";
 import Shows from "@/components/sellerProfile/shows";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { MaterialIcons } from "@expo/vector-icons";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -186,61 +187,23 @@ const CollapsibleHeader = memo(
           seller?.storeInfo?.socialMedia?.tiktok ? (
             <View style={styles.socialContainer}>
               {seller?.storeInfo?.socialMedia?.facebook && (
-                <Link
-                  href={`${seller?.storeInfo?.socialMedia?.facebook}`}
-                  style={{ flexBasis: "33%", flexShrink: 1 }}
-                >
-                  <View
-                    style={[
-                      styles.socialCard,
-                      { borderColor: "#1966F7", borderWidth: 1 },
-                    ]}
-                  >
-                    <Image
-                      source={require("../../../assets/icons/facebook-logo.png")}
-                      contentFit="contain"
-                      style={{
-                        width: 14,
-                        height: 14,
-                      }}
-                    />
-                    <Text style={styles.socialText}>Facebook</Text>
+                <Link href={`${seller?.storeInfo?.socialMedia?.facebook}`}>
+                  <View style={[styles.socialCard]}>
+                    <MaterialIcons name="facebook" size={18} color="white" />
                   </View>
                 </Link>
               )}
               {seller?.storeInfo?.socialMedia?.instagram && (
-                <Link
-                  href={`${seller?.storeInfo?.socialMedia?.instagram}`}
-                  style={{ flexBasis: "33%", flexShrink: 1 }}
-                >
+                <Link href={`${seller?.storeInfo?.socialMedia?.instagram}`}>
                   <View style={[styles.socialCard]}>
-                    <Image
-                      source={require("../../../assets/icons/instagram-logo.png")}
-                      contentFit="contain"
-                      style={{
-                        width: 14,
-                        height: 14,
-                      }}
-                    />
-                    <Text style={styles.socialText}>Instagram</Text>
+                    <AntDesign name="instagram" size={18} color="white" />
                   </View>
                 </Link>
               )}
               {seller?.storeInfo?.socialMedia?.tiktok && (
-                <Link
-                  href={`${seller?.storeInfo?.socialMedia?.tiktok}`}
-                  style={{ flexBasis: "33%", flexShrink: 1 }}
-                >
+                <Link href={`${seller?.storeInfo?.socialMedia?.tiktok}`}>
                   <View style={[styles.socialCard]}>
-                    <Image
-                      source={require("../../../assets/icons/tiktok-logo.png")}
-                      contentFit="contain"
-                      style={{
-                        width: 14,
-                        height: 14,
-                      }}
-                    />
-                    <Text style={styles.socialText}>Tiktok</Text>
+                    <MaterialIcons name="tiktok" size={18} color="white" />
                   </View>
                 </Link>
               )}
@@ -875,18 +838,14 @@ const styles = StyleSheet.create({
     // flexWrap: "wrap",
   },
   socialCard: {
-    borderRadius: 6,
-    padding: 4,
-    paddingVertical: 8,
-    gap: 8,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4.5,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    minWidth: 80,
+    backgroundColor: "rgba(54, 54, 54, 0.69)",
     // flexBasis: "50%",
-    width: "100%",
-    borderColor: "#fff",
-    borderWidth: 1,
   },
   socialText: {
     color: "#ffffff",

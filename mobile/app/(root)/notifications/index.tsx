@@ -23,6 +23,7 @@ import { formatDate, formatMessageDate } from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
 import NotificationSheet from "@/components/notifications/notificationSheet";
 import LottieView from "lottie-react-native";
+import { Feather, Ionicons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 const tabs = ["All", "Orders", "Posts", "From Auqli"];
@@ -90,13 +91,12 @@ const Notifications = () => {
     }
   }, [page, tab]);
 
-  const handleMarkAllRead = useCallback(async () => {
+  const handleMarkAllRead = async () => {
     try {
       const token = await getToken();
 
       const response = await axios.put(
-        process.env.EXPO_PUBLIC_API_URL +
-          `api/notifications/buyer/mark-all-read`,
+        process.env.EXPO_PUBLIC_API_URL + `api/notifications/mark-all-read`,
         {},
         {
           headers: {
@@ -107,7 +107,7 @@ const Notifications = () => {
     } catch (error) {
       console.error("Error marking notifications as read:", error);
     }
-  }, []);
+  };
 
   const handleFilterData = (tabVal: string) => {
     setPage(1);
@@ -126,20 +126,35 @@ const Notifications = () => {
             setShowSheet(true);
           }}
         >
-          <View style={styles.sectionHeaderContainer}>
-            <Text style={styles.sectionHeader}>{item?.title}</Text>
-            {!item?.isRead && item?.message ? (
-              <View style={styles.unread}></View>
-            ) : null}
+          <View style={styles.notiImage}>
+            {item.type === "order_placed" ? (
+              <Feather name="box" size={24} color="#fff" />
+            ) : item?.description ? (
+              <Image
+                source={require("../../../assets/icons/auqli-logo.png")}
+                contentFit="contain"
+                style={{ width: 24, height: 24 }}
+              />
+            ) : (
+              <Ionicons name="notifications" size={24} color="#fff" />
+            )}
           </View>
+          <View className="shrink w-full">
+            <View style={styles.sectionHeaderContainer}>
+              <Text style={styles.sectionHeader}>{item?.title}</Text>
+              {!item?.isRead && item?.message ? (
+                <View style={styles.unread}></View>
+              ) : null}
+            </View>
 
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionText} numberOfLines={2}>
-              {item?.message || item?.description}
-            </Text>
-            <Text style={styles.date}>
-              {formatMessageDate(item?.createdAt)}
-            </Text>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionText} numberOfLines={2}>
+                {item?.message || item?.description}
+              </Text>
+              <Text style={styles.date}>
+                {formatMessageDate(item?.createdAt)}
+              </Text>
+            </View>
           </View>
         </TouchableOpacity>
       );
@@ -299,17 +314,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "rgba(204, 204, 204, 0.60)",
     marginBottom: 14,
+    flexDirection: "row",
+    // alignItems: "center",
+    gap: 16,
+    paddingHorizontal: 16,
   },
   sectionHeaderContainer: {
-    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexShrink: 1,
+    width: "100%",
+  },
+  notiImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(54, 54, 54, 0.69)",
   },
   sectionHeader: {
     fontSize: 16,
     fontFamily: "LexendDeca-Medium",
-    color: "#ccc",
+    color: "#fff",
   },
   unread: {
     width: 8,
@@ -318,7 +346,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#16783A",
   },
   sectionRow: {
-    padding: 16,
     paddingVertical: 14,
     flexDirection: "row",
     alignItems: "flex-end",
@@ -328,7 +355,7 @@ const styles = StyleSheet.create({
   sectionText: {
     fontSize: 13,
     fontFamily: "LexendDeca-Light",
-    color: "#ccc",
+    color: "rgba(255, 255, 255, 0.50)",
     flexShrink: 1,
   },
   inactiveRow: {

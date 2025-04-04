@@ -70,7 +70,7 @@ const Settings = () => {
       >
         <View>
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>General</Text>
+            <Text style={styles.sectionHeader}>GENERAL</Text>
 
             {/* <TouchableOpacity
               style={[styles.sectionRow, styles.inactiveRow]}
@@ -122,7 +122,7 @@ const Settings = () => {
             </TouchableOpacity>
           </View>
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Notifications</Text>
+            <Text style={styles.sectionHeader}>NOTIFICATIONS</Text>
 
             <TouchableOpacity
               style={styles.sectionRow}
@@ -186,7 +186,7 @@ const Settings = () => {
             </TouchableOpacity>
           </View>
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Data & Permissions</Text>
+            <Text style={styles.sectionHeader}>DATA & PERMISSIONS</Text>
 
             <TouchableOpacity style={styles.sectionRow} activeOpacity={0.5}>
               <Link
@@ -206,7 +206,7 @@ const Settings = () => {
             </TouchableOpacity>
           </View>
           <View style={[styles.section, { borderBottomWidth: 0 }]}>
-            <Text style={styles.sectionHeader}>Help & Support</Text>
+            <Text style={styles.sectionHeader}>HELP & SUPPORT</Text>
 
             <TouchableOpacity
               style={[styles.sectionRow, styles.inactiveRow]}
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingLeft: 16,
     fontSize: 16,
-    fontFamily: "LexendDeca-Medium",
+    fontFamily: "LexendDeca-SemiBold",
     color: "#ccc",
   },
   sectionRow: {
