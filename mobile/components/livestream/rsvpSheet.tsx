@@ -21,6 +21,7 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
   }, [streamDetails?.scheduledStartTime, updateTimer]);
   const [loading, setLoading] = useState<boolean>(false);
   const [subscribed, setSubscribed] = useState<boolean>(false);
+  const [gettingStatus, setGettingStatus] = useState<boolean>(true);
 
   const subscribe = async () => {
     console.log(streamDetails);
@@ -48,7 +49,27 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
     }
   };
 
+  const getIsSubscribed = async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams/${streamDetails._id}/is-subscribed`,
+
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      setSubscribed(response.data?.isSubscribed);
+    } catch (e) {
+      console.log("unable to get subscribed status", e);
+    } finally {
+      setGettingStatus(false);
+    }
+  };
   useEffect(() => {
+    getIsSubscribed();
     const interval = setInterval(() => {
       setUpdateTimer((prevState) => prevState + 1);
     }, 1000);
@@ -76,11 +97,17 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
       <View className="flex-row items-center justify-center gap-[8px] mb-[40px]">
         <SimpleLineIcons name="people" size={16} color="#16783A" />
         <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
-          500 waiting to join
+          {streamDetails?.subscribersCount} waiting to join
         </Text>
       </View>
 
-      {subscribed ? (
+      {gettingStatus ? (
+        <ActivityIndicator
+          size={"small"}
+          color="white"
+          style={{ marginBottom: 12 }}
+        />
+      ) : subscribed ? (
         <Pressable
           className="mb-[12px] border-[2px] border-[#16783A] rounded-[8px] bg-[#16783A] items-center justify-center h-[60px] w-[90%] self-center"
           style={{
