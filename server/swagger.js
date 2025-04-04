@@ -11,6 +11,9 @@ const options = {
     },
     servers: [
       {
+        url: 'https://api.staging.auqli.live', 
+      },
+      {
         url: 'https://auqliserver-8xr8zvib.b4a.run', 
       },
       {
@@ -30,6 +33,17 @@ const options = {
   apis: ['./src/routes/*.js'], 
 };
 
-const specs = swaggerJsdoc(options);
+// Generate the spec
+let specs = swaggerJsdoc(options);
+
+// Filter out admin routes from documentation
+// This removes any path that starts with /api/admin
+specs = {
+  ...specs,
+  paths: Object.fromEntries(
+    Object.entries(specs.paths || {}).filter(([path]) => !path.startsWith('/api/admin'))
+  ),
+  tags: (specs.tags || []).filter(tag => tag.name !== 'Admin' && tag.name !== 'Announcements' && tag.name !== 'Finance' && tag.name !== 'Streams')
+};
 
 module.exports = { swaggerUi, specs };

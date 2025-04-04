@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://REDACTED@cluster0.wnkd5.mongodb.net/dev2', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
