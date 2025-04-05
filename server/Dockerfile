@@ -8,17 +8,10 @@ WORKDIR /usr/src/app
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
 COPY package*.json ./
 
-# Install production dependencies only
+# Install dependencies for production
 RUN npm ci --only=production
 
-# Bundle app source
-COPY . .
-
-# Add these environment variables
-ENV NODE_ENV=production
-ENV PORT=8000
-
-# Install required packages for video processing and healthcheck
+# Install required system dependencies first
 RUN apt-get update && apt-get install -y \
     curl \
     libx264-dev \
@@ -29,13 +22,22 @@ RUN apt-get update && apt-get install -y \
     libnuma-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Bundle app source
+COPY . .
+
+# Add these environment variables
+ENV NODE_ENV=production
+ENV PORT=8000
+
+# Make server.js executable
+RUN chmod +x server.js
+
 # Expose the port
 EXPOSE 8000
 
-# Add healthcheck with increased start-period for MongoDB connection
+# Add healthcheck with more graceful parameters
 HEALTHCHECK --interval=30s --timeout=30s --start-period=30s --retries=5 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-# Make server.js executable and start the server
-RUN chmod +x server.js
+# Start the application
 CMD [ "node", "server.js" ]
