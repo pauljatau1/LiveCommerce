@@ -30,6 +30,8 @@ const storeVisitMiddleware = require('../middlewares/storeVisitMiddleware');
  *                 type: string
  *               phoneNumber:
  *                 type: string
+ *               storeName:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Seller registered successfully

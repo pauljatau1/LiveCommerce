@@ -56,12 +56,12 @@ const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 // Register a new seller
 exports.register = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phoneNumber } = req.body;
+    const { firstName, lastName, email, password, phoneNumber, storeName } = req.body;
 
     // Basic input validation
-    if (!firstName || !lastName || !email || !password || !phoneNumber) {
+    if (!firstName || !lastName || !email || !password || !phoneNumber || !storeName) {
       return res.status(400).json({ 
-        message: 'First name, last name, email, password, and phone number are required..' 
+        message: 'First name, last name, email, password, phone number, and store name are required.' 
       });
     }
 
@@ -131,6 +131,7 @@ exports.register = async (req, res) => {
       email,
       password,
       phoneNumber,
+      storeName,
       otp,
       agoraUid // Add the generated UID
     });
@@ -177,7 +178,7 @@ exports.register = async (req, res) => {
 
     // After successful seller creation and welcome email
     const adminMsg = {
-      to: ['bolu@auqli.com', 'support@auqli.com', 'dan@auqli.com'],
+      to: ['bolu@auqli.com'],
       from: 'Auqli Admin <support@auqli.com>',
       subject: 'New Seller Registration - Auqli',
       html: `
@@ -1051,7 +1052,8 @@ const checkProfileCompletion = (seller) => {
     seller.bankDetails &&
     seller.categories.length > 0 &&
     seller.shippingOptions &&
-    seller.warehouseAddress
+    seller.warehouseAddress &&
+    seller.storeName
   );
 };
 
