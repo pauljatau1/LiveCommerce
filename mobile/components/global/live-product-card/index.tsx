@@ -28,6 +28,9 @@ const LiveProductCard = ({ item, showBtn, showLive }: any) => {
           if (item?.status !== "live") {
             return toast.info("Stream is not Active!");
           }
+          return router.push(
+            `/livestream/feed?id=${item?._id}&type=${item.type}`,
+          );
           item.type === "auction"
             ? router.push(`/livestream/liveAuctionStudio?id=${item?._id}`)
             : router.push(`/livestream/livestreamStudio?id=${item?._id}`);
