@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react-swc'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    host: "0.0.0.0",
+    allowedHosts: ["seller.staging.auqli.live", "seller.prod.auqli.live"]
+  },
   plugins: [react()],
   resolve: {
     alias: {
