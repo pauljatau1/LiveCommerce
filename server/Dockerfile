@@ -31,14 +31,17 @@ RUN npm install
 COPY . .
 
 # Set environment variables
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 ENV PORT=8000
+# Add MongoDB connection retries
+ENV MONGODB_CONNECTION_RETRIES=5
+ENV MONGODB_RETRY_INTERVAL=5000
 
 # Expose the application's port
 EXPOSE 8000
 
 # Add a healthcheck with increased grace period
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD curl -f http://localhost:8000/health || exit 1
 
 # Start the server

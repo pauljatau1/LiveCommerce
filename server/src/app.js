@@ -8,6 +8,7 @@ const http = require('http');
 const socketManager = require('./socket/socketManager');
 const compression = require('compression');
 const passport = require('./config/passport');
+const mongoose = require('mongoose');
 
 
 // Import routes
@@ -89,6 +90,35 @@ app.get('/', (req, res) => {
    });
 });
 
+// Enhanced health check route
+app.get('/health', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
+  const status = {
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+    dbState: dbStates[dbState] || 'unknown',
+    nodeEnv: process.env.NODE_ENV,
+    memoryUsage: process.memoryUsage()
+  };
+  
+  if (dbState === 1) {
+    res.status(200).json(status);
+  } else {
+    // If database is not connected, return 503 Service Unavailable
+    res.status(503).json({
+      ...status,
+      message: 'Database connection is not ready'
+    });
+  }
+});
+
 // Use routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/buyer', buyerRoutes);
@@ -117,11 +147,6 @@ app.use((err, req, res, next) => {
    console.error(err.stack);
    res.status(500).json({ error: 'Something went wrong!' });
 });
-
-app.get('/health', (req, res) => {
-  res.send('OK');
-});
-
 
 // Add passport middleware
 app.use(passport.initialize());
