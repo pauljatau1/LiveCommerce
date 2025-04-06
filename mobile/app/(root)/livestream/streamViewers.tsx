@@ -183,7 +183,7 @@ const StreamViewers = ({ viewers = [], hostInfo, closeSheet }: StreamViewersProp
     const displayName = (item.firstName && item.lastName ? `${item.firstName} ${item.lastName}` :(item.firstName || 'Anonymous')) || item.username ;
 
     const isHost = hostInfo && hostInfo.name === displayName;
-    const isNew = index > safeViewers.length - 4;
+    const isNew = index > safeViewers.length - 2;
 
     return (
       <View style={styles.viewerItem}>

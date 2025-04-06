@@ -96,5 +96,8 @@ export interface LivestreamContextType {
     joinStream: (streamId: string) => Promise<StreamDetails>;
     fetchActiveStreamDetails: (streamId: string) => Promise<StreamDetails>;
     leaveStream: (streamId: string) => Promise<any>;
+    followSellerThroughStream: (sellerId: string, sellerName: string) => Promise<any>;
+    unfollowSellerThroughStream: (sellerId: string, sellerName: string) => Promise<any>;
+    checkIfSellerIsFollowedFromSellerProfile: (sellerId: string) => Promise<any>;
     // Add other properties as needed
 }

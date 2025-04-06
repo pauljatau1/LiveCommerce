@@ -1,11 +1,13 @@
+import { getToken } from "@/store/features/auth/utils";
+import { useToast } from '@/contexts/ToastContext';
 import { createContext, useContext, useReducer } from "react";
 import axios from "axios";
-import { getToken } from "@/store/features/auth/utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const LivestreamContext = createContext({});
 
 export const LivestreamProvider = ({ children }) => {
+  const { show } = useToast();
   const initialState = {
     activeLivestream: [],
     isLoading: false,
@@ -137,6 +139,101 @@ export const LivestreamProvider = ({ children }) => {
     }
   };
 
+  const followSellerThroughStream = async (sellerId, sellerName) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const userToken = JSON.parse(token);
+      if (!userToken) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${sellerId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        },
+      );
+      if (response.status === 200) {
+        console.log("Successfully followed seller through stream:", response.data);
+        show({
+          title: "Success",
+          description: `You are now following ${sellerName}`,
+          type: "success",
+        });
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Error following seller through stream:", error);
+      throw new Error(
+        error?.response?.data?.message || "Failed to follow seller through stream"
+      );
+    }
+  }
+
+  const unfollowSellerThroughStream = async (sellerId, sellerName) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const userToken = JSON.parse(token);
+      if (!userToken) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await axios.delete(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/follow/${sellerId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        },
+      );
+      if (response.status === 200) {
+        console.log("Successfully unfollowed seller through stream:", response.data);
+        show({
+          title: "Success",
+          description: `You are now unfollowing ${sellerName}`,
+          type: "success",
+        });
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Error unfollowing seller through stream:", error);
+      throw new Error(
+        error?.response?.data?.message || "Failed to unfollow seller through stream"
+      );
+    }
+  }
+
+  const checkIfSellerIsFollowedFromSellerProfile = async (sellerId) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const userToken = JSON.parse(token);
+      if (!userToken) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `api/buyer/seller/${sellerId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        },
+      );
+      if (response.status === 200) {
+        console.log("Successfully checked if seller is followed:", response.data);
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Error checking if seller is followed:", error);
+      throw new Error(
+        error?.response?.data?.message || "Failed to check if seller is followed"
+      );
+    }
+  }
+
   return (
     <LivestreamContext.Provider
       value={{
@@ -145,6 +242,9 @@ export const LivestreamProvider = ({ children }) => {
         fetchActiveStreamDetails,
         joinStream,
         leaveStream,
+        followSellerThroughStream,
+        unfollowSellerThroughStream,
+        checkIfSellerIsFollowedFromSellerProfile,
         dispatch,
       }}
     >
