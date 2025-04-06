@@ -195,6 +195,12 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
+        name="livestream/feed"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="livestream/livestreamStudio"
         options={{
           headerShown: false,
