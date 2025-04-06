@@ -1,7 +1,8 @@
-import { View, Text, Image } from "react-native";
-import React, { useCallback } from "react";
+import { View, Text, Image, Pressable } from "react-native";
+import React, { useCallback, memo } from "react";
 import moment from "moment";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import { router } from "expo-router";
 
 interface imageDimensions {
   width: any;
@@ -14,13 +15,10 @@ const MainReviewCard = ({
   rating,
   comment,
   images,
-}: {
-  name: string;
-  date: string;
-  rating: string;
-  comment: string;
-  images: any[];
-}) => {
+  buyerImage,
+  reviewId,
+  productId,
+}: any) => {
   const formatDate = (date: string) => {
     let rawDate = moment(date);
     const formattedDate = rawDate.format("DD MMMM YYYY");
@@ -65,8 +63,8 @@ const MainReviewCard = ({
             <Image
               source={{ uri: images[0]?.url }}
               style={{
-                resizeMode: "contain",
-                width: "50%",
+                resizeMode: "cover",
+                width: "90%",
                 flexShrink: 1,
                 height: 190,
                 borderRadius: 4,
@@ -82,7 +80,7 @@ const MainReviewCard = ({
                   key={index}
                   source={{ uri: image?.url }}
                   style={{
-                    resizeMode: "contain",
+                    resizeMode: "cover",
                     width: "100%",
                     flexShrink: 1,
                     height: "50%",
@@ -99,15 +97,44 @@ const MainReviewCard = ({
   }, []);
 
   return (
-    <View className="p-[4px] mr-2 gap-[4px]">
+    <Pressable
+      className=" gap-[4px]"
+      onPress={() =>
+        router.push({
+          pathname: "/reviews/details",
+          params: { reviewId, productId },
+        })
+      }
+    >
       <View className="flex-row item-center gap-[6px]">
-        <View className="w-[40px] h-[40px] rounded-[20px] bg-[#B190B6] flex-row items-center justify-center">
-          <Text className="text-white text-[11px] font-LexendDecaMedium">
-            {name?.split("")[0]}
-          </Text>
-          <Text className="text-white text-[11px] font-LexendDecaMedium">
-            {name?.split(" ")[1]?.split("")[0]}
-          </Text>
+        <View
+          className=" bg-[#B190B6] flex-row items-center justify-center"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+          }}
+        >
+          {buyerImage ? (
+            <Image
+              source={{ uri: buyerImage }}
+              resizeMode="cover"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+              }}
+            />
+          ) : (
+            <>
+              <Text className="text-white text-[11px] font-LexendDecaMedium">
+                {name?.split("")[0]}
+              </Text>
+              <Text className="text-white text-[11px] font-LexendDecaMedium">
+                {name?.split(" ")[1]?.split("")[0]}
+              </Text>
+            </>
+          )}
         </View>
         <View className="gap-[2px]">
           <Text className="text-white text-[13px] font-LexendDecaMedium">
@@ -148,8 +175,8 @@ const MainReviewCard = ({
           borderRadius: 4,
         }}
       /> */}
-    </View>
+    </Pressable>
   );
 };
 
-export default MainReviewCard;
+export default memo(MainReviewCard);

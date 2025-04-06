@@ -26,6 +26,14 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
+        name="reviews/details"
+        options={{
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="createReview/[id]"
         options={{
           headerTitle: "",

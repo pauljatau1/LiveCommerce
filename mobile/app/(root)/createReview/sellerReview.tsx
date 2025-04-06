@@ -64,6 +64,8 @@ const SellerReview = () => {
       toast.error(e.data.message);
       console.log(e);
       setLoading(false);
+    } finally {
+      setLoading(false);
     }
   };
 

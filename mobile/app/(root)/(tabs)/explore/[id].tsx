@@ -7,8 +7,12 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
-import React, { useEffect, useState } from "react";
-import { router, useGlobalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  router,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+} from "expo-router";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -25,9 +29,10 @@ import { MaterialIcons } from "@expo/vector-icons";
 import BottomSheet from "@/components/global/bottom-sheet";
 import SortSheet from "@/components/explore/exploreSortSheet";
 import { catalogSort } from "@/helpers/helpers";
+import ExploreMarkets from "@/components/explore/exploreMarkets";
 
 const SingleExplore = () => {
-  const { id, name: categoryName, subCategories } = useGlobalSearchParams();
+  const { id, name: categoryName, subCategories } = useLocalSearchParams();
   const { data, error, isLoading } = useGetAllProductsQuery({
     category: categoryName || "fake",
   });
@@ -36,6 +41,11 @@ const SingleExplore = () => {
   const [subCategory, setSubCategory] = useState<string>("");
 
   const [products, setProducts] = useState<any[]>([]);
+  const [mode, setMode] = useState<string>("liveshow");
+
+  const switchMode = useCallback((channel: string) => {
+    setMode(channel);
+  }, []);
 
   const numColumns = data?.data?.products?.length <= 2 ? 1 : 2;
 
@@ -54,26 +64,6 @@ const SingleExplore = () => {
     );
     setProducts(groupedforYouProducts);
   }, [data]);
-
-  // const renderContent = (row: any[]) => {
-  //   return (
-  //     <View className="space-x-4 gap-[15px] space-y-4 mr-[4px] mb-[5.54px]">
-  //       {row?.map((item) => (
-  //         <ProductCard
-  //           key={item._id}
-  //           id={item._id}
-  //           title={item.name}
-  //           price={item.price}
-  //           category={item.category}
-  //           sellerName={item.seller?.storeName}
-  //           imageUrl={item.images}
-  //           sellerRating={item.stats?.averageRating}
-  //           moreDetails={item}
-  //         />
-  //       ))}
-  //     </View>
-  //   );
-  // };
 
   const renderSubCategory = (subCat: string) => {
     return (
@@ -130,46 +120,57 @@ const SingleExplore = () => {
             />
           </View>
 
-          <ScrollView
-            className="flex-1"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingBottom: 80,
+          {mode == "liveshow" ? (
+            <ScrollView
+              className="flex-1"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingBottom: 80,
+              }}
+            >
+              <FavouriteExplore category={categoryName} />
+              <SpotLightExplore />
+            </ScrollView>
+          ) : (
+            <ExploreMarkets name={categoryName} switchMode={switchMode} />
+          )}
+
+          <View
+            className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
+            style={{
+              ...Platform.select({
+                ios: {
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 4,
+                },
+                android: {
+                  elevation: 5,
+                },
+              }),
             }}
           >
-            <FavouriteExplore category={categoryName} />
-            <SpotLightExplore />
-            {/* <View>
-              <SectionHeader title="Products" btnText="" />
-              {isLoading ? (
-                <ActivityIndicator
-                  color="#16783A"
-                  size="small"
-                  style={{ marginTop: 20 }}
-                />
-              ) : products?.length < 1 ? (
-                <Text
-                  className="text-[#ccc] text-[14px] self-center m-[20px] my-[40px] font-LexendDecaBold"
-                  style={{ marginVertical: 40 }}
-                >
-                  No Products Found
-                </Text>
-              ) : (
-                <FlatList
-                  data={products}
-                  renderItem={({ item: row }) => renderContent(row)}
-                  keyExtractor={(item, index) => `group-${index}`}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{
-                    paddingHorizontal: 16,
-                  }}
-                  className="pt-[14px]"
-                />
-              )}
-            </View> */}
+            <CustomButton
+              title="Live Show"
+              textStyle={`${mode == "liveshow" ? "!text-[#fff]" : "!text-[#141B34]"}`}
+              className={`rounded-tr-none rounded-br-none !w-[130px] rounded-[40px]  ${mode == "liveshow" ? "    !bg-primary-200" : "!bg-[#F2F2F2]  "}`}
+              onPress={() => {
+                switchMode("liveshow");
+              }}
+            />
+            <CustomButton
+              title="Markets"
+              textStyle={`${mode == "marketplace" ? "!text-[#fff]" : "!text-[#141B34]"}`}
+              className={`!w-[130px]   rounded-tl-none rounded-bl-none rounded-[40px] ${mode == "marketplace" ? "!bg-primary-200" : "!bg-[#F2F2F2]   "}`}
+              onPress={() => {
+                switchMode("marketplace");
+              }}
+            />
+          </View>
+        </View>
 
-            {/* <View className="">
+        {/* <View className="">
               <Text className="text-center text-[#fff] text-[16px] font-LexendDecaBold pt-[40px]">
                 Still Searching
               </Text>
@@ -192,40 +193,6 @@ const SingleExplore = () => {
                 />
               </View>
             </View> */}
-          </ScrollView>
-          <View
-            className="flex-row justify-around w-[260px] mx-auto absolute bottom-[20px] self-center"
-            style={{
-              ...Platform.select({
-                ios: {
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 4,
-                },
-                android: {
-                  elevation: 5,
-                },
-              }),
-            }}
-          >
-            <CustomButton
-              title="Live Show"
-              className="!w-[130px]   rounded-tr-none rounded-br-none !bg-primary-200"
-              onPress={() => {
-                router.push("/(root)/(tabs)/home/home");
-              }}
-            />
-            <CustomButton
-              title="Markets"
-              textStyle="!text-[#141B34]"
-              className="!w-[130px] rounded-tl-none rounded-bl-none !bg-[#F2F2F2] rounded-[40px]  "
-              onPress={() => {
-                router.push("/(root)/(tabs)/home/marketplace");
-              }}
-            />
-          </View>
-        </View>
       </SafeAreaView>
     </>
   );

@@ -81,6 +81,46 @@ export function formatTimeFromNow(dateString) {
   return formattedTime || "0s"; // Return '0s' if no time is remaining
 }
 
+export function formatTimeFromNowLive(dateString) {
+  // Parse the input date string
+  const futureDate = moment(dateString);
+
+  // Get the current date and time
+  const now = moment();
+
+  // Calculate the difference between the future date and now
+  const duration = moment.duration(futureDate.diff(now));
+
+  // Extract days, hours, minutes, and seconds from the duration
+  const days = Math.floor(duration.asDays());
+  const hours = duration.hours();
+  const minutes = duration.minutes();
+  const seconds = duration.seconds();
+
+  // Build the formatted string conditionally
+  let formattedTime = "";
+
+  if (days > 0) {
+    formattedTime += `${days} DAYS:`;
+  }
+  if (hours > 0 || formattedTime !== "") {
+    formattedTime += `${hours} HOURS:`;
+  }
+  if (minutes > 0 || formattedTime !== "") {
+    formattedTime += `${minutes} MINUTES:`;
+  }
+  if (seconds > 0 || formattedTime !== "") {
+    formattedTime += `${seconds} SECONDS`;
+  }
+
+  // Remove trailing colon if present
+  if (formattedTime.endsWith(":")) {
+    formattedTime = formattedTime.slice(0, -1);
+  }
+
+  return formattedTime || "0s"; // Return '0s' if no time is remaining
+}
+
 export function timeFromNow(timestamp) {
   const now = moment();
   const givenTime = moment(timestamp);

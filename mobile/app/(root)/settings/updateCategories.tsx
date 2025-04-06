@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { toast } from "@/core/toast";
 import { router } from "expo-router";
 import { icons, images } from "@/constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { signIn } from "@/store/features/auth/authSlice";
 import { Skeleton } from "@rneui/themed";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -28,6 +28,8 @@ import CustomButton from "@/components/global/button/CustomButton";
 import BottomSheet from "@/components/global/bottom-sheet";
 import { Entypo } from "@expo/vector-icons";
 import { setUser } from "@/store/features/auth/utils";
+import axios from "axios";
+import { RootState } from "@/store";
 
 type FormData = {
   selectedCategories: {
@@ -40,6 +42,7 @@ const { width } = Dimensions.get("window");
 
 const Categories = () => {
   const dispatch = useDispatch();
+  const token = useSelector((state: RootState) => state.authState.token);
   const { control, handleSubmit, setValue, watch } = useForm<FormData>({
     defaultValues: {
       selectedCategories: [],
@@ -55,6 +58,24 @@ const Categories = () => {
   const [uploadCategories, { isLoading }] = useUploadCategoriesMutation();
   const { data: categoriesData, isLoading: categoriesLoading } =
     useGetAllCategoriesQuery({});
+
+  const getSelectedCategories = async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+
+      setValue("selectedCategories", response.data?.categories);
+    } catch (e) {
+      console.log(e);
+      toast.error("Could not get Selected Categories");
+    }
+  };
 
   const toggleCategory = (categoryId: string, title: string) => {
     if (selectedCategories.find((val) => val.name == title)) {
@@ -185,6 +206,10 @@ const Categories = () => {
       </View>
     );
   };
+
+  useEffect(() => {
+    getSelectedCategories();
+  }, []);
 
   return (
     <>

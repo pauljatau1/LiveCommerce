@@ -125,7 +125,13 @@ const Checkout = () => {
     const delivery_address = {
       recipientName: user.firstName + " " + user.lastName,
       recipientEmail: user.email,
-      recipientPhone: user.phoneNumber?.replaceAll("-", ""),
+      recipientPhone:
+        user.phoneNumber.replaceAll("-", "")?.length > 14
+          ? user.phoneNumber
+              .replaceAll("-", "")
+              ?.replace("+234", "")
+              ?.replace("0", "")
+          : user.phoneNumber.replaceAll("-", ""),
       recipientAddress: address.addressLine1,
       recipientState: address.state,
     };
@@ -183,7 +189,13 @@ const Checkout = () => {
         const delivery_address = {
           recipientName: user.firstName + " " + user.lastName,
           recipientEmail: user.email,
-          recipientPhone: user.phoneNumber.replaceAll("-", ""),
+          recipientPhone:
+            user.phoneNumber.replaceAll("-", "")?.length > 14
+              ? user.phoneNumber
+                  .replaceAll("-", "")
+                  ?.replace("+234", "")
+                  ?.replace("0", "")
+              : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
         };
@@ -503,7 +515,10 @@ const Checkout = () => {
             <View
               className="w-[50px] h-[50px] rounded-[10px] flex-row items-center justify-center bg-[#FFFFFF] "
               style={{
-                backgroundColor: index !== 0 ? "#CFCFCF" : "#ffffff",
+                backgroundColor:
+                  index !== 0 && index !== selectedPayment
+                    ? "#CFCFCF"
+                    : "#ffffff",
               }}
             >
               <Image
@@ -686,9 +701,14 @@ const Checkout = () => {
                       <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
                         {selectedDeliveryOpt.name}
                       </Text>
-                      <View className="">
-                        <Text className="text-[#ccc] text-[10px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
+                      <View className="gap-[2px]">
+                        <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
                           {selectedDeliveryOpt?.description}
+                        </Text>
+                        <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
+                          Your order will be processed and shipped with care,
+                          ensuring delivery within the estimated timeframe.
+                          Enjoy a smooth and hassle-free shopping experience!
                         </Text>
                       </View>
                     </View>

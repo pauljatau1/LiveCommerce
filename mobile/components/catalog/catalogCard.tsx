@@ -83,7 +83,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      className=" bg-black rounded-lg p-[11.85px]  w-[100%] h-[299px]"
+      className=" bg-black rounded-lg p-[11.85px]  w-[100%] h-[305px]"
       onPress={() => router.push(`/product/${id}`)}
     >
       {/* Product Image */}
@@ -103,7 +103,7 @@ const CatalogCard: React.FC<ProductCardProps | any> = ({
       {/* Product Details */}
       <View className="gap-[2px]">
         <Text
-          className="text-white text-[10px] capitalize font-LexendDecaBold  text-normal pt-3 h-[40px]"
+          className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 h-[44px]"
           numberOfLines={2}
         >
           {title}

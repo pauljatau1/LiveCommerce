@@ -7,7 +7,7 @@ import CancelSheet from "./cancelSheet";
 
 const statusColor = {
   pending: { name: "Processing", color: "#FFF8DE" },
-  "picked-up": { name: "Picked Up", color: "rgb(219 234 254)" },
+  picked_up: { name: "Picked Up", color: "rgb(219 234 254)" },
   in_transit: { name: "Dispatched", color: "rgb(219 234 254)" },
   delivered: { name: "Delivered", color: "#DEFFEE" },
   cancelled: { name: "cancelled", color: "rgba(238, 87, 28, 0.85)" },

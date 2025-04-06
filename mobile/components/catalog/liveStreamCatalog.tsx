@@ -19,9 +19,11 @@ import BottomSheet from "../global/bottom-sheet";
 import ExploreFilterSheet from "../explore/exploreFilterSheet";
 import SortSheet from "../explore/exploreSortSheet";
 import { catalogSort } from "@/helpers/helpers";
+import LottieView from "lottie-react-native";
 
 const LiveStreamCatalog = ({ query }: any) => {
   const [loading, setLoading] = useState<boolean>(true);
+  const [fetching, setFetching] = useState<boolean>(false);
   const [spotLight, setSpotLight] = useState<any[]>([]);
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
@@ -37,9 +39,9 @@ const LiveStreamCatalog = ({ query }: any) => {
     setFilter(type);
   };
 
-  useEffect(() => {
-    fetchSpotlightLiveStreams();
-  }, []);
+  // useEffect(() => {
+  //   fetchSpotlightLiveStreams();
+  // }, []);
 
   const handleSelectFilterType = (type: string) => {
     console.log("sort tyope", type);
@@ -51,11 +53,13 @@ const LiveStreamCatalog = ({ query }: any) => {
   };
 
   const fetchSpotlightLiveStreams = async () => {
-    if (hasReachedEnd) {
+    if (fetching || hasReachedEnd) {
       return;
     }
     if (page == 1) {
       setLoading(true);
+    } else {
+      setFetching(true);
     }
     try {
       const response = await axios.get(
@@ -77,6 +81,7 @@ const LiveStreamCatalog = ({ query }: any) => {
     } catch (error) {
       console.log(error);
     } finally {
+      setFetching(false);
       setLoading(false);
     }
   };
@@ -201,6 +206,34 @@ const LiveStreamCatalog = ({ query }: any) => {
     );
   }, [filter]);
 
+  const renderListFooter = useCallback(() => {
+    if (fetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            marginTop: 20,
+            width: "100%",
+
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [fetching, hasReachedEnd]);
+
   return (
     <View className="mt-[9px] w-[100%] pb-[15.5px] flex-1">
       {loading ? (
@@ -226,6 +259,7 @@ const LiveStreamCatalog = ({ query }: any) => {
             columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
             ListHeaderComponent={renderListHeader}
             ListEmptyComponent={renderEmptyStreams}
+            ListFooterComponent={renderListFooter}
           />
         </View>
       )}

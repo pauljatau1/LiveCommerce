@@ -18,7 +18,7 @@ const MainAuctionCard = ({ item, closeSheet }: any) => {
   }, []);
   return (
     <Pressable
-      className=" bg-black rounded-lg p-[11.85px]  w-[100%] h-[299px]"
+      className=" bg-black rounded-lg p-[11.85px]  w-[100%] h-[305px]"
       onPress={() => {
         if (closeSheet) {
           closeSheet();
@@ -40,10 +40,10 @@ const MainAuctionCard = ({ item, closeSheet }: any) => {
         }}
       >
         <Text
-          className="text-white text-[10px] font-LexendDecaSemiBold  text-normal pt-3"
+          className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 h-[44px]"
           numberOfLines={2}
           style={{
-            height: 40,
+            height: 44,
           }}
         >
           {item?.name}

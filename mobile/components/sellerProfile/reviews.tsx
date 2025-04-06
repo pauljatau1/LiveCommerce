@@ -5,6 +5,7 @@ import axios from "axios";
 import ReviewCard from "../reviews";
 import { ActivityIndicator } from "react-native-paper";
 import { router } from "expo-router";
+import MainReviewCard from "../reviews/mainReviewCard";
 
 const SellerReviews = ({
   sellerId,
@@ -33,7 +34,7 @@ const SellerReviews = ({
       const userToken = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/seller/${sellerId}/reviews`,
+          `api/seller/${sellerId}/product-reviews?page=${page}&limit=10`,
         {
           headers: {
             Authorization: `Bearer ${userToken}`,
@@ -43,7 +44,7 @@ const SellerReviews = ({
 
       if (response.status == 200) {
         setSellerReviews([...sellerReviews, ...response.data.reviews]);
-        if (response.data.pagination.currentPage == 1) {
+        if (!response.data.pagination.hasMore) {
           setHasReachedEnd(true);
         }
       }
@@ -76,20 +77,18 @@ const SellerReviews = ({
           //   marginTop: 12,
         }}
       >
-        <ReviewCard
-          name={review?.buyer?.name}
+        <MainReviewCard
+          name={
+            review.buyer.firstName + " " + review.buyer.lastName ||
+            review?.buyer?.name
+          }
           rating={review?.rating}
           comment={review?.comment}
           date={review?.createdAt}
-          imageUrl={""}
-          imageDimensions={
-            review?.images?.[0]?.url
-              ? {
-                  width: "100%",
-                  height: 194,
-                }
-              : { width: "100%", height: 0 }
-          }
+          images={review?.images}
+          buyerImage={review?.buyer?.profileImage || ""}
+          reviewId={review?.reviewId}
+          productId={review?.product?._id}
         />
       </View>
     );
@@ -149,7 +148,7 @@ const SellerReviews = ({
   return (
     <View style={{ flex: 1, paddingHorizontal: 16 }}>
       {issellerReviewsLoading ? (
-        <View>
+        <View className="pt-[16px]">
           <ActivityIndicator size={"small"} color="#16783A" />
         </View>
       ) : (
@@ -163,7 +162,7 @@ const SellerReviews = ({
             contentContainerStyle={{
               paddingTop: headerHeight + 12,
             }}
-            ListHeaderComponent={renderListHeader}
+            // ListHeaderComponent={renderListHeader}
             ListFooterComponent={renderListFooter}
             ListEmptyComponent={renderListEmpty}
             showsVerticalScrollIndicator={false}

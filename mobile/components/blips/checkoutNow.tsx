@@ -157,7 +157,10 @@ const CheckoutNow = ({
           recipientEmail: user.email,
           recipientPhone:
             user.phoneNumber.replaceAll("-", "")?.length > 14
-              ? user.phoneNumber.replaceAll("-", "").replace("0", "")
+              ? user.phoneNumber
+                  .replaceAll("-", "")
+                  ?.replace("+234", "")
+                  ?.replace("0", "")
               : user.phoneNumber.replaceAll("-", ""),
           recipientAddress: response.data[0].addressLine1,
           recipientState: response.data[0].state,
@@ -328,6 +331,7 @@ const CheckoutNow = ({
       }
     } catch (e: any) {
       console.log("could not create order", e?.response);
+      setOrderloading(false);
       toast.error("Could not create order");
     }
   };
@@ -455,7 +459,10 @@ const CheckoutNow = ({
             <View
               className="w-[50px] h-[50px] rounded-[10px] flex-row items-center justify-center bg-[#FFFFFF] "
               style={{
-                backgroundColor: index !== 0 ? "#CFCFCF" : "#ffffff",
+                backgroundColor:
+                  index !== 0 && index !== selectedPayment
+                    ? "#CFCFCF"
+                    : "#ffffff",
               }}
             >
               <Image
@@ -572,7 +579,7 @@ const CheckoutNow = ({
             <CartItem cartItem={product} />
 
             <View className="gap-[8px] mb-[10px]">
-              <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold">
+              <Text className="text-[16px] text-[#ccc] font-LexendDecaSemiBold underline">
                 Auqli Buyer Protection
               </Text>
               <Text className="text-[12px] text-[#ccc] font-LexendDecaLight leading-[18px]">
@@ -585,7 +592,7 @@ const CheckoutNow = ({
             </View>
 
             <View className="gap-[20px] mb-[10px]">
-              <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold">
+              <Text className="text-[#CCC] text-[18px] leading-[20px] font-LexendDecaSemiBold underline">
                 Delivery Options
               </Text>
               <Pressable
@@ -602,20 +609,25 @@ const CheckoutNow = ({
                     <Text className="text-[#ccc] text-[18px] font-LexendDecaSemiBold">
                       {selectedDeliveryOpt.name}
                     </Text>
-                    <View className="">
-                      <Text className="text-[#ccc] text-[10px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
+                    <View className="gap-[2px]">
+                      <Text className="text-[#ccc] text-[10px] font-LexendDeca whitespace-nowrap leading-[16px]">
                         {selectedDeliveryOpt?.description}
+                      </Text>
+                      <Text className="text-[#ccc] text-[8px] font-LexendDecaLight whitespace-nowrap leading-[16px]">
+                        Your order will be processed and shipped with care,
+                        ensuring delivery within the estimated timeframe. Enjoy
+                        a smooth and hassle-free shopping experience!
                       </Text>
                     </View>
                   </View>
                 </View>
-                <View>
+                {/* <View>
                   <Entypo
                     name="chevron-right"
                     size={16}
                     color="rgba(204, 204, 204, 0.8)"
                   />
-                </View>
+                </View> */}
               </Pressable>
             </View>
 
@@ -627,9 +639,9 @@ const CheckoutNow = ({
                 <Text className="text-[18px] text-white font-LexendDecaSemiBold">
                   Select Payment methods
                 </Text>
-                <Pressable>
+                {/* <Pressable>
                   <Text className="text-[#16783A] text-[12px]">Edit</Text>
-                </Pressable>
+                </Pressable> */}
               </View>
               <View className="gap-[16px] mt-[10px]">
                 {paymentOptions.map((option: any, index: number) =>

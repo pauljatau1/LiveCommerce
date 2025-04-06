@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 
 const PostsComingSoon = () => {
   const contentContainerStyle = {
-    paddingTop: 220,
+    // paddingTop: 220,
   };
   return (
     <View style={contentContainerStyle}>

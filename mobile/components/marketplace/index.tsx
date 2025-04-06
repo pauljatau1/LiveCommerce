@@ -57,17 +57,17 @@ const Marketplace = () => {
     try {
       let cat = user?.selectedCategories;
 
-      // if (!cat || cat?.length < 1) {
-      //   const response = await axios.get(
-      //     process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
-      //     {
-      //       headers: {
-      //         Authorization: "Bearer " + token,
-      //       },
-      //     },
-      //   );
-      //   cat = response.data.categories;
-      // }
+      if (!cat || cat?.length < 1) {
+        const response = await axios.get(
+          process.env.EXPO_PUBLIC_API_URL + "api/buyer/selected-categories",
+          {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          },
+        );
+        cat = response.data.categories;
+      }
       if (token && cat) {
         setCategories(["For You", ...cat.map((ct: any) => ct.name)]);
         return setSelected("For You");

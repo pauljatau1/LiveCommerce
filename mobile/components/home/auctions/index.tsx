@@ -1,4 +1,11 @@
-import { View, Text, FlatList, Pressable, Image } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  Image,
+  RefreshControl,
+} from "react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import LiveCardTemp from "@/components/global/live-product-card/LiveCardTemp";
 import axios from "axios";
@@ -7,24 +14,59 @@ import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 import SectionHeader from "@/components/global/section-header";
 import { router } from "expo-router";
 import { icons } from "@/constants";
+import LottieView from "lottie-react-native";
 
 const Auctions = () => {
   const [loading, setLoading] = useState<boolean>(true);
+  const [fetching, setFetching] = useState<boolean>(false);
   const [spotLight, setSpotLight] = useState<any[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const fetchAuctionLiveStreams = async () => {
+    if (page > 1) {
+      setFetching(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + `api/streams?status=live&type=auction`,
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/streams?status=live&type=auction&page=${page}&limit=10`,
       );
       if (response.status === 200) {
-        setSpotLight(response.data?.streams);
+        if (response.data?.streams) {
+          if (page == 1) {
+            setSpotLight(response.data?.streams);
+          } else {
+            setSpotLight([...spotLight, ...response.data?.streams]);
+          }
+
+          setPage((prevPage) => prevPage + 1);
+        }
+        if (!response.data?.pagination?.hasMore) {
+          setHasReachedEnd(true);
+        }
       }
     } catch (error) {
       console.log(error);
     } finally {
+      setFetching(false);
       setLoading(false);
     }
   };
+
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = () => {
+    setPage(1);
+    setRefreshing(true);
+  };
+
+  useEffect(() => {
+    if (refreshing && page == 1) {
+      fetchAuctionLiveStreams();
+      setRefreshing(false);
+    }
+  }, [refreshing, page]);
 
   useEffect(() => {
     fetchAuctionLiveStreams();
@@ -89,12 +131,52 @@ const Auctions = () => {
     );
   }, [spotLight]);
 
+  const renderListHeader = useCallback(() => {
+    return (
+      <View
+        className="flex-row justify-between items-center"
+        style={{ marginBottom: 16 }}
+      >
+        <Text className="text-white font-LexendDecaBold text-[16px]">
+          Live Auctions
+        </Text>
+      </View>
+    );
+  }, []);
+
+  const renderListFooter = useCallback(() => {
+    if (fetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            marginTop: 20,
+            width: "100%",
+
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [fetching, hasReachedEnd]);
+
   return (
-    <View className="mt-[9px] w-[100%] pb-[15.5px]">
-      {/*<SectionHeader title="Live Auctions" btnText="" />*/}
+    <View className="mt-[16px] w-[100%] pb-[15.5px] flex-1">
       {loading ? (
         <HomepageSkeleton numOfLoaders={4} height={220} padding={16} />
-      ) : spotLight?.length > 0 ? (
+      ) : (
         <View
           style={{
             paddingHorizontal: 16,
@@ -109,11 +191,20 @@ const Auctions = () => {
             )}
             keyExtractor={(item, index) => item?._id || index.toString()}
             numColumns={2}
+            onEndReached={fetchAuctionLiveStreams}
             columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
+            contentContainerStyle={{
+              paddingBottom: 80,
+            }}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={renderEmptyStreams}
+            ListHeaderComponent={renderListHeader}
+            ListFooterComponent={renderListFooter}
           />
         </View>
-      ) : (
-        renderEmptyStreams()
       )}
     </View>
   );

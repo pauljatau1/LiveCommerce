@@ -84,7 +84,7 @@ const VideoItem = ({
   const [pausedTriggered, setPauseTriggered] = useState<boolean>(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [likes, setLikes] = useState<number>(engagement.likes);
-  const [liked, setLiked] = useState<boolean>(false);
+  const [liked, setLiked] = useState<boolean>(engagement?.isLiked);
   const [comments, setComments] = useState<number>(engagement.comments);
   const [showComments, setShowComments] = useState<boolean>(false);
   const [showCheckout, setShowCheckout] = useState<boolean>(false);
@@ -103,6 +103,9 @@ const VideoItem = ({
   const [bidTime, setBidTime] = useState<any>();
 
   const handleActionBtn = () => {
+    if (item?.stock < 1) {
+      return;
+    }
     switch (blipType) {
       case "active":
         return handleBuyNow();
@@ -214,6 +217,10 @@ const VideoItem = ({
     }
     setPaused(!paused);
   }, [paused]);
+
+  const closeCommentsSheet = useCallback(() => {
+    setShowComments(false);
+  }, []);
 
   useEffect(() => {
     if (isFocused && videoRef.current) {
@@ -394,12 +401,16 @@ const VideoItem = ({
                   </View>
                 )}
                 <View className="flex-row items-center gap-[4px]">
-                  <AntDesign name="star" size={12} color="#FFD700" />
+                  {seller?.totalStoreReviews > 0 && (
+                    <AntDesign name="star" size={12} color="#FFD700" />
+                  )}
                   <Text
                     className="text-white text-[12px] font-LexendDecaMedium"
                     style={styles.text}
                   >
-                    {item?.seller?.storeRating?.toFixed(1)}
+                    {seller?.totalStoreReviews > 0
+                      ? seller?.storeRating?.toFixed(1)
+                      : "No Reviews"}
                   </Text>
                 </View>
               </View>
@@ -559,7 +570,9 @@ const VideoItem = ({
                     <Text
                       className={`text-[14px] ${item?.stock < 10 ? "text-[#FF6652]" : "text-[#000]"} font-LexendDecaMedium `}
                     >
-                      {formatNumber(item.stock)} left
+                      {item?.stock < 1
+                        ? "Out of Stock"
+                        : formatNumber(item.stock) + "left"}
                     </Text>
                   </View>
                 </View>
@@ -579,11 +592,20 @@ const VideoItem = ({
             <TouchableOpacity
               className="p-[12px] rounded-[6px] bg-[#16783A] items-center justify-center"
               onPress={handleActionBtn}
-              style={styles.buttonShadow}
+              style={[
+                styles.buttonShadow,
+                { opacity: item?.stock < 1 ? 0.5 : 1 },
+              ]}
             >
-              <Text className="text-white tex-[12px] font-[600]">
-                {offlineAuctionData ? "Bid Now" : "Buy now"}
-              </Text>
+              {item?.stock < 1 ? (
+                <Text className="text-white text-[12px] font-[600]">
+                  {"Out of Stock"}
+                </Text>
+              ) : (
+                <Text className="text-white text-[12px] font-[600]">
+                  {offlineAuctionData ? "Bid Now" : "Buy now"}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -634,6 +656,7 @@ const VideoItem = ({
             id={id}
             commentCount={comments}
             handleCantComment={handleCantComment}
+            closeCommentsSheet={closeCommentsSheet}
           />
         </BottomSheet>
 

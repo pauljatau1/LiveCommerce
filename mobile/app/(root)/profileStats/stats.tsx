@@ -120,7 +120,7 @@ const ProfileStats = () => {
       } else {
         setFollowingCount((followingCount || 1) - 1);
         setfilteredFollowing(
-          following?.filter((fol: any) => fol?.id !== item?.id),
+          filteredfollowing?.filter((fol: any) => fol?.id !== item?.id),
         );
       }
     } catch (error) {
@@ -138,7 +138,15 @@ const ProfileStats = () => {
   const renderFollowingCard = useCallback(
     ({ item }: { item: any }) => {
       return (
-        <View style={styles.followingCard}>
+        <Pressable
+          style={styles.followingCard}
+          onPress={() =>
+            router.push({
+              pathname: "/(root)/sellerProfile",
+              params: { sellerId: item?.id, sellerAvatar: item?.profileImage },
+            })
+          }
+        >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Image
               source={{ uri: item?.profileImage }}
@@ -178,7 +186,7 @@ const ProfileStats = () => {
               )}
             </Text>
           </Pressable>
-        </View>
+        </Pressable>
       );
     },
     [selectedTab, filteredfollowing, filteredfollowers, followLoading],
