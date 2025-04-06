@@ -31,7 +31,7 @@ RUN npm install
 COPY . .
 
 # Set environment variables
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV PORT=8000
 
 # Expose the application's port
