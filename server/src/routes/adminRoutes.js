@@ -1813,4 +1813,70 @@ router.get('/streams/:streamId',
   adminController.getStreamDetails
 );
 
+/**
+ * @swagger
+ * /api/admin/products/bulk-upload:
+ *   post:
+ *     summary: Bulk upload products via CSV file
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: CSV file with product data
+ *               sellerId:
+ *                 type: string
+ *                 description: ID of the seller to assign products to
+ *     responses:
+ *       201:
+ *         description: Products uploaded successfully
+ *       400:
+ *         description: Invalid input or CSV format
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/products/bulk-upload',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  upload.single('file'),
+  adminController.bulkUploadProducts
+);
+
+/**
+ * @swagger
+ * /api/admin/products/csv-template:
+ *   get:
+ *     summary: Download a CSV template for bulk product upload
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV template downloaded successfully
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/products/csv-template',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.downloadProductCsvTemplate
+);
+
 module.exports = router;
