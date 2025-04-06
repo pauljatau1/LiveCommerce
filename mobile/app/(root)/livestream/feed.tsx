@@ -4,8 +4,8 @@ import { useLocalSearchParams } from "expo-router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import axios from "axios";
-import LivestreamStudioFeed from "@/components/livestream/livestreamStudioFeed";
-import LiveAuctionStudioFeed from "@/components/livestream/liveAuctionStudioFeed";
+import LivestreamStudioFeed from "@/app/(root)/livestream/livestreamStudioFeed";
+import LiveAuctionStudioFeed from "@/app/(root)/livestream/liveAuctionStudioFeed";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import LottieView from "lottie-react-native";
 
@@ -142,6 +142,7 @@ const LivestreamFeed = () => {
               index,
             })}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
             // refreshing={refreshing}
             // onRefresh={refreshBlips}
             // progressViewOffset={Platform.OS == "ios" ? 120 : 0}
