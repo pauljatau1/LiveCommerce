@@ -224,7 +224,7 @@ const CheckoutNow = ({
     const payload = [
       {
         pickUpState: pickupAddress?.pickUpState,
-        weight: product?.weight,
+        weight: product?.weight || 0.5,
         sellerId,
       },
     ];
