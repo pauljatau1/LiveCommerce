@@ -15,6 +15,16 @@ const initialState = {
     deletedProductId: '',
     auctionProducts: [],
     isLoadingAuctions: false,
+    pagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalProducts: 0
+    },
+    auctionPagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalProducts: 0
+    },
 };
 
 
@@ -39,11 +49,19 @@ export const createProduct = createAsyncThunk('product/createProduct', async (fo
     }
 });
 
-export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts', async () => {
+export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts', async (params = {page: 1, limit: 10}) => {
     try {
         const seller = JSON.parse(localStorage.getItem('seller'));
         console.log("seller:", seller);
-        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}`);
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}`, {
+            params: {
+                page: params.page,
+                limit: params.limit,
+                sortBy: params.sortBy,
+                status: params.status,
+                search: params.search
+            }
+        });
         if (response.status === 200) {
             return response.data;
         }
@@ -52,13 +70,14 @@ export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts
     }
 });
 
-export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerAuctionProducts', async () => {
+export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerAuctionProducts', async (params = {page: 1, limit: 10}) => {
     try {
         const seller = JSON.parse(localStorage.getItem('seller'));
         const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/auctions`, {
             params: {
-                page: 1,
-                limit: 100
+                page: params.page,
+                limit: params.limit,
+                search: params.search
             }
         });
         if (response.status === 200) {
@@ -163,6 +182,11 @@ const productSlice = createSlice({
         console.log('products fetched successfully', action.payload);
         state.message = 'Products fetched successfully';
         state.products = action.payload.products;
+        state.pagination = {
+            currentPage: action.payload.currentPage,
+            totalPages: action.payload.totalPages,
+            totalProducts: action.payload.totalProducts
+        };
     }).addCase(fetchSellerProducts.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
@@ -239,6 +263,11 @@ const productSlice = createSlice({
     }).addCase(fetchSellerAuctionProducts.fulfilled, (state, action) => {
         state.isLoadingAuctions = false;
         state.auctionProducts = action.payload.products;
+        state.auctionPagination = {
+            currentPage: action.payload.currentPage,
+            totalPages: action.payload.totalPages,
+            totalProducts: action.payload.totalProducts
+        };
     }).addCase(fetchSellerAuctionProducts.rejected, (state, action) => {
         state.isLoadingAuctions = false;
         state.error = action.error.message;

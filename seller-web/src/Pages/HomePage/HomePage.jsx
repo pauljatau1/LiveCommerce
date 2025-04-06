@@ -29,6 +29,7 @@ import { useOutletContext } from "react-router-dom";
 import NoOrderFound from "../../assets/no-order-found.png";
 import { useIntercomChat } from "../../Hooks/useIntercom";
 import Skeleton from 'react-loading-skeleton';
+import VerificationDialog from "../../Components/VerificationDialog";
 
 
 // Helper function: Formats numbers with K/M suffix and handles pluralization
@@ -84,6 +85,7 @@ const HomePage = () => {
   const [homeAnalyticsCardData, setHomeAnalyticsCardData] = useState([]);
   const [platformAnnouncement, setPlatformAnnouncement] = useState([]);
   const [publicResources, setPublicResources] = useState([]);
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
 
   useEffect(() => {
     setHeaderName("Home")
@@ -115,6 +117,20 @@ const HomePage = () => {
 
     fetchInitialData();
   }, []);
+
+  // Check verification status when seller data is loaded
+  useEffect(() => {
+    if (seller && seller.isVerified === false) {
+      setShowVerificationDialog(true);
+    }
+  }, [seller]);
+
+  // Handle temporary dismissal of verification dialog
+  const handleCloseVerificationDialog = () => {
+    // Only allow temporary dismissal
+    // It will reappear on next page load or navigation
+    setShowVerificationDialog(false);
+  };
 
   // Main data fetching effect with loading optimization
   useEffect(() => {
@@ -322,6 +338,13 @@ const HomePage = () => {
 
   return (
     <>
+      {/* Verification Dialog */}
+      <VerificationDialog 
+        isOpen={showVerificationDialog} 
+        onClose={handleCloseVerificationDialog} 
+        isPending={seller?.accountPending}
+      />
+
       {/* Notification */}
       {
         notification && (

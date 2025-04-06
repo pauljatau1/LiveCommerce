@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useNavigation, useOutletContext } from "react-router-dom";
 import Header from "../../Components/ui/Header/Header";
@@ -28,6 +28,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from "../../Components/ui/dialog";
+import VerificationDialog from "../../Components/VerificationDialog";
+import { useAuthContext } from "../../Hooks/useAuthContext";
 
 import React from 'react';
 
@@ -40,6 +42,13 @@ const ProductsPage = () => {
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products'); 
     const [sortType, setSortType] = useState('newest-to-oldest'); 
+    const { seller } = useAuthContext();
+    const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    const searchTimeoutRef = useRef(null);
     
     // Dialog states
     const [showDateDialog, setShowDateDialog] = useState(false);
@@ -51,36 +60,125 @@ const ProductsPage = () => {
         setNavName('')
     }, [])
 
+    // Reset page when search query, sort type, or tab changes
     useEffect(() => {
-        if (activeTab === 'products') {
-            dispatch(fetchSellerProducts());
-        } else {
-            dispatch(fetchSellerAuctionProducts());
+        setCurrentPage(1);
+    }, [sortType, activeTab, searchQuery]);
+
+    // Debounce search inputs and handle stock updates
+    useEffect(() => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
         }
-    }, [dispatch, isStockUpdated, activeTab]);
+
+        setIsSearching(true);
+        searchTimeoutRef.current = setTimeout(() => {
+            fetchProducts();
+            setIsSearching(false);
+        }, 500);
+
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+        };
+    }, [searchQuery, sortType, activeTab, itemsPerPage, currentPage, isStockUpdated]);
+
+    const fetchProducts = () => {
+        if (activeTab === 'products') {
+            const params = {
+                page: currentPage,
+                limit: itemsPerPage,
+                sortBy: mapSortTypeToAPI(sortType),
+                search: searchQuery || undefined
+            };
+            
+            // Add status filter if applicable
+            if (sortType === 'active-only') {
+                params.status = 'active';
+            } else if (sortType === 'draft-only') {
+                params.status = 'draft';
+            }
+            
+            dispatch(fetchSellerProducts(params));
+        } else {
+            const params = {
+                page: currentPage,
+                limit: itemsPerPage,
+                search: searchQuery || undefined
+            };
+            dispatch(fetchSellerAuctionProducts(params));
+        }
+    };
+
+    // Check if seller is verified
+    useEffect(() => {
+        if (seller && seller.isVerified === false) {
+            setShowVerificationDialog(true);
+        }
+    }, [seller]);
+
+    // Handle add product click for unverified sellers
+    const handleAddProductClick = (e) => {
+        if (seller && !seller.isVerified) {
+            e.preventDefault();
+            setShowVerificationDialog(true);
+        }
+    };
+
+    // Map UI sort type to API sortBy parameter
+    const mapSortTypeToAPI = (uiSortType) => {
+        switch (uiSortType) {
+            case 'newest-to-oldest':
+                return 'newest';
+            case 'oldest-to-newest':
+                return 'oldest';
+            case 'price-high-to-low':
+                return 'price_desc';
+            case 'price-low-to-high':
+                return 'price_asc';
+            default:
+                return 'newest';
+        }
+    };
+
+    // Get pagination data
+    const paginationData = activeTab === 'products' 
+        ? useSelector(state => state.product.pagination) 
+        : useSelector(state => state.product.auctionPagination);
+
+    // Handle page navigation
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(prev => prev - 1);
+        }
+    };
+
+    const handleNextPage = () => {
+        if (currentPage < paginationData.totalPages) {
+            setCurrentPage(prev => prev + 1);
+        }
+    };
+
+    // Handle items per page change
+    const handleItemsPerPageChange = (newLimit) => {
+        setItemsPerPage(newLimit);
+        setCurrentPage(1); // Reset to first page when changing items per page
+    };
 
     // Sort function
     const getSortedProducts = (products) => {
         if (!products) return [];
         
-        const productsCopy = [...products];
-        
-        switch (sortType) {
-            case 'newest-to-oldest':
-                return productsCopy.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            case 'oldest-to-newest':
-                return productsCopy.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            case 'active-only':
-                return productsCopy.filter(product => product.status === 'active');
-            case 'draft-only':
-                return productsCopy.filter(product => product.status === 'draft');
-            case 'price-high-to-low':
-                return productsCopy.sort((a, b) => b.price - a.price);
-            case 'price-low-to-high':
-                return productsCopy.sort((a, b) => a.price - b.price);
-            default:
-                return productsCopy;
+        // For status filtering on client side if needed
+        if (sortType === 'active-only') {
+            return products.filter(product => product.status === 'active');
+        } else if (sortType === 'draft-only') {
+            return products.filter(product => product.status === 'draft');
         }
+        
+        // All other sorting is handled by the API
+        return products;
     };
 
     // Get sorted products
@@ -116,10 +214,25 @@ const ProductsPage = () => {
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+    // Handle search input change
+    const handleSearchChange = (e) => {
+        setSearchQuery(e.target.value);
+    };
 
+    // Clear search
+    const handleClearSearch = () => {
+        setSearchQuery('');
+    };
 
     return (
         <>
+            {/* Verification Dialog */}
+            <VerificationDialog 
+                isOpen={showVerificationDialog} 
+                onClose={() => setShowVerificationDialog(false)} 
+                isPending={seller?.accountPending}
+            />
+
             {/*isLoading && <Loader />*/}
             {
                 isCurrentlyLoading ? (
@@ -155,6 +268,37 @@ const ProductsPage = () => {
                             </div>
                             
                             <div className="flex items-center flex-wrap gap-4">
+                                {/* Search Input */}
+                                <div className="relative w-full sm:w-auto max-w-[400px]">
+                                    <div className="flex items-center relative">
+                                        <Icon
+                                            icon="heroicons:magnifying-glass"
+                                            className="absolute left-3 text-gray-400"
+                                            width="20"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={handleSearchChange}
+                                            placeholder="Search products..."
+                                            className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent"
+                                        />
+                                        {searchQuery && (
+                                            <button
+                                                onClick={handleClearSearch}
+                                                className="absolute right-3 text-gray-400 hover:text-gray-600"
+                                            >
+                                                <Icon icon="heroicons:x-mark" width="16" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {isSearching && (
+                                        <div className="absolute w-full h-1 bottom-0 left-0">
+                                            <LinearProgress color="success" sx={{ height: 2 }} />
+                                        </div>
+                                    )}
+                                </div>
+
                                 {displayedProducts.length > 0 && (
                                     <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">
                                         <p className="text-base font-cabin font-normal text-[#17171B] mb-2 sm:mb-0">Sort By:</p>
@@ -188,15 +332,27 @@ const ProductsPage = () => {
                                         </div>
                                     </div>
                                 )}
-                                <NavLink 
-                                    to={activeTab === 'auctions' ? "/dashboard/add-products?type=auction" : "/dashboard/add-products"} 
-                                    className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out"
-                                >
-                                    <Icon icon="tabler:plus" width="18" height="18" color="#FFFFFF" />
-                                    <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">
-                                        {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
-                                    </p>
-                                </NavLink>
+                                {seller?.isVerified ? (
+                                    <NavLink 
+                                        to={activeTab === 'auctions' ? "/dashboard/add-products?type=auction" : "/dashboard/add-products"} 
+                                        className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out"
+                                    >
+                                        <Icon icon="tabler:plus" width="18" height="18" color="#FFFFFF" />
+                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">
+                                            {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
+                                        </p>
+                                    </NavLink>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowVerificationDialog(true)}
+                                        className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out"
+                                    >
+                                        <Icon icon="tabler:plus" width="18" height="18" color="#FFFFFF" />
+                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">
+                                            {activeTab === 'auctions' ? 'Add Offline Auction' : 'Add Product'}
+                                        </p>
+                                    </button>
+                                )}
                             </div>
                         </div>
                         <div className="w-full overflow-x-auto">
@@ -228,28 +384,113 @@ const ProductsPage = () => {
                                         <div className="flex flex-col h-[50dvh] items-center justify-center gap-4">
                                             <img src={NotFound} alt="not-found" className="w-[120px] sm:w-[180px] md:w-[220px] h-[120px] sm:h-[180px] md:h-[220px]" />
                                             <p className="text-sm sm:text-base font-cabin font-normal text-[#05031F] text-center px-4">
-                                                No {activeTab === 'auctions' ? 'auction' : ''} products found
+                                                {searchQuery ? `No results found for "${searchQuery}"` : 
+                                                sortType.includes('active') ? 'No active products found' : 
+                                                sortType.includes('draft') ? 'No draft products found' : 
+                                                `No ${activeTab === 'auctions' ? 'auction' : ''} products found`}
                                             </p>
+                                            <div className="flex flex-wrap gap-2 justify-center">
+                                                {searchQuery && (
+                                                    <button 
+                                                        onClick={handleClearSearch}
+                                                        className="bg-[#17171B] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#17171B]/90 transition-all duration-300"
+                                                    >
+                                                        Clear search
+                                                    </button>
+                                                )}
+                                                {(sortType.includes('active') || sortType.includes('draft')) && (
+                                                    <button 
+                                                        onClick={() => {
+                                                            setSortType('newest-to-oldest');
+                                                            setCurrentPage(1);
+                                                        }}
+                                                        className="bg-[#17171B] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#17171B]/90 transition-all duration-300"
+                                                    >
+                                                        Show all products
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                         {
-                            displayedProducts.length > 20 && (
-                                <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-4 mt-4 lg:mt-8 w-full">
-                                    <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
-                                        <Icon icon="gg:arrow-long-left" width="16" height="16" color="#FFFFFF" />
-                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">Previous</p>
-                                    </button>
-                                    <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
-                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">Next</p>
-                                        <Icon icon="gg:arrow-long-right" width="16" height="16" color="#FFFFFF" />
-                                    </button>
-                                    <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
-                                        <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">20 per page</p>
-                                        <Icon icon="simple-line-icons:arrow-down" width="8" height="8" color="#FFFFFF" />
-                                    </button>
+                            paginationData && paginationData.totalPages > 1 && (
+                                <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4 mt-4 lg:mt-8 w-full px-4 py-3">
+                                    <div className="text-sm text-gray-600">
+                                        Showing {displayedProducts.length} of {paginationData.totalProducts} products
+                                    </div>
+                                    <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-4">
+                                        <button 
+                                            onClick={handlePreviousPage}
+                                            disabled={currentPage <= 1}
+                                            className={`text-xs sm:text-sm font-cabin font-normal ${
+                                                currentPage <= 1 
+                                                    ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
+                                                    : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
+                                            } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
+                                        >
+                                            <Icon icon="gg:arrow-long-left" width="16" height="16" color={currentPage <= 1 ? "#a0a0a0" : "#FFFFFF"} />
+                                            <p className="text-xs sm:text-sm font-cabin font-normal">Previous</p>
+                                        </button>
+                                        
+                                        <div className="flex items-center gap-1">
+                                            <span className="px-3 py-2 rounded-md bg-[#17171B] text-white">
+                                                {currentPage}
+                                            </span>
+                                            <span className="text-gray-600">of</span>
+                                            <span className="px-3 py-2 rounded-md border border-gray-200">
+                                                {paginationData.totalPages}
+                                            </span>
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={handleNextPage}
+                                            disabled={currentPage >= paginationData.totalPages}
+                                            className={`text-xs sm:text-sm font-cabin font-normal ${
+                                                currentPage >= paginationData.totalPages 
+                                                    ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
+                                                    : 'text-[#ffffff] bg-[#05031F] hover:bg-[#05031F]/90'
+                                            } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
+                                        >
+                                            <p className="text-xs sm:text-sm font-cabin font-normal">Next</p>
+                                            <Icon icon="gg:arrow-long-right" width="16" height="16" color={currentPage >= paginationData.totalPages ? "#a0a0a0" : "#FFFFFF"} />
+                                        </button>
+                                        
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#05031F] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#05031F]/90 transition-all duration-500 ease-in-out">
+                                                    <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">{itemsPerPage} per page</p>
+                                                    <Icon icon="simple-line-icons:arrow-down" width="8" height="8" color="#FFFFFF" />
+                                                </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[200px] p-0">
+                                                <Command>
+                                                    <CommandList>
+                                                        <CommandGroup>
+                                                            <CommandItem onSelect={() => handleItemsPerPageChange(10)}>
+                                                                <span>10 per page</span>
+                                                                {itemsPerPage === 10 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            </CommandItem>
+                                                            <CommandItem onSelect={() => handleItemsPerPageChange(20)}>
+                                                                <span>20 per page</span>
+                                                                {itemsPerPage === 20 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            </CommandItem>
+                                                            <CommandItem onSelect={() => handleItemsPerPageChange(50)}>
+                                                                <span>50 per page</span>
+                                                                {itemsPerPage === 50 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            </CommandItem>
+                                                            <CommandItem onSelect={() => handleItemsPerPageChange(100)}>
+                                                                <span>100 per page</span>
+                                                                {itemsPerPage === 100 && <Icon icon="lucide:check" className="ml-auto" />}
+                                                            </CommandItem>
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
                                 </div>
                             )
                         }
@@ -328,6 +569,20 @@ const ProductsPage = () => {
                         >
                             <span>Show Draft Only</span>
                             {sortType === 'draft-only' && <Icon icon="lucide:check" />}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSortType('newest-to-oldest');
+                                setShowStatusDialog(false);
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg ${
+                                sortType === 'newest-to-oldest' && !sortType.includes('active') && !sortType.includes('draft') 
+                                    ? 'bg-[#17171B] text-white' 
+                                    : 'bg-[#0BB24817] text-[#17171B]'
+                            }`}
+                        >
+                            <span>Show All</span>
+                            {sortType === 'newest-to-oldest' && !sortType.includes('active') && !sortType.includes('draft') && <Icon icon="lucide:check" />}
                         </button>
                     </div>
                 </DialogContent>

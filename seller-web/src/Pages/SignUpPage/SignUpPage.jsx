@@ -16,7 +16,7 @@ import { TooltipProvider } from '../../Components/ui/tooltip';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
-  const { createSeller, isLoading, signUpSellerDetails, otpStatus, verifyOtp, requestNewOtp, unverifiedUser } = useAuthContext();
+  const { createSeller, isLoading, signUpSellerDetails, otpStatus, verifyOtp, requestNewOtp, unverifiedUser, dispatch } = useAuthContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [otp, setOtp] = useState('');
   const [activateOtp, setActivateOtp] = useState(false);
@@ -24,6 +24,7 @@ const SignUpPage = () => {
     firstName: '',
     lastName: '',
     email: '',
+    storeName: '',
     phoneNumber: '',
     password: '',
     confirmPassword: '',
@@ -33,12 +34,24 @@ const SignUpPage = () => {
 
   //use effect to check if the seller is authenticated and if the otp status is pending, if so, open the otp modal as a reroute from the signup page
   useEffect(() => {
+    // Check for token to enable auto-redirect after successful signup+OTP
+    const sellerToken = localStorage.getItem('sellerToken');
+    if (sellerToken) {
+      const tokenData = JSON.parse(sellerToken);
+      // Only redirect if token exists AND is verified (after OTP)
+      if (tokenData.isVerified === true) {
+        navigate('/dashboard/home', { replace: true });
+        return;
+      }
+    }
+
+    // Show the OTP modal if signup was successful and OTP verification is pending
     if (signUpSellerDetails && otpStatus === "pending") {
       setIsModalOpen(true);
     } else if (otpStatus === "pending" && unverifiedUser) {
       setIsModalOpen(true);
     }
-  }, [signUpSellerDetails, otpStatus]);
+  }, [signUpSellerDetails, otpStatus, navigate]);
 
   //function to submit the user data
   const submitUserData = async (event) => {
@@ -55,7 +68,7 @@ const SignUpPage = () => {
           fontWeight: '400',
         }
       });
-    } else if (formData.firstName === '' || formData.lastName === '' || formData.email === '' || formData.phoneNumber === '' || formData.password === '' || formData.confirmPassword === '') {
+    } else if (formData.firstName === '' || formData.lastName === '' || formData.email === '' || formData.storeName === '' || formData.phoneNumber === '' || formData.password === '' || formData.confirmPassword === '') {
       //if any of the fields are empty, alert the user
       console.log('Please fill in all fields');
       toast.error('Please fill in all fields',
@@ -72,26 +85,47 @@ const SignUpPage = () => {
 
     } else {
       //if the data is valid, create the seller
-      await createSeller(formData.firstName, formData.lastName, formData.email, formData.password, formData.phoneNumber);
-      //reset the form data
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phoneNumber: '',
-        password: '',
-        confirmPassword: '',
-      });
+      const result = await createSeller(formData.firstName, formData.lastName, formData.email, formData.password, formData.phoneNumber, formData.storeName);
+      
+      if (result !== false) {
+        // Show OTP modal immediately after successful registration
+        setIsModalOpen(true);
+        
+        //reset the form data
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          storeName: '',
+          phoneNumber: '',
+          password: '',
+          confirmPassword: '',
+        });
+      }
     }
   };
 
-  //function to submit the otp to verify new user
+  //function to verify otp after sign up
   const handleOtpSubmit = async () => {
     if (otp.length === 4 && signUpSellerDetails !== null) {
-      await verifyOtp(signUpSellerDetails?.email, otp);
-      setIsModalOpen(false);
+      try {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        // Verify OTP - this will handle the redirection to dashboard if successful
+        const success = await verifyOtp(signUpSellerDetails?.email, otp);
+        if (success) {
+          // Close modal
+          setIsModalOpen(false);
+          // Directly navigate to dashboard
+          navigate('/dashboard/home', { replace: true });
+        }
+      } catch (error) {
+        console.error("Error verifying OTP:", error);
+        toast.error("Failed to verify OTP. Please try again.");
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
     } else {
-      toast.error("Please fill in all fields");
+      toast.error("Please enter the complete 4-digit OTP");
     }
   };
 
@@ -221,6 +255,27 @@ const SignUpPage = () => {
                   </TooltipTrigger>
                   <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
                     <p>Valid email address</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="flex flex-col gap-2 w-full mb-4">
+                <label htmlFor="storeName" className='text-sm md:text-base font-inter text-[#425466]'>
+                  Store Name
+                </label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <input
+                      type="text"
+                      id="storeName"
+                      name="storeName"
+                      value={formData.storeName}
+                      placeholder='Enter your store name'
+                      onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
+                      className='w-full h-12 rounded-md bg-[#FFFFFF] shadow-sm shadow-[#32324714] p-2 text-sm md:text-base font-inter focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent placeholder:text-[#B5B5BD] placeholder:font-inter placeholder:text-sm'
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white/80 backdrop-blur-sm dark:bg-neutral-900/90">
+                    <p>Your store name</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -369,7 +424,7 @@ const SignUpPage = () => {
           <Modal>
             <img src={MailIcon} alt="Mail Icon" className="w-[83.5px] h-[83.5px] lg:w-[127px] lg:h-[127px] mb-10" />
             <h3 className="text-base sm:text-2xl font-medium text-[#FFFFFF] leading-normal sm:leading-[21.86px] text-center">
-              {`We've sent a link to ${signUpSellerDetails?.email}`}
+              {`We've sent a code to ${signUpSellerDetails?.email}`}
             </h3>
             <p className="text-base sm:text-lg font-light leading-normal sm:leading-[21.86px] text-[#FFFFFF] text-center mt-4 ">Please verify your email address by inputting the OTP we sent to your email.</p>
             {

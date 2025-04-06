@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink } from "lucide-react";
+import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, AlertTriangle } from "lucide-react";
 import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
 import { BASE_URL } from "@/Constants/Server";
@@ -17,6 +17,9 @@ import ReviewsTab from "./components/ReviewsTab";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import VerificationModal from "../../Components/VerificationModal";
+import VerificationDialog from "../../Components/VerificationDialog";
+import { Icon } from "@iconify/react";
 
 export default function AccountPage() {
   const { setHeaderName, setNavName } = useOutletContext();
@@ -39,9 +42,19 @@ export default function AccountPage() {
   });
   const [followersLoading, setFollowersLoading] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
+  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
 
   useEffect(() => {
     setHeaderName("Account");
+    
+    // Check if the URL has the openVerification parameter
+    const queryParams = new URLSearchParams(window.location.search);
+    if (queryParams.get('openVerification') === 'true') {
+      setVerificationModalOpen(true);
+      // Remove the query parameter from the URL without refreshing
+      navigate('/dashboard/account', { replace: true });
+    }
   }, []);
 
   useEffect(() => {
@@ -259,6 +272,21 @@ export default function AccountPage() {
     }
   };
 
+  // Handler for verification button
+  const handleCompleteVerification = () => {
+    // Don't open verification modal if account is already pending
+    if (profile?.accountPending) {
+      setVerificationDialogOpen(true);  // Show the info dialog instead
+    } else {
+      setVerificationModalOpen(true);   // Open verification modal
+    }
+  };
+
+  // Handler for showing verification dialog
+  const handleShowVerificationDialog = () => {
+    setVerificationDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[80dvh]">
@@ -285,6 +313,66 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Verification Modal */}
+      <VerificationModal 
+        isOpen={verificationModalOpen} 
+        onClose={() => setVerificationModalOpen(false)} 
+      />
+      
+      {/* Verification Dialog */}
+      {profile && (
+        <VerificationDialog
+          isOpen={verificationDialogOpen}
+          onClose={() => setVerificationDialogOpen(false)}
+          isPending={profile.accountPending}
+        />
+      )}
+      
+      {/* Verification Banners - Show based on account status */}
+      {profile && !profile.isVerified && (
+        <>
+          {profile.accountPending ? (
+            // Account under review banner
+            <div className="bg-blue-50 mt-10 border-l-4 border-blue-500 p-4 mb-6 shadow-sm">
+              <div className="flex items-start md:items-center flex-col md:flex-row gap-3 md:gap-6">
+                <div className="flex items-center gap-2">
+                  <Icon icon="solar:clock-circle-bold" className="h-6 w-6 text-blue-500 flex-shrink-0" />
+                  <h3 className="text-lg font-semibold text-blue-800">Your account is under review</h3>
+                </div>
+                <div className="flex-1 text-blue-700 text-sm md:ml-2">
+                  Your verification information has been submitted and is currently being reviewed. You'll be notified when your account is either approved or declined.
+                </div>
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700 font-medium py-2 px-5 text-white rounded-md shadow whitespace-nowrap"
+                  onClick={handleShowVerificationDialog}
+                >
+                  View Details
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // Account needs verification banner
+            <div className="bg-amber-50 mt-10 border-l-4 border-amber-500 p-4 mb-6 shadow-sm">
+              <div className="flex items-start md:items-center flex-col md:flex-row gap-3 md:gap-6">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />
+                  <h3 className="text-lg font-semibold text-amber-800">Your account is not verified</h3>
+                </div>
+                <div className="flex-1 text-amber-700 text-sm md:ml-2">
+                  Complete your account verification to unlock all seller features including adding products and livestreaming.
+                </div>
+                <Button 
+                  className="bg-amber-600 hover:bg-amber-700 font-medium py-2 px-5 text-white rounded-md shadow whitespace-nowrap"
+                  onClick={handleCompleteVerification}
+                >
+                  Complete Verification
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Cover Image Section */}
       <div className="relative h-24 sm:h-36 w-full overflow-hidden mt-4 sm:mt-6 rounded-lg">
         <input

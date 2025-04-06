@@ -200,7 +200,7 @@ function AuthProvider({ children }) {
     }, initialState);
 
     //function to create a new seller and signup
-    const createSeller = async (firstName, lastName, email, password, phoneNumber) => {
+    const createSeller = async (firstName, lastName, email, password, phoneNumber, storeName) => {
         try {
             shutdown()
             dispatch({ type: 'SET_LOADING', payload: true });
@@ -209,17 +209,24 @@ function AuthProvider({ children }) {
                 lastName,
                 email,
                 password,
-                phoneNumber
+                phoneNumber,
+                storeName
             });
 
             if (response.status === 201) {
                 console.log(response);
+                // Store token but don't set isVerified to true yet
                 localStorage.setItem('sellerToken', JSON.stringify({
                     data: response.data.token,
-                    isVerified: response.data.user.isVerified
+                    isVerified: false // OTP verification still needed
                 }));
+                
+                // Store user data without changing verification status
                 localStorage.setItem('seller', JSON.stringify(response.data.user));
+                
                 dispatch({ type: 'SIGNUP_SUCCESS', payload: response.data.user });
+                // Don't set isVerified to true yet
+                
                 toast.success(response.data.message, {
                     style: {
                         backgroundColor: '#17171B',
@@ -243,6 +250,8 @@ function AuthProvider({ children }) {
                 } catch (e) {
                     console.error('Mixpanel tracking error:', e);
                 }
+                
+                return true; // Return success
             }
 
         } catch (AxiosError) {
@@ -257,6 +266,7 @@ function AuthProvider({ children }) {
                     fontWeight: '400',
                 }
             })
+            return false; // Return failure
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -334,22 +344,53 @@ function AuthProvider({ children }) {
         try {
             shutdown()
             dispatch({ type: 'SET_LOADING', payload: true });
-            dispatch({ type: 'RESET' });
+            
             const response = await axios.post(`${BASE_URL}/seller/verify-otp`, {
                 email,
                 otp
             });
 
             if (response.status === 200) {
-                console.log(`otp: ${response}`);
+                console.log(`otp verification response:`, response.data);
                 dispatch({ type: 'VERIFY_OTP_SUCCESS' });
-                toast.success(response.data.message);
-                navigate('/onboarding');
+                
+                // Set the user as authenticated and prepare for dashboard access
+                if (response.data.token) {
+                    // Set isVerified to true in localStorage
+                    localStorage.setItem('sellerToken', JSON.stringify({
+                        data: response.data.token,
+                        isVerified: true
+                    }));
+                    
+                    if (response.data.user) {
+                        // Update the user in localStorage with verified status
+                        const userData = response.data.user;
+                        userData.isVerified = true; // Ensure verification status is set
+                        localStorage.setItem('seller', JSON.stringify(userData));
+                        dispatch({ type: 'STORE_SELLER', payload: userData });
+                    }
+                    
+                    // Set authenticated state
+                    dispatch({ type: 'SET_TOKEN', payload: { 
+                        data: response.data.token,
+                        isVerified: true 
+                    }});
+                    
+                    toast.success('Account verified successfully!');
+                    
+                    // Return success - navigation will be handled by the component
+                    return true;
+                } else {
+                    toast.success(response.data.message);
+                    return true;
+                }
             }
+            return false;
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError.response.data.message });
-            toast.error(AxiosError.response.data.message);
+            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError.response?.data?.message || 'Verification failed' });
+            toast.error(AxiosError.response?.data?.message || 'OTP verification failed');
+            return false;
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -510,7 +551,6 @@ function AuthProvider({ children }) {
 
     const resetPasswordWithOtp = async (resetData) => {
         try {
-            dispatch({ type: 'SET_LOADING', payload: false });
             dispatch({ type: 'SET_LOADING', payload: true });
             const response = await axios.post(`${BASE_URL}/seller/reset-password`, {
                 email: resetData.email,
@@ -520,7 +560,9 @@ function AuthProvider({ children }) {
             if (response.status === 200) {
                 dispatch({ type: 'RESET_PASSWORD_WITH_TOKEN_SUCCESS', payload: response.data.message });
                 toast.success('Password reset successful');
+                return true;
             }
+            return false;
         } catch (error) {
             console.log(error);
             toast.error('Password reset failed', {
@@ -530,11 +572,10 @@ function AuthProvider({ children }) {
                     color: '#fff',
                 }
             });
+            return false;
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
-
-
     }
 
     const fetchSellerDetails = async () => {

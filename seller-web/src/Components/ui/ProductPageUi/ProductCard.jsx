@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { useDispatch, useSelector } from 'react-redux';
 import { deleteProduct } from '../../../Redux/Slices/ProductSlice';
@@ -1063,6 +1063,236 @@ RerunAuctionDialog.propTypes = {
     defaultValues: PropTypes.object
 };
 
+// Update the BlipUploadModal to include product information
+const BlipUploadModal = ({ open, onClose, productId, product }) => {
+    const [blipVideo, setBlipVideo] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const fileInputRef = useRef(null);
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Check if file is a video
+            if (!file.type.startsWith('video/')) {
+                toast.error('Please select a video file');
+                return;
+            }
+            
+            // Check file size (max 30MB)
+            if (file.size > 30 * 1024 * 1024) {
+                toast.error('Video file is too large (max 30MB)');
+                return;
+            }
+
+            setBlipVideo(file);
+            
+            // Create preview URL
+            const objectUrl = URL.createObjectURL(file);
+            setPreviewUrl(objectUrl);
+            
+            return () => URL.revokeObjectURL(objectUrl);
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!blipVideo) {
+            toast.error('Please select a video first');
+            return;
+        }
+
+        setIsUploading(true);
+        setUploadProgress(0);
+        
+        try {
+            const formData = new FormData();
+            formData.append('blipVideo', blipVideo);
+            
+            const sellerToken = localStorage.getItem('sellerToken');
+            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
+            
+            // Create upload request with progress tracking
+            const response = await axios.post(
+                `${BASE_URL}/products/${productId}/blips`, 
+                formData, 
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenData.data}`,
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setUploadProgress(percentCompleted);
+                    }
+                }
+            );
+            
+            if (response.status === 201) {
+                toast.success('Blip video uploaded successfully', {
+                    style: {
+                        background: '#05031F',
+                        color: '#fff',
+                    }
+                });
+                onClose();
+            }
+        } catch (error) {
+            console.error('Error uploading blip:', error);
+            toast.error('Failed to upload blip video', {
+                description: error.response?.data?.message || 'Please try again',
+                style: {
+                    background: '#05031F',
+                    color: '#fff',
+                }
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleTriggerFileInput = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleClose = () => {
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
+        setBlipVideo(null);
+        setPreviewUrl(null);
+        setUploadProgress(0);
+        onClose();
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={handleClose}>
+            <DialogContent className="sm:max-w-[500px] p-6">
+                <DialogHeader className="space-y-3">
+                    <DialogTitle className="text-2xl font-bold text-[#05031F]">Upload Blip Video</DialogTitle>
+                    <DialogDescription className="text-base">
+                        Add a short video blip to showcase your product
+                    </DialogDescription>
+                </DialogHeader>
+                
+                {/* Product Information */}
+                <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg my-4">
+                    <img 
+                        src={product?.images[0]?.url} 
+                        alt={product?.name}
+                        className="w-16 h-16 rounded-lg object-cover"
+                    />
+                    <div>
+                        <h3 className="font-medium text-[#05031F]">{product?.name}</h3>
+                        <p className="text-sm text-gray-500">
+                            {product?.category} • {product?.subCategory}
+                        </p>
+                    </div>
+                </div>
+                
+                <div className="space-y-6 mt-4">
+                    <div 
+                        className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all
+                            ${previewUrl ? 'border-[#05031F]' : 'border-gray-300'}`}
+                        onClick={handleTriggerFileInput}
+                    >
+                        <input 
+                            type="file" 
+                            accept="video/*"
+                            className="hidden" 
+                            onChange={handleFileChange}
+                            ref={fileInputRef}
+                        />
+                        
+                        {previewUrl ? (
+                            <div className="w-full space-y-4">
+                                <video 
+                                    src={previewUrl} 
+                                    className="w-full h-[200px] object-contain bg-black rounded-lg" 
+                                    controls
+                                />
+                                <p className="text-sm text-center text-gray-500">
+                                    {blipVideo?.name} ({(blipVideo?.size / (1024 * 1024)).toFixed(2)} MB)
+                                </p>
+                                <button 
+                                    type="button"
+                                    className="w-full py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setBlipVideo(null);
+                                        setPreviewUrl(null);
+                                    }}
+                                >
+                                    Select a different video
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-center space-y-3">
+                                <Icon icon="solar:video-frame-bold" className="w-12 h-12 text-gray-400 mx-auto" />
+                                <div className="space-y-1">
+                                    <p className="text-sm font-medium text-gray-700">Click to select a video file</p>
+                                    <p className="text-xs text-gray-500">MP4, MOV, or WebM up to 30MB</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {isUploading && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Uploading...</span>
+                                <span>{uploadProgress}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-[#05031F]" 
+                                    style={{ width: `${uploadProgress}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            className="px-6 py-3 border rounded-lg hover:bg-gray-50 font-medium transition-all"
+                            disabled={isUploading}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleUpload}
+                            disabled={!blipVideo || isUploading}
+                            className="px-6 py-3 bg-[#05031F] text-white rounded-lg hover:bg-[#05031F]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
+                        >
+                            {isUploading ? (
+                                <>
+                                    <CircularProgress size={20} color="inherit" />
+                                    <span>Uploading...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Icon icon="solar:upload-bold" className="w-5 h-5" />
+                                    <span>Upload Blip</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+BlipUploadModal.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    productId: PropTypes.string.isRequired,
+    product: PropTypes.object.isRequired
+};
+
 const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     // Separate states for mobile and desktop popovers
     const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
@@ -1070,6 +1300,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const [openStockModal, setOpenStockModal] = useState(false);
     const [openAuctionModal, setOpenAuctionModal] = useState(false);
     const [openProductDetails, setOpenProductDetails] = useState(false);
+    const [openBlipUploadModal, setOpenBlipUploadModal] = useState(false);
     const dispatch = useDispatch();
     const { isLoading, deleteStatus, deletedProductId } = useSelector(state => state.product);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1251,6 +1482,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     <button
                         onClick={handleRerunClick}
                         className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
+                        title="Schedule a new auction with this product"
                     >
                         <Icon icon="solar:restart-bold" className="w-3 h-3" />
                         <span>Rerun Auction</span>
@@ -1273,26 +1505,38 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             </div>
             <div className="flex items-center gap-2">
                 {!isAuction && (
-                    <button 
-                        onClick={() => setOpenProductDetails(true)}
-                        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200" 
-                        title="View Product Details"
-                    >
-                        <Icon icon="solar:eye-bold" className="w-4 h-4" />
-                    </button>
+                    <>
+                        <button 
+                            onClick={() => setOpenProductDetails(true)}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200" 
+                            title="View detailed information about this product"
+                        >
+                            <Icon icon="solar:eye-bold" className="w-4 h-4" />
+                        </button>
+                        <button 
+                            onClick={() => setOpenBlipUploadModal(true)}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-green-100 text-green-600 transition-all duration-200" 
+                            title="Upload a short promotional video for this product"
+                        >
+                            <Icon icon="solar:video-frame-bold" className="w-4 h-4" />
+                        </button>
+                    </>
                 )}
                 {isAuction && (
                     <button 
                         onClick={() => setOpenAuctionModal(true)}
                         className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-700 transition-all duration-200" 
-                        title="View Auction Performance"
+                        title="View auction statistics and bidding history"
                     >
                         <Icon icon="solar:graph-bold" className="w-4 h-4" />
                     </button>
                 )}
                 <Popover open={isDesktopPopoverOpen} onOpenChange={setIsDesktopPopoverOpen}>
                     <PopoverTrigger asChild>
-                        <button className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                        <button 
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200"
+                            title="Edit product options"
+                        >
                             <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
                         </button>
                     </PopoverTrigger>
@@ -1311,6 +1555,15 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                         <Icon icon="clarity:clipboard-solid" className="w-6 h-6 text-[#05031F]" />
                                         <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F]">Edit Product</Link>
                                     </CommandItem>
+                                    {!isAuction && (
+                                        <CommandItem onSelect={() => {
+                                            setIsDesktopPopoverOpen(false);
+                                            setOpenBlipUploadModal(true);
+                                        }} className="cursor-pointer">
+                                            <Icon icon="solar:video-frame-bold" className="w-6 h-6 text-green-600" />
+                                            <span className="ml-2 text-green-600">Add Blip Video</span>
+                                        </CommandItem>
+                                    )}
                                     {isAuction && (
                                         <CommandItem onSelect={() => {
                                             setIsDesktopPopoverOpen(false);
@@ -1337,6 +1590,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 <button 
                     onClick={() => handleProductDelete(item._id)} 
                     className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200"
+                    title="Permanently delete this product"
                 >
                     {
                         SpecificDeletedProduct ? (
@@ -1377,6 +1631,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                     <button
                                         onClick={handleRerunClick}
                                         className="mt-1 flex items-center gap-1.5 px-2 py-1 bg-[#05031F] hover:bg-[#05031F]/90 text-white rounded-md text-xs transition-all duration-200"
+                                        title="Schedule a new auction with this product"
                                     >
                                         <Icon icon="solar:restart-bold" className="w-3 h-3" />
                                         <span>Rerun Auction</span>
@@ -1410,26 +1665,38 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     {!isAuction && (
-                        <button 
-                            onClick={() => setOpenProductDetails(true)}
-                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200" 
-                            title="View Product Details"
-                        >
-                            <Icon icon="solar:eye-bold" className="w-4 h-4" />
-                        </button>
+                        <>
+                            <button 
+                                onClick={() => setOpenProductDetails(true)}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200" 
+                                title="View detailed information about this product"
+                            >
+                                <Icon icon="solar:eye-bold" className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={() => setOpenBlipUploadModal(true)}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-green-100 text-green-600 transition-all duration-200" 
+                                title="Upload a short promotional video for this product"
+                            >
+                                <Icon icon="solar:video-frame-bold" className="w-4 h-4" />
+                            </button>
+                        </>
                     )}
                     {isAuction && (
                         <button 
                             onClick={() => setOpenAuctionModal(true)}
                             className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-700 transition-all duration-200" 
-                            title="View Auction Performance"
+                            title="View auction statistics and bidding history"
                         >
                             <Icon icon="solar:graph-bold" className="w-4 h-4" />
                         </button>
                     )}
                     <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
                         <PopoverTrigger asChild>
-                            <button className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200">
+                            <button 
+                                className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#05031F]/5 transition-all duration-200"
+                                title="Edit product options"
+                            >
                                 <Icon icon="solar:pen-bold" className="w-4 h-4 text-[#05031F]" />
                             </button>
                         </PopoverTrigger>
@@ -1448,6 +1715,15 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                                             <Icon icon="clarity:clipboard-solid" className="w-6 h-6 text-[#05031F]" />
                                             <Link to={`/dashboard/edit-product/${item._id}`} className="ml-2 text-[#05031F]">Edit Product</Link>
                                         </CommandItem>
+                                        {!isAuction && (
+                                            <CommandItem onSelect={() => {
+                                                setIsMobilePopoverOpen(false);
+                                                setOpenBlipUploadModal(true);
+                                            }} className="cursor-pointer">
+                                                <Icon icon="solar:video-frame-bold" className="w-6 h-6 text-green-600" />
+                                                <span className="ml-2 text-green-600">Add Blip Video</span>
+                                            </CommandItem>
+                                        )}
                                         {isAuction && (
                                             <CommandItem onSelect={() => {
                                                 setIsMobilePopoverOpen(false);
@@ -1474,6 +1750,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                     <button 
                         onClick={() => handleProductDelete(item._id)} 
                         className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#DF0707]/5 transition-all duration-200"
+                        title="Permanently delete this product"
                     >
                         {handleDeleteStatusLoading() ? 
                             <CircularProgress color="#DF0707" size={16} /> : 
@@ -1521,6 +1798,14 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 onSubmit={handleRerunAuction}
                 isLoading={isRerunLoading}
                 defaultValues={item.auction}
+            />
+
+            {/* Blip Upload Modal */}
+            <BlipUploadModal
+                open={openBlipUploadModal}
+                onClose={() => setOpenBlipUploadModal(false)}
+                productId={item._id}
+                product={item}
             />
         </>
     );

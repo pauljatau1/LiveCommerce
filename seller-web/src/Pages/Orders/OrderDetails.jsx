@@ -22,6 +22,7 @@ export default function OrderDetails() {
   const { setHeaderName, setNavName } = useOutletContext()
   const { id } = useParams()
   const [orderData, setOrderData] = useState(null)
+  const [sellerProfile, setSellerProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [arrangePickupLoading, setArrangePickupLoading] = useState(false)
   const [orderStatus, setOrderStatus] = useState(null)
@@ -38,29 +39,40 @@ export default function OrderDetails() {
   }, [])
 
   useEffect(() => {
-    const fetchOrderDetails = async () => {
+    const fetchData = async () => {
       try {
         const sellerToken = localStorage.getItem('sellerToken')
         if (sellerToken) {
           const tokenData = JSON.parse(sellerToken)
           const token = tokenData.data
-          const response = await fetch(`${BASE_URL}/order/${id}`, {
+          
+          // Fetch order details
+          const orderResponse = await fetch(`${BASE_URL}/order/${id}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           })
-          const data = await response.json()
-          setOrderData(data)
-          setOrderStatus(data.orderStatus)
+          const orderResult = await orderResponse.json()
+          setOrderData(orderResult)
+          setOrderStatus(orderResult.orderStatus)
+          
+          // Fetch seller profile
+          const profileResponse = await fetch(`${BASE_URL}/seller/profile`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          const profileResult = await profileResponse.json()
+          setSellerProfile(profileResult)
         }
       } catch (error) {
-        console.error('Error fetching order details:', error)
+        console.error('Error fetching data:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchOrderDetails()
+    fetchData()
   }, [id])
 
   useEffect(() => {
@@ -237,6 +249,7 @@ export default function OrderDetails() {
 
   const { order, buyer, seller, items, shipping, addresses, timeline } = orderData
   console.log('orderData', orderData)
+  console.log('sellerProfile', sellerProfile)
 
   const getStatusColor = (status) => {
     const colors = {
@@ -809,7 +822,7 @@ export default function OrderDetails() {
                 </div>
               </div>
 
-              {/* Pickup Address */}
+              {/* Pickup Address - Using Seller Profile data instead of order data */}
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                 <h3 className="font-inter font-semibold mb-3 flex items-center gap-2 text-gray-800">
                   <Building2 className="h-4 w-4 text-blue-600" />
@@ -819,29 +832,29 @@ export default function OrderDetails() {
                   <div className="flex items-center gap-2">
                     <Box className="h-4 w-4 text-gray-400" />
                     <p className="font-medium text-gray-800">
-                      {items[0]?.product?.seller?.warehouseDetails?.name || "Main Warehouse"}
+                      {sellerProfile?.storeName || "Main Warehouse"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-gray-400" />
-                    <p className="text-gray-700">{maskPhoneNumber(items[0]?.product?.seller?.warehouseDetails?.contactNumber)}</p>
+                    <p className="text-gray-700">{maskPhoneNumber(sellerProfile?.phoneNumber)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-gray-400" />
-                    <p className="text-gray-700">{items[0]?.product?.seller?.businessName}</p>
+                    <p className="text-gray-700">{sellerProfile?.storeName || seller?.businessName}</p>
                   </div>
                   <div className="pl-6 text-gray-700 space-y-1 mt-2">
-                    <p>{items[0]?.product?.seller?.warehouseDetails?.address?.addressLine1}</p>
-                    {items[0]?.product?.seller?.warehouseDetails?.address?.addressLine2 && (
-                      <p>{items[0]?.product?.seller?.warehouseDetails?.address?.addressLine2}</p>
+                    <p>{sellerProfile?.sellerAddress?.addressLine1}</p>
+                    {sellerProfile?.sellerAddress?.addressLine2 && (
+                      <p>{sellerProfile?.sellerAddress?.addressLine2}</p>
                     )}
                     <p>
-                      {items[0]?.product?.seller?.warehouseDetails?.address?.city}, 
-                      {items[0]?.product?.seller?.warehouseDetails?.address?.state} 
-                      {items[0]?.product?.seller?.warehouseDetails?.address?.zipCode && 
-                        ` ${items[0]?.product?.seller?.warehouseDetails?.address?.zipCode}`}
+                      {sellerProfile?.sellerAddress?.city}, 
+                      {sellerProfile?.sellerAddress?.state} 
+                      {sellerProfile?.sellerAddress?.zipCode && 
+                        ` ${sellerProfile?.sellerAddress?.zipCode}`}
                     </p>
-                    <p>{items[0]?.product?.seller?.warehouseDetails?.address?.country}</p>
+                    <p>{sellerProfile?.sellerAddress?.country}</p>
                   </div>
                 </div>
               </div>

@@ -29,9 +29,6 @@ const ProtectedRoute = ({ children }) => {
     fetchSeller();
   }, []);
 
-
-
-
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
@@ -42,7 +39,15 @@ const ProtectedRoute = ({ children }) => {
 
     const isDashboardRoute = location.pathname.startsWith('/dashboard');
     const isSignUpRoute = location.pathname.startsWith('/signup');
+    const isLoginRoute = location.pathname.startsWith('/login');
     const isOnboardingRoute = location.pathname.startsWith('/onboarding');
+
+    // Quick check for token and verified status before proceeding with API call
+    if (tokenData?.isVerified === true && !isDashboardRoute && !isOnboardingRoute) {
+      console.log('User is verified, redirecting to dashboard');
+      navigate('/dashboard/home', { replace: true });
+      return;
+    }
 
     const checkTokenValidity = async () => {
       try {
@@ -57,7 +62,20 @@ const ProtectedRoute = ({ children }) => {
           console.log('token validity response', response)
           console.log('validity', response)
           if (response.status === 200) {
-            if (tokenData?.isVerified === false) {
+            // Skip onboarding check for verified users and allow accessing dashboard
+            if (isDashboardRoute) {
+              // Let them access the dashboard without redirecting
+              return;
+            }
+            
+            // If on signup/login page and token is valid, redirect to dashboard
+            if ((isSignUpRoute || isLoginRoute) && tokenData?.isVerified === true) {
+              navigate('/dashboard/home', { replace: true });
+              return;
+            }
+            
+            // Below checks only for non-dashboard routes
+            if (tokenData?.isVerified === false && !isDashboardRoute) {
               if (sellerData?.onboardingProcess) {
                 if (!isOnboardingRoute) {
                   console.log('onboarding process', sellerData?.onboardingProcess)
@@ -71,14 +89,8 @@ const ProtectedRoute = ({ children }) => {
                   });
                 }
               } else {
-                navigate('/onboarding/profile');
-                toast.error('Please complete the onboarding process', {
-                  description: 'Complete process is required',
-                  style: {
-                    background: '#17171B',
-                    color: '#fff',
-                  }
-                });
+                navigate('/dashboard/home');
+                
               }
             } else if (tokenData?.isVerified === true && !isDashboardRoute) {
               navigate('/dashboard/home', { replace: true });
@@ -92,7 +104,6 @@ const ProtectedRoute = ({ children }) => {
           } else {
             navigate('/login');
           }
-
         }
       } catch (error) {
         console.log('token invalid error', error);

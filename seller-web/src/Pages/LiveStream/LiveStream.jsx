@@ -5,13 +5,17 @@ import LiveStreamCard from "../../Components/LiveStreamCard";
 import SuggestedVideoCard from "../../Components/SuggestedVideoCard";
 import { LivestreamContext } from "../../Contexts/LivestreamContext";
 import { NavLink } from 'react-router-dom';
+import VerificationDialog from "../../Components/VerificationDialog";
+import { useAuthContext } from "../../Hooks/useAuthContext";
 
 
 const LiveStream = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const { getAllSellerActiveStreams, fetchedLiveStreams, isLoading } = useContext(LivestreamContext);
+    const { seller } = useAuthContext();
     const [scheduledShows, setScheduledShows] = useState([]);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [showVerificationDialog, setShowVerificationDialog] = useState(false);
 
     useEffect(() => {
         setHeaderName('Live Streams')
@@ -26,6 +30,13 @@ const LiveStream = () => {
         return () => clearInterval(timer);
     }, [])
 
+    // Check if seller is verified
+    useEffect(() => {
+        if (seller && seller.isVerified === false) {
+            setShowVerificationDialog(true);
+        }
+    }, [seller]);
+
     useEffect(() => {
         if (fetchedLiveStreams && fetchedLiveStreams.length > 0) {
             // Filter for scheduled streams that haven't started yet
@@ -34,6 +45,14 @@ const LiveStream = () => {
             setScheduledShows(scheduled);
         }
     }, [fetchedLiveStreams]);
+    
+    // Handle stream action clicks for unverified users
+    const handleStreamActionClick = (e) => {
+        if (seller && !seller.isVerified) {
+            e.preventDefault();
+            setShowVerificationDialog(true);
+        }
+    };
     
     // Calculate time remaining until stream starts
     const getTimeRemaining = (scheduledTime) => {
@@ -63,11 +82,23 @@ const LiveStream = () => {
     };
 
     return (
-        <div className="flex flex-col mt-10 gap-8 ">        
+        <div className="flex flex-col mt-10 gap-8 ">
+            {/* Verification Dialog */}
+            <VerificationDialog 
+                isOpen={showVerificationDialog} 
+                onClose={() => setShowVerificationDialog(false)} 
+                isPending={seller?.accountPending}
+            />
+            
             <div className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                     {liveStreamCardData.map((item) => (
-                        <LiveStreamCard item={item} key={item.id} />
+                        <LiveStreamCard 
+                            item={item} 
+                            key={item.id} 
+                            isVerified={seller?.isVerified}
+                            onUnverifiedAction={handleStreamActionClick}
+                        />
                     ))}
                 </div>
             </div>
@@ -182,17 +213,31 @@ const LiveStream = () => {
                                         </div>
                                         
                                         {/* Start Stream Button */}
-                                        <NavLink
-                                            to={`/dashboard/livestreaming/studio/${stream._id}`}
-                                            className="absolute bottom-4 left-0 right-0 mx-auto w-[85%] bg-[#16783A] text-white text-xs font-medium font-inter py-2 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
-                                        >
-                                            <button className="flex items-center justify-center gap-1.5 w-full">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                                </svg>
-                                                Start Stream
+                                        {seller?.isVerified ? (
+                                            <NavLink
+                                                to={`/dashboard/livestreaming/studio/${stream._id}`}
+                                                className="absolute bottom-4 left-0 right-0 mx-auto w-[85%] bg-[#16783A] text-white text-xs font-medium font-inter py-2 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
+                                            >
+                                                <button className="flex items-center justify-center gap-1.5 w-full">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                                    </svg>
+                                                    Start Stream
+                                                </button>
+                                            </NavLink>
+                                        ) : (
+                                            <button
+                                                onClick={handleStreamActionClick}
+                                                className="absolute bottom-4 left-0 right-0 mx-auto w-[85%] bg-[#16783A] text-white text-xs font-medium font-inter py-2 rounded-lg hover:bg-[#16783A]/90 transition-all duration-300 text-center"
+                                            >
+                                                <div className="flex items-center justify-center gap-1.5 w-full">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                                    </svg>
+                                                    Start Stream
+                                                </div>
                                             </button>
-                                        </NavLink>
+                                        )}
                                     </div>
                                 </div>
                                 );
