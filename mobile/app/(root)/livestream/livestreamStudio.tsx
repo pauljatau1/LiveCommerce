@@ -35,10 +35,21 @@ const LivestreamStudio = () => {
     const router = useRouter();
     const { show } = useToast();
     const { id } = useLocalSearchParams();
-    const { activeStreamDetails, joinStream, fetchActiveStreamDetails, leaveStream } = useLivestream() as LivestreamContextType;
+    const { 
+        activeStreamDetails, 
+        joinStream, 
+        fetchActiveStreamDetails, 
+        leaveStream,
+        followSellerThroughStream,
+        unfollowSellerThroughStream,
+        checkIfSellerIsFollowedFromSellerProfile
+    } = useLivestream() as LivestreamContextType;
     const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
     const [status, setStatus] = useState('Initializing...');
     const [isLoading, setIsLoading] = useState(true);
+    const [isFollowingLoading, setIsFollowingLoading] = useState(false);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [sellerId, setSellerId] = useState<string>('');
 
     // UI interaction states
     const [likes, setLikes] = useState(23500);
@@ -236,6 +247,18 @@ const LivestreamStudio = () => {
 
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
+                    
+                    // Set the seller ID and check if user is following the seller
+                    if (sellerData._id) {
+                        setSellerId(sellerData._id);
+                        try {
+                            const sellerProfileData = await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+                            console.log('Seller profile data:', sellerProfileData);
+                            setIsFollowing(sellerProfileData?.storeInfo?.isFollowing || false);
+                        } catch (error) {
+                            console.error('Error checking if seller is followed:', error);
+                        }
+                    }
                 }
                 // If seller info is directly in streamDetails
                 else if (streamDetails.seller) {
@@ -252,6 +275,18 @@ const LivestreamStudio = () => {
 
                     console.log('Setting store info to:', newStoreInfo);
                     setStoreInfo(newStoreInfo);
+                    
+                    // Set the seller ID and check if user is following the seller
+                    if (sellerData._id) {
+                        setSellerId(sellerData._id);
+                        try {
+                            const sellerProfileData = await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+                            console.log('Seller profile data:', sellerProfileData);
+                            setIsFollowing(sellerProfileData?.storeInfo?.isFollowing || false);
+                        } catch (error) {
+                            console.error('Error checking if seller is followed:', error);
+                        }
+                    }
                 }
 
                 // Set stream details
@@ -911,6 +946,53 @@ const LivestreamStudio = () => {
         setShowCheckout(false);
     }, []);
 
+    // Add follow/unfollow handler functions
+    const handleFollowSeller = async () => {
+        if (!sellerId) {
+            console.error('No seller ID available');
+            return;
+        }
+
+        try {
+            setIsFollowingLoading(true);
+            await followSellerThroughStream(sellerId, storeInfo.name);
+            setIsFollowing(true);
+        } catch (error) {
+            console.error('Error following seller:', error);
+            show({
+                type: "error",
+                text1: "Error",
+                text2: "Failed to follow seller. Please try again.",
+                topPosition: 18,
+            });
+        } finally {
+            setIsFollowingLoading(false);
+        }
+    };
+
+    const handleUnfollowSeller = async () => {
+        if (!sellerId) {
+            console.error('No seller ID available');
+            return;
+        }
+
+        try {
+            setIsFollowingLoading(true);
+            await unfollowSellerThroughStream(sellerId, storeInfo.name);
+            setIsFollowing(false);
+        } catch (error) {
+            console.error('Error unfollowing seller:', error);
+            show({
+                text1: "Error",
+                text2: `Failed to unfollow ${storeInfo.name}. Please try again.`,
+                type: "error",
+                topPosition: 18,
+            });
+        } finally {
+            setIsFollowingLoading(false);
+        }
+    };
+
     return (
         <>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
@@ -1008,9 +1090,25 @@ const LivestreamStudio = () => {
                                                 <Text className="text-gray-300 text-xs">{storeInfo.username}</Text>
                                             </View>
                                         </View>
-                                        <TouchableOpacity className="bg-[#16783A] h-full px-4 py-1 rounded-full">
-                                            <Text className="text-white text-sm">Follow</Text>
-                                        </TouchableOpacity>
+                                        {isFollowingLoading ? (
+                                            <TouchableOpacity className="bg-[#16783A] h-full px-4 py-1 rounded-full" disabled>
+                                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                            </TouchableOpacity>
+                                        ) : isFollowing ? (
+                                            <TouchableOpacity 
+                                                className="bg-[#444444] h-full px-4 py-1 rounded-full" 
+                                                onPress={handleUnfollowSeller}
+                                            >
+                                                <Text className="text-white text-sm">Unfollow</Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <TouchableOpacity 
+                                                className="bg-[#16783A] h-full px-4 py-1 rounded-full"
+                                                onPress={handleFollowSeller}
+                                            >
+                                                <Text className="text-white text-sm">Follow</Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
                                     <View className="flex-row items-center gap-2">
                                         <TouchableOpacity
