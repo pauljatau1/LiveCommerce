@@ -120,7 +120,7 @@ const LiveAuctionStudio = () => {
     const [isBidSending, setIsBidSending] = useState(false);
 
     // Add new state variables for timer
-    const [bidTimerData, setBidTimerData] = useState<{[key: string]: string}>({});
+    const [bidTimerData, setBidTimerData] = useState<{ [key: string]: string }>({});
     const [activeOrderCreated, setActiveOrderCreated] = useState<AuctionOrderCreated | null>(null);
     const [showOrderCreatedNotification, setShowOrderCreatedNotification] = useState(false);
 
@@ -362,7 +362,7 @@ const LiveAuctionStudio = () => {
 
             // Get the current user's information
             const user = await getUser();
-            
+
             // Create a join event for the current user
             const userJoinEvent = {
                 id: Date.now().toString(),
@@ -383,7 +383,7 @@ const LiveAuctionStudio = () => {
             setLiveComments(updatedChatInteractions);
 
             //console.log(`Loaded ${updatedChatInteractions.length} chat interactions from server`);
-            
+
             // Use requestAnimationFrame and setTimeout for more reliable scrolling
             if (updatedChatInteractions.length > 0) {
                 requestAnimationFrame(() => {
@@ -401,8 +401,8 @@ const LiveAuctionStudio = () => {
             const userToken = await getToken();
             if (userToken) {
                 initializeSocket(
-                    userToken, 
-                    handleStreamNotification, 
+                    userToken,
+                    handleStreamNotification,
                     setIsBidSending,
                     handleBidTimerUpdate,
                     handleBidTimerComplete,
@@ -428,29 +428,29 @@ const LiveAuctionStudio = () => {
                 //console.log('User joined stream:', notification.user);
                 // Update UI to show join event
                 setLiveComments(prev => [...prev, notification]);
-                
+
                 // Update viewer count if available in notification data
                 if (notification.data) {
                     if ('viewerCount' in notification.data) {
-                    setViewerCount(notification.data.viewerCount as number);
+                        setViewerCount(notification.data.viewerCount as number);
                     }
-                    
-                     // Add new viewer to detailedViewers array if not already present
-                     if (notification.data.buyerId) {
+
+                    // Add new viewer to detailedViewers array if not already present
+                    if (notification.data.buyerId) {
                         const buyerId = notification.data.buyerId;
                         console.log('Checking buyerId:', buyerId, 'in viewers array length:', detailedViewers?.length || 0);
-                        
+
                         // Log the full viewers array for debugging
                         console.log('Current detailedViewers:', JSON.stringify(detailedViewers));
-                        
+
                         // Convert both to strings for safer comparison
-                        const existingViewer = Array.isArray(detailedViewers) && 
-                          detailedViewers.find(viewer => 
-                            viewer && viewer._id && viewer._id.toString() === buyerId.toString()
-                          );
-                        
+                        const existingViewer = Array.isArray(detailedViewers) &&
+                            detailedViewers.find(viewer =>
+                                viewer && viewer._id && viewer._id.toString() === buyerId.toString() || viewer.firstName === notification?.data?.buyerName?.split(' ')[0] || viewer.lastName === notification?.data?.buyerName?.split(' ')[1]
+                            );
+
                         console.log('existingViewer check result:', existingViewer ? `Found with id ${existingViewer._id}` : 'Not found');
-                        
+
                         if (!existingViewer) {
                             // Viewer does not exist, create and add new viewer object
                             const newViewer = {
@@ -460,7 +460,7 @@ const LiveAuctionStudio = () => {
                                 username: notification.data.buyerUsername || '',
                                 profileImage: notification.data.buyerAvatar ? { url: notification.data.buyerAvatar } : undefined
                             };
-                            
+
                             setDetailedViewers(prev => [...prev, newViewer]);
                             console.log('Added new viewer:', newViewer._id);
                         } else {
@@ -513,14 +513,14 @@ const LiveAuctionStudio = () => {
                     if ('viewerCount' in notification.data) {
                         setViewerCount(notification.data.viewerCount as number);
                     }
-                    
+
                     // Remove viewer from detailedViewers array
                     if ('buyerId' in notification.data && notification.data.buyerId) {
                         const buyerId = notification.data.buyerId;
                         setDetailedViewers(prev => prev.filter(viewer => viewer._id !== buyerId));
                         //console.log('Removed viewer with ID:', buyerId);
                     }
-                    
+
                     // If the server provides a full viewers array, use it instead
                     {/*if ('viewers' in notification.data && Array.isArray(notification.data.viewers)) {
                         setDetailedViewers(notification.data.viewers);
@@ -711,11 +711,11 @@ const LiveAuctionStudio = () => {
                 //console.log('Auction ended for product:', notification);
                 // Update UI to show auction end event
                 setLiveComments(prev => [...prev, notification]);
-                
+
                 // Update the product status in streamProducts
                 if (notification.data && notification.data.product) {
                     const productId = notification.data.product.product?.productId;
-                    
+
                     if (productId) {
                         setStreamProducts(prevProducts => {
                             return prevProducts.map(p => {
@@ -1176,9 +1176,10 @@ const LiveAuctionStudio = () => {
     const handleSubmitBid = (bidAmount: number) => {
         // Get current product if not already selected
         const product = selectedBidProduct || (currentProductIndex !== null && streamProducts && streamProducts.length > 0 ? streamProducts[currentProductIndex] : null);
+        console.log('current bid product', product?.product?.name)
 
         if (!product) {
-            //console.error('No product selected for bid');
+            console.error('No product selected for bid');
             return;
         }
 
@@ -1191,7 +1192,7 @@ const LiveAuctionStudio = () => {
             }
 
             getUser().then(user => {
-                //console.log('User:', user);
+                console.log('User:', user);
                 if (!user) {
                     Alert.alert('Authentication Required', 'Please log in to place bids');
                     return;
@@ -1308,22 +1309,22 @@ const LiveAuctionStudio = () => {
     const handleBidTimerUpdate = useCallback((data: BidTimerUpdate) => {
         //console.log('Bid timer update received:', data);
         //console.log('Received formattedTime:', data.formattedTime, 'for product:', data.productId);
-        
+
         // Convert format from "00.11" to "00:11" by replacing the period with a colon
         const formattedTime = data.formattedTime.replace('.', ':');
         //console.log('Converted formattedTime:', formattedTime);
-        
+
         // Store the timer data using productId as key with the converted format
         setBidTimerData(prev => ({
             ...prev,
             [data.productId]: formattedTime
         }));
-        
+
         // Log the contents of bidTimerData after update
         setTimeout(() => {
             //console.log('Current bidTimerData:', bidTimerData);
         }, 100);
-        
+
         // Update streamProducts to ensure bidStatus is 'active' for this product
         setStreamProducts(prev => {
             return prev.map(product => {
@@ -1340,20 +1341,20 @@ const LiveAuctionStudio = () => {
                 return product;
             });
         });
-        
+
     }, [bidTimerData]);
 
     // Handle bid timer complete event
     const handleBidTimerComplete = useCallback((data: BidTimerComplete) => {
         //console.log('Bid timer complete received:', data);
-        
+
         // Clear timer data for this product
         setBidTimerData(prev => {
             const newData = { ...prev };
             delete newData[data.productId];
             return newData;
         });
-        
+
         // Update product status to 'ongoing' while waiting for winner determination
         setStreamProducts(prev => {
             return prev.map(product => {
@@ -1367,36 +1368,37 @@ const LiveAuctionStudio = () => {
                 return product;
             });
         });
-        
+
     }, []);
 
     // Handle auction order created event
     const handleAuctionOrderCreated = useCallback((data: AuctionOrderCreated) => {
         //console.log('Auction order created received:', data);
-        
+
         // Store the order data
         setActiveOrderCreated(data);
-        
+
         // Show notification
         setShowOrderCreatedNotification(true);
-        
+
         // Get first 3 words of product name
         const truncatedName = data.productName.split(' ').slice(0, 3).join(' ');
-        
+
         // You can also show a toast notification
         show({
             text1: 'Order Created',
             text2: `Your order for ${truncatedName}... has been created`,
             type: 'success',
-            duration: 5000
+            duration: 5000,
+            topPosition: 18
         });
-        
+
     }, [show]);
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-            <View 
+            <View
                 style={{ flex: 1 }}
             >
                 <View className="flex-1 bg-black">
@@ -1430,7 +1432,7 @@ const LiveAuctionStudio = () => {
                                         </View>
                                     </View>
                                 )}
-                                
+
                                 {/* No Host Alert */}
                                 {showNoHostAlert && !isLoading && (
                                     <View style={styles.noHostOverlay}>
@@ -1539,8 +1541,8 @@ const LiveAuctionStudio = () => {
                                                         alignItems: 'center',
                                                         paddingVertical: 10,
                                                     }}
-                                        >
-                                            {isMuted ? (
+                                                >
+                                                    {isMuted ? (
                                                         <Ionicons name="volume-mute-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
                                                     ) : (
                                                         <Ionicons name="volume-medium-outline" size={20} color="#FFF" style={{ marginRight: 10 }} />
@@ -1574,7 +1576,7 @@ const LiveAuctionStudio = () => {
                                                     <Text style={{ color: '#FF5555', fontSize: 14 }}>
                                                         {isLeavingStream ? 'Leaving...' : 'Leave'}
                                                     </Text>
-                                        </TouchableOpacity>
+                                                </TouchableOpacity>
                                             </View>
                                         )}
                                     </View>
@@ -1610,14 +1612,14 @@ const LiveAuctionStudio = () => {
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
-                                        <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
+                                            <MaterialCommunityIcons name="package-variant-closed" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Orders</Text>
                                     </View>
 
                                     <View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
-                                        <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
+                                            <MaterialCommunityIcons name="storefront-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Shop</Text>
                                     </View>
@@ -1690,7 +1692,7 @@ const LiveAuctionStudio = () => {
                                             returnKeyType="send"
                                             onSubmitEditing={handleSendComment}
                                         />
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={styles.sendButton}
                                             onPress={handleSendComment}
                                             disabled={!commentInput.trim()}
@@ -1762,8 +1764,8 @@ const LiveAuctionStudio = () => {
                                                     bidTimeRemaining={
                                                         (() => {
                                                             const productId = streamProducts[currentProductIndex].product.productId;
-                                                            const timeValue = productId && bidTimerData[productId] 
-                                                                ? bidTimerData[productId] 
+                                                            const timeValue = productId && bidTimerData[productId]
+                                                                ? bidTimerData[productId]
                                                                 : "00:30";
                                                             //console.log(`Debug - Passing timer for product ${productId}:`, timeValue, 
                                                             //    'Status:', streamProducts[currentProductIndex].bidStatus,
@@ -1774,7 +1776,7 @@ const LiveAuctionStudio = () => {
                                                 />
                                             </>
                                         )}
-                                </View>
+                                    </View>
                                 </>
                             )}
                         </View>
@@ -1874,7 +1876,7 @@ const LiveAuctionStudio = () => {
                 onRequestClose={() => setShowViewers(false)}
                 keyboardBehavior="interactive"
             >
-                <StreamViewers 
+                <StreamViewers
                     viewers={detailedViewers}
                     hostInfo={{
                         name: storeInfo.name,
@@ -2101,6 +2103,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     inputWithButtonContainer: {
+        height: 55,
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,

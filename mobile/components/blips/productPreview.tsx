@@ -26,12 +26,12 @@ const ProductPreview = ({
         <ActivityIndicator size={"small"} color="#16783A" />
       ) : (
         <>
-          <View className="w-full flex-row items-center justify-between">
+          <View className="w-full px-[16px] flex-row items-center mb-[10px] justify-between">
             <Text></Text>
             <Pressable onPress={closeSheet} className="flex-end">
-              <View className="bg-[#EE571C] w-[30px] h-[30px] rounded-[50%]">
-                <AntDesign name="closecircle" size={30} color="#F9C7B3" />
-              </View>
+         
+                <AntDesign name="close" size={27} color="white" />
+ 
             </Pressable>
           </View>
           <View
