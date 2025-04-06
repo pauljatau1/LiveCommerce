@@ -159,9 +159,10 @@ export const LivestreamProvider = ({ children }) => {
       if (response.status === 200) {
         console.log("Successfully followed seller through stream:", response.data);
         show({
-          title: "Success",
-          description: `You are now following ${sellerName}`,
+          text1: "Success",
+          text2: `You are now following ${sellerName}`,
           type: "success",
+          topPosition: 18
         });
         return response.data;
       }
@@ -192,9 +193,10 @@ export const LivestreamProvider = ({ children }) => {
       if (response.status === 200) {
         console.log("Successfully unfollowed seller through stream:", response.data);
         show({
-          title: "Success",
-          description: `You are now unfollowing ${sellerName}`,
+          text1: "Success",
+          text2: `You unfollowed ${sellerName}`,
           type: "success",
+          topPosition: 18
         });
         return response.data;
       }

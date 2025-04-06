@@ -209,18 +209,29 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     return initials || "?";
   };
 
+  // Setup and cleanup effect
   useEffect(() => {
-    isVisible ? setupLivestream() : null;
-
-    // Scroll to the end to show new comment
-    if (commentsListRef.current) {
-      commentsListRef.current.scrollToEnd({ animated: true });
+    // On mount or when isVisible changes to true, run setupLivestream
+    if (isVisible) {
+      setupLivestream();
+      
+      // Scroll to the end to show new comment
+      if (commentsListRef.current) {
+        commentsListRef.current.scrollToEnd({ animated: true });
+      }
+      
+      // Cleanup function - will run when:
+      // 1. Component unmounts
+      // 2. isVisible changes from true to false
+      // 3. id changes (which should disconnect and reconnect)
+      return () => {
+        // Since we only run the effect when isVisible is true,
+        // this cleanup will only run when we're either unmounting
+        // or isVisible is changing to false, both cases where we want to leave
+        handleLeaveStream(true);
+      };
     }
-
-    return () => {
-      handleLeaveStream(true);
-      // disconnectSocket();
-    };
+    // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
 
   // Separate useEffect for keyboard event listeners
@@ -569,9 +580,9 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                       viewer._id &&
                       viewer._id.toString() === buyerId.toString()) ||
                     viewer.firstName ===
-                      notification?.data?.buyerName?.split(" ")[0] ||
+                    notification?.data?.buyerName?.split(" ")[0] ||
                     viewer.lastName ===
-                      notification?.data?.buyerName?.split(" ")[1],
+                    notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -1347,8 +1358,8 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     const product =
       selectedBidProduct ||
       (currentProductIndex !== null &&
-      streamProducts &&
-      streamProducts.length > 0
+        streamProducts &&
+        streamProducts.length > 0
         ? streamProducts[currentProductIndex]
         : null);
     console.log("current bid product", product?.product?.name);
@@ -2297,7 +2308,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-        //enableContentPanningGesture={true}
+      //enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={storeInfo}
