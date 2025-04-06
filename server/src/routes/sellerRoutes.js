@@ -3359,4 +3359,53 @@ router.get('/product/:productId/review/:reviewId', sellerController.getPublicPro
  */
 router.get('/search', optionalAuthMiddleware, sellerController.searchSellers);
 
+/**
+ * @swagger
+ * /api/seller/account-pending:
+ *   put:
+ *     summary: Toggle seller account pending status
+ *     description: Update the account pending status of the seller's account
+ *     tags: [Seller]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: boolean
+ *                 description: The pending status to set (true or false)
+ *     responses:
+ *       200:
+ *         description: Account pending status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Account pending status updated to true
+ *                 accountPending:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid status value
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/account-pending', authMiddleware.verifyToken, authMiddleware.isSeller, sellerController.toggleAccountPending);
+
 module.exports = router;

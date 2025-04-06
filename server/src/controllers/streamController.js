@@ -2970,12 +2970,15 @@ exports.getRelatedStreams = async (req, res) => {
     const { streamId } = req.params;
     const { 
       status, 
-      limit = 5, 
+      limit = 10, 
+      page = 1,
       excludeSeller = false 
     } = req.query;
 
-    // Parse limit to ensure it's a number and cap it at 20
-    const parsedLimit = Math.min(parseInt(limit) || 5, 20);
+    // Parse pagination parameters
+    const parsedLimit = Math.min(parseInt(limit) || 10, 20);
+    const parsedPage = parseInt(page) || 1;
+    const skip = (parsedPage - 1) * parsedLimit;
 
     // Find the source stream to get its category and tags
     const sourceStream = await Stream.findById(streamId)
@@ -3002,91 +3005,96 @@ exports.getRelatedStreams = async (req, res) => {
       query.seller = { $ne: sourceStream.seller };
     }
 
-    // First try to find streams with both matching category and some matching tags
-    const categoryAndTagMatch = await Stream.find({
+    // Build the base aggregation pipeline to find related streams
+    const aggregationPipeline = [];
+
+    // Match based on category and tags first (highest relevance)
+    const categoryTagsQuery = {
       ...query,
       category: sourceStream.category,
       tags: { $in: sourceStream.tags }
+    };
+
+    // Match based on category only (medium relevance)
+    const categoryQuery = {
+      ...query,
+      category: sourceStream.category
+    };
+
+    // Match based on tags only (lower relevance)
+    const tagsQuery = {
+      ...query,
+      tags: { $in: sourceStream.tags }
+    };
+
+    // Count total related streams for pagination
+    const [categoryTagsCount, categoryCount, tagsCount, totalCount] = await Promise.all([
+      Stream.countDocuments(categoryTagsQuery),
+      Stream.countDocuments(categoryQuery),
+      Stream.countDocuments(tagsQuery),
+      Stream.countDocuments(query)
+    ]);
+
+    // First try to find streams with both matching category and some matching tags
+    const categoryAndTagMatch = await Stream.find(categoryTagsQuery)
+      .populate('seller', 'storeName businessName storeAvatar')
+      .populate('products.product', 'name description images price')
+      .populate('viewers')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Next, find streams with matching category
+    const categoryMatch = await Stream.find({
+      ...categoryQuery,
+      _id: { $nin: categoryAndTagMatch.map(stream => stream._id) }
     })
-    .populate('seller', 'storeName businessName storeAvatar')
-    .populate('products.product', 'name description images price')
-    .populate('viewers')
-    .limit(parsedLimit)
-    .sort({ createdAt: -1 })
-    .lean();
-
-    // If we don't have enough results, try to find more based on just the category
-    let results = categoryAndTagMatch;
-
-    if (results.length < parsedLimit) {
-      const remainingLimit = parsedLimit - results.length;
-      const existingIds = results.map(stream => stream._id.toString());
-      
-      // Add source stream ID to the list of streams to exclude
-      existingIds.push(streamId);
-
-      const categoryMatch = await Stream.find({
-        ...query,
-        _id: { $nin: existingIds },
-        category: sourceStream.category
-      })
       .populate('seller', 'storeName businessName storeAvatar')
       .populate('products.product', 'name description images price')
       .populate('viewers')
-      .limit(remainingLimit)
       .sort({ createdAt: -1 })
       .lean();
 
-      results = [...results, ...categoryMatch];
-    }
-
-    // If we still don't have enough results, try to find more based on tags
-    if (results.length < parsedLimit && sourceStream.tags && sourceStream.tags.length > 0) {
-      const remainingLimit = parsedLimit - results.length;
-      const existingIds = results.map(stream => stream._id.toString());
-      
-      // Add source stream ID to the list of streams to exclude
-      existingIds.push(streamId);
-
-      const tagMatch = await Stream.find({
-        ...query,
-        _id: { $nin: existingIds },
-        tags: { $in: sourceStream.tags }
-      })
+    // Next, find streams with matching tags
+    const tagMatch = await Stream.find({
+      ...tagsQuery,
+      _id: { $nin: [...categoryAndTagMatch.map(stream => stream._id), ...categoryMatch.map(stream => stream._id)] }
+    })
       .populate('seller', 'storeName businessName storeAvatar')
       .populate('products.product', 'name description images price')
       .populate('viewers')
-      .limit(remainingLimit)
       .sort({ createdAt: -1 })
       .lean();
 
-      results = [...results, ...tagMatch];
-    }
+    // Lastly, find any remaining streams
+    const existingIds = [
+      ...categoryAndTagMatch.map(stream => stream._id),
+      ...categoryMatch.map(stream => stream._id),
+      ...tagMatch.map(stream => stream._id)
+    ];
 
-    // If we still don't have enough results, find the newest streams regardless of category/tags
-    if (results.length < parsedLimit) {
-      const remainingLimit = parsedLimit - results.length;
-      const existingIds = results.map(stream => stream._id.toString());
-      
-      // Add source stream ID to the list of streams to exclude
-      existingIds.push(streamId);
-
-      const newestStreams = await Stream.find({
-        ...query,
-        _id: { $nin: existingIds }
-      })
+    const newestStreams = await Stream.find({
+      ...query,
+      _id: { $nin: existingIds }
+    })
       .populate('seller', 'storeName businessName storeAvatar')
       .populate('products.product', 'name description images price')
       .populate('viewers')
-      .limit(remainingLimit)
       .sort({ createdAt: -1 })
       .lean();
 
-      results = [...results, ...newestStreams];
-    }
+    // Combine all results in order of relevance
+    const allResults = [
+      ...categoryAndTagMatch,
+      ...categoryMatch,
+      ...tagMatch,
+      ...newestStreams
+    ];
+
+    // Apply pagination to the combined results
+    const paginatedResults = allResults.slice(skip, skip + parsedLimit);
 
     // Add viewerCount to each stream
-    const streamsWithViewerCount = results.map(stream => {
+    const streamsWithViewerCount = paginatedResults.map(stream => {
       // Convert to plain object if not already
       const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
       streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
@@ -3094,7 +3102,10 @@ exports.getRelatedStreams = async (req, res) => {
       return streamObj;
     });
 
-    // Return the related streams along with source stream info
+    // Calculate total number of related streams
+    const total = allResults.length;
+
+    // Return the related streams along with source stream info and pagination
     res.json({
       streams: streamsWithViewerCount,
       sourceStream: {
@@ -3103,6 +3114,12 @@ exports.getRelatedStreams = async (req, res) => {
         category: sourceStream.category,
         tags: sourceStream.tags,
         type: sourceStream.type
+      },
+      pagination: {
+        total,
+        pages: Math.ceil(total / parsedLimit),
+        currentPage: parsedPage,
+        hasMore: parsedPage * parsedLimit < total
       }
     });
 

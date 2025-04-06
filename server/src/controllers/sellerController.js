@@ -365,6 +365,7 @@ exports.getProfile = async (req, res) => {
         specialDates: 1,
         timezone: 1,
         storePolicy: 1,
+        accountPending: 1,
       })
       .lean();
 
@@ -4512,6 +4513,49 @@ exports.searchSellers = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to search sellers',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc   Toggle seller account pending status
+ * @route  PUT /api/seller/account-pending
+ * @access Private
+ */
+exports.toggleAccountPending = async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    if (typeof status !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'Status must be a boolean value (true or false)'
+      });
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+
+    seller.accountPending = status;
+    await seller.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Account pending status updated to ${status}`,
+      accountPending: seller.accountPending
+    });
+  } catch (error) {
+    console.error('Toggle account pending error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update account pending status',
       error: error.message
     });
   }

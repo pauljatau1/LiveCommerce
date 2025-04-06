@@ -2572,7 +2572,8 @@ exports.getSellerInfo = async (req, res) => {
     res.json({
       sellerInfo: {
         name: seller.name,
-        businessName: seller.businessName
+        businessName: seller.businessName,
+        accountPending: seller.accountPending || false
       }
     });
   } catch (error) {

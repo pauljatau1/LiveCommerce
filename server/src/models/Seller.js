@@ -56,6 +56,7 @@ const sellerSchema = new mongoose.Schema({
   taxInformation: { type: String },
   businessEmail: { type: String },
   businessNumber: { type: String },
+  accountPending: { type: Boolean, default: false },
   businessAddress: {
     country: { type: String },
     state: { type: String },

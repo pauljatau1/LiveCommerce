@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
 
 const session = require('express-session');
 const { swaggerUi, specs } = require('../swagger');
@@ -120,14 +119,9 @@ app.use((err, req, res, next) => {
 });
 
 app.get('/health', (req, res) => {
-  console.log('Health check endpoint called');
-  res.status(200).json({ 
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
-  });
+  res.send('OK');
 });
+
 
 // Add passport middleware
 app.use(passport.initialize());

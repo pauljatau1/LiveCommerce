@@ -1707,8 +1707,15 @@ router.post('/:streamId/unsubscribe',
  *           type: integer
  *           minimum: 1
  *           maximum: 20
- *           default: 5
- *         description: Number of related streams to return
+ *           default: 10
+ *         description: Number of related streams per page
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
  *       - in: query
  *         name: excludeSeller
  *         schema:
@@ -1717,7 +1724,7 @@ router.post('/:streamId/unsubscribe',
  *         description: Whether to exclude streams from the same seller
  *     responses:
  *       200:
- *         description: List of related streams
+ *         description: List of related streams with pagination
  *         content:
  *           application/json:
  *             schema:
@@ -1740,6 +1747,23 @@ router.post('/:streamId/unsubscribe',
  *                       type: array
  *                       items:
  *                         type: string
+ *                     type:
+ *                       type: string
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       description: Total number of related streams
+ *                     pages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *                     currentPage:
+ *                       type: integer
+ *                       description: Current page number
+ *                     hasMore:
+ *                       type: boolean
+ *                       description: Whether there are more pages
  *       404:
  *         description: Stream not found
  *       500:

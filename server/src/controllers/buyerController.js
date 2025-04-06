@@ -1592,6 +1592,7 @@ exports.getSellerProfile = async (req, res) => {
         storeBanner: seller.storeBanner,
         isVerified: seller.isVerified,
         isFeatured: seller.isFeatured,
+        accountPending: seller.accountPending || false,
         joinedDate: seller.createdAt,
         bio: seller.aboutStore,
         isFollowing: seller.followers?.some(
