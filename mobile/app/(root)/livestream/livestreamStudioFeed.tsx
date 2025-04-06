@@ -1750,7 +1750,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 13,
     bottom: 50,
-    maxHeight: 220,
+    maxHeight: 250,
     zIndex: 10,
   },
   commentsContainer: {
