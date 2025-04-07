@@ -8,7 +8,7 @@ parameters:
     default: "node_modules"
   docker_base_image_version:
     type: string
-    default: "node:20"
+    default: "node:22"
   docker_job_image:
     type: string
     default: "cimg/python:3.9.1"
@@ -71,8 +71,16 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            yarn
-            npm install
+            rm -rf node_modules package-lock.json
+            npm install @rollup/rollup-linux-x64-gnu@4.9.5 --ignore-scripts
+            npm install @esbuild/linux-x64 --ignore-scripts
+            npm install --no-optional
+            npm install --platform=linux --arch=x64
+            for component in table dialog avatar command select; do
+              if [ ! -f "src/Components/ui/${component}.jsx" ]; then
+                npx shadcn-ui@latest add ${component} --yes
+              fi
+            done
       - save_cache:
           name: Save vendor cache
           key: v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
