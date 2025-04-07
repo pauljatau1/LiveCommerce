@@ -186,10 +186,10 @@ function Products() {
             <Upload className="h-4 w-4 mr-2" />
             Import CSV
           </Button>
-          <Button className="bg-primary">
+          {/* <Button className="bg-primary">
             <Plus className="h-4 w-4 mr-2" />
             Add Product
-          </Button>
+          </Button> */}
         </div>
       </div>
 
