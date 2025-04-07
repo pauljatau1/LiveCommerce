@@ -46,7 +46,7 @@ const ForgotPassword = () => {
   const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
   const [resetPassword, { isLoading: isLoadingReset }] =
     useResetPasswordMutation();
-  const [showOtpSheet, setshowOtpSheet] = useState<boolean>(true);
+  const [showOtpSheet, setshowOtpSheet] = useState<boolean>(false);
 
   const handleSubmit = async () => {
     console.log("in submit");
@@ -56,7 +56,9 @@ const ForgotPassword = () => {
       const result = await forgotPassword({
         email,
       }).unwrap();
+
       setshowOtpSheet(true);
+      Keyboard.dismiss();
     } catch (error: any) {
       console.log(error);
       toast.error(error.data.message);

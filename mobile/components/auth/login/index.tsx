@@ -211,8 +211,8 @@ const Login = () => {
                       secureTextEntry
                       rules={["required"]}
                     />
-                    <View className="mt-2 w-full flex-row items-center justify-between">
-                      <CheckBox name="remember" label="Remember me" />
+                    <View className="mt-2 w-full flex-row items-center justify-end">
+                      {/* <CheckBox name="remember" label="Remember me" /> */}
                       <Link href="/(root)/(auth)/forgot-password">
                         <Text
                           className="text-sm
@@ -233,7 +233,7 @@ const Login = () => {
                       Log in
                     </CustomButton>
 
-                    <View className="flex-row items-center">
+                    {/* <View className="flex-row items-center">
                       <View className="h-px flex-1 bg-primary-100" />
                       <View>
                         <Text className="w-[50px] text-center text-sm text-white">
@@ -255,7 +255,7 @@ const Login = () => {
                           className="w-5 h-5 mr-2"
                         />
                       )}
-                    />
+                    /> */}
                   </FormProvider>
                 </View>
               </View>

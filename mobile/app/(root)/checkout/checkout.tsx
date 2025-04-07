@@ -282,7 +282,7 @@ const Checkout = () => {
           ct?.seller?.warehouseDetails?.address?.state ||
           ct?.seller?.addresses?.sellerAddress?.state ||
           ct?.seller?.addresses?.warehouseAddress?.state,
-        weight: ct.weight * ct.quantity,
+        weight: ct.weight * ct.quantity || 0.5,
         sellerId: ct.seller._id,
       };
     });

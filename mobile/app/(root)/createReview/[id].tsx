@@ -10,6 +10,8 @@ import {
   Image,
   TouchableWithoutFeedback,
   Keyboard,
+  Alert,
+  Linking,
 } from "react-native";
 import React, { useState } from "react";
 import { router, useGlobalSearchParams } from "expo-router";
@@ -35,6 +37,25 @@ const createReview = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const pickImage = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      if (permission.canAskAgain) {
+        const newPermission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!newPermission.granted) {
+          return;
+        }
+      } else {
+        return Alert.alert(
+          "Permission Required",
+          "Please enable media library access in Settings to continue",
+          [
+            { text: "Cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
+    }
     // Check if the number of selected images is less than 4
     if (selectedImages.length >= 4) {
       alert("You can only upload up to 4 images.");

@@ -37,6 +37,7 @@ const OtpSheet = memo(
             value={otp}
             keyboardType="numeric"
             onChangeText={(text) => setOtp(text)}
+            autoFocus
           />
         </View>
         <View className="w-[100%] rounded-[8px] py-[12px] px-[12px] bg-[#2e2e2e]">

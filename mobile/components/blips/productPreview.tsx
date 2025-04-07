@@ -5,6 +5,7 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import { Image } from "expo-image";
 import { ActivityIndicator } from "react-native-paper";
 import { router } from "expo-router";
+import { formatNumber } from "@/helpers/helpers";
 
 const ProductPreview = ({
   product,
@@ -29,9 +30,7 @@ const ProductPreview = ({
           <View className="w-full px-[16px] flex-row items-center mb-[10px] justify-between">
             <Text></Text>
             <Pressable onPress={closeSheet} className="flex-end">
-         
-                <AntDesign name="close" size={27} color="white" />
- 
+              <AntDesign name="close" size={27} color="white" />
             </Pressable>
           </View>
           <View
@@ -66,7 +65,7 @@ const ProductPreview = ({
                   </Text>
                   <View className="bg-[#EBF2FA] rounded-[100px] px-[10px] py-[2px]">
                     <Text className="text-[12px] font-LexendDeca text-[#A6B7D4]">
-                      {productDetails?.stock}
+                      {formatNumber(productDetails?.stock)}
                     </Text>
                   </View>
                 </View>

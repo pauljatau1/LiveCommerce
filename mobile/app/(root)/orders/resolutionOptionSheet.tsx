@@ -8,7 +8,10 @@ interface Props {
   setResolutionOption: any;
 }
 
-const resolutionOptions = ["Return item & Refund", "Return & Replace item"];
+const resolutionOptions = [
+  "Return item & Refund",
+  //  "Return & Replace item"
+];
 
 const reasonDesc = [
   "Your return and refund request will be received. You can track the progress on your account's return tab.",

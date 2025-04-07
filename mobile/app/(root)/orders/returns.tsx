@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Dimensions,
   Keyboard,
+  Alert,
+  Linking,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -75,6 +77,25 @@ const Returns = () => {
   };
 
   const pickImage = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      if (permission.canAskAgain) {
+        const newPermission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!newPermission.granted) {
+          return;
+        }
+      } else {
+        return Alert.alert(
+          "Permission Required",
+          "Please enable media library access in Settings to continue",
+          [
+            { text: "Cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
+    }
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
