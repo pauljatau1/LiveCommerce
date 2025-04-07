@@ -13,7 +13,10 @@ const Tags = ({ tags, setSelected, selected }: any) => {
     <View
       style={[
         // styles.container,
-        { borderBottomColor: "rgba(255, 255, 255, 0.38)" },
+        {
+          borderBottomColor: "rgba(255, 255, 255, 0.38)",
+          alignItems: "center",
+        },
       ]}
       className=" mt-8 border-b-[1px]"
     >
@@ -62,7 +65,7 @@ const styles = StyleSheet.create({
   },
   container: {
     marginVertical: 0,
-    paddingLeft: 16,
+    paddingHorizontal: 12,
     // marginHorizontal: -16,
   },
 });

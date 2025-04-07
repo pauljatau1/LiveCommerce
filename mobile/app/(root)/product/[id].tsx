@@ -53,6 +53,7 @@ import AuctionRulesSheet from "@/components/product/auctionRulesSheet";
 import { Octicons } from "@expo/vector-icons";
 import CartSheet from "@/components/product/productCartSheet";
 import AddedToCart from "@/components/product/productAddedToCart";
+import RenderHtml, { defaultSystemFonts } from "react-native-render-html";
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -794,18 +795,24 @@ const ProductDescription = () => {
                     }}
                   >
                     <View className="flex flex-row gap-[10px] items-center">
-                      <View className="flex flex-row gap-[6px]  items-center">
+                      <View
+                        className={`flex flex-row ${productDetails?.stats?.averageRating ? "gap-[6px]" : ""}  items-center justify-center`}
+                      >
                         <Text className="text-[14px] text-white font-LexendDecaMedium">
                           {productDetails?.stats?.averageRating
                             ? parseFloat(
                                 productDetails?.stats?.averageRating,
                               ).toFixed(1)
-                            : 0}
+                            : null}
                         </Text>
                         <AntDesign name="star" size={14} color="#FFD700" />
                       </View>
                       <Text className="text-[14px] text-white font-LexendDecaMedium">
-                        Product Ratings ({productDetails?.stats?.reviewCount})
+                        Product Ratings (
+                        {productDetails?.stats?.reviewCount < 1
+                          ? "No Reviews"
+                          : formatNumber(productDetails?.stats?.reviewCount)}
+                        )
                       </Text>
                     </View>
                     {productDetails?.stats?.reviewCount ? (
@@ -850,6 +857,10 @@ const ProductDescription = () => {
                               storeName: formattedStoreName,
                               storeAvatar:
                                 sellerInfo?.storePresence?.storeAvatar?.url,
+                              averageRating:
+                                productDetails?.stats?.averageRating?.toFixed(
+                                  1,
+                                ),
                             },
                           })
                         }
@@ -886,6 +897,8 @@ const ProductDescription = () => {
                               width: 190,
                               height: review?.images[0]?.url ? 104 : 0,
                             }}
+                            reviewId={review?._id}
+                            productId={id}
                           />
                         ))}
                       </ScrollView>
@@ -1007,19 +1020,28 @@ const ProductDescription = () => {
                       style={{
                         paddingHorizontal: 20,
                         paddingVertical: 10,
-                        paddingLeft: 61,
+                        paddingLeft: 23,
                         backgroundColor: "#000",
                         borderTopWidth: 1,
                         borderTopColor: "rgba(159, 159, 159, 0.23)",
                       }}
                     >
-                      <Text className="text-white font-LexendDecaMedium leading-7">
+                      <RenderHtml
+                        contentWidth={width - 46}
+                        source={{ html: productDetails?.description }}
+                        tagsStyles={{
+                          body: {
+                            color: "#fff",
+                          },
+                        }}
+                      />
+                      {/* <Text className="text-white font-LexendDecaMedium leading-7">
                         {productDetails?.description}
-                      </Text>
+                      </Text> */}
                     </View>
                   )}
 
-                  <TouchableOpacity
+                  {/* <TouchableOpacity
                     className="flex flex-row justify-between px-[18px] py-[14px] items-center bg-[#000]"
                     style={{
                       borderTopWidth: 1,
@@ -1057,7 +1079,7 @@ const ProductDescription = () => {
                     </TouchableOpacity>
                   </TouchableOpacity>
 
-                  {isProductSpecsShow && renderSpecifications()}
+                  {isProductSpecsShow && renderSpecifications()} */}
 
                   <View className="px-[20px] py-[14px] ">
                     <View
@@ -1151,7 +1173,7 @@ const ProductDescription = () => {
                         </View>
                       </View>
 
-                      <View className="justify-between flex-row gap-[16px]">
+                      <View className="justify-between flex-row gap-[16px] shrink">
                         <View className="  gap-[16px] justify-between">
                           <View className="gap-[4px]">
                             <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
@@ -1180,7 +1202,7 @@ const ProductDescription = () => {
                           </View>
                         </View>
 
-                        <View className=" gap-[16px] justify-between">
+                        <View className=" gap-[16px] justify-between shrink">
                           <View className="gap-[4px]">
                             <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
                               Rating
@@ -1194,7 +1216,7 @@ const ProductDescription = () => {
                             </View>
                           </View>
 
-                          <View className="gap-[4px]">
+                          <View className="gap-[4px] shrink">
                             <View className="flex-row items-center gap-[4px]">
                               <Ionicons
                                 name="location-sharp"
@@ -1206,7 +1228,7 @@ const ProductDescription = () => {
                               </Text>
                             </View>
 
-                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium">
+                            <Text className="text-[8.5px] text-[#ccc] font-LexendDecaMedium shrink">
                               {sellerInfo?.location?.state},{" "}
                               {sellerInfo?.location?.country || "Nigeria"}
                             </Text>

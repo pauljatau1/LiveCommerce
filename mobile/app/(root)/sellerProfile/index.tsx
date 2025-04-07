@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Pressable,
+  ScrollView,
 } from "react-native";
 import React, {
   useState,
@@ -17,6 +18,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
+// import { ScrollView } from "react-native-virtualized-view";
 import { TabView, TabBar, TabBarItem } from "react-native-tab-view";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,8 +40,9 @@ import SellerReviews from "@/components/sellerProfile/reviews";
 import Shows from "@/components/sellerProfile/shows";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { MaterialIcons } from "@expo/vector-icons";
 
-const HEADER_HEIGHT = 450;
+const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
   Animated.ScrollView,
 );
@@ -112,14 +115,15 @@ const CollapsibleHeader = memo(
     return (
       <Animated.View
         style={{
-          height: HEADER_HEIGHT,
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          transform: [{ translateY: headerTranslateY }],
+          // height: HEADER_HEIGHT,
+          // position: "absolute",
+          // top: 0,
+          // left: 0,
+          // right: 0,
+          // transform: [{ translateY: headerTranslateY }],
           backgroundColor: "#121212",
           zIndex: 1,
+          marginBottom: 20,
         }}
       >
         <View style={{ flex: 1, paddingTop: 0 }}>
@@ -183,61 +187,23 @@ const CollapsibleHeader = memo(
           seller?.storeInfo?.socialMedia?.tiktok ? (
             <View style={styles.socialContainer}>
               {seller?.storeInfo?.socialMedia?.facebook && (
-                <Link
-                  href={`${seller?.storeInfo?.socialMedia?.facebook}`}
-                  style={{ flexBasis: "33%", flexShrink: 1 }}
-                >
-                  <View
-                    style={[
-                      styles.socialCard,
-                      { borderColor: "#1966F7", borderWidth: 1 },
-                    ]}
-                  >
-                    <Image
-                      source={require("../../../assets/icons/facebook-logo.png")}
-                      contentFit="contain"
-                      style={{
-                        width: 14,
-                        height: 14,
-                      }}
-                    />
-                    <Text style={styles.socialText}>Facebook</Text>
+                <Link href={`${seller?.storeInfo?.socialMedia?.facebook}`}>
+                  <View style={[styles.socialCard]}>
+                    <MaterialIcons name="facebook" size={18} color="white" />
                   </View>
                 </Link>
               )}
               {seller?.storeInfo?.socialMedia?.instagram && (
-                <Link
-                  href={`${seller?.storeInfo?.socialMedia?.instagram}`}
-                  style={{ flexBasis: "33%", flexShrink: 1 }}
-                >
+                <Link href={`${seller?.storeInfo?.socialMedia?.instagram}`}>
                   <View style={[styles.socialCard]}>
-                    <Image
-                      source={require("../../../assets/icons/instagram-logo.png")}
-                      contentFit="contain"
-                      style={{
-                        width: 14,
-                        height: 14,
-                      }}
-                    />
-                    <Text style={styles.socialText}>Instagram</Text>
+                    <AntDesign name="instagram" size={18} color="white" />
                   </View>
                 </Link>
               )}
               {seller?.storeInfo?.socialMedia?.tiktok && (
-                <Link
-                  href={`${seller?.storeInfo?.socialMedia?.tiktok}`}
-                  style={{ flexBasis: "33%", flexShrink: 1 }}
-                >
+                <Link href={`${seller?.storeInfo?.socialMedia?.tiktok}`}>
                   <View style={[styles.socialCard]}>
-                    <Image
-                      source={require("../../../assets/icons/tiktok-logo.png")}
-                      contentFit="contain"
-                      style={{
-                        width: 14,
-                        height: 14,
-                      }}
-                    />
-                    <Text style={styles.socialText}>Tiktok</Text>
+                    <MaterialIcons name="tiktok" size={18} color="white" />
                   </View>
                 </Link>
               )}
@@ -268,15 +234,13 @@ const CollapsibleHeader = memo(
               <Text style={styles.statLabel}>Followers</Text>
             </View>
           </View>
-          <Text style={styles.bio} numberOfLines={3}>
-            {seller?.storeInfo?.aboutStore?.slice(0, 170)}
-          </Text>
-          <View
-            style={[
-              styles.policyContainer,
-              { position: "absolute", bottom: 2 },
-            ]}
-          >
+          {seller?.storeInfo?.aboutStore && (
+            <Text style={styles.bio} numberOfLines={3}>
+              {seller?.storeInfo?.aboutStore?.slice(0, 170)}
+            </Text>
+          )}
+
+          <View style={[styles.policyContainer]}>
             <View style={[styles.policyCard, { backgroundColor: "#DEFFEE" }]}>
               <Feather name="truck" size={14} color="black" />
               <View style={styles.policyText}>
@@ -578,19 +542,24 @@ const SellerProfile = () => {
           backgroundColor: "#121212",
           zIndex: 3,
           flexDirection: "row",
-          justifyContent: "space-between",
+          justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <View className="flex-row items-center gap-[8px]">
-          <TouchableOpacity className="" onPress={() => router.back()}>
-            <Entypo
-              name="chevron-left"
-              size={24}
-              color="rgba(204, 204, 204, 0.8)"
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          className=""
+          onPress={() => router.back()}
+          style={{
+            position: "absolute",
+            left: 12,
+          }}
+        >
+          <Entypo
+            name="chevron-left"
+            size={24}
+            color="rgba(204, 204, 204, 0.8)"
+          />
+        </TouchableOpacity>
         <View
           className="flex-row items-center gap-[8px]"
           style={{ alignItems: "center" }}
@@ -615,21 +584,21 @@ const SellerProfile = () => {
           {seller?.reviews?.averageRating > 0 && (
             <View className="flex-row items-center gap-[4px]">
               <Text className="text-white font-LexendDeca text-[14px]">
-                {seller?.reviews?.averageRating}
+                {seller?.reviews?.averageRating?.toFixed(1)}
               </Text>
               <AntDesign name="star" size={14} color="#FFD700" />
             </View>
           )}
         </View>
 
-        <View
+        {/* <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             gap: 23,
           }}
         >
-          {/* <TouchableOpacity
+          <TouchableOpacity
             onPress={() => null}
             className="items-center gap-[2px]"
           >
@@ -638,11 +607,16 @@ const SellerProfile = () => {
               size={24}
               color="#ccc"
             />
-          </TouchableOpacity> */}
-        </View>
+          </TouchableOpacity>
+        </View> */}
       </View>
 
-      <View style={{ flex: 1 }}>
+      <ScrollView
+        stickyHeaderIndices={[1]}
+        style={{ flex: 1 }}
+        nestedScrollEnabled={true}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Collapsible Header */}
         <CollapsibleHeader
           scrollY={scrollY}
@@ -652,16 +626,44 @@ const SellerProfile = () => {
           sellerId={sellerId?.toString()}
         />
 
+        <View
+          className="flex-row items-center justify-between px-[16px] gap-[40px] bg-[#121212]"
+          style={{
+            borderBottomColor: "rgba(204, 204, 204, 0.25)",
+            borderBottomWidth: 0.5,
+            zIndex: 100,
+            elevation: 100,
+            position: "sticky",
+            top: 0,
+          }}
+        >
+          {routes?.map((tab, ind) => (
+            <TouchableOpacity
+              onPress={() => setIndex(ind)}
+              className={`py-[4px] pb-[16px] px-[8px] ${index == ind ? "border-b-[1px] border-b-white" : ""}`}
+              key={ind}
+            >
+              <Text
+                className={` font-LexendDecaMedium text-[12px] ${index == ind ? "text-white" : "text-[#94A3B1]"}`}
+              >
+                {tab.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View>{renderScene({ route: routes[index] })}</View>
+
         {/* Tab View */}
-        <TabView
+        {/* <TabView
           lazy={true}
           navigationState={{ index, routes }}
           renderScene={renderScene}
           onIndexChange={handleIndexChange}
           initialLayout={{ width: layout.width }}
           renderTabBar={renderTabBar}
-        />
-      </View>
+        /> */}
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -836,18 +838,14 @@ const styles = StyleSheet.create({
     // flexWrap: "wrap",
   },
   socialCard: {
-    borderRadius: 6,
-    padding: 4,
-    paddingVertical: 8,
-    gap: 8,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4.5,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    minWidth: 80,
+    backgroundColor: "rgba(54, 54, 54, 0.69)",
     // flexBasis: "50%",
-    width: "100%",
-    borderColor: "#fff",
-    borderWidth: 1,
   },
   socialText: {
     color: "#ffffff",

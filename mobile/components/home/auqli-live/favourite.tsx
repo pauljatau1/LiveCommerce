@@ -102,7 +102,7 @@ const Favourite = () => {
 
   return (
     <View className="w-[100%] pt-[30px]">
-      <SectionHeader title="Your Favourite sellers" />
+      <SectionHeader title="Your Favourite Sellers" />
       <View
         style={{
           width: "100%",

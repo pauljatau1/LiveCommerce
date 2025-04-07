@@ -44,6 +44,7 @@ import OrderItem from "@/components/messages/orderItem";
 import OptionsSheet from "@/components/connect/optionsSheet";
 import ChatSettings from "@/components/messages/optionsSheet";
 import ReportUserSheet from "@/components/connect/reportUserSheet";
+import { toast } from "@/core/toast";
 
 const { width, height } = Dimensions.get("window");
 
@@ -210,6 +211,9 @@ const MessageRoom = () => {
   }, [orderId]);
 
   const handleSendAutoMessage = () => {
+    if (!autoOrderMessage?.message) {
+      return;
+    }
     setNewMessage(`${autoOrderMessage?.message}`);
     handleSendMessage(`${autoOrderMessage?.message}`);
   };
@@ -1088,9 +1092,12 @@ const ProductsSheet = ({
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>(".");
   const [query, setQuery] = useState<string>(".");
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [products, setProducts] = useState<any[]>([]);
   // const [products]
   const { data, isLoading, isFetching, isError, refetch } =
-    useGetSellerProductsQuery({ id });
+    useGetSellerProductsQuery({ id, page, limit: 5 });
 
   const handleFinalSubmit = () => {
     handleSubmitSelectedProducts(selectedProducts[0]);
@@ -1110,6 +1117,38 @@ const ProductsSheet = ({
     setSelectedProducts([item]);
   };
 
+  const fetchMoreProducts = () => {
+    console.log("catalog pagination ", {
+      isFetching,
+      hasReachedEnd,
+      id,
+    });
+    if (!isFetching && !hasReachedEnd) {
+      setPage((prev) => prev + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (data) {
+      if (page == 1) {
+        setProducts(data?.products);
+      } else {
+        setProducts([...products, ...data?.products]);
+      }
+
+      if (data?.totalPages == data?.currentPage || data?.totalPages == 0) {
+        console.log("pagination ", {
+          totalPages: data?.totalPages,
+          currentPage: data?.currentPage,
+        });
+
+        setHasReachedEnd(true);
+      }
+    }
+  }, [data]);
+
+  useEffect(() => {}, []);
+
   return (
     <View className="h-full">
       <View
@@ -1125,7 +1164,7 @@ const ProductsSheet = ({
           <ActivityIndicator size={"small"} color="#16783A" />
         ) : (
           <BottomSheetFlatList
-            data={data.products}
+            data={products}
             // scrollEnabled={true}
 
             nestedScrollEnabled={true}
@@ -1163,12 +1202,16 @@ const ProductsSheet = ({
                 </View>
               </TouchableOpacity>
             )}
-            keyExtractor={(item) => item?.id.toString()}
+            keyExtractor={(item, index) =>
+              item?.id.toString() || index?.toString()
+            }
             numColumns={2}
             columnWrapperStyle={{
               // columnGap: ,
               justifyContent: "space-between",
             }}
+            onEndReached={fetchMoreProducts}
+            onEndReachedThreshold={0.5}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -1204,10 +1247,17 @@ const ProductsSheet = ({
                 contentFit="cover"
               />
               <Pressable
-                className="absolute right-[-4px] top-[-4px] bg-[#000] w-[15px] h-[15px] rounded-full items-center justify-center"
+                className="absolute right-[0px] top-[-4px] bg-[#000] w-[15px] h-[15px] rounded-full items-center justify-center"
+                style={{
+                  position: "absolute",
+                  right: -4,
+                  top: -4,
+                  backgroundColor: "#000",
+                  borderRadius: 15 / 2,
+                }}
                 onPress={() => handleSelectItem(product)}
               >
-                <Ionicons name="close-sharp" size={8} color="white" />
+                <Ionicons name="close-sharp" size={10} color="white" />
               </Pressable>
             </View>
           ))}

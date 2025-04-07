@@ -2,7 +2,7 @@
   "expo": {
     "name": "auqli",
     "slug": "auqli-app",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/appstore.png",
     "scheme": "myapp",
@@ -19,7 +19,7 @@
       "bundleIdentifier": "com.auqli.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false  
       },
       "entitlements": {
         "aps-environment": "production"

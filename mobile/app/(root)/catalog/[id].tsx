@@ -21,6 +21,7 @@ import { TabBar, TabBarItem, TabView } from "react-native-tab-view";
 import CatalogCard from "@/components/catalog/catalogCard";
 import CatalogComponent from "@/components/catalog/catalogComponent";
 import LiveStreamCatalog from "@/components/catalog/liveStreamCatalog";
+import SellerCatalog from "@/components/catalog/SellerCatalog";
 
 const CatalogPage = () => {
   const { id, searchTab } = useLocalSearchParams();
@@ -32,6 +33,7 @@ const CatalogPage = () => {
   const [routes] = useState([
     { key: "Auqli Live", title: "Auqli Live" },
     { key: "Products", title: "Products" },
+    { key: "Sellers", title: "Sellers" },
   ]);
 
   const renderScene = useCallback(
@@ -41,6 +43,8 @@ const CatalogPage = () => {
           return <LiveStreamCatalog query={id} />;
         case "Products":
           return <CatalogComponent searchQuery={id} />;
+        case "Sellers":
+          return <SellerCatalog query={id} />;
 
         default:
           return null;

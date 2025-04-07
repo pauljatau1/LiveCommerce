@@ -1,7 +1,8 @@
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import React from "react";
 import moment from "moment";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import { router } from "expo-router";
 
 interface imageDimensions {
   width: any;
@@ -15,14 +16,9 @@ const ReviewCard = ({
   comment,
   imageUrl,
   imageDimensions,
-}: {
-  name: string;
-  date: string;
-  rating: string;
-  comment: string;
-  imageUrl: string;
-  imageDimensions: imageDimensions;
-}) => {
+  reviewId,
+  productId,
+}: any) => {
   const formatDate = (date: string) => {
     let rawDate = moment(date);
     const formattedDate = rawDate.format("DD MMMM YYYY");
@@ -30,9 +26,15 @@ const ReviewCard = ({
   };
 
   return (
-    <View
+    <Pressable
       className="p-[4px] mr-2 gap-[4px]"
       style={{ maxWidth: imageDimensions.width }}
+      onPress={() =>
+        router.push({
+          pathname: "/reviews/details",
+          params: { reviewId, productId },
+        })
+      }
     >
       <View className="flex-row item-center gap-[6px]">
         <View className="w-[23px] h-[23px] rounded-full bg-[#B190B6] flex-row items-center justify-center">
@@ -80,7 +82,7 @@ const ReviewCard = ({
           borderRadius: 4,
         }}
       />
-    </View>
+    </Pressable>
   );
 };
 

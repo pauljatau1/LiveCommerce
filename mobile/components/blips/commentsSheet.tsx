@@ -1,5 +1,5 @@
-import { View, Text, FlatList, TextInput } from "react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { View, Text, FlatList, TextInput, BackHandler } from "react-native";
+import React, { useCallback, useEffect, useRef, useState, memo } from "react";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { formatNumber } from "@/helpers/helpers";
 import { ActivityIndicator } from "react-native-paper";
@@ -15,12 +15,14 @@ const CommentsSheet = ({
   id,
   commentCount,
   handleCantComment,
+  closeCommentsSheet,
 }: {
   handleIncreaseCommentCount: () => void;
   product: any;
   id: string;
   commentCount: number;
   handleCantComment: any;
+  closeCommentsSheet: any;
 }) => {
   const [comments, setComments] = useState<any[]>([]);
   const [comment, setComment] = useState<string>("");
@@ -158,6 +160,21 @@ const CommentsSheet = ({
     [newReply, comments],
   );
 
+  useEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        closeCommentsSheet();
+        return true;
+      };
+
+      BackHandler.addEventListener("hardwareBackPress", onBackPress);
+
+      return () => {
+        BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+      };
+    }, []),
+  );
+
   useEffect(() => {
     handleGetComments();
   }, [id, product]);
@@ -215,4 +232,4 @@ const CommentsSheet = ({
   );
 };
 
-export default CommentsSheet;
+export default memo(CommentsSheet);

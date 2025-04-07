@@ -20,6 +20,8 @@ import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
 import FilterSheet from "./filterSheet";
 import ProductEmptyState from "../global/empty-states/productEmptyState";
 import AuctionCard from "../global/auction-card";
+import LottieView from "lottie-react-native";
+import MainAuctionCard from "../global/auction-card/main";
 
 const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   const [page, setPage] = useState<number>(1);
@@ -77,27 +79,31 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
   const renderProducts = (item: any) => {
     return (
       <View className="w-[100%] basis-[49%] h-[299px]">
-        <CatalogCard
-          key={item.id}
-          id={item._id}
-          title={item.name}
-          price={item.price}
-          category={item.category}
-          sellerName={item.seller?.storeName}
-          imageUrl={item.images}
-          sellerRating={item.stats?.averageRating}
-          moreDetails={item}
-          profileImage={undefined}
-          location={""}
-          isTopSeller={false}
-          isOnline={false}
-          isLive={false}
-          isVerified={false}
-          showNike={false}
-          onAddToCart={function (): void {
-            throw new Error("Function not implemented.");
-          }}
-        />
+        {item?.status == "offline_auction" ? (
+          <MainAuctionCard item={item} closeSheet={() => null} />
+        ) : (
+          <CatalogCard
+            key={item.id}
+            id={item._id}
+            title={item.name}
+            price={item.price}
+            category={item.category}
+            sellerName={item.seller?.storeName}
+            imageUrl={item.images}
+            sellerRating={item.stats?.averageRating}
+            moreDetails={item}
+            profileImage={undefined}
+            location={""}
+            isTopSeller={false}
+            isOnline={false}
+            isLive={false}
+            isVerified={false}
+            showNike={false}
+            onAddToCart={function (): void {
+              throw new Error("Function not implemented.");
+            }}
+          />
+        )}
       </View>
     );
   };
@@ -137,24 +143,58 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
     );
   }, [filteredProducts]);
 
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
+
   const renderEmptyPlaceholder = useCallback(() => {
     return <ProductEmptyState />;
   }, [filteredProducts]);
 
   useEffect(() => {
-    if (data?.products?.length > 0) {
-      setProducts([...products, ...data?.products]);
-      setFilteredProducts([...filteredProducts, ...data?.products]);
+    if (data) {
+      if (page == 1) {
+        setProducts(data?.products);
+        setFilteredProducts(data?.products);
+      } else {
+        setProducts([...products, ...data?.products]);
+        setFilteredProducts([...filteredProducts, ...data?.products]);
+      }
 
-      if (data?.pagination.total == data?.pagination?.pages) {
+      if (
+        data?.pagination.page == data?.pagination?.pages ||
+        data?.pagination?.total == 0
+      ) {
         setHasReachedEnd(true);
       }
     }
   }, [data]);
 
-  useEffect(() => {
-    refetch();
-  }, [page]);
+  // useEffect(() => {
+  //   refetch();
+  // }, [page]);
 
   return (
     <View className="px-[16px] py-[12px] ">
@@ -181,6 +221,7 @@ const CatalogComponent = ({ searchQuery }: { searchQuery: any }) => {
             onEndReached={fetchMoreProducts}
             onEndReachedThreshold={0.5}
             ListHeaderComponent={renderListHeader}
+            ListFooterComponent={renderListFooter}
           />
         </View>
       )}

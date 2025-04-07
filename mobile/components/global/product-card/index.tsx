@@ -83,7 +83,7 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      className={`bg-black rounded-lg p-[11.85px] h-[299px]`}
+      className={`bg-black rounded-lg p-[11.85px] h-[305px]`}
       style={{
         width: width || 173,
       }}
@@ -100,13 +100,13 @@ const ProductCard: React.FC<ProductCardProps | any> = ({
               : images.diamondsImage
           }
           resizeMode="cover"
-          className="w-[149px] h-[157px]"
+          className="w-[100%] h-[157px]"
         />
       )}
       {/* Product Details */}
       <View className="">
         <Text
-          className="text-white text-[10px] capitalize font-LexendDecaBold  text-normal pt-3 h-[40px]"
+          className="text-white text-[12px] capitalize font-LexendDecaSemiBold  text-normal pt-3 h-[44px]"
           numberOfLines={2}
         >
           {title}
