@@ -1,14 +1,12 @@
-# Use Node.js v18
-FROM node:20
+# Use Node.js v22
+FROM node:22
 
 # Create app directory
 WORKDIR /usr/src/app
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-COPY package*.json ./
-
-RUN npm install
+# Fix paths
+RUN find src -type f -name "*.jsx" -exec sed -i 's/@\/components\/ui/@\/Components\/ui/g' {} +
+RUN find src -type f -name "*.js" -exec sed -i 's/@\/components\/ui/@\/Components\/ui/g' {} +
 
 # Bundle app source
 COPY . .
