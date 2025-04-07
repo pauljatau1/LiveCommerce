@@ -82,6 +82,8 @@ commands:
                 npx shadcn-ui@latest add ${component} --yes
               fi
             done
+      - store_artifacts:
+          path: package-lock.json
       - save_cache:
           name: Save vendor cache
           key: v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
