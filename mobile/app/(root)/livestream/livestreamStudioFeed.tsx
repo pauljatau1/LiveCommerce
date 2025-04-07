@@ -133,7 +133,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
     }>
   >([]);
   const [commentInput, setCommentInput] = useState("");
-  const commentsListRef = useRef<any>(null);
+  const commentsListRef = useRef<FlatList>(null);
   // Add a new state to track if video is actually playing
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   // Replace standard state with refs for instant updates
@@ -1003,6 +1003,7 @@ const LivestreamStudioFeed = ({ id, isVisible }: any) => {
       } else {
         console.error("Socket not connected, comment only saved locally");
       }
+      
     } catch (error) {
       console.error("Error sending comment:", error);
     }
@@ -1750,7 +1751,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 13,
     bottom: 50,
-    maxHeight: 220,
+    maxHeight: 250,
     zIndex: 10,
   },
   commentsContainer: {

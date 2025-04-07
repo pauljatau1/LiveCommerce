@@ -209,18 +209,29 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     return initials || "?";
   };
 
+  // Setup and cleanup effect
   useEffect(() => {
-    isVisible ? setupLivestream() : null;
+    // On mount or when isVisible changes to true, run setupLivestream
+    if (isVisible) {
+      setupLivestream();
 
-    // Scroll to the end to show new comment
-    if (commentsListRef.current) {
-      commentsListRef.current.scrollToEnd({ animated: true });
+      // Scroll to the end to show new comment
+      if (commentsListRef.current) {
+        commentsListRef.current.scrollToEnd({ animated: true });
+      }
+
+      // Cleanup function - will run when:
+      // 1. Component unmounts
+      // 2. isVisible changes from true to false
+      // 3. id changes (which should disconnect and reconnect)
+      return () => {
+        // Since we only run the effect when isVisible is true,
+        // this cleanup will only run when we're either unmounting
+        // or isVisible is changing to false, both cases where we want to leave
+        handleLeaveStream(true);
+      };
     }
-
-    return () => {
-      handleLeaveStream(true);
-      // disconnectSocket();
-    };
+    // No cleanup needed if isVisible is false, as we didn't setup anything
   }, [id, isVisible]);
 
   // Separate useEffect for keyboard event listeners
@@ -569,9 +580,9 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
                       viewer._id &&
                       viewer._id.toString() === buyerId.toString()) ||
                     viewer.firstName ===
-                      notification?.data?.buyerName?.split(" ")[0] ||
+                    notification?.data?.buyerName?.split(" ")[0] ||
                     viewer.lastName ===
-                      notification?.data?.buyerName?.split(" ")[1],
+                    notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -1347,8 +1358,8 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
     const product =
       selectedBidProduct ||
       (currentProductIndex !== null &&
-      streamProducts &&
-      streamProducts.length > 0
+        streamProducts &&
+        streamProducts.length > 0
         ? streamProducts[currentProductIndex]
         : null);
     console.log("current bid product", product?.product?.name);
@@ -1879,293 +1890,296 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
             )}
 
             {/* Main Content Area */}
-            <View style={styles.mainContentArea}>
-              {/* Right Side Actions */}
-              {shouldShowUI && !keyboardVisibleRef.current && (
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  style={styles.rightActionsContainer}
-                >
-                  <View style={styles.actionItem}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={handleShare}
-                    >
-                      <SimpleLineIcons
-                        name="share-alt"
-                        size={22}
-                        color="white"
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.actionText}>Share</Text>
-                  </View>
+            <View style={{ height: height + 25}}>
+              <View style={styles.mainContentArea}>
+                {/* Right Side Actions */}
+                {shouldShowUI && !keyboardVisibleRef.current && (
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    style={styles.rightActionsContainer}
+                  >
+                    <View style={styles.actionItem}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleShare}
+                      >
+                        <SimpleLineIcons
+                          name="share-alt"
+                          size={22}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+                      <Text style={styles.actionText}>Share</Text>
+                    </View>
 
-                  <View style={styles.actionItem}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={handleShowStreamInfo}
-                    >
-                      <Ionicons
-                        name="information-circle-outline"
-                        size={24}
-                        color="white"
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.actionText}>Info</Text>
-                  </View>
+                    <View style={styles.actionItem}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleShowStreamInfo}
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={24}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+                      <Text style={styles.actionText}>Info</Text>
+                    </View>
 
-                  {/*<View style={styles.actionItem}>
+                    {/*<View style={styles.actionItem}>
                                         <TouchableOpacity style={styles.actionButton}>
                                         <Ionicons name="card-outline" size={24} color="white" />
                                         </TouchableOpacity>
                                         <Text style={styles.actionText}>Pay</Text>
                                     </View>*/}
 
-                  <View style={styles.actionItem}>
-                    <TouchableOpacity style={styles.actionButton}>
-                      <MaterialCommunityIcons
-                        name="package-variant-closed"
-                        size={24}
-                        color="white"
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.actionText}>Orders</Text>
-                  </View>
-
-                  <View style={styles.actionItem}>
-                    <TouchableOpacity style={styles.actionButton}>
-                      <MaterialCommunityIcons
-                        name="storefront-outline"
-                        size={24}
-                        color="white"
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.actionText}>Shop</Text>
-                  </View>
-
-                  <View style={styles.actionItem}>
-                    <TouchableOpacity style={styles.actionButton}>
-                      <AntDesign name="like2" size={24} color="white" />
-                    </TouchableOpacity>
-                    <Text style={styles.actionText}>React</Text>
-                  </View>
-                </ScrollView>
-              )}
-
-              {/* Live Comments Section */}
-              {shouldShowUI && (
-                <ScrollView
-                  ref={commentsListRef}
-                  style={styles.commentsContainer}
-                  nestedScrollEnabled={true}
-                  onLayout={() => {
-                    // Scroll to end on initial layout
-                    if (commentsListRef.current && liveComments.length > 0) {
-                      setTimeout(() => {
-                        commentsListRef.current?.scrollToEnd({
-                          animated: false,
-                        });
-                      }, 100);
-                    }
-                  }}
-                  showsVerticalScrollIndicator={false}
-                  fadingEdgeLength={350}
-                  contentContainerStyle={styles.commentsList}
-                  onContentSizeChange={() => {
-                    // Scroll to end when content size changes
-                    if (commentsListRef.current && liveComments.length > 0) {
-                      setTimeout(() => {
-                        commentsListRef.current?.scrollToEnd({
-                          animated: false,
-                        });
-                      }, 100);
-                    }
-                  }}
-                  maintainVisibleContentPosition={{
-                    minIndexForVisible: 0,
-                    autoscrollToTopThreshold: 10,
-                  }}
-                  removeClippedSubviews={false}
-                >
-                  {liveComments?.map((item: any, index: number) => (
-                    <View key={index}>{renderCommentItem({ item })}</View>
-                  ))}
-                </ScrollView>
-                // <View style={styles.commentsContainer}>
-                //   <FlatList
-                //     ref={commentsListRef}
-                //     data={liveComments}
-                //     renderItem={renderCommentItem}
-                //     keyExtractor={(item) => item.id}
-                //     showsVerticalScrollIndicator={false}
-                //     contentContainerStyle={styles.commentsList}
-                //     fadingEdgeLength={350}
-                //     onLayout={() => {
-                //       // Scroll to end on initial layout
-                //       if (commentsListRef.current && liveComments.length > 0) {
-                //         setTimeout(() => {
-                //           commentsListRef.current?.scrollToEnd({
-                //             animated: true,
-                //           });
-                //         }, 100);
-                //       }
-                //     }}
-                //     onContentSizeChange={() => {
-                //       // Scroll to end when content size changes
-                //       if (commentsListRef.current && liveComments.length > 0) {
-                //         setTimeout(() => {
-                //           commentsListRef.current?.scrollToEnd({
-                //             animated: true,
-                //           });
-                //         }, 100);
-                //       }
-                //     }}
-                //     maintainVisibleContentPosition={{
-                //       minIndexForVisible: 0,
-                //       autoscrollToTopThreshold: 10,
-                //     }}
-                //     removeClippedSubviews={false}
-                //     initialNumToRender={20}
-                //     maxToRenderPerBatch={20}
-                //     windowSize={21}
-                //   />
-                // </View>
-              )}
-            </View>
-
-            {/* Bottom Area */}
-            <View style={styles.bottomArea}>
-              {/* Comment Input */}
-              {shouldShowUI && (
-                <View style={styles.commentInputContainer}>
-                  <View style={styles.inputWithButtonContainer}>
-                    <TextInput
-                      style={styles.commentInput}
-                      placeholder="Say something..."
-                      placeholderTextColor="#999"
-                      value={commentInput}
-                      onChangeText={setCommentInput}
-                      returnKeyType="send"
-                      onSubmitEditing={handleSendComment}
-                    />
-                    <TouchableOpacity
-                      style={styles.sendButton}
-                      onPress={handleSendComment}
-                      disabled={!commentInput.trim()}
-                    >
-                      <Ionicons
-                        name="send"
-                        size={22}
-                        color={commentInput.trim() ? "#16783A" : "#666"}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Bottom Product Card */}
-              {shouldShowUI && streamProducts.length > 0 && (
-                <>
-                  {/* Winning Notification */}
-                  {!keyboardVisibleRef.current && currentBidWinner && (
-                    <View style={styles.winningNotificationContainer}>
-                      <View style={styles.winningNotificationAvatar}>
-                        {currentBidWinner.avatar ? (
-                          <Image
-                            source={{ uri: currentBidWinner.avatar }}
-                            style={styles.winningAvatarImage}
-                          />
-                        ) : (
-                          <Text style={styles.avatarLetter}>
-                            {currentBidWinner.initials || "?"}
-                          </Text>
-                        )}
-                      </View>
-                      <Text style={styles.winningUsername}>
-                        {currentBidWinner.username}
-                        <Text style={styles.winningText}>
-                          {" "}
-                          {currentBidWinner.isWinner ? "won" : "is"}{" "}
-                        </Text>
-                        <Text style={styles.winningHighlight}>
-                          {currentBidWinner.isWinner ? "bid!" : "winning!"}
-                        </Text>
-                      </Text>
+                    <View style={styles.actionItem}>
+                      <TouchableOpacity style={styles.actionButton}>
+                        <MaterialCommunityIcons
+                          name="package-variant-closed"
+                          size={24}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+                      <Text style={styles.actionText}>Orders</Text>
                     </View>
-                  )}
 
-                  {/* Auction Product Card */}
-                  <View style={styles.auctionProductCardContainer}>
-                    {streamProducts.length > 0 &&
-                      !keyboardVisibleRef.current && (
-                        <>
-                          <LiveAuctionProductCard
-                            product={{
-                              name: streamProducts[currentProductIndex].product
-                                .name,
-                              description:
-                                streamProducts[currentProductIndex].product
-                                  .description,
-                              price:
-                                streamProducts[currentProductIndex].product
-                                  .price,
-                              currentBid:
-                                streamProducts[currentProductIndex]
-                                  .currentBid ||
-                                streamProducts[currentProductIndex].minBid,
-                              minBid:
-                                streamProducts[currentProductIndex].minBid,
-                              maxBid:
-                                streamProducts[currentProductIndex].maxBid,
-                              images:
-                                streamProducts[currentProductIndex].product
-                                  .images || [],
-                              productId:
-                                streamProducts[currentProductIndex].product
-                                  .productId,
-                              quantity:
-                                streamProducts[currentProductIndex].product
-                                  .quantity,
-                              bidStatus:
-                                streamProducts[currentProductIndex].bidStatus ||
-                                "pending",
-                            }}
-                            onBid={(amount) => {
-                              // Set the selectedBidProduct to ensure future interactions work correctly
-                              setSelectedBidProduct(
-                                streamProducts[currentProductIndex],
-                              );
-                              handleSubmitBid(amount);
-                            }}
-                            onCustom={() =>
-                              handleOpenBidVariation(
-                                streamProducts[currentProductIndex],
-                              )
-                            }
-                            formatPrice={formatPrice}
-                            category={streamDetails.category}
-                            tag={streamDetails.tags}
-                            bidIncrement={selectedBidIncrement}
-                            isBidSending={isBidSending}
-                            bidTimeRemaining={(() => {
-                              const productId =
-                                streamProducts[currentProductIndex].product
-                                  .productId;
-                              const timeValue =
-                                productId && bidTimerData[productId]
-                                  ? bidTimerData[productId]
-                                  : "00:30";
-                              //console.log(`Debug - Passing timer for product ${productId}:`, timeValue,
-                              //    'Status:', streamProducts[currentProductIndex].bidStatus,
-                              //    'bidTimerData:', bidTimerData);
-                              return timeValue;
-                            })()}
-                          />
-                        </>
-                      )}
+                    <View style={styles.actionItem}>
+                      <TouchableOpacity style={styles.actionButton}>
+                        <MaterialCommunityIcons
+                          name="storefront-outline"
+                          size={24}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+                      <Text style={styles.actionText}>Shop</Text>
+                    </View>
+
+                    <View style={styles.actionItem}>
+                      <TouchableOpacity style={styles.actionButton}>
+                        <AntDesign name="like2" size={24} color="white" />
+                      </TouchableOpacity>
+                      <Text style={styles.actionText}>React</Text>
+                    </View>
+                  </ScrollView>
+                )}
+
+                {/* Live Comments Section */}
+                {shouldShowUI && (
+                  <ScrollView
+                    ref={commentsListRef}
+                    style={styles.commentsContainer}
+                    nestedScrollEnabled={true}
+                    onLayout={() => {
+                      // Scroll to end on initial layout
+                      if (commentsListRef.current && liveComments.length > 0) {
+                        setTimeout(() => {
+                          commentsListRef.current?.scrollToEnd({
+                            animated: false,
+                          });
+                        }, 100);
+                      }
+                    }}
+                    showsVerticalScrollIndicator={false}
+                    fadingEdgeLength={350}
+                    contentContainerStyle={styles.commentsList}
+                    onContentSizeChange={() => {
+                      // Scroll to end when content size changes
+                      if (commentsListRef.current && liveComments.length > 0) {
+                        setTimeout(() => {
+                          commentsListRef.current?.scrollToEnd({
+                            animated: false,
+                          });
+                        }, 100);
+                      }
+                    }}
+                    maintainVisibleContentPosition={{
+                      minIndexForVisible: 0,
+                      autoscrollToTopThreshold: 10,
+                    }}
+                    removeClippedSubviews={false}
+                  >
+                    {liveComments?.map((item: any, index: number) => (
+                      <View key={index}>{renderCommentItem({ item })}</View>
+                    ))}
+                  </ScrollView>
+                  // <View style={styles.commentsContainer}>
+                  //   <FlatList
+                  //     ref={commentsListRef}
+                  //     data={liveComments}
+                  //     renderItem={renderCommentItem}
+                  //     keyExtractor={(item) => item.id}
+                  //     showsVerticalScrollIndicator={false}
+                  //     contentContainerStyle={styles.commentsList}
+                  //     fadingEdgeLength={350}
+                  //     onLayout={() => {
+                  //       // Scroll to end on initial layout
+                  //       if (commentsListRef.current && liveComments.length > 0) {
+                  //         setTimeout(() => {
+                  //           commentsListRef.current?.scrollToEnd({
+                  //             animated: true,
+                  //           });
+                  //         }, 100);
+                  //       }
+                  //     }}
+                  //     onContentSizeChange={() => {
+                  //       // Scroll to end when content size changes
+                  //       if (commentsListRef.current && liveComments.length > 0) {
+                  //         setTimeout(() => {
+                  //           commentsListRef.current?.scrollToEnd({
+                  //             animated: true,
+                  //           });
+                  //         }, 100);
+                  //       }
+                  //     }}
+                  //     maintainVisibleContentPosition={{
+                  //       minIndexForVisible: 0,
+                  //       autoscrollToTopThreshold: 10,
+                  //     }}
+                  //     removeClippedSubviews={false}
+                  //     initialNumToRender={20}
+                  //     maxToRenderPerBatch={20}
+                  //     windowSize={21}
+                  //   />
+                  // </View>
+                )}
+              </View>
+
+
+              {/* Bottom Area */}
+              <View style={styles.bottomArea}>
+                {/* Comment Input */}
+                {shouldShowUI && (
+                  <View style={styles.commentInputContainer}>
+                    <View style={styles.inputWithButtonContainer}>
+                      <TextInput
+                        style={styles.commentInput}
+                        placeholder="Say something..."
+                        placeholderTextColor="#999"
+                        value={commentInput}
+                        onChangeText={setCommentInput}
+                        returnKeyType="send"
+                        onSubmitEditing={handleSendComment}
+                      />
+                      <TouchableOpacity
+                        style={styles.sendButton}
+                        onPress={handleSendComment}
+                        disabled={!commentInput.trim()}
+                      >
+                        <Ionicons
+                          name="send"
+                          size={22}
+                          color={commentInput.trim() ? "#16783A" : "#666"}
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </>
-              )}
+                )}
+
+                {/* Bottom Product Card */}
+                {shouldShowUI && streamProducts.length > 0 && (
+                  <>
+                    {/* Winning Notification */}
+                    {!keyboardVisibleRef.current && currentBidWinner && (
+                      <View style={styles.winningNotificationContainer}>
+                        <View style={styles.winningNotificationAvatar}>
+                          {currentBidWinner.avatar ? (
+                            <Image
+                              source={{ uri: currentBidWinner.avatar }}
+                              style={styles.winningAvatarImage}
+                            />
+                          ) : (
+                            <Text style={styles.avatarLetter}>
+                              {currentBidWinner.initials || "?"}
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.winningUsername}>
+                          {currentBidWinner.username}
+                          <Text style={styles.winningText}>
+                            {" "}
+                            {currentBidWinner.isWinner ? "won" : "is"}{" "}
+                          </Text>
+                          <Text style={styles.winningHighlight}>
+                            {currentBidWinner.isWinner ? "bid!" : "winning!"}
+                          </Text>
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Auction Product Card */}
+                    <View style={styles.auctionProductCardContainer}>
+                      {streamProducts.length > 0 &&
+                        !keyboardVisibleRef.current && (
+                          <>
+                            <LiveAuctionProductCard
+                              product={{
+                                name: streamProducts[currentProductIndex].product
+                                  .name,
+                                description:
+                                  streamProducts[currentProductIndex].product
+                                    .description,
+                                price:
+                                  streamProducts[currentProductIndex].product
+                                    .price,
+                                currentBid:
+                                  streamProducts[currentProductIndex]
+                                    .currentBid ||
+                                  streamProducts[currentProductIndex].minBid,
+                                minBid:
+                                  streamProducts[currentProductIndex].minBid,
+                                maxBid:
+                                  streamProducts[currentProductIndex].maxBid,
+                                images:
+                                  streamProducts[currentProductIndex].product
+                                    .images || [],
+                                productId:
+                                  streamProducts[currentProductIndex].product
+                                    .productId,
+                                quantity:
+                                  streamProducts[currentProductIndex].product
+                                    .quantity,
+                                bidStatus:
+                                  streamProducts[currentProductIndex].bidStatus ||
+                                  "pending",
+                              }}
+                              onBid={(amount) => {
+                                // Set the selectedBidProduct to ensure future interactions work correctly
+                                setSelectedBidProduct(
+                                  streamProducts[currentProductIndex],
+                                );
+                                handleSubmitBid(amount);
+                              }}
+                              onCustom={() =>
+                                handleOpenBidVariation(
+                                  streamProducts[currentProductIndex],
+                                )
+                              }
+                              formatPrice={formatPrice}
+                              category={streamDetails.category}
+                              tag={streamDetails.tags}
+                              bidIncrement={selectedBidIncrement}
+                              isBidSending={isBidSending}
+                              bidTimeRemaining={(() => {
+                                const productId =
+                                  streamProducts[currentProductIndex].product
+                                    .productId;
+                                const timeValue =
+                                  productId && bidTimerData[productId]
+                                    ? bidTimerData[productId]
+                                    : "00:30";
+                                //console.log(`Debug - Passing timer for product ${productId}:`, timeValue,
+                                //    'Status:', streamProducts[currentProductIndex].bidStatus,
+                                //    'bidTimerData:', bidTimerData);
+                                return timeValue;
+                              })()}
+                            />
+                          </>
+                        )}
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -2297,7 +2311,7 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"
-        //enableContentPanningGesture={true}
+      //enableContentPanningGesture={true}
       >
         <StreamInfo
           storeInfo={storeInfo}
@@ -2404,7 +2418,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 13,
     bottom: 30,
-    maxHeight: 220,
+    maxHeight: 250,
     zIndex: 10,
   },
   commentsContainer: {

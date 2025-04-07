@@ -133,6 +133,7 @@ const LivestreamFeed = () => {
             initialNumToRender={1}
             maxToRenderPerBatch={1}
             nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
             // windowSize={0}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
