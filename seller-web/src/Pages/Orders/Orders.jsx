@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ShoppingBag, Video, Gavel, Radio } from "lucide-react";
+import { CalendarIcon, ShoppingBag, Video, Gavel, Radio, Tv, FilterX } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -392,7 +392,7 @@ export default function OrdersDashboard() {
                   <SelectContent>
                     <SelectItem value="all">All Channels</SelectItem>
                     <SelectItem value="marketplace">Marketplace</SelectItem>
-                    <SelectItem value="live">Live Show</SelectItem>
+                    <SelectItem value="live">liveshow</SelectItem>
                     <SelectItem value="auction">auction</SelectItem>
                     <SelectItem value="blips">Blips</SelectItem>
                   </SelectContent>
@@ -416,116 +416,161 @@ export default function OrdersDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders.map((order) => (
-                    <TableRow key={order._id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">{order?.order_id}</div>
-                          <div className="text-sm text-gray-500">
-                            {new Date(order.createdAt).toLocaleDateString("en-US", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
+                  {orders.length > 0 ? (
+                    orders.map((order) => (
+                      <TableRow key={order._id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">{order?.order_id}</div>
+                            <div className="text-sm text-gray-500">
+                              {new Date(order.createdAt).toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium capitalize ">{`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}</div>
+                            <div className="text-sm capitalize text-gray-500">{order?.delivery_address?.city}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {order.items.map((item, index) => (
+                              <div key={index} className=" capitalize text-sm">
+                                {item?.productName?.length > 20
+                                  ? `${item?.productName?.slice(0, 20)}...`
+                                  : item?.productName}
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(order.shipping.tracking.status)}>
+                            {order.shipping.tracking.status.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              order.paymentInfo.status === "paid"
+                                ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
+                                : order.paymentInfo.status === "pending"
+                                  ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
+                                  : order.paymentInfo.status === "awaiting_cod"
+                                    ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
+                                    : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
+                            }
+                          >
+                            {order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {order.channel === "marketplace" ? (
+                              <>
+                                <ShoppingBag className="h-4 w-4 text-blue-600" />
+                                <span className="text-blue-600">Marketplace</span>
+                              </>
+                            ) : order.channel === "live" ? (
+                              <>
+                                <Video className="h-4 w-4 text-purple-600" />
+                                <span className="text-purple-600">Liveshow</span>
+                              </>
+                            ) : order.channel === "liveshow" ? (
+                              <>
+                                <Tv className="h-4 w-4 text-green-600" />
+                                <span className="text-green-600">Live Show</span>
+                              </>
+                            ) : order.channel === "auction" ? (
+                              <>
+                                <Gavel className="h-4 w-4 text-orange-600" />
+                                <span className="text-orange-600">Auction</span>
+                              </>
+                            ) : order.channel === "blips" ? (
+                              <>
+                                <Radio className="h-4 w-4 text-pink-600" />
+                                <span className="text-pink-600">Blips</span>
+                              </>
+                            ) : (
+                              order.channel.charAt(0).toUpperCase() + order.channel.slice(1)
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-2">
+                            <Badge
+                              className={
+                                order.isOpen
+                                  ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
+                                  : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
+                              }
+                            >
+                              {order.isOpen ? "Open" : "Closed"}
+                            </Badge>
+                            {!order.orderStatus?.hasReturn ? (
+                              <Badge className="bg-green-100 ml-4 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
+                                No Issues
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-orange-100 ml-4 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
+                                Order Issues
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/dashboard/order/${order._id}`}>
+                            <Button variant="secondary" className="bg-green-600 font-inter px-2 lg:px-3 text-white hover:bg-green-700">
+                              View Details
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan="9" className="text-center py-16">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="bg-slate-50 p-5 rounded-full mb-5">
+                            <ShoppingBag className="w-10 h-10 text-slate-400" />
+                          </div>
+                          <h3 className="text-xl font-semibold text-slate-800 mb-2">No Orders Found</h3>
+                          <p className="text-slate-600 text-sm max-w-md mb-6 text-center">
+                            There are no orders matching your current filters. Try adjusting your search criteria, date range, or payment status.
+                          </p>
+                          <div className="flex gap-3">
+                            <Button 
+                              variant="outline" 
+                              className="border-slate-300 hover:bg-slate-100"
+                              onClick={() => {
+                                setDate(null);
+                                setSearchTerm("");
+                                setPaymentFilter("all");
+                                setChannelFilter("all");
+                                setActiveTab("all");
+                              }}
+                            >
+                              <FilterX className="w-4 h-4 mr-2" />
+                              Clear All Filters
+                            </Button>
+                            <Button 
+                              variant="default" 
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => navigate("/dashboard/products")}
+                            >
+                              <ShoppingBag className="w-4 h-4 mr-2" />
+                              View Products
+                            </Button>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium capitalize ">{`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}</div>
-                          <div className="text-sm capitalize text-gray-500">{order?.delivery_address?.city}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {order.items.map((item, index) => (
-                            <div key={index} className=" capitalize text-sm">
-                              {item?.productName?.length > 20
-                                ? `${item?.productName?.slice(0, 20)}...`
-                                : item?.productName}
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(order.shipping.tracking.status)}>
-                          {order.shipping.tracking.status.replace("_", " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            order.paymentInfo.status === "paid"
-                              ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
-                              : order.paymentInfo.status === "pending"
-                                ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
-                                : order.paymentInfo.status === "awaiting_cod"
-                                  ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
-                                  : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
-                          }
-                        >
-                          {order.paymentInfo.status === "awaiting_cod" ? "Cash on Delivery" : order.paymentInfo.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {order.channel === "marketplace" ? (
-                            <>
-                              <ShoppingBag className="h-4 w-4 text-blue-600" />
-                              <span className="text-blue-600">Marketplace</span>
-                            </>
-                          ) : order.channel === "live" ? (
-                            <>
-                              <Video className="h-4 w-4 text-purple-600" />
-                              <span className="text-purple-600">Live Show</span>
-                            </>
-                          ) : order.channel === "auction" ? (
-                            <>
-                              <Gavel className="h-4 w-4 text-orange-600" />
-                              <span className="text-orange-600">auction</span>
-                            </>
-                          ) : order.channel === "blips" ? (
-                            <>
-                              <Radio className="h-4 w-4 text-pink-600" />
-                              <span className="text-pink-600">Blips</span>
-                            </>
-                          ) : (
-                            order.channel
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-2">
-                          <Badge
-                            className={
-                              order.isOpen
-                                ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
-                                : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
-                            }
-                          >
-                            {order.isOpen ? "Open" : "Closed"}
-                          </Badge>
-                          {!order.orderStatus?.hasReturn ? (
-                            <Badge className="bg-green-100 ml-4 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
-                              No Issues
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-orange-100 ml-4 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-700">
-                              Order Issues
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/dashboard/order/${order._id}`}>
-                          <Button variant="secondary" className="bg-green-600 font-inter px-2 lg:px-3 text-white hover:bg-green-700">
-                            View Details
-                          </Button>
-                        </Link>
-                      </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>

@@ -372,7 +372,7 @@ export default function PaymentSettings() {
               }}
               disabled={pendingRequest}
             >
-              {pendingRequest ? "Change Pending" : "Edit"}
+              {pendingRequest ? "Change Pending" : "Update"}
             </Button>
           </CardHeader>
           <CardContent>

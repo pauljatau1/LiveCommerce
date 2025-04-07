@@ -249,8 +249,8 @@ const ProductsPage = () => {
                                     onClick={() => setActiveTab('products')}
                                     className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm sm:text-base transition-all duration-300 ${
                                         activeTab === 'products'
-                                            ? 'bg-[#17171B] text-white'
-                                            : 'bg-[#0BB24817] text-[#17171B] hover:bg-[#0BB24820]'
+                                            ? 'bg-[#0BB248] text-white'
+                                            : 'bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]'
                                     }`}
                                 >
                                     Products
@@ -259,8 +259,8 @@ const ProductsPage = () => {
                                     onClick={() => setActiveTab('auctions')}
                                     className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm sm:text-base transition-all duration-300 ${
                                         activeTab === 'auctions'
-                                            ? 'bg-[#17171B] text-white'
-                                            : 'bg-[#0BB24817] text-[#17171B] hover:bg-[#0BB24820]'
+                                            ? 'bg-[#0BB248] text-white'
+                                            : 'bg-[#0BB24817] text-[#0BB248] hover:bg-[#0BB24820]'
                                     }`}
                                 >
                                     Offline Auctions
@@ -301,32 +301,32 @@ const ProductsPage = () => {
 
                                 {displayedProducts.length > 0 && (
                                     <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">
-                                        <p className="text-base font-cabin font-normal text-[#17171B] mb-2 sm:mb-0">Sort By:</p>
+                                        <p className="text-base font-cabin font-normal text-[#0BB248] mb-2 sm:mb-0">Sort By:</p>
                                         <div className="flex items-center flex-wrap gap-2">
                                             {/* Date Sort Button */}
                                             <button 
                                                 onClick={() => setShowDateDialog(true)}
-                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('newest') || sortType.includes('oldest') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="solar:calendar-outline" width="18" height="18" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#17171B"} />
+                                                <Icon icon="solar:calendar-outline" width="18" height="18" color={sortType.includes('newest') || sortType.includes('oldest') ? "#FFFFFF" : "#0BB248"} />
                                                 <p className={`text-xs sm:text-sm font-cabin font-normal`}>Date</p>
                                             </button>
 
                                             {/* Status Sort Button */}
                                             <button 
                                                 onClick={() => setShowStatusDialog(true)}
-                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('active') || sortType.includes('draft') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="iconamoon:clock-thin" width="18" height="18" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#17171B"} />
+                                                <Icon icon="iconamoon:clock-thin" width="18" height="18" color={sortType.includes('active') || sortType.includes('draft') ? "#FFFFFF" : "#0BB248"} />
                                                 <p className={`text-xs sm:text-sm font-cabin font-normal`}>Status</p>
                                             </button>
 
                                             {/* Price Sort Button */}
                                             <button 
                                                 onClick={() => setShowPriceDialog(true)}
-                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
+                                                className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer ${sortType.includes('price') ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'} rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB24820] transition-all duration-300 ease-in-out`}
                                             >
-                                                <Icon icon="solar:sort-by-time-linear" width="18" height="18" color={sortType.includes('price') ? "#FFFFFF" : "#17171B"} />
+                                                <Icon icon="solar:sort-by-time-linear" width="18" height="18" color={sortType.includes('price') ? "#FFFFFF" : "#0BB248"} />
                                                 <p className={`text-xs sm:text-sm font-cabin font-normal`}>Price</p>
                                             </button>
                                         </div>
@@ -335,7 +335,7 @@ const ProductsPage = () => {
                                 {seller?.isVerified ? (
                                     <NavLink 
                                         to={activeTab === 'auctions' ? "/dashboard/add-products?type=auction" : "/dashboard/add-products"} 
-                                        className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out"
+                                        className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#0BB248] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB248]/90 transition-all duration-500 ease-in-out"
                                     >
                                         <Icon icon="tabler:plus" width="18" height="18" color="#FFFFFF" />
                                         <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">
@@ -345,7 +345,7 @@ const ProductsPage = () => {
                                 ) : (
                                     <button
                                         onClick={() => setShowVerificationDialog(true)}
-                                        className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#17171B] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out"
+                                        className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#0BB248] rounded-[7.8px] py-2 sm:py-3 px-3 sm:px-4 hover:bg-[#0BB248]/90 transition-all duration-500 ease-in-out"
                                     >
                                         <Icon icon="tabler:plus" width="18" height="18" color="#FFFFFF" />
                                         <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">
@@ -393,7 +393,7 @@ const ProductsPage = () => {
                                                 {searchQuery && (
                                                     <button 
                                                         onClick={handleClearSearch}
-                                                        className="bg-[#17171B] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#17171B]/90 transition-all duration-300"
+                                                        className="bg-[#0BB248] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#0BB248]/90 transition-all duration-300"
                                                     >
                                                         Clear search
                                                     </button>
@@ -404,7 +404,7 @@ const ProductsPage = () => {
                                                             setSortType('newest-to-oldest');
                                                             setCurrentPage(1);
                                                         }}
-                                                        className="bg-[#17171B] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#17171B]/90 transition-all duration-300"
+                                                        className="bg-[#0BB248] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#0BB248]/90 transition-all duration-300"
                                                     >
                                                         Show all products
                                                     </button>
@@ -436,7 +436,7 @@ const ProductsPage = () => {
                                         </button>
                                         
                                         <div className="flex items-center gap-1">
-                                            <span className="px-3 py-2 rounded-md bg-[#17171B] text-white">
+                                            <span className="px-3 py-2 rounded-md bg-[#0BB248] text-white">
                                                 {currentPage}
                                             </span>
                                             <span className="text-gray-600">of</span>
@@ -514,7 +514,7 @@ const ProductsPage = () => {
                                 setShowDateDialog(false);
                             }}
                             className={`flex items-center justify-between p-4 rounded-lg ${
-                                sortType === 'newest-to-oldest' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                                sortType === 'newest-to-oldest' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'
                             }`}
                         >
                             <span>Newest to Oldest</span>
@@ -526,7 +526,7 @@ const ProductsPage = () => {
                                 setShowDateDialog(false);
                             }}
                             className={`flex items-center justify-between p-4 rounded-lg ${
-                                sortType === 'oldest-to-newest' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                                sortType === 'oldest-to-newest' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'
                             }`}
                         >
                             <span>Oldest to Newest</span>
@@ -552,7 +552,7 @@ const ProductsPage = () => {
                                 setShowStatusDialog(false);
                             }}
                             className={`flex items-center justify-between p-4 rounded-lg ${
-                                sortType === 'active-only' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                                sortType === 'active-only' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'
                             }`}
                         >
                             <span>Show Active Only</span>
@@ -564,7 +564,7 @@ const ProductsPage = () => {
                                 setShowStatusDialog(false);
                             }}
                             className={`flex items-center justify-between p-4 rounded-lg ${
-                                sortType === 'draft-only' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                                sortType === 'draft-only' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'
                             }`}
                         >
                             <span>Show Draft Only</span>
@@ -577,8 +577,8 @@ const ProductsPage = () => {
                             }}
                             className={`flex items-center justify-between p-4 rounded-lg ${
                                 sortType === 'newest-to-oldest' && !sortType.includes('active') && !sortType.includes('draft') 
-                                    ? 'bg-[#17171B] text-white' 
-                                    : 'bg-[#0BB24817] text-[#17171B]'
+                                    ? 'bg-[#0BB248] text-white' 
+                                    : 'bg-[#0BB24817] text-[#0BB248]'
                             }`}
                         >
                             <span>Show All</span>
@@ -604,7 +604,7 @@ const ProductsPage = () => {
                                 setShowPriceDialog(false);
                             }}
                             className={`flex items-center justify-between p-4 rounded-lg ${
-                                sortType === 'price-high-to-low' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                                sortType === 'price-high-to-low' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'
                             }`}
                         >
                             <span>Highest to Lowest</span>
@@ -616,7 +616,7 @@ const ProductsPage = () => {
                                 setShowPriceDialog(false);
                             }}
                             className={`flex items-center justify-between p-4 rounded-lg ${
-                                sortType === 'price-low-to-high' ? 'bg-[#17171B] text-white' : 'bg-[#0BB24817] text-[#17171B]'
+                                sortType === 'price-low-to-high' ? 'bg-[#0BB248] text-white' : 'bg-[#0BB24817] text-[#0BB248]'
                             }`}
                         >
                             <span>Lowest to Highest</span>

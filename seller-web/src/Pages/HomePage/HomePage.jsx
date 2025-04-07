@@ -88,7 +88,7 @@ const HomePage = () => {
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
 
   useEffect(() => {
-    setHeaderName("Home")
+    setHeaderName("Dashboard")
     setNavName("")
     setShowBackButton(false)
 

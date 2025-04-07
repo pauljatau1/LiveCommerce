@@ -4,7 +4,7 @@ import { Badge } from "@/Components/ui/badge"
 import { Card } from "@/Components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 import { Button } from "@/Components/ui/button"
-import { CheckCircle2, Star } from 'lucide-react'
+import { CheckCircle2, Star, MessageSquare, UserPlus, UserMinus } from 'lucide-react'
 import { useParams, useNavigate } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server";
 import { useSidebar } from "@/Hooks/useSideBar";
@@ -215,6 +215,7 @@ function CustomerDetail() {
               className="lg:ml-4 hover:bg-green-700 transition-all duration-300 bg-green-600 text-white"
               onClick={handleMessageClick}
             >
+              <MessageSquare className="w-4 h-4 mr-2" />
               Message Customer
             </Button>
             <Button
@@ -226,7 +227,17 @@ function CustomerDetail() {
               }`}
               onClick={handleFollowClick}
             >
-              {isFollowing ? 'Unfollow Customer' : 'Follow Customer'}
+              {isFollowing ? (
+                <>
+                  <UserMinus className="w-4 h-4 mr-2" />
+                  Unfollow Customer
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Follow Customer
+                </>
+              )}
             </Button>
           </div>
         </div>

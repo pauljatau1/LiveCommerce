@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
+import { ShoppingBag } from "lucide-react"
 
 const OrdersTable = ({ orders = { orders: [] } }) => {
   const [date, setDate] = useState()
@@ -152,7 +153,7 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">₦{order.totalAmount.toLocaleString()}</TableCell>
-                    <TableCell>{order.channel}</TableCell>
+                    <TableCell>{order.channel.charAt(0).toUpperCase() + order.channel.slice(1)}</TableCell>
                     <TableCell>
                       <div className="space-y-2">
                         <Badge
@@ -186,8 +187,23 @@ const OrdersTable = ({ orders = { orders: [] } }) => {
                 ))
             ) : (
               <TableRow>
-                <TableCell colSpan="9" className="text-center py-8 text-gray-500">
-                  No orders found
+                <TableCell colSpan="9" className="text-center py-12">
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="bg-slate-50 p-4 rounded-full mb-4">
+                      <ShoppingBag className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-slate-800 mb-1">No Orders Found</h3>
+                    <p className="text-slate-500 text-sm max-w-md mb-4">
+                      There are no orders matching your current filters. Try adjusting your search criteria or date range.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="border-slate-300 hover:bg-slate-100"
+                      onClick={() => setDate(null)}
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

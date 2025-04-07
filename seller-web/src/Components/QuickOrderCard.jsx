@@ -22,7 +22,7 @@ const QuickOrderCard = ({ product }) => {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-sm font-medium text-gray-900">₦{product?.price?.toLocaleString()}</p>
+          <p className="text-sm font-medium text-green-600">₦{product?.price?.toLocaleString()}</p>
         </div>
       </div>
     </div>
