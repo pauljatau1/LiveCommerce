@@ -86,7 +86,7 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
    res.json({ 
        message: 'Welcome to the Auqli API!', 
-       description: 'This API provides a range of functionalities for managing products, orders, and user interactions within the Auqli application. Explore our endpoints for, buyer, seller, and public access to enhance your experience.' 
+       description: 'This API provides a range of functionalities for managing products, orders, and user interactions within the Auqli application. Explore our endpoints for, buyer, seller, and public access to enhance your experience.....' 
    });
 });
 
