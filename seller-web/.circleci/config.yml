@@ -65,13 +65,14 @@ commands:
   vendor_install_with_cache:
     description: Install npm vendor dependencies
     steps:
+      - checkout
       - restore_cache:
           name: Restore existing vendor cache
           key: v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
       - run:
           name: Install dependencies
           command: |
-            rm -rf node_modules package-lock.json
+            rm -rf node_modules
             npm install @rollup/rollup-linux-x64-gnu@4.9.5 --ignore-scripts
             npm install @esbuild/linux-x64 --ignore-scripts
             npm install --no-optional
@@ -89,6 +90,7 @@ commands:
   vendor_restore_cache:
     description: Restore vendor cache
     steps:
+      - checkout
       - restore_cache:
           name: Restore vendor cache
           keys:
@@ -100,6 +102,7 @@ commands:
         type: string
         default: "298884149618"
     steps:
+      - checkout
       - restore_cache:
           name: Restore vendor cache
           keys:
