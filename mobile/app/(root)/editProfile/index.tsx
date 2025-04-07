@@ -11,6 +11,8 @@ import {
   Keyboard,
   ScrollView,
   Pressable,
+  Alert,
+  Linking,
 } from "react-native";
 import React, { memo, useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
@@ -67,6 +69,28 @@ const EditProfile = () => {
   const [hasChanged, setHasChanged] = useState<boolean>(false);
 
   const pickImage = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    console.log(permission);
+
+    if (!permission.granted) {
+      if (permission.canAskAgain) {
+        const newPermission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!newPermission.granted) {
+          return;
+        }
+      } else {
+        return Alert.alert(
+          "Permission Required",
+          "Please enable media library access in Settings to continue",
+          [
+            { text: "Cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
+    }
+
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
