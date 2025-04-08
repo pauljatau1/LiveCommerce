@@ -32,12 +32,6 @@ function initializeSocket(server) {
   // Save the io instance
   ioInstance = io;
   
-  // Create a public namespace that doesn't require authentication
-  const publicIO = io.of('/public');
-  
-  // Set up dedicated namespaces 
-  const streamNotifications = io.of('/stream_notifications');
-  const auctionBidding = io.of('/stream_auction_bidding');
   
   // Set up public auction events that don't require authentication
   publicIO.on('connection', async (socket) => {
@@ -984,9 +978,20 @@ function initializeSocket(server) {
     });
 
     // Handler for stream notifications
-    socket.on('stream_notification_subscribe', () => {
-      socket.join('stream_notifications');
-      console.log(`User ${socket.user.id} subscribed to stream notifications`);
+    socket.on('stream_notification_subscribe', (data) => {
+      // Check if streamId is provided
+      if (data && data.streamId) {
+        const roomName = `stream_notifications_${data.streamId}`;
+        socket.join(roomName);
+        console.log(`User ${socket.user.id} subscribed to notifications for stream ${data.streamId}`);
+        
+        // Also join the general room for backward compatibility
+        socket.join('stream_notifications');
+      } else {
+        // Join the general notification room for backward compatibility
+        socket.join('stream_notifications');
+        console.log(`User ${socket.user.id} subscribed to general stream notifications`);
+      }
     });
 
     // Handler for stream chat comments
@@ -1044,7 +1049,11 @@ function initializeSocket(server) {
           // Add timestamp for the WebSocket payload
           notificationObj.timestamp = new Date();
           
-          // Broadcast to all subscribers
+          // Broadcast to stream-specific room
+          const streamRoom = `stream_notifications_${data.streamId}`;
+          io.to(streamRoom).emit('stream_notification', notificationObj);
+          
+          // Also broadcast to general room for backward compatibility
           io.to('stream_notifications').emit('stream_notification', notificationObj);
           
         } else {
@@ -1082,7 +1091,11 @@ function initializeSocket(server) {
           // Add timestamp for the WebSocket payload
           notificationObj.timestamp = new Date();
           
-          // Broadcast to all subscribers
+          // Broadcast to stream-specific room
+          const streamRoom = `stream_notifications_${data.streamId}`;
+          io.to(streamRoom).emit('stream_notification', notificationObj);
+          
+          // Also broadcast to general room for backward compatibility
           io.to('stream_notifications').emit('stream_notification', notificationObj);
         }
         
@@ -1157,7 +1170,11 @@ function initializeSocket(server) {
             timestamp: new Date()
           };
           
-          // Broadcast to all subscribers
+          // Broadcast to stream-specific room
+          const streamRoom = `stream_notifications_${data.streamId}`;
+          io.to(streamRoom).emit('stream_notification', notificationObj);
+          
+          // Also broadcast to general room for backward compatibility
           io.to('stream_notifications').emit('stream_notification', notificationObj);
         }
       } catch (error) {

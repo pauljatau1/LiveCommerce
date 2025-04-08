@@ -803,6 +803,85 @@ exports.createOrder = async (req, res) => {
       };
     });
     
+    // Check if the order is from a liveshow and update the stream with order information
+    if (req.body.channel === "liveshow" && req.body.streamId) {
+      try {
+        const Stream = mongoose.model('Stream');
+        const stream = await Stream.findById(req.body.streamId);
+        
+        if (stream) {
+          console.log('Processing liveshow order for stream:', {
+            streamId: stream._id,
+            title: stream.title
+          });
+          
+          // For each order, create an entry in the stream's orders array
+          for (const order of orders) {
+            // Get the first product from the order for simplicity
+            const firstItem = order.items[0];
+            
+            // Add to the stream's orders array
+            stream.orders.push({
+              orderId: order.order_id,
+              buyer: order.buyer,
+              orderDetails: {
+                _id: order._id,
+                order_id: order.order_id,
+                itemsCount: order.items.length,
+                totalAmount: order.totalAmount,
+                shippingFee: sellerItems[order.seller.toString()].shippingFee,
+                orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
+                seller: order.seller,
+                fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null
+              },
+              product: firstItem.product,
+              amount: order.totalAmount
+            });
+          }
+          
+          // Save the stream with updated orders
+          await stream.save();
+          
+          // Send a socket notification about the order for the stream
+          if (req.app && req.app.get('io')) {
+            const io = req.app.get('io');
+            
+            // Create notification object for WebSocket
+            const notificationObj = {
+              id: Date.now().toString(),
+              type: 'liveshow_order',
+              user: stream.seller.storeName || 'Host',
+              avatar: stream.seller.storeAvatar?.url || '',
+              content: `New order placed during the liveshow`,
+              data: {
+                message: `New order placed during the liveshow`,
+                streamId: stream._id.toString(),
+                sellerId: stream.seller._id.toString(),
+                storeName: stream.seller.storeName || 'Unknown Store',
+                orders: orderDetails
+              },
+              timestamp: new Date()
+            };
+            
+            // Send WebSocket notification
+            console.log('Broadcasting liveshow order notification to subscribers');
+            io.to('stream_notifications').emit('stream_notification', notificationObj);
+            
+            // Add the notification to stream chat interactions
+            stream.chatInteractions.push(notificationObj);
+            await stream.save();
+          } else {
+            console.warn('Could not send socket notification - io not available');
+          }
+        } else {
+          console.warn('Stream not found for liveshow order:', req.body.streamId);
+        }
+      } catch (streamError) {
+        console.error('Error updating stream with order information:', streamError);
+        // Continue with the response even if stream update fails
+      }
+    }
+    
     // Calculate and include totals in response
     const responseTotals = {
       itemsTotal: totalAmount,

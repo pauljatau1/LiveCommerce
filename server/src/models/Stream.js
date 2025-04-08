@@ -157,7 +157,33 @@ const streamSchema = new mongoose.Schema({
       default: false
     }
   }],
-  chatInteractions: [chatInteractionSchema]
+  chatInteractions: [chatInteractionSchema],
+  orders: [{
+    orderId: {
+      type: String,
+      required: true
+    },
+    buyer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Buyer',
+      required: true
+    },
+    orderDetails: {
+      type: mongoose.Schema.Types.Mixed
+    },
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product'
+    },
+    amount: {
+      type: Number,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Stream', streamSchema); 
