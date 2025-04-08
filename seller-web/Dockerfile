@@ -1,17 +1,15 @@
-# Use Node.js v18
+# Use Node.js v20
 FROM node:20
 
 # Create app directory
 WORKDIR /usr/src/app
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-COPY package*.json ./
-
-RUN npm install
-
 # Bundle app source
 COPY . .
+
+# Fix paths
+RUN find src -type f -name "*.jsx" -exec sed -i 's/@\/components\/ui/@\/Components\/ui/g' {} +
+RUN find src -type f -name "*.js" -exec sed -i 's/@\/components\/ui/@\/Components\/ui/g' {} +
 
 # Add these environment variables
 ENV PORT=5173
