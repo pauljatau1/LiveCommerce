@@ -65,7 +65,6 @@ commands:
   vendor_install_with_cache:
     description: Install npm vendor dependencies
     steps:
-      - checkout
       - restore_cache:
           name: Restore existing vendor cache
           key: v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
@@ -92,7 +91,6 @@ commands:
   vendor_restore_cache:
     description: Restore vendor cache
     steps:
-      - checkout
       - restore_cache:
           name: Restore vendor cache
           keys:
@@ -104,9 +102,6 @@ commands:
         type: string
         default: "298884149618"
     steps:
-      - checkout
-      - restore_cache:
-          name: Restore vendor cache
           keys:
             - v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
       - login_with_web_identity:
