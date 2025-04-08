@@ -67,7 +67,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore existing vendor cache
-          key: v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
+          key: v1-seller-{{ checksum "package-lock.json" }}
       - run:
           name: Install dependencies
           command: |
@@ -85,7 +85,7 @@ commands:
           path: package-lock.json
       - save_cache:
           name: Save vendor cache
-          key: v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
+          key: v1-seller-{{ checksum "package-lock.json" }}
           paths:
             - << pipeline.parameters.vendor_path >>
   vendor_restore_cache:
@@ -94,7 +94,7 @@ commands:
       - restore_cache:
           name: Restore vendor cache
           keys:
-            - v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
+            - v1-seller-{{ checksum "package-lock.json" }}
   build_backend_image:
     description: Build backend image (nodejs)
     parameters:
@@ -104,7 +104,7 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
+            - v1-seller-{{ checksum "package-lock.json" }}
       - login_with_web_identity:
           account_id: << parameters.account_id >>
       - aws-ecr/build_and_push_image:
