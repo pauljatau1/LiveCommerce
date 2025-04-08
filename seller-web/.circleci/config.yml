@@ -67,7 +67,7 @@ commands:
     steps:
       - restore_cache:
           name: Restore existing vendor cache
-          key: v1-seller-{{ checksum "package-lock.json" }}
+          key: v1-seller-{{ .Revision }}
       - run:
           name: Install dependencies
           command: |
@@ -85,7 +85,7 @@ commands:
           path: package-lock.json
       - save_cache:
           name: Save vendor cache
-          key: v1-seller-{{ checksum "package-lock.json" }}
+          key: v1-seller-{{ .Revision }}
           paths:
             - << pipeline.parameters.vendor_path >>
   vendor_restore_cache:
@@ -94,7 +94,7 @@ commands:
       - restore_cache:
           name: Restore vendor cache
           keys:
-            - v1-seller-{{ checksum "package-lock.json" }}
+            - v1-seller-{{ .Revision }}
   build_backend_image:
     description: Build backend image (nodejs)
     parameters:
