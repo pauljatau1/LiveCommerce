@@ -102,6 +102,7 @@ commands:
         type: string
         default: "298884149618"
     steps:
+      - restore_cache:
           keys:
             - v1-seller-{{ .Revision }}-{{ checksum "package-lock.json" }}
       - login_with_web_identity:
