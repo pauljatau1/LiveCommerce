@@ -1,5 +1,5 @@
-# Use Node.js v22
-FROM node:22
+# Use Node.js v20
+FROM node:20
 
 # Create app directory
 WORKDIR /usr/src/app
