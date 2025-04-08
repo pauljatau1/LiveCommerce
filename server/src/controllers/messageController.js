@@ -315,7 +315,7 @@ exports.sendMediaMessage = async (req, res) => {
       const key = `messages/${Date.now()}-${file.originalname}`;
       
       const uploadResult = await s3.upload({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype
@@ -324,7 +324,7 @@ exports.sendMediaMessage = async (req, res) => {
       console.log('S3 upload result:', uploadResult);
 
       return {
-        url: `https://auqli-uploads.s3.amazonaws.com/${key}`,
+        url: `https://` + process.env.CDN_S3_BUCKET + `.s3.amazonaws.com/${key}`,
         public_id: key,
         fileType: file.mimetype,
         fileName: file.originalname,

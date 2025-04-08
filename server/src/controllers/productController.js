@@ -86,7 +86,7 @@ exports.createProduct = async (req, res) => {
       for (let image of req.body.images) {
         const buffer = Buffer.from(image.data, 'base64');
         const params = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: `${uuidv4()}.jpg`,
           Body: buffer,
           ContentType: image.contentType,
@@ -106,7 +106,7 @@ exports.createProduct = async (req, res) => {
         
         // First upload the video
         const videoParams = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: videoKey,
           Body: buffer,
           ContentType: blip.contentType,
@@ -139,7 +139,7 @@ exports.createProduct = async (req, res) => {
           
           // Upload the thumbnail
           const thumbnailParams = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: thumbnailKey,
             Body: thumbnailBuffer,
             ContentType: 'image/jpeg',
@@ -160,7 +160,7 @@ exports.createProduct = async (req, res) => {
           
           // Fallback to placeholder if ffmpeg fails
           const fallbackThumbnailParams = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: thumbnailKey,
             Body: Buffer.from(
               '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
@@ -204,7 +204,7 @@ exports.createProduct = async (req, res) => {
 
             const buffer = Buffer.from(base64Data, 'base64');
             const params = {
-              Bucket: 'auqli-uploads',
+              Bucket: process.env.CDN_S3_BUCKET,
               Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
               Body: buffer,
               ContentType: image.contentType,
@@ -237,7 +237,7 @@ exports.createProduct = async (req, res) => {
 
               const buffer = Buffer.from(base64Data, 'base64');
               const params = {
-                Bucket: 'auqli-uploads',
+                Bucket: process.env.CDN_S3_BUCKET,
                 Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
                 Body: buffer,
                 ContentType: image.contentType,
@@ -270,7 +270,7 @@ exports.createProduct = async (req, res) => {
 
                 const buffer = Buffer.from(base64Data, 'base64');
                 const params = {
-                  Bucket: 'auqli-uploads',
+                  Bucket: process.env.CDN_S3_BUCKET,
                   Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
                   Body: buffer,
                   ContentType: image.contentType,
@@ -383,7 +383,7 @@ async function processImages(images) {
       
       // Upload to S3
       await s3.upload({
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: key,
         Body: Buffer.from(image.data, 'base64'),
         ContentType: image.contentType,
@@ -391,7 +391,7 @@ async function processImages(images) {
       }).promise();
 
       return {
-        data: `https://auqli-uploads.s3.amazonaws.com/${key}`,
+        data: `https://`+ process.env.CDN_S3_BUCKET +`.s3.amazonaws.com/${key}`,
         contentType: image.contentType,
         isDefault: image.isDefault || false
       };
@@ -919,13 +919,13 @@ exports.updateProduct = async (req, res) => {
     if (updates.images && Array.isArray(updates.images)) {
       const imagesLinks = [];
       for (let image of updates.images) {
-        if (image.data.startsWith('https://auqli-uploads.s3')) {
+        if (image.data.startsWith('https://'+ process.env.CDN_S3_BUCKET +'.s3')) {
           imagesLinks.push({ url: image.data }); // Keep existing S3 image
         } else {
           // Process new base64 image
           const buffer = Buffer.from(image.data, 'base64');
           const params = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: `${uuidv4()}.jpg`,
             Body: buffer,
             ContentType: image.contentType,
@@ -957,7 +957,7 @@ exports.updateProduct = async (req, res) => {
           
           // First upload the video
           const videoParams = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: videoKey,
             Body: buffer,
             ContentType: blip.contentType,
@@ -990,7 +990,7 @@ exports.updateProduct = async (req, res) => {
             
             // Upload the thumbnail
             const thumbnailParams = {
-              Bucket: 'auqli-uploads',
+              Bucket: process.env.CDN_S3_BUCKET,
               Key: thumbnailKey,
               Body: thumbnailBuffer,
               ContentType: 'image/jpeg',
@@ -1011,7 +1011,7 @@ exports.updateProduct = async (req, res) => {
             
             // Fallback to placeholder if ffmpeg fails
             const fallbackThumbnailParams = {
-              Bucket: 'auqli-uploads',
+              Bucket: process.env.CDN_S3_BUCKET,
               Key: thumbnailKey,
               Body: Buffer.from(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
@@ -1060,7 +1060,7 @@ exports.updateProduct = async (req, res) => {
 
               const buffer = Buffer.from(base64Data, 'base64');
               const params = {
-                Bucket: 'auqli-uploads',
+                Bucket: process.env.CDN_S3_BUCKET,
                 Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
                 Body: buffer,
                 ContentType: image.contentType,
@@ -1097,7 +1097,7 @@ exports.updateProduct = async (req, res) => {
 
                 const buffer = Buffer.from(base64Data, 'base64');
                 const params = {
-                  Bucket: 'auqli-uploads',
+                  Bucket: process.env.CDN_S3_BUCKET,
                   Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
                   Body: buffer,
                   ContentType: image.contentType,
@@ -1134,7 +1134,7 @@ exports.updateProduct = async (req, res) => {
 
                   const buffer = Buffer.from(base64Data, 'base64');
                   const params = {
-                    Bucket: 'auqli-uploads',
+                    Bucket: process.env.CDN_S3_BUCKET,
                     Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
                     Body: buffer,
                     ContentType: image.contentType,
@@ -1230,7 +1230,7 @@ exports.deleteProduct = async (req, res) => {
       for (const image of product.images) {
         const key = image.url.split('/').pop();
         await s3.deleteObject({
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: key
         }).promise();
       }
@@ -2873,7 +2873,7 @@ exports.bulkDelete = async (req, res) => {
       for (const image of product.images) {
         const key = image.url.split('/').pop();
         await s3.deleteObject({
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: key
         }).promise();
       }
@@ -2991,7 +2991,7 @@ exports.addReview = async (req, res) => {
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const params = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: `reviews/${uuidv4()}-${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
@@ -6941,7 +6941,7 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Upload the video to S3
       const videoParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: videoKey,
         Body: req.file.buffer,
         ContentType: req.file.mimetype,
@@ -6966,7 +6966,7 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Upload the thumbnail to S3
       const thumbnailParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: thumbnailKey,
         Body: thumbnailBuffer,
         ContentType: 'image/jpeg',
@@ -7001,7 +7001,7 @@ exports.addBlipToProduct = async (req, res) => {
       
       // Create a fallback thumbnail if ffmpeg fails
       const fallbackThumbnailParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: thumbnailKey,
         Body: Buffer.from(
           '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
