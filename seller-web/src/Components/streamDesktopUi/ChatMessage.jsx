@@ -147,11 +147,11 @@ const ChatMessage = ({ message }) => {
                     {message.data.orders.map((order, index) => (
                       <div key={index} className="bg-[#9B59B620] rounded-md px-2 py-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-300 font-medium truncate max-w-[180px]">
-                            {order.product?.name || "Product"}
+                          <span className="text-xs text-gray-300 font-medium truncate max-w-[120px]">
+                            {order?.items[0]?.productName || "Product"}
                           </span>
                           <span className="text-[#9B59B6] text-xs font-bold">
-                            {formatCurrency(order.price || 0)} × {order.quantity || 1}
+                            {formatCurrency(order?.items[0]?.price || 0)} × {order?.items[0]?.quantity || 1}
                           </span>
                         </div>
                       </div>
@@ -257,7 +257,7 @@ ChatMessage.propTypes = {
   message: PropTypes.shape({
     id: PropTypes.string,
     _id: PropTypes.string,
-    type: PropTypes.oneOf(['comment', 'join', 'purchase', 'leave', 'new_bid', 'auction_winner', 'liveshow_order']),
+    type: PropTypes.oneOf(['comment', 'join', 'purchase', 'leave', 'new_bid', 'auction_winner', 'liveshow_order', 'start']),
     user: PropTypes.string,
     avatar: PropTypes.oneOfType([
       PropTypes.string,
