@@ -65,6 +65,34 @@ const AuctionStreamMobileUi = ({
         }
     }, [socket, showBidModal, isActivatingBid, liveStreamDetails, selectedProduct]);
 
+    // Subscribe to stream-specific notifications when component mounts
+    useEffect(() => {
+        if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
+            console.log(`Mobile UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
+            socket.subscribeToStreamNotifications(liveStreamDetails._id);
+        }
+        
+        // Cleanup function to unsubscribe when component unmounts
+        return () => {
+            if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
+                console.log(`Mobile UI: Unsubscribing from notifications for stream ${liveStreamDetails._id}`);
+                socket.unsubscribeFromStreamNotifications(liveStreamDetails._id);
+            }
+        };
+    }, [liveStreamDetails, socket]);
+    
+    // Add useEffect to synchronize productStatuses with the products from liveStreamDetails
+    useEffect(() => {
+        if (products && products.length > 0 && updateProductStatus) {
+            // Initialize product statuses in the socket context based on the bidStatus from the API
+            products.forEach(product => {
+                if (product.bidStatus && product.product?.productId) {
+                    updateProductStatus(product.product.productId, product.bidStatus);
+                }
+            });
+        }
+    }, [products, updateProductStatus]);
+
     // Function to determine the effective status of a product
     const getEffectiveStatus = (product) => {
         const productId = product.product.productId;

@@ -16,130 +16,204 @@ export function LivestreamSocketProvider({ children }) {
     const token = JSON.parse(localStorage.getItem('sellerToken'))?.data;
     if (!token) return;
 
-    // Create a socket connection specifically for livestream
-    const socketInstance = io(BASE_URL.split("/api")[0], {
-      transports: ["websocket"],
-      auth: {
-        token
-      }
-    });
-
-    socketInstance.on('connect', () => {
-      console.log('Livestream socket connected');
-      // Join stream_notifications room
-      socketInstance.emit('stream_notification_subscribe');
-    });
-
-    socketInstance.on('connect_error', (error) => {
-      console.error('Livestream socket connection error:', error);
-    });
-
-    // Listen for stream notifications
-    socketInstance.on('stream_notification', (notification) => {
-      console.log('Received stream notification:', notification);
-      
-      // Handle bid-specific notifications
-      if (notification.type === 'new_bid') {
-        console.log('Processing new bid notification:', notification);
-        // Update bid state for the specific product
-        if (notification.data?.product?.product?.productId) {
-          const productId = notification.data.product.product.productId;
-          setBidUpdates(prev => ({
-            ...prev,
-            [productId]: {
-              currentBid: notification.data.bidAmount,
-              currentBidder: notification.data.currentBidder,
-              timestamp: notification.timestamp
-            }
-          }));
-          
-          // Make sure the bid amount is available for display in the chat
-          if (!notification.content && notification.data.bidAmount) {
-            notification.content = `placed a bid of ${new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: 'NGN'
-            }).format(notification.data.bidAmount)}`;
-          }
-        }
-      } else if (notification.type === 'auction_winner') {
-        console.log('Processing auction winner notification:', notification);
-        // Update bid state for the specific product
-        if (notification.data?.product?.product?.productId) {
-          const productId = notification.data.product.product.productId;
-          setBidUpdates(prev => ({
-            ...prev,
-            [productId]: {
-              currentBid: notification.data.bidWinner.bidAmount,
-              currentBidder: notification.data.bidWinner.buyer,
-              isWinner: true,
-              timestamp: notification.timestamp
-            }
-          }));
-          
-          // Update the product status to 'ended'
-          setProductStatuses(prev => ({
-            ...prev,
-            [productId]: 'ongoing'
-          }));
-          
-          // Enhance notification with bid amount for display in chat
-          if (notification.data.bidWinner.bidAmount && !notification.data.bidAmount) {
-            notification.data.bidAmount = notification.data.bidWinner.bidAmount;
-          }
-        }
+    try {
+      // Parse the BASE_URL to extract just the origin (protocol + hostname + port)
+      let socketUrl;
+      try {
+        // Create a URL object to properly parse the URL components
+        const baseUrlObj = new URL(BASE_URL);
+        // Use only the origin part (protocol + hostname + port)
+        socketUrl = baseUrlObj.origin;
+        console.log('Connecting to socket server at:', socketUrl);
+      } catch (parseError) {
+        console.error('Invalid BASE_URL format:', BASE_URL, parseError);
+        // Fallback to a default if URL parsing fails
+        socketUrl = window.location.origin;
+        console.log('Falling back to origin:', socketUrl);
       }
       
-      // Add all notifications to the notifications array
-      setNotifications(prev => [...prev, notification]);
-    });
-
-    // Listen for viewer join event
-    socketInstance.on('viewer_joined_stream', (notification) => {
-      console.log('Viewer joined stream:', notification);
-      setNotifications(prev => [...prev, notification]);
-    });
-
-    // Listen for viewer leave event
-    socketInstance.on('viewer_left_stream', (notification) => {
-      console.log('Viewer left stream:', notification);
-      setNotifications(prev => [...prev, notification]);
-    });
-    
-    // Listen for bid timer updates
-    socketInstance.on('bid_timer_update', (timerData) => {
-      console.log('Received bid timer update:', timerData);
-      if (timerData.productId) {
-        setBidTimers(prev => ({
-          ...prev,
-          [timerData.productId]: {
-            secondsLeft: timerData.secondsLeft,
-            formattedTime: timerData.formattedTime,
-            timestamp: timerData.timestamp
-          }
-        }));
-        
-        // If timer reaches zero, update the product status to 'ended'
-        if (timerData.secondsLeft <= 0) {
-          console.log('Timer expired for product:', timerData.productId);
-          setProductStatuses(prev => ({
-            ...prev,
-            [timerData.productId]: 'ongoing'
-          }));
+      // Create a socket connection specifically for livestream
+      const socketInstance = io(socketUrl, {
+        transports: ["websocket"],
+        auth: {
+          token
         }
-      }
-    });
+      });
 
-    setSocket(socketInstance);
+      socketInstance.on('connect', () => {
+        console.log('Livestream socket connected successfully');
+        // Basic events setup (will add stream-specific events on subscription)
+      });
 
-    return () => {
-      console.log('Disconnecting livestream socket');
-      socketInstance.off('stream_notification');
-      socketInstance.off('viewer_joined_stream');
-      socketInstance.off('viewer_left_stream');
-      socketInstance.off('bid_timer_update');
-      socketInstance.disconnect();
-    };
+      socketInstance.on('connect_error', (error) => {
+        console.error('Livestream socket connection error:', error);
+        // Add more detailed error logging
+        if (error.description) {
+          console.error('Error description:', error.description);
+        }
+        if (error.data) {
+          console.error('Error data:', error.data);
+        }
+      });
+
+      setSocket(socketInstance);
+
+      return () => {
+        console.log('Disconnecting livestream socket');
+        if (socketInstance) {
+          socketInstance.off('stream_notification');
+          socketInstance.off('viewer_joined_stream');
+          socketInstance.off('viewer_left_stream');
+          socketInstance.off('bid_timer_update');
+          socketInstance.disconnect();
+        }
+      };
+    } catch (error) {
+      console.error('Error creating socket connection:', error);
+    }
   }, []);
+
+  // Function to subscribe to a specific stream's notifications
+  const subscribeToStreamNotifications = (streamId) => {
+    if (!socket || !streamId) {
+      console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID');
+      return false;
+    }
+
+    try {
+      console.log(`Subscribing to notifications for stream: ${streamId}`);
+      socket.emit('stream_notification_subscribe', { streamId });
+      
+      // Set up event listeners for this stream
+      // Listen for stream notifications
+      socket.on('stream_notification', (notification) => {
+        console.log('Received stream notification:', notification);
+        
+        // Handle bid-specific notifications
+        if (notification.type === 'new_bid') {
+          console.log('Processing new bid notification:', notification);
+          // Update bid state for the specific product
+          if (notification.data?.product?.product?.productId) {
+            const productId = notification.data.product.product.productId;
+            setBidUpdates(prev => ({
+              ...prev,
+              [productId]: {
+                currentBid: notification.data.bidAmount,
+                currentBidder: notification.data.currentBidder,
+                timestamp: notification.timestamp
+              }
+            }));
+            
+            // Make sure the bid amount is available for display in the chat
+            if (!notification.content && notification.data.bidAmount) {
+              notification.content = `placed a bid of ${new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'NGN'
+              }).format(notification.data.bidAmount)}`;
+            }
+          }
+        } else if (notification.type === 'auction_winner') {
+          console.log('Processing auction winner notification:', notification);
+          // Update bid state for the specific product
+          if (notification.data?.product?.product?.productId) {
+            const productId = notification.data.product.product.productId;
+            setBidUpdates(prev => ({
+              ...prev,
+              [productId]: {
+                currentBid: notification.data.bidWinner.bidAmount,
+                currentBidder: notification.data.bidWinner.buyer,
+                isWinner: true,
+                timestamp: notification.timestamp
+              }
+            }));
+            
+            // Update the product status to 'ongoing'
+            setProductStatuses(prev => ({
+              ...prev,
+              [productId]: 'ongoing'
+            }));
+            
+            // Enhance notification with bid amount for display in chat
+            if (notification.data.bidWinner.bidAmount && !notification.data.bidAmount) {
+              notification.data.bidAmount = notification.data.bidWinner.bidAmount;
+            }
+          }
+        } else if (notification.type === 'liveshow_order') {
+          console.log('Processing liveshow order notification:', notification);
+          // No specific state updates needed, just handle the notification display
+          // We could track orders in state if needed in the future
+        }
+        
+        // Add all notifications to the notifications array
+        setNotifications(prev => [...prev, notification]);
+      });
+
+      // Listen for viewer join event
+      socket.on('viewer_joined_stream', (notification) => {
+        console.log('Viewer joined stream:', notification);
+        setNotifications(prev => [...prev, notification]);
+      });
+
+      // Listen for viewer leave event
+      socket.on('viewer_left_stream', (notification) => {
+        console.log('Viewer left stream:', notification);
+        setNotifications(prev => [...prev, notification]);
+      });
+      
+      // Listen for bid timer updates
+      socket.on('bid_timer_update', (timerData) => {
+        console.log('Received bid timer update:', timerData);
+        if (timerData.productId) {
+          setBidTimers(prev => ({
+            ...prev,
+            [timerData.productId]: {
+              secondsLeft: timerData.secondsLeft,
+              formattedTime: timerData.formattedTime,
+              timestamp: timerData.timestamp
+            }
+          }));
+          
+          // If timer reaches zero, update the product status to 'ongoing'
+          if (timerData.secondsLeft <= 0) {
+            console.log('Timer expired for product:', timerData.productId);
+            setProductStatuses(prev => ({
+              ...prev,
+              [timerData.productId]: 'ongoing'
+            }));
+          }
+        }
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error subscribing to stream notifications:', error);
+      return false;
+    }
+  };
+
+  // Function to unsubscribe from a stream's notifications
+  const unsubscribeFromStreamNotifications = (streamId) => {
+    if (!socket || !streamId) {
+      console.error('Cannot unsubscribe from stream notifications: socket not connected or invalid stream ID');
+      return false;
+    }
+
+    try {
+      console.log(`Unsubscribing from notifications for stream: ${streamId}`);
+      socket.emit('stream_notification_unsubscribe', { streamId });
+      
+      // Remove all event listeners to prevent memory leaks
+      socket.off('stream_notification');
+      socket.off('viewer_joined_stream');
+      socket.off('viewer_left_stream');
+      socket.off('bid_timer_update');
+      
+      return true;
+    } catch (error) {
+      console.error('Error unsubscribing from stream notifications:', error);
+      return false;
+    }
+  };
 
   // Function to send a comment to the stream
   const sendStreamComment = (streamId, content) => {
@@ -183,34 +257,20 @@ export function LivestreamSocketProvider({ children }) {
   const cleanupListeners = (streamId) => {
     if (!socket || !streamId) {
       console.warn('Cannot clean up listeners: socket not connected or invalid stream ID');
-      return;
+      return false;
     }
     
     try {
-      // Remove any stream-specific event listeners
-      socket.off('stream_notification');
-      socket.off('viewer_joined_stream');
-      socket.off('viewer_left_stream');
-      socket.off('bid_timer_update');
+      // Unsubscribe from stream-specific notifications
+      unsubscribeFromStreamNotifications(streamId);
+      
+      // Reset states
+      setNotifications([]);
+      setBidUpdates({});
+      setBidTimers({});
+      setProductStatuses({});
       
       console.log(`Cleaned up socket listeners for stream: ${streamId}`);
-      
-      // Re-subscribe to global notifications for future streams
-      socket.on('stream_notification', (notification) => {
-        console.log('Received stream notification:', notification);
-        setNotifications(prev => [...prev, notification]);
-      });
-      
-      socket.on('viewer_joined_stream', (notification) => {
-        console.log('Viewer joined stream:', notification);
-        setNotifications(prev => [...prev, notification]);
-      });
-      
-      socket.on('viewer_left_stream', (notification) => {
-        console.log('Viewer left stream:', notification);
-        setNotifications(prev => [...prev, notification]);
-      });
-      
       return true;
     } catch (error) {
       console.error('Error cleaning up socket listeners:', error);
@@ -228,7 +288,9 @@ export function LivestreamSocketProvider({ children }) {
       sendStreamComment,
       updateProductStatus,
       resetBiddingStates,
-      cleanupListeners
+      cleanupListeners,
+      subscribeToStreamNotifications,
+      unsubscribeFromStreamNotifications
     }}>
       {children}
     </LivestreamSocketContext.Provider>
@@ -263,6 +325,14 @@ export const useLivestreamSocket = () => {
       },
       cleanupListeners: () => {
         console.warn('Cannot clean up listeners: socket not available');
+        return false;
+      },
+      subscribeToStreamNotifications: () => {
+        console.warn('Cannot subscribe to stream notifications: socket not available');
+        return false;
+      },
+      unsubscribeFromStreamNotifications: () => {
+        console.warn('Cannot unsubscribe from stream notifications: socket not available');
         return false;
       }
     };

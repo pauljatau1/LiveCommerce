@@ -122,6 +122,48 @@ const ChatMessage = ({ message }) => {
         </div>
       );
 
+    case 'liveshow_order':
+      return (
+        <div className="flex items-center justify-center py-3 my-1">
+          <div className="w-full px-4 py-3 bg-[#25133A] border-l-4 border-[#9B59B6] rounded-md shadow-lg transform transition-all duration-300 hover:scale-[1.02]">
+            <div className="flex items-center gap-3">
+              {renderAvatar()}
+              <div className="flex-1">
+                <div className="flex items-center gap-1">
+                  <Icon icon="mdi:shopping-outline" className="w-4 h-4 text-[#9B59B6]" />
+                  <span className="text-[#9B59B6] font-semibold text-xs">NEW ORDER</span>
+                  {formattedTime && (
+                    <span className="text-xs text-gray-400 ml-auto">{formattedTime}</span>
+                  )}
+                </div>
+                <p className="text-white text-sm mt-1">
+                  <span className="font-bold" style={{ color: usernameColor }}>{message.user}</span>
+                  {" "}
+                  <span className="text-gray-300">{message.content || "received a new order"}</span>
+                </p>
+                
+                {message.data?.orders && (
+                  <div className="mt-2 space-y-2">
+                    {message.data.orders.map((order, index) => (
+                      <div key={index} className="bg-[#9B59B620] rounded-md px-2 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-300 font-medium truncate max-w-[180px]">
+                            {order.product?.name || "Product"}
+                          </span>
+                          <span className="text-[#9B59B6] text-xs font-bold">
+                            {formatCurrency(order.price || 0)} × {order.quantity || 1}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
     case 'new_bid':
       return (
         <div className="flex items-center justify-center py-3 my-1">
@@ -215,7 +257,7 @@ ChatMessage.propTypes = {
   message: PropTypes.shape({
     id: PropTypes.string,
     _id: PropTypes.string,
-    type: PropTypes.oneOf(['comment', 'join', 'purchase', 'leave', 'new_bid', 'auction_winner']),
+    type: PropTypes.oneOf(['comment', 'join', 'purchase', 'leave', 'new_bid', 'auction_winner', 'liveshow_order']),
     user: PropTypes.string,
     avatar: PropTypes.oneOfType([
       PropTypes.string,
