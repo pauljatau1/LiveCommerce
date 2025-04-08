@@ -919,7 +919,7 @@ exports.updateProduct = async (req, res) => {
     if (updates.images && Array.isArray(updates.images)) {
       const imagesLinks = [];
       for (let image of updates.images) {
-        if (image.data.startsWith('https://'+ process.env.CDN_S3_BUCKET +'.s3')) {
+        if (image.data.startsWith('https://'+ process.env.CDN_URL)) {
           imagesLinks.push({ url: image.data }); // Keep existing S3 image
         } else {
           // Process new base64 image
