@@ -102,9 +102,6 @@ commands:
         type: string
         default: "298884149618"
     steps:
-      - restore_cache:
-          keys:
-            - v1-seller-{{ checksum "package-lock.json" }}
       - login_with_web_identity:
           account_id: << parameters.account_id >>
       - aws-ecr/build_and_push_image:
