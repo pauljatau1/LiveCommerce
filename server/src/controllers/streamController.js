@@ -106,7 +106,7 @@ exports.createStream = async (req, res) => {
         const buffer = Buffer.from(coverImage.data, 'base64');
         const fileKey = `stream-covers/${uuidv4()}.${coverImage.contentType ? coverImage.contentType.split('/')[1] || 'jpg' : 'jpg'}`;
         const uploadParams = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: fileKey,
           Body: buffer,
           ContentType: coverImage.contentType || 'image/jpeg'
@@ -149,7 +149,7 @@ exports.createStream = async (req, res) => {
           const buffer = Buffer.from(processedVideo.data, 'base64');
           const fileKey = `stream-videos/${uuidv4()}.mp4`;
           const params = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: fileKey,
             Body: buffer,
             ContentType: processedVideo.contentType || 'video/mp4',
@@ -1272,7 +1272,7 @@ exports.createOpenLiveShow = async (req, res) => {
         const buffer = Buffer.from(coverImage.data, 'base64');
         const fileKey = `stream-covers/${uuidv4()}.${coverImage.contentType ? coverImage.contentType.split('/')[1] || 'jpg' : 'jpg'}`;
         const uploadParams = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: fileKey,
           Body: buffer,
           ContentType: coverImage.contentType || 'image/jpeg'
@@ -1315,7 +1315,7 @@ exports.createOpenLiveShow = async (req, res) => {
           const buffer = Buffer.from(processedVideo.data, 'base64');
           const fileKey = `stream-videos/${uuidv4()}.mp4`;
           const params = {
-            Bucket: 'auqli-uploads',
+            Bucket: process.env.CDN_S3_BUCKET,
             Key: fileKey,
             Body: buffer,
             ContentType: processedVideo.contentType || 'video/mp4',

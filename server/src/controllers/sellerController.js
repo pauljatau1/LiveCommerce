@@ -502,7 +502,7 @@ exports.uploadCompanyVerification = async (req, res) => {
     // Upload Certificate of Incorporation
     const certFile = files.certificateOfIncorporation[0];
     const certParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/company/${uuidv4()}-${certFile.originalname}`,
       Body: certFile.buffer,
       ContentType: certFile.mimetype,
@@ -517,7 +517,7 @@ exports.uploadCompanyVerification = async (req, res) => {
     // Upload Business Tax ID
     const taxFile = files.businessTaxId[0];
     const taxParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/company/${uuidv4()}-${taxFile.originalname}`,
       Body: taxFile.buffer,
       ContentType: taxFile.mimetype,
@@ -568,7 +568,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     // Upload Individual Tax ID
     const taxFile = files.individualTaxId[0];
     const taxParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/individual/${uuidv4()}-${taxFile.originalname}`,
       Body: taxFile.buffer,
       ContentType: taxFile.mimetype,
@@ -583,7 +583,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     // Upload Government ID
     const govFile = files.governmentId[0];
     const govParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/individual/${uuidv4()}-${govFile.originalname}`,
       Body: govFile.buffer,
       ContentType: govFile.mimetype,
@@ -598,7 +598,7 @@ exports.uploadIndividualVerification = async (req, res) => {
     // Upload Proof of Address
     const addressFile = files.proofOfAddress[0];
     const addressParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `verification/${req.user.id}/individual/${uuidv4()}-${addressFile.originalname}`,
       Body: addressFile.buffer,
       ContentType: addressFile.mimetype,
@@ -645,7 +645,7 @@ exports.uploadStoreAvatar = async (req, res) => {
     }
 
     const params = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${avatarFile.originalname}`,
       Body: avatarFile.buffer,
       ContentType: avatarFile.mimetype,
@@ -681,7 +681,7 @@ exports.uploadStoreBanner = async (req, res) => {
     }
 
     const params = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: `${uuidv4()}-${bannerFile.originalname}`,
       Body: bannerFile.buffer,
       ContentType: bannerFile.mimetype,
@@ -905,7 +905,7 @@ exports.requestBankAccountChange = async (req, res) => {
     // Upload proof document to S3
     const fileKey = `bank-change-proofs/${uuidv4()}-${req.file.originalname}`;
     const uploadParams = {
-      Bucket: 'auqli-uploads',
+      Bucket: process.env.CDN_S3_BUCKET,
       Key: fileKey,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,

@@ -38,7 +38,7 @@ const generateVideoThumbnail = async (videoBuffer) => {
 
             // Upload thumbnail to S3
             const thumbnailParams = {
-              Bucket: 'auqli-uploads',
+              Bucket: process.env.CDN_S3_BUCKET,
               Key: `posts/thumbnails/${uuidv4()}.jpg`,
               Body: thumbnailBuffer,
               ContentType: 'image/jpeg',
@@ -117,7 +117,7 @@ exports.createPost = async (req, res) => {
     const imageFiles = mediaFiles.filter(file => file.mimetype.startsWith('image/'));
     for (let file of imageFiles) {
       const params = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: `posts/${uuidv4()}-${file.originalname}`,
         Body: file.buffer,
         ContentType: file.mimetype,
@@ -133,7 +133,7 @@ exports.createPost = async (req, res) => {
     const videoFiles = mediaFiles.filter(file => file.mimetype.startsWith('video/'));
     for (let file of videoFiles) {
       const videoParams = {
-        Bucket: 'auqli-uploads',
+        Bucket: process.env.CDN_S3_BUCKET,
         Key: `posts/videos/${uuidv4()}-${file.originalname}`,
         Body: file.buffer,
         ContentType: file.mimetype,
@@ -972,7 +972,7 @@ exports.updatePost = async (req, res) => {
       imagesData = [];
       for (let file of req.files) {
         const params = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: `posts/${uuidv4()}-${file.originalname}`,
           Body: file.buffer,
           ContentType: file.mimetype,
@@ -1029,7 +1029,7 @@ exports.deletePost = async (req, res) => {
     if (post.images && post.images.length > 0) {
       for (let image of post.images) {
         const params = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: image.public_id
         };
         await s3.deleteObject(params).promise();
@@ -1701,7 +1701,7 @@ exports.deleteBatchPosts = async (req, res) => {
     if (imagePublicIds.length > 0) {
       const deletePromises = imagePublicIds.map(public_id => {
         const params = {
-          Bucket: 'auqli-uploads',
+          Bucket: process.env.CDN_S3_BUCKET,
           Key: public_id
         };
         return s3.deleteObject(params).promise();
