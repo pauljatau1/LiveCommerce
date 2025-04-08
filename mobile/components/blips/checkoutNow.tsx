@@ -50,6 +50,7 @@ interface Props {
   productId: string;
   closeSheet: () => void;
   channel: string;
+  streamId?: string;
 }
 
 const CheckoutNow = ({
@@ -57,6 +58,7 @@ const CheckoutNow = ({
   sellerId,
   closeSheet,
   channel = "marketplace",
+  streamId,
 }: Props) => {
   const {
     data: product,
@@ -311,6 +313,7 @@ const CheckoutNow = ({
       additionalDetails: "Please handle with care",
       paidFromWallet: selectedPayment == 1,
       channel,
+      streamId,
     };
     const token = await getToken();
     try {

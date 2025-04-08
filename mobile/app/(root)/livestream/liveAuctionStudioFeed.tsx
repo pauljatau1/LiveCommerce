@@ -523,10 +523,11 @@ const LiveAuctionStudio = ({ id, isVisible }: any) => {
         initializeSocket(
           userToken,
           handleStreamNotification,
+          id as string, // Add streamId parameter as the third argument
           setIsBidSending,
           handleBidTimerUpdate,
           handleBidTimerComplete,
-          handleAuctionOrderCreated,
+          handleAuctionOrderCreated
         );
       }
     } catch (error) {

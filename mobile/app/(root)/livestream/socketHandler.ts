@@ -3,7 +3,7 @@ import { API_URL, SOCKET_EVENTS } from '@/constants/api';
 
 export interface StreamNotification {
   id: string;
-  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner' | 'auction_end';
+  type: 'comment' | 'join' | 'purchase' | 'hostLeft' | 'hostRejoin' | 'leave' | 'auction_start' | 'new_bid' | 'auction_winner' | 'auction_end' | 'liveshow_order';
   user: string;
   avatar?: string;
   content: string;
@@ -24,6 +24,8 @@ export interface StreamNotification {
     product?: any; // For auction_start notification
     bidAmount?: number;
     isError?: boolean;
+    storeName?: string; // For liveshow_order notification
+    orders?: any; // For liveshow_order notification
     currentBidder?: {
       _id: string;
       firstName: string;
@@ -84,6 +86,7 @@ let socket: Socket | null = null;
 export const initializeSocket = (
   token: string, 
   onNotification: (notification: StreamNotification) => void,
+  streamId?: string,
   setIsBidSending?: React.Dispatch<React.SetStateAction<boolean>>,
   onBidTimerUpdate?: (data: BidTimerUpdate) => void,
   onBidTimerComplete?: (data: BidTimerComplete) => void,
@@ -113,8 +116,17 @@ export const initializeSocket = (
 
   currentSocket.on('connect', () => {
     console.log('Socket connected');
-    // Subscribe to stream notifications
-    currentSocket.emit('stream_notification_subscribe');
+    // Subscribe to stream notifications with streamId
+    if (streamId) {
+      console.log('Subscribing to stream notifications for stream:', streamId);
+      currentSocket.emit('stream_notification_subscribe', {
+        streamId: streamId
+      });
+    } else {
+      // Fallback for backward compatibility
+      console.log('Subscribing to general stream notifications (no streamId provided)');
+      currentSocket.emit('stream_notification_subscribe');
+    }
   });
 
   // Handle stream notifications (regular bids and auction winners)
