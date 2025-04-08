@@ -850,9 +850,9 @@ exports.createOrder = async (req, res) => {
             const notificationObj = {
               id: Date.now().toString(),
               type: 'liveshow_order',
-              user: stream.seller.storeName || 'Host',
-              avatar: stream.seller.storeAvatar?.url || '',
-              content: `New order placed during the liveshow`,
+              user: buyer.username || 'Anonymous User',
+              avatar: buyer.profileImage?.url || '',
+              content: `purchased ${formatProductName(orderDetails[0]?.product?.name || 'an item')}`,
               data: {
                 message: `New order placed during the liveshow`,
                 streamId: stream._id.toString(),
@@ -862,6 +862,13 @@ exports.createOrder = async (req, res) => {
               },
               timestamp: new Date()
             };
+              
+            // Helper function to format product name to only 3 words
+            function formatProductName(name) {
+              if (!name) return 'an item';
+              const words = name.split(' ');
+              return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
+            }
             
             // Send WebSocket notification
             console.log('Broadcasting liveshow order notification to subscribers');
