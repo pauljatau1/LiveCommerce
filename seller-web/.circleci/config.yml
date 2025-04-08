@@ -71,7 +71,7 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            rm -rf node_modules
+            npm install yarn@1.22.22
             npm install @rollup/rollup-linux-x64-gnu@4.9.5 --ignore-scripts
             npm install @esbuild/linux-x64 --ignore-scripts
             npm install --no-optional
