@@ -93,7 +93,8 @@
     "star-product-rating": "^1.0.12",
     "states-cities-db": "^1.4.1",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "yarn": "^1.22.22"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
