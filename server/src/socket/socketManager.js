@@ -990,9 +990,6 @@ function initializeSocket(server) {
         const roomName = `stream_notifications_${data.streamId}`;
         socket.join(roomName);
         console.log(`User ${socket.user.id} subscribed to notifications for stream ${data.streamId}`);
-        
-        // Also join the general room for backward compatibility
-        socket.join('stream_notifications');
       } else {
         // Join the general notification room for backward compatibility
         socket.join('stream_notifications');
