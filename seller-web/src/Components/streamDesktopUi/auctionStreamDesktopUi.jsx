@@ -32,7 +32,23 @@ const AuctionStreamDesktopUi = ({
     const { activateProductBidding, isActivatingBid } = useLivestreamContext();
     const { productStatuses = {}, socket = null, updateProductStatus } = useLivestreamSocket();
 
-    // Sync products with productStatuses when products change
+    // Subscribe to stream-specific notifications when component mounts
+    useEffect(() => {
+        if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
+            console.log(`Desktop UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
+            socket.subscribeToStreamNotifications(liveStreamDetails._id);
+        }
+        
+        // Cleanup function to unsubscribe when component unmounts
+        return () => {
+            if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
+                console.log(`Desktop UI: Unsubscribing from notifications for stream ${liveStreamDetails._id}`);
+                socket.unsubscribeFromStreamNotifications(liveStreamDetails._id);
+            }
+        };
+    }, [liveStreamDetails, socket]);
+
+    // Add useEffect to synchronize productStatuses with the products from liveStreamDetails
     useEffect(() => {
         if (products && products.length > 0) {
             // Set initial status in socket context for each product

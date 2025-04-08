@@ -634,6 +634,12 @@ const LivestreamStudio = () => {
                     console.log("📤 [STREAM END] Cleaning up socket listeners");
                     livestreamSocket.cleanupListeners(_id);
                 }
+                
+                // Unsubscribe from stream notifications
+                if (typeof livestreamSocket.unsubscribeFromStreamNotifications === 'function') {
+                    console.log("📤 [STREAM END] Unsubscribing from stream notifications");
+                    livestreamSocket.unsubscribeFromStreamNotifications(_id);
+                }
             }
 
             // 6. Show success message
@@ -807,8 +813,17 @@ const LivestreamStudio = () => {
 
         // Handle socket connection errors
         socket.on('connect_error', (error) => {
-            console.error('Stream monitoring socket error:', error);
-            toast.error('Failed to connect to stream monitoring');
+            // Only show the toast error if we're actually streaming
+            // This prevents errors when the socket context is initializing
+            if (isStreaming) {
+                console.error('Stream monitoring socket error:', error);
+                toast.error('Failed to connect to stream monitoring. Some live stats may be unavailable.', {
+                    id: 'socket-error',  // Use an ID to prevent duplicate toasts
+                    duration: 5000
+                });
+            } else {
+                console.warn('Socket connection issue while not streaming:', error);
+            }
         });
 
         // Join stream monitoring room

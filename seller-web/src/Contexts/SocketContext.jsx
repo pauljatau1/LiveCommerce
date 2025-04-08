@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { BASE_URL } from '@/Constants/Server';
+import PropTypes from 'prop-types';
 
 const SocketContext = createContext();
 
@@ -11,29 +12,55 @@ export function SocketProvider({ children }) {
     const token = JSON.parse(localStorage.getItem('sellerToken'))?.data;
     if (!token) return;
 
-    const socketInstance = io(BASE_URL.split("/api")[0], {
-      transports: ["websocket"],
-      auth: {
-        token
+    try {
+      // Parse the BASE_URL to extract just the origin (protocol + hostname + port)
+      let socketUrl;
+      try {
+        // Create a URL object to properly parse the URL components
+        const baseUrlObj = new URL(BASE_URL);
+        // Use only the origin part (protocol + hostname + port)
+        socketUrl = baseUrlObj.origin;
+        console.log('Connecting to general socket server at:', socketUrl);
+      } catch (parseError) {
+        console.error('Invalid BASE_URL format:', BASE_URL, parseError);
+        // Fallback to a default if URL parsing fails
+        socketUrl = window.location.origin;
+        console.log('Falling back to origin:', socketUrl);
       }
-    });
 
-    socketInstance.on('connect', () => {
-      console.log('Socket connected -----');
-      // Join personal room using seller ID
-      const sellerId = JSON.parse(localStorage.getItem('seller'))._id;
-      socketInstance.emit('join', sellerId);
-    });
+      const socketInstance = io(socketUrl, {
+        transports: ["websocket"],
+        auth: {
+          token
+        }
+      });
 
-    socketInstance.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-    });
+      socketInstance.on('connect', () => {
+        console.log('Socket connected -----');
+        // Join personal room using seller ID
+        const sellerId = JSON.parse(localStorage.getItem('seller'))._id;
+        socketInstance.emit('join', sellerId);
+      });
 
-    setSocket(socketInstance);
+      socketInstance.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        // Add more detailed error logging
+        if (error.description) {
+          console.error('Error description:', error.description);
+        }
+        if (error.data) {
+          console.error('Error data:', error.data);
+        }
+      });
 
-    return () => {
-      socketInstance.disconnect();
-    };
+      setSocket(socketInstance);
+
+      return () => {
+        socketInstance.disconnect();
+      };
+    } catch (error) {
+      console.error('Error creating socket connection:', error);
+    }
   }, []);
 
   return (
@@ -42,5 +69,9 @@ export function SocketProvider({ children }) {
     </SocketContext.Provider>
   );
 }
+
+SocketProvider.propTypes = {
+  children: PropTypes.node.isRequired
+};
 
 export const useSocket = () => useContext(SocketContext);
