@@ -6904,3 +6904,155 @@ exports.getReviewDetails = async (req, res) => {
     });
   }
 };
+
+// Add a new blip video to an existing product
+exports.addBlipToProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const sellerId = req.user.id;
+
+    // Validate product ID format
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+
+    // Find product and verify seller ownership
+    const product = await Product.findOne({ _id: productId, seller: sellerId });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found or you do not have permission to modify it' });
+    }
+
+    // Validate if blip video is provided
+    if (!req.file) {
+      return res.status(400).json({ message: 'No blip video file uploaded' });
+    }
+
+    // Generate unique file names
+    const videoKey = `products/blips/${Date.now()}-${uuidv4()}.mp4`;
+    const thumbnailKey = `products/blips/thumbnails/${Date.now()}-${uuidv4()}.jpg`;
+    
+    // Create temporary files for ffmpeg processing
+    const tempVideoPath = path.join(os.tmpdir(), path.basename(videoKey));
+    const tempThumbnailPath = path.join(os.tmpdir(), path.basename(thumbnailKey));
+    
+    try {
+      // Write the uploaded video buffer to a temporary file
+      await fs.writeFile(tempVideoPath, req.file.buffer);
+      
+      // Upload the video to S3
+      const videoParams = {
+        Bucket: 'auqli-uploads',
+        Key: videoKey,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+      const videoData = await s3.upload(videoParams).promise();
+      
+      // Generate a thumbnail using ffmpeg
+      await new Promise((resolve, reject) => {
+        ffmpeg(tempVideoPath)
+          .screenshots({
+            timestamps: ['00:00:01.000'],
+            filename: path.basename(tempThumbnailPath),
+            folder: path.dirname(tempThumbnailPath),
+            size: '180x320'
+          })
+          .on('end', resolve)
+          .on('error', reject);
+      });
+      
+      // Read the generated thumbnail file
+      const thumbnailBuffer = await fs.readFile(tempThumbnailPath);
+      
+      // Upload the thumbnail to S3
+      const thumbnailParams = {
+        Bucket: 'auqli-uploads',
+        Key: thumbnailKey,
+        Body: thumbnailBuffer,
+        ContentType: 'image/jpeg',
+      };
+      const thumbnailData = await s3.upload(thumbnailParams).promise();
+      
+      // Create the new blip object
+      const newBlip = {
+        url: videoData.Location,
+        contentType: req.file.mimetype,
+        thumbnail: thumbnailData.Location,
+        createdAt: new Date()
+      };
+      
+      // Add the new blip to the product's blips array
+      product.blips.push(newBlip);
+      await product.save();
+      
+      // Clean up temporary files
+      await fs.unlink(tempVideoPath).catch(() => {});
+      await fs.unlink(tempThumbnailPath).catch(() => {});
+      
+      // Return the updated product with the new blip
+      return res.status(201).json({
+        success: true,
+        message: 'Blip video added successfully',
+        blip: product.blips[product.blips.length - 1]
+      });
+      
+    } catch (error) {
+      console.error('Error processing blip video:', error);
+      
+      // Create a fallback thumbnail if ffmpeg fails
+      const fallbackThumbnailParams = {
+        Bucket: 'auqli-uploads',
+        Key: thumbnailKey,
+        Body: Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="320" viewBox="0 0 180 320">' +
+          '<rect width="180" height="320" fill="#3498db"/>' +
+          '<polygon points="65,160 115,160 90,200" fill="rgba(255,255,255,0.8)"/>' +
+          '<text x="45" y="280" fill="white" font-family="Arial" font-size="16">Video Preview</text>' +
+          '</svg>'
+        ),
+        ContentType: 'image/svg+xml',
+      };
+      
+      try {
+        // If video was already uploaded but thumbnail generation failed
+        const fallbackData = await s3.upload(fallbackThumbnailParams).promise();
+        
+        // Create blip with fallback thumbnail
+        const newBlip = {
+          url: videoData ? videoData.Location : null,
+          contentType: req.file.mimetype,
+          thumbnail: fallbackData.Location,
+          createdAt: new Date()
+        };
+        
+        // Only add blip if video was successfully uploaded
+        if (videoData) {
+          product.blips.push(newBlip);
+          await product.save();
+          
+          return res.status(201).json({
+            success: true,
+            message: 'Blip video added with fallback thumbnail',
+            blip: product.blips[product.blips.length - 1]
+          });
+        } else {
+          throw new Error('Failed to upload video');
+        }
+      } catch (fallbackError) {
+        console.error('Fallback thumbnail creation failed:', fallbackError);
+        return res.status(500).json({ 
+          success: false,
+          message: 'Failed to process blip video', 
+          error: error.message 
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error adding blip to product:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Failed to add blip to product', 
+      error: error.message 
+    });
+  }
+};

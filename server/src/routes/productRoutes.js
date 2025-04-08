@@ -3450,4 +3450,80 @@ router.post('/:productId/reviews/:reviewId/reply',
   productController.replyToProductReview
 );
 
+/**
+ * @swagger
+ * /api/products/{productId}/blips:
+ *   post:
+ *     summary: Add a new blip video to an existing product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to add the blip to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               blipVideo:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload as a blip
+ *     responses:
+ *       201:
+ *         description: Blip video added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 blip:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     url:
+ *                       type: string
+ *                     contentType:
+ *                       type: string
+ *                     thumbnail:
+ *                       type: string
+ *                     likesCount:
+ *                       type: number
+ *                     viewCount:
+ *                       type: number
+ *                     commentsCount:
+ *                       type: number
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Invalid product ID format or no video file uploaded
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a seller
+ *       404:
+ *         description: Product not found or user does not have permission to modify it
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  upload.single('blipVideo'),
+  productController.addBlipToProduct
+);
+
 module.exports = router;

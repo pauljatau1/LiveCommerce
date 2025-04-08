@@ -3785,6 +3785,347 @@ exports.getStreamAnalytics = async (req, res) => {
 
 // ... existing code ...
 
+const csv = require('csv-parser');
+const fs = require('fs');
+const { Readable } = require('stream');
+
+exports.bulkUploadProducts = async (req, res) => {
+  try {
+    const { sellerId } = req.body;
+    
+    // Validate seller exists
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Seller not found'
+      });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'CSV file is required'
+      });
+    }
+    
+    // Create a readable stream from the uploaded file buffer
+    const bufferStream = new Readable();
+    bufferStream.push(req.file.buffer);
+    bufferStream.push(null);
+    
+    const results = [];
+    const errors = [];
+    
+    // Process the CSV file
+    await new Promise((resolve, reject) => {
+      bufferStream
+        .pipe(csv())
+        .on('data', (data) => results.push(data))
+        .on('error', (error) => reject(error))
+        .on('end', () => resolve());
+    });
+    
+    if (!results.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No product data found in the CSV file'
+      });
+    }
+
+    // Validate CSV structure
+    const requiredColumns = [
+      'product name', 
+      'product main price'
+    ];
+    
+    // Check if the first row has the required columns
+    const firstRow = results[0];
+    const missingColumns = requiredColumns.filter(col => 
+      !Object.keys(firstRow).some(key => key.toLowerCase() === col.toLowerCase())
+    );
+    
+    if (missingColumns.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `CSV file is missing required columns: ${missingColumns.join(', ')}`,
+        availableColumns: Object.keys(firstRow)
+      });
+    }
+
+    // Process each product
+    const createdProducts = [];
+    
+    for (const [index, productData] of results.entries()) {
+      try {
+        // Skip rows with empty product name
+        if (!productData['product name']) {
+          errors.push({
+            row: index + 1,
+            error: 'Product name is required'
+          });
+          continue;
+        }
+
+        // Map CSV fields to product model fields
+        const parsedWeight = productData['product weight'] ? parseFloat(productData['product weight']) : 0;
+        // Use default weight of 0.5 if weight is 0 or null
+        const finalWeight = (!parsedWeight || parsedWeight === 0) ? 0.5 : parsedWeight;
+        
+        const parsedInventory = productData['product inventory'] ? parseInt(productData['product inventory']) : 1;
+        const parsedPrice = productData['product main price'] ? parseFloat(productData['product main price']) : 0;
+        
+        if (isNaN(parsedPrice) || parsedPrice <= 0) {
+          errors.push({
+            row: index + 1,
+            productName: productData['product name'],
+            error: 'Invalid price value'
+          });
+          continue;
+        }
+        
+        // Check if upload status is 'active'
+        if (productData['upload status'] && 
+            productData['upload status'].toLowerCase() !== 'active') {
+          errors.push({
+            row: index + 1,
+            productName: productData['product name'],
+            error: 'Skipped product with non-active upload status'
+          });
+          continue;
+        }
+
+        // Create the product with validated data
+        const product = new Product({
+          name: productData['product name'],
+          description: productData['product description'] || `Description for ${productData['product name']}`,
+          price: parsedPrice,
+          category: productData['product main category'] || 'Fashion',
+          subCategory: productData['product subcategory'] || '',
+          status: 'active',
+          seller: sellerId,
+          stock: parsedInventory,
+          condition: productData['product condition'] || 'New',
+          images: [{
+            url: productData['product main image'] || 'https://burst.shopifycdn.com/photos/default-product-image.jpg'
+          }],
+          weight: finalWeight, // Save weight to top-level field
+          shipping: {
+            // Remove weight from shipping object
+            freeShipping: false,
+            shippingClass: 'standard'
+          },
+          inventory: {
+            quantity: parsedInventory
+          }
+        });
+        
+        await product.save();
+        createdProducts.push({
+          id: product._id,
+          name: product.name,
+          price: product.price,
+          category: product.category,
+          image: product.images[0]?.url
+        });
+      } catch (error) {
+        console.error('Error creating product:', error);
+        errors.push({
+          row: index + 1,
+          productName: productData['product name'] || 'Unknown product',
+          error: error.message
+        });
+      }
+    }
+    
+    // Update seller's product count
+    if (createdProducts.length > 0) {
+      try {
+        await Seller.findByIdAndUpdate(sellerId, {
+          $inc: { 'stats.totalProducts': createdProducts.length }
+        });
+        
+        // Send email notification to seller
+        await sendBulkUploadEmail(seller, createdProducts, results.length, errors.length);
+      } catch (error) {
+        console.error('Failed to update seller stats or send email:', error);
+      }
+    }
+    
+    return res.status(201).json({
+      success: true,
+      message: `Successfully processed ${createdProducts.length} products with ${errors.length} errors`,
+      results: {
+        createdProducts,
+        errors,
+        totalProcessed: results.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('Bulk upload error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process bulk upload',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to send bulk upload email notification
+async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount) {
+  try {
+    // Get up to 5 products to display in the email
+    const productsToDisplay = products.slice(0, 5);
+    
+    // Create product list HTML
+    const productListHTML = productsToDisplay.map(product => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+          <img src="${product.image}" alt="${product.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${product.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${product.category}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">₦${product.price.toLocaleString()}</td>
+      </tr>
+    `).join('');
+    
+    // Email content
+    const emailHTML = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">Bulk Product Upload Completed</h2>
+        <p>Hello ${seller.firstName || seller.businessName},</p>
+        <p>We're excited to inform you that a bulk product upload has been completed for your store by an administrator. Here's a summary:</p>
+        
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <p><strong>Total products processed:</strong> ${totalProcessed}</p>
+          <p><strong>Successfully uploaded:</strong> ${products.length}</p>
+          <p><strong>Errors encountered:</strong> ${errorsCount}</p>
+        </div>
+        
+        <h3 style="margin-top: 20px; color: #333;">Sample of Uploaded Products</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #f5f5f5;">
+              <th style="padding: 10px; text-align: left;">Image</th>
+              <th style="padding: 10px; text-align: left;">Product Name</th>
+              <th style="padding: 10px; text-align: left;">Category</th>
+              <th style="padding: 10px; text-align: left;">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${productListHTML}
+          </tbody>
+        </table>
+        
+        ${products.length > 5 ? `<p style="text-align: center; font-style: italic; margin-top: 10px;">And ${products.length - 5} more products...</p>` : ''}
+        
+        <div style="background-color: #fff8e1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <p style="margin: 0; color: #7d6608;"><strong>Note:</strong> For any products where weight was not specified, a default weight of 0.5kg has been assigned to the product's weight field. You can update product weights in your store dashboard if needed.</p>
+        </div>
+        
+        <p style="margin-top: 20px;">You can view and manage all your products in your seller dashboard.</p>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <a href="${process.env.FRONTEND_URL || 'https://auqli.com'}/seller/products" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Products</a>
+        </div>
+        
+        <p style="margin-top: 30px;">Thank you for selling with Auqli!</p>
+        <p>Best regards,<br>The Auqli Team</p>
+      </div>
+    `;
+    
+    // Send the email using SendGrid
+    const msg = {
+      to: seller.email,
+      from: 'Auqli Support <support@auqli.com>',
+      subject: 'Bulk Product Upload Completed - Auqli',
+      html: emailHTML,
+    };
+    
+    await sgMail.send(msg);
+    console.log(`Bulk upload notification email sent to ${seller.email}`);
+    
+  } catch (error) {
+    console.error('Error sending bulk upload email:', error);
+    // Don't throw error to prevent API failure
+  }
+}
+
+// ... existing code continues ...
+
+exports.downloadProductCsvTemplate = async (req, res) => {
+  try {
+    // Define the CSV header row with all the supported columns
+    const headers = [
+      'product name',
+      'product main price',
+      'product main image',
+      'product description',
+      'product weight',
+      'product inventory',
+      'product condition',
+      'product main category',
+      'product subcategory',
+      'upload status'
+    ].join(',');
+    
+    // Create sample data rows
+    const sampleRows = [
+      // Sample 1: Fashion item
+      [
+        'Ocean Blue Shirt',
+        '50',
+        'https://burst.shopifycdn.com/photos/example1.jpg',
+        'Ocean blue cotton shirt for women',
+        '0.5',
+        '10',
+        'New',
+        'Fashion',
+        'Women Fashion',
+        'active'
+      ].join(','),
+      
+      // Sample 2: Wearable Tech
+      [
+        'Yellow Wool Jumper',
+        '80',
+        'https://burst.shopifycdn.com/photos/example2.jpg',
+        'Knitted jumper in yellow color',
+        '0.8',
+        '5',
+        'New',
+        'Wearable Tech',
+        'Smartwatches',
+        'active'
+      ].join(','),
+      
+      // Add an empty row for users to fill in
+      Array(headers.split(',').length).fill('').join(',')
+    ];
+    
+    // Combine headers and sample rows
+    const csvContent = [headers, ...sampleRows].join('\n');
+    
+    // Set response headers for CSV file download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="product_upload_template.csv"');
+    
+    // Send the CSV content
+    return res.status(200).send(csvContent);
+    
+  } catch (error) {
+    console.error('Error generating CSV template:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate CSV template',
+      error: error.message
+    });
+  }
+};
+
+// ... existing code continues ...
+
 
 
 
