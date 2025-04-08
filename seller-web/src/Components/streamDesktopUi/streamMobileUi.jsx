@@ -1,10 +1,12 @@
 import { Icon } from '@iconify/react';
+import { useEffect } from 'react';
 import { MdClose } from 'react-icons/md';
 import ChatEmpty from '../../assets/Chat Empty.png';
 import AuqliLogo from '../../assets/auqli-official-logo.png';
 import CircularProgress from '@mui/material/CircularProgress';
 import PropTypes from 'prop-types';
 import ChatSection from './ChatSection';
+import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
 
 const StreamMobileUi = ({
     endStream,
@@ -22,6 +24,24 @@ const StreamMobileUi = ({
     viewers = [],
     totalShares = 0
 }) => {
+    const { socket } = useLivestreamSocket();
+    
+    // Subscribe to stream-specific notifications when component mounts
+    useEffect(() => {
+        if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
+            console.log(`Mobile UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
+            socket.subscribeToStreamNotifications(liveStreamDetails._id);
+        }
+        
+        // Cleanup function to unsubscribe when component unmounts
+        return () => {
+            if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
+                console.log(`Mobile UI: Unsubscribing from notifications for stream ${liveStreamDetails._id}`);
+                socket.unsubscribeFromStreamNotifications(liveStreamDetails._id);
+            }
+        };
+    }, [liveStreamDetails, socket]);
+    
     return (
         <div className="block xl:hidden">
             {/** HEADER */}
