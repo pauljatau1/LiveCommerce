@@ -1348,10 +1348,11 @@ agenda.define('bid_timer', async (job) => {
           timestamp: new Date()
         };
         
-        // Emit to stream_notifications room
-        io.to('stream_notifications').emit('bid_timer_update', updateData);
+        // Emit to stream-specific room
+        const streamRoom = `stream_notifications_${streamId}`;
+        io.to(streamRoom).emit('bid_timer_update', updateData);
         
-        console.log(`[BID_TIMER] Emitted timer update to stream_notifications room: ${formattedTime} seconds left for product "${productName}"`);
+        console.log(`[BID_TIMER] Emitted timer update to ${streamRoom} room: ${formattedTime} seconds left for product "${productName}"`);
       } else {
         console.log(`[BID_TIMER] Timer update: ${formattedTime} seconds left (not emitted - no socket connection)`);
       }
@@ -1378,10 +1379,11 @@ agenda.define('bid_timer', async (job) => {
             timestamp: new Date()
           };
           
-          // Emit to stream_notifications room
-          io.to('stream_notifications').emit('bid_timer_complete', completeData);
+          // Emit to stream-specific room
+          const streamRoom = `stream_notifications_${streamId}`;
+          io.to(streamRoom).emit('bid_timer_complete', completeData);
           
-          console.log('[BID_TIMER] Emitted bid_timer_complete event to stream_notifications room');
+          console.log(`[BID_TIMER] Emitted bid_timer_complete event to ${streamRoom} room`);
         }
         
         // Call the endProductBidding endpoint

@@ -865,7 +865,8 @@ exports.createOrder = async (req, res) => {
             
             // Send WebSocket notification
             console.log('Broadcasting liveshow order notification to subscribers');
-            io.to('stream_notifications').emit('stream_notification', notificationObj);
+            const streamRoom = `stream_notifications_${stream._id.toString()}`;
+            io.to(streamRoom).emit('stream_notification', notificationObj);
             
             // Add the notification to stream chat interactions
             stream.chatInteractions.push(notificationObj);

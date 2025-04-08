@@ -992,7 +992,7 @@ function initializeSocket(server) {
         console.log(`User ${socket.user.id} subscribed to notifications for stream ${data.streamId}`);
       } else {
         // Join the general notification room for backward compatibility
-        socket.join('stream_notifications');
+      socket.join('stream_notifications');
         console.log(`User ${socket.user.id} subscribed to general stream notifications`);
       }
     });
@@ -1054,11 +1054,7 @@ function initializeSocket(server) {
           
           // Broadcast to stream-specific room
           const streamRoom = `stream_notifications_${data.streamId}`;
-          io.to(streamRoom).emit('stream_notification', notificationObj);
-          
-          // Also broadcast to general room for backward compatibility
-          io.to('stream_notifications').emit('stream_notification', notificationObj);
-          
+          io.to(streamRoom).emit('stream_notification', notificationObj);       
         } else {
           // Assume buyer
           userDetails = await Buyer.findById(socket.user.id).select('firstName lastName username profileImage avatarUrl');
@@ -1097,9 +1093,6 @@ function initializeSocket(server) {
           // Broadcast to stream-specific room
           const streamRoom = `stream_notifications_${data.streamId}`;
           io.to(streamRoom).emit('stream_notification', notificationObj);
-          
-          // Also broadcast to general room for backward compatibility
-          io.to('stream_notifications').emit('stream_notification', notificationObj);
         }
         
       } catch (error) {
@@ -1176,9 +1169,6 @@ function initializeSocket(server) {
           // Broadcast to stream-specific room
           const streamRoom = `stream_notifications_${data.streamId}`;
           io.to(streamRoom).emit('stream_notification', notificationObj);
-          
-          // Also broadcast to general room for backward compatibility
-          io.to('stream_notifications').emit('stream_notification', notificationObj);
         }
       } catch (error) {
         console.error('Error handling product bidding update:', error);
@@ -1526,7 +1516,8 @@ function initializeSocket(server) {
           
           // Broadcast to all subscribers
           console.log('[BID] 41. Broadcasting winner notification to subscribers');
-          io.to('stream_notifications').emit('stream_notification', winnerNotification);
+          const streamRoom = `stream_notifications_${stream._id.toString()}`;
+          io.to(streamRoom).emit('stream_notification', winnerNotification);
           
           try {
             // Fetch full product details
@@ -1668,8 +1659,11 @@ function initializeSocket(server) {
               stream.products[productIndex].bidStatus = 'ended';
               await stream.save();
 
+              // Create a stream-specific room name
+              const streamRoom = `stream_notifications_${stream._id.toString()}`;
+              
               // Emit socket notification about order creation
-              io.to('stream_notifications').emit('auction_order_created', {
+              io.to(streamRoom).emit('auction_order_created', {
                 success: true,
                 message: 'Order created for auction win',
                 orderId: orderResult.orders[0].orderId,
@@ -1685,7 +1679,8 @@ function initializeSocket(server) {
                 orderResult?.message || 'Unknown error');
 
               // Emit error notification to buyer
-              io.to('stream_notifications').emit('auction_order_error', {
+              const streamRoom = `stream_notifications_${stream._id.toString()}`;
+              io.to(streamRoom).emit('auction_order_error', {
                 success: false,
                 message: 'Failed to create order for auction win',
                 error: orderResult?.message || 'Unknown error occurred during order creation',
@@ -1695,8 +1690,11 @@ function initializeSocket(server) {
           } catch (orderError) {
             console.error('[BID] ERROR: Failed to create order:', orderError);
 
+            // Create a stream-specific room name
+            const streamRoom = `stream_notifications_${stream._id.toString()}`;
+
             // Try to notify buyer of error
-            io.to('stream_notifications').emit('auction_order_error', {
+            io.to(streamRoom).emit('auction_order_error', {
               success: false,
               message: 'Error processing auction order',
               error: orderError.message || 'Unknown error occurred',
@@ -1755,7 +1753,8 @@ function initializeSocket(server) {
         
         // Broadcast to all subscribers
         console.log('[BID] 47. Broadcasting bid notification to subscribers');
-        io.to('stream_notifications').emit('stream_notification', bidNotification);
+        const streamRoom = `stream_notifications_${stream._id.toString()}`;
+        io.to(streamRoom).emit('stream_notification', bidNotification);
 
         // Send success message to bidder
         console.log('[BID] 48. Sending success response to bidder');

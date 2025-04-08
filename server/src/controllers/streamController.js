@@ -305,7 +305,7 @@ exports.startStream = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        io.to('stream_notifications').emit('stream_notification', notificationObj);
+        io.to(streamRoom).emit('stream_notification', notificationObj);
       }
 
       // Send push notifications to all followers
@@ -996,7 +996,12 @@ exports.joinStream = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        io.to('stream_notifications').emit('viewer_joined_stream', notificationObj);
+        
+        // Create a stream-specific room name
+        const streamRoom = `stream_notifications_${stream._id.toString()}`;
+        
+        // Emit to stream-specific room
+        io.to(streamRoom).emit('viewer_joined_stream', notificationObj);
       }
     } catch (error) {
       console.error('Failed to save chat interaction:', error);
@@ -1095,7 +1100,12 @@ exports.joinStreamSeller = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        io.to('stream_notifications').emit('seller_rejoined_stream', notificationObj);
+        
+        // Create a stream-specific room name
+        const streamRoom = `stream_notifications_${stream._id.toString()}`;
+        
+        // Emit to stream-specific room
+        io.to(streamRoom).emit('seller_rejoined_stream', notificationObj);
       }
     } catch (error) {
       console.error('Failed to save chat interaction:', error);
@@ -1950,7 +1960,12 @@ exports.leaveStream = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        io.to('stream_notifications').emit('viewer_left_stream', notificationObj);
+        
+        // Create a stream-specific room name
+        const streamRoom = `stream_notifications_${stream._id.toString()}`;
+        
+        // Emit to stream-specific room
+        io.to(streamRoom).emit('viewer_left_stream', notificationObj);
       }
 
       // Send notification to stream channel
@@ -2028,7 +2043,12 @@ exports.leaveStreamSeller = async (req, res) => {
         const io = req.app.get('io');
         // Add timestamp for the WebSocket payload
         notificationObj.timestamp = new Date();
-        io.to('stream_notifications').emit('seller_left_stream', notificationObj);
+        
+        // Create a stream-specific room name
+        const streamRoom = `stream_notifications_${stream._id.toString()}`;
+        
+        // Emit to stream-specific room
+        io.to(streamRoom).emit('seller_left_stream', notificationObj);
       }
 
       // Send notification to stream channel
@@ -2171,7 +2191,13 @@ exports.activateProductBidding = async (req, res) => {
 
     // Send WebSocket notification
     console.log('[ACTIVATE_BID] 14. Broadcasting start notification to subscribers');
-    req.app.get('io').to('stream_notifications').emit('stream_notification', notificationObj);
+    const io = req.app.get('io');
+    
+    // Create a stream-specific room name
+    const streamRoom = `stream_notifications_${stream._id.toString()}`;
+    
+    // Emit to stream-specific room
+    io.to(streamRoom).emit('stream_notification', notificationObj);
 
     // Add the notification to stream chat interactions
     stream.chatInteractions.push(notificationObj);
@@ -2351,7 +2377,12 @@ exports.endProductBidding = async (req, res) => {
       // Broadcast to all subscribers of stream notifications
       if (req.app && req.app.get('io')) {
         const io = req.app.get('io');
-        io.to('stream_notifications').emit('stream_notification', winnerNotification);
+        
+        // Create a stream-specific room name
+        const streamRoom = `stream_notifications_${stream._id.toString()}`;
+        
+        // Emit to stream-specific room
+        io.to(streamRoom).emit('stream_notification', winnerNotification);
       }
       // Add the notification to stream chat interactions
       stream.chatInteractions.push(winnerNotification);
@@ -2547,7 +2578,13 @@ exports.endProductBidding = async (req, res) => {
           await stream.save();
 
           // Emit socket notification about order creation
-          req.app.get('io').to('stream_notifications').emit('auction_order_created', {
+          const io = req.app.get('io');
+          
+          // Create a stream-specific room name
+          const streamRoom = `stream_notifications_${stream._id.toString()}`;
+          
+          // Emit to stream-specific room
+          io.to(streamRoom).emit('auction_order_created', {
             success: true,
             message: 'Order created for auction win',
             orderId: orderResult.orders[0].orderId,
@@ -2567,7 +2604,13 @@ exports.endProductBidding = async (req, res) => {
           await stream.save();
 
           // Emit error notification to buyer
-          req.app.get('io').to('stream_notifications').emit('auction_order_error', {
+          const io = req.app.get('io');
+          
+          // Create a stream-specific room name
+          const streamRoom = `stream_notifications_${stream._id.toString()}`;
+          
+          // Emit to stream-specific room
+          io.to(streamRoom).emit('auction_order_error', {
             success: false,
             message: 'Failed to create order for auction win',
             error: orderResult?.message || 'Unknown error occurred during order creation',
@@ -2584,7 +2627,13 @@ exports.endProductBidding = async (req, res) => {
         // Try to notify buyer of error if we have the buyerId
         if (stream.products[productIndex].currentBidder?._id) {
           const buyerId = stream.products[productIndex].currentBidder._id;
-          req.app.get('io').to('stream_notifications').emit('auction_order_error', {
+          const io = req.app.get('io');
+          
+          // Create a stream-specific room name
+          const streamRoom = `stream_notifications_${stream._id.toString()}`;
+          
+          // Emit to stream-specific room
+          io.to(streamRoom).emit('auction_order_error', {
             success: false,
             message: 'Error processing auction order',
             error: orderError.message || 'Unknown error occurred',
@@ -2637,7 +2686,13 @@ exports.endProductBidding = async (req, res) => {
 
     // Send WebSocket notification
     console.log('[END_BID] 35. Broadcasting end notification to subscribers');
-    req.app.get('io').to('stream_notifications').emit('stream_notification', notificationObj);
+    const io = req.app.get('io');
+    
+    // Create a stream-specific room name
+    const streamRoom = `stream_notifications_${stream._id.toString()}`;
+    
+    // Emit to stream-specific room
+    io.to(streamRoom).emit('stream_notification', notificationObj);
 
     // Add the notification to stream chat interactions
     stream.chatInteractions.push(notificationObj);
