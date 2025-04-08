@@ -19,7 +19,7 @@ function initializeSocket(server) {
   console.log('Initializing socket server...');
   const io = socketIO(server, {
     cors: {
-      origin: ["*","http://localhost:5173", "http://localhost:5173/","https://seller.auqli.live/", "https://seller.auqli.live", "http://localhost:5174/", "http://localhost:5174"],
+      origin: ["*","http://localhost:5173", "http://localhost:5173/","https://seller.auqli.live/", "https://seller.auqli.live", "http://localhost:5174/", "http://localhost:5174", "https://seller.staging.auqli.live/api"],
       methods: ["GET", "POST"],
       credentials: true,
       allowedHeaders: ["Authorization", "Content-Type"]
