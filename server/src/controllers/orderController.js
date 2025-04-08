@@ -832,7 +832,8 @@ exports.createOrder = async (req, res) => {
                 shippingFee: sellerItems[order.seller.toString()].shippingFee,
                 orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
                 seller: order.seller,
-                fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null
+                fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
+                items: order.items
               },
               product: firstItem.product,
               amount: order.totalAmount
@@ -852,7 +853,7 @@ exports.createOrder = async (req, res) => {
               type: 'liveshow_order',
               user: buyer.username || 'Anonymous User',
               avatar: buyer.profileImage?.url || '',
-              content: `purchased ${formatProductName(orderDetails[0]?.product?.name || 'an item')}`,
+              content: `purchased ${formatProductName(orderDetails[0]?.items[0]?.productName || 'an item')}`,
               data: {
                 message: `New order placed during the liveshow`,
                 streamId: stream._id.toString(),
