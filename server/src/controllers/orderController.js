@@ -860,13 +860,13 @@ exports.createOrder = async (req, res) => {
               type: 'liveshow_order',
               user: buyer.username || 'Anonymous User',
               avatar: buyer.profileImage?.url || '',
-              content: `purchased ${formatProductName(orders[0]?.items[0]?.productName || 'an item')}`,
+              content: `purchased ${formatProductName(orders[0]?.items[0]?.productName || 'an item')} 🎉🎉`,
               data: {
                 message: `New order placed during the liveshow`,
                 streamId: stream._id.toString(),
                 sellerId: stream.seller._id.toString(),
                 storeName: stream.seller.storeName || 'Unknown Store',
-                orders: orderDetails
+                orders: orders
               },
               timestamp: new Date()
             };
