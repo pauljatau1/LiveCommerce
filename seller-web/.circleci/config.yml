@@ -8,7 +8,7 @@ parameters:
     default: "node_modules"
   docker_base_image_version:
     type: string
-    default: "node:22"
+    default: "node:20"
   docker_job_image:
     type: string
     default: "cimg/python:3.9.1"
