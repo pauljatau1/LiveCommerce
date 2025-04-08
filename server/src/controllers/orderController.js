@@ -846,6 +846,13 @@ exports.createOrder = async (req, res) => {
           // Send a socket notification about the order for the stream
           if (req.app && req.app.get('io')) {
             const io = req.app.get('io');
+
+            // Helper function to format product name to only 3 words
+            function formatProductName(name) {
+              if (!name) return 'an item';
+              const words = name.split(' ');
+              return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
+            }
             
             // Create notification object for WebSocket
             const notificationObj = {
@@ -853,7 +860,7 @@ exports.createOrder = async (req, res) => {
               type: 'liveshow_order',
               user: buyer.username || 'Anonymous User',
               avatar: buyer.profileImage?.url || '',
-              content: `purchased ${formatProductName(orderDetails[0]?.items[0]?.productName || 'an item')}`,
+              content: `purchased ${formatProductName(orders[0]?.items[0]?.productName || 'an item')}`,
               data: {
                 message: `New order placed during the liveshow`,
                 streamId: stream._id.toString(),
@@ -864,12 +871,7 @@ exports.createOrder = async (req, res) => {
               timestamp: new Date()
             };
               
-            // Helper function to format product name to only 3 words
-            function formatProductName(name) {
-              if (!name) return 'an item';
-              const words = name.split(' ');
-              return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
-            }
+            
             
             // Send WebSocket notification
             console.log('Broadcasting liveshow order notification to subscribers');
