@@ -32,6 +32,12 @@ function initializeSocket(server) {
   // Save the io instance
   ioInstance = io;
   
+  // Create a public namespace that doesn't require authentication
+  const publicIO = io.of('/public');
+  
+  // Set up dedicated namespaces 
+  const streamNotifications = io.of('/stream_notifications');
+  const auctionBidding = io.of('/stream_auction_bidding');
   
   // Set up public auction events that don't require authentication
   publicIO.on('connection', async (socket) => {
