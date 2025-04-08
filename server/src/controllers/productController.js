@@ -391,7 +391,7 @@ async function processImages(images) {
       }).promise();
 
       return {
-        data: `https://`+ process.env.CDN_S3_BUCKET +`.s3.amazonaws.com/${key}`,
+        data: `https://`+ process.env.CDN_URL +`/${key}`,
         contentType: image.contentType,
         isDefault: image.isDefault || false
       };

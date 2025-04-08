@@ -324,7 +324,7 @@ exports.sendMediaMessage = async (req, res) => {
       console.log('S3 upload result:', uploadResult);
 
       return {
-        url: `https://` + process.env.CDN_S3_BUCKET + `.s3.amazonaws.com/${key}`,
+        url: `https://` + process.env.CDN_URL + `${key}`,
         public_id: key,
         fileType: file.mimetype,
         fileName: file.originalname,
