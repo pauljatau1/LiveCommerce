@@ -23,7 +23,6 @@ import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
 import { router } from "expo-router";
 import { Video } from "expo-av";
-import * as VideoThumbnails from "expo-video-thumbnails";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import BlipItem from "./blipItem";

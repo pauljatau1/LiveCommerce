@@ -211,8 +211,8 @@ const Login = () => {
                       secureTextEntry
                       rules={["required"]}
                     />
-                    <View className="mt-2 w-full flex-row items-center justify-between">
-                      <CheckBox name="remember" label="Remember me" />
+                    <View className="mt-2 w-full flex-row items-center justify-end">
+                      {/* <CheckBox name="remember" label="Remember me" /> */}
                       <Link href="/(root)/(auth)/forgot-password">
                         <Text
                           className="text-sm

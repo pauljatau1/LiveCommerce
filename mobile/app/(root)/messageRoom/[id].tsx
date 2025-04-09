@@ -9,6 +9,8 @@ import {
   Platform,
   Dimensions,
   Keyboard,
+  Alert,
+  Linking,
 } from "react-native";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -122,8 +124,27 @@ const MessageRoom = () => {
   };
 
   const pickImage = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      if (permission.canAskAgain) {
+        const newPermission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!newPermission.granted) {
+          return;
+        }
+      } else {
+        return Alert.alert(
+          "Permission Required",
+          "Please enable media library access in Settings to continue",
+          [
+            { text: "Cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
+    }
     if (selectedMedia.length >= 1) {
-      alert("You can only upload up to 1 immage.");
+      alert("You can only upload up to 1 image.");
       return;
     }
 
