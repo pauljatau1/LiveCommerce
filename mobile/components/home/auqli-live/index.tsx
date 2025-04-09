@@ -13,6 +13,7 @@ import HomepageSkeleton from "@/components/skeleton/homepageSkeleton";
 import SuggestedBlips from "./suggested-blips";
 import ForYou from "./for-you";
 import { ScrollView } from "react-native-virtualized-view";
+import UpComing from "./upcoming-shows";
 
 const AuqliLive = () => {
   const { isDataReady, activeLivestream, fetchAllActiveLiveStreams } =
@@ -59,6 +60,7 @@ const AuqliLive = () => {
         <SuggestedBlips />
         <Sellers />
         <Favourite />
+        <UpComing />
         <WatchCategory />
 
         <ExploreMoreSection />

@@ -36,7 +36,7 @@ const SellerReviews = ({
       const userToken = await getToken();
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL +
-          `api/seller/${sellerId}/product-reviews?page=${page}&limit=10`,
+          `api/seller/${sellerId}/product-reviews?page=${page}&limit=20`,
         {
           headers: {
             Authorization: `Bearer ${userToken}`,
@@ -146,7 +146,7 @@ const SellerReviews = ({
 
   useEffect(() => {
     getSellerReviews();
-  }, [page]);
+  }, []);
   return (
     <View style={{ flex: 1, paddingHorizontal: 16 }}>
       {issellerReviewsLoading ? (

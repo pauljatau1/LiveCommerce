@@ -13,7 +13,7 @@ interface Props {
   index: number;
 }
 
-const Favorites = ({ scrollY, headerHeight, index }: Props) => {
+const Favorites = ({ scrollY, headerHeight, index }: Props | any) => {
   const flatListRef = useRef<FlatList>(null);
 
   const [wishList, setWishList] = useState<any[]>([]);
