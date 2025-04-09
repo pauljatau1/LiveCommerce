@@ -30,6 +30,8 @@ const SellerReviews = ({
   const [page, setPage] = useState<number>(1);
 
   const getSellerReviews = async () => {
+    if (isFetching || hasReachedEnd) return;
+
     try {
       const userToken = await getToken();
       const response = await axios.get(
