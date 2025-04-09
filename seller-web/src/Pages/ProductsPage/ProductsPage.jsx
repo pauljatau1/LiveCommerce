@@ -17,7 +17,7 @@ import {
 //import { productPageCardData } from "../../Utilities/data";
 import { NavLink } from 'react-router-dom';
 import { useSelector, useDispatch } from "react-redux";
-import { fetchSellerProducts, fetchSellerAuctionProducts } from "../../Redux/Slices/ProductSlice";
+import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts } from "../../Redux/Slices/ProductSlice";
 import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
 import NotFound from "../../assets/not-found-icon2.png";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -47,8 +47,8 @@ const ProductsPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchMode, setIsSearchMode] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
-    const searchTimeoutRef = useRef(null);
     
     // Dialog states
     const [showDateDialog, setShowDateDialog] = useState(false);
@@ -60,37 +60,28 @@ const ProductsPage = () => {
         setNavName('')
     }, [])
 
-    // Reset page when search query, sort type, or tab changes
+    // Reset page when sort type or tab changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [sortType, activeTab, searchQuery]);
+    }, [sortType, activeTab]);
 
-    // Debounce search inputs and handle stock updates
+    // Fetch products when pagination, sort type, or tab changes (but not when search query changes)
     useEffect(() => {
-        if (searchTimeoutRef.current) {
-            clearTimeout(searchTimeoutRef.current);
-        }
-
-        setIsSearching(true);
-        searchTimeoutRef.current = setTimeout(() => {
+        // Only fetch when not in search mode or when clearing search
+        if (!isSearchMode) {
             fetchProducts();
-            setIsSearching(false);
-        }, 500);
-
-        return () => {
-            if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-            }
-        };
-    }, [searchQuery, sortType, activeTab, itemsPerPage, currentPage, isStockUpdated]);
+        }
+    }, [sortType, activeTab, itemsPerPage, currentPage, isStockUpdated, isSearchMode]);
 
     const fetchProducts = () => {
+        // Skip fetch if we're in search mode - search is handled by the search button
+        if (isSearchMode) return;
+        
         if (activeTab === 'products') {
             const params = {
                 page: currentPage,
                 limit: itemsPerPage,
                 sortBy: mapSortTypeToAPI(sortType),
-                search: searchQuery || undefined
             };
             
             // Add status filter if applicable
@@ -105,8 +96,70 @@ const ProductsPage = () => {
             const params = {
                 page: currentPage,
                 limit: itemsPerPage,
-                search: searchQuery || undefined
             };
+            
+            dispatch(fetchSellerAuctionProducts(params));
+        }
+    };
+
+    // Handle search form submission
+    const handleSearch = (e) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            setIsSearchMode(true);
+            setIsSearching(true);
+            setCurrentPage(1);
+            
+            // Create search parameters
+            const params = {
+                page: 1,
+                limit: itemsPerPage,
+                sortBy: mapSortTypeToAPI(sortType),
+                search: searchQuery
+            };
+            
+            // Add status filter if applicable
+            if (sortType === 'active-only') {
+                params.status = 'active';
+            } else if (sortType === 'draft-only') {
+                params.status = 'draft';
+            }
+            
+            // Directly dispatch the search without using fetchProducts
+            if (activeTab === 'products') {
+                dispatch(searchSellerProducts(params))
+                    .finally(() => setIsSearching(false));
+            } else {
+                dispatch(fetchSellerAuctionProducts(params))
+                    .finally(() => setIsSearching(false));
+            }
+        }
+    };
+
+    // Clear search and return to normal product view
+    const handleClearSearch = () => {
+        setSearchQuery('');
+        setIsSearchMode(false);
+        setCurrentPage(1);
+        
+        // Create standard fetch parameters
+        const params = {
+            page: 1,
+            limit: itemsPerPage,
+            sortBy: mapSortTypeToAPI(sortType)
+        };
+        
+        // Add status filter if applicable
+        if (sortType === 'active-only') {
+            params.status = 'active';
+        } else if (sortType === 'draft-only') {
+            params.status = 'draft';
+        }
+        
+        // Directly dispatch the fetch without using fetchProducts
+        if (activeTab === 'products') {
+            dispatch(fetchSellerProducts(params));
+        } else {
             dispatch(fetchSellerAuctionProducts(params));
         }
     };
@@ -150,13 +203,52 @@ const ProductsPage = () => {
     // Handle page navigation
     const handlePreviousPage = () => {
         if (currentPage > 1) {
-            setCurrentPage(prev => prev - 1);
+            const newPage = currentPage - 1;
+            setCurrentPage(newPage);
+            
+            // If in search mode, need to manually trigger search with new page
+            if (isSearchMode && searchQuery) {
+                handlePageChange(newPage);
+            }
         }
     };
 
     const handleNextPage = () => {
         if (currentPage < paginationData.totalPages) {
-            setCurrentPage(prev => prev + 1);
+            const newPage = currentPage + 1;
+            setCurrentPage(newPage);
+            
+            // If in search mode, need to manually trigger search with new page
+            if (isSearchMode && searchQuery) {
+                handlePageChange(newPage);
+            }
+        }
+    };
+
+    // Handle pagination when in search mode
+    const handlePageChange = (newPage) => {
+        setIsSearching(true);
+        
+        const params = {
+            page: newPage,
+            limit: itemsPerPage,
+            sortBy: mapSortTypeToAPI(sortType),
+            search: searchQuery
+        };
+        
+        // Add status filter if applicable
+        if (sortType === 'active-only') {
+            params.status = 'active';
+        } else if (sortType === 'draft-only') {
+            params.status = 'draft';
+        }
+        
+        if (activeTab === 'products') {
+            dispatch(searchSellerProducts(params))
+                .finally(() => setIsSearching(false));
+        } else {
+            dispatch(fetchSellerAuctionProducts(params))
+                .finally(() => setIsSearching(false));
         }
     };
 
@@ -164,6 +256,32 @@ const ProductsPage = () => {
     const handleItemsPerPageChange = (newLimit) => {
         setItemsPerPage(newLimit);
         setCurrentPage(1); // Reset to first page when changing items per page
+        
+        // If in search mode, need to manually trigger search with new limit
+        if (isSearchMode && searchQuery) {
+            const params = {
+                page: 1,
+                limit: newLimit,
+                sortBy: mapSortTypeToAPI(sortType),
+                search: searchQuery
+            };
+            
+            // Add status filter if applicable
+            if (sortType === 'active-only') {
+                params.status = 'active';
+            } else if (sortType === 'draft-only') {
+                params.status = 'draft';
+            }
+            
+            setIsSearching(true);
+            if (activeTab === 'products') {
+                dispatch(searchSellerProducts(params))
+                    .finally(() => setIsSearching(false));
+            } else {
+                dispatch(fetchSellerAuctionProducts(params))
+                    .finally(() => setIsSearching(false));
+            }
+        }
     };
 
     // Sort function
@@ -219,11 +337,6 @@ const ProductsPage = () => {
         setSearchQuery(e.target.value);
     };
 
-    // Clear search
-    const handleClearSearch = () => {
-        setSearchQuery('');
-    };
-
     return (
         <>
             {/* Verification Dialog */}
@@ -268,9 +381,9 @@ const ProductsPage = () => {
                             </div>
                             
                             <div className="flex items-center flex-wrap gap-4">
-                                {/* Search Input */}
-                                <div className="relative w-full sm:w-auto max-w-[400px]">
-                                    <div className="flex items-center relative">
+                                {/* Search Form */}
+                                <form onSubmit={handleSearch} className="relative w-full sm:w-auto max-w-[400px] flex">
+                                    <div className="flex items-center relative flex-grow">
                                         <Icon
                                             icon="heroicons:magnifying-glass"
                                             className="absolute left-3 text-gray-400"
@@ -281,23 +394,33 @@ const ProductsPage = () => {
                                             value={searchQuery}
                                             onChange={handleSearchChange}
                                             placeholder="Search products..."
-                                            className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent"
+                                            className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent"
                                         />
-                                        {searchQuery && (
-                                            <button
-                                                onClick={handleClearSearch}
-                                                className="absolute right-3 text-gray-400 hover:text-gray-600"
-                                            >
-                                                <Icon icon="heroicons:x-mark" width="16" />
-                                            </button>
-                                        )}
                                     </div>
+                                    <button
+                                        type="submit"
+                                        className="bg-[#0BB248] text-white px-3 py-2 rounded-r-lg hover:bg-[#0BB248]/90 transition-all duration-300"
+                                    >
+                                        <Icon icon="heroicons:magnifying-glass" width="20" />
+                                    </button>
+                                    
+                                    {isSearchMode && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearSearch}
+                                            className="ml-2 bg-gray-200 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-300 transition-all duration-300 flex items-center gap-1"
+                                        >
+                                            <Icon icon="heroicons:x-mark" width="16" />
+                                            <span className="hidden sm:inline">Clear</span>
+                                        </button>
+                                    )}
+                                    
                                     {isSearching && (
                                         <div className="absolute w-full h-1 bottom-0 left-0">
                                             <LinearProgress color="success" sx={{ height: 2 }} />
                                         </div>
                                     )}
-                                </div>
+                                </form>
 
                                 {displayedProducts.length > 0 && (
                                     <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-2">

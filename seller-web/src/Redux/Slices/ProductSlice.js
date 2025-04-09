@@ -144,6 +144,31 @@ export const updateProduct = createAsyncThunk('product/updateProduct', async ({ 
     }
 });
 
+export const searchSellerProducts = createAsyncThunk('product/searchSellerProducts', async (params = {}) => {
+    try {
+        const seller = JSON.parse(localStorage.getItem('seller'));
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/search`, {
+            params: {
+                query: params.search,
+                page: params.page || 1,
+                limit: params.limit || 10,
+                sortBy: params.sortBy,
+                order: params.order,
+                minPrice: params.minPrice,
+                maxPrice: params.maxPrice,
+                category: params.category,
+                status: params.status
+            }
+        });
+        if (response.status === 200) {
+            return response.data;
+        }
+    } catch (error) {
+        console.log(error);
+        throw error;
+    }
+});
+
 const productSlice = createSlice({
     name: "product",
     initialState,
@@ -273,6 +298,31 @@ const productSlice = createSlice({
         state.error = action.error.message;
         toast.error('Failed to fetch auction products', {
             description: "Please reload the page and try again",
+            style: {
+                background: '#05031F',
+                color: '#fff',
+            }
+        });
+    })
+    .addCase(searchSellerProducts.pending, (state) => {
+        state.isLoading = true;
+        state.message = null;
+    })
+    .addCase(searchSellerProducts.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.message = 'Products search completed successfully';
+        state.products = action.payload.data;
+        state.pagination = {
+            currentPage: action.payload.pagination.currentPage,
+            totalPages: action.payload.pagination.totalPages,
+            totalProducts: action.payload.pagination.totalProducts
+        };
+    })
+    .addCase(searchSellerProducts.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message;
+        toast.error('Failed to search products', {
+            description: "Please try again with different search terms",
             style: {
                 background: '#05031F',
                 color: '#fff',
